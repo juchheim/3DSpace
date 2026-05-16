@@ -1,0 +1,6 @@
+{
+  "framework": "nextjs",
+  "installCommand": "npm install",
+  "buildCommand": "npm run build -w @3dspace/contracts && npm run build -w @3dspace/room-engine && npm run build -w @3dspace/web",
+  "outputDirectory": "apps/web/.next"
+}

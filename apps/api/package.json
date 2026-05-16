@@ -1,0 +1,30 @@
+{
+  "name": "@3dspace/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/server.js",
+  "scripts": {
+    "dev": "tsx --conditions development src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "openapi": "npm run build && node dist/openapi.js"
+  },
+  "dependencies": {
+    "@3dspace/contracts": "0.1.0",
+    "@3dspace/room-engine": "0.1.0",
+    "@aws-sdk/client-s3": "^3.600.0",
+    "@aws-sdk/s3-request-presigner": "^3.600.0",
+    "@clerk/backend": "^1.5.0",
+    "@fastify/cors": "^11.2.0",
+    "fastify": "^5.8.5",
+    "livekit-server-sdk": "^2.5.3",
+    "mongoose": "^8.4.3",
+    "zod": "^3.25.67"
+  },
+  "devDependencies": {
+    "tsx": "^4.15.7",
+    "typescript": "^5.5.2"
+  }
+}
