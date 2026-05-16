@@ -1,8 +1,10 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import { ClerkProvider, SignInButton, UserButton, useAuth, useUser } from "@clerk/nextjs";
-import { CLERK_PUBLISHABLE_KEY } from "./config";
+import Link from "next/link";
+import { ClerkProvider, UserButton, useAuth, useUser } from "@clerk/nextjs";
+import { APP_URL, CLERK_PUBLISHABLE_KEY } from "./config";
+import { resolveClerkDisplayName } from "./displayName";
 
 type AppAuthContextValue = {
   clerkEnabled: boolean;
@@ -24,7 +26,7 @@ const AppAuthContext = createContext<AppAuthContextValue>(devAuth);
 function ClerkAuthBridge({ children }: { children: React.ReactNode }) {
   const { isLoaded, isSignedIn, getToken } = useAuth();
   const { user } = useUser();
-  const displayName = user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? user?.username ?? user?.id;
+  const displayName = resolveClerkDisplayName(user, user?.id);
 
   return (
     <AppAuthContext.Provider
@@ -48,7 +50,13 @@ export function AppAuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
+    <ClerkProvider
+      publishableKey={CLERK_PUBLISHABLE_KEY}
+      signInUrl={`${APP_URL}/sign-in`}
+      signUpUrl={`${APP_URL}/sign-up`}
+      signInFallbackRedirectUrl={`${APP_URL}/`}
+      signUpFallbackRedirectUrl={`${APP_URL}/`}
+    >
       <ClerkAuthBridge>{children}</ClerkAuthBridge>
     </ClerkProvider>
   );
@@ -62,9 +70,9 @@ export function AuthGate() {
     <div className="cluster" aria-label="Authentication status">
       {!auth.signedIn ? (
         <>
-        <SignInButton mode="modal">
-          <button type="button" className="secondary">Sign in with Clerk</button>
-        </SignInButton>
+        <Link className="button secondary" href="/sign-in">
+          Sign in with Clerk
+        </Link>
         <span className="small">Sign in to create or join production rooms.</span>
         </>
       ) : (

@@ -3,10 +3,14 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { ClassRecord, Invite, RoomRecord } from "@3dspace/contracts";
-import { acceptInvite, createClass, createInvite, createRoom, listClasses, listRooms } from "../lib/api";
+import { acceptInvite, createClass, createInvite, createRoom, deleteRoom, listClasses, listRooms } from "../lib/api";
 import { AuthGate } from "../lib/auth";
 import { APP_URL } from "../lib/config";
 import { usePersistentIdentity } from "../lib/usePersistentIdentity";
+
+function inviteJoinUrl(roomId: string, code: string) {
+  return `${APP_URL}/rooms/${roomId}?invite=${encodeURIComponent(code)}`;
+}
 
 export function Lobby() {
   const { identity, setIdentity, setRole, clerkEnabled, signedIn } = usePersistentIdentity();
@@ -18,6 +22,7 @@ export function Lobby() {
   const [rooms, setRooms] = useState<RoomRecord[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [copyStatus, setCopyStatus] = useState<"code" | "link" | null>(null);
 
   async function refresh() {
     try {
@@ -42,8 +47,8 @@ export function Lobby() {
       const room = await createRoom(identity, classRecord.id, roomName);
       const invite = await createInvite(identity, classRecord.id, { role: "student", roomId: room.room.id });
       setCreatedInvite(invite);
+      setCopyStatus(null);
       await refresh();
-      window.location.href = `/rooms/${room.room.id}`;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to create classroom.");
     } finally {
@@ -62,6 +67,38 @@ export function Lobby() {
       setError(err instanceof Error ? err.message : "Unable to join invite.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  function canManageRoom(room: RoomRecord) {
+    const classRecord = classes.find((record) => record.id === room.classId);
+    return classRecord?.teacherUserId === identity.userId;
+  }
+
+  async function removeRoom(room: RoomRecord) {
+    if (!window.confirm(`Delete "${room.name}"? This cannot be undone.`)) return;
+    setBusy(true);
+    setError("");
+    try {
+      await deleteRoom(identity, room.id);
+      if (createdInvite?.roomId === room.id) setCreatedInvite(null);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to delete room.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyInvite(target: "code" | "link") {
+    if (!createdInvite?.roomId) return;
+    const text = target === "code" ? createdInvite.code : inviteJoinUrl(createdInvite.roomId, createdInvite.code);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyStatus(target);
+      window.setTimeout(() => setCopyStatus(null), 2_000);
+    } catch {
+      setError("Unable to copy to clipboard. Select the text and copy manually.");
     }
   }
 
@@ -87,14 +124,17 @@ export function Lobby() {
           <AuthGate />
 
           {clerkEnabled ? (
-            <p className="small">Production identity is provided by Clerk. Class roles are enforced by backend memberships.</p>
+            <p className="small">
+              Sign in with Clerk to host or join. Students get the <strong>student</strong> role automatically when they use an
+              invite code or join link — there is no separate role picker in production.
+            </p>
           ) : (
             <div className="split">
               <label>
-                Role
-                <select value={identity.role} onChange={(event) => setRole(event.target.value as "teacher" | "student")}>
-                  <option value="teacher">Teacher</option>
-                  <option value="student">Student</option>
+                Local test user
+                <select value={identity.userId} onChange={(event) => setRole(event.target.value === "dev-teacher" ? "teacher" : "student")}>
+                  <option value="dev-teacher">Teacher (dev-teacher)</option>
+                  <option value="dev-student">Student (dev-student)</option>
                 </select>
               </label>
               <label>
@@ -105,7 +145,7 @@ export function Lobby() {
                     setIdentity({
                       role: identity.role,
                       displayName: event.target.value,
-                      userId: identity.role === "teacher" ? "dev-teacher" : "dev-student"
+                      userId: identity.userId
                     })
                   }
                 />
@@ -113,35 +153,58 @@ export function Lobby() {
             </div>
           )}
 
-          {identity.role === "teacher" ? (
-            <div className="stack">
-              <label>
-                Class name
-                <input value={className} onChange={(event) => setClassName(event.target.value)} />
-              </label>
-              <label>
-                Room name
-                <input value={roomName} onChange={(event) => setRoomName(event.target.value)} />
-              </label>
-              <button disabled={busy || (clerkEnabled && !signedIn)} onClick={createClassroom}>
-                Create room and invite
-              </button>
-            </div>
-          ) : (
-            <div className="stack">
-              <label>
-                Invite code
-                <input value={inviteCode} onChange={(event) => setInviteCode(event.target.value.toUpperCase())} placeholder="Paste code" />
-              </label>
-              <button disabled={busy || !inviteCode.trim() || (clerkEnabled && !signedIn)} onClick={joinInvite}>
-                Join class room
-              </button>
-            </div>
-          )}
+          <section className="stack" aria-label="Host a class">
+            <h2 className="lobby-section-title">Host a class</h2>
+            <p className="small">Create a room and share the invite with students.</p>
+            <label>
+              Class name
+              <input value={className} onChange={(event) => setClassName(event.target.value)} />
+            </label>
+            <label>
+              Room name
+              <input value={roomName} onChange={(event) => setRoomName(event.target.value)} />
+            </label>
+            <button disabled={busy || (clerkEnabled && !signedIn)} onClick={createClassroom}>
+              Create room and invite
+            </button>
+          </section>
 
-          {createdInvite ? (
-            <div className="status-pill">
-              Invite: {createdInvite.code} · {APP_URL}/rooms/{createdInvite.roomId}?invite={createdInvite.code}
+          <section className="stack" aria-label="Join as student">
+            <h2 className="lobby-section-title">Join as student</h2>
+            <p className="small">Paste the invite code from your teacher, or open their join link directly.</p>
+            <label>
+              Invite code
+              <input value={inviteCode} onChange={(event) => setInviteCode(event.target.value.toUpperCase())} placeholder="Paste code" />
+            </label>
+            <button disabled={busy || !inviteCode.trim() || (clerkEnabled && !signedIn)} onClick={joinInvite}>
+              Join class room
+            </button>
+          </section>
+
+          {createdInvite?.roomId ? (
+            <div className="invite-panel stack" aria-live="polite">
+              <strong>Room created — share this invite</strong>
+              <p className="small">
+                Students can paste the code under &ldquo;Join as student&rdquo; or open the join link in another browser.
+              </p>
+              <p className="invite-code" aria-label="Invite code">
+                {createdInvite.code}
+              </p>
+              <div className="cluster">
+                <button type="button" className="secondary" onClick={() => void copyInvite("code")}>
+                  {copyStatus === "code" ? "Code copied" : "Copy code"}
+                </button>
+                <button type="button" className="secondary" onClick={() => void copyInvite("link")}>
+                  {copyStatus === "link" ? "Link copied" : "Copy join link"}
+                </button>
+              </div>
+              <label>
+                Join link
+                <input readOnly value={inviteJoinUrl(createdInvite.roomId, createdInvite.code)} />
+              </label>
+              <Link className="button" href={`/rooms/${createdInvite.roomId}`}>
+                Enter room
+              </Link>
             </div>
           ) : null}
 
@@ -153,9 +216,16 @@ export function Lobby() {
                   <li key={room.id} className="roster-item">
                     <span>{room.name}</span>
                     <span className="small">{classes.find((classRecord) => classRecord.id === room.classId)?.name ?? room.classId}</span>
-                    <Link className="button secondary" href={`/rooms/${room.id}`}>
-                      Open room
-                    </Link>
+                    <div className="cluster">
+                      <Link className="button secondary" href={`/rooms/${room.id}`}>
+                        Open room
+                      </Link>
+                      {canManageRoom(room) ? (
+                        <button type="button" className="ghost" disabled={busy} onClick={() => void removeRoom(room)}>
+                          Delete
+                        </button>
+                      ) : null}
+                    </div>
                   </li>
                 ))}
               </ul>

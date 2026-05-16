@@ -7,6 +7,7 @@ import {
   CreateInviteRequestSchema,
   CreateRoomRequestSchema,
   CreateWallAttachmentRequestSchema,
+  DeleteRoomResponseSchema,
   HealthResponseSchema,
   JoinRoomSessionRequestSchema,
   RoomEventRequestSchema,
@@ -132,7 +133,9 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
         return;
       }
       callback(new Error(`Origin not allowed: ${origin}`), false);
-    }
+    },
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-dev-user-id", "x-dev-user-name", "x-dev-user-role"]
   });
 
   app.setErrorHandler((error, _request, reply) => {
@@ -342,6 +345,14 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     return repository.updateRoom(params.roomId, update);
   });
 
+  app.delete("/v1/rooms/:roomId", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomId, request);
+    await requireRoomTeacher(repository, params.roomId, auth);
+    await repository.deleteRoom(params.roomId);
+    return DeleteRoomResponseSchema.parse({ roomId: params.roomId, deleted: true as const });
+  });
+
   app.get("/v1/rooms/:roomId/manifest", async (request) => {
     const auth = await requireUser(request, config, repository);
     const params = parseParams(ParamsWithRoomId, request);
@@ -375,6 +386,14 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     if (!membership || membership.status !== "active") {
       throw forbidden("Active room membership required");
     }
+
+    membership = await repository.upsertMembership({
+      classId: room.classId,
+      userId: auth.userId,
+      displayName: auth.displayName,
+      role: membership.role,
+      status: "active"
+    });
 
     const manifest = await repository.getActiveManifest(room.id);
     if (!manifest) throw notFound("Room manifest not found");

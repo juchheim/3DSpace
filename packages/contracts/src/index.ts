@@ -214,6 +214,11 @@ export const RoomWithManifestSchema = z.object({
   manifest: RoomManifestSchema
 });
 
+export const DeleteRoomResponseSchema = z.object({
+  roomId: z.string(),
+  deleted: z.literal(true)
+});
+
 export const AvatarMovementSchema = z.enum(["idle", "walking"]);
 
 export const AvatarStateMessageSchema = z.object({
@@ -374,6 +379,7 @@ export const apiRoutes: ApiRoute[] = [
   { method: "get", path: "/v1/rooms", summary: "List rooms visible to the current user", tags: ["rooms"], response: z.array(RoomSchema) },
   { method: "post", path: "/v1/rooms", summary: "Create a room for a class", tags: ["rooms"], request: CreateRoomRequestSchema, response: RoomWithManifestSchema },
   { method: "patch", path: "/v1/rooms/{roomId}", summary: "Update room metadata", tags: ["rooms"], request: UpdateRoomRequestSchema, response: RoomSchema },
+  { method: "delete", path: "/v1/rooms/{roomId}", summary: "Delete a room and related data", tags: ["rooms"], response: DeleteRoomResponseSchema },
   { method: "get", path: "/v1/rooms/{roomId}/manifest", summary: "Get active room manifest", tags: ["rooms"], response: RoomManifestSchema },
   { method: "post", path: "/v1/rooms/{roomId}/session", summary: "Join a room and receive LiveKit session data", tags: ["rooms"], request: JoinRoomSessionRequestSchema, response: RoomSessionResponseSchema },
   { method: "get", path: "/v1/rooms/{roomId}/attachments", summary: "List wall attachments", tags: ["attachments"], response: z.array(WallAttachmentSchema) },

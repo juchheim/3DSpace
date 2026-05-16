@@ -8,7 +8,8 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev:api & npm run dev:web",
+    "dev": "node scripts/dev.mjs",
+    "dev:stop": "node scripts/dev-stop.mjs",
     "dev:api": "npm --workspace @3dspace/api run dev",
     "dev:web": "npm --workspace @3dspace/web run dev",
     "build": "npm run build -w @3dspace/contracts && npm run build -w @3dspace/room-engine && npm run build -w @3dspace/api && npm run build -w @3dspace/web",

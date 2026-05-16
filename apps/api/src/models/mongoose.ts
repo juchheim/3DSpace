@@ -298,6 +298,19 @@ export class MongoRepository implements Repository {
     return entity<RoomRecord | undefined>(await this.models.Room.findOne({ id: roomId }).lean());
   }
 
+  async deleteRoom(roomId: string) {
+    const room = await this.getRoom(roomId);
+    if (!room) throw notFound("Room not found");
+    await Promise.all([
+      this.models.Room.deleteOne({ id: roomId }),
+      this.models.RoomManifest.deleteMany({ roomId }),
+      this.models.WallAttachment.deleteMany({ roomId }),
+      this.models.RoomEvent.deleteMany({ roomId }),
+      this.models.RoomSession.deleteMany({ roomId }),
+      this.models.Invite.deleteMany({ roomId })
+    ]);
+  }
+
   async updateRoom(roomId: string, input: { name?: string; settings?: Partial<RoomSettings> }) {
     const room = await this.getRoom(roomId);
     if (!room) throw notFound("Room not found");

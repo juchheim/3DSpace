@@ -168,6 +168,20 @@ export function clampPositionToBounds(manifest: RoomManifest, position: Vector3)
   };
 }
 
+export function transformLocalMovementToWorld(rotationY: number, local: { x: number; z: number }) {
+  const forwardX = Math.sin(rotationY);
+  const forwardZ = Math.cos(rotationY);
+  const rightX = Math.cos(rotationY);
+  const rightZ = -Math.sin(rotationY);
+  const forward = -local.z;
+  const right = -local.x;
+
+  return {
+    x: right * rightX + forward * forwardX,
+    z: right * rightZ + forward * forwardZ
+  };
+}
+
 export function isWithinBounds(manifest: RoomManifest, position: Vector3) {
   return (
     position.x >= manifest.bounds.minX &&

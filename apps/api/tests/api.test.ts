@@ -88,6 +88,46 @@ describe("3dspace api", () => {
     await app.close();
   });
 
+  it("lets a teacher delete a room they created", async () => {
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+
+    const classResponse = await app.inject({
+      method: "POST",
+      url: "/v1/classes",
+      headers: authHeaders("teacher-1", "Ms. Rivera"),
+      payload: { name: "Physics 101" }
+    });
+    const classRecord = classResponse.json();
+
+    const roomResponse = await app.inject({
+      method: "POST",
+      url: "/v1/rooms",
+      headers: authHeaders("teacher-1", "Ms. Rivera"),
+      payload: { classId: classRecord.id, name: "Wave Lab" }
+    });
+    const roomWithManifest = roomResponse.json();
+
+    const deleteResponse = await app.inject({
+      method: "DELETE",
+      url: `/v1/rooms/${roomWithManifest.room.id}`,
+      headers: authHeaders("teacher-1", "Ms. Rivera")
+    });
+    expect(deleteResponse.statusCode).toBe(200);
+    expect(deleteResponse.json()).toEqual({ roomId: roomWithManifest.room.id, deleted: true });
+
+    const listResponse = await app.inject({
+      method: "GET",
+      url: "/v1/rooms",
+      headers: authHeaders("teacher-1", "Ms. Rivera")
+    });
+    expect(listResponse.json()).toEqual([]);
+
+    await app.close();
+  });
+
   it("enforces teacher-only actions", async () => {
     const app = await buildApp({
       config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
@@ -110,6 +150,22 @@ describe("3dspace api", () => {
     });
 
     expect(forbiddenResponse.statusCode).toBe(403);
+
+    const roomResponse = await app.inject({
+      method: "POST",
+      url: "/v1/rooms",
+      headers: authHeaders("teacher-1", "Ms. Rivera"),
+      payload: { classId: classRecord.id, name: "Wave Lab" }
+    });
+    const roomWithManifest = roomResponse.json();
+
+    const studentDeleteResponse = await app.inject({
+      method: "DELETE",
+      url: `/v1/rooms/${roomWithManifest.room.id}`,
+      headers: authHeaders("student-1", "Avery")
+    });
+    expect(studentDeleteResponse.statusCode).toBe(403);
+
     await app.close();
   });
 

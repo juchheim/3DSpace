@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type MediaDefaults = {
   defaultCameraEnabled: boolean;
@@ -18,6 +18,16 @@ export function useLocalMedia(defaults?: MediaDefaults) {
   const [speaking, setSpeaking] = useState(false);
   const [permissionText, setPermissionText] = useState("Camera and microphone are off.");
   const audioContextRef = useRef<AudioContext | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    cameraStreamRef.current = cameraStream;
+  }, [cameraStream]);
+
+  useEffect(() => {
+    micStreamRef.current = micStream;
+  }, [micStream]);
 
   useEffect(() => {
     let cancelled = false;
@@ -111,6 +121,20 @@ export function useLocalMedia(defaults?: MediaDefaults) {
     [cameraStream, micStream]
   );
 
+  const release = useCallback(() => {
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    micStreamRef.current?.getTracks().forEach((track) => track.stop());
+    cameraStreamRef.current = null;
+    micStreamRef.current = null;
+    setCameraStream(null);
+    setMicStream(null);
+    setCameraEnabled(false);
+    setMicrophoneEnabled(false);
+    setSpeaking(false);
+    void audioContextRef.current?.close().catch(() => undefined);
+    audioContextRef.current = null;
+  }, []);
+
   return {
     cameraEnabled,
     microphoneEnabled,
@@ -119,6 +143,7 @@ export function useLocalMedia(defaults?: MediaDefaults) {
     micStream,
     permissionText,
     setCameraEnabled,
-    setMicrophoneEnabled
+    setMicrophoneEnabled,
+    release
   };
 }

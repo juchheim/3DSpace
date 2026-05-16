@@ -55,6 +55,7 @@ export type Repository = {
   listRoomsForUser(userId: string): Promise<RoomRecord[]>;
   getRoom(roomId: string): Promise<RoomRecord | undefined>;
   updateRoom(roomId: string, input: { name?: string; settings?: Partial<RoomSettings> }): Promise<RoomRecord>;
+  deleteRoom(roomId: string): Promise<void>;
   getActiveManifest(roomId: string): Promise<RoomManifest | undefined>;
   saveManifest(manifest: RoomManifest): Promise<RoomManifest>;
   createAttachment(input: Omit<WallAttachment, "id" | "createdAt" | "updatedAt" | "status">): Promise<WallAttachment>;
@@ -276,6 +277,26 @@ export class MemoryRepository implements Repository {
     };
     this.rooms.set(roomId, updated);
     return updated;
+  }
+
+  async deleteRoom(roomId: string) {
+    if (!this.rooms.has(roomId)) throw notFound("Room not found");
+    this.rooms.delete(roomId);
+    for (const [key, manifest] of this.manifests.entries()) {
+      if (manifest.roomId === roomId) this.manifests.delete(key);
+    }
+    for (const [id, attachment] of this.attachments.entries()) {
+      if (attachment.roomId === roomId) this.attachments.delete(id);
+    }
+    for (const [id, event] of this.roomEvents.entries()) {
+      if (event.roomId === roomId) this.roomEvents.delete(id);
+    }
+    for (const [key, session] of this.activeSessions.entries()) {
+      if (session.roomId === roomId) this.activeSessions.delete(key);
+    }
+    for (const [code, invite] of this.invites.entries()) {
+      if (invite.roomId === roomId) this.invites.delete(code);
+    }
   }
 
   async getActiveManifest(roomId: string) {

@@ -24,7 +24,7 @@ Environment templates:
 - `docs/planning/mvp/MVP_STATUS.md` — authoritative matrix (required/optional, defaults, deployment status)
 - `docs/planning/mvp/DEPLOYMENT_CHECKLIST.md` — production provisioning steps
 
-The API loads `/.env.local` and `/.env` from the repository root when those files exist (`apps/api/src/load-env.ts`). Next.js loads env files from the repository root via `envDir` in `apps/web/next.config.mjs`.
+The API loads `/.env.local` and `/.env` from the repository root when those files exist (`apps/api/src/load-env.ts`). Next.js loads the repository root via `loadEnvConfig` in `apps/web/next.config.mjs`, then applies `apps/web/.env.local` overrides. Clerk middleware needs both `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` in that combined environment.
 
 3. Run both apps:
 
@@ -32,7 +32,15 @@ The API loads `/.env.local` and `/.env` from the repository root when those file
 npm run dev
 ```
 
+Stop everything with Ctrl+C (both API and web shut down). If a port is stuck:
+
+```sh
+npm run dev:stop
+```
+
 The local backend uses an in-memory repository when `MONGODB_URI` is not set. The room uses a multi-tab `BroadcastChannel` realtime fallback when LiveKit credentials are not set. Production mode fails fast if required backend secrets are missing.
+
+Open the web app at **http://localhost:3000** (not `127.0.0.1`) during local dev — Next.js binds to `localhost` and Clerk/Next proxy will 500 if the host does not match.
 
 ## Commands
 

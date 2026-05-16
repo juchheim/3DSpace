@@ -1,13 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import type { AvatarStateMessage, RoomManifest, ViewMode } from "@3dspace/contracts";
-import { clampPositionToBounds, createAvatarState, unprojectPointFrom2D } from "@3dspace/room-engine";
+import { clampPositionToBounds, createAvatarState, transformLocalMovementToWorld, unprojectPointFrom2D } from "@3dspace/room-engine";
 
 export function useAvatarMovement(input: {
   manifest: RoomManifest | null;
   participantId: string;
   viewMode: ViewMode;
+  cameraYawRef?: MutableRefObject<number>;
   media: { cameraEnabled: boolean; microphoneEnabled: boolean; speaking: boolean };
 }) {
   const [avatarState, setAvatarState] = useState<AvatarStateMessage | null>(null);
@@ -68,27 +69,34 @@ export function useAvatarMovement(input: {
       last = now;
       const current = stateRef.current;
       if (current) {
-        let dx = touchVector.current.x;
-        let dz = touchVector.current.z;
-        if (keys.current.has("ArrowLeft") || keys.current.has("KeyA")) dx -= 1;
-        if (keys.current.has("ArrowRight") || keys.current.has("KeyD")) dx += 1;
-        if (keys.current.has("ArrowUp") || keys.current.has("KeyW")) dz -= 1;
-        if (keys.current.has("ArrowDown") || keys.current.has("KeyS")) dz += 1;
-        const magnitude = Math.hypot(dx, dz);
+        let localX = touchVector.current.x;
+        let localZ = touchVector.current.z;
+        if (keys.current.has("ArrowLeft") || keys.current.has("KeyA")) localX -= 1;
+        if (keys.current.has("ArrowRight") || keys.current.has("KeyD")) localX += 1;
+        if (keys.current.has("ArrowUp") || keys.current.has("KeyW")) localZ -= 1;
+        if (keys.current.has("ArrowDown") || keys.current.has("KeyS")) localZ += 1;
+        const movementYaw =
+          input.viewMode === "3d" && input.cameraYawRef ? input.cameraYawRef.current : current.rotation.y;
+        const worldDelta = transformLocalMovementToWorld(movementYaw, { x: localX, z: localZ });
+        const magnitude = Math.hypot(worldDelta.x, worldDelta.z);
         const moving = magnitude > 0;
         const speed = 3.2;
         const nextPosition = moving
           ? clampPositionToBounds(input.manifest!, {
-              x: current.position.x + (dx / magnitude) * speed * deltaSeconds,
+              x: current.position.x + (worldDelta.x / magnitude) * speed * deltaSeconds,
               y: 0,
-              z: current.position.z + (dz / magnitude) * speed * deltaSeconds
+              z: current.position.z + (worldDelta.z / magnitude) * speed * deltaSeconds
             })
           : current.position;
+        const nextRotation =
+          input.viewMode === "3d" && input.cameraYawRef
+            ? { y: input.cameraYawRef.current }
+            : current.rotation;
         const next = {
           ...current,
           sentAt: Date.now(),
           position: nextPosition,
-          rotation: moving ? { y: Math.atan2(dx, dz) } : current.rotation,
+          rotation: nextRotation,
           movement: moving ? ("walking" as const) : ("idle" as const),
           viewMode: input.viewMode,
           media: input.media
@@ -101,7 +109,14 @@ export function useAvatarMovement(input: {
 
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [input.manifest, input.viewMode, input.media.cameraEnabled, input.media.microphoneEnabled, input.media.speaking]);
+  }, [
+    input.manifest,
+    input.viewMode,
+    input.cameraYawRef,
+    input.media.cameraEnabled,
+    input.media.microphoneEnabled,
+    input.media.speaking
+  ]);
 
   const setTouchVector = useCallback((vector: { x: number; z: number }) => {
     touchVector.current = vector;
@@ -128,17 +143,19 @@ export function useAvatarMovement(input: {
     (point: { x: number; z: number }) => {
       if (!input.manifest || !stateRef.current) return;
       const nextPosition = clampPositionToBounds(input.manifest, { x: point.x, y: 0, z: point.z });
+      const nextRotationY = Math.atan2(nextPosition.x - stateRef.current.position.x, nextPosition.z - stateRef.current.position.z);
+      if (input.cameraYawRef) input.cameraYawRef.current = nextRotationY;
       const next = {
         ...stateRef.current,
         position: nextPosition,
-        rotation: { y: Math.atan2(nextPosition.x - stateRef.current.position.x, nextPosition.z - stateRef.current.position.z) },
+        rotation: { y: nextRotationY },
         sentAt: Date.now(),
         movement: "walking" as const
       };
       stateRef.current = next;
       setAvatarState(next);
     },
-    [input.manifest]
+    [input.manifest, input.cameraYawRef]
   );
 
   return { avatarState, setTouchVector, moveTo2DPoint, moveTo3DPoint };

@@ -1,8 +1,9 @@
 "use client";
 
-import { Canvas } from "@react-three/fiber";
-import { Billboard, Html, OrbitControls } from "@react-three/drei";
-import { useEffect, useMemo, useRef } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Billboard, Html } from "@react-three/drei";
+import { useEffect, useMemo, useRef, type MutableRefObject } from "react";
+import { Vector3 } from "three";
 import type { QualityLevel, RoomManifest, WallAnchorSchema, WallPlaneSchema } from "@3dspace/contracts";
 import type { z } from "zod";
 import type { ParticipantView } from "./RoomClient";
@@ -13,20 +14,29 @@ type Anchor = z.infer<typeof WallAnchorSchema>;
 export function RoomView3D({
   manifest,
   participants,
-  localParticipantId: _localParticipantId,
+  localParticipantId,
   quality,
+  cameraYawRef,
+  cameraPitchRef,
+  bindCamera,
   onMoveToPoint
 }: {
   manifest: RoomManifest;
   participants: ParticipantView[];
   localParticipantId: string;
   quality: QualityLevel;
+  cameraYawRef: MutableRefObject<number>;
+  cameraPitchRef: MutableRefObject<number>;
+  bindCamera(element: HTMLElement | null): void | (() => void);
   onMoveToPoint(point: { x: number; z: number }): void;
 }) {
   const dpr = quality === "high" ? 1.8 : quality === "medium" ? 1.4 : 1;
+  const canvasWrapRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => bindCamera(canvasWrapRef.current), [bindCamera]);
 
   return (
-    <div className="canvas-wrap">
+    <div className="canvas-wrap" ref={canvasWrapRef}>
       <Canvas camera={{ position: [0, 9.5, 10.5], fov: 48 }} dpr={dpr} gl={{ antialias: quality !== "low", powerPreference: "high-performance" }}>
         <color attach="background" args={["#16231d"]} />
         <ambientLight intensity={0.82} />
@@ -35,10 +45,56 @@ export function RoomView3D({
         {participants.map((participant) => (
           <Avatar key={participant.id} participant={participant} />
         ))}
-        <OrbitControls target={[0, 0, 0]} enablePan={false} maxPolarAngle={Math.PI / 2.15} minDistance={6} maxDistance={18} />
+        <FollowLocalAvatarCamera
+          participants={participants}
+          localParticipantId={localParticipantId}
+          cameraYawRef={cameraYawRef}
+          cameraPitchRef={cameraPitchRef}
+        />
       </Canvas>
     </div>
   );
+}
+
+function FollowLocalAvatarCamera({
+  participants,
+  localParticipantId,
+  cameraYawRef,
+  cameraPitchRef
+}: {
+  participants: ParticipantView[];
+  localParticipantId: string;
+  cameraYawRef: MutableRefObject<number>;
+  cameraPitchRef: MutableRefObject<number>;
+}) {
+  const { camera } = useThree();
+  const desiredPosition = useMemo(() => new Vector3(), []);
+  const lookAtTarget = useMemo(() => new Vector3(), []);
+  const localParticipant = participants.find((participant) => participant.id === localParticipantId || participant.local);
+  const followDistance = 2.85;
+  const lookAtHeight = 1.08;
+
+  useFrame(() => {
+    if (!localParticipant) return;
+
+    const { position } = localParticipant.state;
+    const yaw = cameraYawRef.current;
+    const pitch = cameraPitchRef.current;
+    const horizontalDistance = followDistance * Math.cos(pitch);
+    const height = lookAtHeight + followDistance * Math.sin(pitch);
+
+    desiredPosition.set(
+      position.x - Math.sin(yaw) * horizontalDistance,
+      height,
+      position.z - Math.cos(yaw) * horizontalDistance
+    );
+    lookAtTarget.set(position.x, lookAtHeight, position.z);
+
+    camera.position.copy(desiredPosition);
+    camera.lookAt(lookAtTarget);
+  });
+
+  return null;
 }
 
 function RoomGeometry({ manifest, onMoveToPoint }: { manifest: RoomManifest; onMoveToPoint(point: { x: number; z: number }): void }) {
@@ -137,7 +193,10 @@ function AvatarVideoCard({ stream, label }: { stream: MediaStream | null; label:
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
-    if (videoRef.current) videoRef.current.srcObject = stream;
+    const video = videoRef.current;
+    if (!video) return;
+    video.srcObject = stream;
+    if (stream) void video.play().catch(() => undefined);
   }, [stream]);
 
   return (

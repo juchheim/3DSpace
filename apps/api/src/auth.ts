@@ -9,6 +9,17 @@ export type AuthContext = {
   provider: "clerk" | "dev";
 };
 
+function displayNameFromClaims(claims: Record<string, unknown> & { sub: string }) {
+  if (typeof claims.name === "string" && claims.name.trim()) return claims.name.trim();
+  const fromParts = [claims.given_name, claims.family_name]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .join(" ")
+    .trim();
+  if (fromParts) return fromParts;
+  if (typeof claims.email === "string" && claims.email.trim()) return claims.email.trim();
+  return claims.sub;
+}
+
 function headerValue(request: FastifyRequest, key: string) {
   const value = request.headers[key.toLowerCase()];
   return Array.isArray(value) ? value[0] : value;
@@ -27,10 +38,7 @@ export async function authenticate(request: FastifyRequest, config: AppConfig): 
     const claims = await verifyToken(token, { secretKey: config.clerkSecretKey });
     return {
       userId: claims.sub,
-      displayName:
-        (typeof claims.name === "string" && claims.name) ||
-        (typeof claims.email === "string" && claims.email) ||
-        claims.sub,
+      displayName: displayNameFromClaims(claims as Record<string, unknown> & { sub: string }),
       provider: "clerk"
     };
   }

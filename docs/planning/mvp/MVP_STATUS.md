@@ -1,6 +1,6 @@
 # 3DSpace MVP Status
 
-Last updated: 2026-05-16 (env examples synced)
+Last updated: 2026-05-16 (third-person 3D camera follow)
 
 ## Current Status
 
@@ -24,7 +24,7 @@ Important scope note: this workspace does not contain Vercel, Koyeb, Clerk, Mong
 | --- | --- | --- | --- |
 | Frontend hosting | Vercel | Pending deployment | App is build-ready with Next.js; Vercel CLI is authenticated, but no local project link or 3DSpace project exists yet. |
 | Frontend app | Next.js 16, React 19, TypeScript | Implemented | `apps/web`; production build passes. |
-| 3D renderer | Three.js 0.184, `@react-three/fiber` 9, `@react-three/drei` 10 | Implemented | Dynamic 3D room page renders floor, walls, anchors, spawns, avatars, and camera billboards. |
+| 3D renderer | Three.js 0.184, `@react-three/fiber` 9, `@react-three/drei` 10 | Implemented | Dynamic 3D room page renders floor, walls, anchors, spawns, avatars, third-person local camera follow, and camera billboards. |
 | 2D analog | Shared room model rendered with React/SVG | Implemented | Same manifest/session/movement model as 3D. |
 | Backend hosting | Koyeb | Pending deployment | API Docker image builds locally; Koyeb CLI can access apps, but required provider secrets are incomplete. |
 | Backend app | Node.js, Fastify 5, TypeScript | Implemented | `apps/api`; health, readiness, auth guards, and v1 resources implemented. |
@@ -121,7 +121,7 @@ Rules for implementers:
 - Implemented Web Audio panner management for subscribed remote microphone streams.
 - Implemented S3-compatible signed upload/download target generation and local fallback URLs.
 - Implemented Next.js lobby for teacher room creation, invite generation, student invite acceptance, and room opening.
-- Implemented 3D classroom renderer with simple geometry, walls, anchors, spawns, avatars, camera billboards, and quality-sensitive rendering.
+- Implemented 3D classroom renderer with simple geometry, walls, anchors, spawns, avatars, third-person local camera follow, camera billboards, and quality-sensitive rendering.
 - Implemented pointer click-to-move targeting on the 3D classroom floor in addition to keyboard and touch-pad movement.
 - Implemented 2D analog renderer from the same manifest with movement, walls, anchors, participant presence, speaking state, and camera state.
 - Implemented camera/microphone permission controls, local video preview, and speaking detection.

@@ -6,6 +6,7 @@ import {
   createDefaultRoomManifest,
   interpolateAvatarState,
   projectPositionTo2D,
+  transformLocalMovementToWorld,
   unprojectPointFrom2D
 } from "../src/index";
 
@@ -18,6 +19,19 @@ describe("room engine", () => {
     expect(manifest.wallAnchors.map((anchor) => anchor.id)).toContain("anchor-board");
     expect(manifest.capabilities.maxParticipants).toBe(30);
     expect(manifest.projection.kind).toBe("top-down-v1");
+  });
+
+  it("transforms local movement relative to avatar facing", () => {
+    const forward = transformLocalMovementToWorld(0, { x: 0, z: -1 });
+    const right = transformLocalMovementToWorld(0, { x: 1, z: 0 });
+    const strafeLeft = transformLocalMovementToWorld(Math.PI / 2, { x: -1, z: 0 });
+
+    expect(forward.x).toBeCloseTo(0);
+    expect(forward.z).toBeCloseTo(1);
+    expect(right.x).toBeCloseTo(-1);
+    expect(right.z).toBeCloseTo(0);
+    expect(strafeLeft.x).toBeCloseTo(0);
+    expect(strafeLeft.z).toBeCloseTo(-1);
   });
 
   it("clamps movement to room bounds", () => {

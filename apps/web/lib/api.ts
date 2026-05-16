@@ -1,5 +1,6 @@
 import type {
   AcceptInviteResponseSchema,
+  ClassMembership,
   ClassRecord,
   Invite,
   Role,
@@ -14,7 +15,7 @@ import { API_URL } from "./config";
 import { identityHeaders, type ApiIdentity } from "./identity";
 
 type RequestOptions = {
-  method?: "GET" | "POST" | "PATCH";
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
   identity: ApiIdentity;
 };
@@ -76,6 +77,17 @@ export function createInvite(identity: ApiIdentity, classId: string, input: { ro
 export function acceptInvite(identity: ApiIdentity, code: string) {
   return apiFetch<z.infer<typeof AcceptInviteResponseSchema>>(`/v1/invites/${code}/accept`, {
     method: "POST",
+    identity
+  });
+}
+
+export function listClassMembers(identity: ApiIdentity, classId: string) {
+  return apiFetch<ClassMembership[]>(`/v1/classes/${classId}/members`, { identity });
+}
+
+export function deleteRoom(identity: ApiIdentity, roomId: string) {
+  return apiFetch<{ roomId: string; deleted: true }>(`/v1/rooms/${roomId}`, {
+    method: "DELETE",
     identity
   });
 }

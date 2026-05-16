@@ -48,6 +48,8 @@ test("teacher can create a room, move, and switch between 3D and 2D", async ({ p
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /class, with depth/i })).toBeVisible();
   await page.getByRole("button", { name: /create room and invite/i }).click();
+  await expect(page.getByRole("link", { name: /enter room/i })).toBeVisible({ timeout: 20_000 });
+  await page.getByRole("link", { name: /enter room/i }).click();
   await expect(page.getByRole("button", { name: "2D" })).toBeVisible({ timeout: 20_000 });
   const localPosition = page.getByTestId("participant-dev-teacher-position");
   const positionBeforePointerMove = await localPosition.textContent();
@@ -84,7 +86,7 @@ test("student can join an invite and share movement and media state with the tea
   const studentPage = await context.newPage();
   await setIdentity(studentPage, STUDENT);
   await studentPage.goto("/");
-  await studentPage.getByLabel("Role").selectOption("student");
+  await studentPage.getByLabel("Local test user").selectOption("dev-student");
   await studentPage.getByLabel("Invite code").fill(invite.code);
   await studentPage.getByRole("button", { name: /join class room/i }).click();
   await expect(studentPage.getByRole("heading", { name: room.name })).toBeVisible({ timeout: 20_000 });
@@ -122,6 +124,7 @@ test("room remains usable under a throttled browser profile", async ({ context, 
     await expect(page.getByRole("heading", { name: /class, with depth/i })).toBeVisible();
     const startedAt = Date.now();
     await page.getByRole("button", { name: /create room and invite/i }).click();
+    await page.getByRole("link", { name: /enter room/i }).click();
     await expect(page.getByRole("button", { name: "2D" })).toBeVisible({ timeout: 30_000 });
     expect(Date.now() - startedAt).toBeLessThan(30_000);
 

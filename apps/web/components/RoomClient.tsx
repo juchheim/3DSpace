@@ -1,14 +1,17 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AvatarStateMessage, Role, RoomManifest, RoomSessionResponse, ViewMode } from "@3dspace/contracts";
 import { createAvatarState } from "@3dspace/room-engine";
-import { joinRoom } from "../lib/api";
+import { joinRoom, listClassMembers } from "../lib/api";
+import { pickDisplayName } from "../lib/displayName";
 import { useAvatarMovement } from "../lib/useAvatarMovement";
+import { useThirdPersonCamera } from "../lib/useThirdPersonCamera";
 import { useLocalMedia } from "../lib/useLocalMedia";
 import { usePersistentIdentity } from "../lib/usePersistentIdentity";
+import { navigateToLobby } from "../lib/navigateToLobby";
 import { createRealtimeClient, type RealtimeClient, type RealtimeMessage } from "../lib/realtime";
 import { useSpatialAudio } from "../lib/useSpatialAudio";
 import { AnchorPanel } from "./AnchorPanel";
@@ -35,20 +38,25 @@ export type ParticipantView = {
 };
 
 export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?: string }) {
+  const router = useRouter();
   const { identity, loaded: identityLoaded, clerkEnabled, signedIn } = usePersistentIdentity();
   const [viewMode, setViewMode] = useState<ViewMode>("3d");
   const [session, setSession] = useState<RoomSessionResponse | null>(null);
   const [manifest, setManifest] = useState<RoomManifest | null>(null);
   const [participants, setParticipants] = useState<Record<string, ParticipantView>>({});
   const [status, setStatus] = useState("Connecting...");
+  const [leaving, setLeaving] = useState(false);
   const [error, setError] = useState("");
   const realtimeRef = useRef<RealtimeClient | null>(null);
   const avatarStateRef = useRef<AvatarStateMessage | null>(null);
+  const memberNamesRef = useRef(new Map<string, string>());
   const media = useLocalMedia(session?.tuning.media);
+  const camera = useThirdPersonCamera({ viewMode });
   const movement = useAvatarMovement({
     manifest,
     participantId: session?.participantId ?? identity.userId,
     viewMode,
+    cameraYawRef: camera.yawRef,
     media: {
       cameraEnabled: media.cameraEnabled,
       microphoneEnabled: media.microphoneEnabled,
@@ -57,8 +65,33 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   });
 
   useEffect(() => {
+    if (!movement.avatarState) return;
+    camera.yawRef.current = movement.avatarState.rotation.y;
+  }, [movement.avatarState?.participantId]);
+
+  const releaseMedia = media.release;
+  const teardownSession = useCallback(() => {
+    realtimeRef.current?.close();
+    realtimeRef.current = null;
+    releaseMedia();
+  }, [releaseMedia]);
+
+  const leaveForLobby = useCallback(() => {
+    if (leaving) return;
+    setLeaving(true);
+    setStatus("Leaving room...");
+    teardownSession();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        navigateToLobby(router);
+      });
+    });
+  }, [leaving, router, teardownSession]);
+
+  useEffect(() => {
     if (!identityLoaded) return;
     if (clerkEnabled && !signedIn) return;
+    if (leaving) return;
     let cancelled = false;
     setStatus("Joining room...");
     setError("");
@@ -75,10 +108,35 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     return () => {
       cancelled = true;
     };
-  }, [identityLoaded, clerkEnabled, signedIn, identity.userId, identity.displayName, roomId, inviteCode]);
+  }, [identityLoaded, clerkEnabled, signedIn, identity.userId, identity.displayName, roomId, inviteCode, leaving]);
 
   useEffect(() => {
     if (!session) return;
+    let cancelled = false;
+    void listClassMembers(identity, session.room.classId)
+      .then((members) => {
+        if (cancelled) return;
+        const nextNames = new Map(members.map((member) => [member.userId, member.displayName]));
+        memberNamesRef.current = nextNames;
+        setParticipants((current) => {
+          const next = { ...current };
+          for (const [participantId, participant] of Object.entries(next)) {
+            next[participantId] = {
+              ...participant,
+              displayName: pickDisplayName(participantId, participant.displayName, nextNames.get(participantId))
+            };
+          }
+          return next;
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.room.classId, session?.participantId, identity.userId]);
+
+  useEffect(() => {
+    if (!session || leaving) return;
     const activeSession = session;
     let closed = false;
 
@@ -95,12 +153,18 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       if (message.type === "participant.presence.v1") {
         setParticipants((current) => {
           const existing = current[message.participantId];
+          const displayName = pickDisplayName(
+            message.participantId,
+            message.displayName,
+            existing?.displayName,
+            memberNamesRef.current.get(message.participantId)
+          );
           if (!existing) {
             return {
               ...current,
               [message.participantId]: {
                 id: message.participantId,
-                displayName: message.displayName,
+                displayName,
                 role: message.role,
                 local: false,
                 state: createAvatarState({
@@ -116,7 +180,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             ...current,
             [message.participantId]: {
               ...existing,
-              displayName: message.displayName,
+              displayName,
               role: message.role,
               lastSeenAt: Date.now()
             }
@@ -125,17 +189,25 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         return;
       }
 
-      setParticipants((current) => ({
-        ...current,
-        [message.participantId]: {
-          id: message.participantId,
-          displayName: current[message.participantId]?.displayName ?? message.participantId,
-          role: current[message.participantId]?.role ?? "student",
-          local: false,
-          state: message,
-          lastSeenAt: Date.now()
-        }
-      }));
+      setParticipants((current) => {
+        const existing = current[message.participantId];
+        return {
+          ...current,
+          [message.participantId]: {
+            ...existing,
+            id: message.participantId,
+            displayName: pickDisplayName(
+              message.participantId,
+              existing?.displayName,
+              memberNamesRef.current.get(message.participantId)
+            ),
+            role: existing?.role ?? "student",
+            local: false,
+            state: message,
+            lastSeenAt: Date.now()
+          }
+        };
+      });
     }
 
     createRealtimeClient({
@@ -145,8 +217,20 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       onMessage: handleMessage,
       onRemoteMedia(update) {
         setParticipants((current) => {
-          const existing = current[update.participantId];
-          if (!existing) return current;
+          const existing =
+            current[update.participantId] ??
+            ({
+              id: update.participantId,
+              displayName: pickDisplayName(update.participantId, undefined, memberNamesRef.current.get(update.participantId)),
+              role: "student",
+              local: false,
+              state: createAvatarState({
+                manifest: activeSession.manifest,
+                participantId: update.participantId,
+                viewMode: activeSession.room.settings.defaultViewMode
+              }),
+              lastSeenAt: Date.now()
+            } satisfies ParticipantView);
           const nextParticipant: ParticipantView = {
             ...existing,
             state: {
@@ -188,7 +272,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       realtimeRef.current?.close();
       realtimeRef.current = null;
     };
-  }, [session?.participantId, roomId, identity.displayName]);
+  }, [session?.participantId, roomId, identity.displayName, leaving]);
 
   useEffect(() => {
     if (!session || !movement.avatarState) return;
@@ -244,11 +328,17 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       : { participants: participantList }
   );
 
+  const exitToLobby = (label: string) => (
+    <button type="button" className="button secondary" disabled={leaving} onClick={leaveForLobby}>
+      {leaving ? "Leaving..." : label}
+    </button>
+  );
+
   if (error) {
     return (
       <main className="app-shell">
         <div className="panel stack">
-          <Link href="/" className="button secondary">Back to lobby</Link>
+          {exitToLobby("Back to lobby")}
           <div className="alert">{error}</div>
         </div>
       </main>
@@ -259,7 +349,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     return (
       <main className="app-shell">
         <div className="panel stack">
-          <Link href="/" className="button secondary">Back to lobby</Link>
+          {exitToLobby("Back to lobby")}
           <AuthGate />
           <div className="alert">Sign in to join this production room.</div>
         </div>
@@ -271,7 +361,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     <main className="app-shell">
       <section className="room-layout">
         <aside className="side-panel stack" aria-label="Session controls">
-          <Link href="/" className="button secondary">Lobby</Link>
+          {exitToLobby("Lobby")}
           <MediaControls media={media} />
           <MovementPad onVector={movement.setTouchVector} />
           <p className="small">{media.permissionText}</p>
@@ -295,7 +385,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           </header>
 
           <div className="room-stage" aria-label="Shared classroom">
-            {!manifest || !session ? (
+            {leaving ? (
+              <div className="fallback-view">Leaving the classroom...</div>
+            ) : !manifest || !session ? (
               <div className="fallback-view">Joining the classroom...</div>
             ) : viewMode === "3d" ? (
               <RoomView3D
@@ -303,7 +395,13 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
                 participants={participantList}
                 localParticipantId={session.participantId}
                 quality={session.room.settings.defaultQuality}
-                onMoveToPoint={movement.moveTo3DPoint}
+                cameraYawRef={camera.yawRef}
+                cameraPitchRef={camera.pitchRef}
+                bindCamera={camera.bind}
+                onMoveToPoint={(point) => {
+                  if (camera.consumeClickSuppress()) return;
+                  movement.moveTo3DPoint(point);
+                }}
               />
             ) : (
               <RoomView2D manifest={manifest} participants={participantList} onMoveToPoint={movement.moveTo2DPoint} />
@@ -311,7 +409,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           </div>
 
           <p className="small">
-            Keyboard movement: WASD or arrow keys. Touch movement: use the movement pad. Switch views without leaving the session.
+            Drag the 3D view to look around. WASD, arrow keys, or the movement pad move relative to the camera. Switch views without leaving the session.
           </p>
         </section>
 

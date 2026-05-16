@@ -137,14 +137,6 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   room.on(RoomEvent.TrackUnsubscribed, (track, _publication, participant) => {
     handleRemoteTrackRemoved(track, participant.identity);
   });
-  room.on(RoomEvent.ParticipantConnected, (participant) => {
-    input.onMessage({
-      type: "participant.presence.v1",
-      participantId: participantIdFromIdentity(participant.identity),
-      displayName: participant.name ?? participant.identity,
-      role: "student"
-    });
-  });
   room.on(RoomEvent.ParticipantDisconnected, (participant) => {
     input.onMessage({
       type: "participant.leave.v1",
@@ -156,18 +148,24 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   input.onStatus("Connected through LiveKit media and data channels.");
 
   room.remoteParticipants.forEach((participant) => {
-    input.onMessage({
-      type: "participant.presence.v1",
-      participantId: participantIdFromIdentity(participant.identity),
-      displayName: participant.name ?? participant.identity,
-      role: "student"
-    });
     participant.trackPublications.forEach((publication) => {
       if (publication.track) {
         handleRemoteTrack(publication.track, participant.identity);
       }
     });
   });
+
+  const presence: PresenceMessage = {
+    type: "participant.presence.v1",
+    participantId: input.session.participantId,
+    displayName: input.displayName,
+    role: input.session.role
+  };
+  const publishPresence = () => {
+    void room.localParticipant.publishData(encoder.encode(JSON.stringify(presence)), { reliable: true });
+  };
+  publishPresence();
+  const presenceInterval = window.setInterval(publishPresence, 2_000);
 
   return {
     publish(message) {
@@ -207,13 +205,10 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
       }
     },
     close() {
-      if (publishedCameraTrack) {
-        void room.localParticipant.unpublishTrack(publishedCameraTrack, false);
-      }
-      if (publishedMicTrack) {
-        void room.localParticipant.unpublishTrack(publishedMicTrack, false);
-      }
-      room.disconnect();
+      window.clearInterval(presenceInterval);
+      publishedCameraTrack = null;
+      publishedMicTrack = null;
+      void room.disconnect(true).catch(() => undefined);
     }
   };
 }

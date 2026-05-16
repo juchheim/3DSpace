@@ -23,7 +23,7 @@ Implementation state: **Local MVP complete; Phase 7 deployment blocked by missin
 | Layer | Choice | Status |
 | --- | --- | --- |
 | Frontend | Next.js 16, React 19, Vercel | Built locally; not deployed |
-| 3D | Three.js, R3F, Drei | Implemented (pointer + keyboard movement) |
+| 3D | Three.js, R3F, Drei | Implemented (third-person camera, pointer + keyboard movement) |
 | 2D analog | React/SVG from shared manifest | Implemented |
 | Backend | Fastify 5, Node, Koyeb | Built locally; Docker image builds |
 | DB | MongoDB Atlas + Mongoose | Implemented; uses memory repo when `MONGODB_URI` unset |
@@ -43,7 +43,7 @@ Implementation state: **Local MVP complete; Phase 7 deployment blocked by missin
 
 - Teacher lobby: class/room/invite creation
 - Student invite join (two-page Playwright validated)
-- 3D room: floor, walls, anchors, avatars, camera billboards, pointer click-to-move
+- 3D room: floor, walls, anchors, avatars, third-person local camera follow, camera billboards, pointer click-to-move
 - 2D analog: same manifest, movement, presence, media state
 - LiveKit token minting, camera/mic publish/subscribe, spatial audio panner hook
 - Session join rate limit (`SESSION_JOIN_RATE_LIMIT_PER_MINUTE`, default 20) → `429 rate_limited`
@@ -83,6 +83,7 @@ Local loading:
 ## Relationships
 
 - Room manifest → consumed by 3D and 2D renderers
+- 3D camera follows the local participant's `avatar.state.v1` position and yaw in `RoomView3D`
 - Zod/OpenAPI = API contract; Mongoose = persistence
 - LiveKit data channels = avatar state; not persisted in MVP
 - `MVP_STATUS.md` must stay updated during implementation
@@ -90,6 +91,11 @@ Local loading:
 ## Post-MVP Backlog
 
 Screen share, computer audio, teacher moderation, rich wall placement, room builder, whiteboards, breakouts, LMS, analytics, recording.
+
+## Bug Fixes
+
+- **2026-05-16**: Remote camera video not visible — avatar state updates (~10 Hz) overwrote `ParticipantView` without preserving `cameraStream`/`microphoneStream` from LiveKit. Fixed by spreading existing participant on avatar updates; `onRemoteMedia` upserts when track arrives before presence.
+- **2026-05-16**: Lobby navigation stuck on "Rendering..." from 3D room — soft Next.js navigation hung while WebGL/LiveKit/media stayed active. Fixed with teardown-first leave (`release` media, `disconnect(true)` LiveKit, unmount 3D canvas via `leaving` state) and `navigateToLobby` hard-navigation fallback after 2s.
 
 ## Maintenance Rules
 
