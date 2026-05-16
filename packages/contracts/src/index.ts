@@ -358,7 +358,7 @@ export type WallAttachmentDownloadResponse = z.infer<typeof WallAttachmentDownlo
 export type RoomCapabilities = z.infer<typeof RoomCapabilitiesSchema>;
 
 type ApiRoute = {
-  method: "get" | "post" | "patch";
+  method: "get" | "post" | "patch" | "delete";
   path: string;
   summary: string;
   tags: string[];
