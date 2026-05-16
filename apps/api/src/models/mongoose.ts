@@ -1,8 +1,8 @@
 import mongoose, { type Connection, Schema, type Model } from "mongoose";
 import type { ClassMembership, ClassRecord, Invite, Role, RoomManifest, RoomRecord, User, WallAttachment } from "@3dspace/contracts";
-import type { AuthContext } from "../auth";
-import { notFound } from "../errors";
-import { avatarFor, inviteCode, newId, nowIso, type Repository, type RoomEventRecord, type RoomSettings } from "../repository";
+import type { AuthContext } from "../auth.js";
+import { notFound } from "../errors.js";
+import { avatarFor, inviteCode, newId, nowIso, type Repository, type RoomEventRecord, type RoomSettings } from "../repository.js";
 
 type Models = {
   User: Model<any>;

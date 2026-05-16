@@ -20,13 +20,13 @@ import {
   createOpenApiDocument
 } from "@3dspace/contracts";
 import { createDefaultRoomManifest } from "@3dspace/room-engine";
-import { authenticate, type AuthContext } from "./auth";
-import { loadConfig, livekitConfigured, storageConfigured, type AppConfig } from "./config";
-import { badRequest, conflict, forbidden, HttpError, notFound, tooManyRequests } from "./errors";
-import { connectMongo, MongoRepository } from "./models/mongoose";
-import { MemoryRepository, newId, type Repository } from "./repository";
-import { mintLiveKitToken } from "./services/livekit";
-import { createDownloadTarget, createUploadTarget, storageKeyFor } from "./services/storage";
+import { authenticate, type AuthContext } from "./auth.js";
+import { loadConfig, livekitConfigured, storageConfigured, type AppConfig } from "./config.js";
+import { badRequest, conflict, forbidden, HttpError, notFound, tooManyRequests } from "./errors.js";
+import { connectMongo, MongoRepository } from "./models/mongoose.js";
+import { MemoryRepository, newId, type Repository } from "./repository.js";
+import { mintLiveKitToken } from "./services/livekit.js";
+import { createDownloadTarget, createUploadTarget, storageKeyFor } from "./services/storage.js";
 
 type BuildAppOptions = {
   config?: AppConfig;

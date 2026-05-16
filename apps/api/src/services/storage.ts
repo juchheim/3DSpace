@@ -1,7 +1,7 @@
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import type { AppConfig } from "../config";
-import { storageConfigured } from "../config";
+import type { AppConfig } from "../config.js";
+import { storageConfigured } from "../config.js";
 
 export function storageKeyFor(input: { roomId: string; wallAnchorId: string; fileName: string }) {
   const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]+/g, "-").slice(0, 120);

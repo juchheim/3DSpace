@@ -1,7 +1,7 @@
 import type { FastifyRequest } from "fastify";
 import { verifyToken } from "@clerk/backend";
-import type { AppConfig } from "./config";
-import { unauthorized } from "./errors";
+import type { AppConfig } from "./config.js";
+import { unauthorized } from "./errors.js";
 
 export type AuthContext = {
   userId: string;

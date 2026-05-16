@@ -11,8 +11,8 @@ import type {
   WallAttachment
 } from "@3dspace/contracts";
 import type { z } from "zod";
-import type { AuthContext } from "./auth";
-import { notFound } from "./errors";
+import type { AuthContext } from "./auth.js";
+import { notFound } from "./errors.js";
 
 export type RoomSettings = z.infer<typeof RoomSettingsSchema>;
 

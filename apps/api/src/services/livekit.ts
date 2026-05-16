@@ -1,7 +1,7 @@
 import { AccessToken } from "livekit-server-sdk";
 import type { Role } from "@3dspace/contracts";
-import type { AppConfig } from "../config";
-import { livekitConfigured } from "../config";
+import type { AppConfig } from "../config.js";
+import { livekitConfigured } from "../config.js";
 
 export async function mintLiveKitToken(
   config: AppConfig,
