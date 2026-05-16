@@ -112,7 +112,7 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
     clerkSecretKey: envString(raw, "CLERK_SECRET_KEY"),
     clerkWebhookSecret: envString(raw, "CLERK_WEBHOOK_SECRET"),
     mongoUri: envString(raw, "MONGODB_URI"),
-    mongoDbName: envString(raw, "MONGODB_DB_NAME") ?? "3dspace",
+    mongoDbName: envString(raw, "MONGODB_DB_NAME") ?? "3DSpace",
     livekitUrl: envString(raw, "LIVEKIT_URL") ?? envString(raw, "NEXT_PUBLIC_LIVEKIT_URL") ?? "ws://localhost:7880",
     livekitApiKey: envString(raw, "LIVEKIT_API_KEY"),
     livekitApiSecret: envString(raw, "LIVEKIT_API_SECRET"),
