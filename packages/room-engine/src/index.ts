@@ -476,3 +476,12 @@ export {
   isOccupyingWallObjectStatus
 } from "./wallAnchorPolicy";
 export type { WallAnchorCreateOption } from "./wallAnchorPolicy";
+export {
+  createInitialPollState,
+  isValidPollChoiceId,
+  normalizePollInlineData,
+  pollTotalVotes,
+  pollVoteCounts,
+  readPollState
+} from "./poll";
+export type { PollChoice, PollState } from "./poll";

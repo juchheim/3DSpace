@@ -587,10 +587,16 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   );
 
   const controlWallObject = useCallback(
-    async (objectId: string, action: "play" | "pause" | "mute" | "unmute" | "seek", positionSeconds?: number) => {
+    async (
+      objectId: string,
+      action: "play" | "pause" | "mute" | "unmute" | "seek" | "vote" | "close-poll" | "reopen-poll",
+      positionSeconds?: number,
+      choiceId?: string
+    ) => {
       await wall.controlObject(objectId, {
         action,
-        ...(positionSeconds !== undefined ? { positionSeconds } : {})
+        ...(positionSeconds !== undefined ? { positionSeconds } : {}),
+        ...(choiceId ? { choiceId } : {})
       });
     },
     [wall.controlObject]
@@ -659,6 +665,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             assetUrls={wall.assetUrls}
             wallMediaStreams={wallMediaStreams}
             canManageWallObjects={session.role === "teacher"}
+            currentUserId={identity.userId}
             onWallObjectControl={controlWallObject}
             onWallObjectRemove={async (objectId) => {
               await wall.removeObject(objectId);

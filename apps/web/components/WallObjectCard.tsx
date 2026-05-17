@@ -3,6 +3,13 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { WallObject } from "@3dspace/contracts";
 import {
+  normalizePollInlineData,
+  pollTotalVotes,
+  pollVoteCounts,
+  readPollState,
+  type PollChoice
+} from "@3dspace/room-engine";
+import {
   forceTimerElapsed,
   pushTimerElapsed,
   resetTimerRuntime,
@@ -11,7 +18,15 @@ import {
 import { useTimerRuntime } from "../lib/useTimerRuntime";
 
 type WallObjectCardStyle = CSSProperties & { "--wall-object-fit": string };
-type WallObjectControlAction = "play" | "pause" | "mute" | "unmute" | "seek";
+export type WallObjectControlAction =
+  | "play"
+  | "pause"
+  | "mute"
+  | "unmute"
+  | "seek"
+  | "vote"
+  | "close-poll"
+  | "reopen-poll";
 type TimerPlaybackStatus = "idle" | "playing" | "paused" | "ended";
 
 function typeLabel(type: WallObject["type"]) {
@@ -216,9 +231,111 @@ function WallTimerDisplay({
   );
 }
 
+function WallPollDisplay({
+  object,
+  canManage,
+  currentUserId,
+  surface = false,
+  onControl
+}: {
+  object: WallObject;
+  canManage: boolean;
+  currentUserId?: string | undefined;
+  surface?: boolean;
+  onControl?: (objectId: string, action: WallObjectControlAction, positionSeconds?: number, choiceId?: string) => void;
+}) {
+  const data = object.source.kind === "inline" ? object.source.data : {};
+  const { question, choices } = useMemo(() => normalizePollInlineData(data), [data]);
+  const pollState = useMemo(() => readPollState(object.state), [object.state]);
+  const counts = useMemo(() => pollVoteCounts(choices, pollState.votesByUserId), [choices, pollState.votesByUserId]);
+  const totalVotes = useMemo(() => pollTotalVotes(pollState.votesByUserId), [pollState.votesByUserId]);
+  const myVote = currentUserId ? pollState.votesByUserId[currentUserId] : undefined;
+  const canVote = object.status === "active" && !pollState.closed && Boolean(currentUserId) && Boolean(onControl);
+  const showResults = canManage || pollState.closed || Boolean(myVote);
+
+  const vote = (choice: PollChoice) => {
+    if (!canVote || myVote === choice.id) return;
+    void onControl?.(object.id, "vote", undefined, choice.id);
+  };
+
+  return (
+    <div
+      className={`wall-object-card__body wall-object-poll${surface ? " wall-object-poll--surface" : ""}`}
+      data-choice-count={choices.length}
+    >
+      <div className="wall-object-poll__header">
+        <p className="wall-object-poll__question">{question || object.title}</p>
+        {pollState.closed ? <p className="wall-object-poll__status">Poll closed</p> : null}
+      </div>
+      <div className="wall-object-poll__choices" role={canVote ? "group" : undefined} aria-label="Poll choices">
+        {choices.map((choice) => {
+          const count = counts[choice.id] ?? 0;
+          const percent = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
+          const selected = myVote === choice.id;
+
+          if (showResults) {
+            return (
+              <div
+                key={choice.id}
+                className={`wall-object-poll__result${selected ? " wall-object-poll__result--selected" : ""}`}
+              >
+                <div className="wall-object-poll__result-row">
+                  <div className="wall-object-poll__result-choice">{choice.label}</div>
+                  <div className="wall-object-poll__result-stats" aria-label={`${count} votes, ${percent} percent`}>
+                    <span className="wall-object-poll__result-count">
+                      <span className="wall-object-poll__result-count-value">{count}</span>
+                      <span className="wall-object-poll__result-count-label"> vote{count === 1 ? "" : "s"}</span>
+                    </span>
+                    <span className="wall-object-poll__result-sep" aria-hidden>
+                      ·
+                    </span>
+                    <span className="wall-object-poll__result-percent">{percent}%</span>
+                  </div>
+                </div>
+                <div className="wall-object-poll__bar" aria-hidden>
+                  <div className="wall-object-poll__bar-fill" style={{ width: `${percent}%` }} />
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <button
+              key={choice.id}
+              type="button"
+              className={`wall-object-poll__choice${selected ? " wall-object-poll__choice--selected" : ""}`}
+              disabled={!canVote}
+              onClick={() => vote(choice)}
+            >
+              {choice.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="wall-object-poll__footer">
+        {showResults ? <p className="wall-object-poll__total">{totalVotes} vote{totalVotes === 1 ? "" : "s"}</p> : null}
+        {canManage && onControl ? (
+          <div className="wall-object-poll__manage">
+            {pollState.closed ? (
+              <button type="button" className="secondary" onClick={() => void onControl(object.id, "reopen-poll")}>
+                Reopen poll
+              </button>
+            ) : (
+              <button type="button" className="secondary" onClick={() => void onControl(object.id, "close-poll")}>
+                Close poll
+              </button>
+            )}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function WallObjectContent({
   object,
   canManage,
+  currentUserId,
   surface,
   assetUrl,
   videoStream,
@@ -227,11 +344,12 @@ function WallObjectContent({
 }: {
   object: WallObject;
   canManage: boolean;
+  currentUserId?: string | undefined;
   surface: boolean;
   assetUrl?: string | undefined;
   videoStream?: MediaStream | null | undefined;
   audioStream?: MediaStream | null | undefined;
-  onControl?: (objectId: string, action: WallObjectControlAction, positionSeconds?: number) => void;
+  onControl?: (objectId: string, action: WallObjectControlAction, positionSeconds?: number, choiceId?: string) => void;
 }) {
   if (object.type === "timer") {
     return <WallTimerDisplay object={object} canManage={canManage} surface={surface} {...(onControl ? { onControl } : {})} />;
@@ -244,19 +362,14 @@ function WallObjectContent({
   }
 
   if (object.type === "poll") {
-    const question = String(data.question ?? object.title);
-    const options = Array.isArray(data.options) ? data.options.map(String) : [];
     return (
-      <div className="wall-object-card__body">
-        <p>{question}</p>
-        {options.length > 0 ? (
-          <ul>
-            {options.map((option) => (
-              <li key={option}>{option}</li>
-            ))}
-          </ul>
-        ) : null}
-      </div>
+      <WallPollDisplay
+        object={object}
+        canManage={canManage}
+        currentUserId={currentUserId}
+        surface={surface}
+        {...(onControl ? { onControl } : {})}
+      />
     );
   }
 
@@ -312,6 +425,7 @@ export function WallObjectCard({
   compact = false,
   surface = false,
   canManage = false,
+  currentUserId,
   onRemove,
   onStopShare,
   onControl,
@@ -324,9 +438,10 @@ export function WallObjectCard({
   compact?: boolean;
   surface?: boolean;
   canManage?: boolean;
+  currentUserId?: string | undefined;
   onRemove?: (objectId: string) => void;
   onStopShare?: (objectId: string) => void;
-  onControl?: (objectId: string, action: WallObjectControlAction, positionSeconds?: number) => void;
+  onControl?: (objectId: string, action: WallObjectControlAction, positionSeconds?: number, choiceId?: string) => void;
   onModerate?: (objectId: string, action: "approve" | "reject") => void;
 }) {
   const live = object.type.endsWith(".live") && object.status === "active";
@@ -337,6 +452,7 @@ export function WallObjectCard({
       <WallObjectContent
         object={object}
         canManage={canManage}
+        currentUserId={currentUserId}
         surface={surface}
         assetUrl={assetUrl}
         videoStream={videoStream}
@@ -344,7 +460,7 @@ export function WallObjectCard({
         {...(onControl ? { onControl } : {})}
       />
     ),
-    [assetUrl, audioStream, canManage, object, onControl, surface, videoStream]
+    [assetUrl, audioStream, canManage, currentUserId, object, onControl, surface, videoStream]
   );
 
   return (
@@ -363,7 +479,7 @@ export function WallObjectCard({
         </span>
       </header>
       <div className="wall-object-card__media">{body}</div>
-      {canManage && !(surface && object.type === "timer") ? (
+      {canManage && !(surface && (object.type === "timer" || object.type === "poll")) ? (
         <footer className="wall-object-card__actions">
           {object.type.endsWith(".live") && live ? (
             <button type="button" className="secondary" onClick={() => onStopShare?.(object.id)}>

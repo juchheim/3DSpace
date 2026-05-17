@@ -446,10 +446,26 @@ export const UpdateWallObjectRequestSchema = z.object({
 
 export const WallObjectControlRequestSchema = z.object({
   expectedVersion: z.number().int().positive().optional(),
-  action: z.enum(["play", "pause", "seek", "mute", "unmute", "stop-share", "spotlight", "lock", "unlock", "approve", "reject"]),
+  action: z.enum([
+    "play",
+    "pause",
+    "seek",
+    "mute",
+    "unmute",
+    "stop-share",
+    "spotlight",
+    "lock",
+    "unlock",
+    "approve",
+    "reject",
+    "vote",
+    "close-poll",
+    "reopen-poll"
+  ]),
   positionSeconds: z.number().nonnegative().optional(),
   rate: z.number().positive().max(4).optional(),
-  muted: z.boolean().optional()
+  muted: z.boolean().optional(),
+  choiceId: z.string().min(1).optional()
 });
 
 export const CreateWallShareRequestSchema = z.object({

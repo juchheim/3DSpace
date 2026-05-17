@@ -4,7 +4,7 @@ import { anchorHasOccupyingWallObject, anchorSupportsCreateOption, fileInputAcce
 import { useEffect, useMemo, useState } from "react";
 import type { RoomManifest, WallObject } from "@3dspace/contracts";
 import type { ApiIdentity } from "../lib/identity";
-import { WallObjectCard } from "./WallObjectCard";
+import { WallObjectCard, type WallObjectControlAction } from "./WallObjectCard";
 
 type CreateType = "file" | "note" | "timer" | "poll" | "link";
 
@@ -60,7 +60,7 @@ export function AnchorPanel({
   onShareScreen(anchorId: string): Promise<void>;
   onRemove(objectId: string): Promise<void>;
   onStopShare(objectId: string): Promise<void>;
-  onControl(objectId: string, action: "play" | "pause" | "mute" | "unmute" | "seek", positionSeconds?: number): Promise<void>;
+  onControl(objectId: string, action: WallObjectControlAction, positionSeconds?: number, choiceId?: string): Promise<void>;
   onModerate(objectId: string, action: "approve" | "reject"): Promise<void>;
 }) {
   const [selectedAnchor, setSelectedAnchor] = useState(manifest.wallAnchors[0]?.id ?? "");
@@ -70,6 +70,7 @@ export function AnchorPanel({
   const [noteText, setNoteText] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [pollQuestion, setPollQuestion] = useState("");
+  const [pollChoices, setPollChoices] = useState(["", ""]);
   const [timerMinutes, setTimerMinutes] = useState(5);
   const [busy, setBusy] = useState("");
 
@@ -151,12 +152,16 @@ export function AnchorPanel({
 
   async function submitPoll() {
     const question = pollQuestion.trim();
-    if (!question) return;
+    const choices = pollChoices.map((choice) => choice.trim()).filter(Boolean);
+    if (!question || choices.length < 2) return;
     await run("poll", async () => {
-      await onCreatePoll({ anchorId: selectedAnchor, title: question.slice(0, 60), question, choices: ["Yes", "No", "Unsure"] });
+      await onCreatePoll({ anchorId: selectedAnchor, title: question.slice(0, 60), question, choices });
       setPollQuestion("");
+      setPollChoices(["", ""]);
     });
   }
+
+  const pollChoiceFieldsValid = pollChoices.filter((choice) => choice.trim()).length >= 2;
 
   async function submitLink() {
     const url = linkUrl.trim();
@@ -301,7 +306,41 @@ export function AnchorPanel({
                 Question
                 <input value={pollQuestion} onChange={(e) => setPollQuestion(e.target.value)} placeholder="Poll question" />
               </label>
-              <button type="button" className="hud-btn" disabled={selectedAnchorOccupied || !pollQuestion.trim() || Boolean(busy)} onClick={() => void submitPoll()}>
+              <div className="content-form-poll-choices">
+                <span className="small">Choices</span>
+                {pollChoices.map((choice, index) => (
+                  <div key={index} className="content-form-row">
+                    <input
+                      value={choice}
+                      onChange={(e) =>
+                        setPollChoices((current) => current.map((entry, entryIndex) => (entryIndex === index ? e.target.value : entry)))
+                      }
+                      placeholder={`Choice ${index + 1}`}
+                    />
+                    {pollChoices.length > 2 ? (
+                      <button
+                        type="button"
+                        className="secondary"
+                        aria-label={`Remove choice ${index + 1}`}
+                        onClick={() => setPollChoices((current) => current.filter((_, entryIndex) => entryIndex !== index))}
+                      >
+                        −
+                      </button>
+                    ) : null}
+                  </div>
+                ))}
+                {pollChoices.length < 6 ? (
+                  <button type="button" className="secondary" onClick={() => setPollChoices((current) => [...current, ""])}>
+                    Add choice
+                  </button>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                className="hud-btn"
+                disabled={selectedAnchorOccupied || !pollQuestion.trim() || !pollChoiceFieldsValid || Boolean(busy)}
+                onClick={() => void submitPoll()}
+              >
                 {busy === "poll" ? "Adding…" : "Add poll"}
               </button>
             </div>
@@ -339,12 +378,13 @@ export function AnchorPanel({
                     object={object}
                     compact
                     canManage={canManage}
+                    currentUserId={identity.userId}
                     assetUrl={assetUrls[object.id]}
                     videoStream={wallMediaStreams[object.id]?.videoStream}
                     audioStream={wallMediaStreams[object.id]?.audioStream}
                     onRemove={(objectId) => void onRemove(objectId)}
                     onStopShare={(objectId) => void onStopShare(objectId)}
-                    onControl={(objectId, action, positionSeconds) => void onControl(objectId, action, positionSeconds)}
+                    onControl={(objectId, action, positionSeconds, choiceId) => void onControl(objectId, action, positionSeconds, choiceId)}
                     onModerate={(objectId, action) => void onModerate(objectId, action)}
                   />
                 ))}

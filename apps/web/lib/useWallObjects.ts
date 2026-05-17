@@ -20,7 +20,7 @@ import {
   listWallObjects,
   removeWallObject
 } from "./api";
-import { anchorHasOccupyingWallObject } from "@3dspace/room-engine";
+import { anchorHasOccupyingWallObject, createInitialPollState, readPollState } from "@3dspace/room-engine";
 import type { ApiIdentity } from "./identity";
 import type { RealtimeMessage } from "./realtime";
 
@@ -86,6 +86,58 @@ function applyPlaybackControl(object: WallObject, control: z.infer<typeof WallOb
           status: "paused",
           positionSeconds: control.positionSeconds ?? 0,
           sentAt: Date.now()
+        }
+      }
+    };
+  }
+
+  return object;
+}
+
+function applyPollControl(
+  object: WallObject,
+  control: z.infer<typeof WallObjectControlRequestSchema>,
+  userId: string
+): WallObject {
+  const pollState = readPollState(object.state);
+
+  if (control.action === "vote" && control.choiceId) {
+    return {
+      ...object,
+      state: {
+        ...object.state,
+        poll: {
+          ...pollState,
+          votesByUserId: {
+            ...pollState.votesByUserId,
+            [userId]: control.choiceId
+          }
+        }
+      }
+    };
+  }
+
+  if (control.action === "close-poll") {
+    return {
+      ...object,
+      state: {
+        ...object.state,
+        poll: {
+          ...pollState,
+          closed: true
+        }
+      }
+    };
+  }
+
+  if (control.action === "reopen-poll") {
+    return {
+      ...object,
+      state: {
+        ...object.state,
+        poll: {
+          ...pollState,
+          closed: false
         }
       }
     };
@@ -274,7 +326,7 @@ export function useWallObjects(input: {
         title: options.title,
         source: { kind: "inline", data: options.data },
         placement: { x: 0, y: 0, width: 1, height: 1, zIndex: Date.now() % 1000, fit: "contain" },
-        state: {},
+        state: options.type === "poll" ? createInitialPollState() : {},
         permissions: {},
         moderation: {},
         status: "active"
@@ -344,6 +396,14 @@ export function useWallObjects(input: {
           const existing = current[objectId];
           if (!existing) return current;
           return { ...current, [objectId]: applyPlaybackControl(existing, control) };
+        });
+      }
+
+      if (control.action === "vote" || control.action === "close-poll" || control.action === "reopen-poll") {
+        setObjectsById((current) => {
+          const existing = current[objectId];
+          if (!existing) return current;
+          return { ...current, [objectId]: applyPollControl(existing, control, input.identity.userId) };
         });
       }
 

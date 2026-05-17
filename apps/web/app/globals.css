@@ -1174,6 +1174,246 @@ label {
   padding-left: 1rem;
 }
 
+.content-form-poll-choices {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.wall-object-poll {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-height: 0;
+}
+
+.wall-object-poll__header,
+.wall-object-poll__footer {
+  flex-shrink: 0;
+}
+
+.wall-object-poll__question {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.wall-object-poll__status,
+.wall-object-poll__total {
+  margin: 0;
+  font-size: 0.72rem;
+  opacity: 0.78;
+}
+
+.wall-object-poll__choices {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.wall-object-card--compact .wall-object-poll__choices {
+  max-height: 11rem;
+}
+
+.wall-object-poll__choice {
+  width: 100%;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 0.45rem;
+  background: rgba(255, 250, 240, 0.04);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wall-object-poll__choice:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.wall-object-poll__choice--selected {
+  border-color: var(--accent);
+  background: rgba(0, 95, 204, 0.12);
+}
+
+.wall-object-poll__choice:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.wall-object-poll__result {
+  display: grid;
+  gap: 0.22rem;
+  flex-shrink: 0;
+}
+
+.wall-object-poll__result-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 0.65rem;
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+
+.wall-object-poll__result-choice {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wall-object-poll__result-stats {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.35rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.82;
+  white-space: nowrap;
+}
+
+.wall-object-poll__result-sep {
+  opacity: 0.55;
+}
+
+.wall-object-poll__result--selected .wall-object-poll__result-choice {
+  font-weight: 600;
+}
+
+.wall-object-poll__bar {
+  height: 0.35rem;
+  border-radius: 999px;
+  background: rgba(255, 250, 240, 0.12);
+  overflow: hidden;
+}
+
+.wall-object-poll__bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.wall-object-poll__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+.wall-object-poll__manage {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.wall-object-poll__manage button {
+  padding: 0.28rem 0.5rem;
+  font-size: 0.68rem;
+}
+
+.wall-object-card--surface .wall-object-poll__choice,
+.wall-object-card--surface .wall-object-poll__manage button {
+  pointer-events: auto;
+}
+
+.wall-object-card--surface[data-wall-object-type="poll"] {
+  container-type: size;
+}
+
+.wall-object-card--surface[data-wall-object-type="poll"] .wall-object-card__media {
+  background: rgba(10, 18, 15, 0.94);
+}
+
+.wall-object-card--surface[data-wall-object-type="poll"] .wall-object-card__body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll,
+.wall-object-poll--surface {
+  height: 100%;
+  min-height: 0;
+  gap: clamp(0.15rem, 1.4cqh, 0.45rem);
+  padding: clamp(0.35rem, 2.5cqh, 0.75rem);
+  font-size: clamp(0.5rem, min(7.5cqh, 4.2cqw), 0.9rem);
+}
+
+.wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__question,
+.wall-object-poll--surface .wall-object-poll__question {
+  -webkit-line-clamp: 1;
+  font-size: clamp(0.58rem, 9cqh, 1em);
+}
+
+.wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__choices,
+.wall-object-poll--surface .wall-object-poll__choices {
+  gap: clamp(0.12rem, 1cqh, 0.28rem);
+}
+
+.wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__result-row,
+.wall-object-poll--surface .wall-object-poll__result-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 0.45rem;
+  font-size: clamp(0.5rem, 7cqh, 0.88em);
+  line-height: 1.2;
+}
+
+.wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__result-count-label,
+.wall-object-poll--surface .wall-object-poll__result-count-label {
+  display: none;
+}
+
+.wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__choice,
+.wall-object-poll--surface .wall-object-poll__choice {
+  padding: clamp(0.2rem, 1.2cqh, 0.38rem) clamp(0.35rem, 1.8cqw, 0.55rem);
+  font-size: clamp(0.5rem, 7cqh, 0.88em);
+}
+
+.wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__bar,
+.wall-object-poll--surface .wall-object-poll__bar {
+  height: clamp(0.18rem, 1.2cqh, 0.28rem);
+}
+
+.wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__total,
+.wall-object-poll--surface .wall-object-poll__total {
+  font-size: clamp(0.48rem, 6cqh, 0.75em);
+}
+
+.wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll[data-choice-count="4"] .wall-object-poll__bar,
+.wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll[data-choice-count="5"] .wall-object-poll__bar,
+.wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll[data-choice-count="6"] .wall-object-poll__bar,
+.wall-object-poll--surface[data-choice-count="4"] .wall-object-poll__bar,
+.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__bar,
+.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__bar {
+  display: none;
+}
+
+.wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll[data-choice-count="5"],
+.wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll[data-choice-count="6"],
+.wall-object-poll--surface[data-choice-count="5"],
+.wall-object-poll--surface[data-choice-count="6"] {
+  font-size: clamp(0.46rem, 6cqh, 0.78rem);
+}
+
+.wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__manage,
+.wall-object-poll--surface .wall-object-poll__manage {
+  display: none;
+}
+
 .wall-object-card__timer {
   display: grid;
   gap: 0.45rem;

@@ -266,6 +266,94 @@ describe("3dspace api", () => {
     await app.close();
   });
 
+  it("lets students vote on poll choices and returns live results", async () => {
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-poll");
+    const room = roomWithManifest.room;
+    const anchorId = roomWithManifest.manifest.wallAnchors[0].id;
+
+    const inviteResponse = await app.inject({
+      method: "POST",
+      url: `/v1/classes/${classRecord.id}/invites`,
+      headers: authHeaders("teacher-poll", "Ms. Rivera"),
+      payload: { role: "student", roomId: room.id }
+    });
+    expect(inviteResponse.statusCode).toBe(200);
+    const invite = inviteResponse.json();
+
+    const studentJoin = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${room.id}/session`,
+      headers: authHeaders("student-poll", "Avery"),
+      payload: { viewMode: "3d", inviteCode: invite.code }
+    });
+    expect(studentJoin.statusCode).toBe(200);
+
+    const createPoll = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${room.id}/wall-objects`,
+      headers: authHeaders("teacher-poll", "Ms. Rivera"),
+      payload: {
+        wallAnchorId: anchorId,
+        type: "poll",
+        title: "Warm-up",
+        source: {
+          kind: "inline",
+          data: {
+            question: "Which topic should we review?",
+            choices: ["Waves", "Energy", "Forces"]
+          }
+        }
+      }
+    });
+    expect(createPoll.statusCode).toBe(200);
+    const poll = createPoll.json();
+    expect(poll.source.data.choices).toHaveLength(3);
+    expect(poll.state.poll.votesByUserId).toEqual({});
+
+    const firstChoiceId = poll.source.data.choices[0].id;
+
+    const studentVote = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${room.id}/wall-objects/${poll.id}/control`,
+      headers: authHeaders("student-poll", "Avery"),
+      payload: { action: "vote", choiceId: firstChoiceId }
+    });
+    expect(studentVote.statusCode).toBe(200);
+    expect(studentVote.json().state.poll.votesByUserId["student-poll"]).toBe(firstChoiceId);
+
+    const teacherVote = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${room.id}/wall-objects/${poll.id}/control`,
+      headers: authHeaders("teacher-poll", "Ms. Rivera"),
+      payload: { action: "vote", choiceId: poll.source.data.choices[1].id }
+    });
+    expect(teacherVote.statusCode).toBe(200);
+    expect(Object.keys(teacherVote.json().state.poll.votesByUserId)).toHaveLength(2);
+
+    const closePoll = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${room.id}/wall-objects/${poll.id}/control`,
+      headers: authHeaders("teacher-poll", "Ms. Rivera"),
+      payload: { action: "close-poll" }
+    });
+    expect(closePoll.statusCode).toBe(200);
+    expect(closePoll.json().state.poll.closed).toBe(true);
+
+    const blockedVote = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${room.id}/wall-objects/${poll.id}/control`,
+      headers: authHeaders("student-poll", "Avery"),
+      payload: { action: "vote", choiceId: poll.source.data.choices[2].id }
+    });
+    expect(blockedVote.statusCode).toBe(409);
+
+    await app.close();
+  });
+
   it("requires attachment finalization before creating an active file-backed wall object", async () => {
     const app = await buildApp({
       config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),

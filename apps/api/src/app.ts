@@ -35,7 +35,15 @@ import {
   type WallObjectType,
   type RoomSettings
 } from "@3dspace/contracts";
-import { anchorHasOccupyingWallObject, applyDefaultWallAnchorDimensions, createDefaultRoomManifest } from "@3dspace/room-engine";
+import {
+  anchorHasOccupyingWallObject,
+  applyDefaultWallAnchorDimensions,
+  createDefaultRoomManifest,
+  createInitialPollState,
+  isValidPollChoiceId,
+  normalizePollInlineData,
+  readPollState
+} from "@3dspace/room-engine";
 import { authenticate, type AuthContext } from "./auth.js";
 import { loadConfig, livekitConfigured, storageConfigured, type AppConfig } from "./config.js";
 import { badRequest, conflict, forbidden, HttpError, notFound, tooManyRequests } from "./errors.js";
@@ -293,6 +301,30 @@ async function validateWallObjectSource(input: {
   if (["note", "poll", "timer", "whiteboard"].includes(input.type)) {
     if (input.source.kind !== "inline") throw badRequest(`${input.type} requires an inline source`);
   }
+}
+
+function preparePollWallObjectInput(body: z.infer<typeof CreateWallObjectRequestSchema>) {
+  if (body.type !== "poll" || body.source.kind !== "inline") {
+    return { source: body.source, state: body.state ?? {} };
+  }
+
+  const normalized = normalizePollInlineData(body.source.data);
+  if (!normalized.question) throw badRequest("Poll question is required");
+  if (normalized.choices.length < 2) throw badRequest("Polls require at least two choices");
+
+  return {
+    source: {
+      kind: "inline" as const,
+      data: {
+        question: normalized.question,
+        choices: normalized.choices
+      }
+    },
+    state: {
+      ...createInitialPollState(),
+      ...(body.state ?? {})
+    }
+  };
 }
 
 async function enforceWallObjectLimits(repository: Repository, room: { id: string; settings: RoomSettings }, type: WallObjectType) {
@@ -785,6 +817,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const requestedStatus = teacher ? body.status ?? "active" : room.settings.wallObjectCreation === "student-direct" ? "active" : "pending_moderation";
     if (requestedStatus === "active") await enforceWallObjectLimits(repository, room, body.type);
     await validateWallObjectSource({ repository, roomId: params.roomId, type: body.type, source: body.source, requestedStatus });
+    const pollPrepared = preparePollWallObjectInput(body);
     const object = WallObjectSchema.parse(
       await repository.createWallObject({
         roomId: params.roomId,
@@ -792,9 +825,9 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
         type: body.type,
         title: body.title,
         ...(body.description ? { description: body.description } : {}),
-        source: body.source,
+        source: pollPrepared.source,
         placement: body.placement,
-        state: body.state,
+        state: pollPrepared.state,
         permissions: body.permissions,
         status: requestedStatus,
         moderation: {
@@ -881,14 +914,43 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     await requireRoomAccess(repository, params.roomId, auth);
     const existing = await repository.getWallObject(params.roomId, params.objectId);
     if (!existing) throw notFound("Wall object not found");
-    const { teacher } = await assertWallObjectManagePolicy(repository, params.roomId, auth, existing);
-    if ((body.action === "approve" || body.action === "reject" || body.action === "lock" || body.action === "unlock") && !teacher) {
-      throw forbidden("Teacher role required for wall object moderation");
-    }
+
     let status = existing.status;
     const state = { ...existing.state };
     const permissions = { ...existing.permissions };
     const moderation = { ...existing.moderation };
+
+    if (body.action === "vote") {
+      if (existing.type !== "poll") throw badRequest("Vote is only supported for polls");
+      if (existing.status !== "active") throw conflict("Poll is not open for voting");
+      const pollState = readPollState(state);
+      if (pollState.closed) throw conflict("Poll is closed");
+      const choiceId = body.choiceId?.trim();
+      if (!choiceId) throw badRequest("choiceId is required to vote");
+      if (existing.source.kind !== "inline") throw badRequest("Poll source is invalid");
+      const { choices } = normalizePollInlineData(existing.source.data);
+      if (!isValidPollChoiceId(choices, choiceId)) throw badRequest("Invalid poll choice");
+      state.poll = {
+        ...pollState,
+        votesByUserId: {
+          ...pollState.votesByUserId,
+          [auth.userId]: choiceId
+        }
+      };
+    } else {
+      const { teacher } = await assertWallObjectManagePolicy(repository, params.roomId, auth, existing);
+      if ((body.action === "approve" || body.action === "reject" || body.action === "lock" || body.action === "unlock") && !teacher) {
+        throw forbidden("Teacher role required for wall object moderation");
+      }
+
+      if (body.action === "close-poll" || body.action === "reopen-poll") {
+        if (existing.type !== "poll") throw badRequest("Poll controls are only supported for polls");
+        const pollState = readPollState(state);
+        state.poll = {
+          ...pollState,
+          closed: body.action === "close-poll"
+        };
+      }
 
     if (body.action === "play" || body.action === "pause") {
       const previousPlayback =
@@ -935,6 +997,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       moderation.rejectedByUserId = auth.userId;
       moderation.rejectedAt = new Date().toISOString();
     }
+    }
 
     const controlUpdate: Parameters<Repository["updateWallObject"]>[2] = {
       status,
@@ -948,13 +1011,15 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     await repository.recordRoomEvent({
       roomId: params.roomId,
       type:
-        body.action === "stop-share"
-          ? "wall.share.ended.v1"
-          : body.action === "approve" || body.action === "reject"
-            ? "wall.object.moderated.v1"
-            : body.action === "lock" || body.action === "unlock"
-              ? "wall.object.locked.v1"
-              : "wall.playback.controlled.v1",
+        body.action === "vote" || body.action === "close-poll" || body.action === "reopen-poll"
+          ? "wall.poll.updated.v1"
+          : body.action === "stop-share"
+            ? "wall.share.ended.v1"
+            : body.action === "approve" || body.action === "reject"
+              ? "wall.object.moderated.v1"
+              : body.action === "lock" || body.action === "unlock"
+                ? "wall.object.locked.v1"
+                : "wall.playback.controlled.v1",
       payload: { objectId: updated.id, action: body.action, status: updated.status, version: updated.version },
       createdByUserId: auth.userId
     });

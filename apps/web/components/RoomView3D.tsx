@@ -54,6 +54,7 @@ export function RoomView3D({
   assetUrls = {},
   wallMediaStreams = {},
   canManageWallObjects = false,
+  currentUserId,
   onWallObjectControl,
   onWallObjectRemove,
   onWallObjectStopShare,
@@ -71,7 +72,13 @@ export function RoomView3D({
   assetUrls?: Record<string, string>;
   wallMediaStreams?: Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>;
   canManageWallObjects?: boolean;
-  onWallObjectControl?: (objectId: string, action: "play" | "pause" | "mute" | "unmute" | "seek", positionSeconds?: number) => void;
+  currentUserId?: string | undefined;
+  onWallObjectControl?: (
+    objectId: string,
+    action: "play" | "pause" | "mute" | "unmute" | "seek" | "vote" | "close-poll" | "reopen-poll",
+    positionSeconds?: number,
+    choiceId?: string
+  ) => void;
   onWallObjectRemove?: (objectId: string) => void | Promise<void>;
   onWallObjectStopShare?: (objectId: string) => void | Promise<void>;
   onWallObjectModerate?: (objectId: string, action: "approve" | "reject") => void | Promise<void>;
@@ -99,6 +106,7 @@ export function RoomView3D({
           assetUrls={assetUrls}
           wallMediaStreams={wallMediaStreams}
           canManageWallObjects={canManageWallObjects}
+          currentUserId={currentUserId}
           {...(onWallObjectControl ? { onWallObjectControl } : {})}
           {...(onWallObjectRemove ? { onWallObjectRemove } : {})}
           {...(onWallObjectStopShare ? { onWallObjectStopShare } : {})}
@@ -124,6 +132,7 @@ function WallObjectLayer({
   assetUrls,
   wallMediaStreams,
   canManageWallObjects,
+  currentUserId,
   onWallObjectControl,
   onWallObjectRemove,
   onWallObjectStopShare,
@@ -134,7 +143,13 @@ function WallObjectLayer({
   assetUrls: Record<string, string>;
   wallMediaStreams: Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>;
   canManageWallObjects: boolean;
-  onWallObjectControl?: (objectId: string, action: "play" | "pause" | "mute" | "unmute" | "seek", positionSeconds?: number) => void;
+  currentUserId?: string | undefined;
+  onWallObjectControl?: (
+    objectId: string,
+    action: "play" | "pause" | "mute" | "unmute" | "seek" | "vote" | "close-poll" | "reopen-poll",
+    positionSeconds?: number,
+    choiceId?: string
+  ) => void;
   onWallObjectRemove?: (objectId: string) => void | Promise<void>;
   onWallObjectStopShare?: (objectId: string) => void | Promise<void>;
   onWallObjectModerate?: (objectId: string, action: "approve" | "reject") => void | Promise<void>;
@@ -155,6 +170,7 @@ function WallObjectLayer({
               videoStream={wallMediaStreams[object.id]?.videoStream}
               audioStream={wallMediaStreams[object.id]?.audioStream}
               canManage={canManageWallObjects}
+              currentUserId={currentUserId}
               {...(onWallObjectControl ? { onControl: onWallObjectControl } : {})}
               {...(onWallObjectRemove ? { onRemove: onWallObjectRemove } : {})}
               {...(onWallObjectStopShare ? { onStopShare: onWallObjectStopShare } : {})}
@@ -173,6 +189,7 @@ const WallObjectSurface = memo(function WallObjectSurface({
   videoStream,
   audioStream,
   canManage,
+  currentUserId,
   onControl,
   onRemove,
   onStopShare,
@@ -184,7 +201,13 @@ const WallObjectSurface = memo(function WallObjectSurface({
   videoStream?: MediaStream | null | undefined;
   audioStream?: MediaStream | null | undefined;
   canManage: boolean;
-  onControl?: (objectId: string, action: "play" | "pause" | "mute" | "unmute" | "seek", positionSeconds?: number) => void;
+  currentUserId?: string | undefined;
+  onControl?: (
+    objectId: string,
+    action: "play" | "pause" | "mute" | "unmute" | "seek" | "vote" | "close-poll" | "reopen-poll",
+    positionSeconds?: number,
+    choiceId?: string
+  ) => void;
   onRemove?: (objectId: string) => void | Promise<void>;
   onStopShare?: (objectId: string) => void | Promise<void>;
   onModerate?: (objectId: string, action: "approve" | "reject") => void | Promise<void>;
@@ -240,6 +263,7 @@ const WallObjectSurface = memo(function WallObjectSurface({
             compact
             surface
             canManage={canManage}
+            currentUserId={currentUserId}
             {...(onControl ? { onControl } : {})}
             {...(onRemove ? { onRemove } : {})}
             {...(onStopShare ? { onStopShare } : {})}
