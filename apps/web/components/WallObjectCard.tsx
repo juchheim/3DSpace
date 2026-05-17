@@ -285,7 +285,9 @@ function WallObjectContent({
     );
   }
 
-  if (videoStream) {
+  const liveShareActive = !object.type.endsWith(".live") || object.status === "active";
+
+  if (videoStream && liveShareActive) {
     return (
       <StreamVideo
         stream={videoStream}
@@ -295,7 +297,7 @@ function WallObjectContent({
     );
   }
 
-  if (audioStream) {
+  if (audioStream && liveShareActive) {
     return <StreamAudio stream={audioStream} />;
   }
 

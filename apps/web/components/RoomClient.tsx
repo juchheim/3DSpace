@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AvatarStateMessage, Role, RoomManifest, RoomSessionResponse, ViewMode } from "@3dspace/contracts";
+import type { AvatarStateMessage, Role, RoomManifest, RoomSessionResponse, ViewMode, WallObject } from "@3dspace/contracts";
 import { createAvatarState } from "@3dspace/room-engine";
 import { joinRoom, listClassMembers } from "../lib/api";
 import { pickDisplayName } from "../lib/displayName";
@@ -27,6 +27,10 @@ const RoomView3D = dynamic(() => import("./RoomView3D").then((module) => module.
   ssr: false,
   loading: () => <div className="fallback-view">Loading the 3D room...</div>
 });
+
+function isActiveLiveWallObject(object: WallObject) {
+  return object.type.endsWith(".live") && object.status === "active";
+}
 
 export type ParticipantView = {
   id: string;
@@ -362,10 +366,15 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     if (!session) return;
     const localCameraObjectIds = new Set(
       wall.wallObjects
-        .filter((object) => object.type === "camera.live" && object.source.kind === "livekit-track" && object.source.participantId === session.participantId)
+        .filter(
+          (object) =>
+            isActiveLiveWallObject(object) &&
+            object.type === "camera.live" &&
+            object.source.kind === "livekit-track" &&
+            object.source.participantId === session.participantId
+        )
         .map((object) => object.id)
     );
-    if (localCameraObjectIds.size === 0) return;
 
     setLocalWallMedia((current) => {
       let next = current;
@@ -375,10 +384,16 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         next[objectId] = { ...(next[objectId] ?? {}), videoStream: media.cameraStream };
       }
       for (const objectId of Object.keys(current)) {
-        if (!localCameraObjectIds.has(objectId)) continue;
-        if (media.cameraStream) continue;
+        if (localCameraObjectIds.has(objectId)) {
+          if (media.cameraStream) continue;
+          if (next === current) next = { ...current };
+          next[objectId] = { ...(next[objectId] ?? {}), videoStream: null };
+          continue;
+        }
+        const object = wall.wallObjects.find((candidate) => candidate.id === objectId);
+        if (object?.type !== "camera.live") continue;
         if (next === current) next = { ...current };
-        next[objectId] = { ...(next[objectId] ?? {}), videoStream: null };
+        delete next[objectId];
       }
       return next;
     });
@@ -391,6 +406,12 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       ...localWallMedia
     };
     for (const object of wall.wallObjects) {
+      if (object.type.endsWith(".live") && !isActiveLiveWallObject(object)) {
+        if (next[object.id]) {
+          next[object.id] = { ...(next[object.id] ?? {}), videoStream: null, audioStream: null };
+        }
+        continue;
+      }
       const source = object.source;
       if (source.kind !== "livekit-track") continue;
       const participant = participantList.find((candidate) => candidate.id === source.participantId);
@@ -512,6 +533,12 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     async (objectId: string) => {
       displayMedia.stop();
       setLocalWallMedia((current) => {
+        const next = { ...current };
+        delete next[objectId];
+        return next;
+      });
+      setRemoteWallMedia((current) => {
+        if (!current[objectId]) return current;
         const next = { ...current };
         delete next[objectId];
         return next;
