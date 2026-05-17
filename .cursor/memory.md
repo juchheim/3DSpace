@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-16 (avatar nameplate sizing)
+Last updated: 2026-05-17 (MVP+1 wall media planning)
 
 ## Project Summary
 
@@ -13,7 +13,7 @@ Implementation state: **Local MVP complete; Phase 7 deployment blocked by missin
 ## Entities
 
 - **Monorepo**: `apps/web`, `apps/api`, `packages/contracts`, `packages/room-engine`
-- **Planning**: `docs/planning/mvp/MVP_IMPLEMENTATION_PLAN.md`, `MVP_STATUS.md`, `DEPLOYMENT_CHECKLIST.md`
+- **Planning**: `docs/planning/mvp/MVP_IMPLEMENTATION_PLAN.md`, `MVP_STATUS.md`, `DEPLOYMENT_CHECKLIST.md`; `docs/planning/mvp+1/MVP_PLUS_ONE_WALL_MEDIA_PLAN.md`
 - **Memory**: `.cursor/memory.md` (this file)
 - **Env templates**: `.env.example`, `apps/api/.env.example`, `apps/web/.env.example`
 - **Deploy artifacts**: `apps/api/Dockerfile`, `vercel.json`
@@ -87,10 +87,19 @@ Local loading:
 - Zod/OpenAPI = API contract; Mongoose = persistence
 - LiveKit data channels = avatar state; not persisted in MVP
 - `MVP_STATUS.md` must stay updated during implementation
+- MVP+1 wall media plan → builds on MVP wall anchors, `WallAttachment` records, signed storage, LiveKit media/data channels, room events, and dual 3D/2D renderers
+- MVP+1 design decision → introduce `WallObject` for visible placed wall content; keep `WallAttachment` as file asset metadata instead of stretching it to represent live streams, web links, whiteboards, polls, and timers
 
 ## Post-MVP Backlog
 
 Screen share, computer audio, teacher moderation, rich wall placement, room builder, whiteboards, breakouts, LMS, analytics, recording.
+
+## Planning Observations
+
+- **2026-05-17**: Created `docs/planning/mvp+1/MVP_PLUS_ONE_WALL_MEDIA_PLAN.md` to specify extending MVP wall readiness into wall-mounted learning surfaces.
+- MVP+1 scope covers image/video/audio files, live camera, live microphone, browser-tab/screen share, web links, allowlisted embeds, documents/slides, notes, polls, timers, and future whiteboards.
+- Browser-on-wall should start as LiveKit-backed browser-tab/screen share plus safe web resource cards; arbitrary iframe embeds are unreliable/unsafe and should be allowlisted only.
+- Wall media implementation should keep mutable wall content outside the room manifest. Anchors stay in the manifest; placed content lives in `WallObject` persistence and syncs by API plus reliable realtime messages.
 
 ## Bug Fixes
 
