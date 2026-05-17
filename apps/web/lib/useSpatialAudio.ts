@@ -54,9 +54,9 @@ export function useSpatialAudio(input: {
 
     const wallMicAnchors = new Map<string, string>();
     for (const object of input.wallObjects ?? []) {
-      if (object.type === "microphone.live" && object.status === "active" && object.source.kind === "livekit-track") {
-        wallMicAnchors.set(object.source.participantId, object.wallAnchorId);
-      }
+      if (object.status !== "active" || object.source.kind !== "livekit-track") continue;
+      if (object.type !== "microphone.live" && object.type !== "camera.live") continue;
+      wallMicAnchors.set(object.source.participantId, object.wallAnchorId);
     }
 
     const activeRemoteIds = new Set<string>();

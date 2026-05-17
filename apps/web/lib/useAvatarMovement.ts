@@ -29,6 +29,8 @@ export function useAvatarMovement(input: {
   const keys = useRef(new Set<string>());
   const touchVector = useRef({ x: 0, z: 0 });
   const stateRef = useRef<AvatarStateMessage | null>(null);
+  const mediaRef = useRef(input.media);
+  mediaRef.current = input.media;
 
   useEffect(() => {
     if (!input.manifest) return;
@@ -48,11 +50,11 @@ export function useAvatarMovement(input: {
       ? {
           ...stateRef.current,
           viewMode: input.viewMode,
-          media: input.media
+          media: mediaRef.current
         }
       : null;
     setAvatarState(stateRef.current);
-  }, [input.viewMode, input.media.cameraEnabled, input.media.microphoneEnabled, input.media.speaking]);
+  }, [input.viewMode, input.media.cameraEnabled, input.media.microphoneEnabled]);
 
   useEffect(() => {
     function down(event: KeyboardEvent) {
@@ -116,7 +118,7 @@ export function useAvatarMovement(input: {
           rotation: nextRotation,
           movement: moving ? ("walking" as const) : ("idle" as const),
           viewMode: input.viewMode,
-          media: input.media
+          media: mediaRef.current
         };
         stateRef.current = next;
         setAvatarState(next);
@@ -126,14 +128,7 @@ export function useAvatarMovement(input: {
 
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [
-    input.manifest,
-    input.viewMode,
-    input.cameraYawRef,
-    input.media.cameraEnabled,
-    input.media.microphoneEnabled,
-    input.media.speaking
-  ]);
+  }, [input.manifest, input.viewMode, input.cameraYawRef, input.media.cameraEnabled, input.media.microphoneEnabled]);
 
   const setTouchVector = useCallback((vector: { x: number; z: number }) => {
     touchVector.current = vector;

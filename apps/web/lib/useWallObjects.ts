@@ -20,8 +20,11 @@ import {
   listWallObjects,
   removeWallObject
 } from "./api";
+import { anchorHasOccupyingWallObject } from "@3dspace/room-engine";
 import type { ApiIdentity } from "./identity";
 import type { RealtimeMessage } from "./realtime";
+
+const ANCHOR_OCCUPIED_ERROR = "This display already has wall content. Remove it before adding something else.";
 
 type PublishWallMessage = (message: RealtimeMessage) => void;
 
@@ -121,6 +124,15 @@ export function useWallObjects(input: {
     [objectsById]
   );
 
+  const assertAnchorAvailable = useCallback(
+    (anchorId: string) => {
+      if (anchorHasOccupyingWallObject(wallObjects, anchorId)) {
+        throw new Error(ANCHOR_OCCUPIED_ERROR);
+      }
+    },
+    [wallObjects]
+  );
+
   const refresh = useCallback(async () => {
     if (!input.enabled || !input.roomId) return;
     setLoading(true);
@@ -209,6 +221,7 @@ export function useWallObjects(input: {
   const createFileObject = useCallback(
     async (options: { anchorId: string; file: File; title: string; altText?: string | undefined; caption?: string | undefined }) => {
       if (!input.roomId) throw new Error("Room is not ready.");
+      assertAnchorAvailable(options.anchorId);
       const kind = fileTypeFor(options.file);
       const created = await createAttachment(input.identity, input.roomId, {
         wallAnchorId: options.anchorId,
@@ -248,12 +261,13 @@ export function useWallObjects(input: {
       publishUpsert(input.publish, input.roomId, object, input.identity.userId);
       return object;
     },
-    [input.identity, input.publish, input.roomId, upsertLocal]
+    [assertAnchorAvailable, input.identity, input.publish, input.roomId, upsertLocal]
   );
 
   const createInlineObject = useCallback(
     async (options: { anchorId: string; type: Extract<WallObjectType, "note" | "timer" | "poll">; title: string; data: Record<string, unknown> }) => {
       if (!input.roomId) throw new Error("Room is not ready.");
+      assertAnchorAvailable(options.anchorId);
       const object = await createWallObject(input.identity, input.roomId, {
         wallAnchorId: options.anchorId,
         type: options.type,
@@ -269,12 +283,13 @@ export function useWallObjects(input: {
       publishUpsert(input.publish, input.roomId, object, input.identity.userId);
       return object;
     },
-    [input.identity, input.publish, input.roomId, upsertLocal]
+    [assertAnchorAvailable, input.identity, input.publish, input.roomId, upsertLocal]
   );
 
   const createLinkObject = useCallback(
     async (options: { anchorId: string; url: string; title?: string | undefined; embedMode?: "link" | "iframe" | undefined }) => {
       if (!input.roomId) throw new Error("Room is not ready.");
+      assertAnchorAvailable(options.anchorId);
       const request: Parameters<typeof createWebResource>[2] = {
         wallAnchorId: options.anchorId,
         url: options.url,
@@ -286,12 +301,13 @@ export function useWallObjects(input: {
       publishUpsert(input.publish, input.roomId, object, input.identity.userId);
       return object;
     },
-    [input.identity, input.publish, input.roomId, upsertLocal]
+    [assertAnchorAvailable, input.identity, input.publish, input.roomId, upsertLocal]
   );
 
   const createLiveShareObject = useCallback(
     async (options: { anchorId: string; type: "camera.live" | "microphone.live" | "screen.live" | "browser-tab.live"; title: string }) => {
       if (!input.roomId) throw new Error("Room is not ready.");
+      assertAnchorAvailable(options.anchorId);
       const response = await createWallShare(input.identity, input.roomId, {
         wallAnchorId: options.anchorId,
         type: options.type,
@@ -301,7 +317,7 @@ export function useWallObjects(input: {
       publishUpsert(input.publish, input.roomId, response.object, input.identity.userId);
       return response;
     },
-    [input.identity, input.publish, input.roomId, upsertLocal]
+    [assertAnchorAvailable, input.identity, input.publish, input.roomId, upsertLocal]
   );
 
   const removeObject = useCallback(

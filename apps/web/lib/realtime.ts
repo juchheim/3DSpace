@@ -1,5 +1,6 @@
 "use client";
 
+import { waitForVideoTrackDimensions } from "./mediaTracks";
 import type {
   AvatarStateMessage,
   Role,
@@ -116,6 +117,41 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   let publishedCameraTrack: MediaStreamTrack | null = null;
   let publishedMicTrack: MediaStreamTrack | null = null;
   const publishedWallTracks = new Map<string, { video?: MediaStreamTrack; audio?: MediaStreamTrack }>();
+  let localMediaSync: Promise<void> = Promise.resolve();
+
+  async function syncLocalMedia(media: { cameraStream: MediaStream | null; micStream: MediaStream | null }) {
+    const nextCameraTrack = media.cameraStream?.getVideoTracks()[0] ?? null;
+    if (publishedCameraTrack && publishedCameraTrack.id !== nextCameraTrack?.id) {
+      await room.localParticipant.unpublishTrack(publishedCameraTrack, false);
+      publishedCameraTrack = null;
+    }
+    if (nextCameraTrack && publishedCameraTrack?.id !== nextCameraTrack.id && nextCameraTrack.readyState === "live") {
+      await waitForVideoTrackDimensions(nextCameraTrack).catch(() => undefined);
+      await room.localParticipant.publishTrack(nextCameraTrack, {
+        name: "camera",
+        source: Track.Source.Camera,
+        stream: "avatar-media",
+        simulcast: true
+      });
+      publishedCameraTrack = nextCameraTrack;
+    }
+
+    const nextMicTrack = media.micStream?.getAudioTracks()[0] ?? null;
+    if (publishedMicTrack && publishedMicTrack.id !== nextMicTrack?.id) {
+      await room.localParticipant.unpublishTrack(publishedMicTrack, false);
+      publishedMicTrack = null;
+    }
+    if (nextMicTrack && publishedMicTrack?.id !== nextMicTrack.id && nextMicTrack.readyState === "live") {
+      await room.localParticipant.publishTrack(nextMicTrack, {
+        name: "microphone",
+        source: Track.Source.Microphone,
+        stream: "avatar-media",
+        dtx: true,
+        red: true
+      });
+      publishedMicTrack = nextMicTrack;
+    }
+  }
 
   function participantIdFromIdentity(identity: string) {
     return identity.includes(":") ? identity.split(":")[0]! : identity;
@@ -227,36 +263,12 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
       void room.localParticipant.publishData(encoder.encode(JSON.stringify(message)), { reliable });
     },
     async setLocalMedia(media) {
-      const nextCameraTrack = media.cameraStream?.getVideoTracks()[0] ?? null;
-      if (publishedCameraTrack && publishedCameraTrack.id !== nextCameraTrack?.id) {
-        await room.localParticipant.unpublishTrack(publishedCameraTrack, false);
-        publishedCameraTrack = null;
-      }
-      if (nextCameraTrack && publishedCameraTrack?.id !== nextCameraTrack.id) {
-        await room.localParticipant.publishTrack(nextCameraTrack, {
-          name: "camera",
-          source: Track.Source.Camera,
-          stream: "avatar-media",
-          simulcast: true
+      localMediaSync = localMediaSync
+        .then(() => syncLocalMedia(media))
+        .catch((error) => {
+          console.error("Failed to sync local media with LiveKit", error);
         });
-        publishedCameraTrack = nextCameraTrack;
-      }
-
-      const nextMicTrack = media.micStream?.getAudioTracks()[0] ?? null;
-      if (publishedMicTrack && publishedMicTrack.id !== nextMicTrack?.id) {
-        await room.localParticipant.unpublishTrack(publishedMicTrack, false);
-        publishedMicTrack = null;
-      }
-      if (nextMicTrack && publishedMicTrack?.id !== nextMicTrack.id) {
-        await room.localParticipant.publishTrack(nextMicTrack, {
-          name: "microphone",
-          source: Track.Source.Microphone,
-          stream: "avatar-media",
-          dtx: true,
-          red: true
-        });
-        publishedMicTrack = nextMicTrack;
-      }
+      return localMediaSync;
     },
     async setLocalWallShare(inputShare) {
       const existing = publishedWallTracks.get(inputShare.objectId);
@@ -270,13 +282,16 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
       const audioTrack = inputShare.audioStream?.getAudioTracks()[0] ?? inputShare.screenStream.getAudioTracks()[0] ?? null;
       const record: { video?: MediaStreamTrack; audio?: MediaStreamTrack } = {};
       if (videoTrack) {
-        await room.localParticipant.publishTrack(videoTrack, {
-          name: publicationName,
-          source: Track.Source.ScreenShare,
-          stream: "wall-share",
-          simulcast: true
-        });
-        record.video = videoTrack;
+        if (videoTrack.readyState === "live") {
+          await waitForVideoTrackDimensions(videoTrack).catch(() => undefined);
+          await room.localParticipant.publishTrack(videoTrack, {
+            name: publicationName,
+            source: Track.Source.ScreenShare,
+            stream: "wall-share",
+            simulcast: true
+          });
+          record.video = videoTrack;
+        }
       }
       if (audioTrack) {
         await room.localParticipant.publishTrack(audioTrack, {

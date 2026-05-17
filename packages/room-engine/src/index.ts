@@ -27,6 +27,20 @@ export const DEFAULT_SPATIAL_AUDIO: SpatialAudioConfig = {
   rolloffFactor: 1.4
 };
 
+/** Standard widescreen display aspect (16:9). */
+export const WIDESCREEN_ASPECT = 16 / 9;
+
+/** Primary front-board width in world meters (height follows 16:9). */
+export const PRIMARY_BOARD_WIDTH = 4.8;
+
+export function widescreenHeight(width: number): number {
+  return (width * 9) / 16;
+}
+
+export function widescreenWidth(height: number): number {
+  return (height * 16) / 9;
+}
+
 export const DEFAULT_ROOM_ENGINE_CONFIG: RoomEngineConfig = {
   maxParticipants: 30,
   avatarSendHz: 12,
@@ -110,10 +124,10 @@ export function createDefaultRoomManifest(input: {
         label: "Main board",
         position: { x: 0, y: 2, z: -5.92 },
         normal: { x: 0, y: 0, z: 1 },
-        width: 6.8,
-        height: 2.1,
+        width: PRIMARY_BOARD_WIDTH,
+        height: widescreenHeight(PRIMARY_BOARD_WIDTH),
         metadata: {
-          accepts: ["image", "video", "image.file", "video.file", "camera.live", "screen.live", "browser-tab.live", "web.link", "note", "poll", "timer"],
+          accepts: ["image", "video", "image.file", "video.file", "camera.live", "microphone.live", "screen.live", "browser-tab.live", "web.link", "note", "poll", "timer"],
           capacity: 4,
           layout: "grid",
           defaultRole: "primary-display",
@@ -128,7 +142,7 @@ export function createDefaultRoomManifest(input: {
         position: { x: -5.6, y: 2, z: -5.92 },
         normal: { x: 0, y: 0, z: 1 },
         width: 2.2,
-        height: 1.4,
+        height: widescreenHeight(2.2),
         metadata: {
           accepts: ["image", "audio", "image.file", "audio.file", "microphone.live", "web.link", "note", "timer"],
           capacity: 3,
@@ -144,7 +158,7 @@ export function createDefaultRoomManifest(input: {
         position: { x: 4.5, y: 2, z: 5.92 },
         normal: { x: 0, y: 0, z: -1 },
         width: 2.5,
-        height: 1.6,
+        height: widescreenHeight(2.5),
         metadata: {
           accepts: ["image", "video", "audio", "image.file", "video.file", "audio.file", "camera.live", "screen.live", "browser-tab.live", "web.link", "note", "poll", "timer"],
           capacity: 4,
@@ -160,7 +174,7 @@ export function createDefaultRoomManifest(input: {
         position: { x: -7.92, y: 2, z: 0 },
         normal: { x: 1, y: 0, z: 0 },
         width: 3.4,
-        height: 1.4,
+        height: widescreenHeight(3.4),
         metadata: {
           accepts: ["image", "image.file", "document.file", "slides.file", "web.link", "note", "poll", "timer"],
           capacity: 6,
@@ -176,7 +190,7 @@ export function createDefaultRoomManifest(input: {
         position: { x: 7.92, y: 2, z: 0 },
         normal: { x: -1, y: 0, z: 0 },
         width: 3.4,
-        height: 1.4,
+        height: widescreenHeight(3.4),
         metadata: {
           accepts: ["image", "image.file", "document.file", "slides.file", "web.link", "note", "poll", "timer"],
           capacity: 6,
@@ -253,6 +267,25 @@ export function projectPositionTo2D(manifest: RoomManifest, position: Vector3) {
   return {
     x: ((position.x - manifest.bounds.minX) / width) * 100,
     y: ((position.z - manifest.bounds.minZ) / depth) * 100
+  };
+}
+
+export function projectAnchorRectTo2D(
+  manifest: RoomManifest,
+  anchor: { position: Vector3; normal: Vector3; width: number; height: number }
+) {
+  const point = projectPositionTo2D(manifest, anchor.position);
+  const boundsWidth = manifest.bounds.maxX - manifest.bounds.minX;
+  const boundsDepth = manifest.bounds.maxZ - manifest.bounds.minZ;
+  const onSideWall = Math.abs(anchor.normal.x) > 0.5;
+  const rectWidth = onSideWall ? (anchor.width / boundsDepth) * 100 : (anchor.width / boundsWidth) * 100;
+  const rectHeight = rectWidth / WIDESCREEN_ASPECT;
+
+  return {
+    x: point.x - rectWidth / 2,
+    y: point.y - rectHeight / 2,
+    width: rectWidth,
+    height: rectHeight
   };
 }
 
@@ -405,6 +438,24 @@ export function calculateSpatialAudio(
   };
 }
 
+/** Merge current default anchor dimensions into a stored manifest (geometry only). */
+export function applyDefaultWallAnchorDimensions(manifest: RoomManifest): RoomManifest {
+  const template = createDefaultRoomManifest({
+    roomId: manifest.roomId,
+    name: manifest.name,
+    version: manifest.version
+  });
+  const dimensionsById = new Map(template.wallAnchors.map((anchor) => [anchor.id, { width: anchor.width, height: anchor.height }]));
+
+  return {
+    ...manifest,
+    wallAnchors: manifest.wallAnchors.map((anchor) => {
+      const dimensions = dimensionsById.get(anchor.id);
+      return dimensions ? { ...anchor, ...dimensions } : anchor;
+    })
+  };
+}
+
 export function getWallAnchorAudioPosition(manifest: RoomManifest, wallAnchorId: string): Vector3 | undefined {
   const anchor = manifest.wallAnchors.find((candidate) => candidate.id === wallAnchorId);
   if (!anchor) return undefined;
@@ -414,3 +465,14 @@ export function getWallAnchorAudioPosition(manifest: RoomManifest, wallAnchorId:
     z: anchor.position.z
   };
 }
+
+export {
+  anchorAcceptsWallObjectType,
+  anchorHasOccupyingWallObject,
+  anchorSupportsCreateOption,
+  baseAcceptedKind,
+  fileInputAcceptForAnchor,
+  fileKindForWallObjectType,
+  isOccupyingWallObjectStatus
+} from "./wallAnchorPolicy";
+export type { WallAnchorCreateOption } from "./wallAnchorPolicy";

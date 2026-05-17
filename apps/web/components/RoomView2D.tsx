@@ -1,7 +1,7 @@
 "use client";
 
 import type { RoomManifest, WallObject } from "@3dspace/contracts";
-import { projectPositionTo2D } from "@3dspace/room-engine";
+import { projectAnchorRectTo2D, projectPositionTo2D } from "@3dspace/room-engine";
 import type { ParticipantView } from "./RoomClient";
 import { WallObjectCard } from "./WallObjectCard";
 
@@ -39,12 +39,13 @@ export function RoomView2D({
         })}
         {manifest.wallAnchors.map((anchor) => {
           const point = projectPositionTo2D(manifest, anchor.position);
+          const rect = projectAnchorRectTo2D(manifest, anchor);
           const objects = wallObjects.filter((object) => object.wallAnchorId === anchor.id && object.status !== "removed");
           const hasLive = objects.some((object) => object.type.endsWith(".live") && object.status === "active");
           return (
             <g key={anchor.id}>
-              <rect x={point.x - 3.8} y={point.y - 1.8} width="7.6" height="3.6" rx="0.7" fill={hasLive ? "#005fcc" : "#eb5e28"} opacity="0.82" />
-              <text x={point.x} y={point.y - 2.4} textAnchor="middle" fontSize="2.2" fill="#17201a">{anchor.label}</text>
+              <rect x={rect.x} y={rect.y} width={rect.width} height={rect.height} rx="0.7" fill={hasLive ? "#005fcc" : "#eb5e28"} opacity="0.82" />
+              <text x={point.x} y={rect.y - 0.6} textAnchor="middle" fontSize="2.2" fill="#17201a">{anchor.label}</text>
               {objects.length > 0 ? <text x={point.x} y={point.y + 0.75} textAnchor="middle" fontSize="2.1" fill="#fffaf0">{objects.length}</text> : null}
             </g>
           );

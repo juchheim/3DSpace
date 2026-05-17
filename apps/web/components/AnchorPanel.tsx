@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { anchorHasOccupyingWallObject, anchorSupportsCreateOption, fileInputAcceptForAnchor, isOccupyingWallObjectStatus } from "@3dspace/room-engine";
+import { useEffect, useMemo, useState } from "react";
 import type { RoomManifest, WallObject } from "@3dspace/contracts";
 import type { ApiIdentity } from "../lib/identity";
 import { WallObjectCard } from "./WallObjectCard";
@@ -75,10 +76,37 @@ export function AnchorPanel({
   const objectsByAnchor = useMemo(() => {
     const groups = new Map<string, WallObject[]>();
     for (const object of wallObjects) {
+      if (!isOccupyingWallObjectStatus(object.status)) continue;
       groups.set(object.wallAnchorId, [...(groups.get(object.wallAnchorId) ?? []), object]);
     }
     return groups;
   }, [wallObjects]);
+
+  const selectedAnchorOccupied = useMemo(
+    () => anchorHasOccupyingWallObject(wallObjects, selectedAnchor),
+    [selectedAnchor, wallObjects]
+  );
+
+  const selectedAnchorData = useMemo(
+    () => manifest.wallAnchors.find((anchor) => anchor.id === selectedAnchor),
+    [manifest.wallAnchors, selectedAnchor]
+  );
+
+  const availableFormTypes = useMemo(
+    () => FORM_TYPES.filter(({ id }) => selectedAnchorData && anchorSupportsCreateOption(selectedAnchorData, id)),
+    [selectedAnchorData]
+  );
+
+  const showCamera = selectedAnchorData ? anchorSupportsCreateOption(selectedAnchorData, "camera") : false;
+  const showMicrophone = selectedAnchorData ? anchorSupportsCreateOption(selectedAnchorData, "microphone") : false;
+  const showScreen = selectedAnchorData ? anchorSupportsCreateOption(selectedAnchorData, "screen") : false;
+  const fileAccept = selectedAnchorData ? fileInputAcceptForAnchor(selectedAnchorData) : "";
+
+  useEffect(() => {
+    if (selectedType && !availableFormTypes.some(({ id }) => id === selectedType)) {
+      setSelectedType(null);
+    }
+  }, [availableFormTypes, selectedType]);
 
   const hasObjects = wallObjects.length > 0;
 
@@ -87,6 +115,7 @@ export function AnchorPanel({
   }
 
   async function run(label: string, action: () => Promise<void>) {
+    if (selectedAnchorOccupied) return;
     setBusy(label);
     try {
       await action();
@@ -163,43 +192,58 @@ export function AnchorPanel({
             </select>
           ) : null}
 
+          {selectedAnchorOccupied ? (
+            <p className="small">Remove the current item on this display before adding another.</p>
+          ) : null}
+
           {/* Form type selector */}
+          {availableFormTypes.length > 0 || showCamera || showMicrophone || showScreen ? (
           <div className="content-type-bar">
-            {FORM_TYPES.map(({ id, label }) => (
+            {availableFormTypes.map(({ id, label }) => (
               <button
                 key={id}
                 type="button"
                 className={`content-type-btn${selectedType === id ? " selected" : ""}`}
+                disabled={selectedAnchorOccupied || Boolean(busy)}
                 onClick={() => toggleType(id)}
               >
                 {label}
               </button>
             ))}
-            <button
-              type="button"
-              className="content-type-btn"
-              disabled={Boolean(busy)}
-              onClick={() => void run("camera", () => onPinCamera(selectedAnchor))}
-            >
-              {busy === "camera" ? "…" : "Cam"}
-            </button>
-            <button
-              type="button"
-              className="content-type-btn"
-              disabled={Boolean(busy)}
-              onClick={() => void run("mic", () => onPinMicrophone(selectedAnchor))}
-            >
-              {busy === "mic" ? "…" : "Mic"}
-            </button>
-            <button
-              type="button"
-              className="content-type-btn"
-              disabled={Boolean(busy)}
-              onClick={() => void run("screen", () => onShareScreen(selectedAnchor))}
-            >
-              {busy === "screen" ? "…" : "Screen"}
-            </button>
+            {showCamera ? (
+              <button
+                type="button"
+                className="content-type-btn"
+                disabled={selectedAnchorOccupied || Boolean(busy)}
+                onClick={() => void run("camera", () => onPinCamera(selectedAnchor))}
+              >
+                {busy === "camera" ? "…" : "Cam"}
+              </button>
+            ) : null}
+            {showMicrophone ? (
+              <button
+                type="button"
+                className="content-type-btn"
+                disabled={selectedAnchorOccupied || Boolean(busy)}
+                onClick={() => void run("mic", () => onPinMicrophone(selectedAnchor))}
+              >
+                {busy === "mic" ? "…" : "Mic"}
+              </button>
+            ) : null}
+            {showScreen ? (
+              <button
+                type="button"
+                className="content-type-btn"
+                disabled={selectedAnchorOccupied || Boolean(busy)}
+                onClick={() => void run("screen", () => onShareScreen(selectedAnchor))}
+              >
+                {busy === "screen" ? "…" : "Screen"}
+              </button>
+            ) : null}
           </div>
+          ) : (
+            <p className="small">This display does not accept wall content.</p>
+          )}
 
           {/* File form */}
           {selectedType === "file" && (
@@ -208,7 +252,7 @@ export function AnchorPanel({
                 File
                 <input
                   type="file"
-                  accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,audio/mpeg,audio/mp4,audio/wav,audio/webm"
+                  accept={fileAccept || undefined}
                   onChange={(e) => setFile(e.currentTarget.files?.[0] ?? null)}
                 />
               </label>
@@ -216,7 +260,7 @@ export function AnchorPanel({
                 Title
                 <input value={fileTitle} onChange={(e) => setFileTitle(e.target.value)} placeholder={file?.name ?? "Title"} />
               </label>
-              <button type="button" className="hud-btn" disabled={!file || Boolean(busy)} onClick={() => void submitFile()}>
+              <button type="button" className="hud-btn" disabled={selectedAnchorOccupied || !file || Boolean(busy)} onClick={() => void submitFile()}>
                 {busy === "file" ? "Adding…" : "Add file"}
               </button>
             </div>
@@ -229,7 +273,7 @@ export function AnchorPanel({
                 Note
                 <input value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="Pinned note text" />
               </label>
-              <button type="button" className="hud-btn" disabled={!noteText.trim() || Boolean(busy)} onClick={() => void submitNote()}>
+              <button type="button" className="hud-btn" disabled={selectedAnchorOccupied || !noteText.trim() || Boolean(busy)} onClick={() => void submitNote()}>
                 {busy === "note" ? "Adding…" : "Add note"}
               </button>
             </div>
@@ -243,7 +287,7 @@ export function AnchorPanel({
                   Minutes
                   <input type="number" min={1} max={120} value={timerMinutes} onChange={(e) => setTimerMinutes(Number(e.target.value))} />
                 </label>
-                <button type="button" className="hud-btn" disabled={Boolean(busy)} onClick={() => void submitTimer()}>
+                <button type="button" className="hud-btn" disabled={selectedAnchorOccupied || Boolean(busy)} onClick={() => void submitTimer()}>
                   {busy === "timer" ? "…" : "Add"}
                 </button>
               </div>
@@ -257,7 +301,7 @@ export function AnchorPanel({
                 Question
                 <input value={pollQuestion} onChange={(e) => setPollQuestion(e.target.value)} placeholder="Poll question" />
               </label>
-              <button type="button" className="hud-btn" disabled={!pollQuestion.trim() || Boolean(busy)} onClick={() => void submitPoll()}>
+              <button type="button" className="hud-btn" disabled={selectedAnchorOccupied || !pollQuestion.trim() || Boolean(busy)} onClick={() => void submitPoll()}>
                 {busy === "poll" ? "Adding…" : "Add poll"}
               </button>
             </div>
@@ -270,7 +314,7 @@ export function AnchorPanel({
                 URL
                 <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="https://example.edu/resource" />
               </label>
-              <button type="button" className="hud-btn" disabled={!linkUrl.trim() || Boolean(busy)} onClick={() => void submitLink()}>
+              <button type="button" className="hud-btn" disabled={selectedAnchorOccupied || !linkUrl.trim() || Boolean(busy)} onClick={() => void submitLink()}>
                 {busy === "link" ? "Adding…" : "Add link"}
               </button>
             </div>

@@ -440,6 +440,26 @@ describe("3dspace api", () => {
     });
     expect(disallowedAnchor.statusCode).toBe(400);
 
+    const teacherNoteBlocked = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${room.id}/wall-objects`,
+      headers: authHeaders("teacher-policy", "Ms. Rivera"),
+      payload: {
+        wallAnchorId: boardAnchorId,
+        type: "note",
+        title: "Teacher note",
+        source: { kind: "inline", data: { text: "Focus on wavelength." } }
+      }
+    });
+    expect(teacherNoteBlocked.statusCode).toBe(409);
+
+    const removeStudentNote = await app.inject({
+      method: "DELETE",
+      url: `/v1/rooms/${room.id}/wall-objects/${pendingObject.id}`,
+      headers: authHeaders("teacher-policy", "Ms. Rivera")
+    });
+    expect(removeStudentNote.statusCode).toBe(200);
+
     const teacherNote = await app.inject({
       method: "POST",
       url: `/v1/rooms/${room.id}/wall-objects`,
@@ -519,7 +539,7 @@ describe("3dspace api", () => {
     expect(cameraShare.json().publicationName).toMatch(/^wall:/);
     expect(cameraShare.json().object.status).toBe("active");
 
-    const overLiveLimit = await app.inject({
+    const anchorOccupied = await app.inject({
       method: "POST",
       url: `/v1/rooms/${room.id}/wall-shares`,
       headers: authHeaders("teacher-live", "Ms. Rivera"),
@@ -529,7 +549,7 @@ describe("3dspace api", () => {
         title: "Shared screen"
       }
     });
-    expect(overLiveLimit.statusCode).toBe(409);
+    expect(anchorOccupied.statusCode).toBe(409);
 
     const endShare = await app.inject({
       method: "POST",
@@ -538,6 +558,13 @@ describe("3dspace api", () => {
     });
     expect(endShare.statusCode).toBe(200);
     expect(endShare.json().status).toBe("source_ended");
+
+    const removeEndedCamera = await app.inject({
+      method: "DELETE",
+      url: `/v1/rooms/${room.id}/wall-objects/${cameraShare.json().object.id}`,
+      headers: authHeaders("teacher-live", "Ms. Rivera")
+    });
+    expect(removeEndedCamera.statusCode).toBe(200);
 
     const unsafeUrl = await app.inject({
       method: "POST",

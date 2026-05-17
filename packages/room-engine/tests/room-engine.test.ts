@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  anchorHasOccupyingWallObject,
+  anchorSupportsCreateOption,
+  applyDefaultWallAnchorDimensions,
   calculateSpatialAudio,
+  isOccupyingWallObjectStatus,
   clampPositionToBounds,
   createAvatarState,
   createDefaultRoomManifest,
@@ -8,7 +12,9 @@ import {
   projectPositionTo2D,
   selectSpawnPoint,
   transformLocalMovementToWorld,
-  unprojectPointFrom2D
+  unprojectPointFrom2D,
+  WIDESCREEN_ASPECT,
+  widescreenHeight
 } from "../src/index";
 
 describe("room engine", () => {
@@ -20,6 +26,64 @@ describe("room engine", () => {
     expect(manifest.wallAnchors.map((anchor) => anchor.id)).toContain("anchor-board");
     expect(manifest.capabilities.maxParticipants).toBe(30);
     expect(manifest.projection.kind).toBe("top-down-v1");
+  });
+
+  it("derives wall create options from anchor metadata.accepts", () => {
+    const manifest = createDefaultRoomManifest({ roomId: "room_1" });
+    const board = manifest.wallAnchors.find((anchor) => anchor.id === "anchor-board");
+    const media = manifest.wallAnchors.find((anchor) => anchor.id === "anchor-media-left");
+
+    expect(board).toBeDefined();
+    expect(media).toBeDefined();
+    expect(anchorSupportsCreateOption(board!, "poll")).toBe(true);
+    expect(anchorSupportsCreateOption(board!, "camera")).toBe(true);
+    expect(anchorSupportsCreateOption(board!, "microphone")).toBe(true);
+    expect(anchorSupportsCreateOption(media!, "poll")).toBe(false);
+    expect(anchorSupportsCreateOption(media!, "microphone")).toBe(true);
+    expect(anchorSupportsCreateOption(media!, "screen")).toBe(false);
+  });
+
+  it("uses 16:9 widescreen proportions for all wall anchor boards", () => {
+    const manifest = createDefaultRoomManifest({ roomId: "room_1" });
+    expect(widescreenHeight(16)).toBe(9);
+    for (const anchor of manifest.wallAnchors) {
+      expect(anchor.width / anchor.height).toBeCloseTo(WIDESCREEN_ASPECT, 5);
+    }
+    const board = manifest.wallAnchors.find((anchor) => anchor.id === "anchor-board");
+    expect(board?.width).toBe(4.8);
+    expect(board?.height).toBeCloseTo(widescreenHeight(4.8), 3);
+  });
+
+  it("applies latest default anchor dimensions to stored manifests", () => {
+    const manifest = createDefaultRoomManifest({ roomId: "room_1" });
+    const stale = {
+      ...manifest,
+      wallAnchors: manifest.wallAnchors.map((anchor) =>
+        anchor.id === "anchor-board" ? { ...anchor, width: 6.8, height: 2.1 } : anchor
+      )
+    };
+    const updated = applyDefaultWallAnchorDimensions(stale);
+    const board = updated.wallAnchors.find((anchor) => anchor.id === "anchor-board");
+    expect(board?.width).toBe(4.8);
+    expect(board?.height).toBeCloseTo(widescreenHeight(4.8), 3);
+  });
+
+  it("treats removed wall objects as not occupying an anchor", () => {
+    expect(isOccupyingWallObjectStatus("active")).toBe(true);
+    expect(isOccupyingWallObjectStatus("source_ended")).toBe(true);
+    expect(isOccupyingWallObjectStatus("removed")).toBe(false);
+    expect(
+      anchorHasOccupyingWallObject(
+        [
+          { wallAnchorId: "anchor-board", status: "active" },
+          { wallAnchorId: "anchor-board", status: "removed" }
+        ],
+        "anchor-board"
+      )
+    ).toBe(true);
+    expect(
+      anchorHasOccupyingWallObject([{ wallAnchorId: "anchor-board", status: "removed" }], "anchor-board")
+    ).toBe(false);
   });
 
   it("transforms local movement relative to avatar facing", () => {

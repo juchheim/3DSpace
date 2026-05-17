@@ -35,7 +35,7 @@ import {
   type WallObjectType,
   type RoomSettings
 } from "@3dspace/contracts";
-import { createDefaultRoomManifest } from "@3dspace/room-engine";
+import { anchorHasOccupyingWallObject, applyDefaultWallAnchorDimensions, createDefaultRoomManifest } from "@3dspace/room-engine";
 import { authenticate, type AuthContext } from "./auth.js";
 import { loadConfig, livekitConfigured, storageConfigured, type AppConfig } from "./config.js";
 import { badRequest, conflict, forbidden, HttpError, notFound, tooManyRequests } from "./errors.js";
@@ -99,7 +99,7 @@ async function requireRoomAccess(repository: Repository, roomId: string, auth: A
   const access = await requireClassAccess(repository, room.classId, auth);
   const manifest = await repository.getActiveManifest(room.id);
   if (!manifest) throw notFound("Room manifest not found");
-  return { room, manifest, membership: access.membership };
+  return { room, manifest: applyDefaultWallAnchorDimensions(manifest), membership: access.membership };
 }
 
 async function requireRoomTeacher(repository: Repository, roomId: string, auth: AuthContext) {
@@ -207,6 +207,13 @@ function assertAnchorAcceptsType(manifest: Awaited<ReturnType<Repository["getAct
   if (accepts.includes(broadKind)) return anchor;
 
   throw badRequest(`Wall anchor does not accept ${type}`);
+}
+
+async function assertAnchorAvailableForNewObject(repository: Repository, roomId: string, wallAnchorId: string) {
+  const objects = await repository.listWallObjects(roomId, { anchorId: wallAnchorId, includeRemoved: true });
+  if (anchorHasOccupyingWallObject(objects, wallAnchorId)) {
+    throw conflict("This display already has wall content. Remove it before adding something else.");
+  }
 }
 
 function validateAttachmentPolicy(config: AppConfig, body: { kind: WallAttachment["kind"]; contentType: string; metadata?: Record<string, unknown> }) {
@@ -621,8 +628,9 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       status: "active"
     });
 
-    const manifest = await repository.getActiveManifest(room.id);
-    if (!manifest) throw notFound("Room manifest not found");
+    const storedManifest = await repository.getActiveManifest(room.id);
+    if (!storedManifest) throw notFound("Room manifest not found");
+    const manifest = applyDefaultWallAnchorDimensions(storedManifest);
     enforceSessionJoinRateLimit(auth.userId, room.id);
     const participantIdentity = `${auth.userId}:${room.id}`;
     const activeCount = await repository.recordRoomSession({
@@ -772,6 +780,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const { room, manifest } = await requireRoomAccess(repository, params.roomId, auth);
     assertWallObjectsEnabled({ settings: room.settings }, config);
     assertAnchorAcceptsType(manifest, body.wallAnchorId, body.type);
+    await assertAnchorAvailableForNewObject(repository, params.roomId, body.wallAnchorId);
     const { teacher } = await assertWallObjectCreatePolicy({ repository, config, room, auth, type: body.type });
     const requestedStatus = teacher ? body.status ?? "active" : room.settings.wallObjectCreation === "student-direct" ? "active" : "pending_moderation";
     if (requestedStatus === "active") await enforceWallObjectLimits(repository, room, body.type);
@@ -962,6 +971,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       throw forbidden("Wall screen sharing is disabled");
     }
     assertAnchorAcceptsType(manifest, body.wallAnchorId, body.type);
+    await assertAnchorAvailableForNewObject(repository, params.roomId, body.wallAnchorId);
     const { teacher } = await assertWallObjectCreatePolicy({ repository, config, room, auth, type: body.type });
     await enforceWallObjectLimits(repository, room, body.type);
     const trackSource = liveTrackSourceForWallObjectType(body.type)!;
@@ -1062,6 +1072,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const embeddable = body.embedMode === "iframe" && room.settings.allowEmbeds && config.tuning.enableWallWebEmbeds && isAllowedEmbedHost(config, url.host);
     const type = embeddable ? "web.embed" : "web.link";
     assertAnchorAcceptsType(manifest, body.wallAnchorId, type);
+    await assertAnchorAvailableForNewObject(repository, params.roomId, body.wallAnchorId);
     const { teacher } = await assertWallObjectCreatePolicy({ repository, config, room, auth, type });
     const requestedStatus = teacher ? "active" : room.settings.wallObjectCreation === "student-direct" ? "active" : "pending_moderation";
     if (requestedStatus === "active") await enforceWallObjectLimits(repository, room, type);

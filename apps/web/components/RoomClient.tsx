@@ -14,6 +14,7 @@ import { useDisplayMedia } from "../lib/useDisplayMedia";
 import { useWallObjects } from "../lib/useWallObjects";
 import { usePersistentIdentity } from "../lib/usePersistentIdentity";
 import { navigateToLobby } from "../lib/navigateToLobby";
+import { normalizeRoomManifest } from "../lib/manifest";
 import { createRealtimeClient, type RealtimeClient, type RealtimeMessage } from "../lib/realtime";
 import { useSpatialAudio } from "../lib/useSpatialAudio";
 import { AnchorPanel } from "./AnchorPanel";
@@ -90,6 +91,11 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   });
 
   useEffect(() => {
+    setManifest((current) => (current ? normalizeRoomManifest(current) : current));
+    setSession((current) => (current ? { ...current, manifest: normalizeRoomManifest(current.manifest) } : current));
+  }, []);
+
+  useEffect(() => {
     if (!movement.avatarState) return;
     camera.yawRef.current = movement.avatarState.rotation.y;
   }, [movement.avatarState?.participantId]);
@@ -126,8 +132,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     joinRoom(identity, roomId, inviteCode ? { viewMode, inviteCode } : { viewMode })
       .then((nextSession) => {
         if (cancelled) return;
-        setSession(nextSession);
-        setManifest(nextSession.manifest);
+        const normalizedManifest = normalizeRoomManifest(nextSession.manifest);
+        setSession({ ...nextSession, manifest: normalizedManifest });
+        setManifest(normalizedManifest);
         setStatus("Room session ready.");
       })
       .catch((err) => {
@@ -335,7 +342,24 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         lastSeenAt: Date.now()
       }
     }));
-  }, [session?.participantId, movement.avatarState, identity.displayName, media.cameraStream, media.micStream]);
+  }, [session?.participantId, movement.avatarState, identity.displayName, media.cameraStream]);
+
+  useEffect(() => {
+    if (!session) return;
+    setParticipants((current) => {
+      const existing = current[session.participantId];
+      if (!existing) return current;
+      if (existing.microphoneStream === media.micStream) return current;
+      return {
+        ...current,
+        [session.participantId]: {
+          ...existing,
+          microphoneStream: media.micStream,
+          lastSeenAt: Date.now()
+        }
+      };
+    });
+  }, [session?.participantId, media.micStream]);
 
   useEffect(() => {
     if (!session) return;
@@ -346,11 +370,23 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   }, [session?.participantId, session?.tuning.avatarSendHz]);
 
   useEffect(() => {
-    void realtimeRef.current?.setLocalMedia({
-      cameraStream: media.cameraStream,
-      micStream: media.micStream
+    if (!session) return;
+    let cancelled = false;
+    const publish = () => {
+      if (cancelled) return;
+      void realtimeRef.current?.setLocalMedia({
+        cameraStream: media.cameraStream,
+        micStream: media.micStream
+      });
+    };
+    const frame = requestAnimationFrame(() => {
+      requestAnimationFrame(publish);
     });
-  }, [media.cameraStream, media.micStream]);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
+  }, [media.cameraStream, media.micStream, session]);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -478,9 +514,10 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const pinCamera = useCallback(
     async (anchorId: string) => {
       if (!media.cameraEnabled) media.setCameraEnabled(true);
+      await media.waitForCameraStream();
       await wall.createLiveShareObject({ anchorId, type: "camera.live", title: "Pinned camera" });
     },
-    [media.cameraEnabled, media.setCameraEnabled, wall.createLiveShareObject]
+    [media.cameraEnabled, media.setCameraEnabled, media.waitForCameraStream, wall.createLiveShareObject]
   );
 
   const pinMicrophone = useCallback(
