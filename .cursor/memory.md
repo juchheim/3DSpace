@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-17 (role-aware room spawn fix)
+Last updated: 2026-05-17 (interactive wall polls with voting)
 
 ## Project Summary
 
@@ -8,7 +8,7 @@ Last updated: 2026-05-17 (role-aware room spawn fix)
 
 Workspace: `/Users/ejuchheim/Projects/3DSpace/3DSpace`
 
-Implementation state: **MVP complete in production** (Vercel + Koyeb + Atlas + Clerk + LiveKit + R2). Sentry not provisioned. MVP+1 wall media implementation complete locally on `mvp-plus-one`; deployed LiveKit/browser-permission wall-share validation still recommended before release.
+Implementation state: **MVP complete in production** (Vercel + Koyeb + Atlas + Clerk + LiveKit + R2). Sentry not provisioned. MVP+1 wall media implementation complete locally on `mvp-plus-one`; wall polls support teacher-defined choices, student voting via `vote` control action, and live result bars with choice labels separated from vote summaries on board surfaces; deployed LiveKit/browser-permission wall-share validation still recommended before release.
 
 ## Entities
 
