@@ -107,15 +107,195 @@ label {
   padding: clamp(1rem, 3vw, 2.5rem);
 }
 
-.hero {
+/* ── Home / lobby layout ── */
+
+.home-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(22rem, 0.8fr);
-  gap: clamp(1.5rem, 4vw, 4rem);
-  align-items: center;
-  max-width: 1180px;
+  gap: clamp(1.5rem, 3vw, 2.5rem);
+  max-width: 1160px;
   margin: 0 auto;
-  min-height: calc(100vh - 5rem);
+  padding-top: clamp(2rem, 5vw, 4rem);
+  padding-bottom: clamp(2rem, 5vw, 4rem);
 }
+
+.home-header {
+  text-align: center;
+}
+
+.home-title {
+  margin: 0.35rem 0 0.5rem;
+  font-size: clamp(2.6rem, 8vw, 5rem);
+  font-weight: 500;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+
+.home-sub {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.1rem;
+}
+
+.home-auth {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: center;
+}
+
+.dev-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+  width: 100%;
+  max-width: 520px;
+}
+
+.dev-bar label {
+  flex: 1;
+  min-width: 160px;
+}
+
+/* ── Step-by-step flow ── */
+
+.steps-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  width: 100%;
+}
+
+.step-card {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  padding: clamp(1rem, 2.5vw, 1.6rem);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+  transition: opacity 0.25s ease;
+}
+
+.step-pending {
+  opacity: 0.38;
+  pointer-events: none;
+  user-select: none;
+}
+
+.step-lit {
+  animation: step-appear 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes step-appear {
+  from { opacity: 0.38; transform: scale(0.98); }
+  to   { opacity: 1;    transform: scale(1); }
+}
+
+.step-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+}
+
+.step-num {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 999px;
+  background: var(--night);
+  color: #fffaf0;
+  font-family: "Trebuchet MS", sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.step-num-dim {
+  background: transparent;
+  border: 1.5px solid var(--line);
+  color: var(--muted);
+}
+
+.step-title {
+  margin: 0 0 0.1rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.step-desc {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.83rem;
+}
+
+.step-placeholder {
+  border: 1.5px dashed var(--line);
+  border-radius: 18px;
+  padding: 1.25rem 1rem;
+  color: var(--muted);
+  font-size: 0.83rem;
+  text-align: center;
+}
+
+.step-enter-btn {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+}
+
+.step-arrow {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 0.5rem;
+  padding-top: 2.8rem;
+  color: var(--muted);
+  opacity: 0.55;
+}
+
+/* ── Student join ── */
+
+.join-section {
+  display: grid;
+  gap: 1rem;
+  max-width: 480px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.join-rule {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.join-rule::before,
+.join-rule::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.join-panel {
+  width: 100%;
+}
+
+/* ── Existing rooms ── */
+
+.rooms-section {
+  max-width: 640px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ── Legacy hero (kept for any direct references) ── */
 
 .eyebrow {
   color: var(--moss);
@@ -124,22 +304,6 @@ label {
   font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-}
-
-.hero h1 {
-  max-width: 11ch;
-  margin: 0.5rem 0 1rem;
-  font-size: clamp(4rem, 12vw, 9rem);
-  font-weight: 500;
-  letter-spacing: -0.08em;
-  line-height: 0.82;
-}
-
-.hero-copy {
-  max-width: 42rem;
-  color: var(--muted);
-  font-size: 1.2rem;
-  line-height: 1.55;
 }
 
 .panel {
@@ -472,23 +636,29 @@ label {
 }
 
 @media (max-width: 1040px) {
-  .hero,
   .room-layout {
     grid-template-columns: 1fr;
+    min-height: auto;
+  }
+}
+
+@media (max-width: 860px) {
+  .steps-row {
+    flex-direction: column;
+    align-items: stretch;
   }
 
-  .room-layout {
-    min-height: auto;
+  .step-arrow {
+    padding-top: 0;
+    padding: 0.25rem 0;
+    justify-content: center;
+    transform: rotate(90deg);
   }
 }
 
 @media (max-width: 640px) {
   .app-shell {
     padding: 0.75rem;
-  }
-
-  .hero h1 {
-    font-size: clamp(3.4rem, 24vw, 5rem);
   }
 
   .split,

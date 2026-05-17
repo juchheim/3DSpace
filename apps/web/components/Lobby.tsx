@@ -104,143 +104,177 @@ export function Lobby() {
     }
   }
 
+  const hasRoom = Boolean(createdInvite?.roomId);
+
   return (
-    <main className="app-shell">
-      <section className="hero">
-        <div>
-          <p className="eyebrow">3DSpace MVP</p>
-          <h1>Class, with depth.</h1>
-          <p className="hero-copy">
-            Create a lightweight browser room, invite students, move together in 3D, switch to a full 2D analog, and keep
-            media, audio, and wall anchors ready for the next learning tools.
-          </p>
-          <div className="cluster" aria-label="MVP capabilities">
-            <span className="status-pill"><span className="status-dot" />3D room</span>
-            <span className="status-pill"><span className="status-dot" />2D analog</span>
-            <span className="status-pill"><span className="status-dot" />LiveKit-ready</span>
-            <span className="status-pill"><span className="status-dot" />Wall anchors</span>
+    <main className="app-shell home-shell">
+
+      {/* ── Header ── */}
+      <header className="home-header">
+        <span className="eyebrow">3DSpace</span>
+        <h1 className="home-title">Class, with depth.</h1>
+        <p className="home-sub">Create a room, share the invite, and start in seconds.</p>
+      </header>
+
+      {/* ── Auth / dev identity ── */}
+      <div className="home-auth">
+        <AuthGate />
+        {!clerkEnabled && (
+          <div className="dev-bar">
+            <label>
+              Role
+              <select
+                value={identity.userId}
+                onChange={(event) => setRole(event.target.value === "dev-teacher" ? "teacher" : "student")}
+              >
+                <option value="dev-teacher">Teacher (dev)</option>
+                <option value="dev-student">Student (dev)</option>
+              </select>
+            </label>
+            <label>
+              Display name
+              <input
+                value={identity.displayName}
+                onChange={(event) =>
+                  setIdentity({ role: identity.role, displayName: event.target.value, userId: identity.userId })
+                }
+              />
+            </label>
           </div>
+        )}
+      </div>
+
+      {/* ── 3-step teacher flow ── */}
+      <div className="steps-row" aria-label="Steps to host a class">
+
+        {/* Step 1 — Create */}
+        <div className="step-card">
+          <div className="step-header">
+            <span className="step-num">1</span>
+            <div>
+              <h2 className="step-title">Create</h2>
+              <p className="step-desc">Name your class and room</p>
+            </div>
+          </div>
+          <label>
+            Class name
+            <input value={className} onChange={(event) => setClassName(event.target.value)} />
+          </label>
+          <label>
+            Room name
+            <input value={roomName} onChange={(event) => setRoomName(event.target.value)} />
+          </label>
+          <button disabled={busy || (clerkEnabled && !signedIn)} onClick={createClassroom}>
+            {busy ? "Creating…" : "Create room"}
+          </button>
         </div>
 
-        <div className="panel stack" aria-label="Create or join a classroom">
-          <AuthGate />
+        <div className="step-arrow" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <path d="M6 14h16M16 8l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
 
-          {clerkEnabled ? (
-            <p className="small">
-              Sign in with Clerk to host or join. Students get the <strong>student</strong> role automatically when they use an
-              invite code or join link — there is no separate role picker in production.
-            </p>
-          ) : (
-            <div className="split">
-              <label>
-                Local test user
-                <select value={identity.userId} onChange={(event) => setRole(event.target.value === "dev-teacher" ? "teacher" : "student")}>
-                  <option value="dev-teacher">Teacher (dev-teacher)</option>
-                  <option value="dev-student">Student (dev-student)</option>
-                </select>
-              </label>
-              <label>
-                Display name
-                <input
-                  value={identity.displayName}
-                  onChange={(event) =>
-                    setIdentity({
-                      role: identity.role,
-                      displayName: event.target.value,
-                      userId: identity.userId
-                    })
-                  }
-                />
-              </label>
+        {/* Step 2 — Share */}
+        <div className={`step-card${hasRoom ? " step-lit" : " step-pending"}`} aria-live="polite">
+          <div className="step-header">
+            <span className={`step-num${hasRoom ? "" : " step-num-dim"}`}>2</span>
+            <div>
+              <h2 className="step-title">Share</h2>
+              <p className="step-desc">Send the invite to students</p>
             </div>
-          )}
-
-          <section className="stack" aria-label="Host a class">
-            <h2 className="lobby-section-title">Host a class</h2>
-            <p className="small">Create a room and share the invite with students.</p>
-            <label>
-              Class name
-              <input value={className} onChange={(event) => setClassName(event.target.value)} />
-            </label>
-            <label>
-              Room name
-              <input value={roomName} onChange={(event) => setRoomName(event.target.value)} />
-            </label>
-            <button disabled={busy || (clerkEnabled && !signedIn)} onClick={createClassroom}>
-              Create room and invite
-            </button>
-          </section>
-
-          <section className="stack" aria-label="Join as student">
-            <h2 className="lobby-section-title">Join as student</h2>
-            <p className="small">Paste the invite code from your teacher, or open their join link directly.</p>
-            <label>
-              Invite code
-              <input value={inviteCode} onChange={(event) => setInviteCode(event.target.value.toUpperCase())} placeholder="Paste code" />
-            </label>
-            <button disabled={busy || !inviteCode.trim() || (clerkEnabled && !signedIn)} onClick={joinInvite}>
-              Join class room
-            </button>
-          </section>
-
-          {createdInvite?.roomId ? (
-            <div className="invite-panel stack" aria-live="polite">
-              <strong>Room created — share this invite</strong>
-              <p className="small">
-                Students can paste the code under &ldquo;Join as student&rdquo; or open the join link in another browser.
-              </p>
-              <p className="invite-code" aria-label="Invite code">
-                {createdInvite.code}
-              </p>
-              <div className="cluster">
-                <button type="button" className="secondary" onClick={() => void copyInvite("code")}>
-                  {copyStatus === "code" ? "Code copied" : "Copy code"}
-                </button>
-                <button type="button" className="secondary" onClick={() => void copyInvite("link")}>
-                  {copyStatus === "link" ? "Link copied" : "Copy join link"}
-                </button>
-              </div>
+          </div>
+          {hasRoom && createdInvite ? (
+            <>
+              <p className="invite-code" aria-label="Invite code">{createdInvite.code}</p>
+              <button type="button" onClick={() => void copyInvite("code")}>
+                {copyStatus === "code" ? "Copied!" : "Copy code only"}
+              </button>
+              <button type="button" className="secondary" onClick={() => void copyInvite("link")}>
+                {copyStatus === "link" ? "Copied!" : "Copy invite link"}
+              </button>
               <label>
                 Join link
-                <input readOnly value={inviteJoinUrl(createdInvite.roomId, createdInvite.code)} />
+                <input readOnly value={inviteJoinUrl(createdInvite.roomId!, createdInvite.code)} />
               </label>
-              <Link className="button" href={`/rooms/${createdInvite.roomId}`}>
-                Enter room
-              </Link>
-            </div>
-          ) : null}
-
-          {rooms.length > 0 ? (
-            <div className="stack">
-              <strong>Available rooms</strong>
-              <ul className="roster-list">
-                {rooms.map((room) => (
-                  <li key={room.id} className="roster-item">
-                    <span>{room.name}</span>
-                    <span className="small">{classes.find((classRecord) => classRecord.id === room.classId)?.name ?? room.classId}</span>
-                    <div className="cluster">
-                      <Link className="button secondary" href={`/rooms/${room.id}`}>
-                        Open room
-                      </Link>
-                      {canManageRoom(room) ? (
-                        <button type="button" className="ghost" disabled={busy} onClick={() => void removeRoom(room)}>
-                          Delete
-                        </button>
-                      ) : null}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          {error ? <div className="alert">{error}</div> : null}
-          <p className="small">
-            Local mode uses development identities and multi-tab realtime fallback. Deployed production uses Clerk, MongoDB,
-            LiveKit, and object storage variables configured on Vercel/Koyeb.
-          </p>
+            </>
+          ) : (
+            <div className="step-placeholder">Invite code appears here after step 1</div>
+          )}
         </div>
-      </section>
+
+        <div className="step-arrow" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <path d="M6 14h16M16 8l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+
+        {/* Step 3 — Enter */}
+        <div className={`step-card${hasRoom ? " step-lit" : " step-pending"}`}>
+          <div className="step-header">
+            <span className={`step-num${hasRoom ? "" : " step-num-dim"}`}>3</span>
+            <div>
+              <h2 className="step-title">Enter</h2>
+              <p className="step-desc">Open your room in 3D</p>
+            </div>
+          </div>
+          {hasRoom ? (
+            <Link className="button step-enter-btn" href={`/rooms/${createdInvite!.roomId}`}>
+              Enter room
+            </Link>
+          ) : (
+            <div className="step-placeholder">Enter room button appears here</div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Student join ── */}
+      <div className="join-section">
+        <div className="join-rule"><span>Joining as a student?</span></div>
+        <div className="join-panel panel stack">
+          <p className="small">Paste the invite code from your teacher, or open the join link they shared.</p>
+          <label>
+            Invite code
+            <input
+              value={inviteCode}
+              onChange={(event) => setInviteCode(event.target.value.toUpperCase())}
+              placeholder="Paste code here"
+            />
+          </label>
+          <button disabled={busy || !inviteCode.trim() || (clerkEnabled && !signedIn)} onClick={joinInvite}>
+            Join class room
+          </button>
+        </div>
+      </div>
+
+      {/* ── Existing rooms ── */}
+      {rooms.length > 0 && (
+        <div className="rooms-section stack">
+          <strong>Your rooms</strong>
+          <ul className="roster-list">
+            {rooms.map((room) => (
+              <li key={room.id} className="roster-item">
+                <span>{room.name}</span>
+                <span className="small">
+                  {classes.find((c) => c.id === room.classId)?.name ?? room.classId}
+                </span>
+                <div className="cluster">
+                  <Link className="button secondary" href={`/rooms/${room.id}`}>
+                    Open room
+                  </Link>
+                  {canManageRoom(room) && (
+                    <button type="button" className="ghost" disabled={busy} onClick={() => void removeRoom(room)}>
+                      Delete
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {error ? <div className="alert">{error}</div> : null}
     </main>
   );
 }
