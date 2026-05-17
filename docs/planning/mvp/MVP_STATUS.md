@@ -61,7 +61,7 @@ Rules for implementers:
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Vercel | Yes | None | Public Clerk browser key. | Implemented; frontend uses Clerk bearer tokens when configured and local dev identity when absent. Missing provider credential. |
 | `CLERK_WEBHOOK_SECRET` | Koyeb | Optional for MVP | None | Auth webhook verification if user sync is enabled. | Documented; webhook not required for local MVP. |
 | `MONGODB_URI` | Koyeb | Yes | None | MongoDB Atlas connection string. | Implemented; missing Atlas credential. |
-| `MONGODB_DB_NAME` | Koyeb | Optional | `3DSpace` | Database name when not included in the URI. | Implemented. |
+| `MONGODB_DB_NAME` | Koyeb | Optional | `3dspace` | Database name when not included in the URI (lowercase; Atlas is case-sensitive). | Implemented. |
 | `LIVEKIT_URL` | Koyeb | Yes | `ws://localhost:7880` | LiveKit server URL for token generation. | Implemented; missing LiveKit Cloud URL. |
 | `LIVEKIT_API_KEY` | Koyeb | Yes | None | LiveKit server API key. | Implemented; missing provider credential. |
 | `LIVEKIT_API_SECRET` | Koyeb | Yes | None | LiveKit server API secret. | Implemented; missing provider credential. |

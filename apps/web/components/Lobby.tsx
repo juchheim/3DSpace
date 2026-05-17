@@ -13,7 +13,7 @@ function inviteJoinUrl(roomId: string, code: string) {
 }
 
 export function Lobby() {
-  const { identity, setIdentity, setRole, clerkEnabled, signedIn } = usePersistentIdentity();
+  const { identity, setIdentity, setRole, loaded, clerkEnabled, signedIn } = usePersistentIdentity();
   const [className, setClassName] = useState("Physics 101");
   const [roomName, setRoomName] = useState("Wave Lab");
   const [inviteCode, setInviteCode] = useState("");
@@ -36,8 +36,10 @@ export function Lobby() {
   }
 
   useEffect(() => {
+    if (!loaded) return;
+    if (clerkEnabled && !signedIn) return;
     void refresh();
-  }, [identity.userId]);
+  }, [identity.userId, loaded, clerkEnabled, signedIn]);
 
   async function createClassroom() {
     setBusy(true);
