@@ -35,12 +35,16 @@ export async function authenticate(request: FastifyRequest, config: AppConfig): 
   const token = bearerToken(request);
 
   if (config.clerkSecretKey && token && !token.startsWith("dev-")) {
-    const claims = await verifyToken(token, { secretKey: config.clerkSecretKey });
-    return {
-      userId: claims.sub,
-      displayName: displayNameFromClaims(claims as Record<string, unknown> & { sub: string }),
-      provider: "clerk"
-    };
+    try {
+      const claims = await verifyToken(token, { secretKey: config.clerkSecretKey });
+      return {
+        userId: claims.sub,
+        displayName: displayNameFromClaims(claims as Record<string, unknown> & { sub: string }),
+        provider: "clerk"
+      };
+    } catch {
+      throw unauthorized("Invalid or expired Clerk session token");
+    }
   }
 
   if (config.nodeEnv !== "production") {

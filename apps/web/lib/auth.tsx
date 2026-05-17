@@ -36,7 +36,7 @@ function ClerkAuthBridge({ children }: { children: React.ReactNode }) {
         signedIn: Boolean(isSignedIn),
         ...(user?.id ? { userId: user.id } : {}),
         ...(displayName ? { displayName } : {}),
-        getToken
+        getToken: () => getToken()
       }}
     >
       {children}

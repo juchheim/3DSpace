@@ -38,7 +38,7 @@ export function usePersistentIdentity() {
           userId: appAuth.userId,
           displayName: appAuth.displayName ?? appAuth.userId,
           role: identity.role,
-          ...(appAuth.getToken ? { getAuthToken: appAuth.getToken } : {})
+          ...(appAuth.getToken ? { getAuthToken: () => appAuth.getToken!() } : {})
         }
       : identity;
 
