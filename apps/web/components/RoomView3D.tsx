@@ -198,20 +198,22 @@ const WallObjectSurface = memo(function WallObjectSurface({
         center
         transform
         distanceFactor={WALL_OBJECT_DISTANCE_FACTOR}
-        className="wall-object-html"
+        className="wall-object-html wall-object-html--board"
         style={surfaceStyle}
         zIndexRange={[200, 0]}
       >
-        <WallObjectCard
-          object={object}
-          assetUrl={assetUrl}
-          videoStream={videoStream}
-          audioStream={audioStream}
-          compact
-          surface
-          canManage={canManage}
-          {...(onControl ? { onControl } : {})}
-        />
+        <div className="wall-object-surface-mount">
+          <WallObjectCard
+            object={object}
+            assetUrl={assetUrl}
+            videoStream={videoStream}
+            audioStream={audioStream}
+            compact
+            surface
+            canManage={canManage}
+            {...(onControl ? { onControl } : {})}
+          />
+        </div>
       </Html>
     </group>
   );

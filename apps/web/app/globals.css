@@ -650,9 +650,21 @@ label {
   overflow: visible;
 }
 
+.wall-object-html--board {
+  overflow: visible;
+}
+
 .wall-object-html > div > div > div {
   width: 100%;
   height: 100%;
+  overflow: visible;
+}
+
+.wall-object-surface-mount {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 
 .wall-object-card {
@@ -676,14 +688,15 @@ label {
 
 .wall-object-card--surface {
   position: relative;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 0.4rem;
+  display: block;
   width: 100%;
   height: 100%;
-  overflow: hidden;
-  padding: 0.55rem;
-  border-color: rgba(255, 250, 240, 0.2);
-  background: rgba(10, 18, 15, 0.94);
+  overflow: visible;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .wall-object-card__header,
@@ -722,10 +735,61 @@ label {
   background: #101815;
 }
 
+.wall-object-card--surface .wall-object-card__header {
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  bottom: calc(100% + 0.4rem);
+  left: 0;
+  margin: 0;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid rgba(255, 250, 240, 0.22);
+  border-radius: 8px;
+  background: rgba(10, 18, 15, 0.92);
+  pointer-events: auto;
+}
+
+.wall-object-card--surface .wall-object-card__header strong {
+  max-width: none;
+  font-size: 0.68rem;
+}
+
+.wall-object-card--surface .wall-object-card__actions {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  left: 0;
+  justify-content: center;
+  margin: 0;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid rgba(255, 250, 240, 0.22);
+  border-radius: 8px;
+  background: rgba(10, 18, 15, 0.92);
+  pointer-events: auto;
+}
+
+.wall-object-card--surface .wall-object-card__actions button {
+  padding: 0.28rem 0.5rem;
+  font-size: 0.65rem;
+}
+
 .wall-object-card--surface .wall-object-card__media {
   display: grid;
-  min-height: 0;
+  width: 100%;
   height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #101815;
+}
+
+.wall-object-card__media-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: var(--wall-object-fit, contain);
+  background: #101815;
 }
 
 .wall-object-card__media img,
@@ -818,51 +882,30 @@ label {
   pointer-events: auto;
 }
 
-.wall-object-card--surface .wall-object-card__timer,
 .wall-object-card--surface .wall-object-link,
 .wall-object-card--surface .wall-object-card__body {
   min-height: 0;
   height: 100%;
+  overflow: auto;
 }
 
 .wall-object-card--surface[data-wall-object-type="timer"] {
   container-type: size;
-  grid-template-rows: minmax(0, 1fr);
-  padding: 0.35rem;
-}
-
-.wall-object-card--surface[data-wall-object-type="timer"] .wall-object-card__header {
-  position: absolute;
-  z-index: 1;
-  top: 0.3rem;
-  left: 0.3rem;
-  right: 0.3rem;
-  padding: 0.2rem 0.35rem;
-  border-radius: 6px;
-  background: rgba(10, 18, 15, 0.72);
-  pointer-events: none;
-}
-
-.wall-object-card--surface[data-wall-object-type="timer"] .wall-object-card__header strong {
-  max-width: none;
-  font-size: 0.58rem;
-}
-
-.wall-object-card--surface[data-wall-object-type="timer"] .wall-object-card__header span {
-  font-size: 0.52rem;
 }
 
 .wall-object-card--surface[data-wall-object-type="timer"] .wall-object-card__media {
-  height: 100%;
-  min-height: 0;
-  background: transparent;
+  background: rgba(10, 18, 15, 0.94);
 }
 
 .wall-object-card--surface[data-wall-object-type="timer"] .wall-object-card__timer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
   height: 100%;
   min-height: 0;
-  padding: 1.55rem 0.25rem 0.25rem;
-  grid-template-rows: minmax(0, 1fr) auto auto;
+  padding: 0;
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .wall-object-card--surface[data-wall-object-type="timer"] .wall-object-card__timer-readout {
@@ -876,37 +919,36 @@ label {
 }
 
 .wall-object-card--surface[data-wall-object-type="timer"] .wall-object-card__timer-status {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  left: 0;
+  margin: 0;
+  padding: 0.25rem 0.45rem;
+  border: 1px solid rgba(255, 250, 240, 0.22);
+  border-radius: 8px;
+  background: rgba(10, 18, 15, 0.92);
   font-size: clamp(0.55rem, 6cqh, 0.72rem);
+  text-align: center;
+  pointer-events: none;
+}
+
+.wall-object-card--surface[data-wall-object-type="timer"] .wall-object-card__timer-actions {
+  position: absolute;
+  top: calc(100% + 1.65rem);
+  right: 0;
+  left: 0;
+  margin: 0;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid rgba(255, 250, 240, 0.22);
+  border-radius: 8px;
+  background: rgba(10, 18, 15, 0.92);
+  pointer-events: auto;
 }
 
 .wall-object-card--surface[data-wall-object-type="timer"] .wall-object-card__timer-actions button {
   padding: 0.2rem 0.45rem;
   font-size: clamp(0.55rem, 6cqh, 0.68rem);
-}
-
-.wall-object-card--surface[data-wall-object-type="camera.live"],
-.wall-object-card--surface[data-wall-object-type="screen.live"],
-.wall-object-card--surface[data-wall-object-type="browser-tab.live"],
-.wall-object-card--surface[data-wall-object-type="image.file"],
-.wall-object-card--surface[data-wall-object-type="video.file"] {
-  grid-template-rows: minmax(0, 1fr);
-  padding: 0;
-}
-
-.wall-object-card--surface[data-wall-object-type="camera.live"] .wall-object-card__header,
-.wall-object-card--surface[data-wall-object-type="screen.live"] .wall-object-card__header,
-.wall-object-card--surface[data-wall-object-type="browser-tab.live"] .wall-object-card__header,
-.wall-object-card--surface[data-wall-object-type="image.file"] .wall-object-card__header,
-.wall-object-card--surface[data-wall-object-type="video.file"] .wall-object-card__header {
-  position: absolute;
-  z-index: 1;
-  top: 0.45rem;
-  left: 0.45rem;
-  right: 0.45rem;
-  padding: 0.35rem 0.45rem;
-  border-radius: 8px;
-  background: rgba(10, 18, 15, 0.64);
-  pointer-events: none;
 }
 
 .wall-object-link {

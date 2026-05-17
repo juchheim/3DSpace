@@ -69,7 +69,7 @@ function formatTimerClock(totalSeconds: number) {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
-function StreamVideo({ stream, muted }: { stream: MediaStream; muted: boolean }) {
+function StreamVideo({ stream, muted, className }: { stream: MediaStream; muted: boolean; className?: string }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
@@ -82,7 +82,7 @@ function StreamVideo({ stream, muted }: { stream: MediaStream; muted: boolean })
     };
   }, [stream]);
 
-  return <video ref={videoRef} autoPlay playsInline muted={muted} />;
+  return <video ref={videoRef} autoPlay playsInline muted={muted} className={className} />;
 }
 
 function StreamAudio({ stream }: { stream: MediaStream }) {
@@ -264,6 +264,9 @@ function WallObjectContent({
     if (object.type === "image.file") {
       return <img src={assetUrl} alt={object.title} />;
     }
+    if (surface) {
+      return <video src={assetUrl} autoPlay playsInline muted loop className="wall-object-card__media-fill" />;
+    }
     return <video src={assetUrl} controls playsInline />;
   }
 
@@ -283,7 +286,13 @@ function WallObjectContent({
   }
 
   if (videoStream) {
-    return <StreamVideo stream={videoStream} muted={object.type !== "microphone.live"} />;
+    return (
+      <StreamVideo
+        stream={videoStream}
+        muted={object.type !== "microphone.live"}
+        {...(surface ? { className: "wall-object-card__media-fill" } : {})}
+      />
+    );
   }
 
   if (audioStream) {
