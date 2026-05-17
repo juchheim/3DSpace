@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-17 (pinned camera wall display fix)
+Last updated: 2026-05-17 (role-aware room spawn fix)
 
 ## Project Summary
 
@@ -131,6 +131,8 @@ Screen share, computer audio, teacher moderation, rich wall placement, room buil
 - **2026-05-17**: Wall objects floated in front of boards and could exceed board bounds — 3D wall object HTML used fixed card sizing plus a large `zIndex`-based normal offset. Fixed by clamping placement to anchor bounds, scaling the HTML surface to board world units, using a tiny physical offset, and letting camera/video surfaces fill their placement while preserving full media with `object-fit: contain`.
 - **2026-05-17**: Wall timer Resume reset countdown — sidebar and 3D board each mount `WallTimerDisplay` with separate refs; pause in one view did not update the other's elapsed state, so Resume could call `play(0)`. Fixed with shared `timerRuntime` store, resume keeps elapsed until playback catches up, and corrected `wall.playback.state.v1` handler shape in `useWallObjects`.
 - **2026-05-17**: Pinned camera on 3D wall disappeared and dropped frame rate — wall camera rendering used an inline `srcObject` ref and rediscovered the local camera through frequently updated avatar participant state. Fixed with stable media elements, explicit local wall-media binding for local camera pins, and memoized 3D wall surfaces to avoid rerendering video surfaces on avatar ticks.
+- **2026-05-17**: WASD/arrow keys could not type in wall tool inputs (note, poll, link) — `useAvatarMovement` captured movement keys globally with `preventDefault()`. Fixed by skipping movement capture when focus is in text inputs, textareas, selects, or contenteditable elements.
+- **2026-05-17**: Teacher and student initial spawns could overlap at the front board and face away from it — local spawn selection used `participantId.length % spawnPoints.length`. Fixed with role-aware spawn selection, back-of-room student spawn candidates, occupied-position avoidance when known, and board-facing teacher/student rotations.
 
 ## Maintenance Rules
 

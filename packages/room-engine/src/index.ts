@@ -1,5 +1,6 @@
 import type {
   AvatarStateMessage,
+  Role,
   RoomCapabilities,
   RoomManifest,
   SpatialAudioConfig,
@@ -88,10 +89,14 @@ export function createDefaultRoomManifest(input: {
       maxZ: 5.2
     },
     spawnPoints: [
-      { id: "spawn-teacher", label: "Teacher", position: { x: 0, y: 0, z: -2.2 }, rotation: { y: 0 } },
-      { id: "spawn-a", label: "Student A", position: { x: -3.2, y: 0, z: 1.2 }, rotation: { y: Math.PI } },
-      { id: "spawn-b", label: "Student B", position: { x: 0, y: 0, z: 1.6 }, rotation: { y: Math.PI } },
-      { id: "spawn-c", label: "Student C", position: { x: 3.2, y: 0, z: 1.2 }, rotation: { y: Math.PI } }
+      { id: "spawn-teacher", label: "Teacher", position: { x: 0, y: 0, z: -2.2 }, rotation: { y: Math.PI } },
+      { id: "spawn-student-back-left", label: "Student Back Left", position: { x: -4.8, y: 0, z: 3.4 }, rotation: { y: Math.PI } },
+      { id: "spawn-student-back-mid-left", label: "Student Back Mid Left", position: { x: -1.6, y: 0, z: 3.8 }, rotation: { y: Math.PI } },
+      { id: "spawn-student-back-mid-right", label: "Student Back Mid Right", position: { x: 1.6, y: 0, z: 3.8 }, rotation: { y: Math.PI } },
+      { id: "spawn-student-back-right", label: "Student Back Right", position: { x: 4.8, y: 0, z: 3.4 }, rotation: { y: Math.PI } },
+      { id: "spawn-student-mid-left", label: "Student Mid Left", position: { x: -4, y: 0, z: 2 }, rotation: { y: Math.PI } },
+      { id: "spawn-student-mid-center", label: "Student Mid Center", position: { x: 0, y: 0, z: 2.4 }, rotation: { y: Math.PI } },
+      { id: "spawn-student-mid-right", label: "Student Mid Right", position: { x: 4, y: 0, z: 2 }, rotation: { y: Math.PI } }
     ],
     walls: [
       { id: "wall-front", label: "Front wall", start: { x: -8, y: 0, z: -6 }, end: { x: 8, y: 0, z: -6 }, height: 4, anchorIds: ["anchor-board", "anchor-media-left"] },
@@ -262,14 +267,70 @@ export function unprojectPointFrom2D(manifest: RoomManifest, point: { x: number;
   });
 }
 
+const SPAWN_OCCUPIED_RADIUS = 0.9;
+
+function stableHash(value: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function roleMatchesSpawn(spawn: RoomManifest["spawnPoints"][number], role?: Role) {
+  if (!role) return true;
+  const label = `${spawn.id} ${spawn.label}`.toLowerCase();
+  const teacherSpawn = label.includes("teacher");
+  return role === "teacher" ? teacherSpawn : !teacherSpawn;
+}
+
+function isSpawnOccupied(spawn: RoomManifest["spawnPoints"][number], occupiedPositions: Vector3[]) {
+  const radiusSquared = SPAWN_OCCUPIED_RADIUS * SPAWN_OCCUPIED_RADIUS;
+  return occupiedPositions.some((position) => {
+    const dx = spawn.position.x - position.x;
+    const dz = spawn.position.z - position.z;
+    return dx * dx + dz * dz <= radiusSquared;
+  });
+}
+
+export function selectSpawnPoint(input: {
+  manifest: RoomManifest;
+  participantId: string;
+  role?: Role;
+  occupiedPositions?: Vector3[];
+}) {
+  const candidates = input.manifest.spawnPoints.filter((spawn) => roleMatchesSpawn(spawn, input.role));
+  const spawns = candidates.length > 0 ? candidates : input.manifest.spawnPoints;
+  const start = stableHash(input.participantId) % spawns.length;
+  const occupiedPositions = input.occupiedPositions ?? [];
+
+  for (let offset = 0; offset < spawns.length; offset += 1) {
+    const spawn = spawns[(start + offset) % spawns.length]!;
+    if (!isSpawnOccupied(spawn, occupiedPositions)) return spawn;
+  }
+
+  return spawns[start] ?? input.manifest.spawnPoints[0]!;
+}
+
 export function createAvatarState(input: {
   participantId: string;
   manifest: RoomManifest;
   spawnIndex?: number;
+  role?: Role;
+  occupiedPositions?: Vector3[];
   viewMode?: ViewMode;
   sentAt?: number;
 }): AvatarStateMessage {
-  const spawn = input.manifest.spawnPoints[input.spawnIndex ?? 0] ?? input.manifest.spawnPoints[0]!;
+  const spawn =
+    input.spawnIndex !== undefined
+      ? input.manifest.spawnPoints[input.spawnIndex] ?? input.manifest.spawnPoints[0]!
+      : selectSpawnPoint({
+          manifest: input.manifest,
+          participantId: input.participantId,
+          ...(input.role ? { role: input.role } : {}),
+          ...(input.occupiedPositions ? { occupiedPositions: input.occupiedPositions } : {})
+        });
 
   return {
     type: "avatar.state.v1",

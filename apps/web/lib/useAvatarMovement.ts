@@ -1,12 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
-import type { AvatarStateMessage, RoomManifest, ViewMode } from "@3dspace/contracts";
+import type { AvatarStateMessage, Role, RoomManifest, Vector3, ViewMode } from "@3dspace/contracts";
 import { clampPositionToBounds, createAvatarState, transformLocalMovementToWorld, unprojectPointFrom2D } from "@3dspace/room-engine";
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  if (target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true;
+  if (target instanceof HTMLInputElement) {
+    const type = target.type.toLowerCase();
+    const nonTextTypes = new Set(["button", "submit", "reset", "checkbox", "radio", "range", "color", "file", "hidden", "image"]);
+    return !nonTextTypes.has(type);
+  }
+  return false;
+}
 
 export function useAvatarMovement(input: {
   manifest: RoomManifest | null;
   participantId: string;
+  role?: Role;
+  occupiedPositions?: Vector3[];
   viewMode: ViewMode;
   cameraYawRef?: MutableRefObject<number>;
   media: { cameraEnabled: boolean; microphoneEnabled: boolean; speaking: boolean };
@@ -21,12 +35,13 @@ export function useAvatarMovement(input: {
     const next = createAvatarState({
       manifest: input.manifest,
       participantId: input.participantId,
-      spawnIndex: input.participantId.length % input.manifest.spawnPoints.length,
+      ...(input.role ? { role: input.role } : {}),
+      ...(input.occupiedPositions ? { occupiedPositions: input.occupiedPositions } : {}),
       viewMode: input.viewMode
     });
     stateRef.current = next;
     setAvatarState(next);
-  }, [input.manifest, input.participantId]);
+  }, [input.manifest, input.participantId, input.role]);
 
   useEffect(() => {
     stateRef.current = stateRef.current
@@ -41,6 +56,7 @@ export function useAvatarMovement(input: {
 
   useEffect(() => {
     function down(event: KeyboardEvent) {
+      if (isEditableTarget(event.target)) return;
       if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyW", "KeyA", "KeyS", "KeyD"].includes(event.code)) {
         keys.current.add(event.code);
         event.preventDefault();
@@ -48,6 +64,7 @@ export function useAvatarMovement(input: {
     }
 
     function up(event: KeyboardEvent) {
+      if (isEditableTarget(event.target)) return;
       keys.current.delete(event.code);
     }
 

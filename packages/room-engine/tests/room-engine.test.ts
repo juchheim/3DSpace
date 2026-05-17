@@ -6,6 +6,7 @@ import {
   createDefaultRoomManifest,
   interpolateAvatarState,
   projectPositionTo2D,
+  selectSpawnPoint,
   transformLocalMovementToWorld,
   unprojectPointFrom2D
 } from "../src/index";
@@ -44,6 +45,29 @@ describe("room engine", () => {
     });
   });
 
+  it("selects role-appropriate spawn points", () => {
+    const manifest = createDefaultRoomManifest({ roomId: "room_1" });
+    const teacher = createAvatarState({ participantId: "teacher-1", manifest, role: "teacher" });
+    const student = createAvatarState({ participantId: "student-1", manifest, role: "student" });
+
+    expect(teacher.position.z).toBeLessThan(0);
+    expect(teacher.rotation.y).toBeCloseTo(Math.PI);
+    expect(student.position.z).toBeGreaterThan(0);
+  });
+
+  it("avoids occupied spawn points when another candidate is available", () => {
+    const manifest = createDefaultRoomManifest({ roomId: "room_1" });
+    const firstChoice = selectSpawnPoint({ manifest, participantId: "student-1", role: "student" });
+    const nextChoice = selectSpawnPoint({
+      manifest,
+      participantId: "student-1",
+      role: "student",
+      occupiedPositions: [firstChoice.position]
+    });
+
+    expect(nextChoice.id).not.toBe(firstChoice.id);
+  });
+
   it("round-trips 3D positions through the 2D projection", () => {
     const manifest = createDefaultRoomManifest({ roomId: "room_1" });
     const position = { x: 2, y: 0, z: -1 };
@@ -56,7 +80,7 @@ describe("room engine", () => {
 
   it("interpolates avatar state", () => {
     const manifest = createDefaultRoomManifest({ roomId: "room_1" });
-    const previous = createAvatarState({ participantId: "p1", manifest, sentAt: 0 });
+    const previous = createAvatarState({ participantId: "p1", manifest, spawnIndex: 0, sentAt: 0 });
     const next = {
       ...previous,
       sentAt: 100,

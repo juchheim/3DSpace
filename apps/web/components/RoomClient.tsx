@@ -55,9 +55,15 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const media = useLocalMedia(session?.tuning.media);
   const displayMedia = useDisplayMedia();
   const camera = useThirdPersonCamera({ viewMode });
+  const occupiedSpawnPositions = useMemo(
+    () => Object.values(participants).filter((participant) => participant.id !== session?.participantId).map((participant) => participant.state.position),
+    [participants, session?.participantId]
+  );
   const movement = useAvatarMovement({
     manifest,
     participantId: session?.participantId ?? identity.userId,
+    role: session?.role ?? identity.role,
+    occupiedPositions: occupiedSpawnPositions,
     viewMode,
     cameraYawRef: camera.yawRef,
     media: {
@@ -191,6 +197,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
                 state: createAvatarState({
                   manifest: activeSession.manifest,
                   participantId: message.participantId,
+                  role: message.role,
                   viewMode: activeSession.room.settings.defaultViewMode
                 }),
                 lastSeenAt: Date.now()
