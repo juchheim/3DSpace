@@ -1,38 +1,40 @@
 "use client";
 
-import { calculateSpatialAudio } from "@3dspace/room-engine";
 import type { ParticipantView } from "./RoomClient";
 
 export function Roster({ participants }: { participants: ParticipantView[] }) {
-  const local = participants.find((participant) => participant.local);
-
   return (
-    <section className="stack" aria-label="Participant roster">
-      <strong>Participants ({participants.length})</strong>
-      <ul className="roster-list">
-        {participants.map((participant) => {
-          const audio = local && local.id !== participant.id ? calculateSpatialAudio(local.state.position, participant.state.position) : null;
-          const position = participant.state.position;
+    <div className="hud-card" aria-label="Participants">
+      <div className="hud-heading">
+        <span>People</span>
+        <span>{participants.length}</span>
+      </div>
+      <ul className="roster-compact" role="list">
+        {participants.map((p) => {
+          const camOn = p.state.media?.cameraEnabled;
+          const micOn = p.state.media?.microphoneEnabled;
+          const speaking = p.state.media?.speaking;
           return (
-            <li key={participant.id} className="roster-item" data-testid={`participant-${participant.id}`}>
-              <div className="cluster">
-                <span className="avatar-dot" style={{ background: participant.local ? "#eb5e28" : "#2f6b4f" }}>
-                  {participant.displayName.slice(0, 2).toUpperCase()}
-                </span>
-                <span>{participant.displayName}</span>
-              </div>
-              <span className="small">
-                {participant.role} · {participant.state.viewMode} · {participant.state.media?.cameraEnabled ? "camera on" : "camera off"} ·{" "}
-                {participant.state.media?.microphoneEnabled ? "mic on" : "mic off"}
+            <li key={p.id} className="roster-compact-item" data-testid={`participant-${p.id}`}>
+              <span
+                className="avatar-dot"
+                style={{ background: p.local ? "#eb5e28" : "#2f6b4f" }}
+                aria-hidden="true"
+              >
+                {p.displayName.slice(0, 2).toUpperCase()}
               </span>
-              <span className="small" data-testid={`participant-${participant.id}-position`}>
-                {participant.state.movement} · x {position.x.toFixed(1)} · z {position.z.toFixed(1)}
+              <span className="roster-compact-name" title={p.displayName}>
+                {p.displayName}
               </span>
-              {audio ? <span className="small">Spatial audio gain {audio.gain.toFixed(2)}, pan {audio.pan.toFixed(2)}</span> : null}
+              <span className="roster-compact-tags" aria-label={`${camOn ? "camera on" : "camera off"}, ${micOn ? "mic on" : "mic off"}`}>
+                {camOn ? <span className="tag active">cam</span> : null}
+                {micOn ? <span className={`tag${speaking ? " active" : ""}`}>mic</span> : null}
+                {p.role === "teacher" ? <span className="tag">T</span> : null}
+              </span>
             </li>
           );
         })}
       </ul>
-    </section>
+    </div>
   );
 }

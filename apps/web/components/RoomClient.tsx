@@ -561,106 +561,109 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     );
   }
 
+  const role = session?.role ?? identity.role;
+
   return (
-    <main className="app-shell">
-      <section className="room-layout">
-        <aside className="side-panel stack" aria-label="Session controls">
-          {exitToLobby("Lobby")}
+    <main className="app-shell room-shell">
+      {/* Stage fills the full viewport */}
+      <div className="room-stage" aria-label="Shared classroom">
+        {leaving ? (
+          <div className="fallback-view">Leaving...</div>
+        ) : !manifest || !session ? (
+          <div className="fallback-view">Joining...</div>
+        ) : viewMode === "3d" ? (
+          <RoomView3D
+            manifest={manifest}
+            participants={participantList}
+            localParticipantId={session.participantId}
+            quality={session.room.settings.defaultQuality}
+            cameraYawRef={camera.yawRef}
+            cameraPitchRef={camera.pitchRef}
+            bindCamera={camera.bind}
+            onMoveToPoint={(point) => {
+              if (camera.consumeClickSuppress()) return;
+              movement.moveTo3DPoint(point);
+            }}
+            wallObjects={wall.wallObjects}
+            assetUrls={wall.assetUrls}
+            wallMediaStreams={wallMediaStreams}
+            canManageWallObjects={session.role === "teacher"}
+            onWallObjectControl={controlWallObject}
+          />
+        ) : (
+          <RoomView2D
+            manifest={manifest}
+            participants={participantList}
+            onMoveToPoint={movement.moveTo2DPoint}
+            wallObjects={wall.wallObjects}
+            assetUrls={wall.assetUrls}
+            wallMediaStreams={wallMediaStreams}
+          />
+        )}
+      </div>
+
+      {/* Top HUD bar */}
+      <header className="room-hud-top">
+        <div className="room-hud-brand">
+          <button type="button" className="room-exit-btn" disabled={leaving} onClick={leaveForLobby}>
+            {leaving ? "Leaving..." : "← Lobby"}
+          </button>
+          <span className="room-hud-name">{session?.room.name ?? "Joining..."}</span>
+          <span className="room-hud-meta">{role} · {status}</span>
+        </div>
+        <div className="toggle" aria-label="View mode">
+          <button aria-pressed={viewMode === "3d"} onClick={() => setViewMode("3d")} disabled={!manifest}>
+            3D
+          </button>
+          <button aria-pressed={viewMode === "2d"} onClick={() => setViewMode("2d")} disabled={!manifest?.capabilities.twoDAnalog}>
+            2D
+          </button>
+        </div>
+      </header>
+
+      {/* Bottom-left HUD: media controls + movement pad */}
+      <div className="room-hud-left">
+        <div className="hud-card">
           <MediaControls media={media} />
+          {media.permissionText ? <p className="hud-permission">{media.permissionText}</p> : null}
+        </div>
+        <div className="hud-card">
           <MovementPad onVector={movement.setTouchVector} />
-          <p className="small">{media.permissionText}</p>
-        </aside>
+        </div>
+      </div>
 
-        <section className="room-main">
-          <header className="room-topbar">
-            <div>
-              <p className="eyebrow">{session?.role ?? identity.role}</p>
-              <h1 className="room-title">{session?.room.name ?? "Joining room"}</h1>
-              <p className="small">{status}</p>
-            </div>
-            <div className="toggle" aria-label="View mode">
-              <button aria-pressed={viewMode === "3d"} onClick={() => setViewMode("3d")} disabled={!manifest}>
-                3D
-              </button>
-              <button aria-pressed={viewMode === "2d"} onClick={() => setViewMode("2d")} disabled={!manifest?.capabilities.twoDAnalog}>
-                2D
-              </button>
-            </div>
-          </header>
-
-          <div className="room-stage" aria-label="Shared classroom">
-            {leaving ? (
-              <div className="fallback-view">Leaving the classroom...</div>
-            ) : !manifest || !session ? (
-              <div className="fallback-view">Joining the classroom...</div>
-            ) : viewMode === "3d" ? (
-              <RoomView3D
-                manifest={manifest}
-                participants={participantList}
-                localParticipantId={session.participantId}
-                quality={session.room.settings.defaultQuality}
-                cameraYawRef={camera.yawRef}
-                cameraPitchRef={camera.pitchRef}
-                bindCamera={camera.bind}
-                onMoveToPoint={(point) => {
-                  if (camera.consumeClickSuppress()) return;
-                  movement.moveTo3DPoint(point);
-                }}
-                wallObjects={wall.wallObjects}
-                assetUrls={wall.assetUrls}
-                wallMediaStreams={wallMediaStreams}
-                canManageWallObjects={session.role === "teacher"}
-                onWallObjectControl={controlWallObject}
-              />
-            ) : (
-              <RoomView2D
-                manifest={manifest}
-                participants={participantList}
-                onMoveToPoint={movement.moveTo2DPoint}
-                wallObjects={wall.wallObjects}
-                assetUrls={wall.assetUrls}
-                wallMediaStreams={wallMediaStreams}
-              />
-            )}
-          </div>
-
-          <p className="small">
-            Drag the 3D view to look around. WASD, arrow keys, or the movement pad move relative to the camera. Switch views without leaving the session.
-          </p>
-        </section>
-
-        <aside className="side-panel stack" aria-label="Room details">
-          <Roster participants={participantList} />
-          {manifest && session ? (
-            <AnchorPanel
-              identity={identity}
-              roomId={session.room.id}
-              manifest={manifest}
-              wallObjects={wall.wallObjects}
-              assetUrls={wall.assetUrls}
-              wallMediaStreams={wallMediaStreams}
-              canCreate={session.role === "teacher" || session.room.settings.wallObjectCreation !== "teacher-only"}
-              canManage={session.role === "teacher"}
-              loading={wall.loading}
-              error={wall.error || displayMedia.error}
-              onCreateFile={createFileObject}
-              onCreateNote={createNote}
-              onCreateTimer={createTimer}
-              onCreatePoll={createPoll}
-              onCreateLink={createLink}
-              onPinCamera={pinCamera}
-              onPinMicrophone={pinMicrophone}
-              onShareScreen={shareScreen}
-              onRemove={async (objectId) => {
-                await wall.removeObject(objectId);
-              }}
-              onStopShare={stopShare}
-              onControl={controlWallObject}
-              onModerate={moderateWallObject}
-            />
-          ) : null}
-        </aside>
-      </section>
+      {/* Right HUD: roster + wall objects */}
+      <aside className="room-hud-right" aria-label="Room details">
+        <Roster participants={participantList} />
+        {manifest && session ? (
+          <AnchorPanel
+            identity={identity}
+            roomId={session.room.id}
+            manifest={manifest}
+            wallObjects={wall.wallObjects}
+            assetUrls={wall.assetUrls}
+            wallMediaStreams={wallMediaStreams}
+            canCreate={session.role === "teacher" || session.room.settings.wallObjectCreation !== "teacher-only"}
+            canManage={session.role === "teacher"}
+            loading={wall.loading}
+            error={wall.error || displayMedia.error}
+            onCreateFile={createFileObject}
+            onCreateNote={createNote}
+            onCreateTimer={createTimer}
+            onCreatePoll={createPoll}
+            onCreateLink={createLink}
+            onPinCamera={pinCamera}
+            onPinMicrophone={pinMicrophone}
+            onShareScreen={shareScreen}
+            onRemove={async (objectId) => {
+              await wall.removeObject(objectId);
+            }}
+            onStopShare={stopShare}
+            onControl={controlWallObject}
+            onModerate={moderateWallObject}
+          />
+        ) : null}
+      </aside>
     </main>
   );
 }

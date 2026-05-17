@@ -6,32 +6,29 @@ type MovementPadProps = {
 
 export function MovementPad({ onVector }: MovementPadProps) {
   const stop = () => onVector({ x: 0, z: 0 });
-  const start = (vector: { x: number; z: number }) => onVector(vector);
 
-  function button(label: string, vector: { x: number; z: number }) {
+  function btn(label: string, symbol: string, vector: { x: number; z: number }, area: string) {
     return (
       <button
         type="button"
         aria-label={label}
-        onPointerDown={() => start(vector)}
+        className={`dpad-btn dpad-${area}`}
+        onPointerDown={() => onVector(vector)}
         onPointerUp={stop}
         onPointerLeave={stop}
         onPointerCancel={stop}
       >
-        {label}
+        {symbol}
       </button>
     );
   }
 
   return (
-    <section className="movement-pad" aria-label="Touch movement controls">
-      <strong className="small">Move</strong>
-      <div className="movement-pad-row">{button("Forward", { x: 0, z: -1 })}</div>
-      <div className="movement-pad-row">
-        {button("Left", { x: -1, z: 0 })}
-        {button("Back", { x: 0, z: 1 })}
-        {button("Right", { x: 1, z: 0 })}
-      </div>
-    </section>
+    <div className="dpad" aria-label="Movement controls">
+      {btn("Forward", "↑", { x: 0, z: -1 }, "fwd")}
+      {btn("Left",    "←", { x: -1, z: 0 }, "left")}
+      {btn("Back",    "↓", { x: 0, z: 1 },  "back")}
+      {btn("Right",   "→", { x: 1, z: 0 },  "right")}
+    </div>
   );
 }

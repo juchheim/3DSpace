@@ -5,6 +5,16 @@ import type { RoomManifest, WallObject } from "@3dspace/contracts";
 import type { ApiIdentity } from "../lib/identity";
 import { WallObjectCard } from "./WallObjectCard";
 
+type CreateType = "file" | "note" | "timer" | "poll" | "link";
+
+const FORM_TYPES: { id: CreateType; label: string }[] = [
+  { id: "file",  label: "File"  },
+  { id: "note",  label: "Note"  },
+  { id: "timer", label: "Timer" },
+  { id: "poll",  label: "Poll"  },
+  { id: "link",  label: "Link"  },
+];
+
 export function AnchorPanel({
   identity,
   roomId,
@@ -53,14 +63,15 @@ export function AnchorPanel({
   onModerate(objectId: string, action: "approve" | "reject"): Promise<void>;
 }) {
   const [selectedAnchor, setSelectedAnchor] = useState(manifest.wallAnchors[0]?.id ?? "");
+  const [selectedType, setSelectedType] = useState<CreateType | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [fileTitle, setFileTitle] = useState("");
-  const [altText, setAltText] = useState("");
   const [noteText, setNoteText] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [pollQuestion, setPollQuestion] = useState("");
   const [timerMinutes, setTimerMinutes] = useState(5);
   const [busy, setBusy] = useState("");
+
   const objectsByAnchor = useMemo(() => {
     const groups = new Map<string, WallObject[]>();
     for (const object of wallObjects) {
@@ -68,6 +79,12 @@ export function AnchorPanel({
     }
     return groups;
   }, [wallObjects]);
+
+  const hasObjects = wallObjects.length > 0;
+
+  function toggleType(type: CreateType) {
+    setSelectedType((current) => (current === type ? null : type));
+  }
 
   async function run(label: string, action: () => Promise<void>) {
     setBusy(label);
@@ -82,15 +99,9 @@ export function AnchorPanel({
     if (!file) return;
     const title = fileTitle.trim() || file.name;
     await run("file", async () => {
-      await onCreateFile({
-        anchorId: selectedAnchor,
-        file,
-        title,
-        altText: altText.trim() || title
-      });
+      await onCreateFile({ anchorId: selectedAnchor, file, title, altText: title });
       setFile(null);
       setFileTitle("");
-      setAltText("");
     });
   }
 
@@ -105,7 +116,7 @@ export function AnchorPanel({
 
   async function submitTimer() {
     await run("timer", async () => {
-      await onCreateTimer({ anchorId: selectedAnchor, title: `${timerMinutes} minute timer`, seconds: Math.max(1, timerMinutes) * 60 });
+      await onCreateTimer({ anchorId: selectedAnchor, title: `${timerMinutes}m timer`, seconds: Math.max(1, timerMinutes) * 60 });
     });
   }
 
@@ -122,11 +133,7 @@ export function AnchorPanel({
     const url = linkUrl.trim();
     if (!url) return;
     let title = url;
-    try {
-      title = new URL(url).hostname;
-    } catch {
-      title = url;
-    }
+    try { title = new URL(url).hostname; } catch { title = url; }
     await run("link", async () => {
       await onCreateLink({ anchorId: selectedAnchor, title, url });
       setLinkUrl("");
@@ -134,128 +141,176 @@ export function AnchorPanel({
   }
 
   return (
-    <section className="stack" aria-label="Wall objects">
-      <div>
-        <strong>Wall objects</strong>
-        <p className="small">{loading ? "Loading wall state..." : `${wallObjects.length} active wall object(s)`}</p>
+    <div className="hud-card" aria-label="Wall objects">
+      <div className="hud-heading">
+        <span>Wall</span>
+        <span>{loading ? "…" : `${wallObjects.length} obj`}</span>
       </div>
 
-      <label>
-        Anchor
-        <select value={selectedAnchor} onChange={(event) => setSelectedAnchor(event.target.value)}>
-          {manifest.wallAnchors.map((anchor) => (
-            <option key={anchor.id} value={anchor.id}>
-              {anchor.label}
-            </option>
-          ))}
-        </select>
-      </label>
-
       {canCreate ? (
-        <div className="stack wall-create-panel">
-          <div className="stack">
-            <label>
-              File
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,audio/mpeg,audio/mp4,audio/wav,audio/webm"
-                onChange={(event) => setFile(event.currentTarget.files?.[0] ?? null)}
-              />
-            </label>
-            <label>
-              Title
-              <input value={fileTitle} onChange={(event) => setFileTitle(event.target.value)} placeholder={file?.name ?? "Lesson media"} />
-            </label>
-            <label>
-              Alt text
-              <input value={altText} onChange={(event) => setAltText(event.target.value)} placeholder="Describe the media" />
-            </label>
-            <button type="button" className="secondary" disabled={!file || Boolean(busy)} onClick={submitFile}>
-              {busy === "file" ? "Adding..." : "Add file"}
+        <>
+          {/* Anchor selector */}
+          {manifest.wallAnchors.length > 1 ? (
+            <select
+              className="anchor-select-compact"
+              value={selectedAnchor}
+              onChange={(e) => setSelectedAnchor(e.target.value)}
+              aria-label="Target anchor"
+            >
+              {manifest.wallAnchors.map((a) => (
+                <option key={a.id} value={a.id}>{a.label}</option>
+              ))}
+            </select>
+          ) : null}
+
+          {/* Form type selector */}
+          <div className="content-type-bar">
+            {FORM_TYPES.map(({ id, label }) => (
+              <button
+                key={id}
+                type="button"
+                className={`content-type-btn${selectedType === id ? " selected" : ""}`}
+                onClick={() => toggleType(id)}
+              >
+                {label}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="content-type-btn"
+              disabled={Boolean(busy)}
+              onClick={() => void run("camera", () => onPinCamera(selectedAnchor))}
+            >
+              {busy === "camera" ? "…" : "Cam"}
+            </button>
+            <button
+              type="button"
+              className="content-type-btn"
+              disabled={Boolean(busy)}
+              onClick={() => void run("mic", () => onPinMicrophone(selectedAnchor))}
+            >
+              {busy === "mic" ? "…" : "Mic"}
+            </button>
+            <button
+              type="button"
+              className="content-type-btn"
+              disabled={Boolean(busy)}
+              onClick={() => void run("screen", () => onShareScreen(selectedAnchor))}
+            >
+              {busy === "screen" ? "…" : "Screen"}
             </button>
           </div>
 
-          <div className="cluster">
-            <button type="button" className="ghost" disabled={Boolean(busy)} onClick={() => run("camera", () => onPinCamera(selectedAnchor))}>
-              Pin camera
-            </button>
-            <button type="button" className="ghost" disabled={Boolean(busy)} onClick={() => run("mic", () => onPinMicrophone(selectedAnchor))}>
-              Pin mic
-            </button>
-            <button type="button" className="ghost" disabled={Boolean(busy)} onClick={() => run("screen", () => onShareScreen(selectedAnchor))}>
-              Share screen
-            </button>
-          </div>
+          {/* File form */}
+          {selectedType === "file" && (
+            <div className="content-form">
+              <label>
+                File
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,audio/mpeg,audio/mp4,audio/wav,audio/webm"
+                  onChange={(e) => setFile(e.currentTarget.files?.[0] ?? null)}
+                />
+              </label>
+              <label>
+                Title
+                <input value={fileTitle} onChange={(e) => setFileTitle(e.target.value)} placeholder={file?.name ?? "Title"} />
+              </label>
+              <button type="button" className="hud-btn" disabled={!file || Boolean(busy)} onClick={() => void submitFile()}>
+                {busy === "file" ? "Adding…" : "Add file"}
+              </button>
+            </div>
+          )}
 
-          <label>
-            Note
-            <input value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder="Pinned note" />
-          </label>
-          <button type="button" className="secondary" disabled={!noteText.trim() || Boolean(busy)} onClick={submitNote}>
-            Add note
-          </button>
+          {/* Note form */}
+          {selectedType === "note" && (
+            <div className="content-form">
+              <label>
+                Note
+                <input value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="Pinned note text" />
+              </label>
+              <button type="button" className="hud-btn" disabled={!noteText.trim() || Boolean(busy)} onClick={() => void submitNote()}>
+                {busy === "note" ? "Adding…" : "Add note"}
+              </button>
+            </div>
+          )}
 
-          <div className="split">
-            <label>
-              Timer minutes
-              <input type="number" min={1} max={120} value={timerMinutes} onChange={(event) => setTimerMinutes(Number(event.target.value))} />
-            </label>
-            <button type="button" className="secondary" disabled={Boolean(busy)} onClick={submitTimer}>
-              Add timer
-            </button>
-          </div>
+          {/* Timer form */}
+          {selectedType === "timer" && (
+            <div className="content-form">
+              <div className="content-form-row">
+                <label>
+                  Minutes
+                  <input type="number" min={1} max={120} value={timerMinutes} onChange={(e) => setTimerMinutes(Number(e.target.value))} />
+                </label>
+                <button type="button" className="hud-btn" disabled={Boolean(busy)} onClick={() => void submitTimer()}>
+                  {busy === "timer" ? "…" : "Add"}
+                </button>
+              </div>
+            </div>
+          )}
 
-          <label>
-            Poll
-            <input value={pollQuestion} onChange={(event) => setPollQuestion(event.target.value)} placeholder="Poll question" />
-          </label>
-          <button type="button" className="secondary" disabled={!pollQuestion.trim() || Boolean(busy)} onClick={submitPoll}>
-            Add poll
-          </button>
+          {/* Poll form */}
+          {selectedType === "poll" && (
+            <div className="content-form">
+              <label>
+                Question
+                <input value={pollQuestion} onChange={(e) => setPollQuestion(e.target.value)} placeholder="Poll question" />
+              </label>
+              <button type="button" className="hud-btn" disabled={!pollQuestion.trim() || Boolean(busy)} onClick={() => void submitPoll()}>
+                {busy === "poll" ? "Adding…" : "Add poll"}
+              </button>
+            </div>
+          )}
 
-          <label>
-            Web resource
-            <input value={linkUrl} onChange={(event) => setLinkUrl(event.target.value)} placeholder="https://example.edu/resource" />
-          </label>
-          <button type="button" className="secondary" disabled={!linkUrl.trim() || Boolean(busy)} onClick={submitLink}>
-            Add link
-          </button>
-        </div>
+          {/* Link form */}
+          {selectedType === "link" && (
+            <div className="content-form">
+              <label>
+                URL
+                <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="https://example.edu/resource" />
+              </label>
+              <button type="button" className="hud-btn" disabled={!linkUrl.trim() || Boolean(busy)} onClick={() => void submitLink()}>
+                {busy === "link" ? "Adding…" : "Add link"}
+              </button>
+            </div>
+          )}
+        </>
       ) : (
-        <p className="small">Wall creation is teacher-controlled in this room.</p>
+        <p className="small">Wall creation is teacher-controlled.</p>
       )}
 
-      <ul className="anchor-list">
-        {manifest.wallAnchors.map((anchor) => {
-          const objects = objectsByAnchor.get(anchor.id) ?? [];
-          return (
-            <li key={anchor.id} className="anchor-item">
-              <span>{anchor.label}</span>
-              <span className="small">
-                {objects.length} object(s) · accepts {(anchor.metadata.accepts as string[] | undefined)?.slice(0, 4).join(", ") ?? "wall objects"}
-              </span>
-              {objects.map((object) => (
-                <WallObjectCard
-                  key={object.id}
-                  object={object}
-                  compact
-                  canManage={canManage}
-                  assetUrl={assetUrls[object.id]}
-                  videoStream={wallMediaStreams[object.id]?.videoStream}
-                  audioStream={wallMediaStreams[object.id]?.audioStream}
-                  onRemove={(objectId) => void onRemove(objectId)}
-                  onStopShare={(objectId) => void onStopShare(objectId)}
-                  onControl={(objectId, action, positionSeconds) => void onControl(objectId, action, positionSeconds)}
-                  onModerate={(objectId, action) => void onModerate(objectId, action)}
-                />
-              ))}
-            </li>
-          );
-        })}
-      </ul>
+      {/* Objects grouped by anchor */}
+      {hasObjects && (
+        <div style={{ marginTop: canCreate ? "0.5rem" : 0, borderTop: canCreate ? "1px solid var(--line)" : "none", paddingTop: canCreate ? "0.5rem" : 0 }}>
+          {manifest.wallAnchors.map((anchor) => {
+            const objects = objectsByAnchor.get(anchor.id) ?? [];
+            if (objects.length === 0) return null;
+            return (
+              <div key={anchor.id} className="hud-anchor-group">
+                <div className="hud-anchor-label">{anchor.label}</div>
+                {objects.map((object) => (
+                  <WallObjectCard
+                    key={object.id}
+                    object={object}
+                    compact
+                    canManage={canManage}
+                    assetUrl={assetUrls[object.id]}
+                    videoStream={wallMediaStreams[object.id]?.videoStream}
+                    audioStream={wallMediaStreams[object.id]?.audioStream}
+                    onRemove={(objectId) => void onRemove(objectId)}
+                    onStopShare={(objectId) => void onStopShare(objectId)}
+                    onControl={(objectId, action, positionSeconds) => void onControl(objectId, action, positionSeconds)}
+                    onModerate={(objectId, action) => void onModerate(objectId, action)}
+                  />
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
-      {error ? <div className="alert">{error}</div> : null}
-      <p className="small">Room {roomId} · signed wall media as {identity.displayName}</p>
-    </section>
+      {error ? <div className="alert" style={{ marginTop: "0.5rem" }}>{error}</div> : null}
+    </div>
   );
 }

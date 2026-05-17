@@ -23,21 +23,26 @@ export function MediaControls({ media }: MediaControlsProps) {
   }, [media.cameraStream]);
 
   return (
-    <section className="stack" aria-label="Camera and microphone controls">
-      <strong>Media</strong>
-      <div className="video-preview" aria-label={media.cameraEnabled ? "Local camera preview" : "Camera preview off"}>
+    <div className="media-controls-compact" aria-label="Camera and microphone controls">
+      <div className="cam-mini" aria-label={media.cameraEnabled ? "Camera preview" : "Camera off"}>
         {media.cameraStream ? <video ref={videoRef} muted autoPlay playsInline /> : null}
       </div>
-      <button className={media.cameraEnabled ? "secondary" : undefined} onClick={() => media.setCameraEnabled(!media.cameraEnabled)}>
-        {media.cameraEnabled ? "Turn camera off" : "Turn camera on"}
-      </button>
-      <button className={media.microphoneEnabled ? "secondary" : undefined} onClick={() => media.setMicrophoneEnabled(!media.microphoneEnabled)}>
-        {media.microphoneEnabled ? "Mute microphone" : "Turn microphone on"}
-      </button>
-      <span className="status-pill">
-        <span className="status-dot" />
-        {media.speaking ? "Speaking" : media.microphoneEnabled ? "Mic live" : "Mic off"}
-      </span>
-    </section>
+      <div className="media-btn-col">
+        <button
+          className={`media-toggle${media.cameraEnabled ? " on" : ""}`}
+          onClick={() => media.setCameraEnabled(!media.cameraEnabled)}
+        >
+          <span className={`media-dot${media.cameraEnabled ? " live" : ""}`} />
+          {media.cameraEnabled ? "Cam on" : "Cam off"}
+        </button>
+        <button
+          className={`media-toggle${media.microphoneEnabled ? " on" : ""}`}
+          onClick={() => media.setMicrophoneEnabled(!media.microphoneEnabled)}
+        >
+          <span className={`media-dot${media.speaking ? " speaking" : media.microphoneEnabled ? " live" : ""}`} />
+          {media.speaking ? "Speaking" : media.microphoneEnabled ? "Mic on" : "Mic off"}
+        </button>
+      </div>
+    </div>
   );
 }
