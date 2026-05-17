@@ -474,8 +474,8 @@ export {
   fileInputAcceptForAnchor,
   fileKindForWallObjectType,
   isOccupyingWallObjectStatus
-} from "./wallAnchorPolicy.js";
-export type { WallAnchorCreateOption } from "./wallAnchorPolicy.js";
+} from "./wallAnchorPolicy";
+export type { WallAnchorCreateOption } from "./wallAnchorPolicy";
 export {
   createInitialPollState,
   isValidPollChoiceId,
@@ -483,5 +483,5 @@ export {
   pollTotalVotes,
   pollVoteCounts,
   readPollState
-} from "./poll.js";
-export type { PollChoice, PollState } from "./poll.js";
+} from "./poll";
+export type { PollChoice, PollState } from "./poll";
