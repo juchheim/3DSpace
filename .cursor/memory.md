@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-16
+Last updated: 2026-05-16 (avatar nameplate sizing)
 
 ## Project Summary
 
@@ -37,7 +37,7 @@ Implementation state: **Local MVP complete; Phase 7 deployment blocked by missin
 | Phase | Status |
 | --- | --- |
 | 0–6 | Complete locally |
-| 7 Deployment | In progress — blocked on Vercel/Koyeb/Clerk/Atlas/LiveKit/R2 credentials |
+| 7 Deployment | In progress — Vercel build fixed (ApiRoute `delete` type, commit 89fa7e6); env credentials still needed |
 
 ## Key Features Implemented
 
@@ -96,6 +96,8 @@ Screen share, computer audio, teacher moderation, rich wall placement, room buil
 
 - **2026-05-16**: Remote camera video not visible — avatar state updates (~10 Hz) overwrote `ParticipantView` without preserving `cameraStream`/`microphoneStream` from LiveKit. Fixed by spreading existing participant on avatar updates; `onRemoteMedia` upserts when track arrives before presence.
 - **2026-05-16**: Lobby navigation stuck on "Rendering..." from 3D room — soft Next.js navigation hung while WebGL/LiveKit/media stayed active. Fixed with teardown-first leave (`release` media, `disconnect(true)` LiveKit, unmount 3D canvas via `leaving` state) and `navigateToLobby` hard-navigation fallback after 2s.
+- **2026-05-16**: Avatar name/mic label blocked view — Drei `Html` `distanceFactor={8}` scaled ~3× at third-person follow distance (~3m). Fixed with `distanceFactor={3}` and compact `.avatar-nameplate` styles in `RoomView3D.tsx` / `globals.css`.
+- **2026-05-16**: Spawn + wall blocked view on room enter — teacher spawn at z=-3.9 put follow camera (2.85m behind) past front wall (z=-6). Walls/anchors now fade by camera signed distance; default spawns moved toward room center in `room-engine`.
 
 ## Maintenance Rules
 

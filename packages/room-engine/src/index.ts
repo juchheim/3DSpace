@@ -84,10 +84,10 @@ export function createDefaultRoomManifest(input: {
       maxZ: 5.2
     },
     spawnPoints: [
-      { id: "spawn-teacher", label: "Teacher", position: { x: 0, y: 0, z: -3.9 }, rotation: { y: 0 } },
-      { id: "spawn-a", label: "Student A", position: { x: -4.2, y: 0, z: 1.8 }, rotation: { y: Math.PI } },
-      { id: "spawn-b", label: "Student B", position: { x: 0, y: 0, z: 2.2 }, rotation: { y: Math.PI } },
-      { id: "spawn-c", label: "Student C", position: { x: 4.2, y: 0, z: 1.8 }, rotation: { y: Math.PI } }
+      { id: "spawn-teacher", label: "Teacher", position: { x: 0, y: 0, z: -2.2 }, rotation: { y: 0 } },
+      { id: "spawn-a", label: "Student A", position: { x: -3.2, y: 0, z: 1.2 }, rotation: { y: Math.PI } },
+      { id: "spawn-b", label: "Student B", position: { x: 0, y: 0, z: 1.6 }, rotation: { y: Math.PI } },
+      { id: "spawn-c", label: "Student C", position: { x: 3.2, y: 0, z: 1.2 }, rotation: { y: Math.PI } }
     ],
     walls: [
       { id: "wall-front", label: "Front wall", start: { x: -8, y: 0, z: -6 }, end: { x: 8, y: 0, z: -6 }, height: 4, anchorIds: ["anchor-board", "anchor-media-left"] },

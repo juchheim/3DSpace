@@ -3,7 +3,7 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html } from "@react-three/drei";
 import { useEffect, useMemo, useRef, type MutableRefObject } from "react";
-import { Vector3 } from "three";
+import { type MeshStandardMaterial, Vector3 } from "three";
 import type { QualityLevel, RoomManifest, WallAnchorSchema, WallPlaneSchema } from "@3dspace/contracts";
 import type { z } from "zod";
 import type { ParticipantView } from "./RoomClient";
@@ -125,29 +125,91 @@ function RoomGeometry({ manifest, onMoveToPoint }: { manifest: RoomManifest; onM
   );
 }
 
+type WallPlane = {
+  point: Vector3;
+  normal: Vector3;
+};
+
+function wallPlane(wall: Wall): WallPlane {
+  const midpoint = new Vector3(
+    (wall.start.x + wall.end.x) / 2,
+    wall.height / 2,
+    (wall.start.z + wall.end.z) / 2
+  );
+  const spanZ = Math.abs(wall.end.z - wall.start.z);
+
+  if (spanZ < 0.01) {
+    return { point: midpoint, normal: new Vector3(0, 0, midpoint.z < 0 ? 1 : -1) };
+  }
+
+  return { point: midpoint, normal: new Vector3(midpoint.x < 0 ? 1 : -1, 0, 0) };
+}
+
+function wallOpacityFromCameraDistance(signedDistance: number) {
+  if (signedDistance >= 2) return 1;
+  if (signedDistance >= 0) return 0.18 + (signedDistance / 2) * 0.82;
+  return Math.max(0.06, 0.16 + signedDistance * 0.55);
+}
+
 function WallMesh({ wall }: { wall: Wall }) {
+  const { camera } = useThree();
+  const materialRef = useRef<MeshStandardMaterial | null>(null);
+  const plane = useMemo(() => wallPlane(wall), [wall]);
   const length = Math.hypot(wall.end.x - wall.start.x, wall.end.z - wall.start.z);
   const midpoint = [(wall.start.x + wall.end.x) / 2, wall.height / 2, (wall.start.z + wall.end.z) / 2] as const;
   const angle = Math.atan2(wall.end.z - wall.start.z, wall.end.x - wall.start.x);
+  const cameraOffset = useMemo(() => new Vector3(), []);
+
+  useFrame(() => {
+    const material = materialRef.current;
+    if (!material) return;
+
+    const signedDistance = cameraOffset.copy(camera.position).sub(plane.point).dot(plane.normal);
+    const opacity = wallOpacityFromCameraDistance(signedDistance);
+    material.opacity = opacity;
+    material.transparent = opacity < 0.995;
+    material.depthWrite = opacity > 0.85;
+  });
 
   return (
     <mesh position={midpoint} rotation={[0, -angle, 0]}>
       <boxGeometry args={[length, wall.height, 0.12]} />
-      <meshStandardMaterial color="#8ea487" roughness={0.85} />
+      <meshStandardMaterial ref={materialRef} color="#8ea487" roughness={0.85} transparent opacity={1} />
     </mesh>
   );
 }
 
 function AnchorMesh({ anchor }: { anchor: Anchor }) {
+  const { camera } = useThree();
+  const materialRef = useRef<MeshStandardMaterial | null>(null);
+  const plane = useMemo(
+    () => ({
+      point: new Vector3(anchor.position.x, anchor.position.y, anchor.position.z),
+      normal: new Vector3(anchor.normal.x, anchor.normal.y, anchor.normal.z).normalize()
+    }),
+    [anchor.normal.x, anchor.normal.y, anchor.normal.z, anchor.position.x, anchor.position.y, anchor.position.z]
+  );
+  const cameraOffset = useMemo(() => new Vector3(), []);
   const rotation = useMemo<[number, number, number]>(() => {
     if (Math.abs(anchor.normal.x) > 0) return [0, anchor.normal.x > 0 ? Math.PI / 2 : -Math.PI / 2, 0];
     return [0, anchor.normal.z < 0 ? Math.PI : 0, 0];
   }, [anchor.normal.x, anchor.normal.z]);
 
+  useFrame(() => {
+    const material = materialRef.current;
+    if (!material) return;
+
+    const signedDistance = cameraOffset.copy(camera.position).sub(plane.point).dot(plane.normal);
+    const opacity = wallOpacityFromCameraDistance(signedDistance);
+    material.opacity = opacity;
+    material.transparent = opacity < 0.995;
+    material.depthWrite = opacity > 0.85;
+  });
+
   return (
     <mesh position={[anchor.position.x, anchor.position.y, anchor.position.z]} rotation={rotation}>
       <planeGeometry args={[anchor.width, anchor.height]} />
-      <meshStandardMaterial color="#263b31" emissive="#111c17" roughness={0.6} />
+      <meshStandardMaterial ref={materialRef} color="#263b31" emissive="#111c17" roughness={0.6} transparent opacity={1} />
       <Html center transform distanceFactor={8}>
         <div className="avatar-label">{anchor.label}</div>
       </Html>
@@ -169,12 +231,13 @@ function Avatar({ participant }: { participant: ParticipantView }) {
         <sphereGeometry args={[0.24, 18, 12]} />
         <meshStandardMaterial color="#fffaf0" roughness={0.42} />
       </mesh>
-      <Billboard position={[0, 1.72, 0]}>
-        <Html center distanceFactor={8}>
-          <div className="avatar-label">
-            {participant.displayName}
-            <br />
-            {participant.state.media?.speaking ? "speaking" : participant.state.media?.microphoneEnabled ? "mic on" : "mic off"}
+      <Billboard position={[0, 1.46, 0]}>
+        <Html center distanceFactor={3} style={{ pointerEvents: "none" }}>
+          <div className="avatar-nameplate">
+            <span className="avatar-nameplate__name">{participant.displayName}</span>
+            <span className="avatar-nameplate__status">
+              {participant.state.media?.speaking ? "speaking" : participant.state.media?.microphoneEnabled ? "mic on" : "mic off"}
+            </span>
           </div>
         </Html>
       </Billboard>

@@ -66,7 +66,7 @@ describe("room engine", () => {
 
     expect(interpolateAvatarState(previous, next, 0.5).position.x).toBeCloseTo(5);
     expect(interpolateAvatarState(previous, next, 0.5).position.y).toBeCloseTo(0);
-    expect(interpolateAvatarState(previous, next, 0.5).position.z).toBeCloseTo(3.05);
+    expect(interpolateAvatarState(previous, next, 0.5).position.z).toBeCloseTo(3.9);
   });
 
   it("calculates tunable spatial audio gain and pan", () => {

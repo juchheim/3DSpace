@@ -393,6 +393,39 @@ label {
   white-space: nowrap;
 }
 
+.avatar-nameplate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.08rem;
+  max-width: 6.5rem;
+  border: 1px solid rgba(255, 250, 240, 0.22);
+  border-radius: 8px;
+  padding: 0.18rem 0.38rem;
+  color: #fffaf0;
+  background: rgba(18, 30, 24, 0.62);
+  font-family: "Trebuchet MS", sans-serif;
+  line-height: 1.1;
+  text-align: center;
+  pointer-events: none;
+}
+
+.avatar-nameplate__name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.58rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.avatar-nameplate__status {
+  font-size: 0.5rem;
+  letter-spacing: 0.02em;
+  opacity: 0.78;
+  text-transform: lowercase;
+}
+
 .avatar-video-card {
   overflow: hidden;
   width: 9rem;
