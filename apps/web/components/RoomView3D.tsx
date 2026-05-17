@@ -2,7 +2,7 @@
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html } from "@react-three/drei";
-import { memo, useEffect, useMemo, useRef, type CSSProperties, type MutableRefObject } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
 import { type MeshStandardMaterial, Vector3 } from "three";
 import type { QualityLevel, RoomManifest, WallAnchorSchema, WallObject, WallObjectPlacement, WallPlaneSchema } from "@3dspace/contracts";
 import type { z } from "zod";
@@ -54,7 +54,10 @@ export function RoomView3D({
   assetUrls = {},
   wallMediaStreams = {},
   canManageWallObjects = false,
-  onWallObjectControl
+  onWallObjectControl,
+  onWallObjectRemove,
+  onWallObjectStopShare,
+  onWallObjectModerate
 }: {
   manifest: RoomManifest;
   participants: ParticipantView[];
@@ -69,15 +72,23 @@ export function RoomView3D({
   wallMediaStreams?: Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>;
   canManageWallObjects?: boolean;
   onWallObjectControl?: (objectId: string, action: "play" | "pause" | "mute" | "unmute" | "seek", positionSeconds?: number) => void;
+  onWallObjectRemove?: (objectId: string) => void | Promise<void>;
+  onWallObjectStopShare?: (objectId: string) => void | Promise<void>;
+  onWallObjectModerate?: (objectId: string, action: "approve" | "reject") => void | Promise<void>;
 }) {
   const dpr = quality === "high" ? 1.8 : quality === "medium" ? 1.4 : 1;
-  const canvasWrapRef = useRef<HTMLDivElement | null>(null);
+  const [canvasElement, setCanvasElement] = useState<HTMLCanvasElement | null>(null);
 
-  useEffect(() => bindCamera(canvasWrapRef.current), [bindCamera]);
+  useEffect(() => bindCamera(canvasElement), [bindCamera, canvasElement]);
 
   return (
-    <div className="canvas-wrap" ref={canvasWrapRef}>
-      <Canvas camera={{ position: [0, 9.5, 10.5], fov: 48 }} dpr={dpr} gl={{ antialias: quality !== "low", powerPreference: "high-performance" }}>
+    <div className="canvas-wrap">
+      <Canvas
+        camera={{ position: [0, 9.5, 10.5], fov: 48 }}
+        dpr={dpr}
+        gl={{ antialias: quality !== "low", powerPreference: "high-performance" }}
+        onCreated={({ gl }) => setCanvasElement(gl.domElement)}
+      >
         <color attach="background" args={["#16231d"]} />
         <ambientLight intensity={0.82} />
         <directionalLight position={[4, 8, 6]} intensity={1.4} />
@@ -89,6 +100,9 @@ export function RoomView3D({
           wallMediaStreams={wallMediaStreams}
           canManageWallObjects={canManageWallObjects}
           {...(onWallObjectControl ? { onWallObjectControl } : {})}
+          {...(onWallObjectRemove ? { onWallObjectRemove } : {})}
+          {...(onWallObjectStopShare ? { onWallObjectStopShare } : {})}
+          {...(onWallObjectModerate ? { onWallObjectModerate } : {})}
         />
         {participants.map((participant) => (
           <Avatar key={participant.id} participant={participant} />
@@ -110,7 +124,10 @@ function WallObjectLayer({
   assetUrls,
   wallMediaStreams,
   canManageWallObjects,
-  onWallObjectControl
+  onWallObjectControl,
+  onWallObjectRemove,
+  onWallObjectStopShare,
+  onWallObjectModerate
 }: {
   manifest: RoomManifest;
   wallObjects: WallObject[];
@@ -118,6 +135,9 @@ function WallObjectLayer({
   wallMediaStreams: Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>;
   canManageWallObjects: boolean;
   onWallObjectControl?: (objectId: string, action: "play" | "pause" | "mute" | "unmute" | "seek", positionSeconds?: number) => void;
+  onWallObjectRemove?: (objectId: string) => void | Promise<void>;
+  onWallObjectStopShare?: (objectId: string) => void | Promise<void>;
+  onWallObjectModerate?: (objectId: string, action: "approve" | "reject") => void | Promise<void>;
 }) {
   return (
     <group>
@@ -136,6 +156,9 @@ function WallObjectLayer({
               audioStream={wallMediaStreams[object.id]?.audioStream}
               canManage={canManageWallObjects}
               {...(onWallObjectControl ? { onControl: onWallObjectControl } : {})}
+              {...(onWallObjectRemove ? { onRemove: onWallObjectRemove } : {})}
+              {...(onWallObjectStopShare ? { onStopShare: onWallObjectStopShare } : {})}
+              {...(onWallObjectModerate ? { onModerate: onWallObjectModerate } : {})}
             />
           );
         })}
@@ -150,7 +173,10 @@ const WallObjectSurface = memo(function WallObjectSurface({
   videoStream,
   audioStream,
   canManage,
-  onControl
+  onControl,
+  onRemove,
+  onStopShare,
+  onModerate
 }: {
   anchor: Anchor;
   object: WallObject;
@@ -159,6 +185,9 @@ const WallObjectSurface = memo(function WallObjectSurface({
   audioStream?: MediaStream | null | undefined;
   canManage: boolean;
   onControl?: (objectId: string, action: "play" | "pause" | "mute" | "unmute" | "seek", positionSeconds?: number) => void;
+  onRemove?: (objectId: string) => void | Promise<void>;
+  onStopShare?: (objectId: string) => void | Promise<void>;
+  onModerate?: (objectId: string, action: "approve" | "reject") => void | Promise<void>;
 }) {
   const normal = useMemo(() => new Vector3(anchor.normal.x, anchor.normal.y, anchor.normal.z).normalize(), [anchor.normal.x, anchor.normal.y, anchor.normal.z]);
   const right = useMemo(() => {
@@ -212,6 +241,9 @@ const WallObjectSurface = memo(function WallObjectSurface({
             surface
             canManage={canManage}
             {...(onControl ? { onControl } : {})}
+            {...(onRemove ? { onRemove } : {})}
+            {...(onStopShare ? { onStopShare } : {})}
+            {...(onModerate ? { onModerate } : {})}
           />
         </div>
       </Html>

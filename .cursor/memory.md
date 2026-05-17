@@ -133,6 +133,7 @@ Screen share, computer audio, teacher moderation, rich wall placement, room buil
 - **2026-05-17**: Pinned camera on 3D wall disappeared and dropped frame rate — wall camera rendering used an inline `srcObject` ref and rediscovered the local camera through frequently updated avatar participant state. Fixed with stable media elements, explicit local wall-media binding for local camera pins, and memoized 3D wall surfaces to avoid rerendering video surfaces on avatar ticks.
 - **2026-05-17**: WASD/arrow keys could not type in wall tool inputs (note, poll, link) — `useAvatarMovement` captured movement keys globally with `preventDefault()`. Fixed by skipping movement capture when focus is in text inputs, textareas, selects, or contenteditable elements.
 - **2026-05-17**: Teacher and student initial spawns could overlap at the front board and face away from it — local spawn selection used `participantId.length % spawnPoints.length`. Fixed with role-aware spawn selection, back-of-room student spawn candidates, occupied-position avoidance when known, and board-facing teacher/student rotations.
+- **2026-05-17**: 3D wall object buttons not clickable — third-person camera drag bound to `.canvas-wrap` used `setPointerCapture`, stealing pointer events from Drei `Html` overlays (siblings of the canvas). Fixed by binding drag to the canvas only, skipping interactive targets as a fallback, and wiring `onRemove` / `onStopShare` / `onModerate` into `RoomView3D` wall surfaces.
 
 ## Maintenance Rules
 

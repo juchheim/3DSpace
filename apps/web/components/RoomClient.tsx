@@ -596,6 +596,11 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             wallMediaStreams={wallMediaStreams}
             canManageWallObjects={session.role === "teacher"}
             onWallObjectControl={controlWallObject}
+            onWallObjectRemove={async (objectId) => {
+              await wall.removeObject(objectId);
+            }}
+            onWallObjectStopShare={stopShare}
+            onWallObjectModerate={moderateWallObject}
           />
         ) : (
           <RoomView2D

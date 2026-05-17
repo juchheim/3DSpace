@@ -9,6 +9,15 @@ const MIN_PITCH = 0.18;
 const MAX_PITCH = 1.22;
 const DRAG_CLICK_THRESHOLD_PX = 5;
 
+function isInteractivePointerTarget(target: EventTarget | null) {
+  if (!(target instanceof Element)) return false;
+  return Boolean(
+    target.closest(
+      "button, a, input, select, textarea, label, [role='button'], .wall-object-html, .wall-anchor-label-html, .avatar-video-card"
+    )
+  );
+}
+
 export function useThirdPersonCamera(input: { viewMode: ViewMode }) {
   const yawRef = useRef(0);
   const pitchRef = useRef(0.32);
@@ -29,6 +38,7 @@ export function useThirdPersonCamera(input: { viewMode: ViewMode }) {
 
       function onPointerDown(event: PointerEvent) {
         if (event.button !== 0) return;
+        if (isInteractivePointerTarget(event.target)) return;
         draggingRef.current = true;
         suppressClickRef.current = false;
         lastPointerRef.current = { x: event.clientX, y: event.clientY };
