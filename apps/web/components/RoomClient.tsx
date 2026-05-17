@@ -10,6 +10,8 @@ import { pickDisplayName } from "../lib/displayName";
 import { useAvatarMovement } from "../lib/useAvatarMovement";
 import { useThirdPersonCamera } from "../lib/useThirdPersonCamera";
 import { useLocalMedia } from "../lib/useLocalMedia";
+import { useDisplayMedia } from "../lib/useDisplayMedia";
+import { useWallObjects } from "../lib/useWallObjects";
 import { usePersistentIdentity } from "../lib/usePersistentIdentity";
 import { navigateToLobby } from "../lib/navigateToLobby";
 import { createRealtimeClient, type RealtimeClient, type RealtimeMessage } from "../lib/realtime";
@@ -51,6 +53,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const avatarStateRef = useRef<AvatarStateMessage | null>(null);
   const memberNamesRef = useRef(new Map<string, string>());
   const media = useLocalMedia(session?.tuning.media);
+  const displayMedia = useDisplayMedia();
   const camera = useThirdPersonCamera({ viewMode });
   const movement = useAvatarMovement({
     manifest,
@@ -63,6 +66,18 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       speaking: media.speaking
     }
   });
+  const [remoteWallMedia, setRemoteWallMedia] = useState<Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>>({});
+  const [localWallMedia, setLocalWallMedia] = useState<Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>>({});
+  const publishRealtime = useCallback((message: RealtimeMessage) => {
+    realtimeRef.current?.publish(message);
+  }, []);
+  const wall = useWallObjects({
+    identity,
+    roomId: session?.room.id ?? roomId,
+    manifest,
+    enabled: Boolean(session && manifest),
+    publish: publishRealtime
+  });
 
   useEffect(() => {
     if (!movement.avatarState) return;
@@ -74,7 +89,10 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     realtimeRef.current?.close();
     realtimeRef.current = null;
     releaseMedia();
-  }, [releaseMedia]);
+    displayMedia.stop();
+    setRemoteWallMedia({});
+    setLocalWallMedia({});
+  }, [displayMedia.stop, releaseMedia]);
 
   const leaveForLobby = useCallback(() => {
     if (leaving) return;
@@ -141,6 +159,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     let closed = false;
 
     function handleMessage(message: RealtimeMessage) {
+      if (wall.handleRealtimeMessage(message)) return;
+      if (message.type.startsWith("wall.")) return;
+
       if (message.type === "participant.leave.v1") {
         setParticipants((current) => {
           const next = { ...current };
@@ -189,6 +210,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         return;
       }
 
+      if (message.type !== "avatar.state.v1") return;
+
       setParticipants((current) => {
         const existing = current[message.participantId];
         return {
@@ -216,6 +239,17 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       displayName: identity.displayName,
       onMessage: handleMessage,
       onRemoteMedia(update) {
+        if (update.wallObjectId) {
+          setRemoteWallMedia((current) => ({
+            ...current,
+            [update.wallObjectId!]: {
+              ...(current[update.wallObjectId!] ?? {}),
+              ...(update.wallVideoStream !== undefined ? { videoStream: update.wallVideoStream } : {}),
+              ...(update.wallAudioStream !== undefined ? { audioStream: update.wallAudioStream } : {})
+            }
+          }));
+          return;
+        }
         setParticipants((current) => {
           const existing =
             current[update.participantId] ??
@@ -272,7 +306,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       realtimeRef.current?.close();
       realtimeRef.current = null;
     };
-  }, [session?.participantId, roomId, identity.displayName, leaving]);
+  }, [session?.participantId, roomId, identity.displayName, leaving, wall.handleRealtimeMessage]);
 
   useEffect(() => {
     if (!session || !movement.avatarState) return;
@@ -317,15 +351,185 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     return () => window.clearInterval(interval);
   }, [session?.participantId]);
 
+  useEffect(() => {
+    if (!session) return;
+    const localCameraObjectIds = new Set(
+      wall.wallObjects
+        .filter((object) => object.type === "camera.live" && object.source.kind === "livekit-track" && object.source.participantId === session.participantId)
+        .map((object) => object.id)
+    );
+    if (localCameraObjectIds.size === 0) return;
+
+    setLocalWallMedia((current) => {
+      let next = current;
+      for (const objectId of localCameraObjectIds) {
+        if (current[objectId]?.videoStream === media.cameraStream) continue;
+        if (next === current) next = { ...current };
+        next[objectId] = { ...(next[objectId] ?? {}), videoStream: media.cameraStream };
+      }
+      for (const objectId of Object.keys(current)) {
+        if (!localCameraObjectIds.has(objectId)) continue;
+        if (media.cameraStream) continue;
+        if (next === current) next = { ...current };
+        next[objectId] = { ...(next[objectId] ?? {}), videoStream: null };
+      }
+      return next;
+    });
+  }, [media.cameraStream, session?.participantId, wall.wallObjects]);
+
   const participantList = useMemo(() => Object.values(participants), [participants]);
+  const wallMediaStreams = useMemo(() => {
+    const next: Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }> = {
+      ...remoteWallMedia,
+      ...localWallMedia
+    };
+    for (const object of wall.wallObjects) {
+      const source = object.source;
+      if (source.kind !== "livekit-track") continue;
+      const participant = participantList.find((candidate) => candidate.id === source.participantId);
+      if (!participant) continue;
+      if (object.type === "camera.live") {
+        const existing = next[object.id] ?? {};
+        next[object.id] = { ...existing, videoStream: existing.videoStream !== undefined ? existing.videoStream : (participant.cameraStream ?? null) };
+      }
+      if (object.type === "microphone.live") {
+        const existing = next[object.id] ?? {};
+        next[object.id] = { ...existing, audioStream: existing.audioStream !== undefined ? existing.audioStream : (participant.microphoneStream ?? null) };
+      }
+    }
+    return next;
+  }, [localWallMedia, participantList, remoteWallMedia, wall.wallObjects]);
   useSpatialAudio(
     session
       ? {
           participants: participantList,
           localParticipantId: session.participantId,
-          config: session.tuning.spatialAudio
+          config: session.tuning.spatialAudio,
+          manifest: manifest ?? undefined,
+          wallObjects: wall.wallObjects,
+          wallMediaStreams
         }
       : { participants: participantList }
+  );
+
+  const createFileObject = useCallback(
+    async (input: { anchorId: string; file: File; title: string; altText?: string | undefined; caption?: string | undefined }) => {
+      await wall.createFileObject(input);
+    },
+    [wall.createFileObject]
+  );
+
+  const createNote = useCallback(
+    async (input: { anchorId: string; title: string; text: string }) => {
+      await wall.createInlineObject({ anchorId: input.anchorId, type: "note", title: input.title, data: { text: input.text } });
+    },
+    [wall.createInlineObject]
+  );
+
+  const createTimer = useCallback(
+    async (input: { anchorId: string; title: string; seconds: number }) => {
+      await wall.createInlineObject({ anchorId: input.anchorId, type: "timer", title: input.title, data: { seconds: input.seconds } });
+    },
+    [wall.createInlineObject]
+  );
+
+  const createPoll = useCallback(
+    async (input: { anchorId: string; title: string; question: string; choices: string[] }) => {
+      await wall.createInlineObject({ anchorId: input.anchorId, type: "poll", title: input.title, data: { question: input.question, choices: input.choices } });
+    },
+    [wall.createInlineObject]
+  );
+
+  const createLink = useCallback(
+    async (input: { anchorId: string; title: string; url: string }) => {
+      await wall.createLinkObject({ anchorId: input.anchorId, title: input.title, url: input.url });
+    },
+    [wall.createLinkObject]
+  );
+
+  const pinCamera = useCallback(
+    async (anchorId: string) => {
+      if (!media.cameraEnabled) media.setCameraEnabled(true);
+      await wall.createLiveShareObject({ anchorId, type: "camera.live", title: "Pinned camera" });
+    },
+    [media.cameraEnabled, media.setCameraEnabled, wall.createLiveShareObject]
+  );
+
+  const pinMicrophone = useCallback(
+    async (anchorId: string) => {
+      if (!media.microphoneEnabled) media.setMicrophoneEnabled(true);
+      await wall.createLiveShareObject({ anchorId, type: "microphone.live", title: "Pinned microphone" });
+    },
+    [media.microphoneEnabled, media.setMicrophoneEnabled, wall.createLiveShareObject]
+  );
+
+  const shareScreen = useCallback(
+    async (anchorId: string) => {
+      const share = await wall.createLiveShareObject({ anchorId, type: "browser-tab.live", title: "Shared screen" });
+      try {
+        const stream = await displayMedia.start();
+        const audioStream = stream.getAudioTracks().length > 0 ? new MediaStream(stream.getAudioTracks()) : null;
+        setLocalWallMedia((current) => ({
+          ...current,
+          [share.object.id]: {
+            videoStream: new MediaStream(stream.getVideoTracks()),
+            audioStream
+          }
+        }));
+        await realtimeRef.current?.setLocalWallShare({
+          objectId: share.object.id,
+          screenStream: stream,
+          audioStream,
+          publicationName: share.publicationName
+        });
+        stream.getTracks().forEach((track) => {
+          track.addEventListener("ended", () => {
+            setLocalWallMedia((current) => {
+              const next = { ...current };
+              delete next[share.object.id];
+              return next;
+            });
+            void realtimeRef.current?.setLocalWallShare({ objectId: share.object.id, screenStream: null });
+            void wall.endShare(share.object.id).catch(() => undefined);
+          });
+        });
+      } catch (err) {
+        await wall.endShare(share.object.id).catch(() => undefined);
+        throw err;
+      }
+    },
+    [displayMedia, wall.createLiveShareObject, wall.endShare]
+  );
+
+  const stopShare = useCallback(
+    async (objectId: string) => {
+      displayMedia.stop();
+      setLocalWallMedia((current) => {
+        const next = { ...current };
+        delete next[objectId];
+        return next;
+      });
+      await realtimeRef.current?.setLocalWallShare({ objectId, screenStream: null });
+      await wall.endShare(objectId);
+    },
+    [displayMedia, wall.endShare]
+  );
+
+  const controlWallObject = useCallback(
+    async (objectId: string, action: "play" | "pause" | "mute" | "unmute" | "seek", positionSeconds?: number) => {
+      await wall.controlObject(objectId, {
+        action,
+        ...(positionSeconds !== undefined ? { positionSeconds } : {})
+      });
+    },
+    [wall.controlObject]
+  );
+
+  const moderateWallObject = useCallback(
+    async (objectId: string, action: "approve" | "reject") => {
+      await wall.controlObject(objectId, { action });
+    },
+    [wall.controlObject]
   );
 
   const exitToLobby = (label: string) => (
@@ -402,9 +606,21 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
                   if (camera.consumeClickSuppress()) return;
                   movement.moveTo3DPoint(point);
                 }}
+                wallObjects={wall.wallObjects}
+                assetUrls={wall.assetUrls}
+                wallMediaStreams={wallMediaStreams}
+                canManageWallObjects={session.role === "teacher"}
+                onWallObjectControl={controlWallObject}
               />
             ) : (
-              <RoomView2D manifest={manifest} participants={participantList} onMoveToPoint={movement.moveTo2DPoint} />
+              <RoomView2D
+                manifest={manifest}
+                participants={participantList}
+                onMoveToPoint={movement.moveTo2DPoint}
+                wallObjects={wall.wallObjects}
+                assetUrls={wall.assetUrls}
+                wallMediaStreams={wallMediaStreams}
+              />
             )}
           </div>
 
@@ -415,7 +631,34 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
 
         <aside className="side-panel stack" aria-label="Room details">
           <Roster participants={participantList} />
-          {manifest && session ? <AnchorPanel identity={identity} roomId={session.room.id} manifest={manifest} /> : null}
+          {manifest && session ? (
+            <AnchorPanel
+              identity={identity}
+              roomId={session.room.id}
+              manifest={manifest}
+              wallObjects={wall.wallObjects}
+              assetUrls={wall.assetUrls}
+              wallMediaStreams={wallMediaStreams}
+              canCreate={session.role === "teacher" || session.room.settings.wallObjectCreation !== "teacher-only"}
+              canManage={session.role === "teacher"}
+              loading={wall.loading}
+              error={wall.error || displayMedia.error}
+              onCreateFile={createFileObject}
+              onCreateNote={createNote}
+              onCreateTimer={createTimer}
+              onCreatePoll={createPoll}
+              onCreateLink={createLink}
+              onPinCamera={pinCamera}
+              onPinMicrophone={pinMicrophone}
+              onShareScreen={shareScreen}
+              onRemove={async (objectId) => {
+                await wall.removeObject(objectId);
+              }}
+              onStopShare={stopShare}
+              onControl={controlWallObject}
+              onModerate={moderateWallObject}
+            />
+          ) : null}
         </aside>
       </section>
     </main>

@@ -8,7 +8,12 @@ import type {
   RoomSessionResponse,
   RoomWithManifest,
   WallAttachment,
-  WallAttachmentDownloadResponse
+  WallAttachmentDownloadResponse,
+  WallObject,
+  WallObjectControlRequestSchema,
+  CreateWallObjectRequestSchema,
+  UpdateWallObjectRequestSchema,
+  CreateWallShareResponseSchema
 } from "@3dspace/contracts";
 import type { z } from "zod";
 import { API_URL } from "./config";
@@ -112,6 +117,7 @@ export function createAttachment(
     kind: "image" | "video" | "audio" | "future";
     fileName: string;
     contentType: string;
+    metadata?: Record<string, unknown>;
   }
 ) {
   return apiFetch<{
@@ -120,10 +126,95 @@ export function createAttachment(
   }>(`/v1/rooms/${roomId}/attachments`, {
     method: "POST",
     identity,
-    body: { ...input, metadata: { source: "mvp-ui" } }
+    body: { ...input, metadata: { source: "wall-object-ui", ...(input.metadata ?? {}) } }
+  });
+}
+
+export function finalizeAttachment(identity: ApiIdentity, roomId: string, attachmentId: string, metadata: Record<string, unknown> = {}) {
+  return apiFetch<WallAttachment>(`/v1/rooms/${roomId}/attachments/${attachmentId}/finalize`, {
+    method: "POST",
+    identity,
+    body: { metadata }
   });
 }
 
 export function createAttachmentDownload(identity: ApiIdentity, roomId: string, attachmentId: string) {
   return apiFetch<WallAttachmentDownloadResponse>(`/v1/rooms/${roomId}/attachments/${attachmentId}/download`, { identity });
+}
+
+export function listWallObjects(identity: ApiIdentity, roomId: string) {
+  return apiFetch<WallObject[]>(`/v1/rooms/${roomId}/wall-objects`, { identity });
+}
+
+export function createWallObject(identity: ApiIdentity, roomId: string, input: z.infer<typeof CreateWallObjectRequestSchema>) {
+  return apiFetch<WallObject>(`/v1/rooms/${roomId}/wall-objects`, {
+    method: "POST",
+    identity,
+    body: input
+  });
+}
+
+export function updateWallObject(identity: ApiIdentity, roomId: string, objectId: string, input: z.infer<typeof UpdateWallObjectRequestSchema>) {
+  return apiFetch<WallObject>(`/v1/rooms/${roomId}/wall-objects/${objectId}`, {
+    method: "PATCH",
+    identity,
+    body: input
+  });
+}
+
+export function removeWallObject(identity: ApiIdentity, roomId: string, objectId: string) {
+  return apiFetch<WallObject>(`/v1/rooms/${roomId}/wall-objects/${objectId}`, {
+    method: "DELETE",
+    identity
+  });
+}
+
+export function controlWallObject(identity: ApiIdentity, roomId: string, objectId: string, input: z.infer<typeof WallObjectControlRequestSchema>) {
+  return apiFetch<WallObject>(`/v1/rooms/${roomId}/wall-objects/${objectId}/control`, {
+    method: "POST",
+    identity,
+    body: input
+  });
+}
+
+export function createWallShare(
+  identity: ApiIdentity,
+  roomId: string,
+  input: {
+    wallAnchorId: string;
+    type: "camera.live" | "microphone.live" | "screen.live" | "browser-tab.live";
+    title: string;
+    description?: string;
+  }
+) {
+  return apiFetch<z.infer<typeof CreateWallShareResponseSchema>>(`/v1/rooms/${roomId}/wall-shares`, {
+    method: "POST",
+    identity,
+    body: input
+  });
+}
+
+export function endWallShare(identity: ApiIdentity, roomId: string, objectId: string) {
+  return apiFetch<WallObject>(`/v1/rooms/${roomId}/wall-shares/${objectId}/end`, {
+    method: "POST",
+    identity
+  });
+}
+
+export function createWebResource(
+  identity: ApiIdentity,
+  roomId: string,
+  input: {
+    wallAnchorId: string;
+    url: string;
+    title?: string;
+    description?: string;
+    embedMode?: "link" | "iframe";
+  }
+) {
+  return apiFetch<WallObject>(`/v1/rooms/${roomId}/web-resources`, {
+    method: "POST",
+    identity,
+    body: input
+  });
 }

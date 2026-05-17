@@ -1,8 +1,10 @@
 # 3DSpace MVP Implementation Plan
 
+> **Historical plan.** MVP implementation and production deployment are **complete** as of 2026-05-17. For current status, URLs, env configuration, validation evidence, and limitations, see **`MVP_STATUS.md`**. Post-MVP work is planned in **`docs/planning/mvp+1/`**.
+
 ## Purpose
 
-This document defines the complete MVP for 3DSpace: a browser-based, multi-user, immersive 3D educational space with a functional 2D analog. It is written for an implementation run by GPT-5.5 Extra High using the `/goal` instruction, meaning implementation should continue until the MVP and the status document are fully complete.
+This document defines the complete MVP for 3DSpace: a browser-based, multi-user, immersive 3D educational space with a functional 2D analog. It was written for the initial implementation run and remains the architectural source of truth for what the MVP was intended to deliver.
 
 The implementation deliverables are:
 

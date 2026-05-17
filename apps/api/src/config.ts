@@ -30,6 +30,22 @@ export type AppConfig = {
     defaultQuality: "low" | "medium" | "high";
     enable2DAnalog: boolean;
     enableWallAttachments: boolean;
+    enableWallObjects: boolean;
+    wallObjectCreationDefault: "teacher-only" | "student-request" | "student-direct";
+    wallObjectMaxActivePerRoom: number;
+    wallObjectMaxActiveLiveShares: number;
+    wallObjectMaxImageBytes: number;
+    wallObjectMaxVideoBytes: number;
+    wallObjectMaxAudioBytes: number;
+    wallObjectAllowedImageTypes: string[];
+    wallObjectAllowedVideoTypes: string[];
+    wallObjectAllowedAudioTypes: string[];
+    enableWallWebLinks: boolean;
+    enableWallWebEmbeds: boolean;
+    wallWebEmbedAllowlist: string[];
+    enableWallScreenShare: boolean;
+    enableWallStudentUploads: boolean;
+    enableWallStudentLiveShares: boolean;
     spatialAudio: SpatialAudioConfig;
     media: {
       defaultCameraEnabled: boolean;
@@ -62,6 +78,19 @@ function envBoolean(raw: NodeJS.ProcessEnv, key: string, defaultValue: boolean) 
   if (["true", "1", "yes", "on"].includes(value.toLowerCase())) return true;
   if (["false", "0", "no", "off"].includes(value.toLowerCase())) return false;
   throw new Error(`${key} must be a boolean`);
+}
+
+function envStringList(raw: NodeJS.ProcessEnv, key: string, defaultValue: string[]) {
+  return (envString(raw, key) ?? defaultValue.join(","))
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function envWallObjectCreation(raw: NodeJS.ProcessEnv) {
+  const value = envString(raw, "WALL_OBJECT_CREATION_DEFAULT") ?? "teacher-only";
+  if (value === "teacher-only" || value === "student-request" || value === "student-direct") return value;
+  throw new Error("WALL_OBJECT_CREATION_DEFAULT must be teacher-only, student-request, or student-direct");
 }
 
 function requiredInProduction(config: AppConfig, raw: NodeJS.ProcessEnv) {
@@ -133,6 +162,22 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       defaultQuality,
       enable2DAnalog: envBoolean(raw, "ENABLE_2D_ANALOG", true),
       enableWallAttachments: envBoolean(raw, "ENABLE_WALL_ATTACHMENTS", true),
+      enableWallObjects: envBoolean(raw, "ENABLE_WALL_OBJECTS", true),
+      wallObjectCreationDefault: envWallObjectCreation(raw),
+      wallObjectMaxActivePerRoom: envNumber(raw, "WALL_OBJECT_MAX_ACTIVE_PER_ROOM", 20),
+      wallObjectMaxActiveLiveShares: envNumber(raw, "WALL_OBJECT_MAX_ACTIVE_LIVE_SHARES", 4),
+      wallObjectMaxImageBytes: envNumber(raw, "WALL_OBJECT_MAX_IMAGE_BYTES", 10_485_760),
+      wallObjectMaxVideoBytes: envNumber(raw, "WALL_OBJECT_MAX_VIDEO_BYTES", 262_144_000),
+      wallObjectMaxAudioBytes: envNumber(raw, "WALL_OBJECT_MAX_AUDIO_BYTES", 52_428_800),
+      wallObjectAllowedImageTypes: envStringList(raw, "WALL_OBJECT_ALLOWED_IMAGE_TYPES", ["image/png", "image/jpeg", "image/webp"]),
+      wallObjectAllowedVideoTypes: envStringList(raw, "WALL_OBJECT_ALLOWED_VIDEO_TYPES", ["video/mp4", "video/webm"]),
+      wallObjectAllowedAudioTypes: envStringList(raw, "WALL_OBJECT_ALLOWED_AUDIO_TYPES", ["audio/mpeg", "audio/mp4", "audio/wav", "audio/webm"]),
+      enableWallWebLinks: envBoolean(raw, "ENABLE_WALL_WEB_LINKS", true),
+      enableWallWebEmbeds: envBoolean(raw, "ENABLE_WALL_WEB_EMBEDS", false),
+      wallWebEmbedAllowlist: envStringList(raw, "WALL_WEB_EMBED_ALLOWLIST", []),
+      enableWallScreenShare: envBoolean(raw, "ENABLE_WALL_SCREEN_SHARE", true),
+      enableWallStudentUploads: envBoolean(raw, "ENABLE_WALL_STUDENT_UPLOADS", false),
+      enableWallStudentLiveShares: envBoolean(raw, "ENABLE_WALL_STUDENT_LIVE_SHARES", false),
       spatialAudio: {
         enabled: envBoolean(raw, "SPATIAL_AUDIO_ENABLED", true),
         distanceModel,

@@ -2,6 +2,8 @@
 
 3DSpace is a browser-based educational room MVP with a shared room manifest, a 3D renderer, a 2D analog, Fastify APIs, MongoDB persistence, LiveKit session/token plumbing, and S3-compatible wall attachment readiness.
 
+**Production:** MVP is deployed (Vercel frontend, Koyeb API, MongoDB Atlas, Clerk, LiveKit Cloud, Cloudflare R2). App: https://3d-space-seven.vercel.app — API: https://content-jeanine-juchheim-71a4f131.koyeb.app — see `docs/planning/mvp/MVP_STATUS.md` for full deployment state. Sentry is not configured yet.
+
 ## Local Development
 
 1. Install dependencies:

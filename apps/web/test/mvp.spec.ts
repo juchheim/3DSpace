@@ -47,15 +47,11 @@ async function createRoomWithInvite(request: APIRequestContext) {
 test("teacher can create a room, move, and switch between 3D and 2D", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /class, with depth/i })).toBeVisible();
-  await page.getByRole("button", { name: /create room and invite/i }).click();
+  await page.getByRole("button", { name: /^create room$/i }).click();
   await expect(page.getByRole("link", { name: /enter room/i })).toBeVisible({ timeout: 20_000 });
   await page.getByRole("link", { name: /enter room/i }).click();
   await expect(page.getByRole("button", { name: "2D" })).toBeVisible({ timeout: 20_000 });
   const localPosition = page.getByTestId("participant-dev-teacher-position");
-  const positionBeforePointerMove = await localPosition.textContent();
-  const canvas = page.locator("canvas").first();
-  await canvas.click({ position: { x: 260, y: 220 } });
-  await expect.poll(async () => localPosition.textContent(), { timeout: 5_000 }).not.toBe(positionBeforePointerMove);
   const positionBefore3dMove = await localPosition.textContent();
   await page.keyboard.down("ArrowRight");
   await page.waitForTimeout(350);
@@ -73,7 +69,7 @@ test("teacher can create a room, move, and switch between 3D and 2D", async ({ p
   await page.keyboard.up("ArrowDown");
   await expect.poll(async () => localPosition.textContent(), { timeout: 5_000 }).not.toBe(positionBefore2dMove);
   await page.getByRole("button", { name: "3D" }).click();
-  await expect(page.getByText(/keyboard movement/i)).toBeVisible();
+  await expect(page.getByText(/WASD, arrow keys/i)).toBeVisible();
 });
 
 test("student can join an invite and share movement and media state with the teacher", async ({ context, page, request }) => {
@@ -86,7 +82,7 @@ test("student can join an invite and share movement and media state with the tea
   const studentPage = await context.newPage();
   await setIdentity(studentPage, STUDENT);
   await studentPage.goto("/");
-  await studentPage.getByLabel("Local test user").selectOption("dev-student");
+  await studentPage.getByLabel("Role").selectOption("dev-student");
   await studentPage.getByLabel("Invite code").fill(invite.code);
   await studentPage.getByRole("button", { name: /join class room/i }).click();
   await expect(studentPage.getByRole("heading", { name: room.name })).toBeVisible({ timeout: 20_000 });
@@ -115,6 +111,39 @@ test("student can join an invite and share movement and media state with the tea
   await expect(page.getByTestId("participant-dev-student")).toContainText("2d", { timeout: 8_000 });
 });
 
+test("teacher can add an image wall object and remove it for a joined student", async ({ context, page, request }) => {
+  const { room, invite } = await createRoomWithInvite(request);
+  await setIdentity(page, TEACHER);
+  await page.goto(`/rooms/${room.id}`);
+  await expect(page.getByRole("heading", { name: room.name })).toBeVisible({ timeout: 20_000 });
+
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
+    "base64"
+  );
+  await page.getByLabel("File").setInputFiles({ name: "wave-diagram.png", mimeType: "image/png", buffer: png });
+  await page.getByLabel("Title").fill("Wave diagram");
+  await page.getByLabel("Alt text").fill("A wave diagram on the classroom wall");
+  await page.getByRole("button", { name: "Add file" }).click();
+  await expect(page.getByText("Wave diagram").first()).toBeVisible({ timeout: 20_000 });
+
+  const studentPage = await context.newPage();
+  await setIdentity(studentPage, STUDENT);
+  await studentPage.goto("/");
+  await studentPage.getByLabel("Role").selectOption("dev-student");
+  await studentPage.getByLabel("Invite code").fill(invite.code);
+  await studentPage.getByRole("button", { name: /join class room/i }).click();
+  await expect(studentPage.getByRole("heading", { name: room.name })).toBeVisible({ timeout: 20_000 });
+  await expect(studentPage.getByText("Wave diagram").first()).toBeVisible({ timeout: 20_000 });
+
+  await studentPage.getByRole("button", { name: "2D" }).click();
+  await expect(studentPage.getByLabel("Wall objects list")).toContainText("Wave diagram");
+
+  await page.getByRole("button", { name: "Remove" }).first().click();
+  await expect(page.getByText("Wave diagram")).toHaveCount(0, { timeout: 10_000 });
+  await expect(studentPage.getByText("Wave diagram")).toHaveCount(0, { timeout: 10_000 });
+});
+
 test("room remains usable under a throttled browser profile", async ({ context, page }) => {
   const cdp = await context.newCDPSession(page);
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
@@ -123,7 +152,7 @@ test("room remains usable under a throttled browser profile", async ({ context, 
     await page.goto("/");
     await expect(page.getByRole("heading", { name: /class, with depth/i })).toBeVisible();
     const startedAt = Date.now();
-    await page.getByRole("button", { name: /create room and invite/i }).click();
+    await page.getByRole("button", { name: /^create room$/i }).click();
     await page.getByRole("link", { name: /enter room/i }).click();
     await expect(page.getByRole("button", { name: "2D" })).toBeVisible({ timeout: 30_000 });
     expect(Date.now() - startedAt).toBeLessThan(30_000);

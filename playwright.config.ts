@@ -25,12 +25,12 @@ export default defineConfig({
     : [
         {
           command: "npm --workspace @3dspace/api run dev",
-          url: process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8080/health",
+          url: "http://127.0.0.1:8080/health",
           reuseExistingServer: true,
           timeout: 120_000
         },
         {
-          command: "npm --workspace @3dspace/web run dev",
+          command: "NEXT_PUBLIC_E2E_DEV_AUTH=true NEXT_PUBLIC_API_URL=http://127.0.0.1:8080 npm --workspace @3dspace/web run dev",
           url: "http://127.0.0.1:3000",
           reuseExistingServer: true,
           timeout: 120_000

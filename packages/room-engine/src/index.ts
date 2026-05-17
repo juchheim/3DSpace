@@ -46,6 +46,10 @@ export function createRoomCapabilities(config: RoomEngineConfig = DEFAULT_ROOM_E
     cameraBillboards: true,
     spatialAudio: config.spatialAudio.enabled,
     wallAttachments: config.enableWallAttachments,
+    wallObjects: true,
+    wallLiveShares: true,
+    wallWebLinks: true,
+    wallWebEmbeds: false,
     roomEvents: true
   };
 }
@@ -103,7 +107,15 @@ export function createDefaultRoomManifest(input: {
         normal: { x: 0, y: 0, z: 1 },
         width: 6.8,
         height: 2.1,
-        metadata: { accepts: ["image", "video"], priority: "primary" }
+        metadata: {
+          accepts: ["image", "video", "image.file", "video.file", "camera.live", "screen.live", "browser-tab.live", "web.link", "note", "poll", "timer"],
+          capacity: 4,
+          layout: "grid",
+          defaultRole: "primary-display",
+          supportsInteraction: true,
+          moderationPolicy: "teacher-only",
+          priority: "primary"
+        }
       },
       {
         id: "anchor-media-left",
@@ -112,7 +124,14 @@ export function createDefaultRoomManifest(input: {
         normal: { x: 0, y: 0, z: 1 },
         width: 2.2,
         height: 1.4,
-        metadata: { accepts: ["image", "audio"] }
+        metadata: {
+          accepts: ["image", "audio", "image.file", "audio.file", "microphone.live", "web.link", "note", "timer"],
+          capacity: 3,
+          layout: "stack",
+          defaultRole: "resource-rail",
+          supportsInteraction: true,
+          moderationPolicy: "teacher-only"
+        }
       },
       {
         id: "anchor-back",
@@ -121,7 +140,14 @@ export function createDefaultRoomManifest(input: {
         normal: { x: 0, y: 0, z: -1 },
         width: 2.5,
         height: 1.6,
-        metadata: { accepts: ["image", "video", "audio"] }
+        metadata: {
+          accepts: ["image", "video", "audio", "image.file", "video.file", "audio.file", "camera.live", "screen.live", "browser-tab.live", "web.link", "note", "poll", "timer"],
+          capacity: 4,
+          layout: "grid",
+          defaultRole: "student-share",
+          supportsInteraction: true,
+          moderationPolicy: "student-request"
+        }
       },
       {
         id: "anchor-left",
@@ -130,7 +156,14 @@ export function createDefaultRoomManifest(input: {
         normal: { x: 1, y: 0, z: 0 },
         width: 3.4,
         height: 1.4,
-        metadata: { accepts: ["image"] }
+        metadata: {
+          accepts: ["image", "image.file", "document.file", "slides.file", "web.link", "note", "poll", "timer"],
+          capacity: 6,
+          layout: "rail",
+          defaultRole: "resource-rail",
+          supportsInteraction: true,
+          moderationPolicy: "student-request"
+        }
       },
       {
         id: "anchor-right",
@@ -139,7 +172,14 @@ export function createDefaultRoomManifest(input: {
         normal: { x: -1, y: 0, z: 0 },
         width: 3.4,
         height: 1.4,
-        metadata: { accepts: ["image"] }
+        metadata: {
+          accepts: ["image", "image.file", "document.file", "slides.file", "web.link", "note", "poll", "timer"],
+          capacity: 6,
+          layout: "rail",
+          defaultRole: "resource-rail",
+          supportsInteraction: true,
+          moderationPolicy: "student-request"
+        }
       }
     ],
     projection: {
@@ -152,7 +192,17 @@ export function createDefaultRoomManifest(input: {
     features: [
       { key: "screen-share", enabled: false, config: { preparedTrackKind: "screen" } },
       { key: "computer-audio", enabled: false, config: { preparedTrackKind: "system-audio" } },
-      { key: "wall-attachments", enabled: config.enableWallAttachments, config: { supportedKinds: ["image", "video", "audio"] } }
+      { key: "wall-attachments", enabled: config.enableWallAttachments, config: { supportedKinds: ["image", "video", "audio"] } },
+      {
+        key: "wall-objects",
+        enabled: true,
+        config: {
+          creationDefault: "teacher-only",
+          maxActivePerRoom: 20,
+          maxActiveLiveShares: 4,
+          supportedTypes: ["image.file", "video.file", "audio.file", "camera.live", "microphone.live", "screen.live", "browser-tab.live", "web.link", "note", "poll", "timer"]
+        }
+      }
     ],
     createdAt: input.createdAt ?? new Date().toISOString()
   };
@@ -291,5 +341,15 @@ export function calculateSpatialAudio(
     distance,
     gain: config.refDistance / (config.refDistance + config.rolloffFactor * Math.max(clampedDistance - config.refDistance, 0)),
     pan
+  };
+}
+
+export function getWallAnchorAudioPosition(manifest: RoomManifest, wallAnchorId: string): Vector3 | undefined {
+  const anchor = manifest.wallAnchors.find((candidate) => candidate.id === wallAnchorId);
+  if (!anchor) return undefined;
+  return {
+    x: anchor.position.x,
+    y: anchor.position.y,
+    z: anchor.position.z
   };
 }

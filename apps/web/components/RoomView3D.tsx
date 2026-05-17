@@ -2,14 +2,44 @@
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html } from "@react-three/drei";
-import { useEffect, useMemo, useRef, type MutableRefObject } from "react";
+import { memo, useEffect, useMemo, useRef, type CSSProperties, type MutableRefObject } from "react";
 import { type MeshStandardMaterial, Vector3 } from "three";
-import type { QualityLevel, RoomManifest, WallAnchorSchema, WallPlaneSchema } from "@3dspace/contracts";
+import type { QualityLevel, RoomManifest, WallAnchorSchema, WallObject, WallObjectPlacement, WallPlaneSchema } from "@3dspace/contracts";
 import type { z } from "zod";
 import type { ParticipantView } from "./RoomClient";
+import { WallObjectCard } from "./WallObjectCard";
 
 type Wall = z.infer<typeof WallPlaneSchema>;
 type Anchor = z.infer<typeof WallAnchorSchema>;
+type ConstrainedPlacement = Pick<WallObjectPlacement, "x" | "y" | "width" | "height" | "zIndex" | "fit">;
+type WallObjectSurfaceStyle = CSSProperties & { "--wall-surface-font-size": string };
+
+// drei Html transform sizing: worldMeters = px * distanceFactor / 400
+const WALL_OBJECT_DISTANCE_FACTOR = 8;
+const WALL_OBJECT_SURFACE_OFFSET = 0.045;
+const WALL_OBJECT_LAYER_OFFSET = 0.002;
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function finiteOr(value: number, fallback: number) {
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function constrainPlacement(placement: WallObjectPlacement): ConstrainedPlacement {
+  const width = clamp(finiteOr(placement.width, 1), 0.01, 1);
+  const height = clamp(finiteOr(placement.height, 1), 0.01, 1);
+
+  return {
+    x: clamp(finiteOr(placement.x, 0), 0, 1 - width),
+    y: clamp(finiteOr(placement.y, 0), 0, 1 - height),
+    width,
+    height,
+    zIndex: finiteOr(placement.zIndex, 0),
+    fit: placement.fit
+  };
+}
 
 export function RoomView3D({
   manifest,
@@ -19,7 +49,12 @@ export function RoomView3D({
   cameraYawRef,
   cameraPitchRef,
   bindCamera,
-  onMoveToPoint
+  onMoveToPoint,
+  wallObjects = [],
+  assetUrls = {},
+  wallMediaStreams = {},
+  canManageWallObjects = false,
+  onWallObjectControl
 }: {
   manifest: RoomManifest;
   participants: ParticipantView[];
@@ -29,6 +64,11 @@ export function RoomView3D({
   cameraPitchRef: MutableRefObject<number>;
   bindCamera(element: HTMLElement | null): void | (() => void);
   onMoveToPoint(point: { x: number; z: number }): void;
+  wallObjects?: WallObject[];
+  assetUrls?: Record<string, string>;
+  wallMediaStreams?: Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>;
+  canManageWallObjects?: boolean;
+  onWallObjectControl?: (objectId: string, action: "play" | "pause" | "mute" | "unmute" | "seek", positionSeconds?: number) => void;
 }) {
   const dpr = quality === "high" ? 1.8 : quality === "medium" ? 1.4 : 1;
   const canvasWrapRef = useRef<HTMLDivElement | null>(null);
@@ -41,7 +81,15 @@ export function RoomView3D({
         <color attach="background" args={["#16231d"]} />
         <ambientLight intensity={0.82} />
         <directionalLight position={[4, 8, 6]} intensity={1.4} />
-        <RoomGeometry manifest={manifest} onMoveToPoint={onMoveToPoint} />
+        <RoomGeometry manifest={manifest} onMoveToPoint={onMoveToPoint} wallObjects={wallObjects} />
+        <WallObjectLayer
+          manifest={manifest}
+          wallObjects={wallObjects}
+          assetUrls={assetUrls}
+          wallMediaStreams={wallMediaStreams}
+          canManageWallObjects={canManageWallObjects}
+          {...(onWallObjectControl ? { onWallObjectControl } : {})}
+        />
         {participants.map((participant) => (
           <Avatar key={participant.id} participant={participant} />
         ))}
@@ -55,6 +103,119 @@ export function RoomView3D({
     </div>
   );
 }
+
+function WallObjectLayer({
+  manifest,
+  wallObjects,
+  assetUrls,
+  wallMediaStreams,
+  canManageWallObjects,
+  onWallObjectControl
+}: {
+  manifest: RoomManifest;
+  wallObjects: WallObject[];
+  assetUrls: Record<string, string>;
+  wallMediaStreams: Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>;
+  canManageWallObjects: boolean;
+  onWallObjectControl?: (objectId: string, action: "play" | "pause" | "mute" | "unmute" | "seek", positionSeconds?: number) => void;
+}) {
+  return (
+    <group>
+      {wallObjects
+        .filter((object) => object.status !== "removed")
+        .map((object) => {
+          const anchor = manifest.wallAnchors.find((candidate) => candidate.id === object.wallAnchorId);
+          if (!anchor) return null;
+          return (
+            <WallObjectSurface
+              key={object.id}
+              anchor={anchor}
+              object={object}
+              assetUrl={assetUrls[object.id]}
+              videoStream={wallMediaStreams[object.id]?.videoStream}
+              audioStream={wallMediaStreams[object.id]?.audioStream}
+              canManage={canManageWallObjects}
+              {...(onWallObjectControl ? { onControl: onWallObjectControl } : {})}
+            />
+          );
+        })}
+    </group>
+  );
+}
+
+const WallObjectSurface = memo(function WallObjectSurface({
+  anchor,
+  object,
+  assetUrl,
+  videoStream,
+  audioStream,
+  canManage,
+  onControl
+}: {
+  anchor: Anchor;
+  object: WallObject;
+  assetUrl?: string | undefined;
+  videoStream?: MediaStream | null | undefined;
+  audioStream?: MediaStream | null | undefined;
+  canManage: boolean;
+  onControl?: (objectId: string, action: "play" | "pause" | "mute" | "unmute" | "seek", positionSeconds?: number) => void;
+}) {
+  const normal = useMemo(() => new Vector3(anchor.normal.x, anchor.normal.y, anchor.normal.z).normalize(), [anchor.normal.x, anchor.normal.y, anchor.normal.z]);
+  const right = useMemo(() => {
+    if (Math.abs(anchor.normal.z) > 0.01) return new Vector3(1, 0, 0);
+    return new Vector3(0, 0, anchor.normal.x > 0 ? -1 : 1);
+  }, [anchor.normal.x, anchor.normal.z]);
+  const rotation = useMemo<[number, number, number]>(() => {
+    if (Math.abs(anchor.normal.x) > 0) return [0, anchor.normal.x > 0 ? Math.PI / 2 : -Math.PI / 2, 0];
+    return [0, anchor.normal.z < 0 ? Math.PI : 0, 0];
+  }, [anchor.normal.x, anchor.normal.z]);
+  const placement = useMemo(() => constrainPlacement(object.placement), [object.placement]);
+  const surfaceWidth = placement.width * anchor.width;
+  const surfaceHeight = placement.height * anchor.height;
+  const surfaceStyle = useMemo<WallObjectSurfaceStyle>(() => {
+    const widthPx = (surfaceWidth * 400) / WALL_OBJECT_DISTANCE_FACTOR;
+    const heightPx = (surfaceHeight * 400) / WALL_OBJECT_DISTANCE_FACTOR;
+    return {
+      width: `${widthPx}px`,
+      height: `${heightPx}px`,
+      "--wall-surface-font-size": `${clamp(heightPx * 0.28, 20, 96)}px`
+    };
+  }, [surfaceHeight, surfaceWidth]);
+  const position = useMemo<[number, number, number]>(() => {
+    const xOffset = (placement.x + placement.width / 2 - 0.5) * anchor.width;
+    const yOffset = (0.5 - (placement.y + placement.height / 2)) * anchor.height;
+    const layerOffset = clamp(placement.zIndex, 0, 6) * WALL_OBJECT_LAYER_OFFSET;
+    const base = new Vector3(anchor.position.x, anchor.position.y, anchor.position.z)
+      .add(right.clone().multiplyScalar(xOffset))
+      .add(new Vector3(0, 1, 0).multiplyScalar(yOffset))
+      .add(normal.clone().multiplyScalar(WALL_OBJECT_SURFACE_OFFSET + layerOffset));
+    return [base.x, base.y, base.z];
+  }, [anchor.height, anchor.position.x, anchor.position.y, anchor.position.z, anchor.width, normal, placement, right]);
+
+  return (
+    <group position={position} rotation={rotation}>
+      <Html
+        center
+        transform
+        distanceFactor={WALL_OBJECT_DISTANCE_FACTOR}
+        className="wall-object-html"
+        style={surfaceStyle}
+        zIndexRange={[200, 0]}
+      >
+        <WallObjectCard
+          object={object}
+          assetUrl={assetUrl}
+          videoStream={videoStream}
+          audioStream={audioStream}
+          compact
+          surface
+          canManage={canManage}
+          {...(onControl ? { onControl } : {})}
+        />
+      </Html>
+    </group>
+  );
+});
 
 function FollowLocalAvatarCamera({
   participants,
@@ -97,7 +258,20 @@ function FollowLocalAvatarCamera({
   return null;
 }
 
-function RoomGeometry({ manifest, onMoveToPoint }: { manifest: RoomManifest; onMoveToPoint(point: { x: number; z: number }): void }) {
+function RoomGeometry({
+  manifest,
+  onMoveToPoint,
+  wallObjects
+}: {
+  manifest: RoomManifest;
+  onMoveToPoint(point: { x: number; z: number }): void;
+  wallObjects: WallObject[];
+}) {
+  const anchorsWithObjects = useMemo(
+    () => new Set(wallObjects.filter((object) => object.status !== "removed").map((object) => object.wallAnchorId)),
+    [wallObjects]
+  );
+
   return (
     <group>
       <mesh
@@ -114,7 +288,9 @@ function RoomGeometry({ manifest, onMoveToPoint }: { manifest: RoomManifest; onM
       </mesh>
       <gridHelper args={[18, 18, "#4c6b58", "#31473b"]} position={[0, 0.01, 0]} />
       {manifest.walls.map((wall) => <WallMesh key={wall.id} wall={wall} />)}
-      {manifest.wallAnchors.map((anchor) => <AnchorMesh key={anchor.id} anchor={anchor} />)}
+      {manifest.wallAnchors.map((anchor) => (
+        <AnchorMesh key={anchor.id} anchor={anchor} showLabel={!anchorsWithObjects.has(anchor.id)} />
+      ))}
       {manifest.spawnPoints.map((spawn) => (
         <mesh key={spawn.id} position={[spawn.position.x, 0.03, spawn.position.z]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.22, 0.3, 24]} />
@@ -179,7 +355,7 @@ function WallMesh({ wall }: { wall: Wall }) {
   );
 }
 
-function AnchorMesh({ anchor }: { anchor: Anchor }) {
+function AnchorMesh({ anchor, showLabel }: { anchor: Anchor; showLabel: boolean }) {
   const { camera } = useThree();
   const materialRef = useRef<MeshStandardMaterial | null>(null);
   const plane = useMemo(
@@ -210,9 +386,11 @@ function AnchorMesh({ anchor }: { anchor: Anchor }) {
     <mesh position={[anchor.position.x, anchor.position.y, anchor.position.z]} rotation={rotation}>
       <planeGeometry args={[anchor.width, anchor.height]} />
       <meshStandardMaterial ref={materialRef} color="#263b31" emissive="#111c17" roughness={0.6} transparent opacity={1} />
-      <Html center transform distanceFactor={8}>
-        <div className="avatar-label">{anchor.label}</div>
-      </Html>
+      {showLabel ? (
+        <Html center transform distanceFactor={8} className="wall-anchor-label-html">
+          <div className="wall-anchor-label">{anchor.label}</div>
+        </Html>
+      ) : null}
     </mesh>
   );
 }

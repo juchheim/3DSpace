@@ -1,7 +1,7 @@
 import mongoose, { type Connection, Schema, type Model } from "mongoose";
-import type { ClassMembership, ClassRecord, Invite, Role, RoomManifest, RoomRecord, User, WallAttachment } from "@3dspace/contracts";
+import type { ClassMembership, ClassRecord, Invite, Role, RoomManifest, RoomRecord, User, WallAttachment, WallObject, WallObjectStatus } from "@3dspace/contracts";
 import type { AuthContext } from "../auth.js";
-import { notFound } from "../errors.js";
+import { conflict, notFound } from "../errors.js";
 import { avatarFor, inviteCode, newId, nowIso, type Repository, type RoomEventRecord, type RoomSettings } from "../repository.js";
 
 type Models = {
@@ -12,6 +12,7 @@ type Models = {
   Room: Model<any>;
   RoomManifest: Model<any>;
   WallAttachment: Model<any>;
+  WallObject: Model<any>;
   RoomEvent: Model<any>;
   RoomSession: Model<any>;
 };
@@ -107,6 +108,34 @@ export function createModels(connection: Connection): Models {
   });
   attachmentSchema.index({ roomId: 1, wallAnchorId: 1 });
 
+  const wallObjectSchema = new Schema({
+    id: { type: String, required: true, unique: true },
+    roomId: { type: String, required: true },
+    wallAnchorId: { type: String, required: true },
+    type: { type: String, required: true },
+    title: { type: String, required: true },
+    description: String,
+    source: { type: Schema.Types.Mixed, required: true },
+    placement: { type: Schema.Types.Mixed, required: true },
+    state: { type: Schema.Types.Mixed, default: {} },
+    permissions: { type: Schema.Types.Mixed, default: {} },
+    status: {
+      type: String,
+      required: true,
+      enum: ["draft", "pending_upload", "pending_moderation", "active", "paused", "source_ended", "failed", "removed", "rejected"]
+    },
+    moderation: { type: Schema.Types.Mixed, default: {} },
+    createdByUserId: { type: String, required: true },
+    updatedByUserId: { type: String, required: true },
+    createdAt: String,
+    updatedAt: String,
+    version: { type: Number, required: true }
+  });
+  wallObjectSchema.index({ roomId: 1, status: 1 });
+  wallObjectSchema.index({ roomId: 1, wallAnchorId: 1 });
+  wallObjectSchema.index({ roomId: 1, updatedAt: -1 });
+  wallObjectSchema.index({ roomId: 1, type: 1, status: 1 });
+
   const eventSchema = new Schema({
     id: { type: String, required: true, unique: true },
     roomId: { type: String, required: true, index: true },
@@ -136,6 +165,7 @@ export function createModels(connection: Connection): Models {
     Room: connection.model("Room", roomSchema),
     RoomManifest: connection.model("RoomManifest", manifestSchema),
     WallAttachment: connection.model("WallAttachment", attachmentSchema),
+    WallObject: connection.model("WallObject", wallObjectSchema),
     RoomEvent: connection.model("RoomEvent", eventSchema),
     RoomSession: connection.model("RoomSession", sessionSchema)
   };
@@ -305,6 +335,7 @@ export class MongoRepository implements Repository {
       this.models.Room.deleteOne({ id: roomId }),
       this.models.RoomManifest.deleteMany({ roomId }),
       this.models.WallAttachment.deleteMany({ roomId }),
+      this.models.WallObject.deleteMany({ roomId }),
       this.models.RoomEvent.deleteMany({ roomId }),
       this.models.RoomSession.deleteMany({ roomId }),
       this.models.Invite.deleteMany({ roomId })
@@ -366,6 +397,77 @@ export class MongoRepository implements Repository {
 
   async getAttachment(roomId: string, attachmentId: string) {
     return entity<WallAttachment | undefined>(await this.models.WallAttachment.findOne({ roomId, id: attachmentId }).lean());
+  }
+
+  async updateAttachment(roomId: string, attachmentId: string, input: { status?: WallAttachment["status"] | undefined; metadata?: Record<string, unknown> | undefined }) {
+    const existing = await this.getAttachment(roomId, attachmentId);
+    if (!existing) throw notFound("Attachment not found");
+    const record = await this.models.WallAttachment.findOneAndUpdate(
+      { roomId, id: attachmentId },
+      {
+        $set: {
+          status: input.status ?? existing.status,
+          metadata: input.metadata ? { ...existing.metadata, ...input.metadata } : existing.metadata,
+          updatedAt: nowIso()
+        }
+      },
+      { new: true, lean: true }
+    );
+    return entity<WallAttachment>(record);
+  }
+
+  async createWallObject(input: Omit<WallObject, "id" | "createdAt" | "updatedAt" | "version">) {
+    const time = nowIso();
+    const record: WallObject = {
+      ...input,
+      id: newId("wallobj"),
+      createdAt: time,
+      updatedAt: time,
+      version: 1
+    };
+    await this.models.WallObject.create(record);
+    return record;
+  }
+
+  async listWallObjects(roomId: string, filter: { status?: WallObjectStatus | undefined; anchorId?: string | undefined; includeRemoved?: boolean | undefined } = {}) {
+    const query: Record<string, unknown> = { roomId };
+    if (!filter.includeRemoved) query.status = { $ne: "removed" };
+    if (filter.status) query.status = filter.status;
+    if (filter.anchorId) query.wallAnchorId = filter.anchorId;
+    return entities<WallObject>(await this.models.WallObject.find(query).sort({ updatedAt: -1 }).lean());
+  }
+
+  async getWallObject(roomId: string, objectId: string) {
+    return entity<WallObject | undefined>(await this.models.WallObject.findOne({ roomId, id: objectId }).lean());
+  }
+
+  async updateWallObject(
+    roomId: string,
+    objectId: string,
+    input: Partial<Omit<WallObject, "id" | "roomId" | "createdAt" | "createdByUserId" | "version">> & { updatedByUserId: string; expectedVersion?: number | undefined }
+  ) {
+    const existing = await this.getWallObject(roomId, objectId);
+    if (!existing) throw notFound("Wall object not found");
+    if (input.expectedVersion && input.expectedVersion !== existing.version) {
+      throw conflict("Wall object version conflict");
+    }
+    const { expectedVersion: _expectedVersion, ...patch } = input;
+    const record = await this.models.WallObject.findOneAndUpdate(
+      { roomId, id: objectId },
+      {
+        $set: {
+          ...patch,
+          updatedAt: nowIso(),
+          version: existing.version + 1
+        }
+      },
+      { new: true, lean: true }
+    );
+    return entity<WallObject>(record);
+  }
+
+  async softRemoveWallObject(roomId: string, objectId: string, input: { updatedByUserId: string; expectedVersion?: number | undefined }) {
+    return this.updateWallObject(roomId, objectId, { updatedByUserId: input.updatedByUserId, expectedVersion: input.expectedVersion, status: "removed" });
   }
 
   async recordRoomEvent(input: { roomId: string; type: string; payload: Record<string, unknown>; createdByUserId: string }) {

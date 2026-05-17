@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-17 (MVP+1 wall media planning)
+Last updated: 2026-05-17 (pinned camera wall display fix)
 
 ## Project Summary
 
@@ -8,12 +8,12 @@ Last updated: 2026-05-17 (MVP+1 wall media planning)
 
 Workspace: `/Users/ejuchheim/Projects/3DSpace/3DSpace`
 
-Implementation state: **Local MVP complete; Phase 7 deployment blocked by missing provider credentials.**
+Implementation state: **MVP complete in production** (Vercel + Koyeb + Atlas + Clerk + LiveKit + R2). Sentry not provisioned. MVP+1 wall media implementation complete locally on `mvp-plus-one`; deployed LiveKit/browser-permission wall-share validation still recommended before release.
 
 ## Entities
 
 - **Monorepo**: `apps/web`, `apps/api`, `packages/contracts`, `packages/room-engine`
-- **Planning**: `docs/planning/mvp/MVP_IMPLEMENTATION_PLAN.md`, `MVP_STATUS.md`, `DEPLOYMENT_CHECKLIST.md`; `docs/planning/mvp+1/MVP_PLUS_ONE_WALL_MEDIA_PLAN.md`
+- **Planning**: `docs/planning/mvp/MVP_IMPLEMENTATION_PLAN.md`, `MVP_STATUS.md`, `DEPLOYMENT_CHECKLIST.md`; `docs/planning/mvp+1/MVP_PLUS_ONE_WALL_MEDIA_PLAN.md`, `MVP_PLUS_ONE_STATUS.md`
 - **Memory**: `.cursor/memory.md` (this file)
 - **Env templates**: `.env.example`, `apps/api/.env.example`, `apps/web/.env.example`
 - **Deploy artifacts**: `apps/api/Dockerfile`, `vercel.json`
@@ -22,22 +22,23 @@ Implementation state: **Local MVP complete; Phase 7 deployment blocked by missin
 
 | Layer | Choice | Status |
 | --- | --- | --- |
-| Frontend | Next.js 16, React 19, Vercel | Built locally; not deployed |
+| Frontend | Next.js 16, React 19, Vercel | Deployed |
 | 3D | Three.js, R3F, Drei | Implemented (third-person camera, pointer + keyboard movement) |
 | 2D analog | React/SVG from shared manifest | Implemented |
-| Backend | Fastify 5, Node, Koyeb | Built locally; Docker image builds |
-| DB | MongoDB Atlas + Mongoose | Implemented; uses memory repo when `MONGODB_URI` unset |
-| Realtime | LiveKit + data channels; BroadcastChannel dev fallback | Implemented |
-| Auth | Clerk + backend membership | Implemented; dev headers when Clerk unset |
-| Storage | S3-compatible signed URLs | Implemented; dev fallback URLs |
-| Tests | Vitest (10 tests), Playwright (3 e2e) | Passing locally |
+| Backend | Fastify 5, Node, Koyeb | Deployed — https://content-jeanine-juchheim-71a4f131.koyeb.app |
+| DB | MongoDB Atlas + Mongoose | Provisioned in production |
+| Realtime | LiveKit + data channels; BroadcastChannel dev fallback | LiveKit Cloud in production |
+| Auth | Clerk + backend membership | Clerk Development instance on Vercel (`*.vercel.app`) |
+| Storage | S3-compatible signed URLs | Cloudflare R2 in production |
+| Observability | Sentry | Not provisioned |
+| Tests | Vitest (15 tests), Playwright (4 e2e) | Passing locally |
 
 ## Phase Progress
 
 | Phase | Status |
 | --- | --- |
 | 0–6 | Complete locally |
-| 7 Deployment | In progress — Vercel build fixed (ApiRoute `delete` type, commit 89fa7e6); env credentials still needed |
+| 7 Deployment | Complete — production live 2026-05-17; Sentry deferred |
 
 ## Key Features Implemented
 
@@ -49,6 +50,7 @@ Implementation state: **Local MVP complete; Phase 7 deployment blocked by missin
 - Session join rate limit (`SESSION_JOIN_RATE_LIMIT_PER_MINUTE`, default 20) → `429 rate_limited`
 - Wall attachment records + signed upload/download URLs
 - Production strict env validation (fails fast on missing secrets)
+- MVP+1 wall objects: file-backed image/video/audio placement, live camera/mic/screen share intents, web links/allowlisted embeds, notes, polls, timers, moderation, policy defaults, realtime sync, 3D and 2D rendering.
 
 ## Environment Variables
 
@@ -73,12 +75,28 @@ Local loading:
 - `npm run test:e2e` — pass (3 tests: teacher flow, two-page student/realtime, throttled browser)
 - `docker build -f apps/api/Dockerfile` — pass
 
-## Blockers (Deployment)
+## MVP+1 Validation Evidence (2026-05-17)
 
-- No Vercel project linked for 3DSpace
-- Koyeb: only `mongodb-uri` secret exists; missing Clerk, LiveKit, storage
-- No Clerk, Atlas URI, LiveKit Cloud, R2/S3, Sentry credentials in workspace
-- `npm audit --omit=dev`: 3 moderate Next/PostCSS advisories, no safe fix on 16.2.6
+- `npm run typecheck -w @3dspace/contracts` — pass
+- `npm run typecheck -w @3dspace/api` — pass
+- `npm run test -- apps/api/tests/api.test.ts` — pass (8 tests)
+- `npm run typecheck -w @3dspace/web` — pass
+- `npm run typecheck` — pass
+- `npm run test` — pass (15 tests)
+- `npm run build` — pass
+- `PLAYWRIGHT_SKIP_WEB_SERVER=1 PLAYWRIGHT_BASE_URL=http://localhost:3000 NEXT_PUBLIC_API_URL=http://127.0.0.1:8080 npm run test:e2e` — pass (4 tests)
+
+## Production URLs
+
+- API: https://content-jeanine-juchheim-71a4f131.koyeb.app (`/health`, `/ready` verified 2026-05-17)
+- Frontend: https://3d-space-seven.vercel.app
+- LiveKit: `project-3dspace-wganhyh3` (LiveKit Cloud)
+
+## Remaining (non-blocking)
+
+- Sentry DSN not provisioned
+- Clerk Production instance blocked on `*.vercel.app` without custom domain
+- Formal 30-participant LiveKit load test not recorded
 
 ## Relationships
 
@@ -89,6 +107,7 @@ Local loading:
 - `MVP_STATUS.md` must stay updated during implementation
 - MVP+1 wall media plan → builds on MVP wall anchors, `WallAttachment` records, signed storage, LiveKit media/data channels, room events, and dual 3D/2D renderers
 - MVP+1 design decision → introduce `WallObject` for visible placed wall content; keep `WallAttachment` as file asset metadata instead of stretching it to represent live streams, web links, whiteboards, polls, and timers
+- MVP+1 implementation → `WallObject` persists outside the room manifest, hydrates via API, syncs via reliable realtime messages, and renders through shared wall-object state in both 3D and 2D.
 
 ## Post-MVP Backlog
 
@@ -100,6 +119,7 @@ Screen share, computer audio, teacher moderation, rich wall placement, room buil
 - MVP+1 scope covers image/video/audio files, live camera, live microphone, browser-tab/screen share, web links, allowlisted embeds, documents/slides, notes, polls, timers, and future whiteboards.
 - Browser-on-wall should start as LiveKit-backed browser-tab/screen share plus safe web resource cards; arbitrary iframe embeds are unreliable/unsafe and should be allowlisted only.
 - Wall media implementation should keep mutable wall content outside the room manifest. Anchors stay in the manifest; placed content lives in `WallObject` persistence and syncs by API plus reliable realtime messages.
+- **2026-05-17**: MVP+1 local implementation completed and audited against `MVP_PLUS_ONE_WALL_MEDIA_PLAN.md`; remaining release recommendation is manual deployed LiveKit/browser-permission validation for live wall shares.
 
 ## Bug Fixes
 
@@ -107,6 +127,10 @@ Screen share, computer audio, teacher moderation, rich wall placement, room buil
 - **2026-05-16**: Lobby navigation stuck on "Rendering..." from 3D room — soft Next.js navigation hung while WebGL/LiveKit/media stayed active. Fixed with teardown-first leave (`release` media, `disconnect(true)` LiveKit, unmount 3D canvas via `leaving` state) and `navigateToLobby` hard-navigation fallback after 2s.
 - **2026-05-16**: Avatar name/mic label blocked view — Drei `Html` `distanceFactor={8}` scaled ~3× at third-person follow distance (~3m). Fixed with `distanceFactor={3}` and compact `.avatar-nameplate` styles in `RoomView3D.tsx` / `globals.css`.
 - **2026-05-16**: Spawn + wall blocked view on room enter — teacher spawn at z=-3.9 put follow camera (2.85m behind) past front wall (z=-6). Walls/anchors now fade by camera signed distance; default spawns moved toward room center in `room-engine`.
+- **2026-05-17**: 3D room viewport taller than browser — `.room-stage` had `min-height: 32rem` and `.room-main` used `minmax(28rem, 1fr)`, stacking above topbar/padding. Fixed by constraining `.room-layout` to viewport height and letting the stage row shrink with `minmax(0, 1fr)`.
+- **2026-05-17**: Wall objects floated in front of boards and could exceed board bounds — 3D wall object HTML used fixed card sizing plus a large `zIndex`-based normal offset. Fixed by clamping placement to anchor bounds, scaling the HTML surface to board world units, using a tiny physical offset, and letting camera/video surfaces fill their placement while preserving full media with `object-fit: contain`.
+- **2026-05-17**: Wall timer Resume reset countdown — sidebar and 3D board each mount `WallTimerDisplay` with separate refs; pause in one view did not update the other's elapsed state, so Resume could call `play(0)`. Fixed with shared `timerRuntime` store, resume keeps elapsed until playback catches up, and corrected `wall.playback.state.v1` handler shape in `useWallObjects`.
+- **2026-05-17**: Pinned camera on 3D wall disappeared and dropped frame rate — wall camera rendering used an inline `srcObject` ref and rediscovered the local camera through frequently updated avatar participant state. Fixed with stable media elements, explicit local wall-media binding for local camera pins, and memoized 3D wall surfaces to avoid rerendering video surfaces on avatar ticks.
 
 ## Maintenance Rules
 

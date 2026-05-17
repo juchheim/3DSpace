@@ -8,6 +8,37 @@ export const AttachmentKindSchema = z.enum(["image", "video", "audio", "future"]
 export const MembershipStatusSchema = z.enum(["active", "invited", "removed"]);
 export const AttachmentStatusSchema = z.enum(["pending_upload", "ready", "rejected"]);
 export const DistanceModelSchema = z.enum(["linear", "inverse", "exponential"]);
+export const WallObjectCreationPolicySchema = z.enum(["teacher-only", "student-request", "student-direct"]);
+export const WallObjectModerationPolicySchema = z.enum(["pre", "post", "off"]);
+export const WallObjectTypeSchema = z.enum([
+  "image.file",
+  "video.file",
+  "audio.file",
+  "camera.live",
+  "microphone.live",
+  "screen.live",
+  "browser-tab.live",
+  "web.embed",
+  "web.link",
+  "document.file",
+  "slides.file",
+  "whiteboard",
+  "note",
+  "poll",
+  "timer",
+  "future"
+]);
+export const WallObjectStatusSchema = z.enum([
+  "draft",
+  "pending_upload",
+  "pending_moderation",
+  "active",
+  "paused",
+  "source_ended",
+  "failed",
+  "removed",
+  "rejected"
+]);
 
 export const Vector2Schema = z.object({
   x: z.number(),
@@ -80,6 +111,10 @@ export const RoomCapabilitiesSchema = z.object({
   cameraBillboards: z.boolean(),
   spatialAudio: z.boolean(),
   wallAttachments: z.boolean(),
+  wallObjects: z.boolean().default(false),
+  wallLiveShares: z.boolean().default(false),
+  wallWebLinks: z.boolean().default(false),
+  wallWebEmbeds: z.boolean().default(false),
   roomEvents: z.boolean()
 });
 
@@ -186,7 +221,16 @@ export const RoomSettingsSchema = z.object({
   defaultViewMode: ViewModeSchema,
   defaultQuality: QualityLevelSchema,
   enable2DAnalog: z.boolean(),
-  enableWallAttachments: z.boolean()
+  enableWallAttachments: z.boolean(),
+  enableWallObjects: z.boolean().default(true),
+  wallObjectCreation: WallObjectCreationPolicySchema.default("teacher-only"),
+  wallObjectModeration: WallObjectModerationPolicySchema.default("pre"),
+  allowLiveStudentShares: z.boolean().default(false),
+  allowStudentUploads: z.boolean().default(false),
+  allowWebLinks: z.boolean().default(true),
+  allowEmbeds: z.boolean().default(false),
+  maxActiveWallObjects: z.number().int().positive().default(20),
+  maxActiveLiveShares: z.number().int().positive().default(4)
 });
 
 export const RoomSchema = z.object({
@@ -288,6 +332,15 @@ export const CreateWallAttachmentRequestSchema = z.object({
   metadata: z.record(z.unknown()).default({})
 });
 
+export const FinalizeWallAttachmentRequestSchema = z.object({
+  metadata: z.record(z.unknown()).default({})
+});
+
+export const UpdateWallAttachmentRequestSchema = z.object({
+  status: AttachmentStatusSchema.optional(),
+  metadata: z.record(z.unknown()).optional()
+});
+
 export const CreateWallAttachmentResponseSchema = z.object({
   attachment: WallAttachmentSchema,
   upload: z.object({
@@ -305,6 +358,181 @@ export const WallAttachmentDownloadResponseSchema = z.object({
     headers: z.record(z.string()),
     expiresInSeconds: z.number().int().positive()
   })
+});
+
+export const WallObjectSourceSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("asset"),
+    attachmentId: z.string().min(1),
+    url: z.string().optional()
+  }),
+  z.object({
+    kind: z.literal("livekit-track"),
+    participantIdentity: z.string().min(1),
+    participantId: z.string().min(1),
+    trackSource: z.enum(["camera", "microphone", "screen_share", "screen_share_audio"]),
+    publicationSid: z.string().optional(),
+    publicationName: z.string().optional()
+  }),
+  z.object({
+    kind: z.literal("web-url"),
+    url: z.string().url(),
+    embedMode: z.enum(["link", "iframe"])
+  }),
+  z.object({
+    kind: z.literal("inline"),
+    data: z.record(z.unknown()).default({})
+  })
+]);
+
+export const WallObjectPlacementSchema = z.object({
+  x: z.number().min(0).max(1).default(0),
+  y: z.number().min(0).max(1).default(0),
+  width: z.number().positive().max(1).default(1),
+  height: z.number().positive().max(1).default(1),
+  zIndex: z.number().int().default(0),
+  fit: z.enum(["contain", "cover", "stretch"]).default("contain")
+});
+
+export const WallObjectSchema = z.object({
+  id: z.string(),
+  roomId: z.string(),
+  wallAnchorId: z.string(),
+  type: WallObjectTypeSchema,
+  title: z.string().min(1).max(160),
+  description: z.string().max(1000).optional(),
+  source: WallObjectSourceSchema,
+  placement: WallObjectPlacementSchema,
+  state: z.record(z.unknown()).default({}),
+  permissions: z.record(z.unknown()).default({}),
+  status: WallObjectStatusSchema,
+  moderation: z.record(z.unknown()).default({}),
+  createdByUserId: z.string(),
+  updatedByUserId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  version: z.number().int().positive()
+});
+
+export const ListWallObjectsQuerySchema = z.object({
+  status: WallObjectStatusSchema.optional(),
+  anchorId: z.string().optional(),
+  includeRemoved: z.union([z.literal("true"), z.literal("false"), z.boolean()]).optional()
+});
+
+export const CreateWallObjectRequestSchema = z.object({
+  wallAnchorId: z.string().min(1),
+  type: WallObjectTypeSchema,
+  title: z.string().min(1).max(160),
+  description: z.string().max(1000).optional(),
+  source: WallObjectSourceSchema,
+  placement: WallObjectPlacementSchema.default({}),
+  state: z.record(z.unknown()).default({}),
+  permissions: z.record(z.unknown()).default({}),
+  moderation: z.record(z.unknown()).default({}),
+  status: WallObjectStatusSchema.optional()
+});
+
+export const UpdateWallObjectRequestSchema = z.object({
+  expectedVersion: z.number().int().positive().optional(),
+  title: z.string().min(1).max(160).optional(),
+  description: z.string().max(1000).optional(),
+  placement: WallObjectPlacementSchema.optional(),
+  state: z.record(z.unknown()).optional(),
+  permissions: z.record(z.unknown()).optional(),
+  moderation: z.record(z.unknown()).optional(),
+  status: WallObjectStatusSchema.optional()
+});
+
+export const WallObjectControlRequestSchema = z.object({
+  expectedVersion: z.number().int().positive().optional(),
+  action: z.enum(["play", "pause", "seek", "mute", "unmute", "stop-share", "spotlight", "lock", "unlock", "approve", "reject"]),
+  positionSeconds: z.number().nonnegative().optional(),
+  rate: z.number().positive().max(4).optional(),
+  muted: z.boolean().optional()
+});
+
+export const CreateWallShareRequestSchema = z.object({
+  wallAnchorId: z.string().min(1),
+  type: z.enum(["camera.live", "microphone.live", "screen.live", "browser-tab.live"]),
+  title: z.string().min(1).max(160),
+  description: z.string().max(1000).optional(),
+  placement: WallObjectPlacementSchema.default({}),
+  state: z.record(z.unknown()).default({})
+});
+
+export const CreateWallShareResponseSchema = z.object({
+  object: WallObjectSchema,
+  publicationName: z.string(),
+  recommendedTrackSource: z.enum(["camera", "microphone", "screen_share", "screen_share_audio"])
+});
+
+export const CreateWebResourceRequestSchema = z.object({
+  wallAnchorId: z.string().min(1),
+  url: z.string().url(),
+  title: z.string().min(1).max(160).optional(),
+  description: z.string().max(1000).optional(),
+  embedMode: z.enum(["link", "iframe"]).default("link"),
+  placement: WallObjectPlacementSchema.default({})
+});
+
+export const WebResourcePreviewRequestSchema = z.object({
+  url: z.string().url(),
+  embedMode: z.enum(["link", "iframe"]).default("link")
+});
+
+export const WebResourcePreviewResponseSchema = z.object({
+  url: z.string().url(),
+  host: z.string(),
+  title: z.string(),
+  embedMode: z.enum(["link", "iframe"]),
+  embeddable: z.boolean(),
+  reason: z.string().optional()
+});
+
+export const WallObjectRealtimeUpsertSchema = z.object({
+  type: z.literal("wall.object.upsert.v1"),
+  roomId: z.string(),
+  object: WallObjectSchema,
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const WallObjectRealtimeRemoveSchema = z.object({
+  type: z.literal("wall.object.remove.v1"),
+  roomId: z.string(),
+  objectId: z.string(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const WallPlaybackStateMessageSchema = z.object({
+  type: z.literal("wall.playback.state.v1"),
+  roomId: z.string(),
+  objectId: z.string(),
+  status: z.enum(["playing", "paused", "ended"]),
+  positionSeconds: z.number().nonnegative(),
+  rate: z.number().positive(),
+  muted: z.boolean(),
+  sentAt: z.number().int(),
+  controlledByUserId: z.string()
+});
+
+export const WallShareEndedMessageSchema = z.object({
+  type: z.literal("wall.share.ended.v1"),
+  roomId: z.string(),
+  objectId: z.string(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const WallModerationStateMessageSchema = z.object({
+  type: z.literal("wall.moderation.state.v1"),
+  roomId: z.string(),
+  objectId: z.string(),
+  status: WallObjectStatusSchema,
+  sentAt: z.number().int(),
+  senderId: z.string()
 });
 
 export const RoomEventRequestSchema = z.object({
@@ -356,6 +584,14 @@ export type RoomSessionResponse = z.infer<typeof RoomSessionResponseSchema>;
 export type WallAttachment = z.infer<typeof WallAttachmentSchema>;
 export type WallAttachmentDownloadResponse = z.infer<typeof WallAttachmentDownloadResponseSchema>;
 export type RoomCapabilities = z.infer<typeof RoomCapabilitiesSchema>;
+export type RoomSettings = z.infer<typeof RoomSettingsSchema>;
+export type WallObjectCreationPolicy = z.infer<typeof WallObjectCreationPolicySchema>;
+export type WallObjectType = z.infer<typeof WallObjectTypeSchema>;
+export type WallObjectStatus = z.infer<typeof WallObjectStatusSchema>;
+export type WallObjectSource = z.infer<typeof WallObjectSourceSchema>;
+export type WallObjectPlacement = z.infer<typeof WallObjectPlacementSchema>;
+export type WallObject = z.infer<typeof WallObjectSchema>;
+export type WallPlaybackStateMessage = z.infer<typeof WallPlaybackStateMessageSchema>;
 
 type ApiRoute = {
   method: "get" | "post" | "patch" | "delete";
@@ -384,7 +620,19 @@ export const apiRoutes: ApiRoute[] = [
   { method: "post", path: "/v1/rooms/{roomId}/session", summary: "Join a room and receive LiveKit session data", tags: ["rooms"], request: JoinRoomSessionRequestSchema, response: RoomSessionResponseSchema },
   { method: "get", path: "/v1/rooms/{roomId}/attachments", summary: "List wall attachments", tags: ["attachments"], response: z.array(WallAttachmentSchema) },
   { method: "post", path: "/v1/rooms/{roomId}/attachments", summary: "Create wall attachment metadata and signed upload URL", tags: ["attachments"], request: CreateWallAttachmentRequestSchema, response: CreateWallAttachmentResponseSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/attachments/{attachmentId}/finalize", summary: "Finalize a wall attachment after signed upload", tags: ["attachments"], request: FinalizeWallAttachmentRequestSchema, response: WallAttachmentSchema },
+  { method: "patch", path: "/v1/rooms/{roomId}/attachments/{attachmentId}", summary: "Update wall attachment metadata or moderation status", tags: ["attachments"], request: UpdateWallAttachmentRequestSchema, response: WallAttachmentSchema },
   { method: "get", path: "/v1/rooms/{roomId}/attachments/{attachmentId}/download", summary: "Create a signed wall attachment download URL", tags: ["attachments"], response: WallAttachmentDownloadResponseSchema },
+  { method: "get", path: "/v1/rooms/{roomId}/wall-objects", summary: "List visible wall objects", tags: ["wall-objects"], response: z.array(WallObjectSchema) },
+  { method: "post", path: "/v1/rooms/{roomId}/wall-objects", summary: "Create a wall object", tags: ["wall-objects"], request: CreateWallObjectRequestSchema, response: WallObjectSchema },
+  { method: "get", path: "/v1/rooms/{roomId}/wall-objects/{objectId}", summary: "Fetch one wall object", tags: ["wall-objects"], response: WallObjectSchema },
+  { method: "patch", path: "/v1/rooms/{roomId}/wall-objects/{objectId}", summary: "Update a wall object", tags: ["wall-objects"], request: UpdateWallObjectRequestSchema, response: WallObjectSchema },
+  { method: "delete", path: "/v1/rooms/{roomId}/wall-objects/{objectId}", summary: "Soft-remove a wall object", tags: ["wall-objects"], response: WallObjectSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/wall-objects/{objectId}/control", summary: "Control playback or live source state for a wall object", tags: ["wall-objects"], request: WallObjectControlRequestSchema, response: WallObjectSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/wall-shares", summary: "Create live wall share intent", tags: ["wall-objects"], request: CreateWallShareRequestSchema, response: CreateWallShareResponseSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/wall-shares/{objectId}/end", summary: "Mark live wall share ended", tags: ["wall-objects"], response: WallObjectSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/web-resources", summary: "Create safe wall web resource", tags: ["wall-objects"], request: CreateWebResourceRequestSchema, response: WallObjectSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/web-resources/preview", summary: "Preview safe wall web resource support", tags: ["wall-objects"], request: WebResourcePreviewRequestSchema, response: WebResourcePreviewResponseSchema },
   { method: "post", path: "/v1/rooms/{roomId}/events", summary: "Persist optional durable room events", tags: ["rooms"], request: RoomEventRequestSchema, response: RoomEventResponseSchema }
 ];
 

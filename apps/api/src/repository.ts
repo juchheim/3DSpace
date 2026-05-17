@@ -8,11 +8,13 @@ import type {
   RoomRecord,
   RoomSettingsSchema,
   User,
-  WallAttachment
+  WallAttachment,
+  WallObject,
+  WallObjectStatus
 } from "@3dspace/contracts";
 import type { z } from "zod";
 import type { AuthContext } from "./auth.js";
-import { notFound } from "./errors.js";
+import { conflict, notFound } from "./errors.js";
 
 export type RoomSettings = z.infer<typeof RoomSettingsSchema>;
 
@@ -61,6 +63,16 @@ export type Repository = {
   createAttachment(input: Omit<WallAttachment, "id" | "createdAt" | "updatedAt" | "status">): Promise<WallAttachment>;
   listAttachments(roomId: string): Promise<WallAttachment[]>;
   getAttachment(roomId: string, attachmentId: string): Promise<WallAttachment | undefined>;
+  updateAttachment(roomId: string, attachmentId: string, input: { status?: WallAttachment["status"] | undefined; metadata?: Record<string, unknown> | undefined }): Promise<WallAttachment>;
+  createWallObject(input: Omit<WallObject, "id" | "createdAt" | "updatedAt" | "version">): Promise<WallObject>;
+  listWallObjects(roomId: string, filter?: { status?: WallObjectStatus | undefined; anchorId?: string | undefined; includeRemoved?: boolean | undefined }): Promise<WallObject[]>;
+  getWallObject(roomId: string, objectId: string): Promise<WallObject | undefined>;
+  updateWallObject(
+    roomId: string,
+    objectId: string,
+    input: Partial<Omit<WallObject, "id" | "roomId" | "createdAt" | "createdByUserId" | "version">> & { updatedByUserId: string; expectedVersion?: number | undefined }
+  ): Promise<WallObject>;
+  softRemoveWallObject(roomId: string, objectId: string, input: { updatedByUserId: string; expectedVersion?: number | undefined }): Promise<WallObject>;
   recordRoomEvent(input: { roomId: string; type: string; payload: Record<string, unknown>; createdByUserId: string }): Promise<RoomEventRecord>;
   recordRoomSession(input: { roomId: string; participantIdentity: string; userId: string; role: Role; maxParticipants: number }): Promise<number>;
 };
@@ -97,6 +109,7 @@ export class MemoryRepository implements Repository {
   private rooms = new Map<string, RoomRecord>();
   private manifests = new Map<string, RoomManifest>();
   private attachments = new Map<string, WallAttachment>();
+  private wallObjects = new Map<string, WallObject>();
   private roomEvents = new Map<string, RoomEventRecord>();
   private activeSessions = new Map<string, { roomId: string; participantIdentity: string; lastSeenAt: number }>();
 
@@ -288,6 +301,9 @@ export class MemoryRepository implements Repository {
     for (const [id, attachment] of this.attachments.entries()) {
       if (attachment.roomId === roomId) this.attachments.delete(id);
     }
+    for (const [id, object] of this.wallObjects.entries()) {
+      if (object.roomId === roomId) this.wallObjects.delete(id);
+    }
     for (const [id, event] of this.roomEvents.entries()) {
       if (event.roomId === roomId) this.roomEvents.delete(id);
     }
@@ -330,6 +346,76 @@ export class MemoryRepository implements Repository {
   async getAttachment(roomId: string, attachmentId: string) {
     const attachment = this.attachments.get(attachmentId);
     return attachment?.roomId === roomId ? attachment : undefined;
+  }
+
+  async updateAttachment(roomId: string, attachmentId: string, input: { status?: WallAttachment["status"] | undefined; metadata?: Record<string, unknown> | undefined }) {
+    const existing = await this.getAttachment(roomId, attachmentId);
+    if (!existing) throw notFound("Attachment not found");
+    const updated: WallAttachment = {
+      ...existing,
+      status: input.status ?? existing.status,
+      metadata: input.metadata ? { ...existing.metadata, ...input.metadata } : existing.metadata,
+      updatedAt: nowIso()
+    };
+    this.attachments.set(attachmentId, updated);
+    return updated;
+  }
+
+  async createWallObject(input: Omit<WallObject, "id" | "createdAt" | "updatedAt" | "version">) {
+    const time = nowIso();
+    const record: WallObject = {
+      ...input,
+      id: newId("wallobj"),
+      createdAt: time,
+      updatedAt: time,
+      version: 1
+    };
+    this.wallObjects.set(record.id, record);
+    return record;
+  }
+
+  async listWallObjects(roomId: string, filter: { status?: WallObjectStatus | undefined; anchorId?: string | undefined; includeRemoved?: boolean | undefined } = {}) {
+    return Array.from(this.wallObjects.values()).filter((object) => {
+      if (object.roomId !== roomId) return false;
+      if (!filter.includeRemoved && object.status === "removed") return false;
+      if (filter.status && object.status !== filter.status) return false;
+      if (filter.anchorId && object.wallAnchorId !== filter.anchorId) return false;
+      return true;
+    });
+  }
+
+  async getWallObject(roomId: string, objectId: string) {
+    const object = this.wallObjects.get(objectId);
+    return object?.roomId === roomId ? object : undefined;
+  }
+
+  async updateWallObject(
+    roomId: string,
+    objectId: string,
+    input: Partial<Omit<WallObject, "id" | "roomId" | "createdAt" | "createdByUserId" | "version">> & { updatedByUserId: string; expectedVersion?: number | undefined }
+  ) {
+    const existing = await this.getWallObject(roomId, objectId);
+    if (!existing) throw notFound("Wall object not found");
+    if (input.expectedVersion && input.expectedVersion !== existing.version) {
+      throw conflict("Wall object version conflict");
+    }
+    const { expectedVersion: _expectedVersion, ...patch } = input;
+    const updated: WallObject = {
+      ...existing,
+      ...patch,
+      roomId,
+      id: objectId,
+      createdAt: existing.createdAt,
+      createdByUserId: existing.createdByUserId,
+      updatedAt: nowIso(),
+      version: existing.version + 1
+    };
+    this.wallObjects.set(objectId, updated);
+    return updated;
+  }
+
+  async softRemoveWallObject(roomId: string, objectId: string, input: { updatedByUserId: string; expectedVersion?: number | undefined }) {
+    return this.updateWallObject(roomId, objectId, { updatedByUserId: input.updatedByUserId, expectedVersion: input.expectedVersion, status: "removed" });
   }
 
   async recordRoomEvent(input: { roomId: string; type: string; payload: Record<string, unknown>; createdByUserId: string }) {

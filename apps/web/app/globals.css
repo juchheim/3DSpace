@@ -107,6 +107,10 @@ label {
   padding: clamp(1rem, 3vw, 2.5rem);
 }
 
+.app-shell:has(.room-layout) {
+  overflow: hidden;
+}
+
 /* ── Home / lobby layout ── */
 
 .home-shell {
@@ -385,19 +389,28 @@ label {
   display: grid;
   grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr) minmax(18rem, 22rem);
   gap: 1rem;
-  min-height: calc(100vh - 2rem);
+  height: calc(100dvh - 2 * clamp(1rem, 3vw, 2.5rem));
+  max-height: calc(100dvh - 2 * clamp(1rem, 3vw, 2.5rem));
+  min-height: 0;
+}
+
+.room-layout > * {
+  min-height: 0;
 }
 
 .room-main {
   display: grid;
-  grid-template-rows: auto minmax(28rem, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 1rem;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .room-stage {
   position: relative;
   overflow: hidden;
-  min-height: 32rem;
+  min-height: 0;
+  height: 100%;
   border: 1px solid rgba(255, 250, 240, 0.36);
   border-radius: 34px;
   background:
@@ -413,6 +426,10 @@ label {
   padding: 1rem;
   background: var(--panel);
   backdrop-filter: blur(18px);
+}
+
+.side-panel {
+  overflow-y: auto;
 }
 
 .room-topbar {
@@ -467,14 +484,14 @@ label {
 .map2d {
   width: 100%;
   height: 100%;
-  min-height: 32rem;
+  min-height: 0;
   padding: 1rem;
 }
 
 .map2d svg {
   width: 100%;
   height: 100%;
-  min-height: 30rem;
+  min-height: 0;
   border-radius: 28px;
   background: #f9f0d8;
 }
@@ -557,6 +574,19 @@ label {
   white-space: nowrap;
 }
 
+.wall-anchor-label {
+  border: 1px solid rgba(255, 250, 240, 0.22);
+  border-radius: 10px;
+  padding: 0.3rem 0.55rem;
+  color: rgba(255, 250, 240, 0.88);
+  background: rgba(18, 30, 24, 0.55);
+  font-family: "Trebuchet MS", sans-serif;
+  font-size: 0.68rem;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 .avatar-nameplate {
   display: flex;
   flex-direction: column;
@@ -608,6 +638,323 @@ label {
   object-fit: cover;
 }
 
+.wall-create-panel {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 0.85rem;
+  background: rgba(255, 250, 240, 0.58);
+}
+
+.wall-object-html {
+  pointer-events: auto;
+  overflow: visible;
+}
+
+.wall-object-html > div > div > div {
+  width: 100%;
+  height: 100%;
+}
+
+.wall-object-card {
+  display: grid;
+  gap: 0.55rem;
+  width: min(18rem, 72vw);
+  border: 1px solid rgba(255, 250, 240, 0.28);
+  border-radius: 8px;
+  padding: 0.65rem;
+  background: rgba(18, 30, 24, 0.88);
+  color: #fffaf0;
+  font-family: "Trebuchet MS", sans-serif;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
+}
+
+.wall-object-card--compact {
+  width: 100%;
+  min-width: 0;
+  box-shadow: none;
+}
+
+.wall-object-card--surface {
+  position: relative;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0.4rem;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  padding: 0.55rem;
+  border-color: rgba(255, 250, 240, 0.2);
+  background: rgba(10, 18, 15, 0.94);
+}
+
+.wall-object-card__header,
+.wall-object-card__actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.wall-object-card__header strong {
+  display: block;
+  max-width: 12rem;
+  overflow: hidden;
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wall-object-card__header span,
+.wall-object-card__body {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  opacity: 0.84;
+}
+
+.wall-object-card__badges {
+  flex-shrink: 0;
+  gap: 0.3rem;
+}
+
+.wall-object-card__media {
+  overflow: hidden;
+  min-height: 3.5rem;
+  border-radius: 6px;
+  background: #101815;
+}
+
+.wall-object-card--surface .wall-object-card__media {
+  display: grid;
+  min-height: 0;
+  height: 100%;
+}
+
+.wall-object-card__media img,
+.wall-object-card__media video,
+.wall-object-card__media iframe {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  object-fit: var(--wall-object-fit, contain);
+  background: #101815;
+}
+
+.wall-object-card--surface .wall-object-card__media img,
+.wall-object-card--surface .wall-object-card__media video,
+.wall-object-card--surface .wall-object-card__media iframe {
+  height: 100%;
+  min-height: 0;
+  aspect-ratio: auto;
+}
+
+.wall-object-card__media audio {
+  display: block;
+  width: 100%;
+}
+
+.wall-object-placeholder {
+  display: grid;
+  place-items: center;
+  min-height: 4.5rem;
+  padding: 0.75rem;
+  color: rgba(255, 250, 240, 0.78);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.wall-object-card--surface .wall-object-placeholder {
+  min-height: 0;
+  height: 100%;
+}
+
+.wall-object-card__body {
+  margin: 0;
+  padding: 0.75rem;
+}
+
+.wall-object-card__body ul {
+  margin: 0.45rem 0 0;
+  padding-left: 1rem;
+}
+
+.wall-object-card__timer {
+  display: grid;
+  gap: 0.45rem;
+  place-items: center;
+  min-height: 4.5rem;
+  padding: 0.5rem;
+  text-align: center;
+}
+
+.wall-object-card__timer--surface {
+  justify-items: stretch;
+}
+
+.wall-object-card__timer-readout {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.wall-object-card__timer-status {
+  margin: 0;
+  font-size: 0.72rem;
+  opacity: 0.78;
+}
+
+.wall-object-card__timer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.wall-object-card__timer-actions button {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.72rem;
+}
+
+.wall-object-card--surface .wall-object-card__timer-actions {
+  pointer-events: auto;
+}
+
+.wall-object-card--surface .wall-object-card__timer,
+.wall-object-card--surface .wall-object-link,
+.wall-object-card--surface .wall-object-card__body {
+  min-height: 0;
+  height: 100%;
+}
+
+.wall-object-card--surface[data-wall-object-type="timer"] {
+  container-type: size;
+  grid-template-rows: minmax(0, 1fr);
+  padding: 0.35rem;
+}
+
+.wall-object-card--surface[data-wall-object-type="timer"] .wall-object-card__header {
+  position: absolute;
+  z-index: 1;
+  top: 0.3rem;
+  left: 0.3rem;
+  right: 0.3rem;
+  padding: 0.2rem 0.35rem;
+  border-radius: 6px;
+  background: rgba(10, 18, 15, 0.72);
+  pointer-events: none;
+}
+
+.wall-object-card--surface[data-wall-object-type="timer"] .wall-object-card__header strong {
+  max-width: none;
+  font-size: 0.58rem;
+}
+
+.wall-object-card--surface[data-wall-object-type="timer"] .wall-object-card__header span {
+  font-size: 0.52rem;
+}
+
+.wall-object-card--surface[data-wall-object-type="timer"] .wall-object-card__media {
+  height: 100%;
+  min-height: 0;
+  background: transparent;
+}
+
+.wall-object-card--surface[data-wall-object-type="timer"] .wall-object-card__timer {
+  height: 100%;
+  min-height: 0;
+  padding: 1.55rem 0.25rem 0.25rem;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+}
+
+.wall-object-card--surface[data-wall-object-type="timer"] .wall-object-card__timer-readout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  color: #fffaf0;
+  font-size: clamp(1.35rem, 38cqh, var(--wall-surface-font-size, 2.5rem));
+  line-height: 1;
+}
+
+.wall-object-card--surface[data-wall-object-type="timer"] .wall-object-card__timer-status {
+  font-size: clamp(0.55rem, 6cqh, 0.72rem);
+}
+
+.wall-object-card--surface[data-wall-object-type="timer"] .wall-object-card__timer-actions button {
+  padding: 0.2rem 0.45rem;
+  font-size: clamp(0.55rem, 6cqh, 0.68rem);
+}
+
+.wall-object-card--surface[data-wall-object-type="camera.live"],
+.wall-object-card--surface[data-wall-object-type="screen.live"],
+.wall-object-card--surface[data-wall-object-type="browser-tab.live"],
+.wall-object-card--surface[data-wall-object-type="image.file"],
+.wall-object-card--surface[data-wall-object-type="video.file"] {
+  grid-template-rows: minmax(0, 1fr);
+  padding: 0;
+}
+
+.wall-object-card--surface[data-wall-object-type="camera.live"] .wall-object-card__header,
+.wall-object-card--surface[data-wall-object-type="screen.live"] .wall-object-card__header,
+.wall-object-card--surface[data-wall-object-type="browser-tab.live"] .wall-object-card__header,
+.wall-object-card--surface[data-wall-object-type="image.file"] .wall-object-card__header,
+.wall-object-card--surface[data-wall-object-type="video.file"] .wall-object-card__header {
+  position: absolute;
+  z-index: 1;
+  top: 0.45rem;
+  left: 0.45rem;
+  right: 0.45rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 8px;
+  background: rgba(10, 18, 15, 0.64);
+  pointer-events: none;
+}
+
+.wall-object-link {
+  display: grid;
+  place-items: center;
+  min-height: 4.5rem;
+  padding: 0.75rem;
+  color: #fffaf0;
+  text-align: center;
+  word-break: break-word;
+}
+
+.wall-object-card--surface .wall-object-link {
+  min-height: 0;
+  height: 100%;
+}
+
+.live-badge,
+.state-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.22rem 0.42rem;
+  background: #005fcc;
+  color: #fff;
+  font-size: 0.62rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.state-badge {
+  background: rgba(255, 250, 240, 0.18);
+}
+
+.wall-object-card__actions button {
+  padding: 0.35rem 0.55rem;
+  color: #fffaf0;
+  border-color: rgba(255, 250, 240, 0.22);
+  background: rgba(255, 250, 240, 0.08);
+}
+
+.wall-object-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem;
+  padding: 0 1rem 1rem;
+}
+
 .alert {
   border: 1px solid rgba(208, 0, 0, 0.24);
   border-radius: 18px;
@@ -636,9 +983,14 @@ label {
 }
 
 @media (max-width: 1040px) {
+  .app-shell:has(.room-layout) {
+    overflow: visible;
+  }
+
   .room-layout {
     grid-template-columns: 1fr;
-    min-height: auto;
+    height: auto;
+    max-height: none;
   }
 }
 

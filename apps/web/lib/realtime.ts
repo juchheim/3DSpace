@@ -1,6 +1,16 @@
 "use client";
 
-import type { AvatarStateMessage, Role, RoomSessionResponse } from "@3dspace/contracts";
+import type {
+  AvatarStateMessage,
+  Role,
+  RoomSessionResponse,
+  WallModerationStateMessageSchema,
+  WallObjectRealtimeRemoveSchema,
+  WallObjectRealtimeUpsertSchema,
+  WallPlaybackStateMessageSchema,
+  WallShareEndedMessageSchema
+} from "@3dspace/contracts";
+import type { z } from "zod";
 
 export type PresenceMessage = {
   type: "participant.presence.v1";
@@ -14,17 +24,28 @@ export type LeaveMessage = {
   participantId: string;
 };
 
-export type RealtimeMessage = AvatarStateMessage | PresenceMessage | LeaveMessage;
+export type WallRealtimeMessage =
+  | z.infer<typeof WallObjectRealtimeUpsertSchema>
+  | z.infer<typeof WallObjectRealtimeRemoveSchema>
+  | z.infer<typeof WallPlaybackStateMessageSchema>
+  | z.infer<typeof WallShareEndedMessageSchema>
+  | z.infer<typeof WallModerationStateMessageSchema>;
+
+export type RealtimeMessage = AvatarStateMessage | PresenceMessage | LeaveMessage | WallRealtimeMessage;
 
 export type RemoteMediaUpdate = {
   participantId: string;
   cameraStream?: MediaStream | null;
   microphoneStream?: MediaStream | null;
+  wallObjectId?: string;
+  wallVideoStream?: MediaStream | null;
+  wallAudioStream?: MediaStream | null;
 };
 
 export type RealtimeClient = {
   publish(message: RealtimeMessage): void;
   setLocalMedia(media: { cameraStream: MediaStream | null; micStream: MediaStream | null }): Promise<void>;
+  setLocalWallShare(input: { objectId: string; screenStream: MediaStream | null; audioStream?: MediaStream | null; publicationName?: string }): Promise<void>;
   close(): void;
 };
 
@@ -74,6 +95,9 @@ function createBroadcastClient(input: AdapterInput): RealtimeClient {
     async setLocalMedia() {
       return;
     },
+    async setLocalWallShare() {
+      return;
+    },
     close() {
       window.clearInterval(presenceInterval);
       channel.postMessage(
@@ -91,6 +115,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   const decoder = new TextDecoder();
   let publishedCameraTrack: MediaStreamTrack | null = null;
   let publishedMicTrack: MediaStreamTrack | null = null;
+  const publishedWallTracks = new Map<string, { video?: MediaStreamTrack; audio?: MediaStreamTrack }>();
 
   function participantIdFromIdentity(identity: string) {
     return identity.includes(":") ? identity.split(":")[0]! : identity;
@@ -100,8 +125,28 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
     return new MediaStream([track.mediaStreamTrack]);
   }
 
-  function handleRemoteTrack(track: { kind: string; source: string; mediaStreamTrack: MediaStreamTrack }, participantIdentity: string) {
+  function publicationName(publication: unknown) {
+    if (typeof publication !== "object" || !publication) return "";
+    const record = publication as { trackName?: string; name?: string };
+    return record.trackName ?? record.name ?? "";
+  }
+
+  function wallObjectIdFromPublication(name: string) {
+    if (!name.startsWith("wall:")) return undefined;
+    return name.replace(/^wall:/, "").replace(/:audio$/, "");
+  }
+
+  function handleRemoteTrack(track: { kind: string; source: string; mediaStreamTrack: MediaStreamTrack }, participantIdentity: string, publication?: unknown) {
     const participantId = participantIdFromIdentity(participantIdentity);
+    const wallObjectId = wallObjectIdFromPublication(publicationName(publication));
+    if (wallObjectId) {
+      if (track.kind === Track.Kind.Audio || track.source === Track.Source.ScreenShareAudio) {
+        input.onRemoteMedia?.({ participantId, wallObjectId, wallAudioStream: streamFromTrack(track) });
+        return;
+      }
+      input.onRemoteMedia?.({ participantId, wallObjectId, wallVideoStream: streamFromTrack(track) });
+      return;
+    }
     if (track.kind === Track.Kind.Video || track.source === Track.Source.Camera) {
       input.onRemoteMedia?.({ participantId, cameraStream: streamFromTrack(track) });
       return;
@@ -112,8 +157,17 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
     }
   }
 
-  function handleRemoteTrackRemoved(track: { kind: string; source: string }, participantIdentity: string) {
+  function handleRemoteTrackRemoved(track: { kind: string; source: string }, participantIdentity: string, publication?: unknown) {
     const participantId = participantIdFromIdentity(participantIdentity);
+    const wallObjectId = wallObjectIdFromPublication(publicationName(publication));
+    if (wallObjectId) {
+      if (track.kind === Track.Kind.Audio || track.source === Track.Source.ScreenShareAudio) {
+        input.onRemoteMedia?.({ participantId, wallObjectId, wallAudioStream: null });
+        return;
+      }
+      input.onRemoteMedia?.({ participantId, wallObjectId, wallVideoStream: null });
+      return;
+    }
     if (track.kind === Track.Kind.Video || track.source === Track.Source.Camera) {
       input.onRemoteMedia?.({ participantId, cameraStream: null });
       return;
@@ -131,11 +185,11 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
       input.onStatus("Ignored malformed realtime data message.");
     }
   });
-  room.on(RoomEvent.TrackSubscribed, (track, _publication, participant) => {
-    handleRemoteTrack(track, participant.identity);
+  room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+    handleRemoteTrack(track, participant.identity, publication);
   });
-  room.on(RoomEvent.TrackUnsubscribed, (track, _publication, participant) => {
-    handleRemoteTrackRemoved(track, participant.identity);
+  room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
+    handleRemoteTrackRemoved(track, participant.identity, publication);
   });
   room.on(RoomEvent.ParticipantDisconnected, (participant) => {
     input.onMessage({
@@ -150,7 +204,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   room.remoteParticipants.forEach((participant) => {
     participant.trackPublications.forEach((publication) => {
       if (publication.track) {
-        handleRemoteTrack(publication.track, participant.identity);
+        handleRemoteTrack(publication.track, participant.identity, publication);
       }
     });
   });
@@ -204,10 +258,41 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
         publishedMicTrack = nextMicTrack;
       }
     },
+    async setLocalWallShare(inputShare) {
+      const existing = publishedWallTracks.get(inputShare.objectId);
+      if (existing?.video) await room.localParticipant.unpublishTrack(existing.video, false);
+      if (existing?.audio) await room.localParticipant.unpublishTrack(existing.audio, false);
+      publishedWallTracks.delete(inputShare.objectId);
+      if (!inputShare.screenStream) return;
+
+      const publicationName = inputShare.publicationName ?? `wall:${inputShare.objectId}`;
+      const videoTrack = inputShare.screenStream.getVideoTracks()[0] ?? null;
+      const audioTrack = inputShare.audioStream?.getAudioTracks()[0] ?? inputShare.screenStream.getAudioTracks()[0] ?? null;
+      const record: { video?: MediaStreamTrack; audio?: MediaStreamTrack } = {};
+      if (videoTrack) {
+        await room.localParticipant.publishTrack(videoTrack, {
+          name: publicationName,
+          source: Track.Source.ScreenShare,
+          stream: "wall-share",
+          simulcast: true
+        });
+        record.video = videoTrack;
+      }
+      if (audioTrack) {
+        await room.localParticipant.publishTrack(audioTrack, {
+          name: `${publicationName}:audio`,
+          source: Track.Source.ScreenShareAudio,
+          stream: "wall-share"
+        });
+        record.audio = audioTrack;
+      }
+      if (record.video || record.audio) publishedWallTracks.set(inputShare.objectId, record);
+    },
     close() {
       window.clearInterval(presenceInterval);
       publishedCameraTrack = null;
       publishedMicTrack = null;
+      publishedWallTracks.clear();
       void room.disconnect(true).catch(() => undefined);
     }
   };
