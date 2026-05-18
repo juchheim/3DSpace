@@ -1231,7 +1231,10 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     }
     const storageKey = storageKeyFor({ roomId: params.roomId, wallAnchorId: body.wallAnchorId, fileName: body.fileName });
     const upload = await createUploadTarget(config, { storageKey, contentType: body.contentType });
-    const publicUrl = config.objectStorage.publicBaseUrl ? `${config.objectStorage.publicBaseUrl.replace(/\/$/, "")}/${storageKey}` : undefined;
+    const publicUrl =
+      config.objectStorage.publicRead && config.objectStorage.publicBaseUrl
+        ? `${config.objectStorage.publicBaseUrl.replace(/\/$/, "")}/${storageKey}`
+        : undefined;
     const attachmentInput = {
       roomId: params.roomId,
       wallAnchorId: body.wallAnchorId,

@@ -19,6 +19,8 @@ export type AppConfig = {
     accessKeyId: string | undefined;
     secretAccessKey: string | undefined;
     publicBaseUrl: string | undefined;
+    /** When true, downloads use OBJECT_STORAGE_PUBLIC_BASE_URL without signing (bucket must allow anonymous GET). */
+    publicRead: boolean;
   };
   sentryDsn: string | undefined;
   tuning: {
@@ -150,7 +152,8 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       bucket: envString(raw, "OBJECT_STORAGE_BUCKET"),
       accessKeyId: envString(raw, "OBJECT_STORAGE_ACCESS_KEY_ID"),
       secretAccessKey: envString(raw, "OBJECT_STORAGE_SECRET_ACCESS_KEY"),
-      publicBaseUrl: envString(raw, "OBJECT_STORAGE_PUBLIC_BASE_URL")
+      publicBaseUrl: envString(raw, "OBJECT_STORAGE_PUBLIC_BASE_URL"),
+      publicRead: envBoolean(raw, "OBJECT_STORAGE_PUBLIC_READ", false)
     },
     sentryDsn: envString(raw, "SENTRY_DSN"),
     tuning: {

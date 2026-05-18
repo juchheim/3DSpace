@@ -203,33 +203,54 @@ export function useWallObjects(input: {
     void refresh();
   }, [refresh]);
 
-  useEffect(() => {
-    if (!input.roomId) return;
-    const assetObjects = wallObjects.filter((object) => object.source.kind === "asset" && !assetUrls[object.id]);
-    if (assetObjects.length === 0) return;
-    let cancelled = false;
-    void Promise.all(
-      assetObjects.map(async (object) => {
-        if (object.source.kind !== "asset") return undefined;
-        const response = await createAttachmentDownload(input.identity, input.roomId!, object.source.attachmentId);
-        return [object.id, response.download.url] as const;
-      })
-    )
-      .then((entries) => {
-        if (cancelled) return;
-        setAssetUrls((current) => {
-          const next = { ...current };
-          for (const entry of entries) {
-            if (entry) next[entry[0]] = entry[1];
+  const hydrateAssetUrls = useCallback(
+    async (objects: WallObject[]) => {
+      if (!input.roomId) return;
+      const pending = objects.filter((object) => object.source.kind === "asset");
+      if (pending.length === 0) return;
+      const entries = await Promise.all(
+        pending.map(async (object) => {
+          if (object.source.kind !== "asset") return undefined;
+          const response = await createAttachmentDownload(input.identity, input.roomId, object.source.attachmentId);
+          return [object.id, response.download.url] as const;
+        })
+      );
+      setAssetUrls((current) => {
+        const next = { ...current };
+        let changed = false;
+        for (const entry of entries) {
+          if (entry && !next[entry[0]]) {
+            next[entry[0]] = entry[1];
+            changed = true;
           }
-          return next;
-        });
-      })
-      .catch(() => undefined);
+        }
+        return changed ? next : current;
+      });
+    },
+    [input.identity.userId, input.identity.displayName, input.roomId]
+  );
+
+  const assetObjectIds = useMemo(
+    () =>
+      wallObjects
+        .filter((object) => object.source.kind === "asset")
+        .map((object) => object.id)
+        .join(","),
+    [wallObjects]
+  );
+
+  useEffect(() => {
+    if (!input.roomId || !assetObjectIds) return;
+    let cancelled = false;
+    void hydrateAssetUrls(wallObjects).catch((err) => {
+      if (!cancelled) {
+        setError(err instanceof Error ? err.message : "Unable to load wall media.");
+      }
+    });
     return () => {
       cancelled = true;
     };
-  }, [assetUrls, input.identity, input.roomId, wallObjects]);
+  }, [assetObjectIds, hydrateAssetUrls, input.roomId, wallObjects]);
 
   const upsertLocal = useCallback((object: WallObject) => {
     setObjectsById((current) => {
@@ -311,6 +332,8 @@ export function useWallObjects(input: {
       });
       upsertLocal(object);
       publishUpsert(input.publish, input.roomId, object, input.identity.userId);
+      const download = await createAttachmentDownload(input.identity, input.roomId, finalized.id);
+      setAssetUrls((current) => ({ ...current, [object.id]: download.download.url }));
       return object;
     },
     [assertAnchorAvailable, input.identity, input.publish, input.roomId, upsertLocal]

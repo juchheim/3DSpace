@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAppAuth } from "./auth";
 import { DEFAULT_IDENTITY, identityForRole, type ApiIdentity, type DevIdentity } from "./identity";
 
@@ -32,15 +32,24 @@ export function usePersistentIdentity() {
     setIdentity(identityForRole(role));
   }
 
-  const effectiveIdentity: ApiIdentity =
-    appAuth.clerkEnabled && appAuth.signedIn && appAuth.userId
-      ? {
-          userId: appAuth.userId,
-          displayName: appAuth.displayName ?? appAuth.userId,
-          role: identity.role,
-          ...(appAuth.getToken ? { getAuthToken: () => appAuth.getToken!() } : {})
-        }
-      : identity;
+  const effectiveIdentity: ApiIdentity = useMemo(() => {
+    if (appAuth.clerkEnabled && appAuth.signedIn && appAuth.userId) {
+      return {
+        userId: appAuth.userId,
+        displayName: appAuth.displayName ?? appAuth.userId,
+        role: identity.role,
+        ...(appAuth.getToken ? { getAuthToken: () => appAuth.getToken!() } : {})
+      };
+    }
+    return identity;
+  }, [
+    appAuth.clerkEnabled,
+    appAuth.displayName,
+    appAuth.getToken,
+    appAuth.signedIn,
+    appAuth.userId,
+    identity
+  ]);
 
   return {
     identity: effectiveIdentity,

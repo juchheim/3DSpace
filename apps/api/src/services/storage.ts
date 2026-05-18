@@ -70,7 +70,7 @@ export async function createDownloadTarget(
     };
   }
 
-  if (config.objectStorage.publicBaseUrl) {
+  if (config.objectStorage.publicRead && config.objectStorage.publicBaseUrl) {
     return {
       url: `${config.objectStorage.publicBaseUrl.replace(/\/$/, "")}/${input.storageKey}`,
       method: "GET" as const,
