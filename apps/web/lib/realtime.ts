@@ -138,7 +138,8 @@ async function connectLiveKitRoomOnce(
       ? {
           autoSubscribe: false,
           peerConnectionTimeout: input.timeoutMs,
-          websocketTimeout: Math.min(25_000, input.timeoutMs)
+          websocketTimeout: Math.min(25_000, input.timeoutMs),
+          rtcConfig: { iceTransportPolicy: "relay" }
         }
       : {
           peerConnectionTimeout: input.timeoutMs
