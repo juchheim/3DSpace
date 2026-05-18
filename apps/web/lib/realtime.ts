@@ -131,15 +131,6 @@ async function connectLiveKitRoomOnce(
   }
 
   const livekitUrl = normalizeLiveKitUrl(url);
-
-  if (input.safari) {
-    await Promise.race([room.prepareConnection(livekitUrl, token), sleep(8_000)]).catch(() => undefined);
-  }
-
-  if (input.isStale?.()) {
-    throw new Error("LiveKit connection aborted");
-  }
-
   const connectPromise = room.connect(
     livekitUrl,
     token,
@@ -286,8 +277,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
           disconnectOnPageLeave: false,
           publishDefaults: {
             simulcast: false,
-            videoCodec: "vp8",
-            backupCodec: false
+            videoCodec: "h264"
           }
         })
       : new Room({ adaptiveStream: true, dynacast: true });
