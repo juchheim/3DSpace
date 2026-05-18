@@ -467,6 +467,41 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
       if (isConnecting) {
         input.onStatus("Connecting to LiveKit (negotiating media)...");
       }
+      if (safari) {
+        // Temporary diagnostic: poll ICE state every second so we can see
+        // what candidates are gathered and whether the PC ever reaches connected.
+        let tick = 0;
+        const poll = window.setInterval(() => {
+          tick++;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const eng = (room as any).engine;
+          const pcm = eng?.pcManager;
+          const pubPc: RTCPeerConnection | undefined = pcm?.publisher?._pc ?? pcm?.publisher?.pc;
+          const subPc: RTCPeerConnection | undefined = pcm?.subscriber?._pc ?? pcm?.subscriber?.pc;
+          console.log(
+            `[ICE t+${tick}s]`,
+            `engine=${!!eng}`,
+            `pcManager=${!!pcm}`,
+            `pub.ice=${pubPc?.iceConnectionState ?? "no-pc"}`,
+            `pub.gather=${pubPc?.iceGatheringState ?? "–"}`,
+            `sub.ice=${subPc?.iceConnectionState ?? "no-pc"}`,
+            `sub.gather=${subPc?.iceGatheringState ?? "–"}`,
+          );
+          if (pubPc && tick === 1) {
+            pubPc.addEventListener("icecandidate", (e) =>
+              console.log("[ICE pub candidate]", e.candidate ? `${e.candidate.type} ${e.candidate.protocol} ${e.candidate.address}` : "null (gathering done)")
+            );
+            pubPc.addEventListener("icecandidateerror", (e) => console.warn("[ICE pub error]", e));
+          }
+          if (subPc && tick === 1) {
+            subPc.addEventListener("icecandidate", (e) =>
+              console.log("[ICE sub candidate]", e.candidate ? `${e.candidate.type} ${e.candidate.protocol} ${e.candidate.address}` : "null (gathering done)")
+            );
+            subPc.addEventListener("icecandidateerror", (e) => console.warn("[ICE sub error]", e));
+          }
+          if (tick >= 30) window.clearInterval(poll);
+        }, 1_000);
+      }
     });
     room.on(RoomEvent.ConnectionStateChanged, (state) => {
       if (state === ConnectionState.Connected) {
