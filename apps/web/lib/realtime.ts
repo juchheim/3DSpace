@@ -150,6 +150,9 @@ async function connectLiveKitRoomOnce(
   await new Promise<void>((resolve, reject) => {
     const timeoutId = window.setTimeout(() => {
       timedOut = true;
+      // Disconnect immediately to abort the SDK's internal multi-region retry loop,
+      // which otherwise keeps room.connect() alive well past our timeout.
+      void room.disconnect(true);
       reject(
         new Error(
           input.safari
@@ -491,10 +494,10 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
       replaceRoom,
       url: input.session.livekitUrl,
       token: input.session.token,
-      timeoutMs: safari ? 45_000 : 20_000,
+      timeoutMs: 20_000,
       safari,
       ...(input.isStale ? { isStale: input.isStale } : {}),
-      maxAttempts: safari ? 2 : 1
+      maxAttempts: 1
     });
   } finally {
     isConnecting = false;
