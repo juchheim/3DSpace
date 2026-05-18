@@ -49,6 +49,7 @@ export type RemoteMediaUpdate = {
 
 export type RealtimeClient = {
   publish(message: RealtimeMessage): void;
+  syncParticipants(): void;
   setLocalMedia(media: { cameraStream: MediaStream | null; micStream: MediaStream | null }): Promise<void>;
   setLocalWallShare(input: { objectId: string; screenStream: MediaStream | null; audioStream?: MediaStream | null; publicationName?: string }): Promise<void>;
   close(): void;
@@ -96,6 +97,9 @@ function createBroadcastClient(input: AdapterInput): RealtimeClient {
   return {
     publish(message) {
       channel.postMessage(withSender(message, input.session.participantId));
+    },
+    syncParticipants() {
+      return;
     },
     async setLocalMedia() {
       return;
@@ -251,6 +255,14 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
     handleRemoteTrackRemoved(track, participant.identity, publication);
   });
+  function syncRemoteParticipants() {
+    room.remoteParticipants.forEach((participant) => {
+      input.onMessage(presenceFromParticipant(participant));
+    });
+  }
+
+  room.on(RoomEvent.Connected, syncRemoteParticipants);
+  room.on(RoomEvent.Reconnected, syncRemoteParticipants);
   room.on(RoomEvent.ParticipantConnected, (participant) => {
     input.onMessage(presenceFromParticipant(participant));
   });
@@ -263,9 +275,9 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
 
   await room.connect(input.session.livekitUrl, input.session.token);
   input.onStatus("Connected through LiveKit media and data channels.");
+  syncRemoteParticipants();
 
   room.remoteParticipants.forEach((participant) => {
-    input.onMessage(presenceFromParticipant(participant));
     participant.trackPublications.forEach((publication) => {
       if (publication.track) {
         handleRemoteTrack(publication.track, participant.identity, publication);
@@ -290,6 +302,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
       const reliable = message.type !== "avatar.state.v1";
       void room.localParticipant.publishData(encoder.encode(JSON.stringify(message)), { reliable });
     },
+    syncParticipants: syncRemoteParticipants,
     async setLocalMedia(media) {
       localMediaSync = localMediaSync
         .then(() => syncLocalMedia(media))

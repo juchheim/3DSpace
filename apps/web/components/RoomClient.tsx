@@ -332,6 +332,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         displayName: displayNameRef.current,
         role: session.role
       });
+      client.syncParticipants();
     });
 
     return () => {
@@ -385,6 +386,16 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   }, [session?.participantId, session?.tuning.avatarSendHz]);
 
   useEffect(() => {
+    if (!session || leaving) return;
+    const sync = () => {
+      realtimeRef.current?.syncParticipants();
+    };
+    sync();
+    const interval = window.setInterval(sync, 3_000);
+    return () => window.clearInterval(interval);
+  }, [session?.participantId, leaving]);
+
+  useEffect(() => {
     if (!session) return;
     let cancelled = false;
     const publish = () => {
@@ -405,7 +416,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
 
   useEffect(() => {
     const interval = window.setInterval(() => {
-      const cutoff = Date.now() - 12_000;
+      const cutoff = Date.now() - 30_000;
       setParticipants((current) =>
         Object.fromEntries(Object.entries(current).filter(([id, participant]) => participant.local || participant.lastSeenAt > cutoff || id === session?.participantId))
       );
