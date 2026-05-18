@@ -134,15 +134,10 @@ async function connectLiveKitRoomOnce(
   const connectPromise = room.connect(
     livekitUrl,
     token,
-    input.safari
-      ? {
-          autoSubscribe: false,
-          peerConnectionTimeout: input.timeoutMs,
-          websocketTimeout: Math.min(25_000, input.timeoutMs)
-        }
-      : {
-          peerConnectionTimeout: input.timeoutMs
-        }
+    {
+      peerConnectionTimeout: input.timeoutMs,
+      ...(input.safari ? { websocketTimeout: Math.min(25_000, input.timeoutMs) } : {})
+    }
   );
   let timedOut = false;
 
@@ -506,12 +501,18 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
             `sub.ice=${sub2?.iceConnectionState ?? "no-pc"}`,
             `sub.gather=${sub2?.iceGatheringState ?? "–"}`,
           );
-          // Dump candidate pairs + local candidates at t+3s to see what Safari gathered
+          // Dump ICE config + local/remote candidates + pairs at t+3s
           if (tick === 3 && pub2) {
+            const cfg = pub2.getConfiguration();
+            console.log("[ICE config]", `policy=${cfg.iceTransportPolicy ?? "all"}`,
+              "servers=", JSON.stringify((cfg.iceServers ?? []).map((s) => ({ urls: s.urls }))));
             void pub2.getStats().then((stats) => {
               stats.forEach((report) => {
                 if (report.type === "local-candidate") {
                   console.log("[ICE stats local]", `type=${report.candidateType}`, `proto=${report.protocol}`, `addr=${report.address}`, `port=${report.port}`);
+                }
+                if (report.type === "remote-candidate") {
+                  console.log("[ICE stats remote]", `type=${report.candidateType}`, `proto=${report.protocol}`, `addr=${report.address}`, `port=${report.port}`);
                 }
                 if (report.type === "candidate-pair") {
                   console.log("[ICE stats pair]", `state=${report.state}`, `nominated=${report.nominated}`, `bytesSent=${report.bytesSent}`, `bytesRecv=${report.bytesReceived}`);
