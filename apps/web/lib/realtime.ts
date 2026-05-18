@@ -97,12 +97,25 @@ function createRoomForBrowser() {
     return new Room({ adaptiveStream: true, dynacast: true });
   }
   return new Room({
+    adaptiveStream: true,
+    dynacast: true,
     disconnectOnPageLeave: false,
+    singlePeerConnection: false,
     publishDefaults: {
       simulcast: false,
       videoCodec: "vp8" as const,
       backupCodec: false
     }
+  });
+}
+
+function subscribeDesiredRemoteTracks(room: Room) {
+  room.remoteParticipants.forEach((participant) => {
+    participant.trackPublications.forEach((publication) => {
+      if (!publication.isSubscribed) {
+        publication.setSubscribed(true);
+      }
+    });
   });
 }
 
@@ -137,22 +150,14 @@ async function abandonConnectAttempt(connectPromise?: Promise<void>) {
   await Promise.race([connectPromise.catch(() => undefined), sleep(2_000)]);
 }
 
-function liveKitConnectOptions(attempt: number, connectTimeoutMs: number) {
+function liveKitConnectOptions(_attempt: number, connectTimeoutMs: number) {
   const safari = isSafariBrowser();
-  const options = {
-    autoSubscribe: true,
+  return {
+    // Safari hangs during initial PC setup when auto-negotiating Chrome simulcast tracks.
+    autoSubscribe: !safari,
     peerConnectionTimeout: connectTimeoutMs,
     websocketTimeout: Math.min(connectTimeoutMs, 20_000)
   };
-  if (safari && attempt > 0) {
-    return {
-      ...options,
-      rtcConfig: {
-        iceTransportPolicy: "relay" as RTCIceTransportPolicy
-      }
-    };
-  }
-  return options;
 }
 
 async function connectLiveKitRoom(
@@ -178,9 +183,7 @@ async function connectLiveKitRoom(
       onProgress?.(
         attempt === 0
           ? "Connecting to LiveKit..."
-          : safari && attempt === maxAttempts - 1
-            ? "Connecting to LiveKit (relay fallback)..."
-            : `Connecting to LiveKit (retry ${attempt + 1}/${maxAttempts})...`
+          : `Connecting to LiveKit (retry ${attempt + 1}/${maxAttempts})...`
       );
       if (attempt > 0 || room.state !== ConnectionState.Disconnected) {
         await disconnectLiveKitRoom(room);
@@ -197,7 +200,7 @@ async function connectLiveKitRoom(
           reject(
             new Error(
               safari
-                ? "LiveKit media connection timed out on Safari. Check network/firewall access to LiveKit and TURN (UDP/TCP)."
+                ? "LiveKit media connection timed out on Safari while negotiating WebRTC."
                 : "LiveKit connection timed out. Verify LIVEKIT_URL is wss:// on the API service."
             )
           );
@@ -418,6 +421,13 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
     target.on(RoomEvent.Reconnected, syncRemoteParticipants);
     target.on(RoomEvent.ParticipantConnected, (participant) => {
       input.onMessage(presenceFromParticipant(participant));
+      if (safari) {
+        participant.trackPublications.forEach((publication) => {
+          if (!publication.isSubscribed) {
+            publication.setSubscribed(true);
+          }
+        });
+      }
     });
     target.on(RoomEvent.ParticipantDisconnected, (participant) => {
       input.onMessage({
@@ -471,7 +481,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
         void disconnectLiveKitRoom(roomRef.current);
         throw new Error(
           safari
-            ? "LiveKit connection timed out on Safari after multiple attempts."
+            ? "LiveKit connection timed out on Safari while negotiating WebRTC."
             : "LiveKit connection timed out after multiple attempts."
         );
       })
@@ -479,6 +489,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
     input.onStatus("Connected through LiveKit media and data channels.");
     syncRemoteParticipants();
     if (safari) {
+      subscribeDesiredRemoteTracks(roomRef.current);
       void roomRef.current.startAudio().catch(() => undefined);
     }
   } finally {
