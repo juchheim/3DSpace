@@ -31,5 +31,5 @@ export async function mintLiveKitToken(
     canPublishData: true
   });
 
-  return token.toJwt();
+  return await token.toJwt();
 }

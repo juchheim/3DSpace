@@ -117,8 +117,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
 
   const releaseMedia = media.release;
   const teardownSession = useCallback(() => {
-    realtimeRef.current?.close();
+    const client = realtimeRef.current;
     realtimeRef.current = null;
+    void client?.close();
     releaseMedia();
     displayMedia.stop();
     setRemoteWallMedia({});
@@ -325,7 +326,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     })
       .then((client) => {
         if (generation !== realtimeGenerationRef.current) {
-          client.close();
+          void client.close();
           return;
         }
         realtimeRef.current = client;
@@ -339,13 +340,16 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       })
       .catch((error) => {
         if (generation !== realtimeGenerationRef.current) return;
-        setStatus(error instanceof Error ? error.message : "Unable to connect to LiveKit.");
+        const message = error instanceof Error ? error.message : "Unable to connect to LiveKit.";
+        setError(message);
+        setStatus(message);
       });
 
     return () => {
       realtimeGenerationRef.current += 1;
-      realtimeRef.current?.close();
+      const client = realtimeRef.current;
       realtimeRef.current = null;
+      void client?.close();
     };
   }, [session?.participantId, roomId, leaving]);
 

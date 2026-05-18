@@ -53,7 +53,7 @@ export type RealtimeClient = {
   syncParticipants(): void;
   setLocalMedia(media: { cameraStream: MediaStream | null; micStream: MediaStream | null }): Promise<void>;
   setLocalWallShare(input: { objectId: string; screenStream: MediaStream | null; audioStream?: MediaStream | null; publicationName?: string }): Promise<void>;
-  close(): void;
+  close(): Promise<void>;
 };
 
 type AdapterInput = {
@@ -82,17 +82,61 @@ export function normalizeLiveKitUrl(url: string) {
   return trimmed;
 }
 
-async function connectLiveKitRoom(room: Room, url: string, token: string, timeoutMs = 20_000) {
-  const livekitUrl = normalizeLiveKitUrl(url);
-  await Promise.race([
-    room.connect(livekitUrl, token),
-    new Promise<never>((_resolve, reject) => {
-      window.setTimeout(() => reject(new Error("LiveKit connection timed out. Check LIVEKIT_URL uses wss:// on the API service.")), timeoutMs);
-    })
-  ]);
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 }
 
-function createBroadcastClient(input: AdapterInput): RealtimeClient {
+function isRetryableLiveKitError(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  return (
+    message.includes("duplicate") ||
+    message.includes("already connected") ||
+    message.includes("client initiated disconnect") ||
+    message.includes("connection attempt aborted") ||
+    message.includes("timed out")
+  );
+}
+
+async function disconnectLiveKitRoom(room: Room) {
+  if (room.state === ConnectionState.Disconnected) return;
+  try {
+    await room.disconnect(true);
+  } catch {
+    // ignore disconnect errors while resetting a stuck peer connection
+  }
+  await sleep(400);
+}
+
+async function connectLiveKitRoom(room: Room, url: string, token: string, timeoutMs = 25_000) {
+  const livekitUrl = normalizeLiveKitUrl(url);
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await disconnectLiveKitRoom(room);
+      await Promise.race([
+        room.connect(livekitUrl, token, { autoSubscribe: true }),
+        new Promise<never>((_resolve, reject) => {
+          window.setTimeout(
+            () => reject(new Error("LiveKit connection timed out. Verify LIVEKIT_URL is wss:// on the API service.")),
+            timeoutMs
+          );
+        })
+      ]);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableLiveKitError(error) || attempt === 2) {
+        throw error;
+      }
+      await sleep(800 * (attempt + 1));
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("LiveKit connection failed");
+}
+
+function createBroadcastClient(input: AdapterInput, reason?: string): RealtimeClient {
   const channel = new BroadcastChannel(`3dspace:${input.roomId}`);
   channel.onmessage = (event) => {
     const payload = event.data as { senderId?: string };
@@ -101,7 +145,8 @@ function createBroadcastClient(input: AdapterInput): RealtimeClient {
     if (message) input.onMessage(message);
   };
 
-  input.onStatus("Connected through local multi-tab realtime fallback.");
+  const suffix = reason ? ` (${reason})` : "";
+  input.onStatus(`Connected through local multi-tab realtime fallback${suffix}. Cross-device presence will not work.`);
   const presence: PresenceMessage = {
     type: "participant.presence.v1",
     participantId: input.session.participantId,
@@ -125,7 +170,7 @@ function createBroadcastClient(input: AdapterInput): RealtimeClient {
     async setLocalWallShare() {
       return;
     },
-    close() {
+    async close() {
       window.clearInterval(presenceInterval);
       channel.postMessage(
         withSender({ type: "participant.leave.v1", participantId: input.session.participantId }, input.session.participantId)
@@ -144,6 +189,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   let publishedMicTrack: MediaStreamTrack | null = null;
   const publishedWallTracks = new Map<string, { video?: MediaStreamTrack; audio?: MediaStreamTrack }>();
   let localMediaSync: Promise<void> = Promise.resolve();
+  let closed = false;
 
   async function syncLocalMedia(media: { cameraStream: MediaStream | null; micStream: MediaStream | null }) {
     const nextCameraTrack = media.cameraStream?.getVideoTracks()[0] ?? null;
@@ -273,6 +319,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
     handleRemoteTrackRemoved(track, participant.identity, publication);
   });
+
   function syncRemoteParticipants() {
     room.remoteParticipants.forEach((participant) => {
       input.onMessage(presenceFromParticipant(participant));
@@ -300,6 +347,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
     }
   });
 
+  await room.prepareConnection(normalizeLiveKitUrl(input.session.livekitUrl), input.session.token).catch(() => undefined);
   await connectLiveKitRoom(room, input.session.livekitUrl, input.session.token);
   input.onStatus("Connected through LiveKit media and data channels.");
   syncRemoteParticipants();
@@ -319,6 +367,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
     role: input.session.role
   };
   const publishPresence = () => {
+    if (closed) return;
     void room.localParticipant.publishData(encoder.encode(JSON.stringify(presence)), { reliable: true });
   };
   publishPresence();
@@ -326,6 +375,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
 
   return {
     publish(message) {
+      if (closed) return;
       const reliable = message.type !== "avatar.state.v1";
       void room.localParticipant.publishData(encoder.encode(JSON.stringify(message)), { reliable });
     },
@@ -371,12 +421,13 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
       }
       if (record.video || record.audio) publishedWallTracks.set(inputShare.objectId, record);
     },
-    close() {
+    async close() {
+      closed = true;
       window.clearInterval(presenceInterval);
       publishedCameraTrack = null;
       publishedMicTrack = null;
       publishedWallTracks.clear();
-      void room.disconnect(true).catch(() => undefined);
+      await disconnectLiveKitRoom(room);
     }
   };
 }
@@ -391,7 +442,9 @@ export async function createRealtimeClient(input: AdapterInput): Promise<Realtim
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Unknown LiveKit error";
     console.error("LiveKit connection failed", error);
-    input.onStatus(`LiveKit connection failed (${detail}). Using local multi-tab fallback.`);
-    return createBroadcastClient(input);
+    if (process.env.NODE_ENV === "development") {
+      return createBroadcastClient(input, detail);
+    }
+    throw new Error(`LiveKit connection failed: ${detail}`);
   }
 }
