@@ -85,6 +85,18 @@ export function normalizeLiveKitUrl(url: string) {
   return trimmed;
 }
 
+function regionPinnedSafariLiveKitUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    if (!parsed.hostname.endsWith(".livekit.cloud")) return url;
+    if (parsed.hostname.includes(".rtc.livekit.cloud")) return url;
+    parsed.hostname = parsed.hostname.replace(/\.livekit\.cloud$/, ".us.rtc.livekit.cloud");
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
 function sleep(ms: number) {
   return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 }
@@ -132,7 +144,12 @@ async function connectLiveKitRoomOnce(
     throw new Error("LiveKit connection aborted");
   }
 
-  const livekitUrl = normalizeLiveKitUrl(url);
+  const livekitUrl = input.safari
+    ? regionPinnedSafariLiveKitUrl(normalizeLiveKitUrl(url))
+    : normalizeLiveKitUrl(url);
+  if (input.safari) {
+    console.log("[LiveKit Safari endpoint]", livekitUrl);
+  }
 
   const connectPromise = room.connect(
     livekitUrl,

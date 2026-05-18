@@ -1,6 +1,6 @@
 # Safari LiveKit ICE Connection Failure - Investigation Handoff
 
-**Status:** Active - relay-only TURN, the restored default v1 path, and the disabled video primer all failed on a mobile hotspot. Current candidate uses host-only ICE plus an enabled silent audio primer during connect.  
+**Status:** Active - relay-only TURN, the restored default v1 path, the disabled video primer, and host-only ICE plus an enabled silent audio primer all failed on a mobile hotspot. Current candidate moves Safari onto LiveKit's regional US RTC endpoint while keeping the host-only ICE plus enabled silent audio primer path.  
 **Branch:** `mvp-plus-one`  
 **Primary file:** `apps/web/lib/realtime.ts`  
 **LiveKit SDK:** `livekit-client@2.19.0`
@@ -32,7 +32,7 @@ The mobile hotspot logs prove that Safari can receive correctly credentialed TUR
 
 This matches a known WebKit failure mode for receive-only / data-channel-first WebRTC sessions: Safari may not emit useful ICE candidates until the connection has a local media sender. LiveKit is being used for data/presence first, so users can enter the room before enabling camera or microphone.
 
-Current candidate fix: remove the server ICE bundle for Safari (`rtcConfig.iceServers = []`) and publish an enabled silent audio track during the initial join. This keeps Safari on the direct ICE-TCP path while giving WebKit a live sender without camera/mic permission.
+Current candidate fix: force Safari onto LiveKit's regional US RTC endpoint (`wss://<subdomain>.us.rtc.livekit.cloud`) while still removing the server ICE bundle (`rtcConfig.iceServers = []`) and publishing an enabled silent audio track during the initial join. The current theory is that Safari is being routed onto a bad LiveKit Cloud edge or TCP path from the generic project endpoint, and that the region-specific RTC endpoint may restore the earlier working shape.
 
 ---
 
@@ -102,6 +102,21 @@ Change in `apps/web/lib/realtime.ts`:
 
 This is still synthetic media, not a user device track. The empty audio track comes from LiveKit's own oscillator helper and should not prompt for microphone access.
 
+### Current Candidate: Regional US RTC Endpoint for Safari
+
+Change in `apps/web/lib/realtime.ts`:
+
+- Safari now rewrites the LiveKit project URL from `wss://<subdomain>.livekit.cloud` to `wss://<subdomain>.us.rtc.livekit.cloud` before `room.connect()`;
+- non-Safari clients still use the original project endpoint;
+- host-only ICE and the enabled silent audio primer remain active for Safari.
+
+Reasoning:
+
+- LiveKit's current firewall and region documentation explicitly support regional RTC endpoints such as `wss://<subdomain>.us.rtc.livekit.cloud`;
+- the docs state that the default `<subdomain>.livekit.cloud` address resolves to the cluster closest to the client, while the regional RTC address keeps the connection on the requested regional infrastructure;
+- current failures consistently land on `ochicago1b` with only TCP host candidate pairs (`local port 9`, `remote port 7881`) stuck in `waiting`;
+- LiveKit also has a known Safari ICE/TCP issue in its public tracker, which makes a bad TCP-only edge path a stronger suspect than another client-side transceiver quirk.
+
 ---
 
 ## Current Code State
@@ -124,6 +139,12 @@ room.connect(livekitUrl, token, {
   peerConnectionTimeout: 45_000,
   websocketTimeout: 45_000
 });
+```
+
+Safari regional endpoint rewrite:
+
+```typescript
+const livekitUrl = regionPinnedSafariLiveKitUrl(normalizeLiveKitUrl(url));
 ```
 
 Safari host-only connect override:
@@ -169,15 +190,16 @@ Test Safari on the same mobile hotspot.
 
 Expected if the current candidate is correct:
 
+- the console should log `[LiveKit Safari endpoint] wss://<subdomain>.us.rtc.livekit.cloud`;
 - no `[ICE split]` logs, because the monkey-patch is gone;
 - the Safari audio primer publish should happen after signal connects;
 - `[ICE config]` should show no TURN/STUN servers if the host-only override is taking effect;
-- candidate gathering should finish faster than the TURN/STUN case;
 - connection should complete before the app timeout;
-- diagnostic logs should show whether Safari eventually produces usable candidates after its slow gathering phase.
+- diagnostic logs should show whether Safari still lands on TCP host candidate pairs only, or whether the regional endpoint changes the ICE shape.
 
 Expected if it still fails:
 
+- record the `[LiveKit Safari endpoint]` log line so we know whether the regional rewrite executed;
 - record the final `[ICE config]`, `[ICE stats local]`, `[ICE stats pair]`, and timeout timestamp;
 - check whether the LiveKit disconnect still reports `reason: 14`;
 - check whether the console logs `Safari ICE primer publish failed`.
@@ -186,15 +208,11 @@ Expected if it still fails:
 
 ## Remaining Options If This Fails
 
-**Option A: Try host-only ICE with the 45s window**
-
-Set `rtcConfig: { iceServers: [] }` for Safari, still with the 45s timeout. This tests whether the previously observed TCP host candidate path can connect without waiting on STUN/TURN.
-
-**Option B: Use LiveKit connection helper / TURN check**
+**Option A: Use LiveKit connection helper / TURN check**
 
 LiveKit's SDK includes a TURN check that connects with `rtcConfig: { iceTransportPolicy: "relay" }`. Running the same check in Safari would confirm whether this is a general Safari TURN failure outside our app code.
 
-**Option C: WebSocket-backed Safari realtime fallback**
+**Option B: WebSocket-backed Safari realtime fallback**
 
 If Safari cannot reliably establish LiveKit WebRTC, use a backend WebSocket/SSE channel for cross-device presence and room state on Safari. This would preserve classroom state sync but would not provide Safari audio/video through LiveKit.
 
@@ -207,3 +225,4 @@ If Safari cannot reliably establish LiveKit WebRTC, use a backend WebSocket/SSE 
 - `peerConnectionTimeout` is the client-side timeout used by `RTCEngine.waitForPCInitialConnection()`.
 - LiveKit disconnect reason `14` maps to `DisconnectReason.CONNECTION_TIMEOUT`.
 - SDK `makeRTCConfiguration()` only copies server ICE servers when `rtcConfig.iceServers` is falsy; setting `rtcConfig: { iceServers: [] }` intentionally prevents server ICE servers from being added.
+- LiveKit's current firewall docs say the default `<subdomain>.livekit.cloud` hostname resolves to the closest cluster, and document `wss://<subdomain>.us.rtc.livekit.cloud` as the explicit US regional RTC endpoint.
