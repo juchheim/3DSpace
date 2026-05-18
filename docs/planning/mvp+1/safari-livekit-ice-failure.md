@@ -1,6 +1,6 @@
 # Safari LiveKit ICE Connection Failure - Investigation Handoff
 
-**Status:** Active - relay-only TURN and the restored default v1 path both failed on a mobile hotspot. Current candidate primes Safari ICE with a disabled local canvas video track during connect.  
+**Status:** Active - relay-only TURN, the restored default v1 path, and the disabled video primer all failed on a mobile hotspot. Current candidate uses host-only ICE plus an enabled silent audio primer during connect.  
 **Branch:** `mvp-plus-one`  
 **Primary file:** `apps/web/lib/realtime.ts`  
 **LiveKit SDK:** `livekit-client@2.19.0`
@@ -32,7 +32,7 @@ The mobile hotspot logs prove that Safari can receive correctly credentialed TUR
 
 This matches a known WebKit failure mode for receive-only / data-channel-first WebRTC sessions: Safari may not emit useful ICE candidates until the connection has a local media sender. LiveKit is being used for data/presence first, so users can enter the room before enabling camera or microphone.
 
-Current candidate fix: publish a disabled 16x16 canvas video track during Safari's initial join, then unpublish it immediately after connection. This adds a local media sender without camera/mic permission and should push WebKit into the media-sending ICE path.
+Current candidate fix: remove the server ICE bundle for Safari (`rtcConfig.iceServers = []`) and publish an enabled silent audio track during the initial join. This keeps Safari on the direct ICE-TCP path while giving WebKit a live sender without camera/mic permission.
 
 ---
 
@@ -78,7 +78,7 @@ Change in `apps/web/lib/realtime.ts`:
 
 Result: still failed. The default v1 path was confirmed by `/rtc/v1` and `subPc=false`, but LiveKit Cloud timed out each attempt at about 15s while candidate pairs remained `waiting`.
 
-### Current Candidate: Safari ICE Primer Track
+### Experiment 4: Disabled Video Primer Track
 
 Change in `apps/web/lib/realtime.ts`:
 
@@ -87,7 +87,20 @@ Change in `apps/web/lib/realtime.ts`:
 - filter this publication out of remote media handlers;
 - unpublish it after connect or stop it on failure.
 
-This is intentionally not camera/microphone capture. It is a disabled canvas track from LiveKit's own helper, so it should not trigger user permission prompts.
+Result: still failed. The primer published successfully, but Safari still produced only TCP host port `9` candidates and candidate pairs remained `waiting`.
+
+### Current Candidate: Host-Only ICE + Enabled Silent Audio Primer
+
+Change in `apps/web/lib/realtime.ts`:
+
+- Safari `room.connect()` now uses `rtcConfig: { iceServers: [] }`, which prevents LiveKit's TURN/STUN list from being injected;
+- before `room.connect()` on Safari, create `getEmptyAudioStreamTrack()`;
+- set `track.enabled = true`;
+- publish it with name `__3dspace_safari_ice_primer`, source `unknown`, stream `__3dspace_safari_ice_primer`, `dtx: false`, `red: false`;
+- keep filtering this publication out of remote media handlers;
+- unpublish it after connect or stop it on failure.
+
+This is still synthetic media, not a user device track. The empty audio track comes from LiveKit's own oscillator helper and should not prompt for microphone access.
 
 ---
 
@@ -113,17 +126,27 @@ room.connect(livekitUrl, token, {
 });
 ```
 
-Safari ICE primer:
+Safari host-only connect override:
 
 ```typescript
-const track = getEmptyVideoStreamTrack();
-track.enabled = false;
+room.connect(livekitUrl, token, {
+  peerConnectionTimeout: 45_000,
+  websocketTimeout: 45_000,
+  rtcConfig: { iceServers: [] }
+});
+```
+
+Safari audio primer:
+
+```typescript
+const track = getEmptyAudioStreamTrack();
+track.enabled = true;
 void room.localParticipant.publishTrack(track, {
   name: "__3dspace_safari_ice_primer",
   source: Track.Source.Unknown,
   stream: "__3dspace_safari_ice_primer",
-  simulcast: false,
-  videoCodec: "h264"
+  dtx: false,
+  red: false
 });
 ```
 
@@ -147,8 +170,9 @@ Test Safari on the same mobile hotspot.
 Expected if the current candidate is correct:
 
 - no `[ICE split]` logs, because the monkey-patch is gone;
-- the Safari primer publish should happen after signal connects;
-- local ICE candidates should include useful media-sender candidates instead of only TCP host port `9`;
+- the Safari audio primer publish should happen after signal connects;
+- `[ICE config]` should show no TURN/STUN servers if the host-only override is taking effect;
+- candidate gathering should finish faster than the TURN/STUN case;
 - connection should complete before the app timeout;
 - diagnostic logs should show whether Safari eventually produces usable candidates after its slow gathering phase.
 

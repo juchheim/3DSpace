@@ -139,7 +139,12 @@ async function connectLiveKitRoomOnce(
     token,
     {
       peerConnectionTimeout: input.timeoutMs,
-      ...(input.safari ? { websocketTimeout: input.timeoutMs } : {})
+      ...(input.safari
+        ? {
+            websocketTimeout: input.timeoutMs,
+            rtcConfig: { iceServers: [] }
+          }
+        : {})
     }
   );
   let timedOut = false;
@@ -266,7 +271,7 @@ function createBroadcastClient(input: AdapterInput, reason?: string): RealtimeCl
 }
 
 async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient> {
-  const { Room, RoomEvent, Track, getBrowser, getEmptyVideoStreamTrack } = await import("livekit-client");
+  const { Room, RoomEvent, Track, getBrowser, getEmptyAudioStreamTrack } = await import("livekit-client");
   const browser = getBrowser();
   const safari = browser?.name === "Safari" || browser?.os === "iOS";
 
@@ -296,16 +301,16 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   let isConnecting = true;
 
   function startSafariIcePrimer(room: Room) {
-    const track = getEmptyVideoStreamTrack();
-    track.enabled = false;
-    console.log("[ICE primer] publishing disabled local video track");
+    const track = getEmptyAudioStreamTrack();
+    track.enabled = true;
+    console.log("[ICE primer] publishing enabled local audio track");
     const published = room.localParticipant
       .publishTrack(track, {
         name: SAFARI_ICE_PRIMER_TRACK_NAME,
         source: Track.Source.Unknown,
         stream: SAFARI_ICE_PRIMER_TRACK_NAME,
-        simulcast: false,
-        videoCodec: "h264"
+        dtx: false,
+        red: false
       })
       .then(() => {
         console.log("[ICE primer] published");
