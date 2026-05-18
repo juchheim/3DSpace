@@ -31,6 +31,11 @@ function bearerToken(request: FastifyRequest) {
   return authorization.slice("Bearer ".length).trim();
 }
 
+function hintedDisplayName(request: FastifyRequest) {
+  const value = headerValue(request, "x-dev-user-name");
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
 export async function authenticate(request: FastifyRequest, config: AppConfig): Promise<AuthContext> {
   const token = bearerToken(request);
 
@@ -39,7 +44,7 @@ export async function authenticate(request: FastifyRequest, config: AppConfig): 
       const claims = await verifyToken(token, { secretKey: config.clerkSecretKey });
       return {
         userId: claims.sub,
-        displayName: displayNameFromClaims(claims as Record<string, unknown> & { sub: string }),
+        displayName: hintedDisplayName(request) ?? displayNameFromClaims(claims as Record<string, unknown> & { sub: string }),
         provider: "clerk"
       };
     } catch {

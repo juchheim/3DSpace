@@ -373,17 +373,22 @@ async function resolveClassroomActor(input: {
 async function hydrateClassroomDisplayNames(repository: Repository, classId: string, state: ClassroomState) {
   const memberships = await repository.listMemberships(classId);
   const displayNames = new Map(memberships.map((membership) => [membership.userId, membership.displayName]));
+  const resolvedDisplayName = (userId: string, current: string) => {
+    const membershipDisplayName = displayNames.get(userId);
+    if (!membershipDisplayName || membershipDisplayName === userId) return current;
+    return membershipDisplayName;
+  };
   return ClassroomStateSchema.parse({
     ...state,
     helpRequests: state.helpRequests.map((request) => ({
       ...request,
-      displayName: displayNames.get(request.userId) ?? request.displayName
+      displayName: resolvedDisplayName(request.userId, request.displayName)
     })),
     privateChecks: state.privateChecks.map((check) => ({
       ...check,
       responses: check.responses.map((response) => ({
         ...response,
-        displayName: displayNames.get(response.userId) ?? response.displayName
+        displayName: resolvedDisplayName(response.userId, response.displayName)
       }))
     }))
   });

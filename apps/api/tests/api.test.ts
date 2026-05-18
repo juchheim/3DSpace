@@ -1016,4 +1016,54 @@ describe("3dspace api", () => {
 
     await app.close();
   });
+
+  it("prefers request display names over stale membership ids in classroom responses", async () => {
+    const repository = new MemoryRepository();
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-classroom-name");
+
+    await app.inject({
+      method: "POST",
+      url: `/v1/classes/${classRecord.id}/members`,
+      headers: authHeaders("teacher-classroom-name", "Ms. Rivera"),
+      payload: {
+        userId: "user_3DomxrOuhgf2otk9eaWiftKuGXp",
+        displayName: "user_3DomxrOuhgf2otk9eaWiftKuGXp",
+        role: "student",
+        status: "active"
+      }
+    });
+
+    const seeded = await repository.getClassroomState(roomWithManifest.room.id);
+    await repository.updateClassroomState(roomWithManifest.room.id, {
+      state: {
+        ...seeded,
+        helpRequests: [
+          {
+            id: "help_real_name",
+            userId: "user_3DomxrOuhgf2otk9eaWiftKuGXp",
+            displayName: "Avery Student",
+            status: "raised",
+            createdAt: seeded.createdAt,
+            updatedAt: seeded.updatedAt
+          }
+        ]
+      },
+      expectedVersion: seeded.version
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom`,
+      headers: authHeaders("teacher-classroom-name", "Ms. Rivera")
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().helpRequests[0].displayName).toBe("Avery Student");
+
+    await app.close();
+  });
 });
