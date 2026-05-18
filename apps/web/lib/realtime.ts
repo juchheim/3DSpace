@@ -125,44 +125,82 @@ function isRetryableLiveKitError(error: unknown) {
 async function disconnectLiveKitRoom(room: Room) {
   if (room.state === ConnectionState.Disconnected) return;
   try {
-    await room.disconnect(true);
+    await Promise.race([room.disconnect(true), sleep(3_000)]);
   } catch {
     // ignore disconnect errors while resetting a stuck peer connection
   }
-  await sleep(400);
+  await sleep(200);
+}
+
+async function abandonConnectAttempt(connectPromise?: Promise<void>) {
+  if (!connectPromise) return;
+  await Promise.race([connectPromise.catch(() => undefined), sleep(2_000)]);
+}
+
+function liveKitConnectOptions(attempt: number, connectTimeoutMs: number) {
+  const safari = isSafariBrowser();
+  const options = {
+    autoSubscribe: true,
+    peerConnectionTimeout: connectTimeoutMs,
+    websocketTimeout: Math.min(connectTimeoutMs, 20_000)
+  };
+  if (safari && attempt > 0) {
+    return {
+      ...options,
+      rtcConfig: {
+        iceTransportPolicy: "relay" as RTCIceTransportPolicy
+      }
+    };
+  }
+  return options;
 }
 
 async function connectLiveKitRoom(
-  room: Room,
+  roomRef: { current: Room },
   url: string,
   token: string,
   timeoutMs = 25_000,
-  onProgress?: (message: string) => void
+  onProgress?: (message: string) => void,
+  recreateRoom?: () => Room
 ) {
   const livekitUrl = normalizeLiveKitUrl(url);
-  const connectTimeoutMs = isSafariBrowser() ? Math.max(timeoutMs, 30_000) : timeoutMs;
+  const safari = isSafariBrowser();
+  const connectTimeoutMs = safari ? Math.min(Math.max(timeoutMs, 20_000), 25_000) : timeoutMs;
+  const maxAttempts = safari ? 4 : 3;
   let lastError: unknown;
+  let room = roomRef.current;
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     let timedOut = false;
     let connectPromise: Promise<void> | undefined;
     try {
+      room = roomRef.current;
       onProgress?.(
-        attempt === 0 ? "Connecting to LiveKit..." : `Connecting to LiveKit (retry ${attempt + 1}/3)...`
+        attempt === 0
+          ? "Connecting to LiveKit..."
+          : safari && attempt === maxAttempts - 1
+            ? "Connecting to LiveKit (relay fallback)..."
+            : `Connecting to LiveKit (retry ${attempt + 1}/${maxAttempts})...`
       );
       if (attempt > 0 || room.state !== ConnectionState.Disconnected) {
         await disconnectLiveKitRoom(room);
       }
-      connectPromise = room.connect(livekitUrl, token, {
-        autoSubscribe: true,
-        peerConnectionTimeout: connectTimeoutMs,
-        websocketTimeout: connectTimeoutMs
-      });
+      if (safari && attempt > 0 && recreateRoom) {
+        room = recreateRoom();
+        roomRef.current = room;
+      }
+      connectPromise = room.connect(livekitUrl, token, liveKitConnectOptions(attempt, connectTimeoutMs));
       await new Promise<void>((resolve, reject) => {
         const timeoutId = window.setTimeout(() => {
           timedOut = true;
           void disconnectLiveKitRoom(room);
-          reject(new Error("LiveKit connection timed out. Verify LIVEKIT_URL is wss:// on the API service."));
+          reject(
+            new Error(
+              safari
+                ? "LiveKit media connection timed out on Safari. Check network/firewall access to LiveKit and TURN (UDP/TCP)."
+                : "LiveKit connection timed out. Verify LIVEKIT_URL is wss:// on the API service."
+            )
+          );
         }, connectTimeoutMs);
         connectPromise!
           .then(() => {
@@ -176,14 +214,12 @@ async function connectLiveKitRoom(
       });
       return;
     } catch (error) {
-      if (timedOut && connectPromise) {
-        await connectPromise.catch(() => undefined);
-      }
+      await abandonConnectAttempt(connectPromise);
       lastError = error;
-      if (!isRetryableLiveKitError(error) || attempt === 2) {
+      if (!isRetryableLiveKitError(error) || attempt === maxAttempts - 1) {
         throw error;
       }
-      await sleep(800 * (attempt + 1));
+      await sleep(600 * (attempt + 1));
     }
   }
 
@@ -236,7 +272,7 @@ function createBroadcastClient(input: AdapterInput, reason?: string): RealtimeCl
 
 async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient> {
   const safari = isSafariBrowser();
-  const room = createRoomForBrowser();
+  const roomRef = { current: createRoomForBrowser() };
   input.onStatus("Connecting to LiveKit...");
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
@@ -248,6 +284,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   let isConnecting = true;
 
   async function syncLocalMedia(media: { cameraStream: MediaStream | null; micStream: MediaStream | null }) {
+    const room = roomRef.current;
     if (room.state !== ConnectionState.Connected) return;
     const nextCameraTrack = media.cameraStream?.getVideoTracks()[0] ?? null;
     if (publishedCameraTrack && publishedCameraTrack.id !== nextCameraTrack?.id) {
@@ -363,73 +400,92 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
     }
   }
 
-  room.on(RoomEvent.DataReceived, (payload: Uint8Array) => {
-    try {
-      input.onMessage(JSON.parse(decoder.decode(payload)) as RealtimeMessage);
-    } catch {
-      input.onStatus("Ignored malformed realtime data message.");
-    }
-  });
-  room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
-    handleRemoteTrack(track, participant.identity, publication);
-  });
-  room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
-    handleRemoteTrackRemoved(track, participant.identity, publication);
-  });
+  function bindRoomEvents(target: Room) {
+    target.on(RoomEvent.DataReceived, (payload: Uint8Array) => {
+      try {
+        input.onMessage(JSON.parse(decoder.decode(payload)) as RealtimeMessage);
+      } catch {
+        input.onStatus("Ignored malformed realtime data message.");
+      }
+    });
+    target.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+      handleRemoteTrack(track, participant.identity, publication);
+    });
+    target.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
+      handleRemoteTrackRemoved(track, participant.identity, publication);
+    });
+    target.on(RoomEvent.Connected, syncRemoteParticipants);
+    target.on(RoomEvent.Reconnected, syncRemoteParticipants);
+    target.on(RoomEvent.ParticipantConnected, (participant) => {
+      input.onMessage(presenceFromParticipant(participant));
+    });
+    target.on(RoomEvent.ParticipantDisconnected, (participant) => {
+      input.onMessage({
+        type: "participant.leave.v1",
+        participantId: participantIdFromIdentity(participant.identity)
+      });
+    });
+    target.on(RoomEvent.SignalConnected, () => {
+      if (isConnecting) {
+        input.onStatus("Connecting to LiveKit (media)...");
+      }
+    });
+    target.on(RoomEvent.ConnectionStateChanged, (state) => {
+      if (state === ConnectionState.Connected) {
+        input.onStatus("Connected through LiveKit media and data channels.");
+        return;
+      }
+      if (isConnecting) return;
+      if (state === ConnectionState.Reconnecting || state === ConnectionState.SignalReconnecting) {
+        input.onStatus("Reconnecting to LiveKit...");
+      } else if (state === ConnectionState.Disconnected) {
+        input.onStatus("Disconnected from LiveKit.");
+      }
+    });
+    target.on(RoomEvent.Disconnected, (reason) => {
+      if (closed || isConnecting) return;
+      const detail = reason !== undefined ? ` (${disconnectReasonLabel(reason)})` : "";
+      input.onStatus(`Disconnected from LiveKit${detail}.`);
+    });
+  }
 
   function syncRemoteParticipants() {
-    room.remoteParticipants.forEach((participant) => {
+    roomRef.current.remoteParticipants.forEach((participant) => {
       input.onMessage(presenceFromParticipant(participant));
     });
   }
 
-  room.on(RoomEvent.Connected, syncRemoteParticipants);
-  room.on(RoomEvent.Reconnected, syncRemoteParticipants);
-  room.on(RoomEvent.ParticipantConnected, (participant) => {
-    input.onMessage(presenceFromParticipant(participant));
-  });
-  room.on(RoomEvent.ParticipantDisconnected, (participant) => {
-    input.onMessage({
-      type: "participant.leave.v1",
-      participantId: participantIdFromIdentity(participant.identity)
-    });
-  });
-  room.on(RoomEvent.SignalConnected, () => {
-    if (isConnecting) {
-      input.onStatus("Connecting to LiveKit (media)...");
-    }
-  });
-  room.on(RoomEvent.ConnectionStateChanged, (state) => {
-    if (state === ConnectionState.Connected) {
-      input.onStatus("Connected through LiveKit media and data channels.");
-      return;
-    }
-    if (isConnecting) return;
-    if (state === ConnectionState.Reconnecting || state === ConnectionState.SignalReconnecting) {
-      input.onStatus("Reconnecting to LiveKit...");
-    } else if (state === ConnectionState.Disconnected) {
-      input.onStatus("Disconnected from LiveKit.");
-    }
-  });
-  room.on(RoomEvent.Disconnected, (reason) => {
-    if (closed || isConnecting) return;
-    const detail = reason !== undefined ? ` (${disconnectReasonLabel(reason)})` : "";
-    input.onStatus(`Disconnected from LiveKit${detail}.`);
-  });
+  bindRoomEvents(roomRef.current);
+  const recreateRoom = () => {
+    const next = createRoomForBrowser();
+    bindRoomEvents(next);
+    roomRef.current = next;
+    return next;
+  };
 
   try {
-    await prepareLiveKitConnection(room, input.session.livekitUrl, input.session.token);
-    await connectLiveKitRoom(room, input.session.livekitUrl, input.session.token, 25_000, input.onStatus);
+    await prepareLiveKitConnection(roomRef.current, input.session.livekitUrl, input.session.token);
+    await Promise.race([
+      connectLiveKitRoom(roomRef, input.session.livekitUrl, input.session.token, 25_000, input.onStatus, recreateRoom),
+      sleep(safari ? 100_000 : 80_000).then(() => {
+        void disconnectLiveKitRoom(roomRef.current);
+        throw new Error(
+          safari
+            ? "LiveKit connection timed out on Safari after multiple attempts."
+            : "LiveKit connection timed out after multiple attempts."
+        );
+      })
+    ]);
     input.onStatus("Connected through LiveKit media and data channels.");
     syncRemoteParticipants();
     if (safari) {
-      void room.startAudio().catch(() => undefined);
+      void roomRef.current.startAudio().catch(() => undefined);
     }
   } finally {
     isConnecting = false;
   }
 
-  room.remoteParticipants.forEach((participant) => {
+  roomRef.current.remoteParticipants.forEach((participant) => {
     participant.trackPublications.forEach((publication) => {
       if (publication.track) {
         handleRemoteTrack(publication.track, participant.identity, publication);
@@ -445,7 +501,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   };
   const publishPresence = () => {
     if (closed) return;
-    void room.localParticipant.publishData(encoder.encode(JSON.stringify(presence)), { reliable: true });
+    void roomRef.current.localParticipant.publishData(encoder.encode(JSON.stringify(presence)), { reliable: true });
   };
   publishPresence();
   const presenceInterval = window.setInterval(publishPresence, 2_000);
@@ -454,7 +510,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
     publish(message) {
       if (closed) return;
       const reliable = message.type !== "avatar.state.v1";
-      void room.localParticipant.publishData(encoder.encode(JSON.stringify(message)), { reliable });
+      void roomRef.current.localParticipant.publishData(encoder.encode(JSON.stringify(message)), { reliable });
     },
     syncParticipants: syncRemoteParticipants,
     async setLocalMedia(media) {
@@ -466,6 +522,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
       return localMediaSync;
     },
     async setLocalWallShare(inputShare) {
+      const room = roomRef.current;
       const existing = publishedWallTracks.get(inputShare.objectId);
       if (existing?.video) await room.localParticipant.unpublishTrack(existing.video, false);
       if (existing?.audio) await room.localParticipant.unpublishTrack(existing.audio, false);
@@ -504,7 +561,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
       publishedCameraTrack = null;
       publishedMicTrack = null;
       publishedWallTracks.clear();
-      await disconnectLiveKitRoom(room);
+      await disconnectLiveKitRoom(roomRef.current);
     }
   };
 }
