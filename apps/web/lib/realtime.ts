@@ -132,108 +132,48 @@ async function connectLiveKitRoomOnce(
 
   const livekitUrl = normalizeLiveKitUrl(url);
 
-  // Safari: patch window.RTCPeerConnection before room.connect() so the SDK's
-  // bare `new RTCPeerConnection(config)` call uses split ICE servers from the
-  // start. setConfiguration() after creation does not trigger re-gathering on
-  // WebKit, so the split must happen at PC creation time.
-  //
-  // The bug: LiveKit Cloud packs all TURN URLs into one RTCIceServer. WebKit
-  // fails the entire object when the first URL (UDP TURN) fails instead of
-  // falling back to the TCP TLS TURN entries in the same object. Splitting into
-  // one URL per object lets each be retried independently.
-  let restorePc: (() => void) | undefined;
-  if (input.safari) {
-    const OriginalPC = window.RTCPeerConnection;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    function splitIcePc(config?: RTCConfiguration): RTCPeerConnection {
-      if (config?.iceServers) {
-        const before = config.iceServers.length;
-        config = {
-          ...config,
-          // Split multi-URL ICE server objects into one per URL so WebKit's
-          // per-object failure doesn't suppress TCP TLS TURN fallback.
-          iceServers: config.iceServers.flatMap((s): RTCIceServer[] => {
-            const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
-            if (urls.length <= 1) return [s];
-            return urls.map((url) => ({
-              urls: url,
-              ...(s.username != null ? { username: s.username } : {}),
-              ...(s.credential != null ? { credential: s.credential } : {})
-            }));
-          }),
-          // Force relay-only so WebKit skips the 14-second mDNS host candidate
-          // registration entirely and goes straight to TURN allocation.
-          // WebKit never generates TURN candidates when mDNS gathering is active
-          // (they appear to be serialized, not parallel), and the server times out
-          // at ~15s before mDNS completes. Relay-only bypasses this entirely.
-          iceTransportPolicy: "relay"
-        };
-        const after = config.iceServers;
-        console.log("[ICE split] servers:", before, "→", after?.length, JSON.stringify(after?.map((s) => ({ urls: s.urls }))));
-      } else {
-        console.log("[ICE split] no iceServers in config at PC creation (v1 path still active?)");
-      }
-      return new OriginalPC(config!);
-    }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (splitIcePc as any).prototype = OriginalPC.prototype;
-    Object.setPrototypeOf(splitIcePc, OriginalPC);
-    window.RTCPeerConnection = splitIcePc as unknown as typeof RTCPeerConnection;
-    restorePc = () => { window.RTCPeerConnection = OriginalPC; };
-  }
-
   const connectPromise = room.connect(
     livekitUrl,
     token,
     {
       peerConnectionTimeout: input.timeoutMs,
-      ...(input.safari ? { websocketTimeout: Math.min(25_000, input.timeoutMs) } : {})
+      ...(input.safari ? { websocketTimeout: input.timeoutMs } : {})
     }
   );
   let timedOut = false;
 
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const timeoutId = window.setTimeout(() => {
-        timedOut = true;
-        restorePc?.();
-        restorePc = undefined;
-        // Disconnect immediately to abort the SDK's internal multi-region retry loop,
-        // which otherwise keeps room.connect() alive well past our timeout.
-        void room.disconnect(true);
-        reject(
-          new Error(
-            input.safari
-              ? "LiveKit connection timed out on Safari while negotiating WebRTC."
-              : "LiveKit connection timed out. Verify LIVEKIT_URL uses wss:// on the API service."
-          )
-        );
-      }, input.timeoutMs + 5_000);
+  await new Promise<void>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      timedOut = true;
+      // Disconnect immediately to abort the SDK's internal multi-region retry loop,
+      // which otherwise keeps room.connect() alive well past our timeout.
+      void room.disconnect(true);
+      reject(
+        new Error(
+          input.safari
+            ? "LiveKit connection timed out on Safari while negotiating WebRTC."
+            : "LiveKit connection timed out. Verify LIVEKIT_URL uses wss:// on the API service."
+        )
+      );
+    }, input.timeoutMs + 5_000);
 
-      connectPromise
-        .then(() => {
-          window.clearTimeout(timeoutId);
-          restorePc?.();
-          restorePc = undefined;
-          if (timedOut) return;
-          if (input.isStale?.()) {
-            void safeDisconnectRoom(room);
-            reject(new Error("LiveKit connection aborted"));
-            return;
-          }
-          resolve();
-        })
-        .catch((error) => {
-          window.clearTimeout(timeoutId);
-          restorePc?.();
-          restorePc = undefined;
-          if (timedOut) return;
-          reject(error);
-        });
-    });
-  } finally {
-    restorePc?.();
-  }
+    connectPromise
+      .then(() => {
+        window.clearTimeout(timeoutId);
+        if (timedOut) return;
+        if (input.isStale?.()) {
+          void safeDisconnectRoom(room);
+          reject(new Error("LiveKit connection aborted"));
+          return;
+        }
+        resolve();
+      })
+      .catch((error) => {
+        window.clearTimeout(timeoutId);
+        if (timedOut) return;
+        reject(error);
+      });
+  });
 }
 
 async function connectLiveKitRoom(
@@ -334,13 +274,6 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
           adaptiveStream: false,
           dynacast: false,
           disconnectOnPageLeave: false,
-          // Force the v0 signaling path. The v1 path (singlePeerConnection: true,
-          // the default) creates RTCPeerConnection before the join response arrives,
-          // so TURN servers aren't in the config at creation time. They're added later
-          // via setConfiguration(), which WebKit ignores for ICE re-gathering. With
-          // v0, the PC is created after the join response and TURN servers are present
-          // at creation time, allowing the splitIcePc monkey-patch to work correctly.
-          singlePeerConnection: false,
           publishDefaults: {
             simulcast: false,
             videoCodec: "h264"
@@ -618,7 +551,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
       replaceRoom,
       url: input.session.livekitUrl,
       token: input.session.token,
-      timeoutMs: 20_000,
+      timeoutMs: safari ? 45_000 : 20_000,
       safari,
       ...(input.isStale ? { isStale: input.isStale } : {}),
       maxAttempts: 1
