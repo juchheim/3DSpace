@@ -136,7 +136,20 @@ async function connectLiveKitRoomOnce(
     token,
     {
       peerConnectionTimeout: input.timeoutMs,
-      ...(input.safari ? { websocketTimeout: Math.min(25_000, input.timeoutMs) } : {})
+      ...(input.safari
+        ? {
+            websocketTimeout: Math.min(25_000, input.timeoutMs),
+            // Safari cannot use UDP (only TCP mDNS host candidates are gathered), and
+            // WebKit has a bug where a failed UDP TURN entry in a multi-URL RTCIceServer
+            // prevents fallback to TCP TLS TURN entries in the same object. The result is
+            // all ICE-TCP host pairs stay in "waiting" for 14 s while STUN times out, then
+            // the server kicks us. Clearing iceServers bypasses the server's STUN/TURN list
+            // (SDK skips it when rtcConfig.iceServers is already set), so gathering
+            // completes immediately on host candidates and ICE-TCP checking starts at once.
+            // LiveKit Cloud listens on port 7881 for ICE over TCP.
+            rtcConfig: { iceServers: [] }
+          }
+        : {})
     }
   );
   let timedOut = false;
