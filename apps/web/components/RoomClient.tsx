@@ -57,6 +57,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const [leaving, setLeaving] = useState(false);
   const [error, setError] = useState("");
   const realtimeRef = useRef<RealtimeClient | null>(null);
+  const realtimeGenerationRef = useRef(0);
   const avatarStateRef = useRef<AvatarStateMessage | null>(null);
   const memberNamesRef = useRef(new Map<string, string>());
   const displayNameRef = useRef(identity.displayName);
@@ -149,7 +150,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         const normalizedManifest = normalizeRoomManifest(nextSession.manifest);
         setSession({ ...nextSession, manifest: normalizedManifest });
         setManifest(normalizedManifest);
-        setStatus("Room session ready.");
+        setStatus("Joined room. Connecting to LiveKit...");
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : "Unable to join room.");
@@ -187,7 +188,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   useEffect(() => {
     if (!session || leaving) return;
     const activeSession = session;
-    let closed = false;
+    const generation = ++realtimeGenerationRef.current;
 
     function handleMessage(message: RealtimeMessage) {
       if (wallRealtimeHandlerRef.current(message)) return;
@@ -266,7 +267,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       });
     }
 
-    createRealtimeClient({
+    setStatus("Connecting to LiveKit...");
+    void createRealtimeClient({
       roomId,
       session,
       displayName: displayNameRef.current,
@@ -320,23 +322,28 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         });
       },
       onStatus: setStatus
-    }).then((client) => {
-      if (closed) {
-        client.close();
-        return;
-      }
-      realtimeRef.current = client;
-      client.publish({
-        type: "participant.presence.v1",
-        participantId: session.participantId,
-        displayName: displayNameRef.current,
-        role: session.role
+    })
+      .then((client) => {
+        if (generation !== realtimeGenerationRef.current) {
+          client.close();
+          return;
+        }
+        realtimeRef.current = client;
+        client.publish({
+          type: "participant.presence.v1",
+          participantId: session.participantId,
+          displayName: displayNameRef.current,
+          role: session.role
+        });
+        client.syncParticipants();
+      })
+      .catch((error) => {
+        if (generation !== realtimeGenerationRef.current) return;
+        setStatus(error instanceof Error ? error.message : "Unable to connect to LiveKit.");
       });
-      client.syncParticipants();
-    });
 
     return () => {
-      closed = true;
+      realtimeGenerationRef.current += 1;
       realtimeRef.current?.close();
       realtimeRef.current = null;
     };

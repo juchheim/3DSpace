@@ -64,6 +64,12 @@ function envString(raw: NodeJS.ProcessEnv, key: string) {
   return value ? value : undefined;
 }
 
+function normalizeLiveKitUrl(url: string) {
+  if (url.startsWith("https://")) return `wss://${url.slice("https://".length)}`;
+  if (url.startsWith("http://")) return `ws://${url.slice("http://".length)}`;
+  return url;
+}
+
 function envNumber(raw: NodeJS.ProcessEnv, key: string, defaultValue: number) {
   const value = envString(raw, key);
   if (!value) return defaultValue;
@@ -144,7 +150,9 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
     clerkWebhookSecret: envString(raw, "CLERK_WEBHOOK_SECRET"),
     mongoUri: envString(raw, "MONGODB_URI"),
     mongoDbName: envString(raw, "MONGODB_DB_NAME") ?? "3dspace",
-    livekitUrl: envString(raw, "LIVEKIT_URL") ?? envString(raw, "NEXT_PUBLIC_LIVEKIT_URL") ?? "ws://localhost:7880",
+    livekitUrl: normalizeLiveKitUrl(
+      envString(raw, "LIVEKIT_URL") ?? envString(raw, "NEXT_PUBLIC_LIVEKIT_URL") ?? "ws://localhost:7880"
+    ),
     livekitApiKey: envString(raw, "LIVEKIT_API_KEY"),
     livekitApiSecret: envString(raw, "LIVEKIT_API_SECRET"),
     objectStorage: {
