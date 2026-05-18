@@ -741,32 +741,107 @@ label {
   gap: 0.35rem;
 }
 
-.classroom-grant-types {
+.classroom-grant-panel {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 250, 240, 0.72);
+}
+
+.classroom-grant-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  font-family: "Trebuchet MS", sans-serif;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.classroom-grant-presets {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.classroom-preset-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fffaf0;
+  color: var(--night);
+  box-shadow: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.classroom-preset-btn__label {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.classroom-preset-btn__description {
+  font-size: 0.67rem;
+  color: var(--muted);
+}
+
+.classroom-grant-types {
+  display: grid;
+  gap: 0.35rem;
 }
 
 .classroom-grant-option {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.28rem;
-  padding: 0.18rem 0.45rem;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 0.45rem;
+  padding: 0.48rem 0.55rem;
   border: 1px solid var(--line);
-  border-radius: 999px;
-  background: rgba(255, 250, 240, 0.48);
-  color: var(--muted);
-  font-size: 0.68rem;
+  border-radius: 10px;
+  background: #fffaf0;
+  color: var(--night);
+  font-size: 0.72rem;
   cursor: pointer;
 }
 
 .classroom-grant-option input {
-  margin: 0;
+  margin: 0.1rem 0 0;
+}
+
+.classroom-grant-option__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+  min-width: 0;
+}
+
+.classroom-grant-option__label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--night);
+}
+
+.classroom-grant-option__description {
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: var(--muted);
 }
 
 .classroom-grant-option--checked {
   border-color: rgba(42, 158, 106, 0.32);
   background: rgba(42, 158, 106, 0.1);
+}
+
+.classroom-grant-option--checked .classroom-grant-option__label {
   color: #1d7045;
 }
 

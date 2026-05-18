@@ -7,14 +7,41 @@ import type { ClassroomAction, ClassroomBoardAccessGrant, ClassroomHelpRequest, 
 const GRANT_TYPE_OPTIONS: Array<{
   type: "image.file" | "video.file" | "audio.file" | "note" | "camera.live" | "microphone.live" | "browser-tab.live";
   label: string;
+  description: string;
 }> = [
-  { type: "image.file", label: "Image" },
-  { type: "video.file", label: "Video" },
-  { type: "audio.file", label: "Audio" },
-  { type: "note", label: "Note" },
-  { type: "camera.live", label: "Camera" },
-  { type: "microphone.live", label: "Mic" },
-  { type: "browser-tab.live", label: "Screen" }
+  { type: "image.file", label: "Image upload", description: "Photos, screenshots, and scanned work." },
+  { type: "video.file", label: "Video upload", description: "Recorded demos or short clips." },
+  { type: "audio.file", label: "Audio upload", description: "Voice recordings or other audio files." },
+  { type: "note", label: "Sticky note", description: "Quick typed response on the board." },
+  { type: "camera.live", label: "Camera", description: "Live camera feed pinned to the board." },
+  { type: "microphone.live", label: "Microphone", description: "Live audio share for speaking." },
+  { type: "browser-tab.live", label: "Screen share", description: "Share a browser tab or screen live." }
+];
+
+const GRANT_PRESETS: Array<{
+  id: "work" | "live" | "all";
+  label: string;
+  description: string;
+  includes: Array<"image.file" | "video.file" | "audio.file" | "note" | "camera.live" | "microphone.live" | "browser-tab.live">;
+}> = [
+  {
+    id: "work",
+    label: "Work share",
+    description: "Uploads plus a note.",
+    includes: ["image.file", "video.file", "audio.file", "note"]
+  },
+  {
+    id: "live",
+    label: "Live share",
+    description: "Camera, mic, and screen.",
+    includes: ["camera.live", "microphone.live", "browser-tab.live"]
+  },
+  {
+    id: "all",
+    label: "Everything",
+    description: "All supported options on this board.",
+    includes: ["image.file", "video.file", "audio.file", "note", "camera.live", "microphone.live", "browser-tab.live"]
+  }
 ];
 
 function statusLabel(status: ClassroomHelpRequest["status"]) {
@@ -109,6 +136,7 @@ export function ClassroomPanel({
               const selectedAnchorId = selectedAnchorsByRequestId[request.id] ?? manifest?.wallAnchors[0]?.id ?? "";
               const grantTypes = selectedAnchorId ? allowedGrantTypes(selectedAnchorId) : [];
               const selectedGrantTypes = selectedGrantTypesByRequestId[request.id] ?? grantTypes;
+              const selectedCount = selectedGrantTypes.filter((type) => grantTypes.includes(type as (typeof grantTypes)[number])).length;
               const busyId = `grant-${request.id}`;
               return (
                 <li key={request.id} className="classroom-help-item" data-testid={`help-request-${request.id}`}>
@@ -118,7 +146,11 @@ export function ClassroomPanel({
                   </div>
                   {request.note ? <p className="classroom-help-note">{request.note}</p> : null}
                   {manifest?.wallAnchors.length ? (
-                    <div className="classroom-grant-row">
+                    <div className="classroom-grant-panel">
+                      <div className="classroom-grant-header">
+                        <span>Grant board access</span>
+                        <span>{selectedCount} selected</span>
+                      </div>
                       <select
                         className="anchor-select-compact"
                         value={selectedAnchorId}
@@ -143,32 +175,55 @@ export function ClassroomPanel({
                         ))}
                       </select>
                       {grantTypes.length > 0 ? (
-                        <div className="classroom-grant-types" role="group" aria-label={`Allowed communication types for ${request.displayName}`}>
-                          {GRANT_TYPE_OPTIONS.filter((option) => grantTypes.includes(option.type)).map((option) => {
-                            const checked = selectedGrantTypes.includes(option.type);
-                            return (
-                              <label key={option.type} className={`classroom-grant-option${checked ? " classroom-grant-option--checked" : ""}`}>
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  onChange={(event) =>
-                                    setSelectedGrantTypesByRequestId((current) => {
-                                      const previous = current[request.id] ?? grantTypes;
-                                      const next = event.target.checked
-                                        ? [...previous, option.type]
-                                        : previous.filter((entry) => entry !== option.type);
-                                      return {
-                                        ...current,
-                                        [request.id]: [...new Set(next)]
-                                      };
-                                    })
-                                  }
-                                />
-                                <span>{option.label}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
+                        <>
+                          <div className="classroom-grant-presets" role="group" aria-label={`Grant presets for ${request.displayName}`}>
+                            {GRANT_PRESETS.map((preset) => (
+                              <button
+                                key={preset.id}
+                                type="button"
+                                className="classroom-preset-btn"
+                                onClick={() =>
+                                  setSelectedGrantTypesByRequestId((current) => ({
+                                    ...current,
+                                    [request.id]: grantTypes.filter((type) => preset.includes.includes(type as (typeof preset.includes)[number]))
+                                  }))
+                                }
+                              >
+                                <span className="classroom-preset-btn__label">{preset.label}</span>
+                                <span className="classroom-preset-btn__description">{preset.description}</span>
+                              </button>
+                            ))}
+                          </div>
+                          <div className="classroom-grant-types" role="group" aria-label={`Allowed communication types for ${request.displayName}`}>
+                            {GRANT_TYPE_OPTIONS.filter((option) => grantTypes.includes(option.type)).map((option) => {
+                              const checked = selectedGrantTypes.includes(option.type);
+                              return (
+                                <label key={option.type} className={`classroom-grant-option${checked ? " classroom-grant-option--checked" : ""}`}>
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={(event) =>
+                                      setSelectedGrantTypesByRequestId((current) => {
+                                        const previous = current[request.id] ?? grantTypes;
+                                        const next = event.target.checked
+                                          ? [...previous, option.type]
+                                          : previous.filter((entry) => entry !== option.type);
+                                        return {
+                                          ...current,
+                                          [request.id]: [...new Set(next)]
+                                        };
+                                      })
+                                    }
+                                  />
+                                  <span className="classroom-grant-option__body">
+                                    <span className="classroom-grant-option__label">{option.label}</span>
+                                    <span className="classroom-grant-option__description">{option.description}</span>
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </>
                       ) : null}
                       <button
                         type="button"
