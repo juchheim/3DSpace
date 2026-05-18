@@ -173,19 +173,22 @@ Window:
 Current restoration:
 
 - keep `livekit-client@2.2.0`;
-- restore the `6a0c5ea`-style connect path:
-  - static `livekit-client` import;
-  - `normalizeLiveKitUrl()`;
-  - one `room.connect()` wrapped in a simple 20s timeout;
+- restore the initial MVP LiveKit path from `f7e4bef`, adapted only enough to preserve today's wall/classroom API surface:
+  - dynamic `livekit-client` import;
+  - plain `await room.connect(input.session.livekitUrl, input.session.token)`;
+  - no `normalizeLiveKitUrl()`;
+  - no connect timeout wrapper;
   - no `prepareConnection()`;
   - no disconnect/retry loop;
   - no Safari-only room options;
+  - no periodic local presence publish over LiveKit;
   - no room recreation or dual-PC Safari path.
 
 Reasoning:
 
-- this is the tightest git window consistent with "Safari was working until shortly before the first Safari fixes";
-- `2f74b89` is now the most suspicious change because it modifies connect lifecycle and cleanup just before `22a1b91`.
+- the `6a0c5ea` and `827776c` candidates still failed on Safari;
+- the next clean regression boundary is the original MVP connection path before later lifecycle work was added;
+- if Safari still fails here, the evidence shifts away from client-side LiveKit connect flow changes and toward a server-side/environment change, or a regression outside `apps/web/lib/realtime.ts`.
 
 ---
 
@@ -200,7 +203,7 @@ new Room({ adaptiveStream: true, dynacast: true })
 Safari connect options:
 
 ```typescript
-await room.connect(normalizeLiveKitUrl(input.session.livekitUrl), input.session.token);
+await room.connect(input.session.livekitUrl, input.session.token);
 ```
 
 ---
@@ -211,9 +214,8 @@ Test Safari on the same mobile hotspot.
 
 Expected if the current candidate is correct:
 
-- no Safari ICE debug logs, primer logs, endpoint rewrite logs, or custom reconnect status messages;
-- Safari should move from signaling into a completed room connect without the `"timed out on Safari while negotiating WebRTC"` error;
-- the room should connect using the old SDK and old negotiation behavior.
+- no Safari ICE debug logs, primer logs, endpoint rewrite logs, timeout-wrapper errors, or reconnect lifecycle noise from later patches;
+- Safari should move from signaling into a completed room connect using the original MVP negotiation flow.
 
 Expected if it still fails:
 

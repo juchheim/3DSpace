@@ -1,6 +1,5 @@
 "use client";
 
-import { waitForVideoTrackDimensions } from "./mediaTracks";
 import type {
   AvatarStateMessage,
   ClassroomStateChangedRealtimeSchema,
@@ -127,42 +126,6 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   let publishedCameraTrack: MediaStreamTrack | null = null;
   let publishedMicTrack: MediaStreamTrack | null = null;
   const publishedWallTracks = new Map<string, { video?: MediaStreamTrack; audio?: MediaStreamTrack }>();
-  let localMediaSync: Promise<void> = Promise.resolve();
-  let closed = false;
-
-  async function syncLocalMedia(media: { cameraStream: MediaStream | null; micStream: MediaStream | null }) {
-    const nextCameraTrack = media.cameraStream?.getVideoTracks()[0] ?? null;
-    if (publishedCameraTrack && publishedCameraTrack.id !== nextCameraTrack?.id) {
-      await room.localParticipant.unpublishTrack(publishedCameraTrack, false);
-      publishedCameraTrack = null;
-    }
-    if (nextCameraTrack && publishedCameraTrack?.id !== nextCameraTrack.id && nextCameraTrack.readyState === "live") {
-      await waitForVideoTrackDimensions(nextCameraTrack).catch(() => undefined);
-      await room.localParticipant.publishTrack(nextCameraTrack, {
-        name: "camera",
-        source: Track.Source.Camera,
-        stream: "avatar-media",
-        simulcast: true
-      });
-      publishedCameraTrack = nextCameraTrack;
-    }
-
-    const nextMicTrack = media.micStream?.getAudioTracks()[0] ?? null;
-    if (publishedMicTrack && publishedMicTrack.id !== nextMicTrack?.id) {
-      await room.localParticipant.unpublishTrack(publishedMicTrack, false);
-      publishedMicTrack = null;
-    }
-    if (nextMicTrack && publishedMicTrack?.id !== nextMicTrack.id && nextMicTrack.readyState === "live") {
-      await room.localParticipant.publishTrack(nextMicTrack, {
-        name: "microphone",
-        source: Track.Source.Microphone,
-        stream: "avatar-media",
-        dtx: true,
-        red: true
-      });
-      publishedMicTrack = nextMicTrack;
-    }
-  }
 
   function participantIdFromIdentity(identity: string) {
     return identity.includes(":") ? identity.split(":")[0]! : identity;
@@ -258,14 +221,6 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
     handleRemoteTrackRemoved(track, participant.identity, publication);
   });
-  function syncRemoteParticipants() {
-    room.remoteParticipants.forEach((participant) => {
-      input.onMessage(presenceFromParticipant(participant));
-    });
-  }
-
-  room.on(RoomEvent.Connected, syncRemoteParticipants);
-  room.on(RoomEvent.Reconnected, syncRemoteParticipants);
   room.on(RoomEvent.ParticipantConnected, (participant) => {
     input.onMessage(presenceFromParticipant(participant));
   });
@@ -277,14 +232,10 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   });
 
   await room.connect(input.session.livekitUrl, input.session.token);
-  if (closed || input.isStale?.()) {
-    await room.disconnect(true).catch(() => undefined);
-    throw new Error("LiveKit connection aborted");
-  }
   input.onStatus("Connected through LiveKit media and data channels.");
-  syncRemoteParticipants();
 
   room.remoteParticipants.forEach((participant) => {
+    input.onMessage(presenceFromParticipant(participant));
     participant.trackPublications.forEach((publication) => {
       if (publication.track) {
         handleRemoteTrack(publication.track, participant.identity, publication);
@@ -292,33 +243,47 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
     });
   });
 
-  const presence: PresenceMessage = {
-    type: "participant.presence.v1",
-    participantId: input.session.participantId,
-    displayName: input.displayName,
-    role: input.session.role
-  };
-  const publishPresence = () => {
-    if (closed) return;
-    void room.localParticipant.publishData(encoder.encode(JSON.stringify(presence)), { reliable: true });
-  };
-  publishPresence();
-  const presenceInterval = window.setInterval(publishPresence, 2_000);
-
   return {
     publish(message) {
-      if (closed) return;
       const reliable = message.type !== "avatar.state.v1";
       void room.localParticipant.publishData(encoder.encode(JSON.stringify(message)), { reliable });
     },
-    syncParticipants: syncRemoteParticipants,
+    syncParticipants() {
+      room.remoteParticipants.forEach((participant) => {
+        input.onMessage(presenceFromParticipant(participant));
+      });
+    },
     async setLocalMedia(media) {
-      localMediaSync = localMediaSync
-        .then(() => syncLocalMedia(media))
-        .catch((error) => {
-          console.error("Failed to sync local media with LiveKit", error);
+      const nextCameraTrack = media.cameraStream?.getVideoTracks()[0] ?? null;
+      if (publishedCameraTrack && publishedCameraTrack.id !== nextCameraTrack?.id) {
+        await room.localParticipant.unpublishTrack(publishedCameraTrack, false);
+        publishedCameraTrack = null;
+      }
+      if (nextCameraTrack && publishedCameraTrack?.id !== nextCameraTrack.id) {
+        await room.localParticipant.publishTrack(nextCameraTrack, {
+          name: "camera",
+          source: Track.Source.Camera,
+          stream: "avatar-media",
+          simulcast: true
         });
-      return localMediaSync;
+        publishedCameraTrack = nextCameraTrack;
+      }
+
+      const nextMicTrack = media.micStream?.getAudioTracks()[0] ?? null;
+      if (publishedMicTrack && publishedMicTrack.id !== nextMicTrack?.id) {
+        await room.localParticipant.unpublishTrack(publishedMicTrack, false);
+        publishedMicTrack = null;
+      }
+      if (nextMicTrack && publishedMicTrack?.id !== nextMicTrack.id) {
+        await room.localParticipant.publishTrack(nextMicTrack, {
+          name: "microphone",
+          source: Track.Source.Microphone,
+          stream: "avatar-media",
+          dtx: true,
+          red: true
+        });
+        publishedMicTrack = nextMicTrack;
+      }
     },
     async setLocalWallShare(inputShare) {
       const existing = publishedWallTracks.get(inputShare.objectId);
@@ -332,16 +297,13 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
       const audioTrack = inputShare.audioStream?.getAudioTracks()[0] ?? inputShare.screenStream.getAudioTracks()[0] ?? null;
       const record: { video?: MediaStreamTrack; audio?: MediaStreamTrack } = {};
       if (videoTrack) {
-        if (videoTrack.readyState === "live") {
-          await waitForVideoTrackDimensions(videoTrack).catch(() => undefined);
-          await room.localParticipant.publishTrack(videoTrack, {
-            name: publicationName,
-            source: Track.Source.ScreenShare,
-            stream: "wall-share",
-            simulcast: true
-          });
-          record.video = videoTrack;
-        }
+        await room.localParticipant.publishTrack(videoTrack, {
+          name: publicationName,
+          source: Track.Source.ScreenShare,
+          stream: "wall-share",
+          simulcast: true
+        });
+        record.video = videoTrack;
       }
       if (audioTrack) {
         await room.localParticipant.publishTrack(audioTrack, {
@@ -354,12 +316,17 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
       if (record.video || record.audio) publishedWallTracks.set(inputShare.objectId, record);
     },
     async close() {
-      closed = true;
-      window.clearInterval(presenceInterval);
-      publishedCameraTrack = null;
-      publishedMicTrack = null;
-      publishedWallTracks.clear();
-      await room.disconnect(true).catch(() => undefined);
+      if (publishedCameraTrack) {
+        void room.localParticipant.unpublishTrack(publishedCameraTrack, false);
+      }
+      if (publishedMicTrack) {
+        void room.localParticipant.unpublishTrack(publishedMicTrack, false);
+      }
+      for (const tracks of publishedWallTracks.values()) {
+        if (tracks.video) void room.localParticipant.unpublishTrack(tracks.video, false);
+        if (tracks.audio) void room.localParticipant.unpublishTrack(tracks.audio, false);
+      }
+      room.disconnect();
     }
   };
 }
@@ -372,11 +339,7 @@ export async function createRealtimeClient(input: AdapterInput): Promise<Realtim
   try {
     return await createLiveKitClient(input);
   } catch (error) {
-    const detail = error instanceof Error ? error.message : "Unknown LiveKit error";
-    console.error("LiveKit connection failed", error);
-    if (process.env.NODE_ENV === "development") {
-      return createBroadcastClient(input, detail);
-    }
-    throw new Error(`LiveKit connection failed: ${detail}`);
+    input.onStatus("LiveKit connection failed; using local multi-tab realtime fallback.");
+    return createBroadcastClient(input);
   }
 }
