@@ -131,6 +131,44 @@ async function connectLiveKitRoomOnce(
   }
 
   const livekitUrl = normalizeLiveKitUrl(url);
+
+  // Safari: patch window.RTCPeerConnection before room.connect() so the SDK's
+  // bare `new RTCPeerConnection(config)` call uses split ICE servers from the
+  // start. setConfiguration() after creation does not trigger re-gathering on
+  // WebKit, so the split must happen at PC creation time.
+  //
+  // The bug: LiveKit Cloud packs all TURN URLs into one RTCIceServer. WebKit
+  // fails the entire object when the first URL (UDP TURN) fails instead of
+  // falling back to the TCP TLS TURN entries in the same object. Splitting into
+  // one URL per object lets each be retried independently.
+  let restorePc: (() => void) | undefined;
+  if (input.safari) {
+    const OriginalPC = window.RTCPeerConnection;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    function splitIcePc(config?: RTCConfiguration): RTCPeerConnection {
+      if (config?.iceServers) {
+        config = {
+          ...config,
+          iceServers: config.iceServers.flatMap((s): RTCIceServer[] => {
+            const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
+            if (urls.length <= 1) return [s];
+            return urls.map((url) => ({
+              urls: url,
+              ...(s.username != null ? { username: s.username } : {}),
+              ...(s.credential != null ? { credential: s.credential } : {})
+            }));
+          })
+        };
+      }
+      return new OriginalPC(config!);
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (splitIcePc as any).prototype = OriginalPC.prototype;
+    Object.setPrototypeOf(splitIcePc, OriginalPC);
+    window.RTCPeerConnection = splitIcePc as unknown as typeof RTCPeerConnection;
+    restorePc = () => { window.RTCPeerConnection = OriginalPC; };
+  }
+
   const connectPromise = room.connect(
     livekitUrl,
     token,
@@ -141,38 +179,48 @@ async function connectLiveKitRoomOnce(
   );
   let timedOut = false;
 
-  await new Promise<void>((resolve, reject) => {
-    const timeoutId = window.setTimeout(() => {
-      timedOut = true;
-      // Disconnect immediately to abort the SDK's internal multi-region retry loop,
-      // which otherwise keeps room.connect() alive well past our timeout.
-      void room.disconnect(true);
-      reject(
-        new Error(
-          input.safari
-            ? "LiveKit connection timed out on Safari while negotiating WebRTC."
-            : "LiveKit connection timed out. Verify LIVEKIT_URL uses wss:// on the API service."
-        )
-      );
-    }, input.timeoutMs + 5_000);
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const timeoutId = window.setTimeout(() => {
+        timedOut = true;
+        restorePc?.();
+        restorePc = undefined;
+        // Disconnect immediately to abort the SDK's internal multi-region retry loop,
+        // which otherwise keeps room.connect() alive well past our timeout.
+        void room.disconnect(true);
+        reject(
+          new Error(
+            input.safari
+              ? "LiveKit connection timed out on Safari while negotiating WebRTC."
+              : "LiveKit connection timed out. Verify LIVEKIT_URL uses wss:// on the API service."
+          )
+        );
+      }, input.timeoutMs + 5_000);
 
-    connectPromise
-      .then(() => {
-        window.clearTimeout(timeoutId);
-        if (timedOut) return;
-        if (input.isStale?.()) {
-          void safeDisconnectRoom(room);
-          reject(new Error("LiveKit connection aborted"));
-          return;
-        }
-        resolve();
-      })
-      .catch((error) => {
-        window.clearTimeout(timeoutId);
-        if (timedOut) return;
-        reject(error);
-      });
-  });
+      connectPromise
+        .then(() => {
+          window.clearTimeout(timeoutId);
+          restorePc?.();
+          restorePc = undefined;
+          if (timedOut) return;
+          if (input.isStale?.()) {
+            void safeDisconnectRoom(room);
+            reject(new Error("LiveKit connection aborted"));
+            return;
+          }
+          resolve();
+        })
+        .catch((error) => {
+          window.clearTimeout(timeoutId);
+          restorePc?.();
+          restorePc = undefined;
+          if (timedOut) return;
+          reject(error);
+        });
+    });
+  } finally {
+    restorePc?.();
+  }
 }
 
 async function connectLiveKitRoom(
@@ -486,29 +534,6 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
         if (pubPc) attachListeners(pubPc, "pub");
         if (subPc) attachListeners(subPc, "sub");
         console.log("[ICE init] engine=", !!eng, "pcm=", !!pcm, "pubPc=", !!pubPc, "subPc=", !!subPc);
-
-        // WebKit bug: when multiple TURN URLs share one RTCIceServer object, a failed
-        // UDP TURN attempt poisons the whole object — the TCP TLS TURN entries in the
-        // same object are never tried. Split each multi-URL object into one-URL objects
-        // so Safari retries each URL independently. This allows turns:...:443 to succeed
-        // even though turn:...:3478?transport=udp fails (Safari has no UDP).
-        if (pubPc) {
-          try {
-            const cfg = pubPc.getConfiguration();
-            const multi = (cfg.iceServers ?? []).filter((s) => Array.isArray(s.urls) && s.urls.length > 1);
-            if (multi.length > 0) {
-              const split: RTCIceServer[] = (cfg.iceServers ?? []).flatMap((s) =>
-                Array.isArray(s.urls) && s.urls.length > 1
-                  ? s.urls.map((url) => ({ urls: url, ...(s.username ? { username: s.username } : {}), ...(s.credential ? { credential: s.credential } : {}) }))
-                  : [s]
-              );
-              pubPc.setConfiguration({ ...cfg, iceServers: split });
-              console.log("[ICE fix] split multi-URL servers:", multi.length, "→ individual entries:", split.length);
-            }
-          } catch (e) {
-            console.warn("[ICE fix] setConfiguration failed:", e);
-          }
-        }
 
         let tick = 0;
         const poll = window.setInterval(() => {
