@@ -1,6 +1,6 @@
 "use client";
 
-import { Room, RoomEvent, Track } from "livekit-client";
+import { ConnectionState, type Room } from "livekit-client";
 import { waitForVideoTrackDimensions } from "./mediaTracks";
 import type {
   AvatarStateMessage,
@@ -63,6 +63,7 @@ type AdapterInput = {
   onMessage(message: RealtimeMessage): void;
   onRemoteMedia?(update: RemoteMediaUpdate): void;
   onStatus(status: string): void;
+  signal?: AbortSignal;
 };
 
 function withSender(message: RealtimeMessage, senderId: string) {
@@ -80,6 +81,67 @@ export function normalizeLiveKitUrl(url: string) {
   if (trimmed.startsWith("https://")) return `wss://${trimmed.slice("https://".length)}`;
   if (trimmed.startsWith("http://")) return `ws://${trimmed.slice("http://".length)}`;
   return trimmed;
+}
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function disconnectLiveKitRoom(room: Room) {
+  if (room.state === ConnectionState.Disconnected) return;
+  try {
+    await Promise.race([room.disconnect(true), sleep(3_000)]);
+  } catch {
+    // ignore teardown errors while resetting a stuck peer connection
+  }
+  await sleep(150);
+}
+
+async function connectLiveKitRoom(
+  room: Room,
+  url: string,
+  token: string,
+  input: { timeoutMs: number; signal?: AbortSignal | undefined; safari: boolean; onStatus: (status: string) => void }
+) {
+  if (input.signal?.aborted) {
+    throw new Error("LiveKit connection aborted");
+  }
+
+  const livekitUrl = normalizeLiveKitUrl(url);
+  const connectPromise = room.connect(livekitUrl, token, {
+    peerConnectionTimeout: input.timeoutMs
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    const onAbort = () => {
+      void disconnectLiveKitRoom(room).finally(() => reject(new Error("LiveKit connection aborted")));
+    };
+    input.signal?.addEventListener("abort", onAbort, { once: true });
+
+    const timeoutId = window.setTimeout(() => {
+      void disconnectLiveKitRoom(room).finally(() =>
+        reject(
+          new Error(
+            input.safari
+              ? "LiveKit connection timed out on Safari while negotiating WebRTC."
+              : "LiveKit connection timed out. Verify LIVEKIT_URL uses wss:// on the API service."
+          )
+        )
+      );
+    }, input.timeoutMs);
+
+    connectPromise
+      .then(() => {
+        window.clearTimeout(timeoutId);
+        input.signal?.removeEventListener("abort", onAbort);
+        resolve();
+      })
+      .catch((error) => {
+        window.clearTimeout(timeoutId);
+        input.signal?.removeEventListener("abort", onAbort);
+        reject(error);
+      });
+  });
 }
 
 function createBroadcastClient(input: AdapterInput, reason?: string): RealtimeClient {
@@ -127,7 +189,13 @@ function createBroadcastClient(input: AdapterInput, reason?: string): RealtimeCl
 }
 
 async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient> {
-  const room = new Room({ adaptiveStream: true, dynacast: true });
+  const { Room, RoomEvent, Track, getBrowser } = await import("livekit-client");
+  const browser = getBrowser();
+  const safari = browser?.name === "Safari" || browser?.os === "iOS";
+  const room = safari
+    ? new Room({ adaptiveStream: false, dynacast: false })
+    : new Room({ adaptiveStream: true, dynacast: true });
+
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
   let publishedCameraTrack: MediaStreamTrack | null = null;
@@ -135,8 +203,16 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   const publishedWallTracks = new Map<string, { video?: MediaStreamTrack; audio?: MediaStreamTrack }>();
   let localMediaSync: Promise<void> = Promise.resolve();
   let closed = false;
+  let isConnecting = true;
+
+  const abortConnect = () => {
+    closed = true;
+    void disconnectLiveKitRoom(room);
+  };
+  input.signal?.addEventListener("abort", abortConnect, { once: true });
 
   async function syncLocalMedia(media: { cameraStream: MediaStream | null; micStream: MediaStream | null }) {
+    if (room.state !== ConnectionState.Connected) return;
     const nextCameraTrack = media.cameraStream?.getVideoTracks()[0] ?? null;
     if (publishedCameraTrack && publishedCameraTrack.id !== nextCameraTrack?.id) {
       await room.localParticipant.unpublishTrack(publishedCameraTrack, false);
@@ -148,7 +224,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
         name: "camera",
         source: Track.Source.Camera,
         stream: "avatar-media",
-        simulcast: true
+        simulcast: !safari
       });
       publishedCameraTrack = nextCameraTrack;
     }
@@ -164,7 +240,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
         source: Track.Source.Microphone,
         stream: "avatar-media",
         dtx: true,
-        red: true
+        red: !safari
       });
       publishedMicTrack = nextMicTrack;
     }
@@ -281,12 +357,38 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
       participantId: participantIdFromIdentity(participant.identity)
     });
   });
+  room.on(RoomEvent.SignalConnected, () => {
+    if (isConnecting) {
+      input.onStatus("Connecting to LiveKit (negotiating media)...");
+    }
+  });
+  room.on(RoomEvent.ConnectionStateChanged, (state) => {
+    if (state === ConnectionState.Connected) {
+      input.onStatus("Connected through LiveKit media and data channels.");
+    } else if (!isConnecting && (state === ConnectionState.Reconnecting || state === ConnectionState.SignalReconnecting)) {
+      input.onStatus("Reconnecting to LiveKit...");
+    }
+  });
 
-  await room.connect(normalizeLiveKitUrl(input.session.livekitUrl), input.session.token);
-  if (closed) {
-    await room.disconnect(true).catch(() => undefined);
+  input.onStatus("Connecting to LiveKit...");
+
+  try {
+    await connectLiveKitRoom(room, input.session.livekitUrl, input.session.token, {
+      timeoutMs: safari ? 30_000 : 20_000,
+      ...(input.signal ? { signal: input.signal } : {}),
+      safari,
+      onStatus: input.onStatus
+    });
+  } finally {
+    isConnecting = false;
+    input.signal?.removeEventListener("abort", abortConnect);
+  }
+
+  if (closed || input.signal?.aborted) {
+    await disconnectLiveKitRoom(room);
     throw new Error("LiveKit connection aborted");
   }
+
   input.onStatus("Connected through LiveKit media and data channels.");
   syncRemoteParticipants();
 
@@ -305,6 +407,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
     role: input.session.role
   };
   const publishPresence = () => {
+    if (closed) return;
     void room.localParticipant.publishData(encoder.encode(JSON.stringify(presence)), { reliable: true });
   };
   publishPresence();
@@ -312,6 +415,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
 
   return {
     publish(message) {
+      if (closed) return;
       const reliable = message.type !== "avatar.state.v1";
       void room.localParticipant.publishData(encoder.encode(JSON.stringify(message)), { reliable });
     },
@@ -342,7 +446,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
             name: publicationName,
             source: Track.Source.ScreenShare,
             stream: "wall-share",
-            simulcast: true
+            simulcast: !safari
           });
           record.video = videoTrack;
         }
@@ -363,7 +467,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
       publishedCameraTrack = null;
       publishedMicTrack = null;
       publishedWallTracks.clear();
-      await room.disconnect(true).catch(() => undefined);
+      await disconnectLiveKitRoom(room);
     }
   };
 }

@@ -190,6 +190,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     if (!session || leaving) return;
     const activeSession = session;
     const generation = ++realtimeGenerationRef.current;
+    const connectAbort = new AbortController();
 
     function handleMessage(message: RealtimeMessage) {
       if (wallRealtimeHandlerRef.current(message)) return;
@@ -273,6 +274,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       roomId,
       session,
       displayName: displayNameRef.current,
+      signal: connectAbort.signal,
       onMessage: handleMessage,
       onRemoteMedia(update) {
         if (update.wallObjectId) {
@@ -347,6 +349,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
 
     return () => {
       realtimeGenerationRef.current += 1;
+      connectAbort.abort();
       const client = realtimeRef.current;
       realtimeRef.current = null;
       void client?.close();
