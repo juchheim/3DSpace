@@ -87,6 +87,14 @@ function sleep(ms: number) {
   return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 }
 
+function subscribeAllRemoteTracks(room: Room) {
+  room.remoteParticipants.forEach((participant) => {
+    participant.trackPublications.forEach((publication) => {
+      publication.setSubscribed(true);
+    });
+  });
+}
+
 async function safeDisconnectRoom(room: Room) {
   if (room.state === ConnectionState.Disconnected) return;
   try {
@@ -123,9 +131,28 @@ async function connectLiveKitRoomOnce(
   }
 
   const livekitUrl = normalizeLiveKitUrl(url);
-  const connectPromise = room.connect(livekitUrl, token, {
-    peerConnectionTimeout: input.timeoutMs
-  });
+
+  if (input.safari) {
+    await Promise.race([room.prepareConnection(livekitUrl, token), sleep(8_000)]).catch(() => undefined);
+  }
+
+  if (input.isStale?.()) {
+    throw new Error("LiveKit connection aborted");
+  }
+
+  const connectPromise = room.connect(
+    livekitUrl,
+    token,
+    input.safari
+      ? {
+          autoSubscribe: false,
+          peerConnectionTimeout: input.timeoutMs,
+          websocketTimeout: Math.min(25_000, input.timeoutMs)
+        }
+      : {
+          peerConnectionTimeout: input.timeoutMs
+        }
+  );
   let timedOut = false;
 
   await new Promise<void>((resolve, reject) => {
@@ -138,7 +165,7 @@ async function connectLiveKitRoomOnce(
             : "LiveKit connection timed out. Verify LIVEKIT_URL uses wss:// on the API service."
         )
       );
-    }, input.timeoutMs + 2_000);
+    }, input.timeoutMs + 5_000);
 
     connectPromise
       .then(() => {
@@ -253,7 +280,16 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
 
   function createRoomInstance() {
     return safari
-      ? new Room({ adaptiveStream: false, dynacast: false })
+      ? new Room({
+          adaptiveStream: false,
+          dynacast: false,
+          disconnectOnPageLeave: false,
+          publishDefaults: {
+            simulcast: false,
+            videoCodec: "vp8",
+            backupCodec: false
+          }
+        })
       : new Room({ adaptiveStream: true, dynacast: true });
   }
 
@@ -391,7 +427,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
     });
   }
 
-  function bindRoomEvents(room: Room) {
+  function bindRoomEvents(room: Room, safariDeferSubscribe: boolean) {
     function syncRemoteParticipants() {
       syncRemoteParticipantsFor(room);
     }
@@ -409,16 +445,29 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
     room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
       handleRemoteTrackRemoved(track, participant.identity, publication);
     });
-    room.on(RoomEvent.Connected, syncRemoteParticipants);
+    room.on(RoomEvent.Connected, () => {
+      if (safariDeferSubscribe) {
+        subscribeAllRemoteTracks(room);
+      }
+      syncRemoteParticipants();
+    });
     room.on(RoomEvent.Reconnected, syncRemoteParticipants);
     room.on(RoomEvent.ParticipantConnected, (participant) => {
       input.onMessage(presenceFromParticipant(participant));
+      if (safariDeferSubscribe) {
+        subscribeAllRemoteTracks(room);
+      }
     });
     room.on(RoomEvent.ParticipantDisconnected, (participant) => {
       input.onMessage({
         type: "participant.leave.v1",
         participantId: participantIdFromIdentity(participant.identity)
       });
+    });
+    room.on(RoomEvent.TrackPublished, (publication) => {
+      if (safariDeferSubscribe) {
+        publication.setSubscribed(true);
+      }
     });
     room.on(RoomEvent.SignalConnected, () => {
       if (isConnecting) {
@@ -437,11 +486,11 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   function replaceRoom() {
     void safeDisconnectRoom(roomRef.current);
     roomRef.current = createRoomInstance();
-    bindRoomEvents(roomRef.current);
+    bindRoomEvents(roomRef.current, safari);
     return roomRef.current;
   }
 
-  bindRoomEvents(roomRef.current);
+  bindRoomEvents(roomRef.current, safari);
 
   input.onStatus("Connecting to LiveKit...");
 
@@ -451,7 +500,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
       replaceRoom,
       url: input.session.livekitUrl,
       token: input.session.token,
-      timeoutMs: safari ? 30_000 : 20_000,
+      timeoutMs: safari ? 45_000 : 20_000,
       safari,
       ...(input.isStale ? { isStale: input.isStale } : {}),
       maxAttempts: safari ? 2 : 1
@@ -467,6 +516,9 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
 
   const room = roomRef.current;
   input.onStatus("Connected through LiveKit media and data channels.");
+  if (safari) {
+    subscribeAllRemoteTracks(room);
+  }
   syncRemoteParticipantsFor(room);
 
   room.remoteParticipants.forEach((participant) => {
