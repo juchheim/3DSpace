@@ -113,17 +113,7 @@ function createRoomForBrowser() {
   return new Room({
     adaptiveStream: !safari,
     dynacast: !safari,
-    disconnectOnPageLeave: false,
-    webAudioMix: safari,
-    ...(safari
-      ? {
-          publishDefaults: {
-            simulcast: false,
-            videoCodec: "vp8" as const,
-            backupCodec: false
-          }
-        }
-      : {})
+    webAudioMix: safari
   });
 }
 
@@ -404,13 +394,21 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
       input.onStatus("Connected through LiveKit media and data channels.");
       return;
     }
-    if (state === ConnectionState.Reconnecting || state === ConnectionState.SignalReconnecting || state === ConnectionState.Connecting) {
+    if (state === ConnectionState.Connecting) {
+      input.onStatus(wasConnected ? "Reconnecting to LiveKit..." : "Connecting to LiveKit...");
+      return;
+    }
+    if (state === ConnectionState.Reconnecting || state === ConnectionState.SignalReconnecting) {
       input.onStatus("Reconnecting to LiveKit...");
       return;
     }
     if (state === ConnectionState.Disconnected && wasConnected && !closed) {
       input.onStatus("Reconnecting to LiveKit...");
       scheduleReconnect();
+      return;
+    }
+    if (state === ConnectionState.Disconnected && !closed) {
+      input.onStatus("Disconnected from LiveKit.");
     }
   });
 
