@@ -1,6 +1,6 @@
 # Safari LiveKit ICE Connection Failure — Investigation Handoff
 
-**Status:** Unresolved. Safari on WebKit cannot establish a WebRTC connection to LiveKit Cloud.  
+**Status:** Active — `iceTransportPolicy: 'relay'` experiment just deployed (commit pending), awaiting test result.  
 **Branch:** `mvp-plus-one`  
 **Primary file:** `apps/web/lib/realtime.ts`  
 **LiveKit SDK:** `livekit-client@2.19.0` (ESM bundle at `node_modules/livekit-client/dist/livekit-client.esm.mjs`)
@@ -11,107 +11,59 @@
 
 Safari users see: `"LiveKit connection timed out on Safari while negotiating WebRTC."`
 
-Chrome/Firefox users connect immediately. The issue is reproducible on both macOS Safari and iOS Safari (which also runs WebKit). Testing was done on a **school district network**.
+Chrome/Firefox users connect immediately. Reproducible on both macOS Safari and iOS Safari (WebKit). Tested on a school district network **and** a mobile hotspot — fails on both. This is confirmed NOT a network-specific issue.
 
 ---
 
-## Why Chrome Works But Safari Doesn't (on School Networks)
+## Why Chrome Works But Safari Doesn't
 
-Chrome generates **UDP candidates**. It uses STUN to discover its public IP (server-reflexive candidates), then connects to the LiveKit server's UDP endpoint directly — no TURN relay needed. School firewalls typically allow outbound UDP for this.
+Chrome generates **UDP candidates**. It uses STUN to discover its public IP (server-reflexive candidates), then connects to the LiveKit server's UDP endpoint directly — no TURN relay needed.
 
-Safari generates **only TCP mDNS host candidates**. It cannot do UDP at all. Its only options are:
-
-1. **Direct TCP to the LiveKit server on port 7881** — school firewalls typically block non-standard ports outbound
-2. **TURN relay over TCP-TLS on port 443** — port 443 is usually open, but the TURN server must be reachable
-
-Chrome's success on the school network tells us nothing about TURN reachability — Chrome simply doesn't need TURN.
-
-### On the HTTP test for TURN
-
-`https://ochicago1b.turn.livekit.cloud/` failing to load in both Chrome and Safari **does not mean TURN is blocked**. TURN servers speak the TURN protocol over TLS, not HTTP. A browser opening that URL as HTTPS will always "fail to load" because the server has no HTTP handler — it only accepts TURN allocations. This is expected even when TURN works correctly. The test is inconclusive.
+Safari generates **only TCP mDNS host candidates**. It cannot do UDP at all. Its only hope for connecting to a server on the public internet is **TURN relay over TCP-TLS on port 443**.
 
 ---
 
-## Is This Just the School Network, Or Will It Fail Everywhere?
+## Root Cause: WebKit Does Not Generate TURN Relay Candidates
 
-**Unknown — this is the most important thing to determine next.**
+**Confirmed on mobile hotspot (unrestricted network):** With correctly split, properly credentialed TURN servers in the RTCPeerConnection config, Safari produces:
+- Zero relay candidates in `getStats()`
+- Zero `icecandidateerror` events
+- Only mDNS TCP host candidates (port 9)
+- ICE stays `checking` / `gathering` for the entire 15-second server timeout
 
-The current failure has two plausible causes:
+If TURN allocation was being attempted and failing, `icecandidateerror` events with error codes would fire. Getting neither relay candidates nor errors means **WebKit is not initiating TURN allocation at all**.
 
-**A) School network blocks TURN outbound** — Port 443 TCP to LiveKit's TURN servers is reachable on most home networks but may be blocked by the school's firewall or deep-packet-inspection proxy (which can block non-HTTP traffic on port 443). If so, the code fixes described below are correct, but the school needs to allowlist LiveKit's TURN IPs, or we need a self-hosted TURN server.
+### Why: mDNS gathering serializes TURN
 
-**B) WebKit bug with TCP TURN** — Safari may not be correctly implementing TURN-over-TCP-TLS gathering, independent of the network. If so, it would fail even on a home network where TURN is reachable.
+WebKit registers mDNS hostnames (`.local` addresses) for each local network interface via Bonjour before the corresponding `icecandidate` event fires. With 14 network interfaces, this takes ~14 seconds — consuming the entire ICE window. The LiveKit server times out at ~15 seconds.
 
-**To distinguish:** Test Safari on a **mobile hotspot** (no school network). If Safari connects on the hotspot but not on the school network, it's a network problem (Case A). If it still fails, it's a WebKit bug (Case B).
-
----
-
-## What We Know For Certain
-
-### Safari's ICE candidate behavior
-
-Safari on WebKit only generates **TCP mDNS host candidates** (port 9, active mode). It never generates:
-- UDP candidates of any type
-- STUN server-reflexive (`srflx`) candidates
-- TURN relay candidates (at least on the school network tested)
-
-The mDNS candidates use `.local` hostnames. `getStats()` returns `addr=undefined` due to mDNS obfuscation. There are typically 14 of these candidates, and gathering takes ~14 seconds (mDNS Bonjour registration delay).
-
-### What the server provides
-
-LiveKit Cloud sends TURN credentials in the join response with one `RTCIceServer` object that contains multiple URLs:
-
-```json
-{
-  "urls": [
-    "turn:ip-161-115-180-211.host.livekit.cloud:3478?transport=udp",
-    "turns:ochicago1b.turn.livekit.cloud:443?transport=tcp",
-    "turns:project-3dspace-wganhyh3.turn.livekit.cloud:443?transport=tcp"
-  ],
-  "username": "...",
-  "credential": "..."
-}
-```
-
-### ICE candidate pairs
-
-The only pairs ever formed are mDNS TCP host (local, port 9) ↔ server host (remote, port 7881). These pairs stay in `state=waiting` the entire 14-second window and never transition to `in-progress`. The server sends `leave reason: 14` (JOIN_FAILURE) after ~14s.
-
-### TURN relay candidates: never appear
-
-Despite TURN servers being correctly configured, zero `type=relay` candidates ever appear in `getStats()`. No `icecandidateerror` events fire either (the listener is attached — their absence is notable).
+TURN allocation appears to be **serialized after mDNS gathering** in WebKit's ICE implementation, not run in parallel as the ICE RFC requires. By the time mDNS registration completes, the server has already given up.
 
 ---
 
-## Root Cause Analysis
+## Fix History
 
-### Problem 1 (FIXED): TURN servers absent at PC creation — the v1 signaling path
+### Fix 1 (APPLIED, commit `d7f8033`): Force v0 signaling path
 
-The LiveKit SDK defaults to `singlePeerConnection: true`, which activates the **v1 signaling path**:
+The SDK's default `singlePeerConnection: true` (v1 path) creates `RTCPeerConnection` before the join response arrives, so TURN servers aren't in the config at creation time. They're added later via `setConfiguration()`, which WebKit ignores for ICE re-gathering.
 
-1. `RTCPeerConnection` is created **before** the WebSocket join response arrives — so TURN servers are absent from the config at creation time (SDK line ~21583: `configure()` called with no `joinResponse`).
-2. After the join response arrives, TURN servers are added via `setConfiguration()` (SDK line 21382: `pcManager.updateConfiguration(...)`).
-3. **WebKit ignores `setConfiguration()` for ICE gathering purposes** — it does not trigger re-gathering for newly added ICE servers.
-4. Result: Safari only has mDNS host candidates and no relay candidates.
+**Fix:** `singlePeerConnection: false` in Safari Room options forces the v0 path, where the PC is created after the join response with TURN servers present.
 
-**Fix applied (commit `d7f8033`):** Added `singlePeerConnection: false` to the Safari Room options. This forces the **v0 path** where `configure(joinResponse)` is called *after* the join response, so TURN servers are present when `new RTCPeerConnection(config)` is called.
+### Fix 2 (APPLIED, commit `d7f8033`): Split multi-URL RTCIceServer
 
-### Problem 2 (FIXED): Multi-URL RTCIceServer WebKit bug
+LiveKit Cloud sends all TURN URLs in one `RTCIceServer` object. WebKit fails the entire object when the first URL (UDP TURN port 3478) fails, without trying the TCP TLS entries.
 
-LiveKit Cloud packs all TURN URLs into a single `RTCIceServer` with an array of URLs. WebKit has a bug where if the first URL in a multi-URL `RTCIceServer` fails (here, UDP TURN on port 3478 — UDP is blocked on most school networks), it marks the **entire object** as failed rather than falling back to the remaining URLs (TCP TLS TURN on port 443).
+**Fix:** `window.RTCPeerConnection` monkey-patch in `splitIcePc` splits multi-URL objects into one per URL before PC creation. Confirmed working — `[ICE split] 1 → 3` log fires and `[ICE config]` shows 3 individual entries.
 
-**Fix applied:** `window.RTCPeerConnection` monkey-patch splits multi-URL entries into individual single-URL `RTCIceServer` objects before PC creation. Confirmed working — `[ICE split] 1 → 3` fires and `[ICE config]` shows the 3 split entries.
+### Fix 3 (DEPLOYED, awaiting test): Force `iceTransportPolicy: 'relay'`
 
-### Problem 3 (UNRESOLVED): TURN relay candidates still never appear
+The mDNS gathering occupies the entire ICE window and TURN never starts. Forcing relay-only makes the ICE agent **skip mDNS host candidates entirely** and only gather TURN relay candidates. This eliminates the 14-second delay.
 
-Even after both fixes above are applied:
-- `[ICE config]` at t+3s shows 3 correctly split individual TURN URLs ✓
-- `[ICE stats local]` still shows only `type=host proto=tcp addr=undefined port=9` ✗
-- No relay candidates appear ✗
-- No `icecandidateerror` events fire ✗
-- ICE stays `checking` / `gathering` for the entire timeout
+**Change:** Added `iceTransportPolicy: "relay"` inside `splitIcePc` alongside the URL split. This is set on the config object at PC creation time, so it applies from the start of ICE gathering.
 
-This is consistent with the school network blocking TURN outbound (Case A above), or a WebKit bug (Case B).
+**Expected outcome if this works:** Safari immediately attempts TURN allocation, gets relay candidates within 1-2 seconds, ICE connects.
+
+**Expected outcome if this fails:** `icecandidateerror` events fire with error codes, or gathering silently hangs again. Either way, we get new information.
 
 ---
 
@@ -119,12 +71,12 @@ This is consistent with the school network blocking TURN outbound (Case A above)
 
 | Attempt | Result |
 |---|---|
-| `iceServers: []` (no STUN/TURN) | No effect. Still 14 TCP host pairs in `state=waiting`. |
-| `setConfiguration()` after `SignalConnected` to split multi-URL servers | Did NOT trigger re-gathering in WebKit. Zero new `icecandidate` events after calling it. Removed. |
-| `window.RTCPeerConnection` monkey-patch to split multi-URL at PC creation | Patch itself worked, BUT in v1 path (the default) the PC is created before TURN servers arrive. No TURN to split at creation time. Appeared non-functional for a different reason. |
-| `singlePeerConnection: false` to force v0 signaling path | Fixed the timing — PC now created with TURN servers present. Split fires correctly. Relay candidates still don't appear (network block or WebKit bug). |
-| `autoSubscribe: false` | No effect. `subPc` not created without remote tracks. |
-| Opening `https://ochicago1b.turn.livekit.cloud/` in browser | Inconclusive — TURN servers don't serve HTTP. "Failed to load" is expected even when TURN works. |
+| `iceServers: []` (no STUN/TURN) | No effect. 14 TCP host pairs in `state=waiting`. |
+| `setConfiguration()` after `SignalConnected` to split multi-URL servers | Did NOT trigger re-gathering in WebKit. Zero new `icecandidate` events. Removed. |
+| `window.RTCPeerConnection` monkey-patch to split multi-URL | Patch works, BUT in v1 path (default) PC created before TURN servers arrive — nothing to split. |
+| `singlePeerConnection: false` to force v0 signaling path | Fixed timing — PC now created with TURN present. Split fires. Still no relay candidates (mDNS serialization). |
+| Mobile hotspot test | **Fails identically.** Confirmed not a network issue. WebKit bug. |
+| `iceTransportPolicy: 'relay'` inside monkey-patch | **Deployed, not yet tested.** Should bypass mDNS delay entirely. |
 
 ---
 
@@ -136,76 +88,66 @@ new Room({
   adaptiveStream: false,
   dynacast: false,
   disconnectOnPageLeave: false,
-  singlePeerConnection: false,   // forces v0 path so TURN servers present at PC creation
+  singlePeerConnection: false,   // forces v0 path: PC created with TURN servers present
   publishDefaults: { simulcast: false, videoCodec: "h264" }
 })
 ```
 
-**`connectLiveKitRoomOnce`** — monkey-patch active before `room.connect()`:
+**`connectLiveKitRoomOnce`** — `splitIcePc` monkey-patch (set before `room.connect()`):
 ```typescript
-// Splits multi-URL RTCIceServer → individual single-URL objects
+function splitIcePc(config?: RTCConfiguration): RTCPeerConnection {
+  if (config?.iceServers) {
+    config = {
+      ...config,
+      iceServers: config.iceServers.flatMap(/* split multi-URL into single-URL objects */),
+      iceTransportPolicy: "relay"  // skip mDNS, go straight to TURN
+    };
+  }
+  return new OriginalPC(config!);
+}
 window.RTCPeerConnection = splitIcePc as unknown as typeof RTCPeerConnection;
 ```
 
-**Diagnostic logging** still active on `RoomEvent.SignalConnected`:
-- `[ICE split]` — fires at PC creation, logs before/after URL counts
-- `[ICE init]` — confirms both pub and sub PCs obtained
-- `[ICE t+Ns]` — polls ICE state every second
-- `[ICE config]` at t+3s — logs `getConfiguration().iceServers`
-- `[ICE stats *]` at t+3s — dumps local/remote candidates and pairs from `getStats()`
-- `[ICE pub/sub candidate]` / `[ICE pub/sub error]` — event listeners for candidates and errors
+**Diagnostic logging** active on `RoomEvent.SignalConnected`:
+- `[ICE split]` — fires at PC creation, logs URL counts before/after split
+- `[ICE init]`, `[ICE t+Ns]` — connection state polling every second
+- `[ICE config]` at t+3s — `getConfiguration().iceServers` (should show `policy=relay` now)
+- `[ICE stats *]` at t+3s — local/remote candidates and pairs
+- `[ICE pub/sub candidate]` / `[ICE pub/sub error]` — candidate and error event listeners
 
 ---
 
-## Next Steps
+## If `iceTransportPolicy: 'relay'` Works (connects)
 
-### Step 1 (Required): Test Safari on a mobile hotspot
+The fix is validated. TURN relay works in Safari when mDNS candidates are bypassed. The `relay` policy is safe to keep for Safari — it means all media goes through TURN (slightly higher latency vs direct P2P), but LiveKit is a server-side SFU so there's no peer-to-peer path anyway. TURN is the intended path.
 
-This single test determines the entire direction:
+Next: remove the diagnostic logging block from `realtime.ts` (the entire `if (safari)` block inside the `SignalConnected` handler). The production code should be clean.
 
-- **Safari connects on hotspot** → school network is blocking TURN. The code fixes are correct. Solution is network-level (LiveKit Cloud config or self-hosted TURN) — see Step 3.
-- **Safari still fails on hotspot** → WebKit bug unrelated to network. Solution is code-level — see Step 2.
+## If `iceTransportPolicy: 'relay'` Also Fails
 
-### Step 2 (If hotspot also fails): Diagnose WebKit TURN behavior
+WebKit's TCP TURN implementation itself is broken. Options:
 
-Add `iceTransportPolicy: 'relay'` inside the monkey-patch to force Safari to only use TURN candidates:
+**Option A: WebKit-specific TURN implementation bug**
+Check if `icecandidateerror` events now fire (they should if relay-only and TURN fails). Collect `e.errorCode`, `e.errorText`, `e.url`. Error codes: 701 = server unreachable, 401 = auth failure, 400 = bad request.
 
-```typescript
-// In splitIcePc, after splitting iceServers:
-config = { ...config, iceTransportPolicy: 'relay' };
-```
+Also check if the `icecandidateerror` listener is actually being reached — add a `console.warn` at the very top of the handler before checking event properties.
 
-This eliminates the mDNS host candidates entirely and forces ICE to only attempt TURN. If it connects → mDNS candidates were crowding out TURN (timing issue). If `icecandidateerror` events appear → collect `e.errorCode` (701 = unreachable, 401 = auth failure). If it still silently hangs → deep WebKit bug with TCP TURN gathering.
+**Option B: Try UDP TURN only**
+Remove the `turns:` (TCP TLS) entries from the split list and only keep `turn:...:3478?transport=udp`. If Safari can do UDP TURN (even though it doesn't generate UDP host candidates, TURN allocation itself uses UDP to the TURN server), this might work.
 
-Also enhance the `icecandidateerror` listener (currently fires but produces no output because `e` isn't serialized):
-```typescript
-pc.addEventListener("icecandidateerror", (e) =>
-  console.warn(`[ICE ${label} error]`, (e as RTCPeerConnectionIceErrorEvent).errorCode,
-    (e as RTCPeerConnectionIceErrorEvent).errorText,
-    (e as RTCPeerConnectionIceErrorEvent).url)
-);
-```
+**Option C: Use LiveKit's WebRTC over WebSocket fallback**
+LiveKit has experimental support for running WebRTC over a plain WebSocket connection, which always works through firewalls and doesn't need ICE/TURN at all. This would require LiveKit server-side configuration changes and is not yet GA.
 
-### Step 3 (If school network is blocking TURN): LiveKit Cloud configuration
-
-LiveKit Cloud allows you to configure **custom TURN servers**. The school district's firewall may block `*.turn.livekit.cloud` on port 443 but allow connections to a known IP. Options:
-
-**Option A: Allowlist LiveKit's TURN IPs at the district firewall.**  
-LiveKit Cloud's TURN servers are at known IPs (the `ip-X-X-X-X.host.livekit.cloud` hostnames are the IPs encoded in the name). Work with the district IT department to allowlist those outbound on port 443.
-
-**Option B: Self-host a TURN server on a fixed IP and configure LiveKit to advertise it.**  
-Deploy `coturn` on a VPS at an IP the district allows, listening on port 443. In LiveKit Cloud's project settings, you can add custom TURN servers. This gives full control over the TURN endpoint. This is the most reliable long-term solution for school networks.
-
-**Option C: Use a TCP WebSocket tunnel as a fallback.**  
-Some WebRTC frameworks support wrapping ICE traffic in a WebSocket connection (which always traverses school firewalls since it's HTTP-upgraded). LiveKit doesn't natively support this, but it's worth checking if a newer SDK version adds it.
+**Option D: Replace LiveKit with a WebSocket-only solution for Safari**
+The app already has a `BroadcastChannel` fallback for same-device multi-tab scenarios. For cross-device Safari connections, a pure WebSocket data channel (with no WebRTC at all) would work universally. This sacrifices video/audio media relay through LiveKit for Safari users, but data messages (presence, wall state, etc.) would work. Audio/video would need a separate non-WebRTC approach.
 
 ---
 
 ## SDK Implementation Notes
 
-- **`singlePeerConnection: true` (default)** → v1 path: PC created before join response → no TURN at creation → TURN added via `setConfiguration()` later → WebKit ignores for ICE
-- **`singlePeerConnection: false`** → v0 path: PC created after join response → TURN present at creation
+- **`singlePeerConnection: true` (default)** → v1 path: PC created before join → no TURN at creation → `setConfiguration()` later → WebKit ignores for ICE
+- **`singlePeerConnection: false`** → v0 path: PC created after join → TURN present at creation
 - SDK line 18052: `new RTCPeerConnection(this.config)` — bare global, intercepted by `window.RTCPeerConnection` monkey-patch
-- SDK line 21772: `if (serverResponse.iceServers && !rtcConfig.iceServers)` — server ICE only added if `rtcConfig.iceServers` is falsy (don't pre-set iceServers in Room options or server TURN won't be used)
+- SDK line 21772: `if (serverResponse.iceServers && !rtcConfig.iceServers)` — server ICE only added if `rtcConfig.iceServers` is falsy; don't pre-set iceServers in Room options
 - `setConfiguration()` after PC creation does NOT trigger ICE re-gathering in WebKit (confirmed empirically)
 - The `window.RTCPeerConnection` monkey-patch IS intercepting correctly (confirmed by `[ICE split]` log)

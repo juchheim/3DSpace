@@ -150,6 +150,8 @@ async function connectLiveKitRoomOnce(
         const before = config.iceServers.length;
         config = {
           ...config,
+          // Split multi-URL ICE server objects into one per URL so WebKit's
+          // per-object failure doesn't suppress TCP TLS TURN fallback.
           iceServers: config.iceServers.flatMap((s): RTCIceServer[] => {
             const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
             if (urls.length <= 1) return [s];
@@ -158,7 +160,13 @@ async function connectLiveKitRoomOnce(
               ...(s.username != null ? { username: s.username } : {}),
               ...(s.credential != null ? { credential: s.credential } : {})
             }));
-          })
+          }),
+          // Force relay-only so WebKit skips the 14-second mDNS host candidate
+          // registration entirely and goes straight to TURN allocation.
+          // WebKit never generates TURN candidates when mDNS gathering is active
+          // (they appear to be serialized, not parallel), and the server times out
+          // at ~15s before mDNS completes. Relay-only bypasses this entirely.
+          iceTransportPolicy: "relay"
         };
         const after = config.iceServers;
         console.log("[ICE split] servers:", before, "→", after?.length, JSON.stringify(after?.map((s) => ({ urls: s.urls }))));
