@@ -147,16 +147,22 @@ async function connectLiveKitRoom(room: Room, url: string, token: string, timeou
         peerConnectionTimeout: connectTimeoutMs,
         websocketTimeout: connectTimeoutMs
       });
-      await Promise.race([
-        connectPromise,
-        new Promise<never>((_resolve, reject) => {
-          window.setTimeout(() => {
-            timedOut = true;
-            void disconnectLiveKitRoom(room);
-            reject(new Error("LiveKit connection timed out. Verify LIVEKIT_URL is wss:// on the API service."));
-          }, connectTimeoutMs);
-        })
-      ]);
+      await new Promise<void>((resolve, reject) => {
+        const timeoutId = window.setTimeout(() => {
+          timedOut = true;
+          void disconnectLiveKitRoom(room);
+          reject(new Error("LiveKit connection timed out. Verify LIVEKIT_URL is wss:// on the API service."));
+        }, connectTimeoutMs);
+        connectPromise!
+          .then(() => {
+            window.clearTimeout(timeoutId);
+            resolve();
+          })
+          .catch((error) => {
+            window.clearTimeout(timeoutId);
+            reject(error);
+          });
+      });
       return;
     } catch (error) {
       if (timedOut && connectPromise) {
