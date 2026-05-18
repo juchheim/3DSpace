@@ -9,13 +9,13 @@ const GRANT_TYPE_OPTIONS: Array<{
   label: string;
   description: string;
 }> = [
-  { type: "image.file", label: "Image upload", description: "Photos, screenshots, and scanned work." },
-  { type: "video.file", label: "Video upload", description: "Recorded demos or short clips." },
-  { type: "audio.file", label: "Audio upload", description: "Voice recordings or other audio files." },
-  { type: "note", label: "Sticky note", description: "Quick typed response on the board." },
-  { type: "camera.live", label: "Camera", description: "Live camera feed pinned to the board." },
-  { type: "microphone.live", label: "Microphone", description: "Live audio share for speaking." },
-  { type: "browser-tab.live", label: "Screen share", description: "Share a browser tab or screen live." }
+  { type: "image.file", label: "Image upload", description: "" },
+  { type: "video.file", label: "Video upload", description: "" },
+  { type: "audio.file", label: "Audio upload", description: "" },
+  { type: "note", label: "Sticky note", description: "" },
+  { type: "camera.live", label: "Camera", description: "" },
+  { type: "microphone.live", label: "Microphone", description: "" },
+  { type: "browser-tab.live", label: "Screen share", description: "" }
 ];
 
 const GRANT_PRESETS: Array<{
@@ -217,7 +217,9 @@ export function ClassroomPanel({
                                   />
                                   <span className="classroom-grant-option__body">
                                     <span className="classroom-grant-option__label">{option.label}</span>
-                                    <span className="classroom-grant-option__description">{option.description}</span>
+                                    {option.description ? (
+                                      <span className="classroom-grant-option__description">{option.description}</span>
+                                    ) : null}
                                   </span>
                                 </label>
                               );

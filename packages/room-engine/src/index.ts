@@ -127,7 +127,7 @@ export function createDefaultRoomManifest(input: {
         width: PRIMARY_BOARD_WIDTH,
         height: widescreenHeight(PRIMARY_BOARD_WIDTH),
         metadata: {
-          accepts: ["image", "video", "image.file", "video.file", "camera.live", "microphone.live", "screen.live", "browser-tab.live", "web.link", "note", "poll", "timer"],
+          accepts: ["image", "video", "audio", "image.file", "video.file", "audio.file", "camera.live", "microphone.live", "screen.live", "browser-tab.live", "web.link", "note", "poll", "timer"],
           capacity: 4,
           layout: "grid",
           defaultRole: "primary-display",
