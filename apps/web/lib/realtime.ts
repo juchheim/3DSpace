@@ -136,20 +136,7 @@ async function connectLiveKitRoomOnce(
     token,
     {
       peerConnectionTimeout: input.timeoutMs,
-      ...(input.safari
-        ? {
-            websocketTimeout: Math.min(25_000, input.timeoutMs),
-            // Safari cannot use UDP (only TCP mDNS host candidates are gathered), and
-            // WebKit has a bug where a failed UDP TURN entry in a multi-URL RTCIceServer
-            // prevents fallback to TCP TLS TURN entries in the same object. The result is
-            // all ICE-TCP host pairs stay in "waiting" for 14 s while STUN times out, then
-            // the server kicks us. Clearing iceServers bypasses the server's STUN/TURN list
-            // (SDK skips it when rtcConfig.iceServers is already set), so gathering
-            // completes immediately on host candidates and ICE-TCP checking starts at once.
-            // LiveKit Cloud listens on port 7881 for ICE over TCP.
-            rtcConfig: { iceServers: [] }
-          }
-        : {})
+      ...(input.safari ? { websocketTimeout: Math.min(25_000, input.timeoutMs) } : {})
     }
   );
   let timedOut = false;
@@ -499,6 +486,29 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
         if (pubPc) attachListeners(pubPc, "pub");
         if (subPc) attachListeners(subPc, "sub");
         console.log("[ICE init] engine=", !!eng, "pcm=", !!pcm, "pubPc=", !!pubPc, "subPc=", !!subPc);
+
+        // WebKit bug: when multiple TURN URLs share one RTCIceServer object, a failed
+        // UDP TURN attempt poisons the whole object — the TCP TLS TURN entries in the
+        // same object are never tried. Split each multi-URL object into one-URL objects
+        // so Safari retries each URL independently. This allows turns:...:443 to succeed
+        // even though turn:...:3478?transport=udp fails (Safari has no UDP).
+        if (pubPc) {
+          try {
+            const cfg = pubPc.getConfiguration();
+            const multi = (cfg.iceServers ?? []).filter((s) => Array.isArray(s.urls) && s.urls.length > 1);
+            if (multi.length > 0) {
+              const split: RTCIceServer[] = (cfg.iceServers ?? []).flatMap((s) =>
+                Array.isArray(s.urls) && s.urls.length > 1
+                  ? s.urls.map((url) => ({ urls: url, ...(s.username ? { username: s.username } : {}), ...(s.credential ? { credential: s.credential } : {}) }))
+                  : [s]
+              );
+              pubPc.setConfiguration({ ...cfg, iceServers: split });
+              console.log("[ICE fix] split multi-URL servers:", multi.length, "→ individual entries:", split.length);
+            }
+          } catch (e) {
+            console.warn("[ICE fix] setConfiguration failed:", e);
+          }
+        }
 
         let tick = 0;
         const poll = window.setInterval(() => {
