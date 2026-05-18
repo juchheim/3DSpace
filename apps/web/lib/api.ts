@@ -1,5 +1,7 @@
 import type {
   AcceptInviteResponseSchema,
+  ClassroomActionSchema,
+  ClassroomState,
   ClassMembership,
   ClassRecord,
   Invite,
@@ -213,6 +215,18 @@ export function createWebResource(
   }
 ) {
   return apiFetch<WallObject>(`/v1/rooms/${roomId}/web-resources`, {
+    method: "POST",
+    identity,
+    body: input
+  });
+}
+
+export function getClassroomState(identity: ApiIdentity, roomId: string) {
+  return apiFetch<ClassroomState>(`/v1/rooms/${roomId}/classroom`, { identity });
+}
+
+export function runClassroomAction(identity: ApiIdentity, roomId: string, input: z.infer<typeof ClassroomActionSchema>) {
+  return apiFetch<ClassroomState>(`/v1/rooms/${roomId}/classroom/actions`, {
     method: "POST",
     identity,
     body: input

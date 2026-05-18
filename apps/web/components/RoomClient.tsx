@@ -19,10 +19,12 @@ import { createRealtimeClient, type RealtimeClient, type RealtimeMessage } from 
 import { useSpatialAudio } from "../lib/useSpatialAudio";
 import { AnchorPanel } from "./AnchorPanel";
 import { AuthGate } from "../lib/auth";
+import { ClassroomPanel } from "./ClassroomPanel";
 import { MediaControls } from "./MediaControls";
 import { MovementPad } from "./MovementPad";
 import { RoomView2D } from "./RoomView2D";
 import { Roster } from "./Roster";
+import { useClassroomState } from "../lib/useClassroomState";
 
 const RoomView3D = dynamic(() => import("./RoomView3D").then((module) => module.RoomView3D), {
   ssr: false,
@@ -87,6 +89,12 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     roomId: session?.room.id ?? roomId,
     manifest,
     enabled: Boolean(session && manifest),
+    publish: publishRealtime
+  });
+  const classroom = useClassroomState({
+    identity,
+    roomId: session?.room.id ?? roomId,
+    enabled: Boolean(session),
     publish: publishRealtime
   });
 
@@ -177,6 +185,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
 
     function handleMessage(message: RealtimeMessage) {
       if (wall.handleRealtimeMessage(message)) return;
+      if (classroom.handleRealtimeMessage(message)) return;
       if (message.type.startsWith("wall.")) return;
 
       if (message.type === "participant.leave.v1") {
@@ -324,7 +333,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       realtimeRef.current?.close();
       realtimeRef.current = null;
     };
-  }, [session?.participantId, roomId, identity.displayName, leaving, wall.handleRealtimeMessage]);
+  }, [classroom.handleRealtimeMessage, session?.participantId, roomId, identity.displayName, leaving, wall.handleRealtimeMessage]);
 
   useEffect(() => {
     if (!session || !movement.avatarState) return;
@@ -717,7 +726,17 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
 
       {/* Right HUD: roster + wall objects */}
       <aside className="room-hud-right" aria-label="Room details">
-        <Roster participants={participantList} />
+        <Roster participants={participantList} classroomState={classroom.state} />
+        <ClassroomPanel
+          role={role}
+          state={classroom.state}
+          loading={classroom.loading}
+          error={classroom.error}
+          activeHelpRequest={classroom.activeHelpRequest}
+          onRunAction={async (action) => {
+            await classroom.runAction(action);
+          }}
+        />
         {manifest && session ? (
           <AnchorPanel
             identity={identity}

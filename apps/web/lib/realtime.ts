@@ -3,6 +3,8 @@
 import { waitForVideoTrackDimensions } from "./mediaTracks";
 import type {
   AvatarStateMessage,
+  ClassroomStateChangedRealtimeSchema,
+  ClassroomStateRealtimeSchema,
   Role,
   RoomSessionResponse,
   WallModerationStateMessageSchema,
@@ -32,7 +34,9 @@ export type WallRealtimeMessage =
   | z.infer<typeof WallShareEndedMessageSchema>
   | z.infer<typeof WallModerationStateMessageSchema>;
 
-export type RealtimeMessage = AvatarStateMessage | PresenceMessage | LeaveMessage | WallRealtimeMessage;
+export type ClassroomRealtimeMessage = z.infer<typeof ClassroomStateChangedRealtimeSchema> | z.infer<typeof ClassroomStateRealtimeSchema>;
+
+export type RealtimeMessage = AvatarStateMessage | PresenceMessage | LeaveMessage | WallRealtimeMessage | ClassroomRealtimeMessage;
 
 export type RemoteMediaUpdate = {
   participantId: string;

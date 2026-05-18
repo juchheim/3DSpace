@@ -1,8 +1,8 @@
 import mongoose, { type Connection, Schema, type Model } from "mongoose";
-import type { ClassMembership, ClassRecord, Invite, Role, RoomManifest, RoomRecord, User, WallAttachment, WallObject, WallObjectStatus } from "@3dspace/contracts";
+import type { ClassroomState, ClassMembership, ClassRecord, Invite, Role, RoomManifest, RoomRecord, User, WallAttachment, WallObject, WallObjectStatus } from "@3dspace/contracts";
 import type { AuthContext } from "../auth.js";
 import { conflict, notFound } from "../errors.js";
-import { avatarFor, inviteCode, newId, nowIso, type Repository, type RoomEventRecord, type RoomSettings } from "../repository.js";
+import { avatarFor, createDefaultClassroomState, inviteCode, newId, nowIso, type Repository, type RoomEventRecord, type RoomSettings } from "../repository.js";
 
 type Models = {
   User: Model<any>;
@@ -11,6 +11,7 @@ type Models = {
   Invite: Model<any>;
   Room: Model<any>;
   RoomManifest: Model<any>;
+  ClassroomState: Model<any>;
   WallAttachment: Model<any>;
   WallObject: Model<any>;
   RoomEvent: Model<any>;
@@ -136,6 +137,20 @@ export function createModels(connection: Connection): Models {
   wallObjectSchema.index({ roomId: 1, updatedAt: -1 });
   wallObjectSchema.index({ roomId: 1, type: 1, status: 1 });
 
+  const classroomStateSchema = new Schema({
+    roomId: { type: String, required: true, unique: true },
+    version: { type: Number, required: true },
+    helpRequests: { type: [Schema.Types.Mixed], default: [] },
+    boardAccessGrants: { type: [Schema.Types.Mixed], default: [] },
+    privateChecks: { type: [Schema.Types.Mixed], default: [] },
+    groups: { type: [Schema.Types.Mixed], default: [] },
+    spotlight: { type: Schema.Types.Mixed, default: null },
+    lessonRun: { type: Schema.Types.Mixed, default: null },
+    createdAt: String,
+    updatedAt: String
+  });
+  classroomStateSchema.index({ roomId: 1 }, { unique: true });
+
   const eventSchema = new Schema({
     id: { type: String, required: true, unique: true },
     roomId: { type: String, required: true, index: true },
@@ -164,6 +179,7 @@ export function createModels(connection: Connection): Models {
     Invite: connection.model("Invite", inviteSchema),
     Room: connection.model("Room", roomSchema),
     RoomManifest: connection.model("RoomManifest", manifestSchema),
+    ClassroomState: connection.model("ClassroomState", classroomStateSchema),
     WallAttachment: connection.model("WallAttachment", attachmentSchema),
     WallObject: connection.model("WallObject", wallObjectSchema),
     RoomEvent: connection.model("RoomEvent", eventSchema),
@@ -334,6 +350,7 @@ export class MongoRepository implements Repository {
     await Promise.all([
       this.models.Room.deleteOne({ id: roomId }),
       this.models.RoomManifest.deleteMany({ roomId }),
+      this.models.ClassroomState.deleteMany({ roomId }),
       this.models.WallAttachment.deleteMany({ roomId }),
       this.models.WallObject.deleteMany({ roomId }),
       this.models.RoomEvent.deleteMany({ roomId }),
@@ -376,6 +393,36 @@ export class MongoRepository implements Repository {
       { upsert: true }
     );
     return manifest;
+  }
+
+  async getClassroomState(roomId: string) {
+    const existing = entity<ClassroomState | undefined>(await this.models.ClassroomState.findOne({ roomId }).lean());
+    if (existing) return existing;
+    const state = createDefaultClassroomState(roomId);
+    await this.models.ClassroomState.create(state);
+    return state;
+  }
+
+  async updateClassroomState(roomId: string, input: { state: ClassroomState; expectedVersion?: number }) {
+    const existing = await this.getClassroomState(roomId);
+    if (input.expectedVersion && input.expectedVersion !== existing.version) {
+      throw conflict("Classroom state version conflict");
+    }
+    const record = await this.models.ClassroomState.findOneAndUpdate(
+      { roomId, version: input.expectedVersion ?? existing.version },
+      {
+        $set: {
+          ...input.state,
+          roomId,
+          version: existing.version + 1,
+          createdAt: existing.createdAt,
+          updatedAt: nowIso()
+        }
+      },
+      { new: true, lean: true }
+    );
+    if (!record) throw conflict("Classroom state version conflict");
+    return entity<ClassroomState>(record);
   }
 
   async createAttachment(input: Omit<WallAttachment, "id" | "createdAt" | "updatedAt" | "status">) {

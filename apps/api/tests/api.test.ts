@@ -31,6 +31,22 @@ async function createClassAndRoom(app: Awaited<ReturnType<typeof buildApp>>, tea
   return { classRecord, roomWithManifest };
 }
 
+async function addStudentMember(app: Awaited<ReturnType<typeof buildApp>>, classId: string, teacherId: string, userId: string, displayName: string) {
+  const response = await app.inject({
+    method: "POST",
+    url: `/v1/classes/${classId}/members`,
+    headers: authHeaders(teacherId, "Ms. Rivera"),
+    payload: {
+      userId,
+      displayName,
+      role: "student",
+      status: "active"
+    }
+  });
+  expect(response.statusCode).toBe(200);
+  return response.json();
+}
+
 describe("3dspace api", () => {
   it("creates class, room, invite, and student session with dev fallbacks", async () => {
     const app = await buildApp({
@@ -783,6 +799,177 @@ describe("3dspace api", () => {
     });
     expect(limited.statusCode).toBe(429);
     expect(limited.json().error).toBe("rate_limited");
+
+    await app.close();
+  });
+
+  it("returns default classroom state for a room member", async () => {
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { roomWithManifest } = await createClassAndRoom(app, "teacher-classroom-default");
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom`,
+      headers: authHeaders("teacher-classroom-default", "Ms. Rivera")
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      roomId: roomWithManifest.room.id,
+      version: 1,
+      helpRequests: [],
+      boardAccessGrants: [],
+      privateChecks: [],
+      groups: [],
+      spotlight: null,
+      lessonRun: null
+    });
+
+    await app.close();
+  });
+
+  it("filters classroom state for students and preserves teacher visibility", async () => {
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-classroom-filter");
+    await addStudentMember(app, classRecord.id, "teacher-classroom-filter", "student-filter-1", "Avery");
+    await addStudentMember(app, classRecord.id, "teacher-classroom-filter", "student-filter-2", "Jordan");
+
+    const raiseHand = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("student-filter-1", "Avery"),
+      payload: { type: "raise-hand", note: "Need help with problem 3" }
+    });
+    expect(raiseHand.statusCode).toBe(200);
+    expect(raiseHand.json().helpRequests).toHaveLength(1);
+
+    const createCheck = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-classroom-filter", "Ms. Rivera"),
+      payload: {
+        type: "create-private-check",
+        question: "How confident are you?",
+        promptType: "confidence"
+      }
+    });
+    expect(createCheck.statusCode).toBe(200);
+    const checkId = createCheck.json().privateChecks[0].id;
+
+    const openCheck = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-classroom-filter", "Ms. Rivera"),
+      payload: { type: "open-private-check", checkId }
+    });
+    expect(openCheck.statusCode).toBe(200);
+
+    const submitCheck = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("student-filter-1", "Avery"),
+      payload: { type: "submit-private-check", checkId, confidence: 4 }
+    });
+    expect(submitCheck.statusCode).toBe(200);
+    expect(submitCheck.json().privateChecks[0].responses).toHaveLength(1);
+
+    const teacherView = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom`,
+      headers: authHeaders("teacher-classroom-filter", "Ms. Rivera")
+    });
+    expect(teacherView.statusCode).toBe(200);
+    expect(teacherView.json().helpRequests).toHaveLength(1);
+    expect(teacherView.json().privateChecks[0].responses).toHaveLength(1);
+    expect(teacherView.json().privateChecks[0].responses[0].userId).toBe("student-filter-1");
+
+    const studentOwnView = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom`,
+      headers: authHeaders("student-filter-1", "Avery")
+    });
+    expect(studentOwnView.statusCode).toBe(200);
+    expect(studentOwnView.json().helpRequests).toHaveLength(1);
+    expect(studentOwnView.json().privateChecks[0].responses).toHaveLength(1);
+    expect(studentOwnView.json().privateChecks[0].responses[0].userId).toBe("student-filter-1");
+
+    const studentPeerView = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom`,
+      headers: authHeaders("student-filter-2", "Jordan")
+    });
+    expect(studentPeerView.statusCode).toBe(200);
+    expect(studentPeerView.json().helpRequests).toHaveLength(0);
+    expect(studentPeerView.json().privateChecks[0].responses).toHaveLength(0);
+
+    await app.close();
+  });
+
+  it("rejects teacher-only classroom actions from students", async () => {
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-classroom-role");
+    await addStudentMember(app, classRecord.id, "teacher-classroom-role", "student-classroom-role", "Avery");
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("student-classroom-role", "Avery"),
+      payload: {
+        type: "create-group",
+        label: "Table A",
+        color: "#2a9d8f"
+      }
+    });
+
+    expect(response.statusCode).toBe(403);
+
+    await app.close();
+  });
+
+  it("enforces optimistic version checks for classroom actions", async () => {
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { roomWithManifest } = await createClassAndRoom(app, "teacher-classroom-version");
+
+    const first = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-classroom-version", "Ms. Rivera"),
+      payload: {
+        type: "create-group",
+        label: "Table A",
+        color: "#264653",
+        expectedVersion: 1
+      }
+    });
+    expect(first.statusCode).toBe(200);
+    expect(first.json().version).toBe(2);
+
+    const stale = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-classroom-version", "Ms. Rivera"),
+      payload: {
+        type: "create-group",
+        label: "Table B",
+        color: "#e76f51",
+        expectedVersion: 1
+      }
+    });
+
+    expect(stale.statusCode).toBe(409);
+    expect(stale.json().message).toMatch(/version conflict/i);
 
     await app.close();
   });

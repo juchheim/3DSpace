@@ -683,6 +683,86 @@ label {
   color: #1d7045;
 }
 
+.tag-help {
+  background: rgba(235, 94, 40, 0.12);
+  border-color: rgba(235, 94, 40, 0.3);
+  color: #b3471f;
+}
+
+.classroom-help-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.classroom-help-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 250, 240, 0.54);
+}
+
+.classroom-help-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.classroom-help-name {
+  min-width: 0;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.classroom-help-note {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.classroom-help-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.classroom-note-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.5rem;
+}
+
+.classroom-note-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.classroom-note-input {
+  width: 100%;
+  min-height: 4.4rem;
+  resize: vertical;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 250, 240, 0.6);
+  color: var(--night);
+  font: inherit;
+}
+
+.classroom-note-input:disabled {
+  opacity: 0.7;
+}
+
 /* Content type selector */
 
 .content-type-bar {

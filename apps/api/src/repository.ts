@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import type {
+  ClassroomState,
   ClassMembership,
   ClassRecord,
   Invite,
@@ -26,6 +27,22 @@ export type RoomEventRecord = {
   createdByUserId: string;
   createdAt: string;
 };
+
+export function createDefaultClassroomState(roomId: string): ClassroomState {
+  const time = nowIso();
+  return {
+    roomId,
+    version: 1,
+    helpRequests: [],
+    boardAccessGrants: [],
+    privateChecks: [],
+    groups: [],
+    spotlight: null,
+    lessonRun: null,
+    createdAt: time,
+    updatedAt: time
+  };
+}
 
 export type Repository = {
   close(): Promise<void>;
@@ -60,6 +77,8 @@ export type Repository = {
   deleteRoom(roomId: string): Promise<void>;
   getActiveManifest(roomId: string): Promise<RoomManifest | undefined>;
   saveManifest(manifest: RoomManifest): Promise<RoomManifest>;
+  getClassroomState(roomId: string): Promise<ClassroomState>;
+  updateClassroomState(roomId: string, input: { state: ClassroomState; expectedVersion?: number }): Promise<ClassroomState>;
   createAttachment(input: Omit<WallAttachment, "id" | "createdAt" | "updatedAt" | "status">): Promise<WallAttachment>;
   listAttachments(roomId: string): Promise<WallAttachment[]>;
   getAttachment(roomId: string, attachmentId: string): Promise<WallAttachment | undefined>;
@@ -108,6 +127,7 @@ export class MemoryRepository implements Repository {
   private invites = new Map<string, Invite>();
   private rooms = new Map<string, RoomRecord>();
   private manifests = new Map<string, RoomManifest>();
+  private classroomStates = new Map<string, ClassroomState>();
   private attachments = new Map<string, WallAttachment>();
   private wallObjects = new Map<string, WallObject>();
   private roomEvents = new Map<string, RoomEventRecord>();
@@ -304,6 +324,7 @@ export class MemoryRepository implements Repository {
     for (const [id, object] of this.wallObjects.entries()) {
       if (object.roomId === roomId) this.wallObjects.delete(id);
     }
+    this.classroomStates.delete(roomId);
     for (const [id, event] of this.roomEvents.entries()) {
       if (event.roomId === roomId) this.roomEvents.delete(id);
     }
@@ -324,6 +345,30 @@ export class MemoryRepository implements Repository {
   async saveManifest(manifest: RoomManifest) {
     this.manifests.set(`${manifest.roomId}:${manifest.version}`, manifest);
     return manifest;
+  }
+
+  async getClassroomState(roomId: string) {
+    const existing = this.classroomStates.get(roomId);
+    if (existing) return existing;
+    const state = createDefaultClassroomState(roomId);
+    this.classroomStates.set(roomId, state);
+    return state;
+  }
+
+  async updateClassroomState(roomId: string, input: { state: ClassroomState; expectedVersion?: number }) {
+    const existing = await this.getClassroomState(roomId);
+    if (input.expectedVersion && input.expectedVersion !== existing.version) {
+      throw conflict("Classroom state version conflict");
+    }
+    const updated: ClassroomState = {
+      ...input.state,
+      roomId,
+      version: existing.version + 1,
+      createdAt: existing.createdAt,
+      updatedAt: nowIso()
+    };
+    this.classroomStates.set(roomId, updated);
+    return updated;
   }
 
   async createAttachment(input: Omit<WallAttachment, "id" | "createdAt" | "updatedAt" | "status">) {

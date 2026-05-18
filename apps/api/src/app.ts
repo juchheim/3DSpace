@@ -3,6 +3,8 @@ import fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { z, type ZodTypeAny } from "zod";
 import {
   AcceptInviteResponseSchema,
+  ClassroomActionSchema,
+  ClassroomStateSchema,
   CreateClassRequestSchema,
   CreateInviteRequestSchema,
   CreateRoomRequestSchema,
@@ -30,6 +32,9 @@ import {
   WebResourcePreviewRequestSchema,
   WebResourcePreviewResponseSchema,
   createOpenApiDocument,
+  type ClassroomAction,
+  type ClassroomPrivateCheck,
+  type ClassroomState,
   type WallAttachment,
   type WallObject,
   type WallObjectType,
@@ -338,6 +343,357 @@ async function enforceWallObjectLimits(repository: Repository, room: { id: strin
       throw conflict("Room has reached the active live wall share limit");
     }
   }
+}
+
+type ClassroomActor = {
+  userId: string;
+  displayName: string;
+  role: "teacher" | "student";
+};
+
+function requireTeacher(actor: ClassroomActor) {
+  if (actor.role !== "teacher") throw forbidden("Teacher role required for this classroom action");
+}
+
+async function resolveClassroomActor(input: {
+  repository: Repository;
+  room: { classId: string };
+  membership: { role: string; displayName: string } | undefined;
+  auth: AuthContext;
+}): Promise<ClassroomActor> {
+  const classRecord = await input.repository.getClass(input.room.classId);
+  const teacher = input.membership?.role === "teacher" || classRecord?.teacherUserId === input.auth.userId;
+  return {
+    userId: input.auth.userId,
+    displayName: input.membership?.displayName ?? input.auth.displayName,
+    role: teacher ? "teacher" : "student"
+  };
+}
+
+async function hydrateClassroomDisplayNames(repository: Repository, classId: string, state: ClassroomState) {
+  const memberships = await repository.listMemberships(classId);
+  const displayNames = new Map(memberships.map((membership) => [membership.userId, membership.displayName]));
+  return ClassroomStateSchema.parse({
+    ...state,
+    helpRequests: state.helpRequests.map((request) => ({
+      ...request,
+      displayName: displayNames.get(request.userId) ?? request.displayName
+    })),
+    privateChecks: state.privateChecks.map((check) => ({
+      ...check,
+      responses: check.responses.map((response) => ({
+        ...response,
+        displayName: displayNames.get(response.userId) ?? response.displayName
+      }))
+    }))
+  });
+}
+
+function currentGroupIdForUser(state: ClassroomState, userId: string) {
+  return state.groups.find((group) => group.status !== "archived" && group.memberUserIds.includes(userId))?.id;
+}
+
+function isCheckVisibleToStudent(state: ClassroomState, check: ClassroomPrivateCheck, userId: string) {
+  if (check.target.kind === "all") return true;
+  if (check.target.kind === "users") return check.target.userIds.includes(userId);
+  if (check.target.kind === "group") return check.target.groupId === currentGroupIdForUser(state, userId);
+  return false;
+}
+
+function filterClassroomStateForActor(state: ClassroomState, actor: ClassroomActor) {
+  if (actor.role === "teacher") {
+    return ClassroomStateSchema.parse(state);
+  }
+
+  return ClassroomStateSchema.parse({
+    ...state,
+    helpRequests: state.helpRequests.filter((request) => request.userId === actor.userId),
+    boardAccessGrants: state.boardAccessGrants.filter((grant) => grant.userId === actor.userId),
+    privateChecks: state.privateChecks
+      .filter((check) => isCheckVisibleToStudent(state, check, actor.userId))
+      .map((check) => ({
+        ...check,
+        responses: check.responses.filter((response) => response.userId === actor.userId)
+      }))
+  });
+}
+
+function findHelpRequest(state: ClassroomState, requestId: string) {
+  const request = state.helpRequests.find((candidate) => candidate.id === requestId);
+  if (!request) throw notFound("Help request not found");
+  return request;
+}
+
+function findBoardGrant(state: ClassroomState, grantId: string) {
+  const grant = state.boardAccessGrants.find((candidate) => candidate.id === grantId);
+  if (!grant) throw notFound("Board access grant not found");
+  return grant;
+}
+
+function findPrivateCheck(state: ClassroomState, checkId: string) {
+  const check = state.privateChecks.find((candidate) => candidate.id === checkId);
+  if (!check) throw notFound("Private check not found");
+  return check;
+}
+
+function findGroup(state: ClassroomState, groupId: string) {
+  const group = state.groups.find((candidate) => candidate.id === groupId);
+  if (!group) throw notFound("Group not found");
+  return group;
+}
+
+function validatePrivateCheckResponse(check: ClassroomPrivateCheck, action: Extract<ClassroomAction, { type: "submit-private-check" }>) {
+  if (check.promptType === "multiple-choice") {
+    if (!action.choiceId) throw badRequest("choiceId is required for multiple-choice checks");
+    if (!check.choices.some((choice) => choice.id === action.choiceId)) {
+      throw badRequest("choiceId does not exist on this check");
+    }
+    return;
+  }
+  if (check.promptType === "short-answer") {
+    if (!action.answer?.trim()) throw badRequest("answer is required for short-answer checks");
+    return;
+  }
+  if (check.promptType === "confidence") {
+    if (typeof action.confidence !== "number") throw badRequest("confidence is required for confidence checks");
+  }
+}
+
+async function runClassroomAction(input: {
+  repository: Repository;
+  roomId: string;
+  actor: ClassroomActor;
+  action: ClassroomAction;
+}) {
+  const current = await input.repository.getClassroomState(input.roomId);
+  const state: ClassroomState = {
+    ...current,
+    helpRequests: [...current.helpRequests],
+    boardAccessGrants: [...current.boardAccessGrants],
+    privateChecks: current.privateChecks.map((check) => ({ ...check, choices: [...check.choices], responses: [...check.responses], target: { ...check.target } })),
+    groups: current.groups.map((group) => ({ ...group, memberUserIds: [...group.memberUserIds], hold: group.hold ? { ...group.hold } : undefined })),
+    spotlight: current.spotlight ? { ...current.spotlight } : null,
+    lessonRun: current.lessonRun ? { ...current.lessonRun } : null
+  };
+  const now = new Date().toISOString();
+
+  switch (input.action.type) {
+    case "raise-hand": {
+      const existing = state.helpRequests.find(
+        (request) => request.userId === input.actor.userId && ["raised", "acknowledged"].includes(request.status)
+      );
+      if (existing) {
+        existing.status = "raised";
+        existing.displayName = input.actor.displayName;
+        existing.note = input.action.note?.trim() || undefined;
+        existing.updatedAt = now;
+        delete existing.closedByUserId;
+        break;
+      }
+      state.helpRequests.unshift({
+        id: newId("help"),
+        userId: input.actor.userId,
+        displayName: input.actor.displayName,
+        note: input.action.note?.trim() || undefined,
+        status: "raised",
+        createdAt: now,
+        updatedAt: now
+      });
+      break;
+    }
+    case "cancel-help": {
+      const request =
+        input.action.requestId
+          ? findHelpRequest(state, input.action.requestId)
+          : state.helpRequests.find((candidate) => candidate.userId === input.actor.userId && ["raised", "acknowledged"].includes(candidate.status));
+      if (!request) throw notFound("Active help request not found");
+      if (request.userId !== input.actor.userId && input.actor.role !== "teacher") {
+        throw forbidden("You can only cancel your own help request");
+      }
+      request.status = "cancelled";
+      request.closedByUserId = input.actor.userId;
+      request.updatedAt = now;
+      break;
+    }
+    case "acknowledge-help": {
+      requireTeacher(input.actor);
+      const request = findHelpRequest(state, input.action.requestId);
+      request.status = "acknowledged";
+      request.updatedAt = now;
+      break;
+    }
+    case "close-help": {
+      requireTeacher(input.actor);
+      const request = findHelpRequest(state, input.action.requestId);
+      request.status = "closed";
+      request.closedByUserId = input.actor.userId;
+      request.updatedAt = now;
+      break;
+    }
+    case "grant-board-access": {
+      requireTeacher(input.actor);
+      state.boardAccessGrants.unshift({
+        id: newId("grant"),
+        userId: input.action.userId,
+        wallAnchorId: input.action.wallAnchorId,
+        requestId: input.action.requestId,
+        allowedObjectTypes: input.action.allowedObjectTypes,
+        status: "active",
+        expiresAt: input.action.expiresAt,
+        createdByUserId: input.actor.userId,
+        createdAt: now,
+        updatedAt: now
+      });
+      break;
+    }
+    case "revoke-board-access": {
+      requireTeacher(input.actor);
+      const grant = findBoardGrant(state, input.action.grantId);
+      grant.status = "revoked";
+      grant.updatedAt = now;
+      break;
+    }
+    case "create-private-check": {
+      requireTeacher(input.actor);
+      if (input.action.promptType === "multiple-choice" && input.action.choices.length < 2) {
+        throw badRequest("Multiple-choice checks require at least two choices");
+      }
+      state.privateChecks.unshift({
+        id: newId("check"),
+        question: input.action.question,
+        promptType: input.action.promptType,
+        choices: input.action.choices,
+        target: input.action.target,
+        status: "draft",
+        visibility: input.action.visibility,
+        responses: [],
+        wallAnchorId: input.action.wallAnchorId,
+        createdByUserId: input.actor.userId,
+        createdAt: now,
+        updatedAt: now
+      });
+      break;
+    }
+    case "open-private-check":
+    case "close-private-check":
+    case "reopen-private-check": {
+      requireTeacher(input.actor);
+      const check = findPrivateCheck(state, input.action.checkId);
+      check.status = input.action.type === "open-private-check" ? "open" : input.action.type === "close-private-check" ? "closed" : "open";
+      check.updatedAt = now;
+      break;
+    }
+    case "submit-private-check": {
+      const check = findPrivateCheck(state, input.action.checkId);
+      if (!isCheckVisibleToStudent(state, check, input.actor.userId) && input.actor.role !== "teacher") {
+        throw forbidden("This private check is not assigned to you");
+      }
+      if (check.status !== "open") throw conflict("Private check is not open for responses");
+      validatePrivateCheckResponse(check, input.action);
+      const response = {
+        userId: input.actor.userId,
+        displayName: input.actor.displayName,
+        choiceId: input.action.choiceId,
+        answer: input.action.answer?.trim() || undefined,
+        confidence: input.action.confidence,
+        submittedAt: now
+      };
+      const existingIndex = check.responses.findIndex((candidate) => candidate.userId === input.actor.userId);
+      if (existingIndex >= 0) {
+        check.responses[existingIndex] = response;
+      } else {
+        check.responses.push(response);
+      }
+      check.updatedAt = now;
+      break;
+    }
+    case "create-group": {
+      requireTeacher(input.actor);
+      const assigned = new Set(input.action.memberUserIds);
+      state.groups = state.groups.map((group) =>
+        assigned.size === 0
+          ? group
+          : { ...group, memberUserIds: group.memberUserIds.filter((userId) => !assigned.has(userId)) }
+      );
+      state.groups.unshift({
+        id: newId("group"),
+        label: input.action.label,
+        color: input.action.color,
+        memberUserIds: [...new Set(input.action.memberUserIds)],
+        targetPosition: input.action.targetPosition,
+        targetWallAnchorId: input.action.targetWallAnchorId,
+        hold: input.action.hold,
+        status: input.action.status,
+        createdByUserId: input.actor.userId,
+        createdAt: now,
+        updatedAt: now
+      });
+      break;
+    }
+    case "update-group": {
+      requireTeacher(input.actor);
+      const group = findGroup(state, input.action.groupId);
+      if (input.action.label !== undefined) group.label = input.action.label;
+      if (input.action.color !== undefined) group.color = input.action.color;
+      if (input.action.targetPosition !== undefined) group.targetPosition = input.action.targetPosition;
+      if (input.action.targetWallAnchorId !== undefined) group.targetWallAnchorId = input.action.targetWallAnchorId;
+      if (input.action.hold !== undefined) group.hold = input.action.hold;
+      if (input.action.status !== undefined) group.status = input.action.status;
+      group.updatedAt = now;
+      break;
+    }
+    case "assign-group": {
+      requireTeacher(input.actor);
+      const group = findGroup(state, input.action.groupId);
+      const assigned = new Set(input.action.memberUserIds);
+      const memberUserIds = [...new Set(input.action.memberUserIds)];
+      state.groups = state.groups.map((candidate) => ({
+        ...candidate,
+        memberUserIds: candidate.id === group.id ? memberUserIds : candidate.memberUserIds.filter((userId) => !assigned.has(userId))
+      }));
+      const updated = state.groups.find((candidate) => candidate.id === group.id);
+      if (updated) updated.updatedAt = now;
+      break;
+    }
+    case "release-group": {
+      requireTeacher(input.actor);
+      const group = findGroup(state, input.action.groupId);
+      group.status = "released";
+      group.updatedAt = now;
+      break;
+    }
+    case "set-spotlight": {
+      requireTeacher(input.actor);
+      if (input.action.targetType === "wall-anchor" && !input.action.anchorId) {
+        throw badRequest("anchorId is required for wall-anchor spotlight targets");
+      }
+      if (input.action.targetType === "wall-object" && !input.action.objectId) {
+        throw badRequest("objectId is required for wall-object spotlight targets");
+      }
+      state.spotlight = {
+        targetType: input.action.targetType,
+        anchorId: input.action.anchorId,
+        objectId: input.action.objectId,
+        title: input.action.title,
+        instruction: input.action.instruction,
+        mode: input.action.mode,
+        createdByUserId: input.actor.userId,
+        startedAt: now,
+        expiresAt: input.action.expiresAt
+      };
+      break;
+    }
+    case "clear-spotlight": {
+      requireTeacher(input.actor);
+      state.spotlight = null;
+      break;
+    }
+  }
+
+  return input.repository.updateClassroomState(input.roomId, {
+    state,
+    ...(input.action.expectedVersion !== undefined ? { expectedVersion: input.action.expectedVersion } : {})
+  });
 }
 
 export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
@@ -1163,6 +1519,32 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       createdByUserId: auth.userId
     });
     return object;
+  });
+
+  app.get("/v1/rooms/:roomId/classroom", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomId, request);
+    const { room, membership } = await requireRoomAccess(repository, params.roomId, auth);
+    const actor = await resolveClassroomActor({ repository, room, membership, auth });
+    const state = await repository.getClassroomState(params.roomId);
+    const hydrated = await hydrateClassroomDisplayNames(repository, room.classId, state);
+    return filterClassroomStateForActor(hydrated, actor);
+  });
+
+  app.post("/v1/rooms/:roomId/classroom/actions", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomId, request);
+    const body = parseBody(ClassroomActionSchema, request);
+    const { room, membership } = await requireRoomAccess(repository, params.roomId, auth);
+    const actor = await resolveClassroomActor({ repository, room, membership, auth });
+    const state = await runClassroomAction({
+      repository,
+      roomId: params.roomId,
+      actor,
+      action: body
+    });
+    const hydrated = await hydrateClassroomDisplayNames(repository, room.classId, state);
+    return filterClassroomStateForActor(hydrated, actor);
   });
 
   app.post("/v1/rooms/:roomId/events", async (request) => {

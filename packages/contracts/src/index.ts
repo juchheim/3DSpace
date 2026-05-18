@@ -551,6 +551,265 @@ export const WallModerationStateMessageSchema = z.object({
   senderId: z.string()
 });
 
+export const ClassroomHelpRequestSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  displayName: z.string(),
+  note: z.string().max(500).optional(),
+  status: z.enum(["raised", "acknowledged", "closed", "cancelled"]),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  closedByUserId: z.string().optional()
+});
+
+export const ClassroomBoardAccessGrantSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  wallAnchorId: z.string(),
+  requestId: z.string().optional(),
+  allowedObjectTypes: z.array(WallObjectTypeSchema).default([]),
+  status: z.enum(["active", "revoked", "expired"]),
+  expiresAt: z.string().optional(),
+  createdByUserId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string()
+});
+
+export const ClassroomGroupHoldSchema = z.object({
+  enabled: z.boolean(),
+  mode: z.enum(["soft", "hard"]).default("soft"),
+  radiusMeters: z.number().positive().default(2)
+});
+
+export const ClassroomGroupSchema = z.object({
+  id: z.string(),
+  label: z.string().min(1).max(80),
+  color: z.string().min(1).max(40),
+  memberUserIds: z.array(z.string()).default([]),
+  targetPosition: Vector3Schema.optional(),
+  targetWallAnchorId: z.string().optional(),
+  hold: ClassroomGroupHoldSchema.optional(),
+  status: z.enum(["active", "released", "archived"]),
+  createdByUserId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string()
+});
+
+export const ClassroomSpotlightSchema = z.object({
+  targetType: z.enum(["wall-anchor", "wall-object"]),
+  anchorId: z.string().optional(),
+  objectId: z.string().optional(),
+  title: z.string().max(160).optional(),
+  instruction: z.string().max(500).optional(),
+  mode: z.enum(["highlight", "guide", "force"]),
+  createdByUserId: z.string(),
+  startedAt: z.string(),
+  expiresAt: z.string().optional()
+});
+
+export const ClassroomPrivateCheckChoiceSchema = z.object({
+  id: z.string(),
+  label: z.string().min(1).max(200)
+});
+
+export const ClassroomPrivateCheckResponseSchema = z.object({
+  userId: z.string(),
+  displayName: z.string(),
+  choiceId: z.string().optional(),
+  answer: z.string().max(2000).optional(),
+  confidence: z.number().min(1).max(5).optional(),
+  submittedAt: z.string()
+});
+
+export const ClassroomPrivateCheckTargetSchema = z.object({
+  kind: z.enum(["all", "group", "users"]).default("all"),
+  groupId: z.string().optional(),
+  userIds: z.array(z.string()).default([])
+});
+
+export const ClassroomPrivateCheckSchema = z.object({
+  id: z.string(),
+  question: z.string().min(1).max(1000),
+  promptType: z.enum(["multiple-choice", "short-answer", "confidence"]),
+  choices: z.array(ClassroomPrivateCheckChoiceSchema).default([]),
+  target: ClassroomPrivateCheckTargetSchema.default({ kind: "all", userIds: [] }),
+  status: z.enum(["draft", "open", "closed", "archived"]),
+  visibility: z.enum(["teacher-only", "anonymous-aggregate"]).default("teacher-only"),
+  responses: z.array(ClassroomPrivateCheckResponseSchema).default([]),
+  wallAnchorId: z.string().optional(),
+  createdByUserId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string()
+});
+
+export const ClassroomStateSchema = z.object({
+  roomId: z.string(),
+  version: z.number().int().positive(),
+  helpRequests: z.array(ClassroomHelpRequestSchema).default([]),
+  boardAccessGrants: z.array(ClassroomBoardAccessGrantSchema).default([]),
+  privateChecks: z.array(ClassroomPrivateCheckSchema).default([]),
+  groups: z.array(ClassroomGroupSchema).default([]),
+  spotlight: ClassroomSpotlightSchema.nullable().default(null),
+  lessonRun: z.record(z.unknown()).nullable().default(null),
+  createdAt: z.string(),
+  updatedAt: z.string()
+});
+
+const ClassroomActionBaseSchema = z.object({
+  expectedVersion: z.number().int().positive().optional()
+});
+
+export const ClassroomRaiseHandActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("raise-hand"),
+  note: z.string().max(500).optional()
+});
+
+export const ClassroomCancelHelpActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("cancel-help"),
+  requestId: z.string().optional()
+});
+
+export const ClassroomAcknowledgeHelpActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("acknowledge-help"),
+  requestId: z.string().min(1)
+});
+
+export const ClassroomCloseHelpActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("close-help"),
+  requestId: z.string().min(1)
+});
+
+export const ClassroomGrantBoardAccessActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("grant-board-access"),
+  userId: z.string().min(1),
+  wallAnchorId: z.string().min(1),
+  requestId: z.string().optional(),
+  allowedObjectTypes: z.array(WallObjectTypeSchema).default([]),
+  expiresAt: z.string().optional()
+});
+
+export const ClassroomRevokeBoardAccessActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("revoke-board-access"),
+  grantId: z.string().min(1)
+});
+
+export const ClassroomCreatePrivateCheckActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("create-private-check"),
+  question: z.string().min(1).max(1000),
+  promptType: z.enum(["multiple-choice", "short-answer", "confidence"]),
+  choices: z.array(ClassroomPrivateCheckChoiceSchema).default([]),
+  target: ClassroomPrivateCheckTargetSchema.default({ kind: "all", userIds: [] }),
+  visibility: z.enum(["teacher-only", "anonymous-aggregate"]).default("teacher-only"),
+  wallAnchorId: z.string().optional()
+});
+
+export const ClassroomOpenPrivateCheckActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("open-private-check"),
+  checkId: z.string().min(1)
+});
+
+export const ClassroomClosePrivateCheckActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("close-private-check"),
+  checkId: z.string().min(1)
+});
+
+export const ClassroomReopenPrivateCheckActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("reopen-private-check"),
+  checkId: z.string().min(1)
+});
+
+export const ClassroomSubmitPrivateCheckActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("submit-private-check"),
+  checkId: z.string().min(1),
+  choiceId: z.string().optional(),
+  answer: z.string().max(2000).optional(),
+  confidence: z.number().min(1).max(5).optional()
+});
+
+export const ClassroomCreateGroupActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("create-group"),
+  label: z.string().min(1).max(80),
+  color: z.string().min(1).max(40),
+  memberUserIds: z.array(z.string()).default([]),
+  targetPosition: Vector3Schema.optional(),
+  targetWallAnchorId: z.string().optional(),
+  hold: ClassroomGroupHoldSchema.optional(),
+  status: z.enum(["active", "released", "archived"]).default("active")
+});
+
+export const ClassroomUpdateGroupActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("update-group"),
+  groupId: z.string().min(1),
+  label: z.string().min(1).max(80).optional(),
+  color: z.string().min(1).max(40).optional(),
+  targetPosition: Vector3Schema.optional(),
+  targetWallAnchorId: z.string().optional(),
+  hold: ClassroomGroupHoldSchema.optional(),
+  status: z.enum(["active", "released", "archived"]).optional()
+});
+
+export const ClassroomAssignGroupActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("assign-group"),
+  groupId: z.string().min(1),
+  memberUserIds: z.array(z.string()).default([])
+});
+
+export const ClassroomReleaseGroupActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("release-group"),
+  groupId: z.string().min(1)
+});
+
+export const ClassroomSetSpotlightActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("set-spotlight"),
+  targetType: z.enum(["wall-anchor", "wall-object"]),
+  anchorId: z.string().optional(),
+  objectId: z.string().optional(),
+  title: z.string().max(160).optional(),
+  instruction: z.string().max(500).optional(),
+  mode: z.enum(["highlight", "guide", "force"]),
+  expiresAt: z.string().optional()
+});
+
+export const ClassroomClearSpotlightActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("clear-spotlight")
+});
+
+export const ClassroomActionSchema = z.discriminatedUnion("type", [
+  ClassroomRaiseHandActionSchema,
+  ClassroomCancelHelpActionSchema,
+  ClassroomAcknowledgeHelpActionSchema,
+  ClassroomCloseHelpActionSchema,
+  ClassroomGrantBoardAccessActionSchema,
+  ClassroomRevokeBoardAccessActionSchema,
+  ClassroomCreatePrivateCheckActionSchema,
+  ClassroomOpenPrivateCheckActionSchema,
+  ClassroomClosePrivateCheckActionSchema,
+  ClassroomReopenPrivateCheckActionSchema,
+  ClassroomSubmitPrivateCheckActionSchema,
+  ClassroomCreateGroupActionSchema,
+  ClassroomUpdateGroupActionSchema,
+  ClassroomAssignGroupActionSchema,
+  ClassroomReleaseGroupActionSchema,
+  ClassroomSetSpotlightActionSchema,
+  ClassroomClearSpotlightActionSchema
+]);
+
+export const ClassroomStateChangedRealtimeSchema = z.object({
+  type: z.literal("classroom.state.changed.v1"),
+  roomId: z.string(),
+  version: z.number().int().positive(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const ClassroomStateRealtimeSchema = z.object({
+  type: z.literal("classroom.state.v1"),
+  roomId: z.string(),
+  state: ClassroomStateSchema,
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
 export const RoomEventRequestSchema = z.object({
   type: z.string().min(1).max(120),
   payload: z.record(z.unknown()).default({})
@@ -608,6 +867,19 @@ export type WallObjectSource = z.infer<typeof WallObjectSourceSchema>;
 export type WallObjectPlacement = z.infer<typeof WallObjectPlacementSchema>;
 export type WallObject = z.infer<typeof WallObjectSchema>;
 export type WallPlaybackStateMessage = z.infer<typeof WallPlaybackStateMessageSchema>;
+export type ClassroomHelpRequest = z.infer<typeof ClassroomHelpRequestSchema>;
+export type ClassroomBoardAccessGrant = z.infer<typeof ClassroomBoardAccessGrantSchema>;
+export type ClassroomGroupHold = z.infer<typeof ClassroomGroupHoldSchema>;
+export type ClassroomGroup = z.infer<typeof ClassroomGroupSchema>;
+export type ClassroomSpotlight = z.infer<typeof ClassroomSpotlightSchema>;
+export type ClassroomPrivateCheckChoice = z.infer<typeof ClassroomPrivateCheckChoiceSchema>;
+export type ClassroomPrivateCheckResponse = z.infer<typeof ClassroomPrivateCheckResponseSchema>;
+export type ClassroomPrivateCheckTarget = z.infer<typeof ClassroomPrivateCheckTargetSchema>;
+export type ClassroomPrivateCheck = z.infer<typeof ClassroomPrivateCheckSchema>;
+export type ClassroomState = z.infer<typeof ClassroomStateSchema>;
+export type ClassroomAction = z.infer<typeof ClassroomActionSchema>;
+export type ClassroomStateChangedRealtimeMessage = z.infer<typeof ClassroomStateChangedRealtimeSchema>;
+export type ClassroomStateRealtimeMessage = z.infer<typeof ClassroomStateRealtimeSchema>;
 
 type ApiRoute = {
   method: "get" | "post" | "patch" | "delete";
@@ -649,6 +921,8 @@ export const apiRoutes: ApiRoute[] = [
   { method: "post", path: "/v1/rooms/{roomId}/wall-shares/{objectId}/end", summary: "Mark live wall share ended", tags: ["wall-objects"], response: WallObjectSchema },
   { method: "post", path: "/v1/rooms/{roomId}/web-resources", summary: "Create safe wall web resource", tags: ["wall-objects"], request: CreateWebResourceRequestSchema, response: WallObjectSchema },
   { method: "post", path: "/v1/rooms/{roomId}/web-resources/preview", summary: "Preview safe wall web resource support", tags: ["wall-objects"], request: WebResourcePreviewRequestSchema, response: WebResourcePreviewResponseSchema },
+  { method: "get", path: "/v1/rooms/{roomId}/classroom", summary: "Get classroom state visible to the current user", tags: ["classroom"], response: ClassroomStateSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/classroom/actions", summary: "Run a classroom state action", tags: ["classroom"], request: ClassroomActionSchema, response: ClassroomStateSchema },
   { method: "post", path: "/v1/rooms/{roomId}/events", summary: "Persist optional durable room events", tags: ["rooms"], request: RoomEventRequestSchema, response: RoomEventResponseSchema }
 ];
 
