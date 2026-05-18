@@ -1,6 +1,6 @@
 # Safari LiveKit ICE Connection Failure - Investigation Handoff
 
-**Status:** Active - relay-only TURN, the restored default v1 path, the disabled video primer, host-only ICE plus an enabled silent audio primer, the regional US RTC endpoint, and the earlier same-day `prepareConnection()` plus `autoSubscribe: false` path all failed on a mobile hotspot. Current candidate rolls all the way back to the pre-classroom baseline from before `32eb86b`: simple `room.connect()` on `livekit-client@2.2.0`, with no Safari-specific connection logic.  
+**Status:** Active - relay-only TURN, the restored default v1 path, the disabled video primer, host-only ICE plus an enabled silent audio primer, the regional US RTC endpoint, the earlier same-day `prepareConnection()` plus `autoSubscribe: false` path, and the pre-classroom baseline all failed or were ruled out as too old. Current candidate is the narrower rollback target just before the first Safari-specific fix commit `22a1b91`: the `6a0c5ea` connection shape on `livekit-client@2.2.0`.  
 **Branch:** `mvp-plus-one`  
 **Primary file:** `apps/web/lib/realtime.ts`  
 **LiveKit SDK:** `livekit-client@2.19.0`
@@ -32,7 +32,7 @@ The mobile hotspot logs prove that Safari can receive correctly credentialed TUR
 
 This matches a known WebKit failure mode for receive-only / data-channel-first WebRTC sessions: Safari may not emit useful ICE candidates until the connection has a local media sender. LiveKit is being used for data/presence first, so users can enter the room before enabling camera or microphone.
 
-Current candidate fix: restore the pre-classroom baseline that existed before the `Phase 1: Contracts And Persistence` classroom work landed. That baseline used a simple `room.connect()` flow with `livekit-client@2.2.0` and no Safari-specific connection branches at all.
+Current candidate fix: restore the connection shape from `6a0c5ea`, which is immediately before `2f74b89` and `22a1b91`. The current theory is that Safari broke in the short window between `6a0c5ea` and the first Safari-specific repair attempt, not back at the pre-classroom baseline.
 
 ---
 
@@ -136,7 +136,7 @@ Reasoning:
 
 Result: still failed according to the next Safari retest.
 
-### Current Candidate: Pre-Classroom Baseline (`32eb86b^`)
+### Experiment 8: Pre-Classroom Baseline (`32eb86b^`)
 
 Anchor:
 
@@ -159,6 +159,33 @@ Reasoning:
 - this is the cleanest regression boundary in the repo;
 - it predates the classroom-tools phase the user pointed at;
 - it also predates the same-day SDK bump to `2.19.0` that triggered the Safari patch cascade.
+
+Result: this overshot the likely break window. The user confirmed Safari had been working more recently, and the first Safari-specific fix work does not begin until `22a1b91`.
+
+### Current Candidate: Immediate Pre-Safari-Fix Window (`6a0c5ea`)
+
+Window:
+
+- `6a0c5ea` (`Fix teacher LiveKit connect hanging on Room session ready`) is the last non-Safari-specific LiveKit change before the break;
+- `2f74b89` (`Fix teacher LiveKit fallback caused by stale duplicate connections`) changes connect teardown/retry behavior and adds `prepareConnection()`;
+- `22a1b91` is the first explicit Safari repair attempt.
+
+Current restoration:
+
+- keep `livekit-client@2.2.0`;
+- restore the `6a0c5ea`-style connect path:
+  - static `livekit-client` import;
+  - `normalizeLiveKitUrl()`;
+  - one `room.connect()` wrapped in a simple 20s timeout;
+  - no `prepareConnection()`;
+  - no disconnect/retry loop;
+  - no Safari-only room options;
+  - no room recreation or dual-PC Safari path.
+
+Reasoning:
+
+- this is the tightest git window consistent with "Safari was working until shortly before the first Safari fixes";
+- `2f74b89` is now the most suspicious change because it modifies connect lifecycle and cleanup just before `22a1b91`.
 
 ---
 
