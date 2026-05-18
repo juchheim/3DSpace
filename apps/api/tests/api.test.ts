@@ -1067,12 +1067,9 @@ describe("3dspace api", () => {
     await app.close();
   });
 
-  it("allows grant-scoped student wall creation on a teacher-only room", async () => {
+  it("allows grant-scoped student wall creation on a teacher-only room even when student uploads are otherwise disabled", async () => {
     const app = await buildApp({
-      config: loadConfig({
-        NODE_ENV: "test",
-        ENABLE_WALL_STUDENT_UPLOADS: "true"
-      } as NodeJS.ProcessEnv),
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
       repository: new MemoryRepository()
     });
     const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-classroom-grant");

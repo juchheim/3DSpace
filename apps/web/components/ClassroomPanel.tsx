@@ -2,7 +2,20 @@
 
 import { anchorAcceptsWallObjectType } from "@3dspace/room-engine";
 import { useMemo, useState } from "react";
-import type { ClassroomAction, ClassroomBoardAccessGrant, ClassroomHelpRequest, ClassroomState, Role, RoomManifest, RoomSettings } from "@3dspace/contracts";
+import type { ClassroomAction, ClassroomBoardAccessGrant, ClassroomHelpRequest, ClassroomState, Role, RoomManifest } from "@3dspace/contracts";
+
+const GRANT_TYPE_OPTIONS: Array<{
+  type: "image.file" | "video.file" | "audio.file" | "note" | "camera.live" | "microphone.live" | "browser-tab.live";
+  label: string;
+}> = [
+  { type: "image.file", label: "Image" },
+  { type: "video.file", label: "Video" },
+  { type: "audio.file", label: "Audio" },
+  { type: "note", label: "Note" },
+  { type: "camera.live", label: "Camera" },
+  { type: "microphone.live", label: "Mic" },
+  { type: "browser-tab.live", label: "Screen" }
+];
 
 function statusLabel(status: ClassroomHelpRequest["status"]) {
   if (status === "raised") return "Raised";
@@ -18,7 +31,6 @@ export function ClassroomPanel({
   error,
   activeHelpRequest,
   manifest,
-  roomSettings,
   currentUserId,
   onRunAction
 }: {
@@ -28,13 +40,13 @@ export function ClassroomPanel({
   error: string;
   activeHelpRequest: ClassroomHelpRequest | null;
   manifest?: RoomManifest | null | undefined;
-  roomSettings?: RoomSettings | null | undefined;
   currentUserId?: string | undefined;
   onRunAction(action: ClassroomAction): Promise<void>;
 }) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState("");
   const [selectedAnchorsByRequestId, setSelectedAnchorsByRequestId] = useState<Record<string, string>>({});
+  const [selectedGrantTypesByRequestId, setSelectedGrantTypesByRequestId] = useState<Record<string, string[]>>({});
 
   const teacherQueue = useMemo(
     () =>
@@ -54,22 +66,18 @@ export function ClassroomPanel({
 
   function allowedGrantTypes(anchorId: string) {
     const anchor = manifest?.wallAnchors.find((candidate) => candidate.id === anchorId);
-    if (!anchor || !roomSettings) return [];
+    if (!anchor) return [];
     const next: Array<
       "image.file" | "video.file" | "audio.file" | "note" | "camera.live" | "microphone.live" | "browser-tab.live"
     > = [];
-    if (roomSettings.allowStudentUploads) {
-      if (anchorAcceptsWallObjectType(anchor, "image.file")) next.push("image.file");
-      if (anchorAcceptsWallObjectType(anchor, "video.file")) next.push("video.file");
-      if (anchorAcceptsWallObjectType(anchor, "audio.file")) next.push("audio.file");
-    }
+    if (anchorAcceptsWallObjectType(anchor, "image.file")) next.push("image.file");
+    if (anchorAcceptsWallObjectType(anchor, "video.file")) next.push("video.file");
+    if (anchorAcceptsWallObjectType(anchor, "audio.file")) next.push("audio.file");
     if (anchorAcceptsWallObjectType(anchor, "note")) next.push("note");
-    if (roomSettings.allowLiveStudentShares) {
-      if (anchorAcceptsWallObjectType(anchor, "camera.live")) next.push("camera.live");
-      if (anchorAcceptsWallObjectType(anchor, "microphone.live")) next.push("microphone.live");
-      if (anchorAcceptsWallObjectType(anchor, "browser-tab.live") || anchorAcceptsWallObjectType(anchor, "screen.live")) {
-        next.push("browser-tab.live");
-      }
+    if (anchorAcceptsWallObjectType(anchor, "camera.live")) next.push("camera.live");
+    if (anchorAcceptsWallObjectType(anchor, "microphone.live")) next.push("microphone.live");
+    if (anchorAcceptsWallObjectType(anchor, "browser-tab.live") || anchorAcceptsWallObjectType(anchor, "screen.live")) {
+      next.push("browser-tab.live");
     }
     return next;
   }
@@ -100,6 +108,7 @@ export function ClassroomPanel({
             (() => {
               const selectedAnchorId = selectedAnchorsByRequestId[request.id] ?? manifest?.wallAnchors[0]?.id ?? "";
               const grantTypes = selectedAnchorId ? allowedGrantTypes(selectedAnchorId) : [];
+              const selectedGrantTypes = selectedGrantTypesByRequestId[request.id] ?? grantTypes;
               const busyId = `grant-${request.id}`;
               return (
                 <li key={request.id} className="classroom-help-item" data-testid={`help-request-${request.id}`}>
@@ -114,12 +123,18 @@ export function ClassroomPanel({
                         className="anchor-select-compact"
                         value={selectedAnchorId}
                         aria-label={`Grant board for ${request.displayName}`}
-                        onChange={(event) =>
+                        onChange={(event) => {
+                          const nextAnchorId = event.target.value;
+                          const nextGrantTypes = allowedGrantTypes(nextAnchorId);
                           setSelectedAnchorsByRequestId((current) => ({
                             ...current,
-                            [request.id]: event.target.value
-                          }))
-                        }
+                            [request.id]: nextAnchorId
+                          }));
+                          setSelectedGrantTypesByRequestId((current) => ({
+                            ...current,
+                            [request.id]: nextGrantTypes
+                          }));
+                        }}
                       >
                         {manifest.wallAnchors.map((anchor) => (
                           <option key={anchor.id} value={anchor.id}>
@@ -127,13 +142,41 @@ export function ClassroomPanel({
                           </option>
                         ))}
                       </select>
+                      {grantTypes.length > 0 ? (
+                        <div className="classroom-grant-types" role="group" aria-label={`Allowed communication types for ${request.displayName}`}>
+                          {GRANT_TYPE_OPTIONS.filter((option) => grantTypes.includes(option.type)).map((option) => {
+                            const checked = selectedGrantTypes.includes(option.type);
+                            return (
+                              <label key={option.type} className={`classroom-grant-option${checked ? " classroom-grant-option--checked" : ""}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={(event) =>
+                                    setSelectedGrantTypesByRequestId((current) => {
+                                      const previous = current[request.id] ?? grantTypes;
+                                      const next = event.target.checked
+                                        ? [...previous, option.type]
+                                        : previous.filter((entry) => entry !== option.type);
+                                      return {
+                                        ...current,
+                                        [request.id]: [...new Set(next)]
+                                      };
+                                    })
+                                  }
+                                />
+                                <span>{option.label}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      ) : null}
                       <button
                         type="button"
                         className="hud-btn"
-                        disabled={busy === busyId || !selectedAnchorId || grantTypes.length === 0}
+                        disabled={busy === busyId || !selectedAnchorId || selectedGrantTypes.length === 0}
                         data-testid={`grant-board-${request.id}`}
                         onClick={async () => {
-                          if (!selectedAnchorId || grantTypes.length === 0) return;
+                          if (!selectedAnchorId || selectedGrantTypes.length === 0) return;
                           if (request.status === "raised") {
                             await run(request.id, { type: "acknowledge-help", requestId: request.id });
                           }
@@ -142,7 +185,9 @@ export function ClassroomPanel({
                             userId: request.userId,
                             wallAnchorId: selectedAnchorId,
                             requestId: request.id,
-                            allowedObjectTypes: grantTypes
+                            allowedObjectTypes: selectedGrantTypes as Array<
+                              "image.file" | "video.file" | "audio.file" | "note" | "camera.live" | "microphone.live" | "browser-tab.live"
+                            >
                           });
                         }}
                       >

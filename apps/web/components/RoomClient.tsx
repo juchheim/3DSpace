@@ -745,7 +745,6 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           error={classroom.error}
           activeHelpRequest={classroom.activeHelpRequest}
           manifest={manifest}
-          roomSettings={session?.room.settings ?? null}
           currentUserId={identity.userId}
           onRunAction={async (action) => {
             await classroom.runAction(action);

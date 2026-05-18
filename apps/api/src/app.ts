@@ -304,8 +304,8 @@ async function assertWallObjectCreatePolicy(input: {
   if (input.room.settings.wallObjectCreation === "teacher-only" && !granted) throw forbidden("Teacher role required to create wall objects");
   const isFile = Boolean(fileKindForWallObjectType(input.type));
   const isLive = isLiveWallObjectType(input.type);
-  if (isFile && !input.room.settings.allowStudentUploads) throw forbidden("Student wall uploads are disabled");
-  if (isLive && !input.room.settings.allowLiveStudentShares) throw forbidden("Student live wall shares are disabled");
+  if (isFile && !input.room.settings.allowStudentUploads && !granted) throw forbidden("Student wall uploads are disabled");
+  if (isLive && !input.room.settings.allowLiveStudentShares && !granted) throw forbidden("Student live wall shares are disabled");
   return { teacher, granted };
 }
 
@@ -1226,7 +1226,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
             type: uploadType
           })
         : undefined;
-    if (!teacher && ((!grant && room.settings.wallObjectCreation === "teacher-only") || !room.settings.allowStudentUploads)) {
+    if (!teacher && ((!grant && room.settings.wallObjectCreation === "teacher-only") || (!grant && !room.settings.allowStudentUploads))) {
       throw forbidden("Student wall uploads are disabled");
     }
     const storageKey = storageKeyFor({ roomId: params.roomId, wallAnchorId: body.wallAnchorId, fileName: body.fileName });

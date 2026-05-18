@@ -741,6 +741,35 @@ label {
   gap: 0.35rem;
 }
 
+.classroom-grant-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.classroom-grant-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.18rem 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 250, 240, 0.48);
+  color: var(--muted);
+  font-size: 0.68rem;
+  cursor: pointer;
+}
+
+.classroom-grant-option input {
+  margin: 0;
+}
+
+.classroom-grant-option--checked {
+  border-color: rgba(42, 158, 106, 0.32);
+  background: rgba(42, 158, 106, 0.1);
+  color: #1d7045;
+}
+
 .classroom-note-field {
   display: flex;
   flex-direction: column;
