@@ -1,6 +1,5 @@
 "use client";
 
-import { ConnectionState, Room, RoomEvent, Track } from "livekit-client";
 import { waitForVideoTrackDimensions } from "./mediaTracks";
 import type {
   AvatarStateMessage,
@@ -76,23 +75,6 @@ function withoutSender(payload: unknown) {
   return message as RealtimeMessage;
 }
 
-export function normalizeLiveKitUrl(url: string) {
-  const trimmed = url.trim();
-  if (trimmed.startsWith("https://")) return `wss://${trimmed.slice("https://".length)}`;
-  if (trimmed.startsWith("http://")) return `ws://${trimmed.slice("http://".length)}`;
-  return trimmed;
-}
-
-async function connectLiveKitRoom(room: Room, url: string, token: string, timeoutMs = 20_000) {
-  const livekitUrl = normalizeLiveKitUrl(url);
-  await Promise.race([
-    room.connect(livekitUrl, token),
-    new Promise<never>((_resolve, reject) => {
-      window.setTimeout(() => reject(new Error("LiveKit connection timed out. Check LIVEKIT_URL uses wss:// on the API service.")), timeoutMs);
-    })
-  ]);
-}
-
 function createBroadcastClient(input: AdapterInput, reason?: string): RealtimeClient {
   const channel = new BroadcastChannel(`3dspace:${input.roomId}`);
   channel.onmessage = (event) => {
@@ -138,8 +120,8 @@ function createBroadcastClient(input: AdapterInput, reason?: string): RealtimeCl
 }
 
 async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient> {
+  const { Room, RoomEvent, Track } = await import("livekit-client");
   const room = new Room({ adaptiveStream: true, dynacast: true });
-  input.onStatus("Connecting to LiveKit...");
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
   let publishedCameraTrack: MediaStreamTrack | null = null;
@@ -263,12 +245,6 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
     }
   }
 
-  function syncRemoteParticipants() {
-    room.remoteParticipants.forEach((participant) => {
-      input.onMessage(presenceFromParticipant(participant));
-    });
-  }
-
   room.on(RoomEvent.DataReceived, (payload: Uint8Array) => {
     try {
       input.onMessage(JSON.parse(decoder.decode(payload)) as RealtimeMessage);
@@ -282,6 +258,12 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
     handleRemoteTrackRemoved(track, participant.identity, publication);
   });
+  function syncRemoteParticipants() {
+    room.remoteParticipants.forEach((participant) => {
+      input.onMessage(presenceFromParticipant(participant));
+    });
+  }
+
   room.on(RoomEvent.Connected, syncRemoteParticipants);
   room.on(RoomEvent.Reconnected, syncRemoteParticipants);
   room.on(RoomEvent.ParticipantConnected, (participant) => {
@@ -293,17 +275,8 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
       participantId: participantIdFromIdentity(participant.identity)
     });
   });
-  room.on(RoomEvent.ConnectionStateChanged, (state) => {
-    if (state === ConnectionState.Connected) {
-      input.onStatus("Connected through LiveKit media and data channels.");
-    } else if (state === ConnectionState.Reconnecting) {
-      input.onStatus("Reconnecting to LiveKit...");
-    } else if (state === ConnectionState.Disconnected) {
-      input.onStatus("Disconnected from LiveKit.");
-    }
-  });
 
-  await connectLiveKitRoom(room, input.session.livekitUrl, input.session.token);
+  await room.connect(input.session.livekitUrl, input.session.token);
   if (closed || input.isStale?.()) {
     await room.disconnect(true).catch(() => undefined);
     throw new Error("LiveKit connection aborted");
