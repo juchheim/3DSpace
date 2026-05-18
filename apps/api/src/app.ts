@@ -389,6 +389,95 @@ async function hydrateClassroomDisplayNames(repository: Repository, classId: str
   });
 }
 
+function sanitizeClassroomState(state: ClassroomState): ClassroomState {
+  return ClassroomStateSchema.parse({
+    ...state,
+    helpRequests: state.helpRequests.map((request) => ({
+      id: request.id,
+      userId: request.userId,
+      displayName: request.displayName,
+      ...(typeof request.note === "string" ? { note: request.note } : {}),
+      status: request.status,
+      createdAt: request.createdAt,
+      updatedAt: request.updatedAt,
+      ...(typeof request.closedByUserId === "string" ? { closedByUserId: request.closedByUserId } : {})
+    })),
+    boardAccessGrants: state.boardAccessGrants.map((grant) => ({
+      id: grant.id,
+      userId: grant.userId,
+      wallAnchorId: grant.wallAnchorId,
+      ...(typeof grant.requestId === "string" ? { requestId: grant.requestId } : {}),
+      allowedObjectTypes: grant.allowedObjectTypes,
+      status: grant.status,
+      ...(typeof grant.expiresAt === "string" ? { expiresAt: grant.expiresAt } : {}),
+      createdByUserId: grant.createdByUserId,
+      createdAt: grant.createdAt,
+      updatedAt: grant.updatedAt
+    })),
+    privateChecks: state.privateChecks.map((check) => ({
+      id: check.id,
+      question: check.question,
+      promptType: check.promptType,
+      choices: check.choices.map((choice) => ({ id: choice.id, label: choice.label })),
+      target: {
+        kind: check.target.kind,
+        ...(typeof check.target.groupId === "string" ? { groupId: check.target.groupId } : {}),
+        userIds: check.target.userIds
+      },
+      status: check.status,
+      visibility: check.visibility,
+      responses: check.responses.map((response) => ({
+        userId: response.userId,
+        displayName: response.displayName,
+        ...(typeof response.choiceId === "string" ? { choiceId: response.choiceId } : {}),
+        ...(typeof response.answer === "string" ? { answer: response.answer } : {}),
+        ...(typeof response.confidence === "number" ? { confidence: response.confidence } : {}),
+        submittedAt: response.submittedAt
+      })),
+      ...(typeof check.wallAnchorId === "string" ? { wallAnchorId: check.wallAnchorId } : {}),
+      createdByUserId: check.createdByUserId,
+      createdAt: check.createdAt,
+      updatedAt: check.updatedAt
+    })),
+    groups: state.groups.map((group) => ({
+      id: group.id,
+      label: group.label,
+      color: group.color,
+      memberUserIds: group.memberUserIds,
+      ...(group.targetPosition ? { targetPosition: group.targetPosition } : {}),
+      ...(typeof group.targetWallAnchorId === "string" ? { targetWallAnchorId: group.targetWallAnchorId } : {}),
+      ...(group.hold
+        ? {
+            hold: {
+              enabled: group.hold.enabled,
+              mode: group.hold.mode,
+              radiusMeters: group.hold.radiusMeters
+            }
+          }
+        : {}),
+      status: group.status,
+      createdByUserId: group.createdByUserId,
+      createdAt: group.createdAt,
+      updatedAt: group.updatedAt
+    })),
+    spotlight:
+      state.spotlight && typeof state.spotlight === "object"
+        ? {
+            targetType: state.spotlight.targetType,
+            ...(typeof state.spotlight.anchorId === "string" ? { anchorId: state.spotlight.anchorId } : {}),
+            ...(typeof state.spotlight.objectId === "string" ? { objectId: state.spotlight.objectId } : {}),
+            ...(typeof state.spotlight.title === "string" ? { title: state.spotlight.title } : {}),
+            ...(typeof state.spotlight.instruction === "string" ? { instruction: state.spotlight.instruction } : {}),
+            mode: state.spotlight.mode,
+            createdByUserId: state.spotlight.createdByUserId,
+            startedAt: state.spotlight.startedAt,
+            ...(typeof state.spotlight.expiresAt === "string" ? { expiresAt: state.spotlight.expiresAt } : {})
+          }
+        : null,
+    lessonRun: state.lessonRun ?? null
+  });
+}
+
 function currentGroupIdForUser(state: ClassroomState, userId: string) {
   return state.groups.find((group) => group.status !== "archived" && group.memberUserIds.includes(userId))?.id;
 }
@@ -465,7 +554,7 @@ async function runClassroomAction(input: {
   actor: ClassroomActor;
   action: ClassroomAction;
 }) {
-  const current = await input.repository.getClassroomState(input.roomId);
+  const current = sanitizeClassroomState(await input.repository.getClassroomState(input.roomId));
   const state: ClassroomState = {
     ...current,
     helpRequests: [...current.helpRequests],
@@ -1526,7 +1615,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const params = parseParams(ParamsWithRoomId, request);
     const { room, membership } = await requireRoomAccess(repository, params.roomId, auth);
     const actor = await resolveClassroomActor({ repository, room, membership, auth });
-    const state = await repository.getClassroomState(params.roomId);
+    const state = sanitizeClassroomState(await repository.getClassroomState(params.roomId));
     const hydrated = await hydrateClassroomDisplayNames(repository, room.classId, state);
     return filterClassroomStateForActor(hydrated, actor);
   });
@@ -1543,7 +1632,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       actor,
       action: body
     });
-    const hydrated = await hydrateClassroomDisplayNames(repository, room.classId, state);
+    const hydrated = await hydrateClassroomDisplayNames(repository, room.classId, sanitizeClassroomState(state));
     return filterClassroomStateForActor(hydrated, actor);
   });
 

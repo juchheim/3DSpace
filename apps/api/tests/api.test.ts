@@ -973,4 +973,47 @@ describe("3dspace api", () => {
 
     await app.close();
   });
+
+  it("tolerates persisted null optional classroom fields when raising a hand", async () => {
+    const repository = new MemoryRepository();
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-classroom-null");
+    await addStudentMember(app, classRecord.id, "teacher-classroom-null", "student-classroom-null", "Avery");
+
+    const seeded = await repository.getClassroomState(roomWithManifest.room.id);
+    await repository.updateClassroomState(roomWithManifest.room.id, {
+      state: {
+        ...seeded,
+        helpRequests: [
+          {
+            id: "help_legacy",
+            userId: "student-classroom-null",
+            displayName: "Avery",
+            note: null,
+            status: "closed",
+            createdAt: seeded.createdAt,
+            updatedAt: seeded.updatedAt,
+            closedByUserId: null
+          }
+        ]
+      } as any,
+      expectedVersion: seeded.version
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("student-classroom-null", "Avery"),
+      payload: { type: "raise-hand" }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().helpRequests[0].displayName).toBe("Avery");
+    expect(response.json().helpRequests[0].status).toBe("raised");
+
+    await app.close();
+  });
 });
