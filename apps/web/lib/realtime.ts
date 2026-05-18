@@ -506,6 +506,19 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
             `sub.ice=${sub2?.iceConnectionState ?? "no-pc"}`,
             `sub.gather=${sub2?.iceGatheringState ?? "–"}`,
           );
+          // Dump candidate pairs + local candidates at t+3s to see what Safari gathered
+          if (tick === 3 && pub2) {
+            void pub2.getStats().then((stats) => {
+              stats.forEach((report) => {
+                if (report.type === "local-candidate") {
+                  console.log("[ICE stats local]", `type=${report.candidateType}`, `proto=${report.protocol}`, `addr=${report.address}`, `port=${report.port}`);
+                }
+                if (report.type === "candidate-pair") {
+                  console.log("[ICE stats pair]", `state=${report.state}`, `nominated=${report.nominated}`, `bytesSent=${report.bytesSent}`, `bytesRecv=${report.bytesReceived}`);
+                }
+              });
+            });
+          }
           if (tick >= 30) window.clearInterval(poll);
         }, 1_000);
       }
