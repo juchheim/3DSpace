@@ -250,9 +250,19 @@ export function useWallObjects(input: {
   useEffect(() => {
     if (!input.enabled || !input.roomId) return;
     const interval = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
       void refresh({ showLoading: false });
-    }, 3_000);
-    return () => window.clearInterval(interval);
+    }, 12_000);
+    const onFocus = () => {
+      void refresh({ showLoading: false });
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
   }, [input.enabled, input.roomId, refresh]);
 
   const fetchAssetUrl = useCallback(
@@ -263,7 +273,7 @@ export function useWallObjects(input: {
       const response = await createAttachmentDownload(input.identity, roomId, object.source.attachmentId);
       setAssetUrls((current) => ({ ...current, [object.id]: response.download.url }));
     },
-    [input.identity, input.roomId]
+    [input.identity.userId, input.identity.displayName, input.roomId]
   );
 
   const hydrateAssetUrls = useCallback(

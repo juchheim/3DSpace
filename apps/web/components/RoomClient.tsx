@@ -59,6 +59,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const realtimeRef = useRef<RealtimeClient | null>(null);
   const avatarStateRef = useRef<AvatarStateMessage | null>(null);
   const memberNamesRef = useRef(new Map<string, string>());
+  const displayNameRef = useRef(identity.displayName);
+  displayNameRef.current = identity.displayName;
   const media = useLocalMedia(session?.tuning.media);
   const displayMedia = useDisplayMedia();
   const camera = useThirdPersonCamera({ viewMode });
@@ -155,7 +157,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     return () => {
       cancelled = true;
     };
-  }, [identityLoaded, clerkEnabled, signedIn, identity.userId, identity.displayName, roomId, inviteCode, leaving]);
+  }, [identityLoaded, clerkEnabled, signedIn, identity.userId, roomId, inviteCode, leaving]);
 
   useEffect(() => {
     if (!session) return;
@@ -267,7 +269,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     createRealtimeClient({
       roomId,
       session,
-      displayName: identity.displayName,
+      displayName: displayNameRef.current,
       onMessage: handleMessage,
       onRemoteMedia(update) {
         if (update.wallObjectId) {
@@ -327,7 +329,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       client.publish({
         type: "participant.presence.v1",
         participantId: session.participantId,
-        displayName: identity.displayName,
+        displayName: displayNameRef.current,
         role: session.role
       });
     });
@@ -337,7 +339,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       realtimeRef.current?.close();
       realtimeRef.current = null;
     };
-  }, [session?.participantId, roomId, identity.displayName, leaving]);
+  }, [session?.participantId, roomId, leaving]);
 
   useEffect(() => {
     if (!session || !movement.avatarState) return;

@@ -161,6 +161,26 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
     return identity.includes(":") ? identity.split(":")[0]! : identity;
   }
 
+  function roleFromMetadata(metadata: string | undefined): Role {
+    if (!metadata) return "student";
+    try {
+      const parsed = JSON.parse(metadata) as { role?: string };
+      return parsed.role === "teacher" ? "teacher" : "student";
+    } catch {
+      return "student";
+    }
+  }
+
+  function presenceFromParticipant(participant: { identity: string; name?: string; metadata?: string }): PresenceMessage {
+    const participantId = participantIdFromIdentity(participant.identity);
+    return {
+      type: "participant.presence.v1",
+      participantId,
+      displayName: participant.name?.trim() || participantId,
+      role: roleFromMetadata(participant.metadata)
+    };
+  }
+
   function streamFromTrack(track: { mediaStreamTrack: MediaStreamTrack }) {
     return new MediaStream([track.mediaStreamTrack]);
   }
@@ -231,6 +251,9 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
     handleRemoteTrackRemoved(track, participant.identity, publication);
   });
+  room.on(RoomEvent.ParticipantConnected, (participant) => {
+    input.onMessage(presenceFromParticipant(participant));
+  });
   room.on(RoomEvent.ParticipantDisconnected, (participant) => {
     input.onMessage({
       type: "participant.leave.v1",
@@ -242,6 +265,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   input.onStatus("Connected through LiveKit media and data channels.");
 
   room.remoteParticipants.forEach((participant) => {
+    input.onMessage(presenceFromParticipant(participant));
     participant.trackPublications.forEach((publication) => {
       if (publication.track) {
         handleRemoteTrack(publication.track, participant.identity, publication);
