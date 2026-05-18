@@ -147,6 +147,7 @@ async function connectLiveKitRoomOnce(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     function splitIcePc(config?: RTCConfiguration): RTCPeerConnection {
       if (config?.iceServers) {
+        const before = config.iceServers.length;
         config = {
           ...config,
           iceServers: config.iceServers.flatMap((s): RTCIceServer[] => {
@@ -159,6 +160,10 @@ async function connectLiveKitRoomOnce(
             }));
           })
         };
+        const after = config.iceServers;
+        console.log("[ICE split] servers:", before, "→", after?.length, JSON.stringify(after?.map((s) => ({ urls: s.urls }))));
+      } else {
+        console.log("[ICE split] no iceServers in config at PC creation (v1 path still active?)");
       }
       return new OriginalPC(config!);
     }
@@ -321,6 +326,13 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
           adaptiveStream: false,
           dynacast: false,
           disconnectOnPageLeave: false,
+          // Force the v0 signaling path. The v1 path (singlePeerConnection: true,
+          // the default) creates RTCPeerConnection before the join response arrives,
+          // so TURN servers aren't in the config at creation time. They're added later
+          // via setConfiguration(), which WebKit ignores for ICE re-gathering. With
+          // v0, the PC is created after the join response and TURN servers are present
+          // at creation time, allowing the splitIcePc monkey-patch to work correctly.
+          singlePeerConnection: false,
           publishDefaults: {
             simulcast: false,
             videoCodec: "h264"
