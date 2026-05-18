@@ -66,8 +66,6 @@ type AdapterInput = {
   isStale?: () => boolean;
 };
 
-const SAFARI_ICE_PRIMER_TRACK_NAME = "__3dspace_safari_ice_primer";
-
 function withSender(message: RealtimeMessage, senderId: string) {
   return { ...message, senderId };
 }
@@ -83,18 +81,6 @@ export function normalizeLiveKitUrl(url: string) {
   if (trimmed.startsWith("https://")) return `wss://${trimmed.slice("https://".length)}`;
   if (trimmed.startsWith("http://")) return `ws://${trimmed.slice("http://".length)}`;
   return trimmed;
-}
-
-function regionPinnedSafariLiveKitUrl(url: string) {
-  try {
-    const parsed = new URL(url);
-    if (!parsed.hostname.endsWith(".livekit.cloud")) return url;
-    if (parsed.hostname.includes(".rtc.livekit.cloud")) return url;
-    parsed.hostname = parsed.hostname.replace(/\.livekit\.cloud$/, ".us.rtc.livekit.cloud");
-    return parsed.toString();
-  } catch {
-    return url;
-  }
 }
 
 function sleep(ms: number) {
@@ -144,34 +130,35 @@ async function connectLiveKitRoomOnce(
     throw new Error("LiveKit connection aborted");
   }
 
-  const livekitUrl = input.safari
-    ? regionPinnedSafariLiveKitUrl(normalizeLiveKitUrl(url))
-    : normalizeLiveKitUrl(url);
+  const livekitUrl = normalizeLiveKitUrl(url);
+
   if (input.safari) {
-    console.log("[LiveKit Safari endpoint]", livekitUrl);
+    await Promise.race([room.prepareConnection(livekitUrl, token), sleep(8_000)]).catch(() => undefined);
+  }
+
+  if (input.isStale?.()) {
+    throw new Error("LiveKit connection aborted");
   }
 
   const connectPromise = room.connect(
     livekitUrl,
     token,
-    {
-      peerConnectionTimeout: input.timeoutMs,
-      ...(input.safari
-        ? {
-            websocketTimeout: input.timeoutMs,
-            rtcConfig: { iceServers: [] }
-          }
-        : {})
-    }
+    input.safari
+      ? {
+          autoSubscribe: false,
+          peerConnectionTimeout: input.timeoutMs,
+          websocketTimeout: Math.min(25_000, input.timeoutMs)
+        }
+      : {
+          peerConnectionTimeout: input.timeoutMs
+        }
   );
   let timedOut = false;
 
   await new Promise<void>((resolve, reject) => {
     const timeoutId = window.setTimeout(() => {
       timedOut = true;
-      // Disconnect immediately to abort the SDK's internal multi-region retry loop,
-      // which otherwise keeps room.connect() alive well past our timeout.
-      void room.disconnect(true);
+      void safeDisconnectRoom(room);
       reject(
         new Error(
           input.safari
@@ -288,22 +275,12 @@ function createBroadcastClient(input: AdapterInput, reason?: string): RealtimeCl
 }
 
 async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient> {
-  const { Room, RoomEvent, Track, getBrowser, getEmptyAudioStreamTrack } = await import("livekit-client");
+  const { Room, RoomEvent, Track, getBrowser } = await import("livekit-client");
   const browser = getBrowser();
   const safari = browser?.name === "Safari" || browser?.os === "iOS";
 
   function createRoomInstance() {
-    return safari
-      ? new Room({
-          adaptiveStream: false,
-          dynacast: false,
-          disconnectOnPageLeave: false,
-          publishDefaults: {
-            simulcast: false,
-            videoCodec: "h264"
-          }
-        })
-      : new Room({ adaptiveStream: true, dynacast: true });
+    return new Room({ adaptiveStream: true, dynacast: true });
   }
 
   const roomRef = { current: createRoomInstance() };
@@ -316,45 +293,6 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   let localMediaSync: Promise<void> = Promise.resolve();
   let closed = false;
   let isConnecting = true;
-
-  function startSafariIcePrimer(room: Room) {
-    const track = getEmptyAudioStreamTrack();
-    track.enabled = true;
-    console.log("[ICE primer] publishing enabled local audio track");
-    const published = room.localParticipant
-      .publishTrack(track, {
-        name: SAFARI_ICE_PRIMER_TRACK_NAME,
-        source: Track.Source.Unknown,
-        stream: SAFARI_ICE_PRIMER_TRACK_NAME,
-        dtx: false,
-        red: false
-      })
-      .then(() => {
-        console.log("[ICE primer] published");
-        return true;
-      })
-      .catch((error) => {
-        console.warn("Safari ICE primer publish failed", error);
-        track.stop();
-        return false;
-      });
-
-    return { track, published };
-  }
-
-  async function stopSafariIcePrimer(room: Room, primer: ReturnType<typeof startSafariIcePrimer>) {
-    const published = await Promise.race([primer.published, sleep(1_000).then(() => false)]);
-    if (published && room.state === ConnectionState.Connected) {
-      await room.localParticipant.unpublishTrack(primer.track, true).catch((error) => {
-        console.warn("Safari ICE primer cleanup failed", error);
-        primer.track.stop();
-      });
-      console.log("[ICE primer] unpublished");
-      return;
-    }
-    primer.track.stop();
-    console.log("[ICE primer] stopped");
-  }
 
   async function syncLocalMedia(media: { cameraStream: MediaStream | null; micStream: MediaStream | null }) {
     const room = roomRef.current;
@@ -370,7 +308,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
         name: "camera",
         source: Track.Source.Camera,
         stream: "avatar-media",
-        simulcast: !safari
+        simulcast: true
       });
       publishedCameraTrack = nextCameraTrack;
     }
@@ -386,7 +324,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
         source: Track.Source.Microphone,
         stream: "avatar-media",
         dtx: true,
-        red: !safari
+        red: true
       });
       publishedMicTrack = nextMicTrack;
     }
@@ -432,7 +370,6 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   }
 
   function handleRemoteTrack(track: { kind: string; source: string; mediaStreamTrack: MediaStreamTrack }, participantIdentity: string, publication?: unknown) {
-    if (publicationName(publication) === SAFARI_ICE_PRIMER_TRACK_NAME) return;
     const participantId = participantIdFromIdentity(participantIdentity);
     const wallObjectId = wallObjectIdFromPublication(publicationName(publication));
     if (wallObjectId) {
@@ -454,7 +391,6 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   }
 
   function handleRemoteTrackRemoved(track: { kind: string; source: string }, participantIdentity: string, publication?: unknown) {
-    if (publicationName(publication) === SAFARI_ICE_PRIMER_TRACK_NAME) return;
     const participantId = participantIdFromIdentity(participantIdentity);
     const wallObjectId = wallObjectIdFromPublication(publicationName(publication));
     if (wallObjectId) {
@@ -525,69 +461,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
     });
     room.on(RoomEvent.SignalConnected, () => {
       if (isConnecting) {
-        input.onStatus("Connecting to LiveKit (negotiating media)...");
-      }
-      if (safari) {
-        // Temporary diagnostic: attach candidate listeners immediately (gathering
-        // starts at SignalConnected), then poll state every second.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const eng = (room as any).engine;
-        const pcm = eng?.pcManager;
-        const attachListeners = (pc: RTCPeerConnection, label: string) => {
-          pc.addEventListener("icecandidate", (e) =>
-            console.log(`[ICE ${label} candidate]`, e.candidate
-              ? `type=${e.candidate.type} proto=${e.candidate.protocol} addr=${e.candidate.address}`
-              : "null — gathering complete")
-          );
-          pc.addEventListener("icecandidateerror", (e) => console.warn(`[ICE ${label} error]`, e));
-          pc.addEventListener("iceconnectionstatechange", () =>
-            console.log(`[ICE ${label} connectionstate]`, pc.iceConnectionState)
-          );
-          pc.addEventListener("icegatheringstatechange", () =>
-            console.log(`[ICE ${label} gatheringstate]`, pc.iceGatheringState)
-          );
-        };
-        const pubPc: RTCPeerConnection | undefined = pcm?.publisher?._pc ?? pcm?.publisher?.pc;
-        const subPc: RTCPeerConnection | undefined = pcm?.subscriber?._pc ?? pcm?.subscriber?.pc;
-        if (pubPc) attachListeners(pubPc, "pub");
-        if (subPc) attachListeners(subPc, "sub");
-        console.log("[ICE init] engine=", !!eng, "pcm=", !!pcm, "pubPc=", !!pubPc, "subPc=", !!subPc);
-
-        let tick = 0;
-        const poll = window.setInterval(() => {
-          tick++;
-          const e2 = (room as any).engine; // eslint-disable-line @typescript-eslint/no-explicit-any
-          const p2 = e2?.pcManager;
-          const pub2: RTCPeerConnection | undefined = p2?.publisher?._pc ?? p2?.publisher?.pc;
-          const sub2: RTCPeerConnection | undefined = p2?.subscriber?._pc ?? p2?.subscriber?.pc;
-          console.log(
-            `[ICE t+${tick}s]`,
-            `pub.ice=${pub2?.iceConnectionState ?? "no-pc"}`,
-            `pub.gather=${pub2?.iceGatheringState ?? "–"}`,
-            `sub.ice=${sub2?.iceConnectionState ?? "no-pc"}`,
-            `sub.gather=${sub2?.iceGatheringState ?? "–"}`,
-          );
-          // Dump ICE config + local/remote candidates + pairs at t+3s
-          if (tick === 3 && pub2) {
-            const cfg = pub2.getConfiguration();
-            console.log("[ICE config]", `policy=${cfg.iceTransportPolicy ?? "all"}`,
-              "servers=", JSON.stringify((cfg.iceServers ?? []).map((s) => ({ urls: s.urls }))));
-            void pub2.getStats().then((stats) => {
-              stats.forEach((report) => {
-                if (report.type === "local-candidate") {
-                  console.log("[ICE stats local]", `type=${report.candidateType}`, `proto=${report.protocol}`, `addr=${report.address}`, `port=${report.port}`);
-                }
-                if (report.type === "remote-candidate") {
-                  console.log("[ICE stats remote]", `type=${report.candidateType}`, `proto=${report.protocol}`, `addr=${report.address}`, `port=${report.port}`);
-                }
-                if (report.type === "candidate-pair") {
-                  console.log("[ICE stats pair]", `state=${report.state}`, `nominated=${report.nominated}`, `bytesSent=${report.bytesSent}`, `bytesRecv=${report.bytesReceived}`);
-                }
-              });
-            });
-          }
-          if (tick >= 30) window.clearInterval(poll);
-        }, 1_000);
+        input.onStatus("Connecting to LiveKit (media)...");
       }
     });
     room.on(RoomEvent.ConnectionStateChanged, (state) => {
@@ -609,7 +483,6 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   bindRoomEvents(roomRef.current, safari);
 
   input.onStatus("Connecting to LiveKit...");
-  const safariIcePrimer = safari ? startSafariIcePrimer(roomRef.current) : undefined;
 
   try {
     await connectLiveKitRoom({
@@ -617,16 +490,13 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
       replaceRoom,
       url: input.session.livekitUrl,
       token: input.session.token,
-      timeoutMs: safari ? 45_000 : 20_000,
+      timeoutMs: safari ? 25_000 : 20_000,
       safari,
       ...(input.isStale ? { isStale: input.isStale } : {}),
       maxAttempts: 1
     });
   } finally {
     isConnecting = false;
-    if (safariIcePrimer) {
-      await stopSafariIcePrimer(roomRef.current, safariIcePrimer);
-    }
   }
 
   if (closed || input.isStale?.()) {
@@ -638,6 +508,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   input.onStatus("Connected through LiveKit media and data channels.");
   if (safari) {
     subscribeAllRemoteTracks(room);
+    void room.startAudio().catch(() => undefined);
   }
   syncRemoteParticipantsFor(room);
 
