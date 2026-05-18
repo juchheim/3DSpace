@@ -205,13 +205,14 @@ export function useWallObjects(input: {
 
   const hydrateAssetUrls = useCallback(
     async (objects: WallObject[]) => {
-      if (!input.roomId) return;
+      const roomId = input.roomId;
+      if (!roomId) return;
       const pending = objects.filter((object) => object.source.kind === "asset");
       if (pending.length === 0) return;
       const entries = await Promise.all(
         pending.map(async (object) => {
           if (object.source.kind !== "asset") return undefined;
-          const response = await createAttachmentDownload(input.identity, input.roomId, object.source.attachmentId);
+          const response = await createAttachmentDownload(input.identity, roomId, object.source.attachmentId);
           return [object.id, response.download.url] as const;
         })
       );
