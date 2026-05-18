@@ -2,7 +2,7 @@
 
 import { anchorHasOccupyingWallObject, anchorSupportsCreateOption, fileInputAcceptForAnchor, isOccupyingWallObjectStatus } from "@3dspace/room-engine";
 import { useEffect, useMemo, useState } from "react";
-import type { RoomManifest, WallObject } from "@3dspace/contracts";
+import type { ClassroomBoardAccessGrant, Role, RoomManifest, WallObject, WallObjectType } from "@3dspace/contracts";
 import type { ApiIdentity } from "../lib/identity";
 import { WallObjectCard, type WallObjectControlAction } from "./WallObjectCard";
 
@@ -25,6 +25,8 @@ export function AnchorPanel({
   wallMediaStreams,
   canCreate,
   canManage,
+  role,
+  activeBoardGrant,
   loading,
   error,
   onCreateFile,
@@ -48,6 +50,8 @@ export function AnchorPanel({
   wallMediaStreams: Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>;
   canCreate: boolean;
   canManage: boolean;
+  role: Role;
+  activeBoardGrant?: ClassroomBoardAccessGrant | null | undefined;
   loading: boolean;
   error: string;
   onCreateFile(input: { anchorId: string; file: File; title: string; altText?: string | undefined; caption?: string | undefined }): Promise<void>;
@@ -63,7 +67,7 @@ export function AnchorPanel({
   onControl(objectId: string, action: WallObjectControlAction, positionSeconds?: number, choiceId?: string): Promise<void>;
   onModerate(objectId: string, action: "approve" | "reject"): Promise<void>;
 }) {
-  const [selectedAnchor, setSelectedAnchor] = useState(manifest.wallAnchors[0]?.id ?? "");
+  const [selectedAnchor, setSelectedAnchor] = useState(activeBoardGrant?.wallAnchorId ?? manifest.wallAnchors[0]?.id ?? "");
   const [selectedType, setSelectedType] = useState<CreateType | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [fileTitle, setFileTitle] = useState("");
@@ -83,6 +87,9 @@ export function AnchorPanel({
     return groups;
   }, [wallObjects]);
 
+  const grantAllowedTypes = useMemo(() => new Set<WallObjectType>(activeBoardGrant?.allowedObjectTypes ?? []), [activeBoardGrant?.allowedObjectTypes]);
+  const grantRestricted = role === "student" && Boolean(activeBoardGrant);
+
   const selectedAnchorOccupied = useMemo(
     () => anchorHasOccupyingWallObject(wallObjects, selectedAnchor),
     [selectedAnchor, wallObjects]
@@ -93,14 +100,30 @@ export function AnchorPanel({
     [manifest.wallAnchors, selectedAnchor]
   );
 
+  const anchorWithinGrant = !grantRestricted || selectedAnchor === activeBoardGrant?.wallAnchorId;
+  const optionAllowedByGrant = (option: CreateType | "camera" | "microphone" | "screen") => {
+    if (!grantRestricted) return true;
+    if (!anchorWithinGrant) return false;
+    if (option === "file") {
+      return ["image.file", "video.file", "audio.file"].some((type) => grantAllowedTypes.has(type as WallObjectType));
+    }
+    if (option === "note") return grantAllowedTypes.has("note");
+    if (option === "timer") return grantAllowedTypes.has("timer");
+    if (option === "poll") return grantAllowedTypes.has("poll");
+    if (option === "link") return grantAllowedTypes.has("web.link") || grantAllowedTypes.has("web.embed");
+    if (option === "camera") return grantAllowedTypes.has("camera.live");
+    if (option === "microphone") return grantAllowedTypes.has("microphone.live");
+    return grantAllowedTypes.has("browser-tab.live") || grantAllowedTypes.has("screen.live");
+  };
+
   const availableFormTypes = useMemo(
-    () => FORM_TYPES.filter(({ id }) => selectedAnchorData && anchorSupportsCreateOption(selectedAnchorData, id)),
-    [selectedAnchorData]
+    () => FORM_TYPES.filter(({ id }) => selectedAnchorData && anchorSupportsCreateOption(selectedAnchorData, id) && optionAllowedByGrant(id)),
+    [selectedAnchorData, grantRestricted, anchorWithinGrant, activeBoardGrant?.allowedObjectTypes]
   );
 
-  const showCamera = selectedAnchorData ? anchorSupportsCreateOption(selectedAnchorData, "camera") : false;
-  const showMicrophone = selectedAnchorData ? anchorSupportsCreateOption(selectedAnchorData, "microphone") : false;
-  const showScreen = selectedAnchorData ? anchorSupportsCreateOption(selectedAnchorData, "screen") : false;
+  const showCamera = selectedAnchorData ? anchorSupportsCreateOption(selectedAnchorData, "camera") && optionAllowedByGrant("camera") : false;
+  const showMicrophone = selectedAnchorData ? anchorSupportsCreateOption(selectedAnchorData, "microphone") && optionAllowedByGrant("microphone") : false;
+  const showScreen = selectedAnchorData ? anchorSupportsCreateOption(selectedAnchorData, "screen") && optionAllowedByGrant("screen") : false;
   const fileAccept = selectedAnchorData ? fileInputAcceptForAnchor(selectedAnchorData) : "";
 
   useEffect(() => {
@@ -108,6 +131,12 @@ export function AnchorPanel({
       setSelectedType(null);
     }
   }, [availableFormTypes, selectedType]);
+
+  useEffect(() => {
+    if (grantRestricted && activeBoardGrant?.wallAnchorId && selectedAnchor !== activeBoardGrant.wallAnchorId) {
+      setSelectedAnchor(activeBoardGrant.wallAnchorId);
+    }
+  }, [activeBoardGrant?.wallAnchorId, grantRestricted, selectedAnchor]);
 
   const hasObjects = wallObjects.length > 0;
 
@@ -188,6 +217,7 @@ export function AnchorPanel({
             <select
               className="anchor-select-compact"
               value={selectedAnchor}
+              disabled={grantRestricted}
               onChange={(e) => setSelectedAnchor(e.target.value)}
               aria-label="Target anchor"
             >
@@ -200,6 +230,7 @@ export function AnchorPanel({
           {selectedAnchorOccupied ? (
             <p className="small">Remove the current item on this display before adding another.</p>
           ) : null}
+          {grantRestricted ? <p className="small">Your teacher granted sharing on {selectedAnchorData?.label ?? "this board"}.</p> : null}
 
           {/* Form type selector */}
           {availableFormTypes.length > 0 || showCamera || showMicrophone || showScreen ? (
@@ -360,7 +391,7 @@ export function AnchorPanel({
           )}
         </>
       ) : (
-        <p className="small">Wall creation is teacher-controlled.</p>
+        <p className="small">{role === "student" ? "Wait for your teacher to grant board access." : "Wall creation is teacher-controlled."}</p>
       )}
 
       {/* Objects grouped by anchor */}

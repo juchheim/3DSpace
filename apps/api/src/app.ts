@@ -33,6 +33,7 @@ import {
   WebResourcePreviewResponseSchema,
   createOpenApiDocument,
   type ClassroomAction,
+  type ClassroomBoardAccessGrant,
   type ClassroomPrivateCheck,
   type ClassroomState,
   type WallAttachment,
@@ -148,6 +149,13 @@ function fileKindForWallObjectType(type: WallObjectType) {
   return undefined;
 }
 
+function wallObjectTypeForAttachmentKind(kind: WallAttachment["kind"]) {
+  if (kind === "image") return "image.file" as const;
+  if (kind === "video") return "video.file" as const;
+  if (kind === "audio") return "audio.file" as const;
+  return undefined;
+}
+
 function liveTrackSourceForWallObjectType(type: WallObjectType) {
   if (type === "camera.live") return "camera" as const;
   if (type === "microphone.live") return "microphone" as const;
@@ -245,22 +253,60 @@ function validateAttachmentPolicy(config: AppConfig, body: { kind: WallAttachmen
   }
 }
 
+function isBoardAccessGrantActive(grant: ClassroomBoardAccessGrant, now = Date.now()) {
+  if (grant.status !== "active") return false;
+  if (!grant.expiresAt) return true;
+  const expiresAt = Date.parse(grant.expiresAt);
+  return Number.isFinite(expiresAt) && expiresAt > now;
+}
+
+function findApplicableBoardGrant(state: ClassroomState, input: { userId: string; wallAnchorId: string; type: WallObjectType }) {
+  return state.boardAccessGrants.find(
+    (grant) =>
+      grant.userId === input.userId &&
+      grant.wallAnchorId === input.wallAnchorId &&
+      isBoardAccessGrantActive(grant) &&
+      grant.allowedObjectTypes.includes(input.type)
+  );
+}
+
+async function getApplicableBoardGrant(input: {
+  repository: Repository;
+  roomId: string;
+  userId: string;
+  wallAnchorId: string;
+  type: WallObjectType;
+}) {
+  const state = sanitizeClassroomState(await input.repository.getClassroomState(input.roomId));
+  return findApplicableBoardGrant(state, input);
+}
+
 async function assertWallObjectCreatePolicy(input: {
   repository: Repository;
   config: AppConfig;
   room: { id: string; settings: RoomSettings };
   auth: AuthContext;
+  wallAnchorId: string;
   type: WallObjectType;
 }) {
   const { teacher } = await actorIsRoomTeacher(input.repository, input.room.id, input.auth);
-  if (teacher) return { teacher };
+  if (teacher) return { teacher, granted: false };
 
-  if (input.room.settings.wallObjectCreation === "teacher-only") throw forbidden("Teacher role required to create wall objects");
+  const grant = await getApplicableBoardGrant({
+    repository: input.repository,
+    roomId: input.room.id,
+    userId: input.auth.userId,
+    wallAnchorId: input.wallAnchorId,
+    type: input.type
+  });
+  const granted = Boolean(grant);
+
+  if (input.room.settings.wallObjectCreation === "teacher-only" && !granted) throw forbidden("Teacher role required to create wall objects");
   const isFile = Boolean(fileKindForWallObjectType(input.type));
   const isLive = isLiveWallObjectType(input.type);
   if (isFile && !input.room.settings.allowStudentUploads) throw forbidden("Student wall uploads are disabled");
   if (isLive && !input.room.settings.allowLiveStudentShares) throw forbidden("Student live wall shares are disabled");
-  return { teacher };
+  return { teacher, granted };
 }
 
 async function assertWallObjectManagePolicy(repository: Repository, roomId: string, auth: AuthContext, object: WallObject) {
@@ -1169,7 +1215,18 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     }
     validateAttachmentPolicy(config, body);
     const { teacher } = await actorIsRoomTeacher(repository, params.roomId, auth);
-    if (!teacher && (room.settings.wallObjectCreation === "teacher-only" || !room.settings.allowStudentUploads)) {
+    const uploadType = wallObjectTypeForAttachmentKind(body.kind);
+    const grant =
+      !teacher && uploadType
+        ? await getApplicableBoardGrant({
+            repository,
+            roomId: params.roomId,
+            userId: auth.userId,
+            wallAnchorId: body.wallAnchorId,
+            type: uploadType
+          })
+        : undefined;
+    if (!teacher && ((!grant && room.settings.wallObjectCreation === "teacher-only") || !room.settings.allowStudentUploads)) {
       throw forbidden("Student wall uploads are disabled");
     }
     const storageKey = storageKeyFor({ roomId: params.roomId, wallAnchorId: body.wallAnchorId, fileName: body.fileName });
@@ -1263,8 +1320,15 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     assertWallObjectsEnabled({ settings: room.settings }, config);
     assertAnchorAcceptsType(manifest, body.wallAnchorId, body.type);
     await assertAnchorAvailableForNewObject(repository, params.roomId, body.wallAnchorId);
-    const { teacher } = await assertWallObjectCreatePolicy({ repository, config, room, auth, type: body.type });
-    const requestedStatus = teacher ? body.status ?? "active" : room.settings.wallObjectCreation === "student-direct" ? "active" : "pending_moderation";
+    const { teacher, granted } = await assertWallObjectCreatePolicy({
+      repository,
+      config,
+      room,
+      auth,
+      wallAnchorId: body.wallAnchorId,
+      type: body.type
+    });
+    const requestedStatus = teacher || granted ? body.status ?? "active" : room.settings.wallObjectCreation === "student-direct" ? "active" : "pending_moderation";
     if (requestedStatus === "active") await enforceWallObjectLimits(repository, room, body.type);
     await validateWallObjectSource({ repository, roomId: params.roomId, type: body.type, source: body.source, requestedStatus });
     const pollPrepared = preparePollWallObjectInput(body);
@@ -1487,12 +1551,19 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     }
     assertAnchorAcceptsType(manifest, body.wallAnchorId, body.type);
     await assertAnchorAvailableForNewObject(repository, params.roomId, body.wallAnchorId);
-    const { teacher } = await assertWallObjectCreatePolicy({ repository, config, room, auth, type: body.type });
+    const { teacher, granted } = await assertWallObjectCreatePolicy({
+      repository,
+      config,
+      room,
+      auth,
+      wallAnchorId: body.wallAnchorId,
+      type: body.type
+    });
     await enforceWallObjectLimits(repository, room, body.type);
     const trackSource = liveTrackSourceForWallObjectType(body.type)!;
     const draftObjectId = newId("wallobj");
     const publicationName = `wall:${draftObjectId}`;
-    const requestedStatus: WallObject["status"] = teacher ? "active" : room.settings.wallObjectCreation === "student-request" ? "pending_moderation" : "active";
+    const requestedStatus: WallObject["status"] = teacher || granted ? "active" : room.settings.wallObjectCreation === "student-request" ? "pending_moderation" : "active";
     const object = WallObjectSchema.parse(
       await repository.createWallObject({
         roomId: params.roomId,
@@ -1588,8 +1659,15 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const type = embeddable ? "web.embed" : "web.link";
     assertAnchorAcceptsType(manifest, body.wallAnchorId, type);
     await assertAnchorAvailableForNewObject(repository, params.roomId, body.wallAnchorId);
-    const { teacher } = await assertWallObjectCreatePolicy({ repository, config, room, auth, type });
-    const requestedStatus = teacher ? "active" : room.settings.wallObjectCreation === "student-direct" ? "active" : "pending_moderation";
+    const { teacher, granted } = await assertWallObjectCreatePolicy({
+      repository,
+      config,
+      room,
+      auth,
+      wallAnchorId: body.wallAnchorId,
+      type
+    });
+    const requestedStatus = teacher || granted ? "active" : room.settings.wallObjectCreation === "student-direct" ? "active" : "pending_moderation";
     if (requestedStatus === "active") await enforceWallObjectLimits(repository, room, type);
     const object = await repository.createWallObject({
       roomId: params.roomId,

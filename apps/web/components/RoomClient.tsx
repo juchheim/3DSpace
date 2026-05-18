@@ -449,6 +449,13 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   }, [media.cameraStream, session?.participantId, wall.wallObjects]);
 
   const participantList = useMemo(() => Object.values(participants), [participants]);
+  const activeBoardGrant = useMemo(
+    () =>
+      (classroom.state?.boardAccessGrants ?? []).find(
+        (grant) => grant.userId === identity.userId && grant.status === "active" && (!grant.expiresAt || Date.parse(grant.expiresAt) > Date.now())
+      ) ?? null,
+    [classroom.state?.boardAccessGrants, identity.userId]
+  );
   const wallMediaStreams = useMemo(() => {
     const next: Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }> = {
       ...remoteWallMedia,
@@ -737,6 +744,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           loading={classroom.loading}
           error={classroom.error}
           activeHelpRequest={classroom.activeHelpRequest}
+          manifest={manifest}
+          roomSettings={session?.room.settings ?? null}
+          currentUserId={identity.userId}
           onRunAction={async (action) => {
             await classroom.runAction(action);
           }}
@@ -749,8 +759,10 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             wallObjects={wall.wallObjects}
             assetUrls={wall.assetUrls}
             wallMediaStreams={wallMediaStreams}
-            canCreate={session.role === "teacher" || session.room.settings.wallObjectCreation !== "teacher-only"}
+            canCreate={session.role === "teacher" || session.room.settings.wallObjectCreation !== "teacher-only" || Boolean(activeBoardGrant)}
             canManage={session.role === "teacher"}
+            role={session.role}
+            activeBoardGrant={activeBoardGrant}
             loading={wall.loading}
             error={wall.error || displayMedia.error}
             onCreateFile={createFileObject}

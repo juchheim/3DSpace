@@ -735,6 +735,12 @@ label {
   flex-wrap: wrap;
 }
 
+.classroom-grant-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
 .classroom-note-field {
   display: flex;
   flex-direction: column;

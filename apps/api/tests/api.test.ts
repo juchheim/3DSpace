@@ -1066,4 +1066,74 @@ describe("3dspace api", () => {
 
     await app.close();
   });
+
+  it("allows grant-scoped student wall creation on a teacher-only room", async () => {
+    const app = await buildApp({
+      config: loadConfig({
+        NODE_ENV: "test",
+        ENABLE_WALL_STUDENT_UPLOADS: "true"
+      } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-classroom-grant");
+    await addStudentMember(app, classRecord.id, "teacher-classroom-grant", "student-classroom-grant", "Avery");
+    const grantedAnchorId = roomWithManifest.manifest.wallAnchors[0].id;
+    const blockedAnchorId = roomWithManifest.manifest.wallAnchors[1].id;
+
+    const grant = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-classroom-grant", "Ms. Rivera"),
+      payload: {
+        type: "grant-board-access",
+        userId: "student-classroom-grant",
+        wallAnchorId: grantedAnchorId,
+        allowedObjectTypes: ["image.file", "note"]
+      }
+    });
+    expect(grant.statusCode).toBe(200);
+
+    const attachmentAllowed = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/attachments`,
+      headers: authHeaders("student-classroom-grant", "Avery"),
+      payload: {
+        wallAnchorId: grantedAnchorId,
+        kind: "image",
+        fileName: "work.png",
+        contentType: "image/png",
+        metadata: { sizeBytes: 1024 }
+      }
+    });
+    expect(attachmentAllowed.statusCode).toBe(200);
+
+    const noteAllowed = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/wall-objects`,
+      headers: authHeaders("student-classroom-grant", "Avery"),
+      payload: {
+        wallAnchorId: grantedAnchorId,
+        type: "note",
+        title: "Student work",
+        source: { kind: "inline", data: { text: "Answer to problem 3" } }
+      }
+    });
+    expect(noteAllowed.statusCode).toBe(200);
+    expect(noteAllowed.json().status).toBe("active");
+
+    const noteBlocked = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/wall-objects`,
+      headers: authHeaders("student-classroom-grant", "Avery"),
+      payload: {
+        wallAnchorId: blockedAnchorId,
+        type: "note",
+        title: "Wrong board",
+        source: { kind: "inline", data: { text: "Should fail" } }
+      }
+    });
+    expect(noteBlocked.statusCode).toBe(403);
+
+    await app.close();
+  });
 });
