@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   RoomManifest,
   WallObject,
@@ -165,6 +165,8 @@ export function useWallObjects(input: {
 }) {
   const [objectsById, setObjectsById] = useState<Record<string, WallObject>>({});
   const [assetUrls, setAssetUrls] = useState<Record<string, string>>({});
+  const assetUrlsRef = useRef(assetUrls);
+  assetUrlsRef.current = assetUrls;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -203,32 +205,28 @@ export function useWallObjects(input: {
     void refresh();
   }, [refresh]);
 
+  const fetchAssetUrl = useCallback(
+    async (object: WallObject, options?: { force?: boolean }) => {
+      const roomId = input.roomId;
+      if (!roomId || object.source.kind !== "asset") return;
+      if (!options?.force && assetUrlsRef.current[object.id]) return;
+      const response = await createAttachmentDownload(input.identity, roomId, object.source.attachmentId);
+      setAssetUrls((current) => ({ ...current, [object.id]: response.download.url }));
+    },
+    [input.identity, input.roomId]
+  );
+
   const hydrateAssetUrls = useCallback(
     async (objects: WallObject[]) => {
-      const roomId = input.roomId;
-      if (!roomId) return;
-      const pending = objects.filter((object) => object.source.kind === "asset");
+      const pending = objects.filter((object) => object.source.kind === "asset" && !assetUrlsRef.current[object.id]);
       if (pending.length === 0) return;
-      const entries = await Promise.all(
-        pending.map(async (object) => {
-          if (object.source.kind !== "asset") return undefined;
-          const response = await createAttachmentDownload(input.identity, roomId, object.source.attachmentId);
-          return [object.id, response.download.url] as const;
-        })
-      );
-      setAssetUrls((current) => {
-        const next = { ...current };
-        let changed = false;
-        for (const entry of entries) {
-          if (entry && !next[entry[0]]) {
-            next[entry[0]] = entry[1];
-            changed = true;
-          }
-        }
-        return changed ? next : current;
-      });
+      const results = await Promise.allSettled(pending.map((object) => fetchAssetUrl(object, { force: true })));
+      const failure = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+      if (failure) {
+        throw failure.reason;
+      }
     },
-    [input.identity.userId, input.identity.displayName, input.roomId]
+    [fetchAssetUrl]
   );
 
   const assetObjectIds = useMemo(
@@ -333,11 +331,10 @@ export function useWallObjects(input: {
       });
       upsertLocal(object);
       publishUpsert(input.publish, input.roomId, object, input.identity.userId);
-      const download = await createAttachmentDownload(input.identity, input.roomId, finalized.id);
-      setAssetUrls((current) => ({ ...current, [object.id]: download.download.url }));
+      await fetchAssetUrl(object, { force: true });
       return object;
     },
-    [assertAnchorAvailable, input.identity, input.publish, input.roomId, upsertLocal]
+    [assertAnchorAvailable, fetchAssetUrl, input.identity, input.publish, input.roomId, upsertLocal]
   );
 
   const createInlineObject = useCallback(
@@ -461,6 +458,9 @@ export function useWallObjects(input: {
       if (!input.roomId || !("type" in message)) return false;
       if (message.type === "wall.object.upsert.v1" && message.roomId === input.roomId) {
         upsertLocal(message.object);
+        if (message.object.source.kind === "asset") {
+          void fetchAssetUrl(message.object, { force: true });
+        }
         return true;
       }
       if (message.type === "wall.object.remove.v1" && message.roomId === input.roomId) {
@@ -526,7 +526,7 @@ export function useWallObjects(input: {
       }
       return false;
     },
-    [input.roomId, upsertLocal]
+    [fetchAssetUrl, input.roomId, upsertLocal]
   );
 
   return {
