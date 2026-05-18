@@ -63,7 +63,7 @@ type AdapterInput = {
   onMessage(message: RealtimeMessage): void;
   onRemoteMedia?(update: RemoteMediaUpdate): void;
   onStatus(status: string): void;
-  signal?: AbortSignal;
+  isStale?: () => boolean;
 };
 
 function withSender(message: RealtimeMessage, senderId: string) {
@@ -97,28 +97,36 @@ async function disconnectLiveKitRoom(room: Room) {
   await sleep(150);
 }
 
-async function connectLiveKitRoom(
+function connectErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isRetryableConnectError(error: unknown) {
+  const message = connectErrorMessage(error).toLowerCase();
+  return (
+    message.includes("client initiated disconnect") ||
+    message.includes("connection aborted") ||
+    message.includes("timed out")
+  );
+}
+
+async function connectLiveKitRoomOnce(
   room: Room,
   url: string,
   token: string,
-  input: { timeoutMs: number; signal?: AbortSignal | undefined; safari: boolean; onStatus: (status: string) => void }
+  input: { timeoutMs: number; safari: boolean; isStale?: () => boolean }
 ) {
-  if (input.signal?.aborted) {
+  if (input.isStale?.()) {
     throw new Error("LiveKit connection aborted");
   }
 
   const livekitUrl = normalizeLiveKitUrl(url);
-  const connectPromise = room.connect(livekitUrl, token, {
-    peerConnectionTimeout: input.timeoutMs
-  });
+  const connectPromise = room.connect(livekitUrl, token);
+  let timedOut = false;
 
   await new Promise<void>((resolve, reject) => {
-    const onAbort = () => {
-      void disconnectLiveKitRoom(room).finally(() => reject(new Error("LiveKit connection aborted")));
-    };
-    input.signal?.addEventListener("abort", onAbort, { once: true });
-
     const timeoutId = window.setTimeout(() => {
+      timedOut = true;
       void disconnectLiveKitRoom(room).finally(() =>
         reject(
           new Error(
@@ -133,15 +141,54 @@ async function connectLiveKitRoom(
     connectPromise
       .then(() => {
         window.clearTimeout(timeoutId);
-        input.signal?.removeEventListener("abort", onAbort);
+        if (timedOut) return;
+        if (input.isStale?.()) {
+          void disconnectLiveKitRoom(room);
+          reject(new Error("LiveKit connection aborted"));
+          return;
+        }
         resolve();
       })
       .catch((error) => {
         window.clearTimeout(timeoutId);
-        input.signal?.removeEventListener("abort", onAbort);
+        if (timedOut) return;
         reject(error);
       });
   });
+}
+
+async function connectLiveKitRoom(
+  room: Room,
+  url: string,
+  token: string,
+  input: { timeoutMs: number; safari: boolean; isStale?: () => boolean; maxAttempts?: number }
+) {
+  const maxAttempts = input.maxAttempts ?? 1;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    if (input.isStale?.()) {
+      throw new Error("LiveKit connection aborted");
+    }
+    if (attempt > 0) {
+      await disconnectLiveKitRoom(room);
+      await sleep(500);
+    }
+    try {
+      await connectLiveKitRoomOnce(room, url, token, input);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (input.isStale?.()) {
+        throw new Error("LiveKit connection aborted");
+      }
+      if (!isRetryableConnectError(error) || attempt === maxAttempts - 1) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("LiveKit connection failed");
 }
 
 function createBroadcastClient(input: AdapterInput, reason?: string): RealtimeClient {
@@ -204,12 +251,6 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   let localMediaSync: Promise<void> = Promise.resolve();
   let closed = false;
   let isConnecting = true;
-
-  const abortConnect = () => {
-    closed = true;
-    void disconnectLiveKitRoom(room);
-  };
-  input.signal?.addEventListener("abort", abortConnect, { once: true });
 
   async function syncLocalMedia(media: { cameraStream: MediaStream | null; micStream: MediaStream | null }) {
     if (room.state !== ConnectionState.Connected) return;
@@ -375,16 +416,15 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   try {
     await connectLiveKitRoom(room, input.session.livekitUrl, input.session.token, {
       timeoutMs: safari ? 30_000 : 20_000,
-      ...(input.signal ? { signal: input.signal } : {}),
       safari,
-      onStatus: input.onStatus
+      ...(input.isStale ? { isStale: input.isStale } : {}),
+      maxAttempts: safari ? 2 : 1
     });
   } finally {
     isConnecting = false;
-    input.signal?.removeEventListener("abort", abortConnect);
   }
 
-  if (closed || input.signal?.aborted) {
+  if (closed || input.isStale?.()) {
     await disconnectLiveKitRoom(room);
     throw new Error("LiveKit connection aborted");
   }
