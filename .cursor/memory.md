@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-18 (Safari LiveKit reconnect regression)
+Last updated: 2026-05-18 (Safari LiveKit SDK upgrade)
 
 ## Project Summary
 
@@ -148,6 +148,7 @@ Screen share, computer audio, teacher moderation, rich wall placement, room buil
 - **2026-05-17**: Main board sizing changes were blocked by stale session/API manifest data in the running web app. Added `normalizeRoomManifest` in web client to force current main-board dimensions before 3D/2D rendering, even when existing rooms send old anchor dimensions.
 - **2026-05-18**: Safari LiveKit disconnects while Chrome works — Safari WebRTC is sensitive to simulcast/dynacast/adaptiveStream. Fixed in `apps/web/lib/realtime.ts` + `browser.ts`: Safari disables simulcast/dynacast/adaptiveStream, longer connect timeouts, auto-reconnect on unexpected disconnect + tab visibility, and no longer surfaces a dead-end "Disconnected from LiveKit." status during reconnect.
 - **2026-05-18**: Safari status regressed to "Reconnecting to LiveKit..." during initial join after the first compatibility patch. Narrowed the patch by restoring LiveKit's default page-leave cleanup and publish defaults, while keeping Safari publish simulcast disabled and showing "Connecting to LiveKit..." before the first successful connection.
+- **2026-05-18**: Safari student reached LiveKit signaling but timed out during WebRTC media negotiation while Chrome teacher stayed connected. Upgraded `apps/web` `livekit-client` from `^2.2.0` to `^2.19.0` to pick up current Safari/WebKit negotiation fixes; web build passes.
 
 ## Maintenance Rules
 
