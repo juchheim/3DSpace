@@ -1,6 +1,6 @@
 # Safari LiveKit ICE Connection Failure - Investigation Handoff
 
-**Status:** Active - relay-only TURN, the restored default v1 path, the disabled video primer, host-only ICE plus an enabled silent audio primer, and the regional US RTC endpoint all failed on a mobile hotspot. Current candidate restores the earlier same-day Safari connect shape: `prepareConnection()` plus `autoSubscribe: false`, with no forced ICE config, no primer track, and no endpoint rewrite.  
+**Status:** Active - relay-only TURN, the restored default v1 path, the disabled video primer, host-only ICE plus an enabled silent audio primer, the regional US RTC endpoint, and the earlier same-day `prepareConnection()` plus `autoSubscribe: false` path all failed on a mobile hotspot. Current candidate rolls all the way back to the pre-classroom baseline from before `32eb86b`: simple `room.connect()` on `livekit-client@2.2.0`, with no Safari-specific connection logic.  
 **Branch:** `mvp-plus-one`  
 **Primary file:** `apps/web/lib/realtime.ts`  
 **LiveKit SDK:** `livekit-client@2.19.0`
@@ -32,7 +32,7 @@ The mobile hotspot logs prove that Safari can receive correctly credentialed TUR
 
 This matches a known WebKit failure mode for receive-only / data-channel-first WebRTC sessions: Safari may not emit useful ICE candidates until the connection has a local media sender. LiveKit is being used for data/presence first, so users can enter the room before enabling camera or microphone.
 
-Current candidate fix: restore the earlier same-day Safari path that prewarmed LiveKit with `room.prepareConnection()` and deferred remote subscription with `autoSubscribe: false`, then subscribed after connect. The current theory is that the later Safari-specific ICE experiments regressed a previously working connection flow, and that returning to the earlier 2.19.0 connect shape is a better test than adding more transport overrides.
+Current candidate fix: restore the pre-classroom baseline that existed before the `Phase 1: Contracts And Persistence` classroom work landed. That baseline used a simple `room.connect()` flow with `livekit-client@2.2.0` and no Safari-specific connection branches at all.
 
 ---
 
@@ -119,7 +119,7 @@ Reasoning:
 
 Result: still failed. The explicit US regional RTC endpoint connected to the same US Central node family and produced the same TCP-only ICE stats: local host TCP port `9`, remote host TCP port `7881`, candidate pairs stuck in `waiting`, and LiveKit timeout reason `14`.
 
-### Current Candidate: Restore the Earlier Same-Day Safari Path
+### Experiment 7: Restore the Earlier Same-Day Safari Path
 
 Change in `apps/web/lib/realtime.ts`:
 
@@ -134,6 +134,32 @@ Reasoning:
 - the endpoint rewrite and all ICE overrides failed to change the transport shape at all;
 - the most plausible regression left is not "Safari needs another workaround", but "we walked away from the last working connect flow."
 
+Result: still failed according to the next Safari retest.
+
+### Current Candidate: Pre-Classroom Baseline (`32eb86b^`)
+
+Anchor:
+
+- the phrase `Phase 1: Contracts And Persistence` appears in `docs/planning/mvp+1/MVP_PLUS_ONE_CLASSROOM_TOOLS_IMPLEMENTATION.md`;
+- the nearest code milestone is `32eb86b` (`Add MVP+1 classroom tools planning and initial classroom state implementation`);
+- `apps/web/lib/realtime.ts` at `32eb86b^` used a simple connect flow and `apps/web/package.json` pinned `livekit-client` to `^2.2.0`.
+
+Change in `apps/web/lib/realtime.ts`:
+
+- remove Safari-only `prepareConnection()`, `autoSubscribe: false`, room recreation, reconnect helpers, and timeout wrappers;
+- restore simple `await room.connect(normalizeLiveKitUrl(input.session.livekitUrl), input.session.token)`;
+- keep current classroom message types and `syncParticipants()` API surface, but use the older connection behavior.
+
+Change in `apps/web/package.json` and `package-lock.json`:
+
+- pin `livekit-client` back to `2.2.0`.
+
+Reasoning:
+
+- this is the cleanest regression boundary in the repo;
+- it predates the classroom-tools phase the user pointed at;
+- it also predates the same-day SDK bump to `2.19.0` that triggered the Safari patch cascade.
+
 ---
 
 ## Current Code State
@@ -147,20 +173,7 @@ new Room({ adaptiveStream: true, dynacast: true })
 Safari connect options:
 
 ```typescript
-await Promise.race([room.prepareConnection(livekitUrl, token), sleep(8_000)]).catch(() => undefined);
-
-room.connect(livekitUrl, token, {
-  autoSubscribe: false,
-  peerConnectionTimeout: 25_000,
-  websocketTimeout: 25_000
-});
-```
-
-After connect, Safari subscribes explicitly and starts audio playback:
-
-```typescript
-subscribeAllRemoteTracks(room);
-void room.startAudio().catch(() => undefined);
+await room.connect(normalizeLiveKitUrl(input.session.livekitUrl), input.session.token);
 ```
 
 ---
@@ -171,30 +184,25 @@ Test Safari on the same mobile hotspot.
 
 Expected if the current candidate is correct:
 
-- no Safari ICE debug logs or primer logs, because those experiments are removed;
+- no Safari ICE debug logs, primer logs, endpoint rewrite logs, or custom reconnect status messages;
 - Safari should move from signaling into a completed room connect without the `"timed out on Safari while negotiating WebRTC"` error;
-- connection should complete before the app timeout;
-- remote subscriptions should come in only after the room is connected.
+- the room should connect using the old SDK and old negotiation behavior.
 
 Expected if it still fails:
 
 - record whether the failure happens before or after `signal connected`;
 - record the exact on-screen error and any Safari console message from LiveKit;
-- if the simpler flow still fails, the remaining highest-value step is to pin `livekit-client` back to `2.2.0` and test the pre-upgrade baseline directly.
+- if this still fails, the next question is no longer "which client branch works", but whether a server-side or environment change broke a path that previously worked with `2.2.0`.
 
 ---
 
 ## Remaining Options If This Fails
 
-**Option A: Pin `livekit-client` back to `2.2.0`**
-
-If the restored same-day connect flow still fails, the cleanest remaining regression boundary is the SDK upgrade from `2.2.0` to `2.19.0`.
-
-**Option B: Use LiveKit connection helper / TURN check**
+**Option A: Use LiveKit connection helper / TURN check**
 
 LiveKit's SDK includes a TURN check that connects with `rtcConfig: { iceTransportPolicy: "relay" }`. Running the same check in Safari would confirm whether this is a general Safari TURN failure outside our app code.
 
-**Option C: WebSocket-backed Safari realtime fallback**
+**Option B: WebSocket-backed Safari realtime fallback**
 
 If Safari cannot reliably establish LiveKit WebRTC, use a backend WebSocket/SSE channel for cross-device presence and room state on Safari. This would preserve classroom state sync but would not provide Safari audio/video through LiveKit.
 
