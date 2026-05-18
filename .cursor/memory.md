@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-17 (interactive wall polls with voting)
+Last updated: 2026-05-18 (teacher wall asset refresh fix)
 
 ## Project Summary
 
@@ -109,6 +109,7 @@ Local loading:
 - MVP+1 design decision → introduce `WallObject` for visible placed wall content; keep `WallAttachment` as file asset metadata instead of stretching it to represent live streams, web links, whiteboards, polls, and timers
 - MVP+1 implementation → `WallObject` persists outside the room manifest, hydrates via API, syncs via reliable realtime messages, and renders through shared wall-object state in both 3D and 2D.
 - MVP+1 classroom tools plan → builds on `WallObject`, `ClassMembership`, LiveKit data channels, roster/people panel, and a new room-scoped `ClassroomState`; classroom state decorates participants but must not overwrite live avatar movement.
+- Wall object clients now periodically refresh persisted room wall objects and hydrate signed asset URLs, so teacher boards recover from missed student upload realtime messages without polling or resetting avatar state.
 
 ## Post-MVP Backlog
 

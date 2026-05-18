@@ -156,6 +156,41 @@ function publishRemove(publish: PublishWallMessage | undefined, roomId: string, 
   });
 }
 
+function mergeWallObject(existing: WallObject | undefined, incoming: WallObject) {
+  if (existing && existing.version > incoming.version) {
+    return existing;
+  }
+
+  // Timer controls are optimistic locally; avoid replacing a locally advanced timer with same-version stale state.
+  if (existing?.type === "timer" && incoming.type === "timer" && existing.version === incoming.version) {
+    const existingPlayback =
+      existing.state?.playback && typeof existing.state.playback === "object"
+        ? (existing.state.playback as Record<string, unknown>)
+        : {};
+    const incomingPlayback =
+      incoming.state?.playback && typeof incoming.state.playback === "object"
+        ? (incoming.state.playback as Record<string, unknown>)
+        : {};
+    const existingPosition = Number(existingPlayback.positionSeconds ?? 0);
+    const incomingPosition = Number(incomingPlayback.positionSeconds ?? 0);
+    if (incomingPosition < existingPosition) {
+      return {
+        ...incoming,
+        state: {
+          ...incoming.state,
+          playback: {
+            ...incomingPlayback,
+            positionSeconds: existingPosition,
+            status: incomingPlayback.status ?? existingPlayback.status
+          }
+        }
+      };
+    }
+  }
+
+  return incoming;
+}
+
 export function useWallObjects(input: {
   identity: ApiIdentity;
   roomId?: string | undefined;
@@ -187,23 +222,38 @@ export function useWallObjects(input: {
     [wallObjects]
   );
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options?: { showLoading?: boolean }) => {
     if (!input.enabled || !input.roomId) return;
-    setLoading(true);
+    const showLoading = options?.showLoading !== false;
+    if (showLoading) setLoading(true);
     setError("");
     try {
       const objects = await listWallObjects(input.identity, input.roomId);
-      setObjectsById(Object.fromEntries(objects.map((object) => [object.id, object])));
+      setObjectsById((current) => {
+        const next: Record<string, WallObject> = {};
+        for (const object of objects) {
+          next[object.id] = mergeWallObject(current[object.id], object);
+        }
+        return next;
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load wall objects.");
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, [input.enabled, input.roomId, input.identity.userId, input.identity.displayName]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (!input.enabled || !input.roomId) return;
+    const interval = window.setInterval(() => {
+      void refresh({ showLoading: false });
+    }, 3_000);
+    return () => window.clearInterval(interval);
+  }, [input.enabled, input.roomId, refresh]);
 
   const fetchAssetUrl = useCallback(
     async (object: WallObject, options?: { force?: boolean }) => {
@@ -254,39 +304,11 @@ export function useWallObjects(input: {
   const upsertLocal = useCallback((object: WallObject) => {
     setObjectsById((current) => {
       const existing = current[object.id];
-      if (existing && existing.version > object.version) {
+      const merged = mergeWallObject(existing, object);
+      if (merged === existing) {
         return current;
       }
-      // Only guard against same-version stale duplicates; newer API versions must win (e.g. seek reset to 0).
-      if (existing?.type === "timer" && object.type === "timer" && existing.version === object.version) {
-        const existingPlayback =
-          existing.state?.playback && typeof existing.state.playback === "object"
-            ? (existing.state.playback as Record<string, unknown>)
-            : {};
-        const incomingPlayback =
-          object.state?.playback && typeof object.state.playback === "object"
-            ? (object.state.playback as Record<string, unknown>)
-            : {};
-        const existingPosition = Number(existingPlayback.positionSeconds ?? 0);
-        const incomingPosition = Number(incomingPlayback.positionSeconds ?? 0);
-        if (incomingPosition < existingPosition) {
-          return {
-            ...current,
-            [object.id]: {
-              ...object,
-              state: {
-                ...object.state,
-                playback: {
-                  ...incomingPlayback,
-                  positionSeconds: existingPosition,
-                  status: incomingPlayback.status ?? existingPlayback.status
-                }
-              }
-            }
-          };
-        }
-      }
-      return { ...current, [object.id]: object };
+      return { ...current, [object.id]: merged };
     });
   }, []);
 
