@@ -138,8 +138,7 @@ async function connectLiveKitRoomOnce(
       ? {
           autoSubscribe: false,
           peerConnectionTimeout: input.timeoutMs,
-          websocketTimeout: Math.min(25_000, input.timeoutMs),
-          rtcConfig: { iceTransportPolicy: "relay" }
+          websocketTimeout: Math.min(25_000, input.timeoutMs)
         }
       : {
           peerConnectionTimeout: input.timeoutMs
@@ -468,37 +467,45 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
         input.onStatus("Connecting to LiveKit (negotiating media)...");
       }
       if (safari) {
-        // Temporary diagnostic: poll ICE state every second so we can see
-        // what candidates are gathered and whether the PC ever reaches connected.
+        // Temporary diagnostic: attach candidate listeners immediately (gathering
+        // starts at SignalConnected), then poll state every second.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const eng = (room as any).engine;
+        const pcm = eng?.pcManager;
+        const attachListeners = (pc: RTCPeerConnection, label: string) => {
+          pc.addEventListener("icecandidate", (e) =>
+            console.log(`[ICE ${label} candidate]`, e.candidate
+              ? `type=${e.candidate.type} proto=${e.candidate.protocol} addr=${e.candidate.address}`
+              : "null — gathering complete")
+          );
+          pc.addEventListener("icecandidateerror", (e) => console.warn(`[ICE ${label} error]`, e));
+          pc.addEventListener("iceconnectionstatechange", () =>
+            console.log(`[ICE ${label} connectionstate]`, pc.iceConnectionState)
+          );
+          pc.addEventListener("icegatheringstatechange", () =>
+            console.log(`[ICE ${label} gatheringstate]`, pc.iceGatheringState)
+          );
+        };
+        const pubPc: RTCPeerConnection | undefined = pcm?.publisher?._pc ?? pcm?.publisher?.pc;
+        const subPc: RTCPeerConnection | undefined = pcm?.subscriber?._pc ?? pcm?.subscriber?.pc;
+        if (pubPc) attachListeners(pubPc, "pub");
+        if (subPc) attachListeners(subPc, "sub");
+        console.log("[ICE init] engine=", !!eng, "pcm=", !!pcm, "pubPc=", !!pubPc, "subPc=", !!subPc);
+
         let tick = 0;
         const poll = window.setInterval(() => {
           tick++;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const eng = (room as any).engine;
-          const pcm = eng?.pcManager;
-          const pubPc: RTCPeerConnection | undefined = pcm?.publisher?._pc ?? pcm?.publisher?.pc;
-          const subPc: RTCPeerConnection | undefined = pcm?.subscriber?._pc ?? pcm?.subscriber?.pc;
+          const e2 = (room as any).engine; // eslint-disable-line @typescript-eslint/no-explicit-any
+          const p2 = e2?.pcManager;
+          const pub2: RTCPeerConnection | undefined = p2?.publisher?._pc ?? p2?.publisher?.pc;
+          const sub2: RTCPeerConnection | undefined = p2?.subscriber?._pc ?? p2?.subscriber?.pc;
           console.log(
             `[ICE t+${tick}s]`,
-            `engine=${!!eng}`,
-            `pcManager=${!!pcm}`,
-            `pub.ice=${pubPc?.iceConnectionState ?? "no-pc"}`,
-            `pub.gather=${pubPc?.iceGatheringState ?? "–"}`,
-            `sub.ice=${subPc?.iceConnectionState ?? "no-pc"}`,
-            `sub.gather=${subPc?.iceGatheringState ?? "–"}`,
+            `pub.ice=${pub2?.iceConnectionState ?? "no-pc"}`,
+            `pub.gather=${pub2?.iceGatheringState ?? "–"}`,
+            `sub.ice=${sub2?.iceConnectionState ?? "no-pc"}`,
+            `sub.gather=${sub2?.iceGatheringState ?? "–"}`,
           );
-          if (pubPc && tick === 1) {
-            pubPc.addEventListener("icecandidate", (e) =>
-              console.log("[ICE pub candidate]", e.candidate ? `${e.candidate.type} ${e.candidate.protocol} ${e.candidate.address}` : "null (gathering done)")
-            );
-            pubPc.addEventListener("icecandidateerror", (e) => console.warn("[ICE pub error]", e));
-          }
-          if (subPc && tick === 1) {
-            subPc.addEventListener("icecandidate", (e) =>
-              console.log("[ICE sub candidate]", e.candidate ? `${e.candidate.type} ${e.candidate.protocol} ${e.candidate.address}` : "null (gathering done)")
-            );
-            subPc.addEventListener("icecandidateerror", (e) => console.warn("[ICE sub error]", e));
-          }
           if (tick >= 30) window.clearInterval(poll);
         }, 1_000);
       }
