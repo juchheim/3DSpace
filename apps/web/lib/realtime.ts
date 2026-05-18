@@ -64,6 +64,63 @@ type AdapterInput = {
   isStale?: () => boolean;
 };
 
+function maskToken(token: string) {
+  if (token.length <= 16) return `${token.slice(0, 4)}...${token.slice(-4)}`;
+  return `${token.slice(0, 8)}...${token.slice(-6)}`;
+}
+
+function decodeBase64UrlJson(segment: string) {
+  try {
+    const normalized = segment.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    return JSON.parse(atob(padded)) as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
+}
+
+function summarizeLiveKitJwt(token: string) {
+  const [headerSegment, payloadSegment] = token.split(".");
+  if (!headerSegment || !payloadSegment) {
+    return { kind: "non-jwt" as const };
+  }
+
+  const header = decodeBase64UrlJson(headerSegment);
+  const payload = decodeBase64UrlJson(payloadSegment);
+  if (!header || !payload) {
+    return { kind: "decode-failed" as const };
+  }
+
+  return {
+    kind: "jwt" as const,
+    header: {
+      alg: typeof header.alg === "string" ? header.alg : undefined,
+      typ: typeof header.typ === "string" ? header.typ : undefined
+    },
+    payload: {
+      iss: typeof payload.iss === "string" ? payload.iss : undefined,
+      sub: typeof payload.sub === "string" ? payload.sub : undefined,
+      name: typeof payload.name === "string" ? payload.name : undefined,
+      metadata: typeof payload.metadata === "string" ? payload.metadata : undefined,
+      exp: typeof payload.exp === "number" ? payload.exp : undefined,
+      nbf: typeof payload.nbf === "number" ? payload.nbf : undefined,
+      video: typeof payload.video === "object" && payload.video ? payload.video : undefined
+    }
+  };
+}
+
+function logSessionDebug(input: AdapterInput) {
+  console.log("[LiveKit session]", {
+    roomId: input.roomId,
+    livekitUrl: input.session.livekitUrl,
+    participantId: input.session.participantId,
+    participantIdentity: input.session.participantIdentity,
+    role: input.session.role,
+    tokenPreview: maskToken(input.session.token),
+    token: summarizeLiveKitJwt(input.session.token)
+  });
+}
+
 function withSender(message: RealtimeMessage, senderId: string) {
   return { ...message, senderId };
 }
@@ -337,6 +394,7 @@ export async function createRealtimeClient(input: AdapterInput): Promise<Realtim
   }
 
   try {
+    logSessionDebug(input);
     return await createLiveKitClient(input);
   } catch (error) {
     input.onStatus("LiveKit connection failed; using local multi-tab realtime fallback.");
