@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-18 (teacher wall asset refresh fix)
+Last updated: 2026-05-18 (Safari LiveKit compatibility)
 
 ## Project Summary
 
@@ -146,6 +146,7 @@ Screen share, computer audio, teacher moderation, rich wall placement, room buil
 - **2026-05-17**: Wall objects stacked on one board — enforce one occupying object per anchor in API (`assertAnchorAvailableForNewObject`), client (`useWallObjects`, `AnchorPanel` disables create when occupied).
 - **2026-05-17**: Wall anchor boards use 16:9 widescreen proportions (`widescreenHeight` in `room-engine`); 2D map rects use `projectAnchorRectTo2D`.
 - **2026-05-17**: Main board sizing changes were blocked by stale session/API manifest data in the running web app. Added `normalizeRoomManifest` in web client to force current main-board dimensions before 3D/2D rendering, even when existing rooms send old anchor dimensions.
+- **2026-05-18**: Safari LiveKit disconnects while Chrome works — Safari WebRTC is sensitive to simulcast/dynacast/adaptiveStream. Fixed in `apps/web/lib/realtime.ts` + `browser.ts`: Safari disables simulcast/dynacast/adaptiveStream, uses VP8 + `webAudioMix`, longer connect timeouts, auto-reconnect on unexpected disconnect + tab visibility, and no longer surfaces a dead-end "Disconnected from LiveKit." status during reconnect.
 
 ## Maintenance Rules
 

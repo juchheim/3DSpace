@@ -1,6 +1,7 @@
 "use client";
 
 import { ConnectionState, Room, RoomEvent, Track } from "livekit-client";
+import { isSafariBrowser } from "./browser";
 import { waitForVideoTrackDimensions } from "./mediaTracks";
 import type {
   AvatarStateMessage,
@@ -107,19 +108,48 @@ async function disconnectLiveKitRoom(room: Room) {
   await sleep(400);
 }
 
+function createRoomForBrowser() {
+  const safari = isSafariBrowser();
+  return new Room({
+    adaptiveStream: !safari,
+    dynacast: !safari,
+    disconnectOnPageLeave: false,
+    webAudioMix: safari,
+    ...(safari
+      ? {
+          publishDefaults: {
+            simulcast: false,
+            videoCodec: "vp8" as const,
+            backupCodec: false
+          }
+        }
+      : {})
+  });
+}
+
+function liveKitConnectOptions() {
+  const safari = isSafariBrowser();
+  return {
+    autoSubscribe: true,
+    peerConnectionTimeout: safari ? 30_000 : 20_000,
+    websocketTimeout: safari ? 30_000 : 20_000
+  };
+}
+
 async function connectLiveKitRoom(room: Room, url: string, token: string, timeoutMs = 25_000) {
   const livekitUrl = normalizeLiveKitUrl(url);
+  const connectTimeoutMs = isSafariBrowser() ? Math.max(timeoutMs, 30_000) : timeoutMs;
   let lastError: unknown;
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       await disconnectLiveKitRoom(room);
       await Promise.race([
-        room.connect(livekitUrl, token, { autoSubscribe: true }),
+        room.connect(livekitUrl, token, liveKitConnectOptions()),
         new Promise<never>((_resolve, reject) => {
           window.setTimeout(
             () => reject(new Error("LiveKit connection timed out. Verify LIVEKIT_URL is wss:// on the API service.")),
-            timeoutMs
+            connectTimeoutMs
           );
         })
       ]);
@@ -181,7 +211,8 @@ function createBroadcastClient(input: AdapterInput, reason?: string): RealtimeCl
 }
 
 async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient> {
-  const room = new Room({ adaptiveStream: true, dynacast: true });
+  const safari = isSafariBrowser();
+  const room = createRoomForBrowser();
   input.onStatus("Connecting to LiveKit...");
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
@@ -190,6 +221,9 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   const publishedWallTracks = new Map<string, { video?: MediaStreamTrack; audio?: MediaStreamTrack }>();
   let localMediaSync: Promise<void> = Promise.resolve();
   let closed = false;
+  let wasConnected = false;
+  let reconnectTimer: number | undefined;
+  let visibilityHandler: (() => void) | undefined;
 
   async function syncLocalMedia(media: { cameraStream: MediaStream | null; micStream: MediaStream | null }) {
     const nextCameraTrack = media.cameraStream?.getVideoTracks()[0] ?? null;
@@ -203,7 +237,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
         name: "camera",
         source: Track.Source.Camera,
         stream: "avatar-media",
-        simulcast: true
+        simulcast: !safari
       });
       publishedCameraTrack = nextCameraTrack;
     }
@@ -337,15 +371,57 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
       participantId: participantIdFromIdentity(participant.identity)
     });
   });
+  async function reconnectIfNeeded() {
+    if (closed || room.state === ConnectionState.Connected || room.state === ConnectionState.Connecting) return;
+    try {
+      input.onStatus("Reconnecting to LiveKit...");
+      await connectLiveKitRoom(room, input.session.livekitUrl, input.session.token);
+      syncRemoteParticipants();
+      input.onStatus("Connected through LiveKit media and data channels.");
+    } catch (error) {
+      console.error("LiveKit reconnect failed", error);
+      if (!closed) {
+        input.onStatus(error instanceof Error ? error.message : "LiveKit reconnect failed.");
+      }
+    }
+  }
+
+  function scheduleReconnect() {
+    if (!safari || closed || reconnectTimer) return;
+    reconnectTimer = window.setTimeout(() => {
+      reconnectTimer = undefined;
+      void reconnectIfNeeded();
+    }, 1_500);
+  }
+
   room.on(RoomEvent.ConnectionStateChanged, (state) => {
     if (state === ConnectionState.Connected) {
+      wasConnected = true;
+      if (reconnectTimer) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = undefined;
+      }
       input.onStatus("Connected through LiveKit media and data channels.");
-    } else if (state === ConnectionState.Reconnecting || state === ConnectionState.SignalReconnecting) {
+      return;
+    }
+    if (state === ConnectionState.Reconnecting || state === ConnectionState.SignalReconnecting || state === ConnectionState.Connecting) {
       input.onStatus("Reconnecting to LiveKit...");
-    } else if (state === ConnectionState.Disconnected) {
-      input.onStatus("Disconnected from LiveKit.");
+      return;
+    }
+    if (state === ConnectionState.Disconnected && wasConnected && !closed) {
+      input.onStatus("Reconnecting to LiveKit...");
+      scheduleReconnect();
     }
   });
+
+  if (safari) {
+    visibilityHandler = () => {
+      if (document.visibilityState === "visible") {
+        void reconnectIfNeeded();
+      }
+    };
+    document.addEventListener("visibilitychange", visibilityHandler);
+  }
 
   await room.prepareConnection(normalizeLiveKitUrl(input.session.livekitUrl), input.session.token).catch(() => undefined);
   await connectLiveKitRoom(room, input.session.livekitUrl, input.session.token);
@@ -406,7 +482,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
             name: publicationName,
             source: Track.Source.ScreenShare,
             stream: "wall-share",
-            simulcast: true
+            simulcast: !safari
           });
           record.video = videoTrack;
         }
@@ -423,6 +499,14 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
     },
     async close() {
       closed = true;
+      if (reconnectTimer) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = undefined;
+      }
+      if (visibilityHandler) {
+        document.removeEventListener("visibilitychange", visibilityHandler);
+        visibilityHandler = undefined;
+      }
       window.clearInterval(presenceInterval);
       publishedCameraTrack = null;
       publishedMicTrack = null;
