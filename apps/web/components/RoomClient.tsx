@@ -97,6 +97,10 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     enabled: Boolean(session),
     publish: publishRealtime
   });
+  const wallRealtimeHandlerRef = useRef(wall.handleRealtimeMessage);
+  wallRealtimeHandlerRef.current = wall.handleRealtimeMessage;
+  const classroomRealtimeHandlerRef = useRef(classroom.handleRealtimeMessage);
+  classroomRealtimeHandlerRef.current = classroom.handleRealtimeMessage;
 
   useEffect(() => {
     setManifest((current) => (current ? normalizeRoomManifest(current) : current));
@@ -184,8 +188,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     let closed = false;
 
     function handleMessage(message: RealtimeMessage) {
-      if (wall.handleRealtimeMessage(message)) return;
-      if (classroom.handleRealtimeMessage(message)) return;
+      if (wallRealtimeHandlerRef.current(message)) return;
+      if (classroomRealtimeHandlerRef.current(message)) return;
       if (message.type.startsWith("wall.")) return;
 
       if (message.type === "participant.leave.v1") {
@@ -333,7 +337,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       realtimeRef.current?.close();
       realtimeRef.current = null;
     };
-  }, [classroom.handleRealtimeMessage, session?.participantId, roomId, identity.displayName, leaving, wall.handleRealtimeMessage]);
+  }, [session?.participantId, roomId, identity.displayName, leaving]);
 
   useEffect(() => {
     if (!session || !movement.avatarState) return;

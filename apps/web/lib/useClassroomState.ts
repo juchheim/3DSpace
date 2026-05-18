@@ -37,9 +37,10 @@ export function useClassroomState(input: {
     setState(sorted);
   }, []);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options?: { showLoading?: boolean }) => {
     if (!input.enabled || !input.roomId) return null;
-    setLoading(true);
+    const showLoading = options?.showLoading ?? true;
+    if (showLoading) setLoading(true);
     setError("");
     try {
       const next = await getClassroomState(input.identity, input.roomId);
@@ -49,9 +50,9 @@ export function useClassroomState(input: {
       setError(err instanceof Error ? err.message : "Unable to load classroom state.");
       return null;
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
-  }, [applyState, input.enabled, input.identity, input.roomId]);
+  }, [applyState, input.enabled, input.identity.userId, input.identity.displayName, input.roomId]);
 
   useEffect(() => {
     if (!input.enabled || !input.roomId) {
@@ -67,7 +68,7 @@ export function useClassroomState(input: {
   useEffect(() => {
     if (!input.enabled || !input.roomId) return;
     const interval = window.setInterval(() => {
-      void refresh();
+      void refresh({ showLoading: false });
     }, 5_000);
     return () => window.clearInterval(interval);
   }, [input.enabled, input.roomId, refresh]);
@@ -93,7 +94,7 @@ export function useClassroomState(input: {
         throw err;
       }
     },
-    [applyState, input.identity, input.publish, input.roomId]
+    [applyState, input.identity.userId, input.identity.displayName, input.publish, input.roomId]
   );
 
   const handleRealtimeMessage = useCallback(
