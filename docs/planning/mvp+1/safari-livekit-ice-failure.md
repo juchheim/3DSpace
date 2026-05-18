@@ -1,6 +1,6 @@
 # Safari LiveKit ICE Connection Failure - Investigation Handoff
 
-**Status:** Active - relay-only TURN failed on a mobile hotspot. Current candidate restores the earlier default LiveKit Safari path with a longer 45s negotiation window.  
+**Status:** Active - relay-only TURN and the restored default v1 path both failed on a mobile hotspot. Current candidate primes Safari ICE with a disabled local canvas video track during connect.  
 **Branch:** `mvp-plus-one`  
 **Primary file:** `apps/web/lib/realtime.ts`  
 **LiveKit SDK:** `livekit-client@2.19.0`
@@ -17,28 +17,22 @@ Latest hotspot result:
 
 - LiveKit signaling connects successfully.
 - LiveKit Cloud returns three TURN URLs: one UDP TURN URL and two TCP TLS TURN URLs.
-- The RTCPeerConnection config shows `iceTransportPolicy: "relay"`.
-- Both publisher and subscriber PCs stay at `iceConnectionState=new` and `iceGatheringState=gathering`.
-- No `icecandidate` relay candidates are emitted.
-- No `icecandidateerror` events are emitted.
-- LiveKit eventually disconnects with `DisconnectReason.CONNECTION_TIMEOUT` (`reason: 14`).
+- Relay-only path: the RTCPeerConnection config shows `iceTransportPolicy: "relay"`, but both publisher and subscriber PCs stay at `iceConnectionState=new` and `iceGatheringState=gathering`; no relay candidates or `icecandidateerror` events are emitted.
+- Restored default v1 path: the URL uses `/rtc/v1`, only the publisher PC exists, `iceTransportPolicy` is `all`, and Safari produces only TCP host pairs.
+- Default v1 stats show local TCP host candidates on port `9`, remote LiveKit TCP host candidates on port `7881`, and candidate pairs stuck in `state=waiting`.
+- LiveKit Cloud kills each attempt at about 14-15s with `DisconnectReason.CONNECTION_TIMEOUT` (`reason: 14`) regardless of the client-side 45s timeout.
 
 ---
 
 ## Current Working Hypothesis
 
-The TURN-forcing path is the wrong path for this Safari failure.
+Safari is not getting a useful ICE checklist when the app joins LiveKit before any local media exists.
 
-The latest mobile hotspot log proves that Safari can receive correctly credentialed TURN servers, can be put into relay-only mode, and still does not generate relay candidates or TURN errors before LiveKit times out. That makes more TURN URL reshaping unlikely to fix the connection.
+The mobile hotspot logs prove that Safari can receive correctly credentialed TURN servers, can be put into relay-only mode, and still does not generate relay candidates or TURN errors before LiveKit times out. The restored default path also fails: Safari checks only TCP host pairs and leaves them waiting until LiveKit Cloud times out the participant.
 
-The important regression signal is local history: Safari was working earlier with the default LiveKit single-peer-connection path and a much longer Safari negotiation window. The current deployed path changed both:
+This matches a known WebKit failure mode for receive-only / data-channel-first WebRTC sessions: Safari may not emit useful ICE candidates until the connection has a local media sender. LiveKit is being used for data/presence first, so users can enter the room before enabling camera or microphone.
 
-- forced `singlePeerConnection: false`, moving Safari from LiveKit's default v1 path to the v0 dual-PC path;
-- monkey-patched `window.RTCPeerConnection` to split TURN URLs;
-- forced `iceTransportPolicy: "relay"`;
-- reduced Safari's connection wait to 20s.
-
-Current candidate fix: undo the v0/relay/TURN monkey-patch path and restore Safari to the default LiveKit connection flow with a 45s peer connection timeout.
+Current candidate fix: publish a disabled 16x16 canvas video track during Safari's initial join, then unpublish it immediately after connection. This adds a local media sender without camera/mic permission and should push WebKit into the media-sending ICE path.
 
 ---
 
@@ -82,6 +76,19 @@ Change in `apps/web/lib/realtime.ts`:
 - remove `singlePeerConnection: false`;
 - restore Safari `peerConnectionTimeout` / `websocketTimeout` to 45s.
 
+Result: still failed. The default v1 path was confirmed by `/rtc/v1` and `subPc=false`, but LiveKit Cloud timed out each attempt at about 15s while candidate pairs remained `waiting`.
+
+### Current Candidate: Safari ICE Primer Track
+
+Change in `apps/web/lib/realtime.ts`:
+
+- before `room.connect()` on Safari, create `getEmptyVideoStreamTrack()`;
+- publish it with name `__3dspace_safari_ice_primer`, source `unknown`, stream `__3dspace_safari_ice_primer`, simulcast disabled, H.264;
+- filter this publication out of remote media handlers;
+- unpublish it after connect or stop it on failure.
+
+This is intentionally not camera/microphone capture. It is a disabled canvas track from LiveKit's own helper, so it should not trigger user permission prompts.
+
 ---
 
 ## Current Code State
@@ -106,6 +113,20 @@ room.connect(livekitUrl, token, {
 });
 ```
 
+Safari ICE primer:
+
+```typescript
+const track = getEmptyVideoStreamTrack();
+track.enabled = false;
+void room.localParticipant.publishTrack(track, {
+  name: "__3dspace_safari_ice_primer",
+  source: Track.Source.Unknown,
+  stream: "__3dspace_safari_ice_primer",
+  simulcast: false,
+  videoCodec: "h264"
+});
+```
+
 The temporary Safari diagnostic logging remains active on `RoomEvent.SignalConnected`:
 
 - `[ICE init]`
@@ -126,7 +147,8 @@ Test Safari on the same mobile hotspot.
 Expected if the current candidate is correct:
 
 - no `[ICE split]` logs, because the monkey-patch is gone;
-- `peerConnectionTimeout` should allow Safari substantially longer than the previous ~20s path;
+- the Safari primer publish should happen after signal connects;
+- local ICE candidates should include useful media-sender candidates instead of only TCP host port `9`;
 - connection should complete before the app timeout;
 - diagnostic logs should show whether Safari eventually produces usable candidates after its slow gathering phase.
 
@@ -134,7 +156,7 @@ Expected if it still fails:
 
 - record the final `[ICE config]`, `[ICE stats local]`, `[ICE stats pair]`, and timeout timestamp;
 - check whether the LiveKit disconnect still reports `reason: 14`;
-- compare the total time from `SignalConnected` to failure to confirm whether the 45s timeout is taking effect.
+- check whether the console logs `Safari ICE primer publish failed`.
 
 ---
 

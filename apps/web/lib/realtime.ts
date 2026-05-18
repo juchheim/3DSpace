@@ -66,6 +66,8 @@ type AdapterInput = {
   isStale?: () => boolean;
 };
 
+const SAFARI_ICE_PRIMER_TRACK_NAME = "__3dspace_safari_ice_primer";
+
 function withSender(message: RealtimeMessage, senderId: string) {
   return { ...message, senderId };
 }
@@ -264,7 +266,7 @@ function createBroadcastClient(input: AdapterInput, reason?: string): RealtimeCl
 }
 
 async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient> {
-  const { Room, RoomEvent, Track, getBrowser } = await import("livekit-client");
+  const { Room, RoomEvent, Track, getBrowser, getEmptyVideoStreamTrack } = await import("livekit-client");
   const browser = getBrowser();
   const safari = browser?.name === "Safari" || browser?.os === "iOS";
 
@@ -292,6 +294,45 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   let localMediaSync: Promise<void> = Promise.resolve();
   let closed = false;
   let isConnecting = true;
+
+  function startSafariIcePrimer(room: Room) {
+    const track = getEmptyVideoStreamTrack();
+    track.enabled = false;
+    console.log("[ICE primer] publishing disabled local video track");
+    const published = room.localParticipant
+      .publishTrack(track, {
+        name: SAFARI_ICE_PRIMER_TRACK_NAME,
+        source: Track.Source.Unknown,
+        stream: SAFARI_ICE_PRIMER_TRACK_NAME,
+        simulcast: false,
+        videoCodec: "h264"
+      })
+      .then(() => {
+        console.log("[ICE primer] published");
+        return true;
+      })
+      .catch((error) => {
+        console.warn("Safari ICE primer publish failed", error);
+        track.stop();
+        return false;
+      });
+
+    return { track, published };
+  }
+
+  async function stopSafariIcePrimer(room: Room, primer: ReturnType<typeof startSafariIcePrimer>) {
+    const published = await Promise.race([primer.published, sleep(1_000).then(() => false)]);
+    if (published && room.state === ConnectionState.Connected) {
+      await room.localParticipant.unpublishTrack(primer.track, true).catch((error) => {
+        console.warn("Safari ICE primer cleanup failed", error);
+        primer.track.stop();
+      });
+      console.log("[ICE primer] unpublished");
+      return;
+    }
+    primer.track.stop();
+    console.log("[ICE primer] stopped");
+  }
 
   async function syncLocalMedia(media: { cameraStream: MediaStream | null; micStream: MediaStream | null }) {
     const room = roomRef.current;
@@ -369,6 +410,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   }
 
   function handleRemoteTrack(track: { kind: string; source: string; mediaStreamTrack: MediaStreamTrack }, participantIdentity: string, publication?: unknown) {
+    if (publicationName(publication) === SAFARI_ICE_PRIMER_TRACK_NAME) return;
     const participantId = participantIdFromIdentity(participantIdentity);
     const wallObjectId = wallObjectIdFromPublication(publicationName(publication));
     if (wallObjectId) {
@@ -390,6 +432,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   }
 
   function handleRemoteTrackRemoved(track: { kind: string; source: string }, participantIdentity: string, publication?: unknown) {
+    if (publicationName(publication) === SAFARI_ICE_PRIMER_TRACK_NAME) return;
     const participantId = participantIdFromIdentity(participantIdentity);
     const wallObjectId = wallObjectIdFromPublication(publicationName(publication));
     if (wallObjectId) {
@@ -544,6 +587,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   bindRoomEvents(roomRef.current, safari);
 
   input.onStatus("Connecting to LiveKit...");
+  const safariIcePrimer = safari ? startSafariIcePrimer(roomRef.current) : undefined;
 
   try {
     await connectLiveKitRoom({
@@ -558,6 +602,9 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
     });
   } finally {
     isConnecting = false;
+    if (safariIcePrimer) {
+      await stopSafariIcePrimer(roomRef.current, safariIcePrimer);
+    }
   }
 
   if (closed || input.isStale?.()) {
