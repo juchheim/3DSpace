@@ -1,6 +1,6 @@
 "use client";
 
-import type { ClassroomGroup, RoomManifest, WallObject } from "@3dspace/contracts";
+import type { ClassroomGroup, ClassroomSpotlight, RoomManifest, WallObject } from "@3dspace/contracts";
 import { computeGroupMemberPosition, projectAnchorRectTo2D, projectPositionTo2D } from "@3dspace/room-engine";
 import type { ParticipantView } from "./RoomClient";
 import { WallObjectCard } from "./WallObjectCard";
@@ -13,6 +13,7 @@ export function RoomView2D({
   assetUrls = {},
   wallMediaStreams = {},
   classroomGroups = [],
+  spotlight,
   positioningMode = false
 }: {
   manifest: RoomManifest;
@@ -22,6 +23,7 @@ export function RoomView2D({
   assetUrls?: Record<string, string>;
   wallMediaStreams?: Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>;
   classroomGroups?: ClassroomGroup[];
+  spotlight?: ClassroomSpotlight | null | undefined;
   positioningMode?: boolean;
 }) {
   function handlePointer(event: React.PointerEvent<SVGSVGElement>) {
@@ -46,11 +48,26 @@ export function RoomView2D({
           const rect = projectAnchorRectTo2D(manifest, anchor);
           const objects = wallObjects.filter((object) => object.wallAnchorId === anchor.id && object.status !== "removed");
           const hasLive = objects.some((object) => object.type.endsWith(".live") && object.status === "active");
+          const isSpotlighted = spotlight?.anchorId === anchor.id;
           return (
-            <g key={anchor.id}>
-              <rect x={rect.x} y={rect.y} width={rect.width} height={rect.height} rx="0.7" fill={hasLive ? "#005fcc" : "#eb5e28"} opacity="0.82" />
-              <text x={point.x} y={rect.y - 0.6} textAnchor="middle" fontSize="2.2" fill="#17201a">{anchor.label}</text>
-              {objects.length > 0 ? <text x={point.x} y={point.y + 0.75} textAnchor="middle" fontSize="2.1" fill="#fffaf0">{objects.length}</text> : null}
+            <g key={anchor.id} aria-label={isSpotlighted ? `${anchor.label} (focused)` : anchor.label}>
+              {isSpotlighted ? (
+                <rect
+                  x={rect.x - 0.8}
+                  y={rect.y - 0.8}
+                  width={rect.width + 1.6}
+                  height={rect.height + 1.6}
+                  rx="1.2"
+                  fill="none"
+                  stroke="#f1c40f"
+                  strokeWidth="1.4"
+                  strokeDasharray="2.5 1.5"
+                  opacity="0.92"
+                />
+              ) : null}
+              <rect x={rect.x} y={rect.y} width={rect.width} height={rect.height} rx="0.7" fill={isSpotlighted ? "#f1c40f" : hasLive ? "#005fcc" : "#eb5e28"} opacity="0.92" />
+              <text x={point.x} y={rect.y - 0.6} textAnchor="middle" fontSize="2.2" fill={isSpotlighted ? "#5a4000" : "#17201a"}>{anchor.label}</text>
+              {objects.length > 0 ? <text x={point.x} y={point.y + 0.75} textAnchor="middle" fontSize="2.1" fill={isSpotlighted ? "#17201a" : "#fffaf0"}>{objects.length}</text> : null}
             </g>
           );
         })}

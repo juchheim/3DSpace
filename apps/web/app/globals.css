@@ -1209,6 +1209,72 @@ button.hud-heading-btn:hover {
   cursor: not-allowed;
 }
 
+.hud-btn--active {
+  background: var(--night);
+  color: var(--chalk);
+}
+
+/* Focus / spotlight panel */
+
+.spotlight-callout {
+  position: absolute;
+  bottom: 5.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  background: rgba(22, 35, 29, 0.96);
+  border: 2px solid #f1c40f;
+  border-radius: 0.75rem;
+  padding: 0.7rem 1rem;
+  min-width: 14rem;
+  max-width: 22rem;
+  color: #fffaf0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.spotlight-callout__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+.spotlight-callout__icon {
+  font-size: 1rem;
+  color: #f1c40f;
+  flex-shrink: 0;
+}
+
+.spotlight-callout__title {
+  flex: 1;
+}
+
+.spotlight-callout__instruction {
+  font-size: 0.75rem;
+  color: #d8c99f;
+  margin: 0;
+}
+
+.spotlight-callout__goto {
+  align-self: flex-start;
+}
+
+.classroom-focus-modes {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.classroom-note-optional {
+  font-size: 0.68rem;
+  opacity: 0.6;
+  font-weight: 400;
+}
+
 /* Anchor section */
 
 .anchor-select-compact {

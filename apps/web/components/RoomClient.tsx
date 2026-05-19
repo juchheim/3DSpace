@@ -21,6 +21,7 @@ import { isBoardGrantActive } from "../lib/classroomGrants";
 import { AnchorPanel } from "./AnchorPanel";
 import { AuthGate } from "../lib/auth";
 import { ClassroomPanel } from "./ClassroomPanel";
+import { FocusPanel } from "./FocusPanel";
 import { GroupsPanel } from "./GroupsPanel";
 import { PrivateChecksPanel } from "./PrivateChecksPanel";
 import { MediaControls } from "./MediaControls";
@@ -152,6 +153,23 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     },
     lockedPosition
   });
+
+  const goToFocus = useCallback(
+    (anchorId: string) => {
+      if (!manifest) return;
+      const anchor = manifest.wallAnchors.find((a) => a.id === anchorId);
+      if (!anchor) return;
+      // Move avatar to a standing position ~2.5m in front of the anchor along its normal
+      const standX = anchor.position.x + anchor.normal.x * 2.5;
+      const standZ = anchor.position.z + anchor.normal.z * 2.5;
+      if (viewMode === "3d") {
+        movement.moveTo3DPoint({ x: standX, z: standZ });
+      } else {
+        movement.moveTo2DPoint({ x: standX, y: standZ });
+      }
+    },
+    [manifest, movement, viewMode]
+  );
 
   useEffect(() => {
     setManifest((current) => (current ? normalizeRoomManifest(current) : current));
@@ -779,6 +797,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             canManageWallObjects={session.role === "teacher"}
             currentUserId={identity.userId}
             classroomGroups={classroom.state?.groups ?? []}
+            spotlight={classroom.state?.spotlight}
             onWallObjectControl={controlWallObject}
             onWallObjectRemove={async (objectId) => {
               await wall.removeObject(objectId);
@@ -807,6 +826,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             assetUrls={wall.assetUrls}
             wallMediaStreams={wallMediaStreams}
             classroomGroups={classroom.state?.groups ?? []}
+            spotlight={classroom.state?.spotlight}
             positioningMode={Boolean(positioningGroupId)}
           />
         )}
@@ -885,6 +905,17 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             }}
             onEnterPositioningMode={(groupId) => setPositioningGroupId(groupId)}
             onCancelPositioning={() => setPositioningGroupId("")}
+          />
+          <FocusPanel
+            role={role}
+            state={classroom.state}
+            loading={classroom.loading}
+            manifest={manifest}
+            currentUserId={identity.userId}
+            onRunAction={async (action) => {
+              await classroom.runAction(action);
+            }}
+            onGoToFocus={goToFocus}
           />
           {manifest && session ? (
             <AnchorPanel

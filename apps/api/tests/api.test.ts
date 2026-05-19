@@ -1416,4 +1416,109 @@ describe("3dspace api", () => {
 
     await app.close();
   });
+
+  it("teacher can set and clear spotlight on a wall anchor", async () => {
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-spotlight-flow");
+    await addStudentMember(app, classRecord.id, "teacher-spotlight-flow", "student-spotlight-1", "Morgan");
+    const anchorId = roomWithManifest.manifest.wallAnchors[0].id;
+
+    const setResponse = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-spotlight-flow", "Ms. Rivera"),
+      payload: {
+        type: "set-spotlight",
+        targetType: "wall-anchor",
+        anchorId,
+        mode: "highlight",
+        title: "Look at the diagram",
+        instruction: "Identify the labeled parts"
+      }
+    });
+    expect(setResponse.statusCode).toBe(200);
+    expect(setResponse.json().spotlight).toMatchObject({
+      targetType: "wall-anchor",
+      anchorId,
+      mode: "highlight",
+      title: "Look at the diagram",
+      instruction: "Identify the labeled parts",
+      createdByUserId: "teacher-spotlight-flow"
+    });
+
+    const studentView = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom`,
+      headers: authHeaders("student-spotlight-1", "Morgan")
+    });
+    expect(studentView.statusCode).toBe(200);
+    expect(studentView.json().spotlight).toMatchObject({ anchorId, mode: "highlight" });
+
+    const clearResponse = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-spotlight-flow", "Ms. Rivera"),
+      payload: { type: "clear-spotlight" }
+    });
+    expect(clearResponse.statusCode).toBe(200);
+    expect(clearResponse.json().spotlight).toBeNull();
+
+    const afterClear = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom`,
+      headers: authHeaders("student-spotlight-1", "Morgan")
+    });
+    expect(afterClear.json().spotlight).toBeNull();
+
+    await app.close();
+  });
+
+  it("student cannot set or clear spotlight", async () => {
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "student-spotlight-reject");
+    await addStudentMember(app, classRecord.id, "student-spotlight-reject", "student-spotlight-2", "Avery");
+    const anchorId = roomWithManifest.manifest.wallAnchors[0].id;
+
+    const setAttempt = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("student-spotlight-2", "Avery"),
+      payload: { type: "set-spotlight", targetType: "wall-anchor", anchorId, mode: "guide" }
+    });
+    expect(setAttempt.statusCode).toBe(403);
+
+    const clearAttempt = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("student-spotlight-2", "Avery"),
+      payload: { type: "clear-spotlight" }
+    });
+    expect(clearAttempt.statusCode).toBe(403);
+
+    await app.close();
+  });
+
+  it("set-spotlight without anchorId on wall-anchor target returns 400", async () => {
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { roomWithManifest } = await createClassAndRoom(app, "teacher-spotlight-bad");
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-spotlight-bad", "Ms. Rivera"),
+      payload: { type: "set-spotlight", targetType: "wall-anchor", mode: "highlight" }
+    });
+    expect(response.statusCode).toBe(400);
+
+    await app.close();
+  });
 });

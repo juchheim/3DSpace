@@ -3,8 +3,8 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html } from "@react-three/drei";
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
-import { type MeshStandardMaterial, Vector3 } from "three";
-import type { ClassroomGroup, QualityLevel, RoomManifest, WallAnchorSchema, WallObject, WallObjectPlacement, WallPlaneSchema } from "@3dspace/contracts";
+import { type MeshBasicMaterial, type MeshStandardMaterial, Vector3 } from "three";
+import type { ClassroomGroup, ClassroomSpotlight, QualityLevel, RoomManifest, WallAnchorSchema, WallObject, WallObjectPlacement, WallPlaneSchema } from "@3dspace/contracts";
 import type { z } from "zod";
 import type { ParticipantView } from "./RoomClient";
 import { WallObjectCard } from "./WallObjectCard";
@@ -56,6 +56,7 @@ export function RoomView3D({
   canManageWallObjects = false,
   currentUserId,
   classroomGroups = [],
+  spotlight,
   onWallObjectControl,
   onWallObjectRemove,
   onWallObjectStopShare,
@@ -75,6 +76,7 @@ export function RoomView3D({
   canManageWallObjects?: boolean;
   currentUserId?: string | undefined;
   classroomGroups?: ClassroomGroup[];
+  spotlight?: ClassroomSpotlight | null | undefined;
   onWallObjectControl?: (
     objectId: string,
     action: "play" | "pause" | "mute" | "unmute" | "seek" | "vote" | "close-poll" | "reopen-poll",
@@ -101,7 +103,7 @@ export function RoomView3D({
         <color attach="background" args={["#16231d"]} />
         <ambientLight intensity={0.82} />
         <directionalLight position={[4, 8, 6]} intensity={1.4} />
-        <RoomGeometry manifest={manifest} onMoveToPoint={onMoveToPoint} wallObjects={wallObjects} />
+        <RoomGeometry manifest={manifest} onMoveToPoint={onMoveToPoint} wallObjects={wallObjects} spotlightAnchorId={spotlight?.anchorId} />
         <WallObjectLayer
           manifest={manifest}
           wallObjects={wallObjects}
@@ -322,11 +324,13 @@ function FollowLocalAvatarCamera({
 function RoomGeometry({
   manifest,
   onMoveToPoint,
-  wallObjects
+  wallObjects,
+  spotlightAnchorId
 }: {
   manifest: RoomManifest;
   onMoveToPoint(point: { x: number; z: number }): void;
   wallObjects: WallObject[];
+  spotlightAnchorId?: string | undefined;
 }) {
   const anchorsWithObjects = useMemo(
     () => new Set(wallObjects.filter((object) => object.status !== "removed").map((object) => object.wallAnchorId)),
@@ -350,7 +354,12 @@ function RoomGeometry({
       <gridHelper args={[18, 18, "#4c6b58", "#31473b"]} position={[0, 0.01, 0]} />
       {manifest.walls.map((wall) => <WallMesh key={wall.id} wall={wall} />)}
       {manifest.wallAnchors.map((anchor) => (
-        <AnchorMesh key={anchor.id} anchor={anchor} showLabel={!anchorsWithObjects.has(anchor.id)} />
+        <AnchorMesh
+          key={anchor.id}
+          anchor={anchor}
+          showLabel={!anchorsWithObjects.has(anchor.id)}
+          spotlighted={anchor.id === spotlightAnchorId}
+        />
       ))}
       {manifest.spawnPoints.map((spawn) => (
         <mesh key={spawn.id} position={[spawn.position.x, 0.03, spawn.position.z]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -416,9 +425,10 @@ function WallMesh({ wall }: { wall: Wall }) {
   );
 }
 
-function AnchorMesh({ anchor, showLabel }: { anchor: Anchor; showLabel: boolean }) {
+function AnchorMesh({ anchor, showLabel, spotlighted }: { anchor: Anchor; showLabel: boolean; spotlighted?: boolean }) {
   const { camera } = useThree();
   const materialRef = useRef<MeshStandardMaterial | null>(null);
+  const ringMaterialRef = useRef<MeshBasicMaterial | null>(null);
   const plane = useMemo(
     () => ({
       point: new Vector3(anchor.position.x, anchor.position.y, anchor.position.z),
@@ -432,7 +442,9 @@ function AnchorMesh({ anchor, showLabel }: { anchor: Anchor; showLabel: boolean 
     return [0, anchor.normal.z < 0 ? Math.PI : 0, 0];
   }, [anchor.normal.x, anchor.normal.z]);
 
-  useFrame(() => {
+  const pulseRef = useRef(0);
+
+  useFrame(({ clock }) => {
     const material = materialRef.current;
     if (!material) return;
 
@@ -441,18 +453,34 @@ function AnchorMesh({ anchor, showLabel }: { anchor: Anchor; showLabel: boolean 
     material.opacity = opacity;
     material.transparent = opacity < 0.995;
     material.depthWrite = opacity > 0.85;
+
+    const ring = ringMaterialRef.current;
+    if (ring && spotlighted) {
+      pulseRef.current = clock.getElapsedTime();
+      ring.opacity = 0.55 + 0.35 * Math.sin(pulseRef.current * 3);
+    }
   });
 
+  const borderOffset = 0.055;
+
   return (
-    <mesh position={[anchor.position.x, anchor.position.y, anchor.position.z]} rotation={rotation}>
-      <planeGeometry args={[anchor.width, anchor.height]} />
-      <meshStandardMaterial ref={materialRef} color="#263b31" emissive="#111c17" roughness={0.6} transparent opacity={1} />
-      {showLabel ? (
-        <Html center transform distanceFactor={8} className="wall-anchor-label-html">
-          <div className="wall-anchor-label">{anchor.label}</div>
-        </Html>
+    <group position={[anchor.position.x, anchor.position.y, anchor.position.z]} rotation={rotation}>
+      <mesh>
+        <planeGeometry args={[anchor.width, anchor.height]} />
+        <meshStandardMaterial ref={materialRef} color="#263b31" emissive="#111c17" roughness={0.6} transparent opacity={1} />
+        {showLabel ? (
+          <Html center transform distanceFactor={8} className="wall-anchor-label-html">
+            <div className="wall-anchor-label">{anchor.label}</div>
+          </Html>
+        ) : null}
+      </mesh>
+      {spotlighted ? (
+        <mesh position={[0, 0, -borderOffset]}>
+          <planeGeometry args={[anchor.width + 0.18, anchor.height + 0.18]} />
+          <meshBasicMaterial ref={ringMaterialRef} color="#f1c40f" transparent opacity={0.7} depthWrite={false} />
+        </mesh>
       ) : null}
-    </mesh>
+    </group>
   );
 }
 
