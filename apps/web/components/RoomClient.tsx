@@ -35,6 +35,37 @@ function isActiveLiveWallObject(object: WallObject) {
   return object.type.endsWith(".live") && object.status === "active";
 }
 
+function isSafariBrowser() {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  return /Safari\//.test(ua) && !/Chrome\//.test(ua) && !/Chromium\//.test(ua) && !/CriOS\//.test(ua) && !/FxiOS\//.test(ua);
+}
+
+async function warmSafariLiveKitPermissions() {
+  if (!isSafariBrowser()) return;
+  if (!navigator.mediaDevices?.getUserMedia) return;
+
+  const attempts: Array<{ kind: "audio" | "video"; constraints: MediaStreamConstraints }> = [
+    { kind: "audio", constraints: { audio: true, video: false } },
+    { kind: "video", constraints: { audio: false, video: true } }
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia(attempt.constraints);
+      stream.getTracks().forEach((track) => track.stop());
+      console.log("[LiveKit Safari permission warmup]", { result: "granted", kind: attempt.kind });
+      return;
+    } catch (error) {
+      console.warn("[LiveKit Safari permission warmup]", {
+        result: "failed",
+        kind: attempt.kind,
+        error: error instanceof Error ? error.name : "unknown"
+      });
+    }
+  }
+}
+
 export type ParticipantView = {
   id: string;
   displayName: string;
@@ -269,62 +300,65 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     }
 
     setStatus("Connecting to LiveKit...");
-    void createRealtimeClient({
-      roomId,
-      session,
-      displayName: displayNameRef.current,
-      isStale: () => generation !== realtimeGenerationRef.current,
-      onMessage: handleMessage,
-      onRemoteMedia(update) {
-        if (update.wallObjectId) {
-          setRemoteWallMedia((current) => ({
-            ...current,
-            [update.wallObjectId!]: {
-              ...(current[update.wallObjectId!] ?? {}),
-              ...(update.wallVideoStream !== undefined ? { videoStream: update.wallVideoStream } : {}),
-              ...(update.wallAudioStream !== undefined ? { audioStream: update.wallAudioStream } : {})
+    void warmSafariLiveKitPermissions()
+      .then(() =>
+        createRealtimeClient({
+          roomId,
+          session,
+          displayName: displayNameRef.current,
+          isStale: () => generation !== realtimeGenerationRef.current,
+          onMessage: handleMessage,
+          onRemoteMedia(update) {
+            if (update.wallObjectId) {
+              setRemoteWallMedia((current) => ({
+                ...current,
+                [update.wallObjectId!]: {
+                  ...(current[update.wallObjectId!] ?? {}),
+                  ...(update.wallVideoStream !== undefined ? { videoStream: update.wallVideoStream } : {}),
+                  ...(update.wallAudioStream !== undefined ? { audioStream: update.wallAudioStream } : {})
+                }
+              }));
+              return;
             }
-          }));
-          return;
-        }
-        setParticipants((current) => {
-          const existing =
-            current[update.participantId] ??
-            ({
-              id: update.participantId,
-              displayName: pickDisplayName(update.participantId, undefined, memberNamesRef.current.get(update.participantId)),
-              role: "student",
-              local: false,
-              state: createAvatarState({
-                manifest: activeSession.manifest,
-                participantId: update.participantId,
-                viewMode: activeSession.room.settings.defaultViewMode
-              }),
-              lastSeenAt: Date.now()
-            } satisfies ParticipantView);
-          const nextParticipant: ParticipantView = {
-            ...existing,
-            state: {
-              ...existing.state,
-              media: {
-                cameraEnabled: update.cameraStream !== undefined ? Boolean(update.cameraStream) : Boolean(existing.state.media?.cameraEnabled),
-                microphoneEnabled:
-                  update.microphoneStream !== undefined ? Boolean(update.microphoneStream) : Boolean(existing.state.media?.microphoneEnabled),
-                speaking: Boolean(existing.state.media?.speaking)
-              }
-            },
-            lastSeenAt: Date.now()
-          };
-          if (update.cameraStream !== undefined) nextParticipant.cameraStream = update.cameraStream;
-          if (update.microphoneStream !== undefined) nextParticipant.microphoneStream = update.microphoneStream;
-          return {
-            ...current,
-            [update.participantId]: nextParticipant
-          };
-        });
-      },
-      onStatus: setStatus
-    })
+            setParticipants((current) => {
+              const existing =
+                current[update.participantId] ??
+                ({
+                  id: update.participantId,
+                  displayName: pickDisplayName(update.participantId, undefined, memberNamesRef.current.get(update.participantId)),
+                  role: "student",
+                  local: false,
+                  state: createAvatarState({
+                    manifest: activeSession.manifest,
+                    participantId: update.participantId,
+                    viewMode: activeSession.room.settings.defaultViewMode
+                  }),
+                  lastSeenAt: Date.now()
+                } satisfies ParticipantView);
+              const nextParticipant: ParticipantView = {
+                ...existing,
+                state: {
+                  ...existing.state,
+                  media: {
+                    cameraEnabled: update.cameraStream !== undefined ? Boolean(update.cameraStream) : Boolean(existing.state.media?.cameraEnabled),
+                    microphoneEnabled:
+                      update.microphoneStream !== undefined ? Boolean(update.microphoneStream) : Boolean(existing.state.media?.microphoneEnabled),
+                    speaking: Boolean(existing.state.media?.speaking)
+                  }
+                },
+                lastSeenAt: Date.now()
+              };
+              if (update.cameraStream !== undefined) nextParticipant.cameraStream = update.cameraStream;
+              if (update.microphoneStream !== undefined) nextParticipant.microphoneStream = update.microphoneStream;
+              return {
+                ...current,
+                [update.participantId]: nextParticipant
+              };
+            });
+          },
+          onStatus: setStatus
+        })
+      )
       .then((client) => {
         if (generation !== realtimeGenerationRef.current) {
           void client.close();
