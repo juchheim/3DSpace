@@ -163,11 +163,74 @@ function installSafariRtcProbe(forceRelay = false) {
     __lkOriginalRTCPeerConnection?: typeof RTCPeerConnection;
     __lkRtcProbeRefs?: number;
     __lkRtcProbeCounter?: number;
+    __lkTurnProbeStarted?: boolean;
   };
 
   if (!probeWindow.__lkOriginalRTCPeerConnection) {
     const Original = window.RTCPeerConnection;
     probeWindow.__lkOriginalRTCPeerConnection = Original;
+
+    const runTurnProbe = (configuration: RTCConfiguration, id: number) => {
+      if (probeWindow.__lkTurnProbeStarted) return;
+      probeWindow.__lkTurnProbeStarted = true;
+
+      const probePc = new Original(configuration);
+      const seenCandidates: Array<Record<string, unknown>> = [];
+      let finished = false;
+      const finish = (reason: string) => {
+        if (finished) return;
+        finished = true;
+        logJson("[Safari TURN probe result]", {
+          sourcePcId: id,
+          reason,
+          candidates: seenCandidates
+        });
+        probePc.close();
+      };
+
+      console.log("[Safari TURN probe start]", { sourcePcId: id });
+      logJson("[Safari TURN probe config]", {
+        sourcePcId: id,
+        configuration: {
+          iceTransportPolicy: configuration.iceTransportPolicy,
+          iceServers: summarizeIceServers(configuration.iceServers)
+        }
+      });
+
+      probePc.createDataChannel("turn-probe");
+      probePc.addEventListener("icecandidate", (event) => {
+        if (!event.candidate) {
+          finish("completed");
+          return;
+        }
+        const candidateSummary = summarizeCandidate(event.candidate.candidate);
+        seenCandidates.push(candidateSummary);
+        logJson("[Safari TURN probe candidate]", { sourcePcId: id, ...candidateSummary });
+      });
+      probePc.addEventListener("icecandidateerror", (event: Event) => {
+        const errorEvent = event as RTCPeerConnectionIceErrorEvent;
+        logJson("[Safari TURN probe candidateerror]", {
+          sourcePcId: id,
+          address: errorEvent.address,
+          port: errorEvent.port,
+          url: errorEvent.url,
+          errorCode: errorEvent.errorCode,
+          errorText: errorEvent.errorText
+        });
+      });
+      probePc
+        .createOffer()
+        .then((offer) => probePc.setLocalDescription(offer))
+        .catch((error) => {
+          logJson("[Safari TURN probe error]", {
+            sourcePcId: id,
+            error: error instanceof Error ? error.message : "unknown"
+          });
+          finish("offer-failed");
+        });
+
+      window.setTimeout(() => finish("timeout"), 6000);
+    };
 
     const Wrapped = function (
       this: RTCPeerConnection,
@@ -190,6 +253,9 @@ function installSafariRtcProbe(forceRelay = false) {
         configuration: configurationSummary
       });
       logJson("[Safari RTC create json]", { id, configuration: configurationSummary });
+      if (forceRelay && effectiveConfiguration.iceServers?.length) {
+        runTurnProbe(effectiveConfiguration, id);
+      }
 
       const pc = new Original(effectiveConfiguration, ...(rest as []));
       const originalSetConfiguration = pc.setConfiguration.bind(pc);

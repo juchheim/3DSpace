@@ -1,9 +1,9 @@
 # Safari LiveKit ICE Connection Failure - Investigation Handoff
 
-**Status:** Active - relay-only TURN, the restored default v1 path, the disabled video primer, host-only ICE plus an enabled silent audio primer, the regional US RTC endpoint, the earlier same-day `prepareConnection()` plus `autoSubscribe: false` path, and the pre-classroom baseline all failed or were ruled out as too old. Current candidate is the narrower rollback target just before the first Safari-specific fix commit `22a1b91`: the `6a0c5ea` connection shape on `livekit-client@2.2.0`.  
+**Status:** Diagnosed - Safari was receiving valid TURN credentials from LiveKit Cloud, but the intended relay-only transport policy was not reaching the actual browser `RTCPeerConnection`. Safari therefore continued using the broken host-TCP path (`local port 9`, `remote port 7881`) until LiveKit timed out the participant.  
 **Branch:** `mvp-plus-one`  
 **Primary file:** `apps/web/lib/realtime.ts`  
-**LiveKit SDK:** `livekit-client@2.19.0`
+**LiveKit SDK:** `livekit-client@2.2.0`
 
 ---
 
@@ -24,15 +24,65 @@ Latest hotspot result:
 
 ---
 
-## Current Working Hypothesis
+## Diagnosed Bug
 
-Safari is not getting a useful ICE checklist when the app joins LiveKit before any local media exists.
+Safari is handed valid TURN servers by LiveKit Cloud, but the browser-level `RTCPeerConnection` is still being created without `iceTransportPolicy: "relay"`.
 
-The mobile hotspot logs prove that Safari can receive correctly credentialed TURN servers, can be put into relay-only mode, and still does not generate relay candidates or TURN errors before LiveKit times out. The restored default path also fails: Safari checks only TCP host pairs and leaves them waiting until LiveKit Cloud times out the participant.
+That means:
 
-This matches a known WebKit failure mode for receive-only / data-channel-first WebRTC sessions: Safari may not emit useful ICE candidates until the connection has a local media sender. LiveKit is being used for data/presence first, so users can enter the room before enabling camera or microphone.
+- the app thinks Safari is in relay-only mode;
+- LiveKit still creates the actual peer connection with no explicit relay policy;
+- Safari falls back onto host TCP candidates instead of TURN relay candidates;
+- the candidate pairs stay `waiting` with `bytesSent=0` / `bytesReceived=0`;
+- LiveKit eventually disconnects the participant with `DisconnectReason.CONNECTION_TIMEOUT` (`reason: 14`).
 
-Current candidate fix: restore the connection shape from `6a0c5ea`, which is immediately before `2f74b89` and `22a1b91`. The current theory is that Safari broke in the short window between `6a0c5ea` and the first Safari-specific repair attempt, not back at the pre-classroom baseline.
+This is not a token bug, not a room session bug, and not a generic "Safari needs media permission" bug. The TURN credentials are valid and present; the transport policy enforcement was simply not reaching the browser object that matters.
+
+---
+
+## How The Bug Was Found
+
+The investigation narrowed the problem in stages:
+
+1. **Rule out app-level session drift**
+   - Logged the session returned by `/v1/rooms/:roomId/session` before `room.connect()`.
+   - Confirmed Safari was getting the expected `livekitUrl`, `participantIdentity`, role, and a normal JWT grant shape.
+
+2. **Rule out permission-gated connection startup**
+   - Added a Safari-only permission warmup using `getUserMedia({ audio: true })`.
+   - Safari successfully granted audio permission, but `room.connect()` still failed with `could not establish pc connection`.
+
+3. **Verify TURN credentials actually arrive**
+   - Wrapped Safari `RTCPeerConnection` creation and logged the raw `RTCConfiguration`.
+   - Confirmed LiveKit was passing valid TURN server URLs and credentials:
+     - UDP TURN on `*.host.livekit.cloud:3478`
+     - TCP/TLS TURN on `*.turn.livekit.cloud:443`
+
+4. **Verify what candidates Safari actually uses**
+   - Logged ICE stats from Safari’s peer connection.
+   - Despite valid TURN servers, the only candidates visible in stats were:
+     - local `host` `tcp` on port `9`
+     - remote `host` `tcp` on port `7881`
+   - Candidate pairs remained `state=waiting`, `nominated=false`, `bytesSent=0`, `bytesReceived=0`.
+
+5. **Compare intended transport policy vs actual browser config**
+   - The app logged Safari transport intent as relay-only.
+   - But the actual `[Safari RTC create json]` output showed `iceServers` only, with no `iceTransportPolicy: "relay"` on the `RTCPeerConnection` config.
+   - That gap identified the concrete bug: relay policy was being requested at the LiveKit room layer but dropped before browser PC construction.
+
+---
+
+## Fix Direction
+
+Enforce `iceTransportPolicy: "relay"` at the Safari browser boundary itself, not only through LiveKit room options.
+
+Specifically:
+
+- wrap `window.RTCPeerConnection` on Safari;
+- inject `iceTransportPolicy: "relay"` into the constructor config;
+- also inject it into any later `pc.setConfiguration(...)` call, since LiveKit may mutate the RTC configuration after PC creation.
+
+This ensures the relay policy survives all the way to the actual browser `RTCPeerConnection`, which is the object Safari uses to choose candidate types.
 
 ---
 
@@ -208,20 +258,30 @@ await room.connect(input.session.livekitUrl, input.session.token);
 
 ---
 
+## Verified Evidence
+
+From the decisive Safari hotspot run:
+
+- `getUserMedia({ audio: true })` permission warmup succeeded;
+- session log showed the expected LiveKit Cloud project URL and participant identity;
+- Safari `RTCPeerConnection` config contained valid TURN servers with credentials;
+- Safari ICE stats still showed only host TCP candidates on port `9` locally and `7881` remotely;
+- no relay candidates appeared before timeout;
+- the app-level relay intent did not show up in the actual PC config;
+- LiveKit then region-fell back and timed out again.
+
+That combination is what isolated the bug.
+
+---
+
 ## Next Test
 
-Test Safari on the same mobile hotspot.
+After enforcing relay at the `RTCPeerConnection` constructor / `setConfiguration()` boundary, verify:
 
-Expected if the current candidate is correct:
-
-- no Safari ICE debug logs, primer logs, endpoint rewrite logs, timeout-wrapper errors, or reconnect lifecycle noise from later patches;
-- Safari should move from signaling into a completed room connect using the original MVP negotiation flow.
-
-Expected if it still fails:
-
-- record whether the failure happens before or after `signal connected`;
-- record the exact on-screen error and any Safari console message from LiveKit;
-- if this still fails, the next question is no longer "which client branch works", but whether a server-side or environment change broke a path that previously worked with `2.2.0`.
+- `[Safari RTC create json]` now includes `"iceTransportPolicy":"relay"`;
+- Safari begins producing `relay` candidates instead of only `host tcp` candidates;
+- candidate pairs move beyond `waiting`;
+- the participant reaches a connected state without LiveKit region fallback.
 
 ---
 
