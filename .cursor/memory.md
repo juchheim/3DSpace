@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-19 (People-panel board grants)
+Last updated: 2026-05-19 (Classroom private checks)
 
 ## Project Summary
 
@@ -8,7 +8,7 @@ Last updated: 2026-05-19 (People-panel board grants)
 
 Workspace: `/Users/ejuchheim/Projects/3DSpace/3DSpace`
 
-Implementation state: **MVP complete in production** (Vercel + Koyeb + Atlas + Clerk + LiveKit + R2). Sentry not provisioned. MVP+1 wall media implementation complete locally on `mvp-plus-one`; wall polls support teacher-defined choices, student voting via `vote` control action, and live result bars with choice labels separated from vote summaries on board surfaces; deployed LiveKit/browser-permission wall-share validation still recommended before release. MVP+1 classroom tools phases 1-3 are now locally implemented: help queue plus People-panel board access grants with student board-sharing gated by a single active teacher grant.
+Implementation state: **MVP complete in production** (Vercel + Koyeb + Atlas + Clerk + LiveKit + R2). Sentry not provisioned. MVP+1 wall media implementation complete locally on `mvp-plus-one`; wall polls support teacher-defined choices, student voting via `vote` control action, and live result bars with choice labels separated from vote summaries on board surfaces; deployed LiveKit/browser-permission wall-share validation still recommended before release. MVP+1 classroom tools phases 1-4 are now locally implemented: help queue, People-panel board access grants, and private checks with teacher response visibility plus student response filtering.
 
 ## Entities
 
@@ -86,6 +86,13 @@ Local loading:
 - `npm run build` — pass
 - `PLAYWRIGHT_SKIP_WEB_SERVER=1 PLAYWRIGHT_BASE_URL=http://localhost:3000 NEXT_PUBLIC_API_URL=http://127.0.0.1:8080 npm run test:e2e` — pass (4 tests)
 
+## MVP+1 Classroom Validation Evidence (2026-05-19)
+
+- `npm --workspace @3dspace/web run typecheck` — pass.
+- `npm --workspace @3dspace/api run typecheck` — pass.
+- `npm run test -- apps/api/tests/api.test.ts -t "filters classroom state|private-check"` — pass.
+- `npm run test -- apps/api/tests/api.test.ts` — fails on an unrelated wall-object policy assertion (`409` received where the older test expects `400`).
+
 ## Production URLs
 
 - API: https://content-jeanine-juchheim-71a4f131.koyeb.app (`/health`, `/ready` verified 2026-05-17)
@@ -110,6 +117,7 @@ Local loading:
 - MVP+1 implementation → `WallObject` persists outside the room manifest, hydrates via API, syncs via reliable realtime messages, and renders through shared wall-object state in both 3D and 2D.
 - MVP+1 classroom tools plan → builds on `WallObject`, `ClassMembership`, LiveKit data channels, roster/people panel, and a new room-scoped `ClassroomState`; classroom state decorates participants but must not overwrite live avatar movement.
 - `Roster` People panel now owns teacher board-access selection UI; `ClassroomState.boardAccessGrants` feeds both teacher participant controls and student `AnchorPanel` creation gating through `activeBoardGrant`.
+- `ClassroomPanel` owns private-check authoring/open-close controls, student active-check forms, and teacher response review while relying on role-filtered classroom API responses to keep student clients limited to their own submissions.
 - Wall object clients now periodically refresh persisted room wall objects and hydrate signed asset URLs, so teacher boards recover from missed student upload realtime messages without polling or resetting avatar state.
 
 ## Post-MVP Backlog
@@ -125,6 +133,7 @@ Screen share, computer audio, teacher moderation, rich wall placement, room buil
 - **2026-05-17**: MVP+1 local implementation completed and audited against `MVP_PLUS_ONE_WALL_MEDIA_PLAN.md`; remaining release recommendation is manual deployed LiveKit/browser-permission validation for live wall shares.
 - **2026-05-17**: Recreated lost MVP+1 classroom-tools planning in `MVP_PLUS_ONE_CLASSROOM_TOOLS_PLAN.md` and implementation roadmap in `MVP_PLUS_ONE_CLASSROOM_TOOLS_IMPLEMENTATION.md`; scope covers raise hand/board access grants, private checks, groups with spatial hold, board focus, and replanned lesson presentation.
 - **2026-05-19**: Implemented classroom-tools Phase 3 board access grants in the live UI by turning the People panel into a teacher participant picker with board-share presets, allowed-type toggles, revoke controls, and contextual raised-hand details for the selected student.
+- **2026-05-19**: Implemented classroom-tools Phase 4 private checks in `ClassroomPanel`: teachers can create multiple-choice, short-answer, or confidence checks; open/close/reopen them; and review individual responses. Students see active prompts and submit/update only their own filtered response.
 
 ## Bug Fixes
 

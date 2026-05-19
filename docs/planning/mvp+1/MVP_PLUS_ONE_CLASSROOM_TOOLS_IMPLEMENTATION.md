@@ -1,6 +1,6 @@
 # MVP+1 Classroom Tools Implementation Plan
 
-Last updated: 2026-05-17
+Last updated: 2026-05-19
 Branch target: `mvp-plus-one`
 Companion plan: `MVP_PLUS_ONE_CLASSROOM_TOOLS_PLAN.md`
 
@@ -574,6 +574,8 @@ Validation:
 
 ### Phase 4: Private Checks
 
+Status: Complete locally as of 2026-05-19.
+
 Deliverables:
 
 - Teacher create/open/close simple private check.
@@ -588,6 +590,13 @@ Validation:
 - Teacher sees all responses.
 - Student sees only own response.
 - Closed check rejects new submissions unless reopened.
+
+Validation evidence:
+
+- `npm --workspace @3dspace/web run typecheck` — pass.
+- `npm --workspace @3dspace/api run typecheck` — pass.
+- `npm run test -- apps/api/tests/api.test.ts -t "filters classroom state|private-check"` — pass.
+- `npm run test -- apps/api/tests/api.test.ts` currently has an unrelated wall-object policy assertion failure (`409` received where the older test expects `400`).
 
 ### Phase 5: Groups
 

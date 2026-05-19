@@ -911,6 +911,95 @@ describe("3dspace api", () => {
     await app.close();
   });
 
+  it("accepts multiple private-check responses and rejects submissions while closed", async () => {
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-classroom-checks");
+    await addStudentMember(app, classRecord.id, "teacher-classroom-checks", "student-check-1", "Avery");
+    await addStudentMember(app, classRecord.id, "teacher-classroom-checks", "student-check-2", "Jordan");
+
+    const createCheck = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-classroom-checks", "Ms. Rivera"),
+      payload: {
+        type: "create-private-check",
+        question: "What is one thing you learned?",
+        promptType: "short-answer"
+      }
+    });
+    expect(createCheck.statusCode).toBe(200);
+    const checkId = createCheck.json().privateChecks[0].id;
+
+    const openCheck = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-classroom-checks", "Ms. Rivera"),
+      payload: { type: "open-private-check", checkId }
+    });
+    expect(openCheck.statusCode).toBe(200);
+
+    for (const [userId, displayName, answer] of [
+      ["student-check-1", "Avery", "I learned equivalent fractions."],
+      ["student-check-2", "Jordan", "I learned to check the denominator."]
+    ] as const) {
+      const response = await app.inject({
+        method: "POST",
+        url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+        headers: authHeaders(userId, displayName),
+        payload: { type: "submit-private-check", checkId, answer }
+      });
+      expect(response.statusCode).toBe(200);
+    }
+
+    const closeCheck = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-classroom-checks", "Ms. Rivera"),
+      payload: { type: "close-private-check", checkId }
+    });
+    expect(closeCheck.statusCode).toBe(200);
+
+    const closedSubmit = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("student-check-1", "Avery"),
+      payload: { type: "submit-private-check", checkId, answer: "Trying after close." }
+    });
+    expect(closedSubmit.statusCode).toBe(409);
+
+    const reopenCheck = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-classroom-checks", "Ms. Rivera"),
+      payload: { type: "reopen-private-check", checkId }
+    });
+    expect(reopenCheck.statusCode).toBe(200);
+
+    const updatedSubmit = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("student-check-1", "Avery"),
+      payload: { type: "submit-private-check", checkId, answer: "Updated after reopen." }
+    });
+    expect(updatedSubmit.statusCode).toBe(200);
+
+    const teacherView = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom`,
+      headers: authHeaders("teacher-classroom-checks", "Ms. Rivera")
+    });
+    expect(teacherView.statusCode).toBe(200);
+    expect(teacherView.json().privateChecks[0].responses).toHaveLength(2);
+    expect(teacherView.json().privateChecks[0].responses).toContainEqual(
+      expect.objectContaining({ userId: "student-check-1", answer: "Updated after reopen." })
+    );
+
+    await app.close();
+  });
+
   it("rejects teacher-only classroom actions from students", async () => {
     const app = await buildApp({
       config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
