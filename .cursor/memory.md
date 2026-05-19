@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-18 (LiveKit revert to pre-classroom-tools connect path)
+Last updated: 2026-05-19 (People-panel board grants)
 
 ## Project Summary
 
@@ -8,7 +8,7 @@ Last updated: 2026-05-18 (LiveKit revert to pre-classroom-tools connect path)
 
 Workspace: `/Users/ejuchheim/Projects/3DSpace/3DSpace`
 
-Implementation state: **MVP complete in production** (Vercel + Koyeb + Atlas + Clerk + LiveKit + R2). Sentry not provisioned. MVP+1 wall media implementation complete locally on `mvp-plus-one`; wall polls support teacher-defined choices, student voting via `vote` control action, and live result bars with choice labels separated from vote summaries on board surfaces; deployed LiveKit/browser-permission wall-share validation still recommended before release.
+Implementation state: **MVP complete in production** (Vercel + Koyeb + Atlas + Clerk + LiveKit + R2). Sentry not provisioned. MVP+1 wall media implementation complete locally on `mvp-plus-one`; wall polls support teacher-defined choices, student voting via `vote` control action, and live result bars with choice labels separated from vote summaries on board surfaces; deployed LiveKit/browser-permission wall-share validation still recommended before release. MVP+1 classroom tools phases 1-3 are now locally implemented: help queue plus People-panel board access grants with student board-sharing gated by a single active teacher grant.
 
 ## Entities
 
@@ -109,6 +109,7 @@ Local loading:
 - MVP+1 design decision → introduce `WallObject` for visible placed wall content; keep `WallAttachment` as file asset metadata instead of stretching it to represent live streams, web links, whiteboards, polls, and timers
 - MVP+1 implementation → `WallObject` persists outside the room manifest, hydrates via API, syncs via reliable realtime messages, and renders through shared wall-object state in both 3D and 2D.
 - MVP+1 classroom tools plan → builds on `WallObject`, `ClassMembership`, LiveKit data channels, roster/people panel, and a new room-scoped `ClassroomState`; classroom state decorates participants but must not overwrite live avatar movement.
+- `Roster` People panel now owns teacher board-access selection UI; `ClassroomState.boardAccessGrants` feeds both teacher participant controls and student `AnchorPanel` creation gating through `activeBoardGrant`.
 - Wall object clients now periodically refresh persisted room wall objects and hydrate signed asset URLs, so teacher boards recover from missed student upload realtime messages without polling or resetting avatar state.
 
 ## Post-MVP Backlog
@@ -123,6 +124,7 @@ Screen share, computer audio, teacher moderation, rich wall placement, room buil
 - Wall media implementation should keep mutable wall content outside the room manifest. Anchors stay in the manifest; placed content lives in `WallObject` persistence and syncs by API plus reliable realtime messages.
 - **2026-05-17**: MVP+1 local implementation completed and audited against `MVP_PLUS_ONE_WALL_MEDIA_PLAN.md`; remaining release recommendation is manual deployed LiveKit/browser-permission validation for live wall shares.
 - **2026-05-17**: Recreated lost MVP+1 classroom-tools planning in `MVP_PLUS_ONE_CLASSROOM_TOOLS_PLAN.md` and implementation roadmap in `MVP_PLUS_ONE_CLASSROOM_TOOLS_IMPLEMENTATION.md`; scope covers raise hand/board access grants, private checks, groups with spatial hold, board focus, and replanned lesson presentation.
+- **2026-05-19**: Implemented classroom-tools Phase 3 board access grants in the live UI by turning the People panel into a teacher participant picker with board-share presets, allowed-type toggles, revoke controls, and contextual raised-hand details for the selected student.
 
 ## Bug Fixes
 
@@ -150,6 +152,8 @@ Screen share, computer audio, teacher moderation, rich wall placement, room buil
 - **2026-05-18**: Safari status regressed to "Reconnecting to LiveKit..." during initial join after the first compatibility patch. Narrowed the patch by restoring LiveKit's default page-leave cleanup and publish defaults, while keeping Safari publish simulcast disabled and showing "Connecting to LiveKit..." before the first successful connection.
 - **2026-05-18**: Safari LiveKit WebRTC timeout after many Safari-specific retries (`autoSubscribe: false`, room recreation, 100s outer timeout, `singlePeerConnection: false`, etc.). Reverted `apps/web/lib/realtime.ts` to pre–classroom-tools connect style (simple `room.connect` + `normalizeLiveKitUrl`, participant sync from `827776c`, production throws on failure). Removed `browser.ts`. Restored `livekit-client` `^2.2.0`. Kept `RoomClient` classroom polling fix (`a8a869d`) and 3s `syncParticipants` interval.
 - **2026-05-18**: Safari stuck at WebRTC negotiation — mitigations in `realtime.ts`: `prepareConnection` before connect (Cloud edge + TLS warmup), `autoSubscribe: false` with `subscribeAllRemoteTracks` on Connected / ParticipantConnected / TrackPublished, `disconnectOnPageLeave: false`, VP8 publish defaults without simulcast/backupCodec, 45s peer connection timeout.
+- **2026-05-18**: Safari LiveKit ICE — minimal repro at `/debug/livekit-safari/[roomId]` (`LiveKitSafariDebug.tsx`) rules out main app join/realtime/classroom code; raw relay-only TURN probe returns `candidates: []` on school Wi‑Fi and cellular hotspot. Documented in `docs/planning/mvp+1/safari-livekit-ice-failure.md`; investigation shifts to Safari × LiveKit Cloud TURN / support ticket.
+- **2026-05-19**: Re-granting board access could stack multiple active grants for one student while the student UI only honored the newest one. Fixed by revoking prior active grants for that student before persisting a new grant; targeted API tests now cover the replacement behavior.
 
 ## Maintenance Rules
 

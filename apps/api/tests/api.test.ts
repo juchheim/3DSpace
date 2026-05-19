@@ -1133,4 +1133,61 @@ describe("3dspace api", () => {
 
     await app.close();
   });
+
+  it("replaces a student's prior active board grant when the teacher grants a new one", async () => {
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-classroom-regrant");
+    await addStudentMember(app, classRecord.id, "teacher-classroom-regrant", "student-classroom-regrant", "Avery");
+    const targetAnchorId = roomWithManifest.manifest.wallAnchors[0].id;
+
+    const firstGrant = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-classroom-regrant", "Ms. Rivera"),
+      payload: {
+        type: "grant-board-access",
+        userId: "student-classroom-regrant",
+        wallAnchorId: targetAnchorId,
+        allowedObjectTypes: ["note"]
+      }
+    });
+    expect(firstGrant.statusCode).toBe(200);
+
+    const secondGrant = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-classroom-regrant", "Ms. Rivera"),
+      payload: {
+        type: "grant-board-access",
+        userId: "student-classroom-regrant",
+        wallAnchorId: targetAnchorId,
+        allowedObjectTypes: ["image.file", "note"]
+      }
+    });
+    expect(secondGrant.statusCode).toBe(200);
+
+    const classroom = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom`,
+      headers: authHeaders("teacher-classroom-regrant", "Ms. Rivera")
+    });
+    expect(classroom.statusCode).toBe(200);
+    expect(classroom.json().boardAccessGrants).toEqual([
+      expect.objectContaining({
+        userId: "student-classroom-regrant",
+        status: "active",
+        allowedObjectTypes: ["image.file", "note"]
+      }),
+      expect.objectContaining({
+        userId: "student-classroom-regrant",
+        status: "revoked",
+        allowedObjectTypes: ["note"]
+      })
+    ]);
+
+    await app.close();
+  });
 });

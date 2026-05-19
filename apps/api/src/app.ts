@@ -672,6 +672,12 @@ async function runClassroomAction(input: {
     }
     case "grant-board-access": {
       requireTeacher(input.actor);
+      for (const grant of state.boardAccessGrants) {
+        if (grant.userId !== input.action.userId) continue;
+        if (!isBoardAccessGrantActive(grant, Date.parse(now))) continue;
+        grant.status = "revoked";
+        grant.updatedAt = now;
+      }
       state.boardAccessGrants.unshift({
         id: newId("grant"),
         userId: input.action.userId,

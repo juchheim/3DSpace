@@ -17,6 +17,7 @@ import { navigateToLobby } from "../lib/navigateToLobby";
 import { normalizeRoomManifest } from "../lib/manifest";
 import { createRealtimeClient, type RealtimeClient, type RealtimeMessage } from "../lib/realtime";
 import { useSpatialAudio } from "../lib/useSpatialAudio";
+import { isBoardGrantActive } from "../lib/classroomGrants";
 import { AnchorPanel } from "./AnchorPanel";
 import { AuthGate } from "../lib/auth";
 import { ClassroomPanel } from "./ClassroomPanel";
@@ -511,7 +512,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const activeBoardGrant = useMemo(
     () =>
       (classroom.state?.boardAccessGrants ?? []).find(
-        (grant) => grant.userId === identity.userId && grant.status === "active" && (!grant.expiresAt || Date.parse(grant.expiresAt) > Date.now())
+        (grant) => grant.userId === identity.userId && isBoardGrantActive(grant)
       ) ?? null,
     [classroom.state?.boardAccessGrants, identity.userId]
   );
@@ -796,7 +797,16 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
 
       {/* Right HUD: roster + wall objects */}
       <aside className="room-hud-right" aria-label="Room details">
-        <Roster participants={participantList} classroomState={classroom.state} />
+        <Roster
+          participants={participantList}
+          classroomState={classroom.state}
+          role={role}
+          manifest={manifest}
+          error={classroom.error}
+          onRunAction={async (action) => {
+            await classroom.runAction(action);
+          }}
+        />
         <ClassroomPanel
           role={role}
           state={classroom.state}

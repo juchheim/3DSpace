@@ -651,6 +651,35 @@ label {
   gap: 0.4rem;
 }
 
+.roster-compact-item--selected {
+  border-radius: 12px;
+  background: rgba(235, 94, 40, 0.08);
+}
+
+.roster-compact-button {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.38rem 0.42rem;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.roster-compact-button:hover {
+  border-color: rgba(58, 93, 74, 0.16);
+  background: rgba(255, 250, 240, 0.78);
+}
+
+.roster-compact-button--selected {
+  border-color: rgba(235, 94, 40, 0.24);
+  background: rgba(255, 250, 240, 0.92);
+}
+
 .roster-compact-name {
   flex: 1;
   min-width: 0;
@@ -687,6 +716,21 @@ label {
   background: rgba(235, 94, 40, 0.12);
   border-color: rgba(235, 94, 40, 0.3);
   color: #b3471f;
+}
+
+.tag-board {
+  background: rgba(66, 133, 244, 0.1);
+  border-color: rgba(66, 133, 244, 0.26);
+  color: #2b5eb1;
+}
+
+.roster-detail-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--line);
 }
 
 .classroom-help-list {
@@ -767,6 +811,15 @@ label {
 .classroom-grant-presets {
   display: grid;
   gap: 0.35rem;
+}
+
+.classroom-active-grant {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.5rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 250, 240, 0.82);
 }
 
 .classroom-preset-btn {
