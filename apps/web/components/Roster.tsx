@@ -127,7 +127,7 @@ export function Roster({
                 {participantGroup ? <span className="tag" style={groupTagStyle(participantGroup)}>{participantGroup.label.slice(0, 10)}</span> : null}
                 {camOn ? <span className="tag active">cam</span> : null}
                 {micOn ? <span className={`tag${speaking ? " active" : ""}`}>mic</span> : null}
-                {p.role === "teacher" ? <span className="tag">T</span> : null}
+                {p.role === "teacher" ? <span className="tag tag-teacher">T</span> : null}
               </span>
             </>
           );

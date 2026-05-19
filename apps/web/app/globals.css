@@ -2307,61 +2307,121 @@ button.hud-heading-btn:hover {
 
 /* Roster / People list */
 .hud-panel .roster-compact {
-  gap: 1px;
+  gap: 0;
+  padding: 0;
+}
+
+/* Person row — non-selectable items (teachers, self) rendered directly in li */
+.hud-panel .roster-compact-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 3px;
+  cursor: default;
+}
+
+/* Padding only when there's no button inside (non-selectable row) */
+.hud-panel .roster-compact-item:not(:has(button)) {
+  padding: 3px 4px;
 }
 
 .hud-panel .roster-compact-item--selected {
   background: rgba(192, 120, 52, 0.08);
-  border-radius: 3px;
 }
 
+/* The button (selectable student row) */
 .hud-panel .roster-compact-button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  padding: 3px 4px;
   color: var(--hud-tx);
   background: transparent;
-  border-color: transparent;
+  border: none;
   border-radius: 3px;
+  box-shadow: none;
+  text-align: left;
+  cursor: pointer;
+  font-family: 'Barlow', system-ui, sans-serif;
 }
 
 .hud-panel .roster-compact-button:hover {
   background: var(--hud-bg-h);
-  border-color: var(--hud-bd);
 }
 
 .hud-panel .roster-compact-button--selected {
-  border-color: rgba(192, 120, 52, 0.24);
   background: rgba(192, 120, 52, 0.06);
 }
 
-.hud-panel .roster-compact-name {
-  color: var(--hud-tx);
-  font-size: 11px;
-}
-
-/* Tags */
-.hud-panel .tag {
-  color: var(--hud-tx-m);
-  border-color: var(--hud-bd);
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 2px;
+/* Small square avatar */
+.hud-panel .avatar-dot {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  border-radius: 3px;
+  font-size: 8px;
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.5);
   font-family: 'Barlow', system-ui, sans-serif;
 }
 
-.hud-panel .tag.active {
-  background: rgba(56, 144, 96, 0.1);
-  border-color: rgba(56, 144, 96, 0.28);
-  color: var(--hud-grn);
+.hud-panel .roster-compact-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--hud-tx);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'Barlow', system-ui, sans-serif;
 }
 
+.hud-panel .roster-compact-tags {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+/* Tags — compact 8px */
+.hud-panel .tag {
+  font-size: 8px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  border: 1px solid var(--hud-bd);
+  color: var(--hud-tx-m);
+  background: rgba(255, 255, 255, 0.04);
+  white-space: nowrap;
+  font-family: 'Barlow', system-ui, sans-serif;
+}
+
+/* Teacher: amber */
+.hud-panel .tag-teacher {
+  color: var(--hud-acc);
+  border-color: rgba(192, 120, 52, 0.3);
+  background: rgba(192, 120, 52, 0.1);
+}
+
+/* Help: red */
 .hud-panel .tag-help {
-  background: rgba(176, 58, 58, 0.1);
-  border-color: rgba(176, 58, 58, 0.28);
   color: var(--hud-red);
+  border-color: rgba(176, 58, 58, 0.28);
+  background: rgba(176, 58, 58, 0.1);
 }
 
+/* Board grant: blue */
 .hud-panel .tag-board {
-  background: rgba(70, 120, 180, 0.1);
-  border-color: rgba(70, 120, 180, 0.28);
   color: var(--hud-blu);
+  border-color: rgba(70, 120, 180, 0.28);
+  background: rgba(70, 120, 180, 0.1);
+}
+
+/* Active (cam on / speaking): green */
+.hud-panel .tag.active {
+  color: var(--hud-grn);
+  border-color: rgba(56, 144, 96, 0.28);
+  background: rgba(56, 144, 96, 0.1);
 }
 
 /* Help queue items */
