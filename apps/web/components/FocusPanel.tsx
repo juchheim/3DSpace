@@ -169,25 +169,25 @@ export function FocusPanel({
   if (!spotlight) return null;
 
   return (
-    <div className="spotlight-callout" role="status" aria-live="polite" data-testid="spotlight-callout">
-      <div className="spotlight-callout__header">
-        <span className="spotlight-callout__icon" aria-hidden="true">◉</span>
-        <span className="spotlight-callout__title">{spotlight.title ?? "Your teacher is focusing the class"}</span>
+    <HudCard title="Focus" badge="Active" ariaLabel="Current focus" defaultCollapsed={false}>
+      <div className="spotlight-callout" role="status" aria-live="polite" data-testid="spotlight-callout">
+        <p className="classroom-help-name">{spotlight.title ?? "Your teacher is focusing the class"}</p>
+        {spotlight.instruction ? (
+          <p className="classroom-help-note">{spotlight.instruction}</p>
+        ) : null}
+        {spotlight.mode === "force" ? (
+          <p className="classroom-help-note">View locked by your teacher.</p>
+        ) : spotlight.mode === "guide" && spotlight.anchorId && onLookAtFocus ? (
+          <button
+            type="button"
+            className="hud-btn"
+            data-testid="look-at-focus-button"
+            onClick={() => onLookAtFocus(spotlight.anchorId!)}
+          >
+            Look at focus
+          </button>
+        ) : null}
       </div>
-      {spotlight.instruction ? (
-        <p className="spotlight-callout__instruction">{spotlight.instruction}</p>
-      ) : null}
-      {spotlight.mode === "force" ? (
-        <p className="spotlight-callout__instruction">View locked by your teacher.</p>
-      ) : spotlight.mode === "guide" && spotlight.anchorId && onLookAtFocus ? (
-        <button
-          type="button"
-          className="hud-btn spotlight-callout__goto"
-          onClick={() => onLookAtFocus(spotlight.anchorId!)}
-        >
-          Look at focus
-        </button>
-      ) : null}
-    </div>
+    </HudCard>
   );
 }

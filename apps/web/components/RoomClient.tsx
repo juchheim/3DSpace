@@ -155,34 +155,28 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     lockedPosition
   });
 
-  const computeAnchorYaw = useCallback(
-    (anchorId: string): number | null => {
-      if (!manifest) return null;
-      const anchor = manifest.wallAnchors.find((a) => a.id === anchorId);
-      if (!anchor || !movement.avatarState) return null;
-      const { x: ax, z: az } = movement.avatarState.position;
-      // Yaw that places the camera behind the avatar with the anchor in view
-      return Math.atan2(anchor.position.x - ax, anchor.position.z - az);
-    },
-    [manifest, movement.avatarState]
-  );
-
   const lookAtFocus = useCallback(
     (anchorId: string) => {
-      const yaw = computeAnchorYaw(anchorId);
-      if (yaw !== null) camera.yawRef.current = yaw;
+      if (!manifest) return;
+      const anchor = manifest.wallAnchors.find((a) => a.id === anchorId);
+      if (!anchor) return;
+      const pos = avatarStateRef.current?.position;
+      if (!pos) return;
+      camera.yawRef.current = Math.atan2(anchor.position.x - pos.x, anchor.position.z - pos.z);
     },
-    [camera.yawRef, computeAnchorYaw]
+    [manifest, camera.yawRef]
   );
 
-  // Force mode: keep camera pointed at the spotlight anchor, blocking drag
+  // Force mode: snap camera to the spotlight anchor on activation
   const spotlight = classroom.state?.spotlight;
   useEffect(() => {
-    if (spotlight?.mode !== "force") return;
-    if (!spotlight.anchorId) return;
-    const yaw = computeAnchorYaw(spotlight.anchorId);
-    if (yaw !== null) camera.yawRef.current = yaw;
-  }, [spotlight?.anchorId, spotlight?.mode, computeAnchorYaw, camera.yawRef]);
+    if (spotlight?.mode !== "force" || !spotlight.anchorId || !manifest) return;
+    const anchor = manifest.wallAnchors.find((a) => a.id === spotlight.anchorId);
+    if (!anchor) return;
+    const pos = avatarStateRef.current?.position;
+    if (!pos) return;
+    camera.yawRef.current = Math.atan2(anchor.position.x - pos.x, anchor.position.z - pos.z);
+  }, [spotlight?.anchorId, spotlight?.mode, manifest, camera.yawRef]);
 
   useEffect(() => {
     setManifest((current) => (current ? normalizeRoomManifest(current) : current));

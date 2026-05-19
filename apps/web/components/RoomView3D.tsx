@@ -3,7 +3,7 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html } from "@react-three/drei";
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
-import { Color, type MeshStandardMaterial, Vector3 } from "three";
+import { type MeshStandardMaterial, Vector3 } from "three";
 import type { ClassroomGroup, ClassroomSpotlight, QualityLevel, RoomManifest, WallAnchorSchema, WallObject, WallObjectPlacement, WallPlaneSchema } from "@3dspace/contracts";
 import type { z } from "zod";
 import type { ParticipantView } from "./RoomClient";
@@ -425,9 +425,6 @@ function WallMesh({ wall }: { wall: Wall }) {
   );
 }
 
-const EMISSIVE_BASE = new Color("#111c17");
-const EMISSIVE_SPOTLIGHT = new Color("#c8900a");
-
 function AnchorMesh({ anchor, showLabel, spotlighted }: { anchor: Anchor; showLabel: boolean; spotlighted?: boolean }) {
   const { camera } = useThree();
   const materialRef = useRef<MeshStandardMaterial | null>(null);
@@ -444,33 +441,31 @@ function AnchorMesh({ anchor, showLabel, spotlighted }: { anchor: Anchor; showLa
     return [0, anchor.normal.z < 0 ? Math.PI : 0, 0];
   }, [anchor.normal.x, anchor.normal.z]);
 
-  useFrame(({ clock }) => {
+  useFrame(() => {
     const material = materialRef.current;
     if (!material) return;
-
     const signedDistance = cameraOffset.copy(camera.position).sub(plane.point).dot(plane.normal);
     const opacity = wallOpacityFromCameraDistance(signedDistance);
     material.opacity = opacity;
     material.transparent = opacity < 0.995;
     material.depthWrite = opacity > 0.85;
-
-    if (spotlighted) {
-      const pulse = 0.55 + 0.45 * Math.sin(clock.getElapsedTime() * 3);
-      material.emissive.copy(EMISSIVE_SPOTLIGHT);
-      material.emissiveIntensity = pulse;
-    } else {
-      material.emissive.copy(EMISSIVE_BASE);
-      material.emissiveIntensity = 1;
-    }
   });
 
   return (
     <mesh position={[anchor.position.x, anchor.position.y, anchor.position.z]} rotation={rotation}>
       <planeGeometry args={[anchor.width, anchor.height]} />
-      <meshStandardMaterial ref={materialRef} color="#263b31" emissive="#111c17" roughness={0.6} transparent opacity={1} />
+      <meshStandardMaterial
+        ref={materialRef}
+        color={spotlighted ? "#c8900a" : "#263b31"}
+        emissive={spotlighted ? "#996800" : "#111c17"}
+        emissiveIntensity={spotlighted ? 0.9 : 1}
+        roughness={0.6}
+        transparent
+        opacity={1}
+      />
       {showLabel ? (
         <Html center transform distanceFactor={8} className="wall-anchor-label-html">
-          <div className="wall-anchor-label">{anchor.label}</div>
+          <div className={`wall-anchor-label${spotlighted ? " wall-anchor-label--spotlight" : ""}`}>{anchor.label}</div>
         </Html>
       ) : null}
     </mesh>
