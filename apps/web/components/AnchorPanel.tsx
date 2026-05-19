@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ClassroomBoardAccessGrant, Role, RoomManifest, WallObject, WallObjectType } from "@3dspace/contracts";
 import type { ApiIdentity } from "../lib/identity";
 import { WallObjectCard, type WallObjectControlAction } from "./WallObjectCard";
+import { HudCard } from "./HudCard";
 
 type CreateType = "file" | "note" | "timer" | "poll" | "link";
 
@@ -204,11 +205,7 @@ export function AnchorPanel({
   }
 
   return (
-    <div className="hud-card" aria-label="Wall objects">
-      <div className="hud-heading">
-        <span>Wall</span>
-        <span>{loading ? "…" : `${wallObjects.length} obj`}</span>
-      </div>
+    <HudCard title="Wall" badge={loading ? "…" : `${wallObjects.length} obj`} ariaLabel="Wall objects">
 
       {canCreate ? (
         <>
@@ -426,6 +423,6 @@ export function AnchorPanel({
       )}
 
       {error ? <div className="alert" style={{ marginTop: "0.5rem" }}>{error}</div> : null}
-    </div>
+    </HudCard>
   );
 }

@@ -21,6 +21,7 @@ import { isBoardGrantActive } from "../lib/classroomGrants";
 import { AnchorPanel } from "./AnchorPanel";
 import { AuthGate } from "../lib/auth";
 import { ClassroomPanel } from "./ClassroomPanel";
+import { PrivateChecksPanel } from "./PrivateChecksPanel";
 import { MediaControls } from "./MediaControls";
 import { MovementPad } from "./MovementPad";
 import { RoomView2D } from "./RoomView2D";
@@ -820,6 +821,15 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             error={classroom.error}
             activeHelpRequest={classroom.activeHelpRequest}
             manifest={manifest}
+            currentUserId={identity.userId}
+            onRunAction={async (action) => {
+              await classroom.runAction(action);
+            }}
+          />
+          <PrivateChecksPanel
+            role={role}
+            state={classroom.state}
+            loading={classroom.loading}
             currentUserId={identity.userId}
             onRunAction={async (action) => {
               await classroom.runAction(action);

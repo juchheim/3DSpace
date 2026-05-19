@@ -588,6 +588,43 @@ label {
   color: var(--muted);
 }
 
+button.hud-heading-btn {
+  width: 100%;
+  background: none;
+  border-radius: 6px;
+  padding: 0.18rem 0.2rem;
+  box-shadow: none;
+  text-align: left;
+  color: var(--muted);
+}
+
+button.hud-heading-btn:hover {
+  background: rgba(255, 250, 240, 0.55);
+}
+
+.hud-card--collapsed button.hud-heading-btn {
+  margin-bottom: 0;
+}
+
+.hud-heading-end {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.hud-chevron {
+  display: inline-block;
+  font-size: 0.82rem;
+  transform: rotate(0deg);
+  transition: transform 0.15s ease;
+  opacity: 0.55;
+}
+
+.hud-chevron--open {
+  transform: rotate(90deg);
+}
+
 /* Compact media controls */
 
 .media-controls-compact {

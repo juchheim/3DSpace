@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { HudCard } from "./HudCard";
 import type { ClassroomAction, ClassroomBoardAccessGrant, ClassroomHelpRequest, ClassroomState, Role, RoomManifest } from "@3dspace/contracts";
 import type { ParticipantView } from "./RoomClient";
 import {
@@ -86,11 +87,7 @@ export function Roster({
   );
 
   return (
-    <div className="hud-card" aria-label="Participants">
-      <div className="hud-heading">
-        <span>People</span>
-        <span>{sortedParticipants.length}</span>
-      </div>
+    <HudCard title="People" badge={sortedParticipants.length} ariaLabel="Participants">
       <ul className="roster-compact" role="list">
         {sortedParticipants.map((p) => {
           const camOn = p.state.media?.cameraEnabled;
@@ -144,7 +141,7 @@ export function Roster({
           );
         })}
       </ul>
-    </div>
+    </HudCard>
   );
 }
 
