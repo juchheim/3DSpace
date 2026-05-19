@@ -178,7 +178,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   // Force mode: keep camera pointed at the spotlight anchor, blocking drag
   const spotlight = classroom.state?.spotlight;
   useEffect(() => {
-    if (spotlight?.mode !== "guide" && spotlight?.mode !== "force") return;
+    if (spotlight?.mode !== "force") return;
     if (!spotlight.anchorId) return;
     const yaw = computeAnchorYaw(spotlight.anchorId);
     if (yaw !== null) camera.yawRef.current = yaw;

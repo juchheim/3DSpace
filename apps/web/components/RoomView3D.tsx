@@ -3,7 +3,7 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html } from "@react-three/drei";
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
-import { type MeshBasicMaterial, type MeshStandardMaterial, Vector3 } from "three";
+import { Color, type MeshStandardMaterial, Vector3 } from "three";
 import type { ClassroomGroup, ClassroomSpotlight, QualityLevel, RoomManifest, WallAnchorSchema, WallObject, WallObjectPlacement, WallPlaneSchema } from "@3dspace/contracts";
 import type { z } from "zod";
 import type { ParticipantView } from "./RoomClient";
@@ -425,10 +425,12 @@ function WallMesh({ wall }: { wall: Wall }) {
   );
 }
 
+const EMISSIVE_BASE = new Color("#111c17");
+const EMISSIVE_SPOTLIGHT = new Color("#c8900a");
+
 function AnchorMesh({ anchor, showLabel, spotlighted }: { anchor: Anchor; showLabel: boolean; spotlighted?: boolean }) {
   const { camera } = useThree();
   const materialRef = useRef<MeshStandardMaterial | null>(null);
-  const ringMaterialRef = useRef<MeshBasicMaterial | null>(null);
   const plane = useMemo(
     () => ({
       point: new Vector3(anchor.position.x, anchor.position.y, anchor.position.z),
@@ -442,8 +444,6 @@ function AnchorMesh({ anchor, showLabel, spotlighted }: { anchor: Anchor; showLa
     return [0, anchor.normal.z < 0 ? Math.PI : 0, 0];
   }, [anchor.normal.x, anchor.normal.z]);
 
-  const pulseRef = useRef(0);
-
   useFrame(({ clock }) => {
     const material = materialRef.current;
     if (!material) return;
@@ -454,33 +454,26 @@ function AnchorMesh({ anchor, showLabel, spotlighted }: { anchor: Anchor; showLa
     material.transparent = opacity < 0.995;
     material.depthWrite = opacity > 0.85;
 
-    const ring = ringMaterialRef.current;
-    if (ring && spotlighted) {
-      pulseRef.current = clock.getElapsedTime();
-      ring.opacity = 0.55 + 0.35 * Math.sin(pulseRef.current * 3);
+    if (spotlighted) {
+      const pulse = 0.55 + 0.45 * Math.sin(clock.getElapsedTime() * 3);
+      material.emissive.copy(EMISSIVE_SPOTLIGHT);
+      material.emissiveIntensity = pulse;
+    } else {
+      material.emissive.copy(EMISSIVE_BASE);
+      material.emissiveIntensity = 1;
     }
   });
 
-  const borderOffset = 0.055;
-
   return (
-    <group position={[anchor.position.x, anchor.position.y, anchor.position.z]} rotation={rotation}>
-      <mesh>
-        <planeGeometry args={[anchor.width, anchor.height]} />
-        <meshStandardMaterial ref={materialRef} color="#263b31" emissive="#111c17" roughness={0.6} transparent opacity={1} />
-        {showLabel ? (
-          <Html center transform distanceFactor={8} className="wall-anchor-label-html">
-            <div className="wall-anchor-label">{anchor.label}</div>
-          </Html>
-        ) : null}
-      </mesh>
-      {spotlighted ? (
-        <mesh position={[0, 0, -borderOffset]}>
-          <planeGeometry args={[anchor.width + 0.18, anchor.height + 0.18]} />
-          <meshBasicMaterial ref={ringMaterialRef} color="#f1c40f" transparent opacity={0.7} depthWrite={false} />
-        </mesh>
+    <mesh position={[anchor.position.x, anchor.position.y, anchor.position.z]} rotation={rotation}>
+      <planeGeometry args={[anchor.width, anchor.height]} />
+      <meshStandardMaterial ref={materialRef} color="#263b31" emissive="#111c17" roughness={0.6} transparent opacity={1} />
+      {showLabel ? (
+        <Html center transform distanceFactor={8} className="wall-anchor-label-html">
+          <div className="wall-anchor-label">{anchor.label}</div>
+        </Html>
       ) : null}
-    </group>
+    </mesh>
   );
 }
 
