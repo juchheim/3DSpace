@@ -115,7 +115,7 @@ export function RoomView3D({
           {...(onWallObjectModerate ? { onWallObjectModerate } : {})}
         />
         {participants.map((participant) => {
-          const group = classroomGroups.find((g) => g.memberUserIds.includes(participant.id));
+          const group = classroomGroups.find((g) => g.status === "active" && g.memberUserIds.includes(participant.id));
           return <Avatar key={participant.id} participant={participant} groupColor={group?.color} />;
         })}
         <FollowLocalAvatarCamera

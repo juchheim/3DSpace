@@ -72,7 +72,7 @@ export function RoomView2D({
         ) : null}
         {participants.map((participant) => {
           const point = projectPositionTo2D(manifest, participant.state.position);
-          const group = classroomGroups.find((g) => g.memberUserIds.includes(participant.id));
+          const group = classroomGroups.find((g) => g.status === "active" && g.memberUserIds.includes(participant.id));
           const fillColor = group?.color ?? (participant.local ? "#eb5e28" : "#2f6b4f");
           return (
             <g key={participant.id}>
