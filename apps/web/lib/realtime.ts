@@ -147,6 +147,14 @@ function summarizeCandidate(candidateLine: string) {
   };
 }
 
+function logJson(label: string, value: unknown) {
+  try {
+    console.log(label, JSON.stringify(value));
+  } catch {
+    console.log(label, value);
+  }
+}
+
 function installSafariRtcProbe() {
   if (!isSafariBrowser()) return () => undefined;
   if (typeof window === "undefined" || !window.RTCPeerConnection) return () => undefined;
@@ -167,28 +175,32 @@ function installSafariRtcProbe() {
       ...rest: unknown[]
     ) {
       const id = (probeWindow.__lkRtcProbeCounter = (probeWindow.__lkRtcProbeCounter ?? 0) + 1);
+      const configurationSummary = {
+        iceTransportPolicy: configuration?.iceTransportPolicy,
+        bundlePolicy: configuration?.bundlePolicy,
+        rtcpMuxPolicy: configuration?.rtcpMuxPolicy,
+        iceServers: summarizeIceServers(configuration?.iceServers)
+      };
       console.log("[Safari RTC create]", {
         id,
-        configuration: {
-          iceTransportPolicy: configuration?.iceTransportPolicy,
-          bundlePolicy: configuration?.bundlePolicy,
-          rtcpMuxPolicy: configuration?.rtcpMuxPolicy,
-          iceServers: summarizeIceServers(configuration?.iceServers)
-        }
+        configuration: configurationSummary
       });
+      logJson("[Safari RTC create json]", { id, configuration: configurationSummary });
 
       const pc = new Original(configuration, ...(rest as []));
       const originalSetConfiguration = pc.setConfiguration.bind(pc);
       pc.setConfiguration = (nextConfiguration: RTCConfiguration) => {
+        const nextConfigurationSummary = {
+          iceTransportPolicy: nextConfiguration?.iceTransportPolicy,
+          bundlePolicy: nextConfiguration?.bundlePolicy,
+          rtcpMuxPolicy: nextConfiguration?.rtcpMuxPolicy,
+          iceServers: summarizeIceServers(nextConfiguration?.iceServers)
+        };
         console.log("[Safari RTC setConfiguration]", {
           id,
-          configuration: {
-            iceTransportPolicy: nextConfiguration?.iceTransportPolicy,
-            bundlePolicy: nextConfiguration?.bundlePolicy,
-            rtcpMuxPolicy: nextConfiguration?.rtcpMuxPolicy,
-            iceServers: summarizeIceServers(nextConfiguration?.iceServers)
-          }
+          configuration: nextConfigurationSummary
         });
+        logJson("[Safari RTC setConfiguration json]", { id, configuration: nextConfigurationSummary });
         return originalSetConfiguration(nextConfiguration);
       };
 
@@ -207,23 +219,77 @@ function installSafariRtcProbe() {
       pc.addEventListener("icecandidate", (event) => {
         if (!event.candidate) {
           console.log("[Safari RTC icecandidate]", { id, done: true });
+          logJson("[Safari RTC icecandidate json]", { id, done: true });
           return;
         }
-        console.log("[Safari RTC icecandidate]", {
+        const candidateSummary = {
           id,
           ...summarizeCandidate(event.candidate.candidate)
-        });
+        };
+        console.log("[Safari RTC icecandidate]", candidateSummary);
+        logJson("[Safari RTC icecandidate json]", candidateSummary);
       });
       pc.addEventListener("icecandidateerror", (event: Event) => {
         const errorEvent = event as RTCPeerConnectionIceErrorEvent;
-        console.warn("[Safari RTC icecandidateerror]", {
+        const errorSummary = {
           id,
           address: errorEvent.address,
           port: errorEvent.port,
           url: errorEvent.url,
           errorCode: errorEvent.errorCode,
           errorText: errorEvent.errorText
-        });
+        };
+        console.warn("[Safari RTC icecandidateerror]", errorSummary);
+        logJson("[Safari RTC icecandidateerror json]", errorSummary);
+      });
+
+      const statsTimer = window.setInterval(() => {
+        void pc
+          .getStats()
+          .then((report) => {
+            const interesting: Array<Record<string, unknown>> = [];
+            report.forEach((stat) => {
+              if (stat.type === "candidate-pair") {
+                interesting.push({
+                  type: stat.type,
+                  state: "state" in stat ? stat.state : undefined,
+                  nominated: "nominated" in stat ? stat.nominated : undefined,
+                  selected: "selected" in stat ? stat.selected : undefined,
+                  localCandidateId: "localCandidateId" in stat ? stat.localCandidateId : undefined,
+                  remoteCandidateId: "remoteCandidateId" in stat ? stat.remoteCandidateId : undefined,
+                  bytesSent: "bytesSent" in stat ? stat.bytesSent : undefined,
+                  bytesReceived: "bytesReceived" in stat ? stat.bytesReceived : undefined
+                });
+              }
+              if (stat.type === "local-candidate" || stat.type === "remote-candidate") {
+                interesting.push({
+                  type: stat.type,
+                  candidateType: "candidateType" in stat ? stat.candidateType : undefined,
+                  protocol: "protocol" in stat ? stat.protocol : undefined,
+                  address: "address" in stat ? stat.address : undefined,
+                  port: "port" in stat ? stat.port : undefined,
+                  url: "url" in stat ? stat.url : undefined,
+                  relayProtocol: "relayProtocol" in stat ? stat.relayProtocol : undefined
+                });
+              }
+            });
+            if (interesting.length > 0) {
+              logJson("[Safari RTC stats json]", { id, stats: interesting });
+            }
+          })
+          .catch(() => undefined);
+      }, 3000);
+
+      const stopStats = () => window.clearInterval(statsTimer);
+      pc.addEventListener("connectionstatechange", () => {
+        if (pc.connectionState === "connected" || pc.connectionState === "failed" || pc.connectionState === "closed") {
+          stopStats();
+        }
+      });
+      pc.addEventListener("iceconnectionstatechange", () => {
+        if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "failed" || pc.iceConnectionState === "closed") {
+          stopStats();
+        }
       });
 
       return pc;
