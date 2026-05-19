@@ -451,24 +451,51 @@ function AnchorMesh({ anchor, showLabel, spotlighted }: { anchor: Anchor; showLa
     material.depthWrite = opacity > 0.85;
   });
 
+  const w = anchor.width;
+  const h = anchor.height;
+  const BORDER = 0.05;
+  const BZ = 0.022;
+
   return (
-    <mesh position={[anchor.position.x, anchor.position.y, anchor.position.z]} rotation={rotation}>
-      <planeGeometry args={[anchor.width, anchor.height]} />
-      <meshStandardMaterial
-        ref={materialRef}
-        color={spotlighted ? "#c8900a" : "#263b31"}
-        emissive={spotlighted ? "#996800" : "#111c17"}
-        emissiveIntensity={spotlighted ? 0.9 : 1}
-        roughness={0.6}
-        transparent
-        opacity={1}
-      />
+    <group position={[anchor.position.x, anchor.position.y, anchor.position.z]} rotation={rotation}>
+      <mesh>
+        <planeGeometry args={[w, h]} />
+        <meshStandardMaterial
+          ref={materialRef}
+          color="#263b31"
+          emissive="#111c17"
+          emissiveIntensity={1}
+          roughness={0.6}
+          transparent
+          opacity={1}
+        />
+      </mesh>
+      {spotlighted ? (
+        <>
+          <mesh position={[0, h / 2 + BORDER, BZ]}>
+            <boxGeometry args={[w + BORDER * 4, BORDER * 2, 0.008]} />
+            <meshBasicMaterial color="#f1c40f" />
+          </mesh>
+          <mesh position={[0, -(h / 2 + BORDER), BZ]}>
+            <boxGeometry args={[w + BORDER * 4, BORDER * 2, 0.008]} />
+            <meshBasicMaterial color="#f1c40f" />
+          </mesh>
+          <mesh position={[-(w / 2 + BORDER), 0, BZ]}>
+            <boxGeometry args={[BORDER * 2, h, 0.008]} />
+            <meshBasicMaterial color="#f1c40f" />
+          </mesh>
+          <mesh position={[w / 2 + BORDER, 0, BZ]}>
+            <boxGeometry args={[BORDER * 2, h, 0.008]} />
+            <meshBasicMaterial color="#f1c40f" />
+          </mesh>
+        </>
+      ) : null}
       {showLabel ? (
         <Html center transform distanceFactor={8} className="wall-anchor-label-html">
           <div className={`wall-anchor-label${spotlighted ? " wall-anchor-label--spotlight" : ""}`}>{anchor.label}</div>
         </Html>
       ) : null}
-    </mesh>
+    </group>
   );
 }
 

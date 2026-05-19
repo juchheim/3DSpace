@@ -31,7 +31,7 @@ export function HudCard({
           <span className={`hud-chevron${collapsed ? "" : " hud-chevron--open"}`} aria-hidden="true">›</span>
         </span>
       </button>
-      {!collapsed ? children : null}
+      {!collapsed ? <div className="hud-card-body">{children}</div> : null}
     </div>
   );
 }

@@ -768,6 +768,23 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
 
   const role = session?.role ?? identity.role;
 
+  const avatarColor = role === "teacher" ? "#c07834" : "#389060";
+  const initials = identity.displayName
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0] ?? "")
+    .join("")
+    .toUpperCase() || "?";
+  const roomName = session?.room.name ?? "Joining...";
+
+  const spotlightActive = Boolean(classroom.state?.spotlight);
+  const studentGroup = role === "student"
+    ? (classroom.state?.groups ?? []).find((g) => g.memberUserIds.includes(identity.userId))
+    : null;
+  const handRaised = role === "student"
+    ? Boolean(classroom.activeHelpRequest)
+    : false;
+
   return (
     <main className="app-shell room-shell">
       {/* Stage fills the full viewport */}
@@ -841,13 +858,14 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
 
       {/* Top HUD bar */}
       <header className="room-hud-top">
-        <div className="room-hud-brand">
-          <button type="button" className="room-exit-btn" disabled={leaving} onClick={leaveForLobby}>
-            {leaving ? "Leaving..." : "← Lobby"}
-          </button>
-          <span className="room-hud-name">{session?.room.name ?? "Joining..."}</span>
-          <span className="room-hud-meta">{role} · {status}</span>
-        </div>
+        <button type="button" className="room-exit-btn" disabled={leaving} onClick={leaveForLobby}>
+          {leaving ? "Leaving..." : "← Lobby"}
+        </button>
+        <div className="room-hud-top-sep" />
+        <span className="room-hud-name">{roomName}</span>
+        <span className="room-hud-meta">{role} · {status}</span>
+        <div className="room-hud-top-fill" />
+        <div className="room-hud-top-sep" />
         <div className="toggle" aria-label="View mode">
           <button aria-pressed={viewMode === "3d"} onClick={() => setViewMode("3d")} disabled={!manifest}>
             3D
@@ -858,20 +876,70 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         </div>
       </header>
 
-      {/* Bottom-left HUD: media controls + movement pad */}
+      {/* Left HUD: context status + identity + media controls + d-pad */}
       <div className="room-hud-left">
-        <div className="hud-card">
+        {/* Teacher: spotlight active indicator */}
+        {role === "teacher" && spotlightActive ? (
+          <div className="hud-panel hud-ctx-panel">
+            <div className="hud-ctx-card">
+              <span className="hud-ctx-lbl">Focus active</span>
+              <span className="hud-ctx-val">
+                {classroom.state?.spotlight?.anchorId ?? "Board"}
+              </span>
+              <span className="hud-ctx-sub">
+                {classroom.state?.spotlight?.mode === "force"
+                  ? "Force — camera locked"
+                  : classroom.state?.spotlight?.mode === "guide"
+                  ? "Guide — look-at prompted"
+                  : "Highlight — board indicated"}
+              </span>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Student: group + hand status */}
+        {role === "student" ? (
+          <div className="hud-panel">
+            {studentGroup ? (
+              <div className="hud-ctx-card" style={{ borderBottom: handRaised ? "1px solid rgba(255,255,255,0.08)" : undefined }}>
+                <span className="hud-ctx-lbl" style={{ color: studentGroup.color ?? "#4678b4" }}>My Group</span>
+                <span className="hud-ctx-val">
+                  <span className="hud-ctx-dot" style={{ background: studentGroup.color ?? "#4678b4" }} />
+                  {studentGroup.label} · {studentGroup.memberUserIds.length} members
+                </span>
+              </div>
+            ) : null}
+            {handRaised ? (
+              <div className="hud-ctx-card">
+                <span className="hud-ctx-lbl acc">Hand raised</span>
+                <span className="hud-ctx-sub">Waiting for your teacher</span>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* Identity + media controls */}
+        <div className="hud-panel">
+          <div className="hud-id-card">
+            <div className="hud-av" style={{ background: avatarColor }}>{initials}</div>
+            <div className="hud-id-text">
+              <div className="hud-id-name">{identity.displayName}</div>
+              <div className="hud-id-sub">{role} · {roomName}</div>
+            </div>
+          </div>
           <MediaControls media={media} />
-          {media.permissionText ? <p className="hud-permission">{media.permissionText}</p> : null}
+          {media.permissionText ? <p className="hud-permission" style={{ padding: "4px 9px", fontSize: "9.5px", color: "var(--hud-tx-m)" }}>{media.permissionText}</p> : null}
         </div>
-        <div className="hud-card">
+
+        {/* D-pad */}
+        <div className="hud-panel dpad-card">
           <MovementPad onVector={movement.setTouchVector} />
         </div>
       </div>
 
-      {/* Right HUD: roster + wall objects */}
+      {/* Right HUD: unified collapsible panel */}
       <aside className="room-hud-right" aria-label="Room details">
-        <div className="room-hud-right-col">
+        <div className="hud-panel">
           <Roster
             participants={participantList}
             classroomState={classroom.state}
