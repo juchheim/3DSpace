@@ -633,6 +633,8 @@ Validation:
 
 ### Phase 7: Lesson Planning Discovery Slice
 
+Detailed plan: see `MVP_PLUS_ONE_LESSON_PLANNING_DISCOVERY_PLAN.md`.
+
 Deliverables:
 
 - Contract/design spike for lesson plans and runs.
