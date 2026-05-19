@@ -127,6 +127,122 @@ function isSafariBrowser() {
   return /Safari\//.test(ua) && !/Chrome\//.test(ua) && !/Chromium\//.test(ua) && !/CriOS\//.test(ua) && !/FxiOS\//.test(ua);
 }
 
+function summarizeIceServers(iceServers: RTCIceServer[] | undefined) {
+  return (iceServers ?? []).map((server) => ({
+    urls: Array.isArray(server.urls) ? server.urls : [server.urls],
+    username: server.username ? "present" : undefined,
+    credential: server.credential ? "present" : undefined
+  }));
+}
+
+function summarizeCandidate(candidateLine: string) {
+  const protocol = /\s(udp|tcp)\s/i.exec(candidateLine)?.[1]?.toLowerCase();
+  const candidateType = /\styp\s([a-z0-9]+)/i.exec(candidateLine)?.[1]?.toLowerCase();
+  const address = /candidate:\S+\s\d+\s(?:udp|tcp)\s\d+\s([^\s]+)\s(\d+)/i.exec(candidateLine);
+  return {
+    protocol,
+    candidateType,
+    address: address?.[1],
+    port: address?.[2] ? Number(address[2]) : undefined
+  };
+}
+
+function installSafariRtcProbe() {
+  if (!isSafariBrowser()) return () => undefined;
+  if (typeof window === "undefined" || !window.RTCPeerConnection) return () => undefined;
+
+  const probeWindow = window as Window & {
+    __lkOriginalRTCPeerConnection?: typeof RTCPeerConnection;
+    __lkRtcProbeRefs?: number;
+    __lkRtcProbeCounter?: number;
+  };
+
+  if (!probeWindow.__lkOriginalRTCPeerConnection) {
+    const Original = window.RTCPeerConnection;
+    probeWindow.__lkOriginalRTCPeerConnection = Original;
+
+    const Wrapped = function (
+      this: RTCPeerConnection,
+      configuration?: RTCConfiguration,
+      ...rest: unknown[]
+    ) {
+      const id = (probeWindow.__lkRtcProbeCounter = (probeWindow.__lkRtcProbeCounter ?? 0) + 1);
+      console.log("[Safari RTC create]", {
+        id,
+        configuration: {
+          iceTransportPolicy: configuration?.iceTransportPolicy,
+          bundlePolicy: configuration?.bundlePolicy,
+          rtcpMuxPolicy: configuration?.rtcpMuxPolicy,
+          iceServers: summarizeIceServers(configuration?.iceServers)
+        }
+      });
+
+      const pc = new Original(configuration, ...(rest as []));
+      const originalSetConfiguration = pc.setConfiguration.bind(pc);
+      pc.setConfiguration = (nextConfiguration: RTCConfiguration) => {
+        console.log("[Safari RTC setConfiguration]", {
+          id,
+          configuration: {
+            iceTransportPolicy: nextConfiguration?.iceTransportPolicy,
+            bundlePolicy: nextConfiguration?.bundlePolicy,
+            rtcpMuxPolicy: nextConfiguration?.rtcpMuxPolicy,
+            iceServers: summarizeIceServers(nextConfiguration?.iceServers)
+          }
+        });
+        return originalSetConfiguration(nextConfiguration);
+      };
+
+      pc.addEventListener("icegatheringstatechange", () => {
+        console.log("[Safari RTC icegatheringstate]", { id, state: pc.iceGatheringState });
+      });
+      pc.addEventListener("iceconnectionstatechange", () => {
+        console.log("[Safari RTC iceconnectionstate]", { id, state: pc.iceConnectionState });
+      });
+      pc.addEventListener("connectionstatechange", () => {
+        console.log("[Safari RTC connectionstate]", { id, state: pc.connectionState });
+      });
+      pc.addEventListener("signalingstatechange", () => {
+        console.log("[Safari RTC signalingstate]", { id, state: pc.signalingState });
+      });
+      pc.addEventListener("icecandidate", (event) => {
+        if (!event.candidate) {
+          console.log("[Safari RTC icecandidate]", { id, done: true });
+          return;
+        }
+        console.log("[Safari RTC icecandidate]", {
+          id,
+          ...summarizeCandidate(event.candidate.candidate)
+        });
+      });
+      pc.addEventListener("icecandidateerror", (event: Event) => {
+        const errorEvent = event as RTCPeerConnectionIceErrorEvent;
+        console.warn("[Safari RTC icecandidateerror]", {
+          id,
+          address: errorEvent.address,
+          port: errorEvent.port,
+          url: errorEvent.url,
+          errorCode: errorEvent.errorCode,
+          errorText: errorEvent.errorText
+        });
+      });
+
+      return pc;
+    } as unknown as typeof RTCPeerConnection;
+
+    Wrapped.prototype = Original.prototype;
+    window.RTCPeerConnection = Wrapped;
+  }
+
+  probeWindow.__lkRtcProbeRefs = (probeWindow.__lkRtcProbeRefs ?? 0) + 1;
+
+  return () => {
+    probeWindow.__lkRtcProbeRefs = Math.max((probeWindow.__lkRtcProbeRefs ?? 1) - 1, 0);
+    if (probeWindow.__lkRtcProbeRefs === 0 && probeWindow.__lkOriginalRTCPeerConnection) {
+      window.RTCPeerConnection = probeWindow.__lkOriginalRTCPeerConnection;
+    }
+  };
+}
+
 function withSender(message: RealtimeMessage, senderId: string) {
   return { ...message, senderId };
 }
@@ -182,7 +298,9 @@ function createBroadcastClient(input: AdapterInput, reason?: string): RealtimeCl
 }
 
 async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient> {
-  const { Room, RoomEvent, Track } = await import("livekit-client");
+  const removeSafariRtcProbe = installSafariRtcProbe();
+  try {
+    const { Room, RoomEvent, Track } = await import("livekit-client");
   const safariRelay = isSafariBrowser();
   if (safariRelay) {
     console.log("[LiveKit Safari transport]", { policy: "relay" });
@@ -314,92 +432,97 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
     });
   });
 
-  return {
-    publish(message) {
-      const reliable = message.type !== "avatar.state.v1";
-      void room.localParticipant.publishData(encoder.encode(JSON.stringify(message)), { reliable });
-    },
-    syncParticipants() {
-      room.remoteParticipants.forEach((participant) => {
-        input.onMessage(presenceFromParticipant(participant));
-      });
-    },
-    async setLocalMedia(media) {
-      const nextCameraTrack = media.cameraStream?.getVideoTracks()[0] ?? null;
-      if (publishedCameraTrack && publishedCameraTrack.id !== nextCameraTrack?.id) {
-        await room.localParticipant.unpublishTrack(publishedCameraTrack, false);
-        publishedCameraTrack = null;
-      }
-      if (nextCameraTrack && publishedCameraTrack?.id !== nextCameraTrack.id) {
-        await room.localParticipant.publishTrack(nextCameraTrack, {
-          name: "camera",
-          source: Track.Source.Camera,
-          stream: "avatar-media",
-          simulcast: true
+    return {
+      publish(message) {
+        const reliable = message.type !== "avatar.state.v1";
+        void room.localParticipant.publishData(encoder.encode(JSON.stringify(message)), { reliable });
+      },
+      syncParticipants() {
+        room.remoteParticipants.forEach((participant) => {
+          input.onMessage(presenceFromParticipant(participant));
         });
-        publishedCameraTrack = nextCameraTrack;
-      }
+      },
+      async setLocalMedia(media) {
+        const nextCameraTrack = media.cameraStream?.getVideoTracks()[0] ?? null;
+        if (publishedCameraTrack && publishedCameraTrack.id !== nextCameraTrack?.id) {
+          await room.localParticipant.unpublishTrack(publishedCameraTrack, false);
+          publishedCameraTrack = null;
+        }
+        if (nextCameraTrack && publishedCameraTrack?.id !== nextCameraTrack.id) {
+          await room.localParticipant.publishTrack(nextCameraTrack, {
+            name: "camera",
+            source: Track.Source.Camera,
+            stream: "avatar-media",
+            simulcast: true
+          });
+          publishedCameraTrack = nextCameraTrack;
+        }
 
-      const nextMicTrack = media.micStream?.getAudioTracks()[0] ?? null;
-      if (publishedMicTrack && publishedMicTrack.id !== nextMicTrack?.id) {
-        await room.localParticipant.unpublishTrack(publishedMicTrack, false);
-        publishedMicTrack = null;
-      }
-      if (nextMicTrack && publishedMicTrack?.id !== nextMicTrack.id) {
-        await room.localParticipant.publishTrack(nextMicTrack, {
-          name: "microphone",
-          source: Track.Source.Microphone,
-          stream: "avatar-media",
-          dtx: true,
-          red: true
-        });
-        publishedMicTrack = nextMicTrack;
-      }
-    },
-    async setLocalWallShare(inputShare) {
-      const existing = publishedWallTracks.get(inputShare.objectId);
-      if (existing?.video) await room.localParticipant.unpublishTrack(existing.video, false);
-      if (existing?.audio) await room.localParticipant.unpublishTrack(existing.audio, false);
-      publishedWallTracks.delete(inputShare.objectId);
-      if (!inputShare.screenStream) return;
+        const nextMicTrack = media.micStream?.getAudioTracks()[0] ?? null;
+        if (publishedMicTrack && publishedMicTrack.id !== nextMicTrack?.id) {
+          await room.localParticipant.unpublishTrack(publishedMicTrack, false);
+          publishedMicTrack = null;
+        }
+        if (nextMicTrack && publishedMicTrack?.id !== nextMicTrack.id) {
+          await room.localParticipant.publishTrack(nextMicTrack, {
+            name: "microphone",
+            source: Track.Source.Microphone,
+            stream: "avatar-media",
+            dtx: true,
+            red: true
+          });
+          publishedMicTrack = nextMicTrack;
+        }
+      },
+      async setLocalWallShare(inputShare) {
+        const existing = publishedWallTracks.get(inputShare.objectId);
+        if (existing?.video) await room.localParticipant.unpublishTrack(existing.video, false);
+        if (existing?.audio) await room.localParticipant.unpublishTrack(existing.audio, false);
+        publishedWallTracks.delete(inputShare.objectId);
+        if (!inputShare.screenStream) return;
 
-      const publicationName = inputShare.publicationName ?? `wall:${inputShare.objectId}`;
-      const videoTrack = inputShare.screenStream.getVideoTracks()[0] ?? null;
-      const audioTrack = inputShare.audioStream?.getAudioTracks()[0] ?? inputShare.screenStream.getAudioTracks()[0] ?? null;
-      const record: { video?: MediaStreamTrack; audio?: MediaStreamTrack } = {};
-      if (videoTrack) {
-        await room.localParticipant.publishTrack(videoTrack, {
-          name: publicationName,
-          source: Track.Source.ScreenShare,
-          stream: "wall-share",
-          simulcast: true
-        });
-        record.video = videoTrack;
+        const publicationName = inputShare.publicationName ?? `wall:${inputShare.objectId}`;
+        const videoTrack = inputShare.screenStream.getVideoTracks()[0] ?? null;
+        const audioTrack = inputShare.audioStream?.getAudioTracks()[0] ?? inputShare.screenStream.getAudioTracks()[0] ?? null;
+        const record: { video?: MediaStreamTrack; audio?: MediaStreamTrack } = {};
+        if (videoTrack) {
+          await room.localParticipant.publishTrack(videoTrack, {
+            name: publicationName,
+            source: Track.Source.ScreenShare,
+            stream: "wall-share",
+            simulcast: true
+          });
+          record.video = videoTrack;
+        }
+        if (audioTrack) {
+          await room.localParticipant.publishTrack(audioTrack, {
+            name: `${publicationName}:audio`,
+            source: Track.Source.ScreenShareAudio,
+            stream: "wall-share"
+          });
+          record.audio = audioTrack;
+        }
+        if (record.video || record.audio) publishedWallTracks.set(inputShare.objectId, record);
+      },
+      async close() {
+        if (publishedCameraTrack) {
+          void room.localParticipant.unpublishTrack(publishedCameraTrack, false);
+        }
+        if (publishedMicTrack) {
+          void room.localParticipant.unpublishTrack(publishedMicTrack, false);
+        }
+        for (const tracks of publishedWallTracks.values()) {
+          if (tracks.video) void room.localParticipant.unpublishTrack(tracks.video, false);
+          if (tracks.audio) void room.localParticipant.unpublishTrack(tracks.audio, false);
+        }
+        room.disconnect();
+        removeSafariRtcProbe();
       }
-      if (audioTrack) {
-        await room.localParticipant.publishTrack(audioTrack, {
-          name: `${publicationName}:audio`,
-          source: Track.Source.ScreenShareAudio,
-          stream: "wall-share"
-        });
-        record.audio = audioTrack;
-      }
-      if (record.video || record.audio) publishedWallTracks.set(inputShare.objectId, record);
-    },
-    async close() {
-      if (publishedCameraTrack) {
-        void room.localParticipant.unpublishTrack(publishedCameraTrack, false);
-      }
-      if (publishedMicTrack) {
-        void room.localParticipant.unpublishTrack(publishedMicTrack, false);
-      }
-      for (const tracks of publishedWallTracks.values()) {
-        if (tracks.video) void room.localParticipant.unpublishTrack(tracks.video, false);
-        if (tracks.audio) void room.localParticipant.unpublishTrack(tracks.audio, false);
-      }
-      room.disconnect();
-    }
-  };
+    };
+  } catch (error) {
+    removeSafariRtcProbe();
+    throw error;
+  }
 }
 
 export async function createRealtimeClient(input: AdapterInput): Promise<RealtimeClient> {
