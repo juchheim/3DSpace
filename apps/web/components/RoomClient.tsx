@@ -27,6 +27,7 @@ import { PrivateChecksPanel } from "./PrivateChecksPanel";
 import { MediaControls } from "./MediaControls";
 import { MovementPad } from "./MovementPad";
 import { RoomView2D } from "./RoomView2D";
+import { BoardAccessSidePanel } from "./BoardAccessSidePanel";
 import { activeGrantMap, Roster, StudentDetailPanel } from "./Roster";
 import { useClassroomState } from "../lib/useClassroomState";
 
@@ -107,6 +108,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const [remoteWallMedia, setRemoteWallMedia] = useState<Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>>({});
   const [localWallMedia, setLocalWallMedia] = useState<Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>>({});
   const [selectedStudentId, setSelectedStudentId] = useState("");
+  const [helpBoardAccessUserId, setHelpBoardAccessUserId] = useState("");
   const [positioningGroupId, setPositioningGroupId] = useState("");
   const publishRealtime = useCallback((message: RealtimeMessage) => {
     realtimeRef.current?.publish(message);
@@ -557,7 +559,10 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     if (selectedStudentId && !participantList.some((p) => p.id === selectedStudentId)) {
       setSelectedStudentId("");
     }
-  }, [participantList, selectedStudentId]);
+    if (helpBoardAccessUserId && !participantList.some((p) => p.id === helpBoardAccessUserId)) {
+      setHelpBoardAccessUserId("");
+    }
+  }, [helpBoardAccessUserId, participantList, selectedStudentId]);
 
   const activeBoardGrant = useMemo(
     () =>
@@ -952,7 +957,10 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             classroomState={classroom.state}
             role={role}
             selectedStudentId={selectedStudentId}
-            onSelectStudent={(id) => setSelectedStudentId(id)}
+            onSelectStudent={(id) => {
+              setHelpBoardAccessUserId("");
+              setSelectedStudentId(id);
+            }}
           />
           <ClassroomPanel
             role={role}
@@ -962,6 +970,11 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             activeHelpRequest={classroom.activeHelpRequest}
             manifest={manifest}
             currentUserId={identity.userId}
+            boardAccessUserId={helpBoardAccessUserId}
+            onOpenBoardAccess={(userId) => {
+              setSelectedStudentId("");
+              setHelpBoardAccessUserId((current) => (current === userId ? "" : userId));
+            }}
             onRunAction={async (action) => {
               await classroom.runAction(action);
             }}
@@ -1032,6 +1045,31 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         </div>
       </aside>
       {(() => {
+        if (helpBoardAccessUserId && manifest && classroom.state) {
+          const helpStudent = participantList.find((p) => p.id === helpBoardAccessUserId) ?? null;
+          const helpRequest =
+            classroom.state.helpRequests.find(
+              (r) => r.userId === helpBoardAccessUserId && (r.status === "raised" || r.status === "acknowledged")
+            ) ?? null;
+          if (helpStudent) {
+            return (
+              <BoardAccessSidePanel
+                key={`help-board-${helpStudent.id}`}
+                userId={helpStudent.id}
+                displayName={helpStudent.displayName}
+                helpRequest={helpRequest}
+                activeGrants={activeGrantMap(classroom.state).get(helpStudent.id) ?? []}
+                manifest={manifest}
+                error={classroom.error}
+                onRunAction={async (action) => {
+                  await classroom.runAction(action);
+                }}
+                onClose={() => setHelpBoardAccessUserId("")}
+              />
+            );
+          }
+        }
+
         const selectedStudent = selectedStudentId ? participantList.find((p) => p.id === selectedStudentId) ?? null : null;
         const helpRequest = selectedStudent && classroom.state
           ? (classroom.state.helpRequests.find(

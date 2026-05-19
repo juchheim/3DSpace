@@ -10,8 +10,6 @@ import type {
   RoomManifest
 } from "@3dspace/contracts";
 import { isBoardGrantActive, summarizeBoardGrantTypes } from "../lib/classroomGrants";
-import { BoardAccessGrantControls } from "./BoardAccessGrantControls";
-import { activeGrantMap } from "./Roster";
 import { HudCard } from "./HudCard";
 
 function statusLabel(status: ClassroomHelpRequest["status"]) {
@@ -29,6 +27,8 @@ export function ClassroomPanel({
   activeHelpRequest,
   manifest,
   currentUserId,
+  boardAccessUserId = "",
+  onOpenBoardAccess,
   onRunAction
 }: {
   role: Role;
@@ -38,6 +38,8 @@ export function ClassroomPanel({
   activeHelpRequest: ClassroomHelpRequest | null;
   manifest?: RoomManifest | null | undefined;
   currentUserId?: string | undefined;
+  boardAccessUserId?: string | undefined;
+  onOpenBoardAccess?(userId: string): void;
   onRunAction(action: ClassroomAction): Promise<void>;
 }) {
   const [note, setNote] = useState("");
@@ -47,7 +49,6 @@ export function ClassroomPanel({
     () => (state?.helpRequests ?? []).filter((r) => r.status === "raised" || r.status === "acknowledged"),
     [state?.helpRequests]
   );
-  const activeGrantsByUserId = useMemo(() => activeGrantMap(state), [state]);
   const activeBoardGrant = useMemo<ClassroomBoardAccessGrant | null>(
     () =>
       (state?.boardAccessGrants ?? []).find(
@@ -98,17 +99,18 @@ export function ClassroomPanel({
                 >
                   Close
                 </button>
+                {manifest && onOpenBoardAccess ? (
+                  <button
+                    type="button"
+                    className={`hud-btn${boardAccessUserId === request.userId ? " hud-btn--active" : ""}`}
+                    data-testid={`board-access-help-${request.userId}`}
+                    aria-pressed={boardAccessUserId === request.userId}
+                    onClick={() => onOpenBoardAccess(request.userId)}
+                  >
+                    Board Access
+                  </button>
+                ) : null}
               </div>
-              {manifest ? (
-                <BoardAccessGrantControls
-                  userId={request.userId}
-                  displayName={request.displayName}
-                  helpRequest={request}
-                  activeGrants={activeGrantsByUserId.get(request.userId) ?? []}
-                  manifest={manifest}
-                  onRunAction={onRunAction}
-                />
-              ) : null}
             </li>
           ))}
         </ul>

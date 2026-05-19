@@ -1,19 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { HudCard } from "./HudCard";
 import type { ClassroomAction, ClassroomBoardAccessGrant, ClassroomGroup, ClassroomHelpRequest, ClassroomState, Role, RoomManifest } from "@3dspace/contracts";
 import type { ParticipantView } from "./RoomClient";
 import { groupByUserId } from "./GroupsPanel";
 import { isBoardGrantActive } from "../lib/classroomGrants";
-import { BoardAccessGrantControls } from "./BoardAccessGrantControls";
-
-function statusLabel(status: ClassroomHelpRequest["status"]) {
-  if (status === "raised") return "Raised";
-  if (status === "acknowledged") return "Acknowledged";
-  if (status === "closed") return "Closed";
-  return "Cancelled";
-}
+import { BoardAccessSidePanel } from "./BoardAccessSidePanel";
 
 function activeHelpRequestMap(state?: ClassroomState | null | undefined) {
   return new Map(
@@ -168,75 +161,17 @@ export function StudentDetailPanel({
   onRunAction(action: ClassroomAction): Promise<void>;
   onClose(): void;
 }) {
-  const [busy, setBusy] = useState("");
-
-  async function run(label: string, action: ClassroomAction) {
-    setBusy(label);
-    try {
-      await onRunAction(action);
-    } finally {
-      setBusy("");
-    }
-  }
-
   return (
-    <div className="hud-panel student-detail-panel" aria-label={`Board access for ${participant.displayName}`}>
-      <div className="student-detail-header">
-        <div className="classroom-grant-header" style={{ flex: 1 }}>
-          <span>Board access</span>
-          <span>{participant.displayName}</span>
-        </div>
-        <button
-          type="button"
-          className="student-detail-close"
-          aria-label="Close"
-          onClick={onClose}
-        >
-          ×
-        </button>
-      </div>
-
-      {helpRequest ? (
-        <div className="classroom-grant-row">
-          <div className="classroom-help-meta">
-            <span className="classroom-help-name">{statusLabel(helpRequest.status)}</span>
-            <span className={`tag${helpRequest.status === "raised" ? " tag-help" : ""}`}>hand</span>
-          </div>
-          {helpRequest.note ? <p className="classroom-help-note">{helpRequest.note}</p> : null}
-          <div className="classroom-help-actions">
-            <button
-              type="button"
-              className="hud-btn"
-              disabled={busy === helpRequest.id || helpRequest.status === "acknowledged"}
-              data-testid={`acknowledge-help-${helpRequest.id}`}
-              onClick={() => void run(helpRequest.id, { type: "acknowledge-help", requestId: helpRequest.id })}
-            >
-              Ack
-            </button>
-            <button
-              type="button"
-              className="hud-btn"
-              disabled={busy === helpRequest.id}
-              data-testid={`close-help-${helpRequest.id}`}
-              onClick={() => void run(helpRequest.id, { type: "close-help", requestId: helpRequest.id })}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      ) : (
-        <p className="small">Select a board and share types to invite this student to present work.</p>
-      )}
-
-      <BoardAccessGrantControls
-        userId={participant.id}
-        displayName={participant.displayName}
-        helpRequest={helpRequest}
-        activeGrants={activeGrants}
-        manifest={manifest}
-        onRunAction={onRunAction}
-      />
-      {error ? <p className="small">{error}</p> : null}
-    </div>
+    <BoardAccessSidePanel
+      userId={participant.id}
+      displayName={participant.displayName}
+      helpRequest={helpRequest}
+      activeGrants={activeGrants}
+      manifest={manifest}
+      error={error}
+      showHelpActions={Boolean(helpRequest)}
+      onRunAction={onRunAction}
+      onClose={onClose}
+    />
   );
 }
