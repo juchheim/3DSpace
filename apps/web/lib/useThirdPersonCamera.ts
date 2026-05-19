@@ -24,6 +24,7 @@ export function useThirdPersonCamera(input: { viewMode: ViewMode }) {
   const draggingRef = useRef(false);
   const suppressClickRef = useRef(false);
   const lastPointerRef = useRef({ x: 0, y: 0 });
+  const lockedRef = useRef(false);
 
   const consumeClickSuppress = useCallback(() => {
     if (!suppressClickRef.current) return false;
@@ -54,8 +55,10 @@ export function useThirdPersonCamera(input: { viewMode: ViewMode }) {
           suppressClickRef.current = true;
         }
         lastPointerRef.current = { x: event.clientX, y: event.clientY };
-        yawRef.current -= deltaX * YAW_SENSITIVITY;
-        pitchRef.current = Math.min(MAX_PITCH, Math.max(MIN_PITCH, pitchRef.current + deltaY * PITCH_SENSITIVITY));
+        if (!lockedRef.current) {
+          yawRef.current -= deltaX * YAW_SENSITIVITY;
+          pitchRef.current = Math.min(MAX_PITCH, Math.max(MIN_PITCH, pitchRef.current + deltaY * PITCH_SENSITIVITY));
+        }
       }
 
       function endDrag(event: PointerEvent) {
@@ -83,5 +86,5 @@ export function useThirdPersonCamera(input: { viewMode: ViewMode }) {
     [input.viewMode]
   );
 
-  return { yawRef, pitchRef, bind, consumeClickSuppress };
+  return { yawRef, pitchRef, bind, consumeClickSuppress, lockedRef };
 }

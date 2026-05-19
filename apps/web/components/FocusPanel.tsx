@@ -17,7 +17,7 @@ export function FocusPanel({
   manifest,
   currentUserId,
   onRunAction,
-  onGoToFocus
+  onLookAtFocus
 }: {
   role: Role;
   state: ClassroomState | null;
@@ -25,7 +25,7 @@ export function FocusPanel({
   manifest?: RoomManifest | null | undefined;
   currentUserId?: string | undefined;
   onRunAction(action: ClassroomAction): Promise<void>;
-  onGoToFocus?(anchorId: string): void;
+  onLookAtFocus?(anchorId: string): void;
 }) {
   const [busy, setBusy] = useState("");
   const [targetAnchorId, setTargetAnchorId] = useState("");
@@ -177,13 +177,15 @@ export function FocusPanel({
       {spotlight.instruction ? (
         <p className="spotlight-callout__instruction">{spotlight.instruction}</p>
       ) : null}
-      {spotlight.anchorId && onGoToFocus ? (
+      {spotlight.mode === "force" ? (
+        <p className="spotlight-callout__instruction">View locked by your teacher.</p>
+      ) : spotlight.mode === "guide" && spotlight.anchorId && onLookAtFocus ? (
         <button
           type="button"
           className="hud-btn spotlight-callout__goto"
-          onClick={() => onGoToFocus(spotlight.anchorId!)}
+          onClick={() => onLookAtFocus(spotlight.anchorId!)}
         >
-          Go to focus
+          Look at focus
         </button>
       ) : null}
     </div>

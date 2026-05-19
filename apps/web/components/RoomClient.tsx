@@ -128,6 +128,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   wallRealtimeHandlerRef.current = wall.handleRealtimeMessage;
   const classroomRealtimeHandlerRef = useRef(classroom.handleRealtimeMessage);
   classroomRealtimeHandlerRef.current = classroom.handleRealtimeMessage;
+  camera.lockedRef.current = classroom.state?.spotlight?.mode === "force";
 
   const lockedPosition = useMemo(() => {
     const userId = session?.participantId ?? identity.userId;
@@ -154,22 +155,34 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     lockedPosition
   });
 
-  const goToFocus = useCallback(
-    (anchorId: string) => {
-      if (!manifest) return;
+  const computeAnchorYaw = useCallback(
+    (anchorId: string): number | null => {
+      if (!manifest) return null;
       const anchor = manifest.wallAnchors.find((a) => a.id === anchorId);
-      if (!anchor) return;
-      // Move avatar to a standing position ~2.5m in front of the anchor along its normal
-      const standX = anchor.position.x + anchor.normal.x * 2.5;
-      const standZ = anchor.position.z + anchor.normal.z * 2.5;
-      if (viewMode === "3d") {
-        movement.moveTo3DPoint({ x: standX, z: standZ });
-      } else {
-        movement.moveTo2DPoint({ x: standX, y: standZ });
-      }
+      if (!anchor || !movement.avatarState) return null;
+      const { x: ax, z: az } = movement.avatarState.position;
+      // Yaw that places the camera behind the avatar with the anchor in view
+      return Math.atan2(anchor.position.x - ax, anchor.position.z - az);
     },
-    [manifest, movement, viewMode]
+    [manifest, movement.avatarState]
   );
+
+  const lookAtFocus = useCallback(
+    (anchorId: string) => {
+      const yaw = computeAnchorYaw(anchorId);
+      if (yaw !== null) camera.yawRef.current = yaw;
+    },
+    [camera.yawRef, computeAnchorYaw]
+  );
+
+  // Force mode: keep camera pointed at the spotlight anchor, blocking drag
+  const spotlight = classroom.state?.spotlight;
+  useEffect(() => {
+    if (spotlight?.mode !== "guide" && spotlight?.mode !== "force") return;
+    if (!spotlight.anchorId) return;
+    const yaw = computeAnchorYaw(spotlight.anchorId);
+    if (yaw !== null) camera.yawRef.current = yaw;
+  }, [spotlight?.anchorId, spotlight?.mode, computeAnchorYaw, camera.yawRef]);
 
   useEffect(() => {
     setManifest((current) => (current ? normalizeRoomManifest(current) : current));
@@ -915,7 +928,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             onRunAction={async (action) => {
               await classroom.runAction(action);
             }}
-            onGoToFocus={goToFocus}
+            onLookAtFocus={lookAtFocus}
           />
           {manifest && session ? (
             <AnchorPanel
