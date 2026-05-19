@@ -805,29 +805,6 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
 
       {/* Right HUD: roster + wall objects */}
       <aside className="room-hud-right" aria-label="Room details">
-        {(() => {
-          const selectedStudent = selectedStudentId ? participantList.find((p) => p.id === selectedStudentId) ?? null : null;
-          const helpRequest = selectedStudent && classroom.state
-            ? (classroom.state.helpRequests.find(
-                (r) => r.userId === selectedStudent.id && (r.status === "raised" || r.status === "acknowledged")
-              ) ?? null)
-            : null;
-          const studentActiveGrants = selectedStudent && classroom.state
-            ? (activeGrantMap(classroom.state).get(selectedStudent.id) ?? [])
-            : [];
-          return selectedStudent && manifest ? (
-            <StudentDetailPanel
-              key={selectedStudent.id}
-              participant={selectedStudent}
-              helpRequest={helpRequest}
-              activeGrants={studentActiveGrants}
-              manifest={manifest}
-              error={classroom.error}
-              onRunAction={async (action) => { await classroom.runAction(action); }}
-              onClose={() => setSelectedStudentId("")}
-            />
-          ) : null;
-        })()}
         <div className="room-hud-right-col">
           <Roster
             participants={participantList}
@@ -879,6 +856,29 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             />
           ) : null}
         </div>
+        {(() => {
+          const selectedStudent = selectedStudentId ? participantList.find((p) => p.id === selectedStudentId) ?? null : null;
+          const helpRequest = selectedStudent && classroom.state
+            ? (classroom.state.helpRequests.find(
+                (r) => r.userId === selectedStudent.id && (r.status === "raised" || r.status === "acknowledged")
+              ) ?? null)
+            : null;
+          const studentActiveGrants = selectedStudent && classroom.state
+            ? (activeGrantMap(classroom.state).get(selectedStudent.id) ?? [])
+            : [];
+          return selectedStudent && manifest ? (
+            <StudentDetailPanel
+              key={selectedStudent.id}
+              participant={selectedStudent}
+              helpRequest={helpRequest}
+              activeGrants={studentActiveGrants}
+              manifest={manifest}
+              error={classroom.error}
+              onRunAction={async (action) => { await classroom.runAction(action); }}
+              onClose={() => setSelectedStudentId("")}
+            />
+          ) : null;
+        })()}
       </aside>
     </main>
   );
