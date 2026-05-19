@@ -272,6 +272,30 @@ From the decisive Safari hotspot run:
 
 That combination is what isolated the bug.
 
+From the final raw TURN probe run:
+
+- Safari received a valid relay-only `RTCConfiguration` with TURN credentials from LiveKit Cloud;
+- a standalone `RTCPeerConnection` using that exact config was created outside LiveKit negotiation;
+- the probe created a data channel and attempted local ICE gathering;
+- the probe timed out with:
+
+```json
+{"reason":"timeout","candidates":[]}
+```
+
+- Safari emitted no relay candidates, no host candidates, and no `icecandidateerror` events even in the raw probe.
+
+This is the strongest evidence in the investigation. It shows the failure is not caused by:
+
+- room token shape;
+- LiveKit session response shape;
+- the app's join/reconnect flow;
+- Safari media permission state;
+- missing TURN credentials;
+- or relay policy not reaching the browser.
+
+It points to Safari failing TURN candidate allocation itself for the supplied LiveKit TURN servers in this environment.
+
 ---
 
 ## Next Test
@@ -282,6 +306,24 @@ After enforcing relay at the `RTCPeerConnection` constructor / `setConfiguration
 - Safari begins producing `relay` candidates instead of only `host tcp` candidates;
 - candidate pairs move beyond `waiting`;
 - the participant reaches a connected state without LiveKit region fallback.
+
+Status after that verification:
+
+- relay policy now reaches the actual browser `RTCPeerConnection`;
+- Safari still fails to emit any candidates in a raw relay-only TURN probe;
+- investigation should now move outside application code.
+
+Recommended next actions:
+
+1. Open a LiveKit support / issue report with:
+   - TURN URLs redacted only as needed,
+   - Safari version,
+   - hotspot vs school network comparison,
+   - the raw probe result showing zero candidates with relay-only policy.
+2. Test the same Safari device against a non-LiveKit TURN deployment or LiveKit's own standalone connection / TURN diagnostic if available, to confirm whether this is project-specific or Safari-wide for the current environment.
+3. Decide on a product fallback for Safari:
+   - no-AV classroom presence over BroadcastChannel/WebSocket/SSE, or
+   - browser support restriction until TURN allocation is resolved.
 
 ---
 
