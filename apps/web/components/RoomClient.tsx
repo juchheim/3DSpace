@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AvatarStateMessage, Role, RoomManifest, RoomSessionResponse, ViewMode, WallObject } from "@3dspace/contracts";
-import { createAvatarState } from "@3dspace/room-engine";
+import { computeGroupMemberPosition, createAvatarState, unprojectPointFrom2D } from "@3dspace/room-engine";
 import { joinRoom, listClassMembers } from "../lib/api";
 import { pickDisplayName } from "../lib/displayName";
 import { useAvatarMovement } from "../lib/useAvatarMovement";
@@ -103,22 +103,10 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     () => Object.values(participants).filter((participant) => participant.id !== session?.participantId).map((participant) => participant.state.position),
     [participants, session?.participantId]
   );
-  const movement = useAvatarMovement({
-    manifest,
-    participantId: session?.participantId ?? identity.userId,
-    role: session?.role ?? identity.role,
-    occupiedPositions: occupiedSpawnPositions,
-    viewMode,
-    cameraYawRef: camera.yawRef,
-    media: {
-      cameraEnabled: media.cameraEnabled,
-      microphoneEnabled: media.microphoneEnabled,
-      speaking: media.speaking
-    }
-  });
   const [remoteWallMedia, setRemoteWallMedia] = useState<Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>>({});
   const [localWallMedia, setLocalWallMedia] = useState<Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>>({});
   const [selectedStudentId, setSelectedStudentId] = useState("");
+  const [positioningGroupId, setPositioningGroupId] = useState("");
   const publishRealtime = useCallback((message: RealtimeMessage) => {
     realtimeRef.current?.publish(message);
   }, []);
@@ -139,6 +127,31 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   wallRealtimeHandlerRef.current = wall.handleRealtimeMessage;
   const classroomRealtimeHandlerRef = useRef(classroom.handleRealtimeMessage);
   classroomRealtimeHandlerRef.current = classroom.handleRealtimeMessage;
+
+  const lockedPosition = useMemo(() => {
+    const userId = session?.participantId ?? identity.userId;
+    const group = classroom.state?.groups.find(
+      (g) => g.status === "active" && g.hold?.enabled && g.hold.mode === "hard" && g.targetPosition && g.memberUserIds.includes(userId)
+    );
+    if (!group?.targetPosition) return null;
+    const memberIndex = group.memberUserIds.indexOf(userId);
+    return computeGroupMemberPosition(group.targetPosition, memberIndex);
+  }, [classroom.state?.groups, session?.participantId, identity.userId]);
+
+  const movement = useAvatarMovement({
+    manifest,
+    participantId: session?.participantId ?? identity.userId,
+    role: session?.role ?? identity.role,
+    occupiedPositions: occupiedSpawnPositions,
+    viewMode,
+    cameraYawRef: camera.yawRef,
+    media: {
+      cameraEnabled: media.cameraEnabled,
+      microphoneEnabled: media.microphoneEnabled,
+      speaking: media.speaking
+    },
+    lockedPosition
+  });
 
   useEffect(() => {
     setManifest((current) => (current ? normalizeRoomManifest(current) : current));
@@ -749,7 +762,16 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             bindCamera={camera.bind}
             onMoveToPoint={(point) => {
               if (camera.consumeClickSuppress()) return;
-              movement.moveTo3DPoint(point);
+              if (positioningGroupId) {
+                void classroom.runAction({
+                  type: "update-group",
+                  groupId: positioningGroupId,
+                  targetPosition: { x: point.x, y: 0, z: point.z },
+                  hold: { enabled: true, mode: "hard", radiusMeters: 2 }
+                }).then(() => setPositioningGroupId(""));
+              } else {
+                movement.moveTo3DPoint(point);
+              }
             }}
             wallObjects={wall.wallObjects}
             assetUrls={wall.assetUrls}
@@ -768,11 +790,24 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           <RoomView2D
             manifest={manifest}
             participants={participantList}
-            onMoveToPoint={movement.moveTo2DPoint}
+            onMoveToPoint={(point) => {
+              if (positioningGroupId && manifest) {
+                const worldPos = unprojectPointFrom2D(manifest, point);
+                void classroom.runAction({
+                  type: "update-group",
+                  groupId: positioningGroupId,
+                  targetPosition: { x: worldPos.x, y: 0, z: worldPos.z },
+                  hold: { enabled: true, mode: "hard", radiusMeters: 2 }
+                }).then(() => setPositioningGroupId(""));
+              } else {
+                movement.moveTo2DPoint(point);
+              }
+            }}
             wallObjects={wall.wallObjects}
             assetUrls={wall.assetUrls}
             wallMediaStreams={wallMediaStreams}
             classroomGroups={classroom.state?.groups ?? []}
+            positioningMode={Boolean(positioningGroupId)}
           />
         )}
       </div>
@@ -844,9 +879,12 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             loading={classroom.loading}
             participants={participantList}
             currentUserId={identity.userId}
+            positioningGroupId={positioningGroupId}
             onRunAction={async (action) => {
               await classroom.runAction(action);
             }}
+            onEnterPositioningMode={(groupId) => setPositioningGroupId(groupId)}
+            onCancelPositioning={() => setPositioningGroupId("")}
           />
           {manifest && session ? (
             <AnchorPanel

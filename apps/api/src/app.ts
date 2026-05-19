@@ -781,7 +781,7 @@ async function runClassroomAction(input: {
       const group = findGroup(state, input.action.groupId);
       if (input.action.label !== undefined) group.label = input.action.label;
       if (input.action.color !== undefined) group.color = input.action.color;
-      if (input.action.targetPosition !== undefined) group.targetPosition = input.action.targetPosition;
+      if (input.action.targetPosition !== undefined) group.targetPosition = input.action.targetPosition ?? undefined;
       if (input.action.targetWallAnchorId !== undefined) group.targetWallAnchorId = input.action.targetWallAnchorId;
       if (input.action.hold !== undefined) group.hold = input.action.hold;
       if (input.action.status !== undefined) group.status = input.action.status;

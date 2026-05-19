@@ -1,7 +1,7 @@
 "use client";
 
 import type { ClassroomGroup, RoomManifest, WallObject } from "@3dspace/contracts";
-import { projectAnchorRectTo2D, projectPositionTo2D } from "@3dspace/room-engine";
+import { computeGroupMemberPosition, projectAnchorRectTo2D, projectPositionTo2D } from "@3dspace/room-engine";
 import type { ParticipantView } from "./RoomClient";
 import { WallObjectCard } from "./WallObjectCard";
 
@@ -12,7 +12,8 @@ export function RoomView2D({
   wallObjects = [],
   assetUrls = {},
   wallMediaStreams = {},
-  classroomGroups = []
+  classroomGroups = [],
+  positioningMode = false
 }: {
   manifest: RoomManifest;
   participants: ParticipantView[];
@@ -21,6 +22,7 @@ export function RoomView2D({
   assetUrls?: Record<string, string>;
   wallMediaStreams?: Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>;
   classroomGroups?: ClassroomGroup[];
+  positioningMode?: boolean;
 }) {
   function handlePointer(event: React.PointerEvent<SVGSVGElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -52,6 +54,22 @@ export function RoomView2D({
             </g>
           );
         })}
+        {classroomGroups.filter((g) => g.targetPosition && g.hold?.enabled).map((group) => {
+          const center = projectPositionTo2D(manifest, group.targetPosition!);
+          return (
+            <g key={`zone-${group.id}`}>
+              <circle cx={center.x} cy={center.y} r={5.5} fill={`${group.color}22`} stroke={group.color} strokeWidth="0.8" strokeDasharray="2 1.5" />
+              {group.memberUserIds.map((userId, index) => {
+                const memberPos = computeGroupMemberPosition(group.targetPosition!, index);
+                const pt = projectPositionTo2D(manifest, memberPos);
+                return <circle key={userId} cx={pt.x} cy={pt.y} r={1.6} fill={group.color} opacity={0.55} />;
+              })}
+            </g>
+          );
+        })}
+        {positioningMode ? (
+          <rect x="2" y="2" width="96" height="96" rx="5" fill="none" stroke="#e67e22" strokeWidth="1.5" strokeDasharray="4 3" pointerEvents="none" />
+        ) : null}
         {participants.map((participant) => {
           const point = projectPositionTo2D(manifest, participant.state.position);
           const group = classroomGroups.find((g) => g.memberUserIds.includes(participant.id));

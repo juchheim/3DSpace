@@ -38,14 +38,20 @@ export function GroupsPanel({
   loading,
   participants,
   currentUserId,
-  onRunAction
+  positioningGroupId,
+  onRunAction,
+  onEnterPositioningMode,
+  onCancelPositioning
 }: {
   role: Role;
   state: ClassroomState | null;
   loading: boolean;
   participants: ParticipantView[];
   currentUserId?: string | undefined;
+  positioningGroupId: string;
   onRunAction(action: ClassroomAction): Promise<void>;
+  onEnterPositioningMode(groupId: string): void;
+  onCancelPositioning(): void;
 }) {
   const [busy, setBusy] = useState("");
   const [groupLabel, setGroupLabel] = useState("");
@@ -217,55 +223,102 @@ export function GroupsPanel({
           </div>
         ) : null}
 
+        {positioningGroupId ? (
+          <div className="classroom-grant-panel" data-testid="positioning-banner">
+            <div className="classroom-grant-header">
+              <span>Positioning mode</span>
+              <span>{activeGroups.find((g) => g.id === positioningGroupId)?.label ?? ""}</span>
+            </div>
+            <p className="classroom-help-note">Click anywhere in the 3D view or 2D map to place this group.</p>
+            <button type="button" className="hud-btn" onClick={onCancelPositioning}>
+              Cancel
+            </button>
+          </div>
+        ) : null}
+
         {activeGroups.length === 0 ? <p className="small">No active groups.</p> : null}
         <ul className="classroom-help-list" role="list">
-          {activeGroups.map((group) => (
-            <li key={group.id} className="classroom-help-item" data-testid={`group-${group.id}`}>
-              <div className="classroom-help-meta">
-                <span className="classroom-help-name">
-                  <span className="group-dot" style={{ background: group.color }} aria-hidden="true" />
-                  {group.label}
-                </span>
-                <span className="tag">{group.memberUserIds.length} member{group.memberUserIds.length === 1 ? "" : "s"}</span>
-              </div>
-              {group.memberUserIds.length > 0 ? (
-                <ul className="classroom-check-responses" role="list" aria-label={`${group.label} members`}>
-                  {group.memberUserIds.map((userId) => {
-                    const participant = participants.find((p) => p.id === userId);
-                    const name = participant?.displayName ?? userId.slice(0, 8);
-                    return (
-                      <li key={userId} className="classroom-check-response" style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                        <span>{name}</span>
-                        <button
-                          type="button"
-                          className="hud-btn"
-                          style={{ padding: "0.1rem 0.4rem", fontSize: "0.7rem" }}
-                          disabled={busy === `remove-${group.id}-${userId}`}
-                          aria-label={`Remove ${name} from ${group.label}`}
-                          onClick={() => void removeMember(group, userId)}
-                        >
-                          ×
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <p className="classroom-help-note">No members yet.</p>
-              )}
-              <div className="classroom-help-actions">
-                <button
-                  type="button"
-                  className="hud-btn"
-                  disabled={busy === `release-${group.id}`}
-                  data-testid={`release-group-${group.id}`}
-                  onClick={() => void run(`release-${group.id}`, { type: "release-group", groupId: group.id })}
-                >
-                  Release
-                </button>
-              </div>
-            </li>
-          ))}
+          {activeGroups.map((group) => {
+            const isPositioned = Boolean(group.targetPosition && group.hold?.enabled);
+            const isPositioning = positioningGroupId === group.id;
+            return (
+              <li key={group.id} className="classroom-help-item" data-testid={`group-${group.id}`}>
+                <div className="classroom-help-meta">
+                  <span className="classroom-help-name">
+                    <span className="group-dot" style={{ background: group.color }} aria-hidden="true" />
+                    {group.label}
+                  </span>
+                  <span className={`tag${isPositioned ? " active" : ""}`}>
+                    {isPositioned ? "Locked" : `${group.memberUserIds.length} member${group.memberUserIds.length === 1 ? "" : "s"}`}
+                  </span>
+                </div>
+                {group.memberUserIds.length > 0 ? (
+                  <ul className="classroom-check-responses" role="list" aria-label={`${group.label} members`}>
+                    {group.memberUserIds.map((userId) => {
+                      const participant = participants.find((p) => p.id === userId);
+                      const name = participant?.displayName ?? userId.slice(0, 8);
+                      return (
+                        <li key={userId} className="classroom-check-response" style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                          <span>{name}</span>
+                          <button
+                            type="button"
+                            className="hud-btn"
+                            style={{ padding: "0.1rem 0.4rem", fontSize: "0.7rem" }}
+                            disabled={busy === `remove-${group.id}-${userId}`}
+                            aria-label={`Remove ${name} from ${group.label}`}
+                            onClick={() => void removeMember(group, userId)}
+                          >
+                            ×
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <p className="classroom-help-note">No members yet.</p>
+                )}
+                <div className="classroom-help-actions">
+                  {isPositioned ? (
+                    <button
+                      type="button"
+                      className="hud-btn"
+                      disabled={busy === `unlock-${group.id}`}
+                      data-testid={`unlock-group-${group.id}`}
+                      onClick={() =>
+                        void run(`unlock-${group.id}`, {
+                          type: "update-group",
+                          groupId: group.id,
+                          targetPosition: null,
+                          hold: { enabled: false, mode: "soft", radiusMeters: 2 }
+                        })
+                      }
+                    >
+                      Unlock
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="hud-btn"
+                      disabled={isPositioning || group.memberUserIds.length === 0}
+                      data-testid={`position-group-${group.id}`}
+                      onClick={() => onEnterPositioningMode(group.id)}
+                    >
+                      Position
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="hud-btn"
+                    disabled={busy === `release-${group.id}`}
+                    data-testid={`release-group-${group.id}`}
+                    onClick={() => void run(`release-${group.id}`, { type: "release-group", groupId: group.id })}
+                  >
+                    Release
+                  </button>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       </HudCard>
     );

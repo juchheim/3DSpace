@@ -251,6 +251,20 @@ export function transformLocalMovementToWorld(rotationY: number, local: { x: num
   };
 }
 
+/**
+ * Returns a non-overlapping position for the Nth member of a group centered at `center`.
+ * Slot 0 = center, slots 1–6 = ring at 1.5 m, slots 7–18 = outer ring at 3.0 m.
+ */
+export function computeGroupMemberPosition(center: Vector3, memberIndex: number): Vector3 {
+  if (memberIndex === 0) return { x: center.x, y: 0, z: center.z };
+  if (memberIndex <= 6) {
+    const angle = ((memberIndex - 1) / 6) * (Math.PI * 2);
+    return { x: center.x + Math.sin(angle) * 1.5, y: 0, z: center.z + Math.cos(angle) * 1.5 };
+  }
+  const angle = ((memberIndex - 7) / 12) * (Math.PI * 2);
+  return { x: center.x + Math.sin(angle) * 3.0, y: 0, z: center.z + Math.cos(angle) * 3.0 };
+}
+
 export function isWithinBounds(manifest: RoomManifest, position: Vector3) {
   return (
     position.x >= manifest.bounds.minX &&

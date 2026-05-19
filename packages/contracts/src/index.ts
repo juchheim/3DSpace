@@ -742,7 +742,7 @@ export const ClassroomUpdateGroupActionSchema = ClassroomActionBaseSchema.extend
   groupId: z.string().min(1),
   label: z.string().min(1).max(80).optional(),
   color: z.string().min(1).max(40).optional(),
-  targetPosition: Vector3Schema.optional(),
+  targetPosition: z.union([Vector3Schema, z.null()]).optional(),
   targetWallAnchorId: z.string().optional(),
   hold: ClassroomGroupHoldSchema.optional(),
   status: z.enum(["active", "released", "archived"]).optional()

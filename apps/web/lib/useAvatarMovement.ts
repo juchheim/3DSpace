@@ -24,6 +24,7 @@ export function useAvatarMovement(input: {
   viewMode: ViewMode;
   cameraYawRef?: MutableRefObject<number>;
   media: { cameraEnabled: boolean; microphoneEnabled: boolean; speaking: boolean };
+  lockedPosition?: Vector3 | null;
 }) {
   const [avatarState, setAvatarState] = useState<AvatarStateMessage | null>(null);
   const keys = useRef(new Set<string>());
@@ -31,6 +32,8 @@ export function useAvatarMovement(input: {
   const stateRef = useRef<AvatarStateMessage | null>(null);
   const mediaRef = useRef(input.media);
   mediaRef.current = input.media;
+  const lockedPositionRef = useRef<Vector3 | null>(input.lockedPosition ?? null);
+  lockedPositionRef.current = input.lockedPosition ?? null;
 
   useEffect(() => {
     if (!input.manifest) return;
@@ -88,6 +91,28 @@ export function useAvatarMovement(input: {
       last = now;
       const current = stateRef.current;
       if (current) {
+        const locked = lockedPositionRef.current;
+        if (locked) {
+          const lockedPos = { x: locked.x, y: 0, z: locked.z };
+          if (
+            current.position.x !== lockedPos.x ||
+            current.position.z !== lockedPos.z ||
+            current.movement !== "idle"
+          ) {
+            const next = {
+              ...current,
+              sentAt: Date.now(),
+              position: lockedPos,
+              movement: "idle" as const,
+              viewMode: input.viewMode,
+              media: mediaRef.current
+            };
+            stateRef.current = next;
+            setAvatarState(next);
+          }
+          frame = requestAnimationFrame(tick);
+          return;
+        }
         let localX = touchVector.current.x;
         let localZ = touchVector.current.z;
         if (keys.current.has("ArrowLeft") || keys.current.has("KeyA")) localX -= 1;
@@ -136,7 +161,7 @@ export function useAvatarMovement(input: {
 
   const moveTo2DPoint = useCallback(
     (point: { x: number; y: number }) => {
-      if (!input.manifest || !stateRef.current) return;
+      if (!input.manifest || !stateRef.current || lockedPositionRef.current) return;
       const nextPosition = unprojectPointFrom2D(input.manifest, point);
       const next = {
         ...stateRef.current,
@@ -153,7 +178,7 @@ export function useAvatarMovement(input: {
 
   const moveTo3DPoint = useCallback(
     (point: { x: number; z: number }) => {
-      if (!input.manifest || !stateRef.current) return;
+      if (!input.manifest || !stateRef.current || lockedPositionRef.current) return;
       const nextPosition = clampPositionToBounds(input.manifest, { x: point.x, y: 0, z: point.z });
       const nextRotationY = Math.atan2(nextPosition.x - stateRef.current.position.x, nextPosition.z - stateRef.current.position.z);
       if (input.cameraYawRef) input.cameraYawRef.current = nextRotationY;

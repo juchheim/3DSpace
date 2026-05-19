@@ -1024,6 +1024,55 @@ describe("3dspace api", () => {
     await app.close();
   });
 
+  it("teacher can position a group and then unlock it", async () => {
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { roomWithManifest } = await createClassAndRoom(app, "teacher-group-position");
+
+    const created = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-group-position", "Ms. Chen"),
+      payload: { type: "create-group", label: "Blue Team", color: "#2980b9" }
+    });
+    const groupId = created.json().groups[0].id as string;
+
+    const positioned = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-group-position", "Ms. Chen"),
+      payload: {
+        type: "update-group",
+        groupId,
+        targetPosition: { x: 2.5, y: 0, z: -1.0 },
+        hold: { enabled: true, mode: "hard", radiusMeters: 2 }
+      }
+    });
+    expect(positioned.statusCode).toBe(200);
+    expect(positioned.json().groups[0].targetPosition).toEqual({ x: 2.5, y: 0, z: -1.0 });
+    expect(positioned.json().groups[0].hold?.enabled).toBe(true);
+    expect(positioned.json().groups[0].hold?.mode).toBe("hard");
+
+    const unlocked = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-group-position", "Ms. Chen"),
+      payload: {
+        type: "update-group",
+        groupId,
+        targetPosition: null,
+        hold: { enabled: false, mode: "soft", radiusMeters: 2 }
+      }
+    });
+    expect(unlocked.statusCode).toBe(200);
+    expect(unlocked.json().groups[0].targetPosition).toBeUndefined();
+    expect(unlocked.json().groups[0].hold?.enabled).toBe(false);
+
+    await app.close();
+  });
+
   it("teacher can create, assign members to, and release a group", async () => {
     const app = await buildApp({
       config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
