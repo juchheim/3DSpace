@@ -121,6 +121,12 @@ function logSessionDebug(input: AdapterInput) {
   });
 }
 
+function isSafariBrowser() {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  return /Safari\//.test(ua) && !/Chrome\//.test(ua) && !/Chromium\//.test(ua) && !/CriOS\//.test(ua) && !/FxiOS\//.test(ua);
+}
+
 function withSender(message: RealtimeMessage, senderId: string) {
   return { ...message, senderId };
 }
@@ -177,7 +183,15 @@ function createBroadcastClient(input: AdapterInput, reason?: string): RealtimeCl
 
 async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient> {
   const { Room, RoomEvent, Track } = await import("livekit-client");
-  const room = new Room({ adaptiveStream: true, dynacast: true });
+  const safariRelay = isSafariBrowser();
+  if (safariRelay) {
+    console.log("[LiveKit Safari transport]", { policy: "relay" });
+  }
+  const room = new Room({
+    adaptiveStream: true,
+    dynacast: true,
+    ...(safariRelay ? { rtcConfig: { iceTransportPolicy: "relay" } } : {})
+  });
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
   let publishedCameraTrack: MediaStreamTrack | null = null;
