@@ -203,7 +203,7 @@ export function StudentDetailPanel({
   }
 
   return (
-    <div className="hud-card student-detail-panel" aria-label={`Board access for ${participant.displayName}`}>
+    <div className="hud-panel student-detail-panel" aria-label={`Board access for ${participant.displayName}`}>
       <div className="student-detail-header">
         <div className="classroom-grant-header" style={{ flex: 1 }}>
           <span>Board access</span>

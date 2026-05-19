@@ -575,11 +575,10 @@ label {
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: none;
-  pointer-events: none;
-}
-
-.student-detail-panel > * {
-  pointer-events: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .student-detail-panel::-webkit-scrollbar {
