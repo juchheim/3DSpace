@@ -10,6 +10,8 @@ import type {
   RoomManifest
 } from "@3dspace/contracts";
 import { isBoardGrantActive, summarizeBoardGrantTypes } from "../lib/classroomGrants";
+import { BoardAccessGrantControls } from "./BoardAccessGrantControls";
+import { activeGrantMap } from "./Roster";
 import { HudCard } from "./HudCard";
 
 function statusLabel(status: ClassroomHelpRequest["status"]) {
@@ -45,6 +47,7 @@ export function ClassroomPanel({
     () => (state?.helpRequests ?? []).filter((r) => r.status === "raised" || r.status === "acknowledged"),
     [state?.helpRequests]
   );
+  const activeGrantsByUserId = useMemo(() => activeGrantMap(state), [state]);
   const activeBoardGrant = useMemo<ClassroomBoardAccessGrant | null>(
     () =>
       (state?.boardAccessGrants ?? []).find(
@@ -96,6 +99,16 @@ export function ClassroomPanel({
                   Close
                 </button>
               </div>
+              {manifest ? (
+                <BoardAccessGrantControls
+                  userId={request.userId}
+                  displayName={request.displayName}
+                  helpRequest={request}
+                  activeGrants={activeGrantsByUserId.get(request.userId) ?? []}
+                  manifest={manifest}
+                  onRunAction={onRunAction}
+                />
+              ) : null}
             </li>
           ))}
         </ul>
