@@ -517,11 +517,13 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     const localCameraObjectIds = new Set(
       wall.wallObjects
         .filter(
-          (object) =>
-            isActiveLiveWallObject(object) &&
-            object.type === "camera.live" &&
-            object.source.kind === "livekit-track" &&
-            object.source.participantId === session.participantId
+          (object) => {
+            if (object.type !== "camera.live") return false;
+            if (object.source.kind !== "livekit-track") return false;
+            if (object.source.participantId !== session.participantId) return false;
+            const terminalStatus = object.status === "removed" || object.status === "source_ended" || object.status === "failed" || object.status === "rejected";
+            return !terminalStatus;
+          }
         )
         .map((object) => object.id)
     );
@@ -571,10 +573,15 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     };
     for (const object of wall.wallObjects) {
       if (object.type.endsWith(".live") && !isActiveLiveWallObject(object)) {
-        if (next[object.id]) {
-          next[object.id] = { ...(next[object.id] ?? {}), videoStream: null, audioStream: null };
+        const participantTrackType = object.type === "camera.live" || object.type === "microphone.live";
+        const terminalStatus = object.status === "removed" || object.status === "source_ended" || object.status === "failed" || object.status === "rejected";
+        if (!participantTrackType || terminalStatus) {
+          if (next[object.id]) {
+            next[object.id] = { ...(next[object.id] ?? {}), videoStream: null, audioStream: null };
+          }
+          continue;
         }
-        continue;
+        // camera.live and microphone.live in non-terminal states: fall through to use participant streams
       }
       const source = object.source;
       if (source.kind !== "livekit-track") continue;

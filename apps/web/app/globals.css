@@ -2541,6 +2541,12 @@ button.hud-heading-btn:hover {
   color: var(--hud-tx-m);
 }
 
+.hud-panel .classroom-active-grant {
+  background: rgba(70, 120, 180, 0.08);
+  border-color: rgba(70, 120, 180, 0.25);
+  border-radius: 3px;
+}
+
 /* Private checks */
 .hud-panel .classroom-check-response {
   background: var(--hud-bg-r);

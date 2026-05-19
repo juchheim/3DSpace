@@ -398,7 +398,10 @@ function WallObjectContent({
     );
   }
 
-  const liveShareActive = !object.type.endsWith(".live") || object.status === "active";
+  const terminalLiveStatus = object.status === "removed" || object.status === "source_ended" || object.status === "failed" || object.status === "rejected";
+  // Camera and microphone shares reuse the participant's existing track and don't require server confirmation to show.
+  const participantTrackType = object.type === "camera.live" || object.type === "microphone.live";
+  const liveShareActive = !object.type.endsWith(".live") || object.status === "active" || (participantTrackType && !terminalLiveStatus);
 
   if (videoStream && liveShareActive) {
     return (
