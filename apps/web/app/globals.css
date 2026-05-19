@@ -1096,6 +1096,39 @@ button.hud-heading-btn:hover {
   margin: 0.05rem 0 0;
 }
 
+/* Group color swatches */
+
+.group-dot {
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  margin-right: 0.3rem;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.group-color-presets {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.group-color-swatch {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: none;
+}
+
+.group-color-swatch--selected {
+  border-color: var(--night);
+  box-shadow: 0 0 0 2px #fffaf0, 0 0 0 4px var(--night);
+}
+
 /* Content type selector */
 
 .content-type-bar {

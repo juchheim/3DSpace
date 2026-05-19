@@ -1,6 +1,6 @@
 "use client";
 
-import type { RoomManifest, WallObject } from "@3dspace/contracts";
+import type { ClassroomGroup, RoomManifest, WallObject } from "@3dspace/contracts";
 import { projectAnchorRectTo2D, projectPositionTo2D } from "@3dspace/room-engine";
 import type { ParticipantView } from "./RoomClient";
 import { WallObjectCard } from "./WallObjectCard";
@@ -11,7 +11,8 @@ export function RoomView2D({
   onMoveToPoint,
   wallObjects = [],
   assetUrls = {},
-  wallMediaStreams = {}
+  wallMediaStreams = {},
+  classroomGroups = []
 }: {
   manifest: RoomManifest;
   participants: ParticipantView[];
@@ -19,6 +20,7 @@ export function RoomView2D({
   wallObjects?: WallObject[];
   assetUrls?: Record<string, string>;
   wallMediaStreams?: Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>;
+  classroomGroups?: ClassroomGroup[];
 }) {
   function handlePointer(event: React.PointerEvent<SVGSVGElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -52,13 +54,15 @@ export function RoomView2D({
         })}
         {participants.map((participant) => {
           const point = projectPositionTo2D(manifest, participant.state.position);
+          const group = classroomGroups.find((g) => g.memberUserIds.includes(participant.id));
+          const fillColor = group?.color ?? (participant.local ? "#eb5e28" : "#2f6b4f");
           return (
             <g key={participant.id}>
               <circle
                 cx={point.x}
                 cy={point.y}
                 r={participant.local ? 3.2 : 2.7}
-                fill={participant.local ? "#eb5e28" : "#2f6b4f"}
+                fill={fillColor}
                 stroke={participant.state.media?.speaking ? "#005fcc" : "#fffaf0"}
                 strokeWidth="1.2"
               />

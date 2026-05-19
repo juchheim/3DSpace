@@ -21,6 +21,7 @@ import { isBoardGrantActive } from "../lib/classroomGrants";
 import { AnchorPanel } from "./AnchorPanel";
 import { AuthGate } from "../lib/auth";
 import { ClassroomPanel } from "./ClassroomPanel";
+import { GroupsPanel } from "./GroupsPanel";
 import { PrivateChecksPanel } from "./PrivateChecksPanel";
 import { MediaControls } from "./MediaControls";
 import { MovementPad } from "./MovementPad";
@@ -755,6 +756,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             wallMediaStreams={wallMediaStreams}
             canManageWallObjects={session.role === "teacher"}
             currentUserId={identity.userId}
+            classroomGroups={classroom.state?.groups ?? []}
             onWallObjectControl={controlWallObject}
             onWallObjectRemove={async (objectId) => {
               await wall.removeObject(objectId);
@@ -770,6 +772,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             wallObjects={wall.wallObjects}
             assetUrls={wall.assetUrls}
             wallMediaStreams={wallMediaStreams}
+            classroomGroups={classroom.state?.groups ?? []}
           />
         )}
       </div>
@@ -830,6 +833,16 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             role={role}
             state={classroom.state}
             loading={classroom.loading}
+            currentUserId={identity.userId}
+            onRunAction={async (action) => {
+              await classroom.runAction(action);
+            }}
+          />
+          <GroupsPanel
+            role={role}
+            state={classroom.state}
+            loading={classroom.loading}
+            participants={participantList}
             currentUserId={identity.userId}
             onRunAction={async (action) => {
               await classroom.runAction(action);

@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { HudCard } from "./HudCard";
-import type { ClassroomAction, ClassroomBoardAccessGrant, ClassroomHelpRequest, ClassroomState, Role, RoomManifest } from "@3dspace/contracts";
+import type { ClassroomAction, ClassroomBoardAccessGrant, ClassroomGroup, ClassroomHelpRequest, ClassroomState, Role, RoomManifest } from "@3dspace/contracts";
 import type { ParticipantView } from "./RoomClient";
+import { groupByUserId } from "./GroupsPanel";
 import {
   allowedBoardGrantTypesForAnchor,
   BOARD_GRANT_PRESETS,
@@ -66,6 +67,14 @@ function sortParticipants(
   });
 }
 
+function groupTagStyle(group: ClassroomGroup): React.CSSProperties {
+  return {
+    borderColor: `${group.color}55`,
+    color: group.color,
+    background: `${group.color}18`
+  };
+}
+
 export function Roster({
   participants,
   classroomState,
@@ -81,6 +90,7 @@ export function Roster({
 }) {
   const helpRequestsByUserId = useMemo(() => activeHelpRequestMap(classroomState), [classroomState]);
   const activeGrantsByUserId = useMemo(() => activeGrantMap(classroomState), [classroomState]);
+  const groupsByUserId = useMemo(() => groupByUserId(classroomState), [classroomState]);
   const sortedParticipants = useMemo(
     () => sortParticipants(participants, role, helpRequestsByUserId, activeGrantsByUserId),
     [activeGrantsByUserId, helpRequestsByUserId, participants, role]
@@ -95,13 +105,15 @@ export function Roster({
           const speaking = p.state.media?.speaking;
           const hasHelpRequest = helpRequestsByUserId.has(p.id);
           const hasActiveGrant = activeGrantsByUserId.has(p.id);
+          const participantGroup = groupsByUserId.get(p.id);
+          const dotColor = participantGroup?.color ?? (p.local ? "#eb5e28" : "#2f6b4f");
           const selectable = role === "teacher" && p.role === "student";
           const selected = selectable && p.id === selectedStudentId;
           const content = (
             <>
               <span
                 className="avatar-dot"
-                style={{ background: p.local ? "#eb5e28" : "#2f6b4f" }}
+                style={{ background: dotColor }}
                 aria-hidden="true"
               >
                 {p.displayName.slice(0, 2).toUpperCase()}
@@ -112,6 +124,7 @@ export function Roster({
               <span className="roster-compact-tags" aria-label={`${camOn ? "camera on" : "camera off"}, ${micOn ? "mic on" : "mic off"}`}>
                 {hasHelpRequest ? <span className="tag tag-help">help</span> : null}
                 {hasActiveGrant ? <span className="tag tag-board">board</span> : null}
+                {participantGroup ? <span className="tag" style={groupTagStyle(participantGroup)}>{participantGroup.label.slice(0, 10)}</span> : null}
                 {camOn ? <span className="tag active">cam</span> : null}
                 {micOn ? <span className={`tag${speaking ? " active" : ""}`}>mic</span> : null}
                 {p.role === "teacher" ? <span className="tag">T</span> : null}

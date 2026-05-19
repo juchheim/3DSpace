@@ -1024,6 +1024,94 @@ describe("3dspace api", () => {
     await app.close();
   });
 
+  it("teacher can create, assign members to, and release a group", async () => {
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-group-flow");
+    await addStudentMember(app, classRecord.id, "teacher-group-flow", "student-group-1", "Morgan");
+    await addStudentMember(app, classRecord.id, "teacher-group-flow", "student-group-2", "Riley");
+
+    const created = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-group-flow", "Ms. Chen"),
+      payload: { type: "create-group", label: "Red Team", color: "#c0392b" }
+    });
+    expect(created.statusCode).toBe(200);
+    const groupId = created.json().groups[0].id as string;
+    expect(created.json().groups[0].label).toBe("Red Team");
+    expect(created.json().groups[0].color).toBe("#c0392b");
+    expect(created.json().groups[0].status).toBe("active");
+    expect(created.json().groups[0].memberUserIds).toHaveLength(0);
+
+    const assigned = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-group-flow", "Ms. Chen"),
+      payload: { type: "assign-group", groupId, memberUserIds: ["student-group-1", "student-group-2"] }
+    });
+    expect(assigned.statusCode).toBe(200);
+    expect(assigned.json().groups[0].memberUserIds).toContain("student-group-1");
+    expect(assigned.json().groups[0].memberUserIds).toContain("student-group-2");
+
+    const released = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-group-flow", "Ms. Chen"),
+      payload: { type: "release-group", groupId }
+    });
+    expect(released.statusCode).toBe(200);
+    expect(released.json().groups[0].status).toBe("released");
+
+    await app.close();
+  });
+
+  it("assign-group moves members from other active groups", async () => {
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-group-move");
+    await addStudentMember(app, classRecord.id, "teacher-group-move", "student-move-1", "Sasha");
+
+    const groupA = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-group-move", "Ms. Rivera"),
+      payload: { type: "create-group", label: "Group A", color: "#2980b9" }
+    });
+    const groupB = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-group-move", "Ms. Rivera"),
+      payload: { type: "create-group", label: "Group B", color: "#27ae60" }
+    });
+    const groupAId = groupA.json().groups.find((g: { label: string }) => g.label === "Group A").id as string;
+    const groupBId = groupB.json().groups.find((g: { label: string }) => g.label === "Group B").id as string;
+
+    await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-group-move", "Ms. Rivera"),
+      payload: { type: "assign-group", groupId: groupAId, memberUserIds: ["student-move-1"] }
+    });
+
+    const moved = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-group-move", "Ms. Rivera"),
+      payload: { type: "assign-group", groupId: groupBId, memberUserIds: ["student-move-1"] }
+    });
+    expect(moved.statusCode).toBe(200);
+    const groups = moved.json().groups as Array<{ id: string; memberUserIds: string[] }>;
+    expect(groups.find((g) => g.id === groupAId)?.memberUserIds).not.toContain("student-move-1");
+    expect(groups.find((g) => g.id === groupBId)?.memberUserIds).toContain("student-move-1");
+
+    await app.close();
+  });
+
   it("enforces optimistic version checks for classroom actions", async () => {
     const app = await buildApp({
       config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),

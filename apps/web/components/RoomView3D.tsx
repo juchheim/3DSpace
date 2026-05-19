@@ -4,7 +4,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html } from "@react-three/drei";
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
 import { type MeshStandardMaterial, Vector3 } from "three";
-import type { QualityLevel, RoomManifest, WallAnchorSchema, WallObject, WallObjectPlacement, WallPlaneSchema } from "@3dspace/contracts";
+import type { ClassroomGroup, QualityLevel, RoomManifest, WallAnchorSchema, WallObject, WallObjectPlacement, WallPlaneSchema } from "@3dspace/contracts";
 import type { z } from "zod";
 import type { ParticipantView } from "./RoomClient";
 import { WallObjectCard } from "./WallObjectCard";
@@ -55,6 +55,7 @@ export function RoomView3D({
   wallMediaStreams = {},
   canManageWallObjects = false,
   currentUserId,
+  classroomGroups = [],
   onWallObjectControl,
   onWallObjectRemove,
   onWallObjectStopShare,
@@ -73,6 +74,7 @@ export function RoomView3D({
   wallMediaStreams?: Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>;
   canManageWallObjects?: boolean;
   currentUserId?: string | undefined;
+  classroomGroups?: ClassroomGroup[];
   onWallObjectControl?: (
     objectId: string,
     action: "play" | "pause" | "mute" | "unmute" | "seek" | "vote" | "close-poll" | "reopen-poll",
@@ -112,9 +114,10 @@ export function RoomView3D({
           {...(onWallObjectStopShare ? { onWallObjectStopShare } : {})}
           {...(onWallObjectModerate ? { onWallObjectModerate } : {})}
         />
-        {participants.map((participant) => (
-          <Avatar key={participant.id} participant={participant} />
-        ))}
+        {participants.map((participant) => {
+          const group = classroomGroups.find((g) => g.memberUserIds.includes(participant.id));
+          return <Avatar key={participant.id} participant={participant} groupColor={group?.color} />;
+        })}
         <FollowLocalAvatarCamera
           participants={participants}
           localParticipantId={localParticipantId}
@@ -453,9 +456,9 @@ function AnchorMesh({ anchor, showLabel }: { anchor: Anchor; showLabel: boolean 
   );
 }
 
-function Avatar({ participant }: { participant: ParticipantView }) {
+function Avatar({ participant, groupColor }: { participant: ParticipantView; groupColor?: string | undefined }) {
   const position = participant.state.position;
-  const color = participant.local ? "#eb5e28" : "#2f6b4f";
+  const color = groupColor ?? (participant.local ? "#eb5e28" : "#2f6b4f");
 
   return (
     <group position={[position.x, 0, position.z]} rotation={[0, participant.state.rotation.y, 0]}>
@@ -472,6 +475,7 @@ function Avatar({ participant }: { participant: ParticipantView }) {
           <div className="avatar-nameplate">
             <span className="avatar-nameplate__name">{participant.displayName}</span>
             <span className="avatar-nameplate__status">
+              {groupColor ? <span className="avatar-nameplate__group" style={{ color: groupColor }}>● </span> : null}
               {participant.state.media?.speaking ? "speaking" : participant.state.media?.microphoneEnabled ? "mic on" : "mic off"}
             </span>
           </div>
