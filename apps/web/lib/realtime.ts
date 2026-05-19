@@ -155,7 +155,7 @@ function logJson(label: string, value: unknown) {
   }
 }
 
-function installSafariRtcProbe() {
+function installSafariRtcProbe(forceRelay = false) {
   if (!isSafariBrowser()) return () => undefined;
   if (typeof window === "undefined" || !window.RTCPeerConnection) return () => undefined;
 
@@ -175,11 +175,15 @@ function installSafariRtcProbe() {
       ...rest: unknown[]
     ) {
       const id = (probeWindow.__lkRtcProbeCounter = (probeWindow.__lkRtcProbeCounter ?? 0) + 1);
+      const effectiveConfiguration: RTCConfiguration = {
+        ...(configuration ?? {}),
+        ...(forceRelay ? { iceTransportPolicy: "relay" } : {})
+      };
       const configurationSummary = {
-        iceTransportPolicy: configuration?.iceTransportPolicy,
+        iceTransportPolicy: effectiveConfiguration.iceTransportPolicy,
         bundlePolicy: configuration?.bundlePolicy,
         rtcpMuxPolicy: configuration?.rtcpMuxPolicy,
-        iceServers: summarizeIceServers(configuration?.iceServers)
+        iceServers: summarizeIceServers(effectiveConfiguration.iceServers)
       };
       console.log("[Safari RTC create]", {
         id,
@@ -187,21 +191,25 @@ function installSafariRtcProbe() {
       });
       logJson("[Safari RTC create json]", { id, configuration: configurationSummary });
 
-      const pc = new Original(configuration, ...(rest as []));
+      const pc = new Original(effectiveConfiguration, ...(rest as []));
       const originalSetConfiguration = pc.setConfiguration.bind(pc);
       pc.setConfiguration = (nextConfiguration: RTCConfiguration) => {
+        const effectiveNextConfiguration: RTCConfiguration = {
+          ...(nextConfiguration ?? {}),
+          ...(forceRelay ? { iceTransportPolicy: "relay" } : {})
+        };
         const nextConfigurationSummary = {
-          iceTransportPolicy: nextConfiguration?.iceTransportPolicy,
-          bundlePolicy: nextConfiguration?.bundlePolicy,
-          rtcpMuxPolicy: nextConfiguration?.rtcpMuxPolicy,
-          iceServers: summarizeIceServers(nextConfiguration?.iceServers)
+          iceTransportPolicy: effectiveNextConfiguration.iceTransportPolicy,
+          bundlePolicy: effectiveNextConfiguration?.bundlePolicy,
+          rtcpMuxPolicy: effectiveNextConfiguration?.rtcpMuxPolicy,
+          iceServers: summarizeIceServers(effectiveNextConfiguration?.iceServers)
         };
         console.log("[Safari RTC setConfiguration]", {
           id,
           configuration: nextConfigurationSummary
         });
         logJson("[Safari RTC setConfiguration json]", { id, configuration: nextConfigurationSummary });
-        return originalSetConfiguration(nextConfiguration);
+        return originalSetConfiguration(effectiveNextConfiguration);
       };
 
       pc.addEventListener("icegatheringstatechange", () => {
@@ -364,10 +372,10 @@ function createBroadcastClient(input: AdapterInput, reason?: string): RealtimeCl
 }
 
 async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient> {
-  const removeSafariRtcProbe = installSafariRtcProbe();
+  const safariRelay = isSafariBrowser();
+  const removeSafariRtcProbe = installSafariRtcProbe(safariRelay);
   try {
     const { Room, RoomEvent, Track } = await import("livekit-client");
-  const safariRelay = isSafariBrowser();
   if (safariRelay) {
     console.log("[LiveKit Safari transport]", { policy: "relay" });
   }
