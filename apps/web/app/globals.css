@@ -480,27 +480,89 @@ label {
   top: 3.7rem;
   right: 0.6rem;
   bottom: 0.6rem;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: flex-start;
+  gap: 0.45rem;
+  pointer-events: none;
+}
+
+.room-hud-right > * {
+  pointer-events: auto;
+}
+
+.room-hud-right-col {
   width: 216px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
   overflow-y: auto;
   overflow-x: hidden;
+  max-height: 100%;
   scrollbar-width: thin;
   scrollbar-color: var(--line) transparent;
 }
 
-.room-hud-right::-webkit-scrollbar {
+.room-hud-right-col::-webkit-scrollbar {
   width: 4px;
 }
 
-.room-hud-right::-webkit-scrollbar-track {
+.room-hud-right-col::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.room-hud-right::-webkit-scrollbar-thumb {
+.room-hud-right-col::-webkit-scrollbar-thumb {
   background: var(--line);
   border-radius: 4px;
+}
+
+.student-detail-panel {
+  width: 220px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 100%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+.student-detail-panel::-webkit-scrollbar {
+  width: 4px;
+}
+
+.student-detail-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.student-detail-panel::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 4px;
+}
+
+.student-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.student-detail-close {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 250, 240, 0.6);
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: none;
 }
 
 .hud-card {
@@ -722,15 +784,6 @@ label {
   background: rgba(66, 133, 244, 0.1);
   border-color: rgba(66, 133, 244, 0.26);
   color: #2b5eb1;
-}
-
-.roster-detail-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 0.6rem;
-  padding-top: 0.6rem;
-  border-top: 1px solid var(--line);
 }
 
 .classroom-help-list {
@@ -1844,7 +1897,11 @@ label {
 }
 
 @media (max-width: 768px) {
-  .room-hud-right {
+  .room-hud-right-col {
+    width: 185px;
+  }
+
+  .student-detail-panel {
     width: 185px;
   }
 }

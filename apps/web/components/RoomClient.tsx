@@ -24,7 +24,7 @@ import { ClassroomPanel } from "./ClassroomPanel";
 import { MediaControls } from "./MediaControls";
 import { MovementPad } from "./MovementPad";
 import { RoomView2D } from "./RoomView2D";
-import { Roster } from "./Roster";
+import { activeGrantMap, Roster, StudentDetailPanel } from "./Roster";
 import { useClassroomState } from "../lib/useClassroomState";
 
 const RoomView3D = dynamic(() => import("./RoomView3D").then((module) => module.RoomView3D), {
@@ -116,6 +116,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   });
   const [remoteWallMedia, setRemoteWallMedia] = useState<Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>>({});
   const [localWallMedia, setLocalWallMedia] = useState<Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>>({});
+  const [selectedStudentId, setSelectedStudentId] = useState("");
   const publishRealtime = useCallback((message: RealtimeMessage) => {
     realtimeRef.current?.publish(message);
   }, []);
@@ -509,6 +510,13 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   }, [media.cameraStream, session?.participantId, wall.wallObjects]);
 
   const participantList = useMemo(() => Object.values(participants), [participants]);
+
+  useEffect(() => {
+    if (selectedStudentId && !participantList.some((p) => p.id === selectedStudentId)) {
+      setSelectedStudentId("");
+    }
+  }, [participantList, selectedStudentId]);
+
   const activeBoardGrant = useMemo(
     () =>
       (classroom.state?.boardAccessGrants ?? []).find(
@@ -797,58 +805,80 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
 
       {/* Right HUD: roster + wall objects */}
       <aside className="room-hud-right" aria-label="Room details">
-        <Roster
-          participants={participantList}
-          classroomState={classroom.state}
-          role={role}
-          manifest={manifest}
-          error={classroom.error}
-          onRunAction={async (action) => {
-            await classroom.runAction(action);
-          }}
-        />
-        <ClassroomPanel
-          role={role}
-          state={classroom.state}
-          loading={classroom.loading}
-          error={classroom.error}
-          activeHelpRequest={classroom.activeHelpRequest}
-          manifest={manifest}
-          currentUserId={identity.userId}
-          onRunAction={async (action) => {
-            await classroom.runAction(action);
-          }}
-        />
-        {manifest && session ? (
-          <AnchorPanel
-            identity={identity}
-            roomId={session.room.id}
-            manifest={manifest}
-            wallObjects={wall.wallObjects}
-            assetUrls={wall.assetUrls}
-            wallMediaStreams={wallMediaStreams}
-            canCreate={session.role === "teacher" || session.room.settings.wallObjectCreation !== "teacher-only" || Boolean(activeBoardGrant)}
-            canManage={session.role === "teacher"}
-            role={session.role}
-            activeBoardGrant={activeBoardGrant}
-            loading={wall.loading}
-            error={wall.error || displayMedia.error}
-            onCreateFile={createFileObject}
-            onCreateNote={createNote}
-            onCreateTimer={createTimer}
-            onCreatePoll={createPoll}
-            onCreateLink={createLink}
-            onPinCamera={pinCamera}
-            onPinMicrophone={pinMicrophone}
-            onShareScreen={shareScreen}
-            onRemove={async (objectId) => {
-              await wall.removeObject(objectId);
-            }}
-            onStopShare={stopShare}
-            onControl={controlWallObject}
-            onModerate={moderateWallObject}
+        {(() => {
+          const selectedStudent = selectedStudentId ? participantList.find((p) => p.id === selectedStudentId) ?? null : null;
+          const helpRequest = selectedStudent && classroom.state
+            ? (classroom.state.helpRequests.find(
+                (r) => r.userId === selectedStudent.id && (r.status === "raised" || r.status === "acknowledged")
+              ) ?? null)
+            : null;
+          const studentActiveGrants = selectedStudent && classroom.state
+            ? (activeGrantMap(classroom.state).get(selectedStudent.id) ?? [])
+            : [];
+          return selectedStudent && manifest ? (
+            <StudentDetailPanel
+              key={selectedStudent.id}
+              participant={selectedStudent}
+              helpRequest={helpRequest}
+              activeGrants={studentActiveGrants}
+              manifest={manifest}
+              error={classroom.error}
+              onRunAction={async (action) => { await classroom.runAction(action); }}
+              onClose={() => setSelectedStudentId("")}
+            />
+          ) : null;
+        })()}
+        <div className="room-hud-right-col">
+          <Roster
+            participants={participantList}
+            classroomState={classroom.state}
+            role={role}
+            selectedStudentId={selectedStudentId}
+            onSelectStudent={(id) => setSelectedStudentId(id)}
           />
-        ) : null}
+          <ClassroomPanel
+            role={role}
+            state={classroom.state}
+            loading={classroom.loading}
+            error={classroom.error}
+            activeHelpRequest={classroom.activeHelpRequest}
+            manifest={manifest}
+            currentUserId={identity.userId}
+            onRunAction={async (action) => {
+              await classroom.runAction(action);
+            }}
+          />
+          {manifest && session ? (
+            <AnchorPanel
+              identity={identity}
+              roomId={session.room.id}
+              manifest={manifest}
+              wallObjects={wall.wallObjects}
+              assetUrls={wall.assetUrls}
+              wallMediaStreams={wallMediaStreams}
+              canCreate={session.role === "teacher" || session.room.settings.wallObjectCreation !== "teacher-only" || Boolean(activeBoardGrant)}
+              canManage={session.role === "teacher"}
+              role={session.role}
+              activeBoardGrant={activeBoardGrant}
+              loading={wall.loading}
+              error={wall.error || displayMedia.error}
+              onCreateFile={createFileObject}
+              onCreateNote={createNote}
+              onCreateTimer={createTimer}
+              onCreatePoll={createPoll}
+              onCreateLink={createLink}
+              onPinCamera={pinCamera}
+              onPinMicrophone={pinMicrophone}
+              onShareScreen={shareScreen}
+              onRemove={async (objectId) => {
+                await wall.removeObject(objectId);
+              }}
+              onStopShare={stopShare}
+              onControl={controlWallObject}
+              onModerate={moderateWallObject}
+            />
+          ) : null}
+        </div>
       </aside>
     </main>
   );

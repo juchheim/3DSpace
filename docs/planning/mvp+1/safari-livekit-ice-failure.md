@@ -1,8 +1,8 @@
 # Safari LiveKit ICE Connection Failure - Investigation Handoff
 
-**Status:** Diagnosed - Safari was receiving valid TURN credentials from LiveKit Cloud, but the intended relay-only transport policy was not reaching the actual browser `RTCPeerConnection`. Safari therefore continued using the broken host-TCP path (`local port 9`, `remote port 7881`) until LiveKit timed out the participant.  
+**Status:** Diagnosed — application join/realtime code is ruled out as the root cause. Safari fails relay-only ICE gathering against LiveKit Cloud TURN servers even in a minimal repro (`/debug/livekit-safari/[roomId]`) with zero candidates on both school Wi‑Fi and cellular hotspot.  
 **Branch:** `mvp-plus-one`  
-**Primary file:** `apps/web/lib/realtime.ts`  
+**Primary files:** `apps/web/lib/realtime.ts`, `apps/web/components/LiveKitSafariDebug.tsx`  
 **LiveKit SDK:** `livekit-client@2.2.0`
 
 ---
@@ -11,9 +11,11 @@
 
 Safari users see: `"LiveKit connection timed out on Safari while negotiating WebRTC."`
 
-Chrome/Firefox users connect immediately. Safari has failed on both a school district network and a mobile hotspot, so the current failure is not network-specific.
+Chrome/Firefox users connect immediately.
 
-Latest hotspot result:
+Earliest evidence (before minimal repro):
+
+Latest hotspot result (pre–minimal repro):
 
 - LiveKit signaling connects successfully.
 - LiveKit Cloud returns three TURN URLs: one UDP TURN URL and two TCP TLS TURN URLs.
@@ -298,6 +300,74 @@ It points to Safari failing TURN candidate allocation itself for the supplied Li
 
 ---
 
+## Minimal Repro: Application Code Ruled Out
+
+**Route:** `/debug/livekit-safari/[roomId]?invite=<code>`  
+**Component:** `apps/web/components/LiveKitSafariDebug.tsx`  
+**Commit:** `0a5fd14` (Safari LiveKit debug page)
+
+The debug page intentionally bypasses the normal classroom stack. It only:
+
+1. Fetches a room session via the same API as production (`joinRoom`).
+2. Runs Safari `getUserMedia` permission warmup (audio, then video).
+3. Wraps `window.RTCPeerConnection` for logging and forces `iceTransportPolicy: "relay"` on every constructed PC.
+4. Runs a one-shot raw TURN probe: standalone `RTCPeerConnection` + data channel + `createOffer()` / `setLocalDescription()` using the ICE servers from LiveKit’s first PC config (6s timeout).
+5. Calls bare `room.connect(livekitUrl, token)` with `Room({ rtcConfig: { iceTransportPolicy: "relay" } })`.
+
+### Conclusion
+
+If the main app’s join flow, reconnect logic, classroom sync, avatar presence, or `realtime.ts` retry layers were causing Safari to fail, this page should behave differently. It does not: Safari still reaches `icegatheringstate: gathering`, the raw TURN probe still ends with `{"reason":"timeout","candidates":[]}`, and bare `room.connect()` still stalls in the same negotiation window.
+
+**Ruled out as root cause:**
+
+| Area | Evidence |
+| --- | --- |
+| Room token / JWT grant shape | Valid `video.roomJoin`, publish/subscribe grants in session summary |
+| Session API response | Expected `livekitUrl`, identity, role before connect |
+| Safari media permission gating | `[Safari permission warmup] {"result":"granted","kind":"audio"}` |
+| Relay policy not on browser PC | `[Safari RTC create]` shows `"iceTransportPolicy":"relay"` |
+| Missing TURN credentials | `iceServers` with `username`/`credential` present |
+| Main app reconnect / classroom / 3D lifecycle | Minimal page reproduces the same ICE failure |
+
+**Investigation should move off “fix RoomClient / realtime layering”** toward Safari × LiveKit Cloud TURN reachability (device, OS, browser version, LiveKit project/region, or LiveKit support).
+
+### Caveats (not a formal proof of “nothing in our stack”)
+
+- Still uses the same Vercel origin, Clerk auth, and API session endpoint as production.
+- Still uses the same LiveKit Cloud project (`project-3dspace-wganhyh3`).
+- The page instruments `RTCPeerConnection` (logging wrapper + forced relay). That is unlikely to cause zero candidates, but it is not an unmodified browser tab.
+
+---
+
+## Cellular Hotspot Retest (2026-05-18)
+
+Retested the minimal repro on **cellular hotspot** (not school Wi‑Fi). Outcome: **same failure shape** — not network-specific at the LAN/firewall level.
+
+| Step | Result |
+| --- | --- |
+| Permission warmup | `granted` (audio) |
+| Session fetch | Valid JWT + `wss://project-3dspace-wganhyh3.livekit.cloud` |
+| Relay on PC create | `"iceTransportPolicy":"relay"` on all logged PCs |
+| TURN servers | UDP `turn:ip-161-115-181-241.host.livekit.cloud:3478?transport=udp` + TLS `turns:ochicago1b.turn.livekit.cloud:443` + `turns:project-3dspace-wganhyh3.turn.livekit.cloud:443` |
+| Raw TURN probe | `{"sourcePcId":1,"reason":"timeout","candidates":[]}` |
+| LiveKit bare connect | PCs reach `gathering`; no relay candidates before timeout |
+
+Representative log sequence:
+
+```
+[Safari permission warmup] {"result":"granted","kind":"audio"}
+[Debug bare connect start] {"livekitUrl":"wss://project-3dspace-wganhyh3.livekit.cloud","policy":"relay"}
+[Safari RTC create] {"id":1,"configuration":{"iceTransportPolicy":"relay","iceServers":[...],"username":"present","credential":"present"}}
+[Safari TURN probe start] {"sourcePcId":1}
+[Safari TURN probe result] {"sourcePcId":1,"reason":"timeout","candidates":[]}
+[Safari RTC icegatheringstate] {"id":2,"state":"gathering"}
+[Safari RTC icegatheringstate] {"id":4,"state":"gathering"}
+```
+
+Hotspot retest **rules out** “school district firewall blocks TURN” as the sole explanation. Combined with the minimal repro, it strengthens the case that **Safari on this device cannot allocate any ICE candidates (including relay) against LiveKit’s current TURN endpoints**, independent of the main 3DSpace room UI.
+
+---
+
 ## Next Test
 
 After enforcing relay at the `RTCPeerConnection` constructor / `setConfiguration()` boundary, verify:
@@ -307,21 +377,23 @@ After enforcing relay at the `RTCPeerConnection` constructor / `setConfiguration
 - candidate pairs move beyond `waiting`;
 - the participant reaches a connected state without LiveKit region fallback.
 
-Status after that verification:
+Status after minimal repro + hotspot retest (2026-05-18):
 
-- relay policy now reaches the actual browser `RTCPeerConnection`;
-- Safari still fails to emit any candidates in a raw relay-only TURN probe;
-- investigation should now move outside application code.
+- Relay policy reaches the actual browser `RTCPeerConnection`.
+- Raw relay-only TURN probe times out with **zero** candidates on school Wi‑Fi and cellular hotspot.
+- Bare `room.connect()` on the debug page shows the same gathering stall.
+- **Application realtime/join code is ruled out**; next work is outside the room product path.
 
 Recommended next actions:
 
 1. Open a LiveKit support / issue report with:
    - TURN URLs redacted only as needed,
-   - Safari version,
-   - hotspot vs school network comparison,
-   - the raw probe result showing zero candidates with relay-only policy.
-2. Test the same Safari device against a non-LiveKit TURN deployment or LiveKit's own standalone connection / TURN diagnostic if available, to confirm whether this is project-specific or Safari-wide for the current environment.
-3. Decide on a product fallback for Safari:
+   - Safari + iOS/macOS version,
+   - minimal repro URL and attached log block (`/debug/livekit-safari/...`),
+   - school Wi‑Fi vs cellular hotspot: **both failed** with `candidates: []` on raw probe.
+2. Run LiveKit SDK `ConnectionCheck` / TURN check (Option A below) on the same Safari device.
+3. Optional: test Safari against a non-LiveKit public TURN server in a throwaway page to see if **any** relay candidates appear on this device.
+4. Decide on a product fallback for Safari:
    - no-AV classroom presence over BroadcastChannel/WebSocket/SSE, or
    - browser support restriction until TURN allocation is resolved.
 
