@@ -293,29 +293,31 @@ export function BlockyAvatar({
         </mesh>
       </group>
 
-      {/* Nameplate */}
-      <Billboard position={[0, 1.52, 0]}>
-        <Html center distanceFactor={3} style={{ pointerEvents: "none" }}>
-          <div className="avatar-nameplate">
-            <span className="avatar-nameplate__name">{participant.displayName}</span>
-            <span className="avatar-nameplate__status">
-              {groupColor ? <span className="avatar-nameplate__group" style={{ color: groupColor }}>● </span> : null}
-              {participant.state.media?.speaking ? "speaking" : participant.state.media?.microphoneEnabled ? "mic on" : "mic off"}
-            </span>
-          </div>
-        </Html>
-      </Billboard>
-
-      {/* Camera feed */}
-      {participant.state.media?.cameraEnabled ? (
-        <Billboard position={[0.9, 1.46, 0]}>
-          <Html center distanceFactor={7}>
-            <AvatarVideoCard
-              stream={participant.cameraStream ?? null}
-              label={participant.local ? "Your camera" : `${participant.displayName} camera`}
-            />
-          </Html>
-        </Billboard>
+      {/* Nameplate and camera feed are skipped when hidden (e.g. first-person) because Html ignores visible={false} */}
+      {!hidden ? (
+        <>
+          <Billboard position={[0, 1.52, 0]}>
+            <Html center distanceFactor={3} style={{ pointerEvents: "none" }}>
+              <div className="avatar-nameplate">
+                <span className="avatar-nameplate__name">{participant.displayName}</span>
+                <span className="avatar-nameplate__status">
+                  {groupColor ? <span className="avatar-nameplate__group" style={{ color: groupColor }}>● </span> : null}
+                  {participant.state.media?.speaking ? "speaking" : participant.state.media?.microphoneEnabled ? "mic on" : "mic off"}
+                </span>
+              </div>
+            </Html>
+          </Billboard>
+          {participant.state.media?.cameraEnabled ? (
+            <Billboard position={[0.9, 1.46, 0]}>
+              <Html center distanceFactor={7}>
+                <AvatarVideoCard
+                  stream={participant.cameraStream ?? null}
+                  label={participant.local ? "Your camera" : `${participant.displayName} camera`}
+                />
+              </Html>
+            </Billboard>
+          ) : null}
+        </>
       ) : null}
 
     </group>
