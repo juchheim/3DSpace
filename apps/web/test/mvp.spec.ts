@@ -144,6 +144,43 @@ test("teacher can add an image wall object and remove it for a joined student", 
   await expect(studentPage.getByText("Wave diagram")).toHaveCount(0, { timeout: 10_000 });
 });
 
+test("teacher can author and run a three-step lesson while a student joins mid-run", async ({ context, page, request }) => {
+  test.setTimeout(90_000);
+  const { room, invite } = await createRoomWithInvite(request);
+  await setIdentity(page, TEACHER);
+  await page.goto(`/rooms/${room.id}`, { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("participant-dev-teacher")).toContainText("Ms. Rivera", { timeout: 20_000 });
+
+  await page.getByTestId("lesson-run-title").fill("Forces warmup");
+  await page.getByTestId("init-lesson-run").click();
+  await expect(page.getByText("Lesson Script")).toBeVisible({ timeout: 10_000 });
+
+  await page.getByTestId("add-lesson-step-instruction").click();
+  await page.getByTestId("lesson-instruction-body").fill("Read the diagram silently.");
+  await page.getByTestId("save-lesson-step").click();
+  await page.getByTestId("add-lesson-step-focus-board").click();
+  await page.getByTestId("add-lesson-step-private-check").click();
+  await expect(page.getByTestId("lesson-step-list")).toContainText("Quick check");
+
+  await page.getByTestId("start-lesson-run").click();
+  await expect(page.getByTestId("lesson-run-current")).toContainText("Instruction", { timeout: 10_000 });
+  await page.getByTestId("advance-lesson-step").click();
+  await expect(page.getByTestId("lesson-run-current")).toContainText("Look at the board", { timeout: 10_000 });
+
+  const studentPage = await context.newPage();
+  await setIdentity(studentPage, STUDENT);
+  await studentPage.goto(`/rooms/${room.id}?invite=${invite.code}`, { waitUntil: "domcontentloaded" });
+  await expect(studentPage.getByTestId("participant-dev-student")).toContainText("Avery Student", { timeout: 20_000 });
+  await expect(studentPage.getByTestId("lesson-student-callout")).toContainText("Step 2 of 3", { timeout: 10_000 });
+  await expect(studentPage.getByTestId("lesson-student-callout")).toContainText("Use this board");
+
+  await page.getByTestId("advance-lesson-step").click();
+  await expect(page.getByTestId("lesson-run-current")).toContainText("Quick check", { timeout: 10_000 });
+  await expect(studentPage.getByTestId("lesson-student-callout")).toContainText("Answer the active check", { timeout: 10_000 });
+  await page.getByTestId("advance-lesson-step").click();
+  await expect(page.getByTestId("lesson-timeline")).toContainText("Quick check", { timeout: 10_000 });
+});
+
 test("room remains usable under a throttled browser profile", async ({ context, page }) => {
   const cdp = await context.newCDPSession(page);
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });

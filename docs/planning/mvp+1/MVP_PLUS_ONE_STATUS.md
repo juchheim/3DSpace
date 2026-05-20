@@ -1,11 +1,11 @@
-# MVP+1 Wall Media Implementation Status
+# MVP+1 Implementation Status
 
-Last updated: 2026-05-17
+Last updated: 2026-05-19
 Branch: `mvp-plus-one`
 
 ## Objective
 
-Implement `docs/planning/mvp+1/MVP_PLUS_ONE_WALL_MEDIA_PLAN.md` end to end, keeping wall media content separate from file attachment metadata and keeping this file current for handoff.
+Track MVP+1 implementation status across wall media and classroom-tools slices, keeping this file current for handoff.
 
 ## Current Baseline
 
@@ -61,6 +61,30 @@ Implement `docs/planning/mvp+1/MVP_PLUS_ONE_WALL_MEDIA_PLAN.md` end to end, keep
 - Contract/API/persistence/browser tests: complete and passing.
 - Deployment docs/env templates: complete.
 
+## Classroom Tools Phase 7 Lesson Planning Discovery Slice
+
+Plan: `docs/planning/mvp+1/MVP_PLUS_ONE_LESSON_PLANNING_DISCOVERY_PLAN.md`
+
+Status: complete locally behind `ENABLE_CLASSROOM_LESSONS` / `NEXT_PUBLIC_ENABLE_CLASSROOM_LESSONS`.
+
+Completed:
+
+- Contracts: `LessonRun`, `LessonStep`, `LessonRunStepRecord`, six discriminated step payloads, typed `ClassroomState.lessonRun`, and lesson classroom actions are exported and tested.
+- API: teacher-only lesson actions cover init, title update, add/update/move/remove step, start, advance, retreat, pause, resume, end, abandon, and clear.
+- API: all six step kinds orchestrate through existing classroom state: `instruction`, `focus-board`, `private-check`, `group-work`, `timer`, and `student-share`.
+- API: step cleanup records drift when teachers manually change spotlight/group/grant/timer/check state before advance.
+- API: student classroom state filters lesson runs to current-step-only payload visibility, strips teacher notes, and hides timeline.
+- Frontend: teacher HUD supports authoring, editing, reordering, running, back/advance, pause/resume, end/abandon, clear, and timeline review.
+- Frontend: student HUD shows late-join-safe current-step callouts and HUD timers.
+- Feature flags: env templates and Playwright dev server commands opt into lessons for local verification while defaulting production off.
+
+Validation:
+
+- `npm run typecheck` — pass.
+- `npm test` — pass, 47 tests.
+- `npx vitest run packages/contracts/tests/lesson-run.test.ts apps/api/tests/api.test.ts` — pass, 33 tests.
+- `PLAYWRIGHT_SKIP_WEB_SERVER=1 PLAYWRIGHT_BASE_URL=http://localhost:3000 NEXT_PUBLIC_API_URL=http://127.0.0.1:8080 npx playwright test apps/web/test/mvp.spec.ts --grep "three-step lesson"` — pass, 1 focused Chromium test.
+
 ## Next Concrete Step
 
-Local MVP+1 implementation is complete. Recommended follow-up before release: manually validate live wall shares against the deployed LiveKit/browser-permission path and decide production values for web embed allowlists and file size limits.
+Local MVP+1 wall media and Phase 7 lesson planning discovery implementation are complete. Recommended follow-up before release: manually validate live wall shares against the deployed LiveKit/browser-permission path, decide production values for web embed allowlists and file size limits, and run the lesson slice with at least one teacher before promoting Phase 8 product decisions.

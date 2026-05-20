@@ -3107,6 +3107,224 @@ body.lobby-dark::before {
   background: var(--hud-bd);
 }
 
+.lesson-callout {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(70, 120, 180, 0.34);
+  border-radius: 5px;
+  background: rgba(70, 120, 180, 0.11);
+}
+
+.lesson-callout__meta,
+.lesson-run-kicker {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--hud-tx-m);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-family: 'Barlow', system-ui, sans-serif;
+}
+
+.lesson-callout h2,
+.lesson-run-current h3 {
+  margin: 0;
+  color: var(--hud-tx);
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.lesson-callout p,
+.lesson-notes {
+  margin: 0;
+  color: var(--hud-tx-m);
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.lesson-add-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.lesson-step-list,
+.lesson-timeline {
+  display: grid;
+  gap: 6px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.lesson-step-row {
+  display: grid;
+  gap: 5px;
+  padding: 6px;
+  border: 1px solid var(--hud-bd);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.lesson-step-row.selected {
+  border-color: rgba(192, 120, 52, 0.5);
+}
+
+.lesson-step-row.current {
+  border-color: rgba(70, 120, 180, 0.5);
+}
+
+.lesson-step-row.drifted {
+  border-color: rgba(176, 58, 58, 0.45);
+}
+
+.lesson-step-main {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 4px 7px;
+  align-items: center;
+  padding: 0;
+  color: var(--hud-tx);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  text-align: left;
+}
+
+.lesson-step-main span {
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--hud-bd-m);
+  border-radius: 3px;
+  color: var(--hud-tx-m);
+  font-size: 10px;
+}
+
+.lesson-step-main strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--hud-tx);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.lesson-step-main em {
+  color: var(--hud-tx-m);
+  font-size: 9.5px;
+  font-style: normal;
+}
+
+.lesson-step-row__actions,
+.lesson-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.lesson-editor {
+  display: grid;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.lesson-editor label {
+  gap: 4px;
+}
+
+.lesson-editor label span,
+.lesson-member-list span {
+  color: var(--hud-tx-m);
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-size: 10px;
+}
+
+.lesson-check-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.lesson-check-row input {
+  width: auto;
+}
+
+.lesson-member-list {
+  display: grid;
+  gap: 5px;
+  padding: 6px;
+  border: 1px solid var(--hud-bd);
+  border-radius: 5px;
+}
+
+.lesson-run-current {
+  display: grid;
+  gap: 7px;
+}
+
+.lesson-drift,
+.lesson-broken {
+  margin: 0;
+  padding: 6px;
+  border: 1px solid rgba(176, 58, 58, 0.35);
+  border-radius: 5px;
+  color: #e4a09a;
+  background: rgba(176, 58, 58, 0.1);
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-size: 10.5px;
+}
+
+.lesson-timer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 8px;
+  border: 1px solid rgba(56, 144, 96, 0.32);
+  border-radius: 5px;
+  background: rgba(56, 144, 96, 0.1);
+  color: var(--hud-tx);
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-size: 11px;
+}
+
+.lesson-timer strong {
+  color: #cfe8d8;
+  font-family: 'SFMono-Regular', 'Consolas', monospace;
+  font-size: 14px;
+}
+
+.lesson-timeline__item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 3px 8px;
+  padding: 7px;
+  border: 1px solid var(--hud-bd);
+  border-radius: 5px;
+  color: var(--hud-tx);
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-size: 10.5px;
+}
+
+.lesson-timeline__item.drifted {
+  border-color: rgba(176, 58, 58, 0.36);
+}
+
+.lesson-timeline__item em {
+  grid-column: 1 / -1;
+  color: #e4a09a;
+  font-style: normal;
+}
+
 /* Student detail panel — dark theme (appears alongside right panel) */
 .student-detail-header {
   display: flex;

@@ -47,6 +47,21 @@ async function addStudentMember(app: Awaited<ReturnType<typeof buildApp>>, class
   return response.json();
 }
 
+function lessonConfig() {
+  return loadConfig({ NODE_ENV: "test", ENABLE_CLASSROOM_LESSONS: "true" } as NodeJS.ProcessEnv);
+}
+
+async function classroomAction(app: Awaited<ReturnType<typeof buildApp>>, roomId: string, actorId: string, payload: Record<string, unknown>) {
+  const response = await app.inject({
+    method: "POST",
+    url: `/v1/rooms/${roomId}/classroom/actions`,
+    headers: authHeaders(actorId, actorId.startsWith("student") ? "Avery" : "Ms. Rivera"),
+    payload
+  });
+  expect(response.statusCode).toBe(200);
+  return response.json();
+}
+
 describe("3dspace api", () => {
   it("creates class, room, invite, and student session with dev fallbacks", async () => {
     const app = await buildApp({
@@ -537,9 +552,9 @@ describe("3dspace api", () => {
       headers: authHeaders("teacher-policy", "Ms. Rivera"),
       payload: {
         wallAnchorId: boardAnchorId,
-        type: "audio.file",
-        title: "Audio clip",
-        source: { kind: "asset", attachmentId: audioAttachmentId }
+        type: "document.file",
+        title: "Unsupported document",
+        source: { kind: "inline", data: { attachmentId: audioAttachmentId } }
       }
     });
     expect(disallowedAnchor.statusCode).toBe(400);
@@ -1518,6 +1533,183 @@ describe("3dspace api", () => {
       payload: { type: "set-spotlight", targetType: "wall-anchor", mode: "highlight" }
     });
     expect(response.statusCode).toBe(400);
+
+    await app.close();
+  });
+
+  it("runs a lesson lifecycle with focus and private-check side effects, privacy, and conflicts", async () => {
+    const app = await buildApp({
+      config: lessonConfig(),
+      repository: new MemoryRepository()
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-lesson-flow");
+    await addStudentMember(app, classRecord.id, "teacher-lesson-flow", "student-lesson-flow", "Avery");
+    const roomId = roomWithManifest.room.id;
+    const anchorId = roomWithManifest.manifest.wallAnchors[0].id;
+
+    let state = await classroomAction(app, roomId, "teacher-lesson-flow", { type: "init-lesson-run", expectedVersion: 1, title: "Forces warmup" });
+    state = await classroomAction(app, roomId, "teacher-lesson-flow", {
+      type: "add-lesson-step",
+      expectedVersion: state.version,
+      step: {
+        kind: "instruction",
+        title: "Read the prompt",
+        notes: "Teacher-only note",
+        payload: { kind: "instruction", data: { body: "Read the board prompt silently." } }
+      }
+    });
+    state = await classroomAction(app, roomId, "teacher-lesson-flow", {
+      type: "add-lesson-step",
+      expectedVersion: state.version,
+      step: {
+        kind: "focus-board",
+        title: "Look at the diagram",
+        payload: { kind: "focus-board", data: { anchorId, mode: "guide", title: "Diagram", instruction: "Use this diagram." } }
+      }
+    });
+    state = await classroomAction(app, roomId, "teacher-lesson-flow", {
+      type: "add-lesson-step",
+      expectedVersion: state.version,
+      step: {
+        kind: "private-check",
+        title: "Explain",
+        payload: {
+          kind: "private-check",
+          data: { question: "What force is largest?", promptType: "short-answer", autoCloseOnAdvance: true }
+        }
+      }
+    });
+    const staleVersion = state.version;
+    state = await classroomAction(app, roomId, "teacher-lesson-flow", { type: "start-lesson-run", expectedVersion: state.version });
+    expect(state.lessonRun.status).toBe("running");
+    expect(state.lessonRun.currentStepIndex).toBe(0);
+
+    state = await classroomAction(app, roomId, "teacher-lesson-flow", { type: "advance-lesson-step", expectedVersion: state.version });
+    expect(state.lessonRun.currentStepIndex).toBe(1);
+    expect(state.spotlight).toMatchObject({ anchorId, mode: "guide", title: "Diagram" });
+
+    const staleAdvance = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/classroom/actions`,
+      headers: authHeaders("teacher-lesson-flow", "Ms. Rivera"),
+      payload: { type: "advance-lesson-step", expectedVersion: staleVersion }
+    });
+    expect(staleAdvance.statusCode).toBe(409);
+
+    state = await classroomAction(app, roomId, "teacher-lesson-flow", { type: "advance-lesson-step", expectedVersion: state.version });
+    expect(state.spotlight).toBeNull();
+    expect(state.privateChecks[0]).toMatchObject({ question: "What force is largest?", status: "open" });
+
+    const studentView = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomId}/classroom`,
+      headers: authHeaders("student-lesson-flow", "Avery")
+    });
+    expect(studentView.statusCode).toBe(200);
+    const studentState = studentView.json();
+    expect(studentState.lessonRun.steps).toHaveLength(3);
+    expect(studentState.lessonRun.steps[0].title).toBe("Hidden step");
+    expect(studentState.lessonRun.steps[2].title).toBe("Explain");
+    expect(studentState.lessonRun.steps[2].notes).toBeUndefined();
+    expect(studentState.lessonRun.timeline).toEqual([]);
+
+    const studentMutation = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/classroom/actions`,
+      headers: authHeaders("student-lesson-flow", "Avery"),
+      payload: { type: "pause-lesson-run", expectedVersion: studentState.version }
+    });
+    expect(studentMutation.statusCode).toBe(403);
+
+    state = await classroomAction(app, roomId, "teacher-lesson-flow", { type: "advance-lesson-step", expectedVersion: state.version });
+    expect(state.lessonRun.status).toBe("ended");
+    expect(state.privateChecks[0].status).toBe("closed");
+
+    await app.close();
+  });
+
+  it("orchestrates group, student-share, timer cleanup, and focus drift", async () => {
+    const repository = new MemoryRepository();
+    const app = await buildApp({
+      config: lessonConfig(),
+      repository
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-lesson-effects");
+    await addStudentMember(app, classRecord.id, "teacher-lesson-effects", "student-lesson-effects", "Avery");
+    const roomId = roomWithManifest.room.id;
+    const [firstAnchor, secondAnchor] = roomWithManifest.manifest.wallAnchors;
+
+    let state = await classroomAction(app, roomId, "teacher-lesson-effects", { type: "init-lesson-run", expectedVersion: 1, title: "Effects" });
+    for (const step of [
+      {
+        kind: "focus-board",
+        title: "Original focus",
+        payload: { kind: "focus-board", data: { anchorId: firstAnchor.id, mode: "highlight" } }
+      },
+      {
+        kind: "group-work",
+        title: "Team work",
+        payload: { kind: "group-work", data: { newGroup: { label: "Team A", color: "#389060", memberUserIds: ["student-lesson-effects"] }, releaseOnAdvance: true } }
+      },
+      {
+        kind: "student-share",
+        title: "Avery shares",
+        payload: { kind: "student-share", data: { userId: "student-lesson-effects", wallAnchorId: firstAnchor.id, allowedObjectTypes: ["note"], revokeOnAdvance: true } }
+      },
+      {
+        kind: "timer",
+        title: "Wall timer",
+        payload: { kind: "timer", data: { durationSeconds: 30, label: "Share timer", placement: "wall", wallAnchorId: secondAnchor.id } }
+      }
+    ]) {
+      state = await classroomAction(app, roomId, "teacher-lesson-effects", { type: "add-lesson-step", expectedVersion: state.version, step });
+    }
+
+    state = await classroomAction(app, roomId, "teacher-lesson-effects", { type: "start-lesson-run", expectedVersion: state.version });
+    expect(state.spotlight.anchorId).toBe(firstAnchor.id);
+
+    state = await classroomAction(app, roomId, "teacher-lesson-effects", {
+      type: "set-spotlight",
+      expectedVersion: state.version,
+      targetType: "wall-anchor",
+      anchorId: secondAnchor.id,
+      mode: "guide"
+    });
+    state = await classroomAction(app, roomId, "teacher-lesson-effects", { type: "advance-lesson-step", expectedVersion: state.version });
+    expect(state.lessonRun.timeline[0]).toMatchObject({ drifted: true });
+    expect(state.groups[0]).toMatchObject({ label: "Team A", status: "active", memberUserIds: ["student-lesson-effects"] });
+
+    state = await classroomAction(app, roomId, "teacher-lesson-effects", { type: "advance-lesson-step", expectedVersion: state.version });
+    expect(state.groups[0].status).toBe("released");
+    expect(state.boardAccessGrants[0]).toMatchObject({ userId: "student-lesson-effects", status: "active", wallAnchorId: firstAnchor.id });
+
+    state = await classroomAction(app, roomId, "teacher-lesson-effects", { type: "advance-lesson-step", expectedVersion: state.version });
+    expect(state.boardAccessGrants[0].status).toBe("revoked");
+    const wallTimers = await repository.listWallObjects(roomId, { includeRemoved: true });
+    expect(wallTimers.some((object) => object.type === "timer" && object.status === "active")).toBe(true);
+
+    state = await classroomAction(app, roomId, "teacher-lesson-effects", { type: "advance-lesson-step", expectedVersion: state.version });
+    expect(state.lessonRun.status).toBe("ended");
+    const afterEndTimers = await repository.listWallObjects(roomId, { includeRemoved: true });
+    expect(afterEndTimers.some((object) => object.type === "timer" && object.status === "removed")).toBe(true);
+
+    await app.close();
+  });
+
+  it("returns 404 for lesson actions when the feature flag is off", async () => {
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { roomWithManifest } = await createClassAndRoom(app, "teacher-lesson-disabled");
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-lesson-disabled", "Ms. Rivera"),
+      payload: { type: "init-lesson-run", expectedVersion: 1, title: "Hidden" }
+    });
+    expect(response.statusCode).toBe(404);
 
     await app.close();
   });

@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-19 (Classroom private checks)
+Last updated: 2026-05-19 (Lesson planning discovery slice)
 
 ## Project Summary
 
@@ -8,12 +8,12 @@ Last updated: 2026-05-19 (Classroom private checks)
 
 Workspace: `/Users/ejuchheim/Projects/3DSpace/3DSpace`
 
-Implementation state: **MVP complete in production** (Vercel + Koyeb + Atlas + Clerk + LiveKit + R2). Sentry not provisioned. MVP+1 wall media implementation complete locally on `mvp-plus-one`; wall polls support teacher-defined choices, student voting via `vote` control action, and live result bars with choice labels separated from vote summaries on board surfaces; deployed LiveKit/browser-permission wall-share validation still recommended before release. MVP+1 classroom tools phases 1-4 are now locally implemented: help queue, People-panel board access grants, and private checks with teacher response visibility plus student response filtering.
+Implementation state: **MVP complete in production** (Vercel + Koyeb + Atlas + Clerk + LiveKit + R2). Sentry not provisioned. MVP+1 wall media implementation complete locally on `mvp-plus-one`; wall polls support teacher-defined choices, student voting via `vote` control action, and live result bars with choice labels separated from vote summaries on board surfaces; deployed LiveKit/browser-permission wall-share validation still recommended before release. MVP+1 classroom tools phases 1-7 are now locally implemented, including help queue, People-panel board access grants, private checks, groups, focus, and the feature-flagged lesson planning discovery slice.
 
 ## Entities
 
 - **Monorepo**: `apps/web`, `apps/api`, `packages/contracts`, `packages/room-engine`
-- **Planning**: `docs/planning/mvp/MVP_IMPLEMENTATION_PLAN.md`, `MVP_STATUS.md`, `DEPLOYMENT_CHECKLIST.md`; `docs/planning/mvp+1/MVP_PLUS_ONE_WALL_MEDIA_PLAN.md`, `MVP_PLUS_ONE_STATUS.md`, `MVP_PLUS_ONE_CLASSROOM_TOOLS_PLAN.md`, `MVP_PLUS_ONE_CLASSROOM_TOOLS_IMPLEMENTATION.md`
+- **Planning**: `docs/planning/mvp/MVP_IMPLEMENTATION_PLAN.md`, `MVP_STATUS.md`, `DEPLOYMENT_CHECKLIST.md`; `docs/planning/mvp+1/MVP_PLUS_ONE_WALL_MEDIA_PLAN.md`, `MVP_PLUS_ONE_STATUS.md`, `MVP_PLUS_ONE_CLASSROOM_TOOLS_PLAN.md`, `MVP_PLUS_ONE_CLASSROOM_TOOLS_IMPLEMENTATION.md`, `MVP_PLUS_ONE_LESSON_PLANNING_DISCOVERY_PLAN.md`
 - **Memory**: `.cursor/memory.md` (this file)
 - **Env templates**: `.env.example`, `apps/api/.env.example`, `apps/web/.env.example`
 - **Deploy artifacts**: `apps/api/Dockerfile`, `vercel.json`
@@ -31,7 +31,7 @@ Implementation state: **MVP complete in production** (Vercel + Koyeb + Atlas + C
 | Auth | Clerk + backend membership | Clerk Development instance on Vercel (`*.vercel.app`) |
 | Storage | S3-compatible signed URLs | Cloudflare R2 in production |
 | Observability | Sentry | Not provisioned |
-| Tests | Vitest (15 tests), Playwright (4 e2e) | Passing locally |
+| Tests | Vitest (47 tests), Playwright focused lesson e2e | Passing locally |
 
 ## Phase Progress
 
@@ -62,6 +62,7 @@ Notable vars added during implementation:
 - `HOST` (127.0.0.1 local, 0.0.0.0 production)
 - `PORT` (API, default 8080)
 - `SESSION_JOIN_RATE_LIMIT_PER_MINUTE` (default 20)
+- `ENABLE_CLASSROOM_LESSONS` / `NEXT_PUBLIC_ENABLE_CLASSROOM_LESSONS` (default off; gates Phase 7 lesson actions and UI)
 
 Local loading:
 - API dev: `tsx --env-file=../../.env.local` (and `.env`)
@@ -91,7 +92,14 @@ Local loading:
 - `npm --workspace @3dspace/web run typecheck` — pass.
 - `npm --workspace @3dspace/api run typecheck` — pass.
 - `npm run test -- apps/api/tests/api.test.ts -t "filters classroom state|private-check"` — pass.
-- `npm run test -- apps/api/tests/api.test.ts` — fails on an unrelated wall-object policy assertion (`409` received where the older test expects `400`).
+- `npm run test -- apps/api/tests/api.test.ts` — pass after updating the stale wall-object policy assertion to use a still-disallowed file type.
+
+## MVP+1 Lesson Planning Validation Evidence (2026-05-19)
+
+- `npm run typecheck` — pass.
+- `npm test` — pass (47 tests).
+- `npx vitest run packages/contracts/tests/lesson-run.test.ts apps/api/tests/api.test.ts` — pass (33 tests).
+- `PLAYWRIGHT_SKIP_WEB_SERVER=1 PLAYWRIGHT_BASE_URL=http://localhost:3000 NEXT_PUBLIC_API_URL=http://127.0.0.1:8080 npx playwright test apps/web/test/mvp.spec.ts --grep "three-step lesson"` — pass (teacher authors instruction -> focus-board -> private-check; student joins mid-run).
 
 ## Production URLs
 
@@ -134,6 +142,8 @@ Screen share, computer audio, teacher moderation, rich wall placement, room buil
 - **2026-05-17**: Recreated lost MVP+1 classroom-tools planning in `MVP_PLUS_ONE_CLASSROOM_TOOLS_PLAN.md` and implementation roadmap in `MVP_PLUS_ONE_CLASSROOM_TOOLS_IMPLEMENTATION.md`; scope covers raise hand/board access grants, private checks, groups with spatial hold, board focus, and replanned lesson presentation.
 - **2026-05-19**: Implemented classroom-tools Phase 3 board access grants in the live UI by turning the People panel into a teacher participant picker with board-share presets, allowed-type toggles, revoke controls, and contextual raised-hand details for the selected student.
 - **2026-05-19**: Implemented classroom-tools Phase 4 private checks in `ClassroomPanel`: teachers can create multiple-choice, short-answer, or confidence checks; open/close/reopen them; and review individual responses. Students see active prompts and submit/update only their own filtered response.
+- **2026-05-19**: Drafted `MVP_PLUS_ONE_LESSON_PLANNING_DISCOVERY_PLAN.md` for classroom-tools Phase 7. Lesson run lives inside `ClassroomState.lessonRun`, orchestrates six step kinds (`instruction`, `focus-board`, `private-check`, `group-work`, `timer`, `student-share`) by dispatching existing classroom actions on advance/back with drift detection; reusable plans deferred to a later phase.
+- **2026-05-19**: Implemented classroom-tools Phase 7 lesson planning discovery slice behind `ENABLE_CLASSROOM_LESSONS`: typed `LessonRun` contracts, server orchestration/cleanup/drift for all six step kinds, student privacy filtering, teacher HUD author/run/timeline controls, student late-join callouts, env templates, status docs, unit/API coverage, and focused Playwright coverage.
 
 ## Bug Fixes
 
@@ -163,6 +173,8 @@ Screen share, computer audio, teacher moderation, rich wall placement, room buil
 - **2026-05-18**: Safari stuck at WebRTC negotiation — mitigations in `realtime.ts`: `prepareConnection` before connect (Cloud edge + TLS warmup), `autoSubscribe: false` with `subscribeAllRemoteTracks` on Connected / ParticipantConnected / TrackPublished, `disconnectOnPageLeave: false`, VP8 publish defaults without simulcast/backupCodec, 45s peer connection timeout.
 - **2026-05-18**: Safari LiveKit ICE — minimal repro at `/debug/livekit-safari/[roomId]` (`LiveKitSafariDebug.tsx`) rules out main app join/realtime/classroom code; raw relay-only TURN probe returns `candidates: []` on school Wi‑Fi and cellular hotspot. Documented in `docs/planning/mvp+1/safari-livekit-ice-failure.md`; investigation shifts to Safari × LiveKit Cloud TURN / support ticket.
 - **2026-05-19**: Re-granting board access could stack multiple active grants for one student while the student UI only honored the newest one. Fixed by revoking prior active grants for that student before persisting a new grant; targeted API tests now cover the replacement behavior.
+- **2026-05-19**: HUD panel smallest text was hard to read against the dark panel background. Lightened `--hud-tx-m` and `--hud-tx-d` tokens in `globals.css` for better contrast on secondary labels, subs, chevrons, and anchor hints.
+- **2026-05-19**: Teacher Help Queue lost board-access grant UI after HUD redesign (grant controls only lived in floating `StudentDetailPanel`). Restored presets, share-type checkboxes, and Grant board in Help Queue via shared `BoardAccessGrantControls`.
 
 ## Maintenance Rules
 

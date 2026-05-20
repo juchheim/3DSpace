@@ -818,6 +818,26 @@ The discovery slice is done when:
 - `MVP_PLUS_ONE_STATUS.md` and `.cursor/memory.md` are updated with implementation and validation evidence.
 - This plan is amended with a "Discovery Findings" section once the slice has run with at least one teacher.
 
+## Discovery Findings
+
+Phase 7 has been implemented and validated through an automated teacher/student classroom run. Human teacher observation is still required before Phase 8 product decisions.
+
+Implementation findings:
+
+- The single-room `ClassroomState.lessonRun` model was sufficient for the discovery slice. It avoided a second repository or reusable-plan abstraction while still preserving a teacher-visible timeline.
+- Running lesson side effects through the existing classroom-action handler kept focus, private checks, groups, timers, and board grants consistent with manually triggered teacher tools.
+- Late join hydration worked best when the server filtered the run to the current step while the existing classroom-state side effects rehydrated the rest of the room.
+- Drift detection should stay non-blocking. The API can record that a teacher changed a spotlight, group, timer, check, or grant without interrupting lesson advance.
+- The right HUD is usable for discovery-scale scripts, but it is the main pressure point. If observed scripts exceed roughly eight steps, a focused authoring view should be the next UX investment.
+- The feature flag is necessary for release control. Lesson actions return `404` when disabled, and the web surfaces do not mount unless the client flag is enabled.
+
+Validation evidence:
+
+- `npm run typecheck` passed.
+- `npm test` passed with 47 tests.
+- `npx vitest run packages/contracts/tests/lesson-run.test.ts apps/api/tests/api.test.ts` passed with 33 tests.
+- `PLAYWRIGHT_SKIP_WEB_SERVER=1 PLAYWRIGHT_BASE_URL=http://localhost:3000 NEXT_PUBLIC_API_URL=http://127.0.0.1:8080 npx playwright test apps/web/test/mvp.spec.ts --grep "three-step lesson"` passed for the teacher authors instruction -> focus-board -> private-check path and a student joining mid-run.
+
 ## What Comes After
 
 Phases beyond this slice (documented here so we keep the door open without committing scope):

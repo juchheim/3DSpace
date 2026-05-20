@@ -642,6 +642,129 @@ export const ClassroomPrivateCheckSchema = z.object({
   updatedAt: z.string()
 });
 
+export const LessonStepKindSchema = z.enum([
+  "instruction",
+  "focus-board",
+  "private-check",
+  "group-work",
+  "timer",
+  "student-share"
+]);
+
+export const LessonStepInstructionPayloadSchema = z.object({
+  body: z.string().max(2000).default("")
+});
+
+export const LessonStepFocusBoardPayloadSchema = z.object({
+  anchorId: z.string(),
+  objectId: z.string().optional(),
+  mode: z.enum(["highlight", "guide", "force"]).default("highlight"),
+  title: z.string().max(160).optional(),
+  instruction: z.string().max(500).optional()
+});
+
+export const LessonStepPrivateCheckPayloadSchema = z.object({
+  question: z.string().min(1).max(1000),
+  promptType: z.enum(["multiple-choice", "short-answer", "confidence"]),
+  choices: z.array(ClassroomPrivateCheckChoiceSchema).default([]),
+  target: ClassroomPrivateCheckTargetSchema.default({ kind: "all", userIds: [] }),
+  wallAnchorId: z.string().optional(),
+  autoCloseOnAdvance: z.boolean().default(true)
+});
+
+export const LessonStepGroupWorkPayloadSchema = z.object({
+  existingGroupId: z.string().optional(),
+  newGroup: z
+    .object({
+      label: z.string().min(1).max(80),
+      color: z.string().min(1).max(40),
+      memberUserIds: z.array(z.string()).default([]),
+      targetPosition: Vector3Schema.optional(),
+      targetWallAnchorId: z.string().optional(),
+      hold: ClassroomGroupHoldSchema.optional()
+    })
+    .optional(),
+  releaseOnAdvance: z.boolean().default(true)
+}).refine((value) => Boolean(value.existingGroupId) !== Boolean(value.newGroup), {
+  message: "Provide existingGroupId or newGroup, not both."
+});
+
+export const LessonStepTimerPayloadSchema = z.object({
+  durationSeconds: z.number().int().min(5).max(60 * 60),
+  label: z.string().max(80).default(""),
+  placement: z.enum(["hud", "wall"]).default("hud"),
+  wallAnchorId: z.string().optional(),
+  autoAdvanceOnComplete: z.boolean().default(false)
+});
+
+export const LessonStepStudentSharePayloadSchema = z.object({
+  userId: z.string(),
+  wallAnchorId: z.string(),
+  allowedObjectTypes: z.array(WallObjectTypeSchema).default([]),
+  acknowledgeHandIfRaised: z.boolean().default(true),
+  revokeOnAdvance: z.boolean().default(true),
+  expiresAt: z.string().optional()
+});
+
+export const LessonStepPayloadSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("instruction"), data: LessonStepInstructionPayloadSchema }),
+  z.object({ kind: z.literal("focus-board"), data: LessonStepFocusBoardPayloadSchema }),
+  z.object({ kind: z.literal("private-check"), data: LessonStepPrivateCheckPayloadSchema }),
+  z.object({ kind: z.literal("group-work"), data: LessonStepGroupWorkPayloadSchema }),
+  z.object({ kind: z.literal("timer"), data: LessonStepTimerPayloadSchema }),
+  z.object({ kind: z.literal("student-share"), data: LessonStepStudentSharePayloadSchema })
+]);
+
+export const LessonStepSchema = z.object({
+  id: z.string(),
+  kind: LessonStepKindSchema,
+  title: z.string().min(1).max(120),
+  notes: z.string().max(2000).optional(),
+  payload: LessonStepPayloadSchema,
+  createdAt: z.string(),
+  updatedAt: z.string()
+}).refine((value) => value.kind === value.payload.kind, {
+  message: "Step kind must match payload kind."
+});
+
+export const LessonRunStepRecordSchema = z.object({
+  stepId: z.string(),
+  startedAt: z.string(),
+  completedAt: z.string().optional(),
+  drifted: z.boolean().default(false),
+  driftReason: z.string().optional(),
+  emittedActionIds: z.array(z.string()).default([]),
+  createdCheckId: z.string().optional(),
+  createdGroupId: z.string().optional(),
+  createdGrantId: z.string().optional(),
+  createdWallObjectId: z.string().optional()
+});
+
+export const LessonRunStatusSchema = z.enum(["draft", "ready", "running", "paused", "ended", "abandoned"]);
+
+export const LessonRunSchema = z.object({
+  id: z.string(),
+  title: z.string().min(1).max(160).default("Untitled lesson"),
+  status: LessonRunStatusSchema.default("draft"),
+  steps: z.array(LessonStepSchema).default([]),
+  currentStepIndex: z.number().int().min(-1).default(-1),
+  timeline: z.array(LessonRunStepRecordSchema).default([]),
+  startedAt: z.string().optional(),
+  endedAt: z.string().optional(),
+  createdByUserId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string()
+});
+
+export const LessonStepInputSchema = z.object({
+  kind: LessonStepKindSchema,
+  title: z.string().min(1).max(120),
+  notes: z.string().max(2000).optional(),
+  payload: LessonStepPayloadSchema
+}).refine((value) => value.kind === value.payload.kind, {
+  message: "Step kind must match payload kind."
+});
+
 export const ClassroomStateSchema = z.object({
   roomId: z.string(),
   version: z.number().int().positive(),
@@ -650,7 +773,7 @@ export const ClassroomStateSchema = z.object({
   privateChecks: z.array(ClassroomPrivateCheckSchema).default([]),
   groups: z.array(ClassroomGroupSchema).default([]),
   spotlight: ClassroomSpotlightSchema.nullable().default(null),
-  lessonRun: z.record(z.unknown()).nullable().default(null),
+  lessonRun: LessonRunSchema.nullable().default(null),
   createdAt: z.string(),
   updatedAt: z.string()
 });
@@ -774,6 +897,73 @@ export const ClassroomClearSpotlightActionSchema = ClassroomActionBaseSchema.ext
   type: z.literal("clear-spotlight")
 });
 
+export const ClassroomInitLessonRunActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("init-lesson-run"),
+  title: z.string().min(1).max(160).optional()
+});
+
+export const ClassroomSetLessonRunTitleActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("set-lesson-run-title"),
+  title: z.string().min(1).max(160)
+});
+
+export const ClassroomAddLessonStepActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("add-lesson-step"),
+  index: z.number().int().min(0).optional(),
+  step: LessonStepInputSchema
+});
+
+export const ClassroomUpdateLessonStepActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("update-lesson-step"),
+  stepId: z.string().min(1),
+  title: z.string().min(1).max(120).optional(),
+  notes: z.string().max(2000).optional(),
+  payload: LessonStepPayloadSchema.optional()
+});
+
+export const ClassroomMoveLessonStepActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("move-lesson-step"),
+  from: z.number().int().min(0),
+  to: z.number().int().min(0)
+});
+
+export const ClassroomRemoveLessonStepActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("remove-lesson-step"),
+  stepId: z.string().min(1)
+});
+
+export const ClassroomStartLessonRunActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("start-lesson-run")
+});
+
+export const ClassroomAdvanceLessonStepActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("advance-lesson-step")
+});
+
+export const ClassroomRetreatLessonStepActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("retreat-lesson-step")
+});
+
+export const ClassroomPauseLessonRunActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("pause-lesson-run")
+});
+
+export const ClassroomResumeLessonRunActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("resume-lesson-run")
+});
+
+export const ClassroomEndLessonRunActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("end-lesson-run")
+});
+
+export const ClassroomAbandonLessonRunActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("abandon-lesson-run")
+});
+
+export const ClassroomClearLessonRunActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("clear-lesson-run")
+});
+
 export const ClassroomActionSchema = z.discriminatedUnion("type", [
   ClassroomRaiseHandActionSchema,
   ClassroomCancelHelpActionSchema,
@@ -791,7 +981,21 @@ export const ClassroomActionSchema = z.discriminatedUnion("type", [
   ClassroomAssignGroupActionSchema,
   ClassroomReleaseGroupActionSchema,
   ClassroomSetSpotlightActionSchema,
-  ClassroomClearSpotlightActionSchema
+  ClassroomClearSpotlightActionSchema,
+  ClassroomInitLessonRunActionSchema,
+  ClassroomSetLessonRunTitleActionSchema,
+  ClassroomAddLessonStepActionSchema,
+  ClassroomUpdateLessonStepActionSchema,
+  ClassroomMoveLessonStepActionSchema,
+  ClassroomRemoveLessonStepActionSchema,
+  ClassroomStartLessonRunActionSchema,
+  ClassroomAdvanceLessonStepActionSchema,
+  ClassroomRetreatLessonStepActionSchema,
+  ClassroomPauseLessonRunActionSchema,
+  ClassroomResumeLessonRunActionSchema,
+  ClassroomEndLessonRunActionSchema,
+  ClassroomAbandonLessonRunActionSchema,
+  ClassroomClearLessonRunActionSchema
 ]);
 
 export const ClassroomStateChangedRealtimeSchema = z.object({
@@ -876,6 +1080,13 @@ export type ClassroomPrivateCheckChoice = z.infer<typeof ClassroomPrivateCheckCh
 export type ClassroomPrivateCheckResponse = z.infer<typeof ClassroomPrivateCheckResponseSchema>;
 export type ClassroomPrivateCheckTarget = z.infer<typeof ClassroomPrivateCheckTargetSchema>;
 export type ClassroomPrivateCheck = z.infer<typeof ClassroomPrivateCheckSchema>;
+export type LessonStepKind = z.infer<typeof LessonStepKindSchema>;
+export type LessonStepPayload = z.infer<typeof LessonStepPayloadSchema>;
+export type LessonStep = z.infer<typeof LessonStepSchema>;
+export type LessonStepInput = z.infer<typeof LessonStepInputSchema>;
+export type LessonRunStepRecord = z.infer<typeof LessonRunStepRecordSchema>;
+export type LessonRunStatus = z.infer<typeof LessonRunStatusSchema>;
+export type LessonRun = z.infer<typeof LessonRunSchema>;
 export type ClassroomState = z.infer<typeof ClassroomStateSchema>;
 export type ClassroomAction = z.infer<typeof ClassroomActionSchema>;
 export type ClassroomStateChangedRealtimeMessage = z.infer<typeof ClassroomStateChangedRealtimeSchema>;

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AvatarStateMessage, Role, RoomManifest, RoomSessionResponse, ViewMode, WallObject } from "@3dspace/contracts";
 import { computeGroupMemberPosition, createAvatarState, unprojectPointFrom2D } from "@3dspace/room-engine";
 import { joinRoom, listClassMembers } from "../lib/api";
+import { CLIENT_TUNING } from "../lib/config";
 import { pickDisplayName } from "../lib/displayName";
 import { useAvatarMovement } from "../lib/useAvatarMovement";
 import { useThirdPersonCamera } from "../lib/useThirdPersonCamera";
@@ -30,6 +31,11 @@ import { RoomView2D } from "./RoomView2D";
 import { BoardAccessSidePanel } from "./BoardAccessSidePanel";
 import { activeGrantMap, Roster, StudentDetailPanel } from "./Roster";
 import { useClassroomState } from "../lib/useClassroomState";
+import { useLessonRun } from "../lib/useLessonRun";
+import { LessonAuthoringPanel } from "./LessonAuthoringPanel";
+import { LessonRunControls } from "./LessonRunControls";
+import { LessonStudentCallout } from "./LessonStudentCallout";
+import { LessonTimelinePanel } from "./LessonTimelinePanel";
 
 const RoomView3D = dynamic(() => import("./RoomView3D").then((module) => module.RoomView3D), {
   ssr: false,
@@ -125,6 +131,13 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     roomId: session?.room.id ?? roomId,
     enabled: Boolean(session),
     publish: publishRealtime
+  });
+  const lesson = useLessonRun({
+    state: classroom.state,
+    loading: classroom.loading,
+    error: classroom.error,
+    role: session?.role ?? identity.role,
+    runAction: classroom.runAction
   });
   const wallRealtimeHandlerRef = useRef(wall.handleRealtimeMessage);
   wallRealtimeHandlerRef.current = wall.handleRealtimeMessage;
@@ -952,6 +965,15 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       {/* Right HUD: unified collapsible panel */}
       <aside className="room-hud-right" aria-label="Room details">
         <div className="hud-panel">
+          {CLIENT_TUNING.enableClassroomLessons && role === "student" ? (
+            <LessonStudentCallout
+              run={lesson.run}
+              currentStep={lesson.currentStep}
+              state={classroom.state}
+              manifest={manifest}
+              currentUserId={identity.userId}
+            />
+          ) : null}
           <Roster
             participants={participantList}
             classroomState={classroom.state}
@@ -979,6 +1001,33 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               await classroom.runAction(action);
             }}
           />
+          {CLIENT_TUNING.enableClassroomLessons && role === "teacher" ? (
+            <>
+              <LessonRunControls
+                run={lesson.run}
+                currentStep={lesson.currentStep}
+                nextStep={lesson.nextStep}
+                loading={lesson.loading}
+                error={lesson.error}
+                runAction={lesson.runAction}
+              />
+              <LessonAuthoringPanel
+                run={lesson.run}
+                state={classroom.state}
+                manifest={manifest}
+                participants={participantList.map((participant) => ({
+                  id: participant.id,
+                  displayName: participant.displayName,
+                  role: participant.role
+                }))}
+                loading={lesson.loading}
+                error={lesson.error}
+                runAction={lesson.runAction}
+                stepStatus={lesson.stepStatus}
+              />
+              <LessonTimelinePanel run={lesson.run} />
+            </>
+          ) : null}
           <PrivateChecksPanel
             role={role}
             state={classroom.state}

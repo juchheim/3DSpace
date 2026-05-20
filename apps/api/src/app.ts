@@ -17,6 +17,7 @@ import {
   HealthResponseSchema,
   JoinRoomSessionRequestSchema,
   ListWallObjectsQuerySchema,
+  LessonRunSchema,
   RoomEventRequestSchema,
   RoomSessionResponseSchema,
   RoomWithManifestSchema,
@@ -34,8 +35,14 @@ import {
   createOpenApiDocument,
   type ClassroomAction,
   type ClassroomBoardAccessGrant,
+  type ClassroomGroup,
   type ClassroomPrivateCheck,
+  type ClassroomSpotlight,
   type ClassroomState,
+  type LessonRun,
+  type LessonRunStepRecord,
+  type LessonStep,
+  type LessonStepInput,
   type WallAttachment,
   type WallObject,
   type WallObjectType,
@@ -554,7 +561,8 @@ function filterClassroomStateForActor(state: ClassroomState, actor: ClassroomAct
       .map((check) => ({
         ...check,
         responses: check.responses.filter((response) => response.userId === actor.userId)
-      }))
+      })),
+    lessonRun: filterLessonRunForActor(state.lessonRun, actor)
   });
 }
 
@@ -599,12 +607,484 @@ function validatePrivateCheckResponse(check: ClassroomPrivateCheck, action: Extr
   }
 }
 
+const LESSON_ACTION_TYPES = new Set<ClassroomAction["type"]>([
+  "init-lesson-run",
+  "set-lesson-run-title",
+  "add-lesson-step",
+  "update-lesson-step",
+  "move-lesson-step",
+  "remove-lesson-step",
+  "start-lesson-run",
+  "advance-lesson-step",
+  "retreat-lesson-step",
+  "pause-lesson-run",
+  "resume-lesson-run",
+  "end-lesson-run",
+  "abandon-lesson-run",
+  "clear-lesson-run"
+]);
+
+function isLessonAction(action: ClassroomAction) {
+  return LESSON_ACTION_TYPES.has(action.type);
+}
+
+function cloneLessonRun(run: LessonRun | null) {
+  return run ? LessonRunSchema.parse(run) : null;
+}
+
+function requireLessonRun(state: ClassroomState) {
+  if (!state.lessonRun) throw notFound("Lesson run not found");
+  return state.lessonRun;
+}
+
+function lessonDraftStatus(run: LessonRun) {
+  return run.steps.length > 0 ? "ready" : "draft";
+}
+
+function touchLessonRun(run: LessonRun, now: string) {
+  run.updatedAt = now;
+  if (run.status === "draft" || run.status === "ready") {
+    run.status = lessonDraftStatus(run);
+  }
+}
+
+function clampLessonInsertIndex(run: LessonRun, index: number | undefined) {
+  if (index === undefined) return run.steps.length;
+  return Math.min(Math.max(index, 0), run.steps.length);
+}
+
+function assertLessonCanEditIndex(run: LessonRun, index: number, operation: "add" | "update" | "move" | "remove") {
+  if (run.status !== "running" && run.status !== "paused") return;
+  if (operation === "update" && index === run.currentStepIndex) return;
+  if (index <= run.currentStepIndex) {
+    throw conflict("Only the current or upcoming lesson steps can be edited during a run");
+  }
+}
+
+function makeLessonStep(input: LessonStepInput, now: string): LessonStep {
+  return {
+    id: newId("lessonstep"),
+    kind: input.kind,
+    title: input.title,
+    notes: input.notes?.trim() || undefined,
+    payload: input.payload,
+    createdAt: now,
+    updatedAt: now
+  };
+}
+
+function currentLessonRecordIndex(run: LessonRun) {
+  const currentStep = run.steps[run.currentStepIndex];
+  if (!currentStep) return -1;
+  for (let index = run.timeline.length - 1; index >= 0; index -= 1) {
+    const record = run.timeline[index];
+    if (record?.stepId === currentStep.id && !record.completedAt) return index;
+  }
+  return -1;
+}
+
+function lastLessonRecordForStep(run: LessonRun, stepId: string) {
+  for (let index = run.timeline.length - 1; index >= 0; index -= 1) {
+    const record = run.timeline[index];
+    if (record?.stepId === stepId) return record;
+  }
+  return undefined;
+}
+
+function hasAnchor(stateManifest: Awaited<ReturnType<Repository["getActiveManifest"]>>, anchorId: string | undefined) {
+  if (!anchorId) return false;
+  return Boolean(stateManifest?.wallAnchors.some((anchor) => anchor.id === anchorId));
+}
+
+function sameStringArray(left: string[], right: string[]) {
+  if (left.length !== right.length) return false;
+  const rightSet = new Set(right);
+  return left.every((value) => rightSet.has(value));
+}
+
+function spotlightForFocusStep(step: LessonStep, actor: ClassroomActor, now: string): ClassroomSpotlight {
+  if (step.kind !== "focus-board" || step.payload.kind !== "focus-board") {
+    throw badRequest("Lesson step is not a focus-board step");
+  }
+  return {
+    targetType: step.payload.data.objectId ? "wall-object" : "wall-anchor",
+    anchorId: step.payload.data.anchorId,
+    objectId: step.payload.data.objectId,
+    title: step.payload.data.title ?? step.title,
+    instruction: step.payload.data.instruction,
+    mode: step.payload.data.mode,
+    createdByUserId: actor.userId,
+    startedAt: now
+  };
+}
+
+function spotlightMatchesStep(spotlight: ClassroomSpotlight | null, step: LessonStep) {
+  if (!spotlight || step.kind !== "focus-board" || step.payload.kind !== "focus-board") return false;
+  const expectedTargetType = step.payload.data.objectId ? "wall-object" : "wall-anchor";
+  return (
+    spotlight.targetType === expectedTargetType &&
+    spotlight.anchorId === step.payload.data.anchorId &&
+    spotlight.objectId === step.payload.data.objectId &&
+    spotlight.mode === step.payload.data.mode &&
+    spotlight.title === (step.payload.data.title ?? step.title) &&
+    spotlight.instruction === step.payload.data.instruction
+  );
+}
+
+function assignGroupMembers(state: ClassroomState, groupId: string, memberUserIds: string[], now: string) {
+  const assigned = new Set(memberUserIds);
+  const uniqueMembers = [...assigned];
+  state.groups = state.groups.map((candidate) => ({
+    ...candidate,
+    memberUserIds: candidate.id === groupId ? uniqueMembers : candidate.memberUserIds.filter((userId) => !assigned.has(userId)),
+    updatedAt: candidate.id === groupId ? now : candidate.updatedAt
+  }));
+}
+
+function upsertCreatedLessonGroup(state: ClassroomState, input: NonNullable<Extract<LessonStep["payload"], { kind: "group-work" }>["data"]["newGroup"]>, actor: ClassroomActor, now: string, existingGroupId?: string) {
+  const existing = existingGroupId ? state.groups.find((group) => group.id === existingGroupId && group.status !== "archived") : undefined;
+  if (existing) {
+    existing.label = input.label;
+    existing.color = input.color;
+    existing.targetPosition = input.targetPosition;
+    existing.targetWallAnchorId = input.targetWallAnchorId;
+    existing.hold = input.hold;
+    existing.status = "active";
+    existing.updatedAt = now;
+    assignGroupMembers(state, existing.id, input.memberUserIds, now);
+    return existing.id;
+  }
+
+  const group: ClassroomGroup = {
+    id: newId("group"),
+    label: input.label,
+    color: input.color,
+    memberUserIds: [],
+    targetPosition: input.targetPosition,
+    targetWallAnchorId: input.targetWallAnchorId,
+    hold: input.hold,
+    status: "active",
+    createdByUserId: actor.userId,
+    createdAt: now,
+    updatedAt: now
+  };
+  state.groups.unshift(group);
+  assignGroupMembers(state, group.id, input.memberUserIds, now);
+  return group.id;
+}
+
+type LessonEffectResult = {
+  drifted?: boolean;
+  driftReason?: string;
+  emittedActionIds?: string[];
+  createdCheckId?: string;
+  createdGroupId?: string;
+  createdGrantId?: string;
+  createdWallObjectId?: string;
+};
+
+async function startLessonStep(input: {
+  repository: Repository;
+  roomId: string;
+  state: ClassroomState;
+  run: LessonRun;
+  step: LessonStep;
+  actor: ClassroomActor;
+  now: string;
+}): Promise<LessonRunStepRecord> {
+  const record: LessonRunStepRecord = {
+    stepId: input.step.id,
+    startedAt: input.now,
+    drifted: false,
+    emittedActionIds: []
+  };
+  const prior = lastLessonRecordForStep(input.run, input.step.id);
+
+  if (input.step.kind === "instruction") {
+    return record;
+  }
+
+  if (input.step.kind === "focus-board" && input.step.payload.kind === "focus-board") {
+    const manifest = await input.repository.getActiveManifest(input.roomId);
+    if (!hasAnchor(manifest, input.step.payload.data.anchorId)) {
+      return { ...record, drifted: true, driftReason: "Missing wall anchor" };
+    }
+    input.state.spotlight = spotlightForFocusStep(input.step, input.actor, input.now);
+    return { ...record, emittedActionIds: ["set-spotlight"] };
+  }
+
+  if (input.step.kind === "private-check" && input.step.payload.kind === "private-check") {
+    const payload = input.step.payload.data;
+    if (payload.promptType === "multiple-choice" && payload.choices.length < 2) {
+      throw badRequest("Multiple-choice checks require at least two choices");
+    }
+    const existingCheck = prior?.createdCheckId ? input.state.privateChecks.find((check) => check.id === prior.createdCheckId) : undefined;
+    if (existingCheck) {
+      if (payload.autoCloseOnAdvance && existingCheck.status === "closed") {
+        existingCheck.status = "open";
+        existingCheck.updatedAt = input.now;
+        record.emittedActionIds.push("reopen-private-check");
+      }
+      record.createdCheckId = existingCheck.id;
+      return record;
+    }
+
+    const checkId = newId("check");
+    input.state.privateChecks.unshift({
+      id: checkId,
+      question: payload.question,
+      promptType: payload.promptType,
+      choices: payload.choices,
+      target: payload.target,
+      status: "open",
+      visibility: "teacher-only",
+      responses: [],
+      wallAnchorId: payload.wallAnchorId,
+      createdByUserId: input.actor.userId,
+      createdAt: input.now,
+      updatedAt: input.now
+    });
+    return { ...record, createdCheckId: checkId, emittedActionIds: ["create-private-check", "open-private-check"] };
+  }
+
+  if (input.step.kind === "group-work" && input.step.payload.kind === "group-work") {
+    const payload = input.step.payload.data;
+    if (payload.existingGroupId) {
+      const group = input.state.groups.find((candidate) => candidate.id === payload.existingGroupId && candidate.status !== "archived");
+      if (!group) return { ...record, drifted: true, driftReason: "Missing group" };
+      group.status = "active";
+      group.updatedAt = input.now;
+      return { ...record, createdGroupId: group.id, emittedActionIds: ["update-group"] };
+    }
+    if (!payload.newGroup) return { ...record, drifted: true, driftReason: "Missing group configuration" };
+    const groupId = upsertCreatedLessonGroup(input.state, payload.newGroup, input.actor, input.now, prior?.createdGroupId);
+    return { ...record, createdGroupId: groupId, emittedActionIds: prior?.createdGroupId ? ["update-group", "assign-group"] : ["create-group", "assign-group"] };
+  }
+
+  if (input.step.kind === "timer" && input.step.payload.kind === "timer") {
+    const payload = input.step.payload.data;
+    if (payload.placement === "hud") return record;
+    const manifest = await input.repository.getActiveManifest(input.roomId);
+    if (!hasAnchor(manifest, payload.wallAnchorId)) {
+      return { ...record, drifted: true, driftReason: "Missing timer wall anchor" };
+    }
+    const wallObject = await input.repository.createWallObject({
+      roomId: input.roomId,
+      wallAnchorId: payload.wallAnchorId!,
+      type: "timer",
+      title: payload.label || input.step.title,
+      source: { kind: "inline", data: { seconds: payload.durationSeconds } },
+      placement: { x: 0, y: 0, width: 1, height: 1, zIndex: Date.now() % 1000, fit: "contain" },
+      state: {
+        playback: {
+          status: "playing",
+          positionSeconds: 0,
+          startedAt: input.now,
+          sentAt: Date.now(),
+          rate: 1,
+          muted: false
+        }
+      },
+      permissions: { lessonRunId: input.run.id, lessonStepId: input.step.id },
+      moderation: {},
+      status: "active",
+      createdByUserId: input.actor.userId,
+      updatedByUserId: input.actor.userId
+    });
+    return { ...record, createdWallObjectId: wallObject.id, emittedActionIds: ["create-wall-timer"] };
+  }
+
+  if (input.step.kind === "student-share" && input.step.payload.kind === "student-share") {
+    const payload = input.step.payload.data;
+    const manifest = await input.repository.getActiveManifest(input.roomId);
+    if (!hasAnchor(manifest, payload.wallAnchorId)) {
+      return { ...record, drifted: true, driftReason: "Missing share wall anchor" };
+    }
+    const emittedActionIds: string[] = [];
+    if (payload.acknowledgeHandIfRaised) {
+      const help = input.state.helpRequests.find(
+        (request) => request.userId === payload.userId && (request.status === "raised" || request.status === "acknowledged")
+      );
+      if (help) {
+        help.status = "acknowledged";
+        help.updatedAt = input.now;
+        emittedActionIds.push("acknowledge-help");
+      }
+    }
+    for (const grant of input.state.boardAccessGrants) {
+      if (grant.userId !== payload.userId) continue;
+      if (!isBoardAccessGrantActive(grant, Date.parse(input.now))) continue;
+      grant.status = "revoked";
+      grant.updatedAt = input.now;
+    }
+    const grantId = newId("grant");
+    input.state.boardAccessGrants.unshift({
+      id: grantId,
+      userId: payload.userId,
+      wallAnchorId: payload.wallAnchorId,
+      allowedObjectTypes: payload.allowedObjectTypes,
+      status: "active",
+      expiresAt: payload.expiresAt,
+      createdByUserId: input.actor.userId,
+      createdAt: input.now,
+      updatedAt: input.now
+    });
+    emittedActionIds.push("grant-board-access");
+    return { ...record, createdGrantId: grantId, emittedActionIds };
+  }
+
+  return record;
+}
+
+async function cleanupLessonStep(input: {
+  repository: Repository;
+  roomId: string;
+  state: ClassroomState;
+  run: LessonRun;
+  step: LessonStep;
+  record: LessonRunStepRecord;
+  actor: ClassroomActor;
+  now: string;
+}): Promise<LessonEffectResult> {
+  if (input.step.kind === "focus-board") {
+    if (!spotlightMatchesStep(input.state.spotlight, input.step)) {
+      return { drifted: true, driftReason: "Spotlight changed before cleanup" };
+    }
+    input.state.spotlight = null;
+    return { emittedActionIds: ["clear-spotlight"] };
+  }
+
+  if (input.step.kind === "private-check" && input.step.payload.kind === "private-check") {
+    if (!input.step.payload.data.autoCloseOnAdvance) return {};
+    if (!input.record.createdCheckId) return { drifted: true, driftReason: "Missing private check id" };
+    const check = input.state.privateChecks.find((candidate) => candidate.id === input.record.createdCheckId);
+    if (!check) return { drifted: true, driftReason: "Private check was removed" };
+    if (check.status === "open") {
+      check.status = "closed";
+      check.updatedAt = input.now;
+      return { emittedActionIds: ["close-private-check"] };
+    }
+    return {};
+  }
+
+  if (input.step.kind === "group-work" && input.step.payload.kind === "group-work") {
+    if (!input.step.payload.data.releaseOnAdvance) return {};
+    if (!input.record.createdGroupId) return { drifted: true, driftReason: "Missing group id" };
+    const group = input.state.groups.find((candidate) => candidate.id === input.record.createdGroupId);
+    if (!group) return { drifted: true, driftReason: "Group was removed" };
+    let drifted = false;
+    let driftReason: string | undefined;
+    if (group.status !== "active") {
+      drifted = true;
+      driftReason = "Group was already released";
+    }
+    if (input.step.payload.data.newGroup && !sameStringArray(group.memberUserIds, input.step.payload.data.newGroup.memberUserIds)) {
+      drifted = true;
+      driftReason = "Group membership changed before cleanup";
+    }
+    group.status = "released";
+    group.updatedAt = input.now;
+    return { emittedActionIds: ["release-group"], drifted, ...(driftReason ? { driftReason } : {}) };
+  }
+
+  if (input.step.kind === "timer" && input.step.payload.kind === "timer") {
+    if (input.step.payload.data.placement !== "wall") return {};
+    if (!input.record.createdWallObjectId) return { drifted: true, driftReason: "Missing wall timer id" };
+    const wallObject = await input.repository.getWallObject(input.roomId, input.record.createdWallObjectId);
+    if (!wallObject || wallObject.status === "removed") {
+      return { drifted: true, driftReason: "Wall timer was removed" };
+    }
+    if (wallObject.permissions?.lessonRunId !== input.run.id || wallObject.permissions?.lessonStepId !== input.step.id) {
+      return { drifted: true, driftReason: "Wall timer ownership changed" };
+    }
+    await input.repository.softRemoveWallObject(input.roomId, wallObject.id, { updatedByUserId: input.actor.userId });
+    return { emittedActionIds: ["remove-wall-timer"] };
+  }
+
+  if (input.step.kind === "student-share" && input.step.payload.kind === "student-share") {
+    if (!input.step.payload.data.revokeOnAdvance || !input.record.createdGrantId) return {};
+    const grant = input.state.boardAccessGrants.find((candidate) => candidate.id === input.record.createdGrantId);
+    if (grant?.status === "active") {
+      grant.status = "revoked";
+      grant.updatedAt = input.now;
+      return { emittedActionIds: ["revoke-board-access"] };
+    }
+    return {};
+  }
+
+  return {};
+}
+
+async function completeCurrentLessonStep(input: {
+  repository: Repository;
+  roomId: string;
+  state: ClassroomState;
+  run: LessonRun;
+  actor: ClassroomActor;
+  now: string;
+}) {
+  const step = input.run.steps[input.run.currentStepIndex];
+  if (!step) return;
+  let recordIndex = currentLessonRecordIndex(input.run);
+  if (recordIndex < 0) {
+    input.run.timeline.push({ stepId: step.id, startedAt: input.now, drifted: false, emittedActionIds: [] });
+    recordIndex = input.run.timeline.length - 1;
+  }
+  const record = input.run.timeline[recordIndex]!;
+  const cleanup = await cleanupLessonStep({ ...input, step, record });
+  input.run.timeline[recordIndex] = {
+    ...record,
+    completedAt: input.now,
+    drifted: Boolean(record.drifted || cleanup.drifted),
+    driftReason: cleanup.driftReason ?? record.driftReason,
+    emittedActionIds: [...record.emittedActionIds, ...(cleanup.emittedActionIds ?? [])]
+  };
+}
+
+function filterLessonRunForActor(run: LessonRun | null, actor: ClassroomActor): LessonRun | null {
+  if (!run) return null;
+  if (actor.role === "teacher") return LessonRunSchema.parse(run);
+  const currentStep = run.steps[run.currentStepIndex];
+  const steps = run.steps.map((step, index) => {
+    if (currentStep && index === run.currentStepIndex) {
+      const { notes: _notes, ...visibleStep } = step;
+      return visibleStep;
+    }
+    return {
+      id: step.id,
+      kind: "instruction" as const,
+      title: "Hidden step",
+      payload: { kind: "instruction" as const, data: { body: "" } },
+      createdAt: step.createdAt,
+      updatedAt: step.updatedAt
+    };
+  });
+  return LessonRunSchema.parse({
+    id: run.id,
+    title: run.title,
+    status: run.status,
+    steps,
+    currentStepIndex: run.currentStepIndex,
+    timeline: [],
+    startedAt: run.startedAt,
+    endedAt: run.endedAt,
+    createdByUserId: run.createdByUserId,
+    createdAt: run.createdAt,
+    updatedAt: run.updatedAt
+  });
+}
+
 async function runClassroomAction(input: {
   repository: Repository;
   roomId: string;
   actor: ClassroomActor;
   action: ClassroomAction;
+  lessonsEnabled: boolean;
 }) {
+  if (isLessonAction(input.action) && !input.lessonsEnabled) {
+    throw notFound("Classroom lessons are disabled");
+  }
+
   const current = sanitizeClassroomState(await input.repository.getClassroomState(input.roomId));
   const state: ClassroomState = {
     ...current,
@@ -613,7 +1093,7 @@ async function runClassroomAction(input: {
     privateChecks: current.privateChecks.map((check) => ({ ...check, choices: [...check.choices], responses: [...check.responses], target: { ...check.target } })),
     groups: current.groups.map((group) => ({ ...group, memberUserIds: [...group.memberUserIds], hold: group.hold ? { ...group.hold } : undefined })),
     spotlight: current.spotlight ? { ...current.spotlight } : null,
-    lessonRun: current.lessonRun ? { ...current.lessonRun } : null
+    lessonRun: cloneLessonRun(current.lessonRun)
   };
   const now = new Date().toISOString();
 
@@ -832,6 +1312,178 @@ async function runClassroomAction(input: {
     case "clear-spotlight": {
       requireTeacher(input.actor);
       state.spotlight = null;
+      break;
+    }
+    case "init-lesson-run": {
+      requireTeacher(input.actor);
+      state.lessonRun = {
+        id: newId("lessonrun"),
+        title: input.action.title?.trim() || "Untitled lesson",
+        status: "draft",
+        steps: [],
+        currentStepIndex: -1,
+        timeline: [],
+        createdByUserId: input.actor.userId,
+        createdAt: now,
+        updatedAt: now
+      };
+      break;
+    }
+    case "set-lesson-run-title": {
+      requireTeacher(input.actor);
+      const run = requireLessonRun(state);
+      run.title = input.action.title.trim();
+      touchLessonRun(run, now);
+      break;
+    }
+    case "add-lesson-step": {
+      requireTeacher(input.actor);
+      const run = requireLessonRun(state);
+      const index = clampLessonInsertIndex(run, input.action.index);
+      assertLessonCanEditIndex(run, index, "add");
+      run.steps.splice(index, 0, makeLessonStep(input.action.step, now));
+      if (run.currentStepIndex >= index) run.currentStepIndex += 1;
+      touchLessonRun(run, now);
+      break;
+    }
+    case "update-lesson-step": {
+      requireTeacher(input.actor);
+      const action = input.action as Extract<ClassroomAction, { type: "update-lesson-step" }>;
+      const run = requireLessonRun(state);
+      const index = run.steps.findIndex((step) => step.id === action.stepId);
+      if (index < 0) throw notFound("Lesson step not found");
+      assertLessonCanEditIndex(run, index, "update");
+      const existing = run.steps[index]!;
+      const payload = action.payload ?? existing.payload;
+      const nextKind = payload.kind;
+      run.steps[index] = {
+        ...existing,
+        kind: nextKind,
+        title: action.title ?? existing.title,
+        notes: action.notes?.trim() || (action.notes === "" ? undefined : existing.notes),
+        payload,
+        updatedAt: now
+      };
+      touchLessonRun(run, now);
+      break;
+    }
+    case "move-lesson-step": {
+      requireTeacher(input.actor);
+      const run = requireLessonRun(state);
+      if (input.action.from >= run.steps.length || input.action.to >= run.steps.length) throw badRequest("Lesson step index is out of range");
+      assertLessonCanEditIndex(run, input.action.from, "move");
+      assertLessonCanEditIndex(run, input.action.to, "move");
+      const [step] = run.steps.splice(input.action.from, 1);
+      if (step) run.steps.splice(input.action.to, 0, { ...step, updatedAt: now });
+      touchLessonRun(run, now);
+      break;
+    }
+    case "remove-lesson-step": {
+      requireTeacher(input.actor);
+      const action = input.action as Extract<ClassroomAction, { type: "remove-lesson-step" }>;
+      const run = requireLessonRun(state);
+      const index = run.steps.findIndex((step) => step.id === action.stepId);
+      if (index < 0) throw notFound("Lesson step not found");
+      assertLessonCanEditIndex(run, index, "remove");
+      run.steps.splice(index, 1);
+      if (run.currentStepIndex > index) run.currentStepIndex -= 1;
+      touchLessonRun(run, now);
+      break;
+    }
+    case "start-lesson-run": {
+      requireTeacher(input.actor);
+      const run = requireLessonRun(state);
+      if (run.status === "running") return current;
+      if (run.status !== "draft" && run.status !== "ready") throw conflict("Lesson run cannot be started from its current status");
+      if (run.steps.length === 0) throw badRequest("Add at least one step before starting a lesson run");
+      run.status = "running";
+      run.currentStepIndex = 0;
+      run.startedAt = now;
+      delete run.endedAt;
+      run.updatedAt = now;
+      run.timeline.push(await startLessonStep({ repository: input.repository, roomId: input.roomId, state, run, step: run.steps[0]!, actor: input.actor, now }));
+      break;
+    }
+    case "advance-lesson-step": {
+      requireTeacher(input.actor);
+      const run = requireLessonRun(state);
+      if (run.status !== "running") throw conflict("Lesson run is not running");
+      if (run.currentStepIndex < 0) throw conflict("Lesson run has no current step");
+      await completeCurrentLessonStep({ repository: input.repository, roomId: input.roomId, state, run, actor: input.actor, now });
+      if (run.currentStepIndex >= run.steps.length - 1) {
+        run.status = "ended";
+        run.endedAt = now;
+        run.updatedAt = now;
+        break;
+      }
+      run.currentStepIndex += 1;
+      run.updatedAt = now;
+      run.timeline.push(
+        await startLessonStep({
+          repository: input.repository,
+          roomId: input.roomId,
+          state,
+          run,
+          step: run.steps[run.currentStepIndex]!,
+          actor: input.actor,
+          now
+        })
+      );
+      break;
+    }
+    case "retreat-lesson-step": {
+      requireTeacher(input.actor);
+      const run = requireLessonRun(state);
+      if (run.status !== "running" && run.status !== "paused") throw conflict("Lesson run is not active");
+      if (run.currentStepIndex <= 0) throw conflict("Already at the first lesson step");
+      await completeCurrentLessonStep({ repository: input.repository, roomId: input.roomId, state, run, actor: input.actor, now });
+      run.currentStepIndex -= 1;
+      run.status = "running";
+      run.updatedAt = now;
+      run.timeline.push(
+        await startLessonStep({
+          repository: input.repository,
+          roomId: input.roomId,
+          state,
+          run,
+          step: run.steps[run.currentStepIndex]!,
+          actor: input.actor,
+          now
+        })
+      );
+      break;
+    }
+    case "pause-lesson-run": {
+      requireTeacher(input.actor);
+      const run = requireLessonRun(state);
+      if (run.status !== "running") throw conflict("Lesson run is not running");
+      run.status = "paused";
+      run.updatedAt = now;
+      break;
+    }
+    case "resume-lesson-run": {
+      requireTeacher(input.actor);
+      const run = requireLessonRun(state);
+      if (run.status !== "paused") throw conflict("Lesson run is not paused");
+      run.status = "running";
+      run.updatedAt = now;
+      break;
+    }
+    case "end-lesson-run":
+    case "abandon-lesson-run": {
+      requireTeacher(input.actor);
+      const run = requireLessonRun(state);
+      if (run.status === "running" || run.status === "paused") {
+        await completeCurrentLessonStep({ repository: input.repository, roomId: input.roomId, state, run, actor: input.actor, now });
+      }
+      run.status = input.action.type === "end-lesson-run" ? "ended" : "abandoned";
+      run.endedAt = now;
+      run.updatedAt = now;
+      break;
+    }
+    case "clear-lesson-run": {
+      requireTeacher(input.actor);
+      state.lessonRun = null;
       break;
     }
   }
@@ -1722,7 +2374,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       repository,
       roomId: params.roomId,
       actor,
-      action: body
+      action: body,
+      lessonsEnabled: config.tuning.enableClassroomLessons
     });
     const hydrated = await hydrateClassroomDisplayNames(repository, room.classId, sanitizeClassroomState(state));
     return filterClassroomStateForActor(hydrated, actor);
