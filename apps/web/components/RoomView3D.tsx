@@ -61,6 +61,7 @@ export function RoomView3D({
   privateChecks = [],
   spotlight,
   getAppearance,
+  activeHelpRequestUserIds,
   onSelfClick,
   localWaveTriggered = false,
   onLocalWaveComplete,
@@ -86,6 +87,7 @@ export function RoomView3D({
   privateChecks?: ClassroomPrivateCheck[];
   spotlight?: ClassroomSpotlight | null | undefined;
   getAppearance: (participantId: string) => AvatarAppearance;
+  activeHelpRequestUserIds?: ReadonlySet<string>;
   onSelfClick?: () => void;
   localWaveTriggered?: boolean;
   onLocalWaveComplete?: () => void;
@@ -139,7 +141,7 @@ export function RoomView3D({
               participant={participant}
               {...(group?.color ? { groupColor: group.color } : {})}
               appearance={getAppearance(participant.id)}
-              helpRequestActive={false}
+              helpRequestActive={activeHelpRequestUserIds?.has(participant.id) ?? false}
               waveTriggered={isLocal ? localWaveTriggered : !!(participant.state.waving)}
               onWaveComplete={isLocal && onLocalWaveComplete ? onLocalWaveComplete : () => {}}
               {...(isLocal && onSelfClick ? { onClick: onSelfClick } : {})}

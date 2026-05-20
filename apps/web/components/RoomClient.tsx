@@ -842,6 +842,10 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     .toUpperCase() || "?";
   const roomName = session?.room.name ?? "Joining...";
 
+  const activeHelpRequestUserIds = useMemo(() => {
+    const reqs = classroom.state?.helpRequests ?? [];
+    return new Set(reqs.filter((r) => r.status === "raised" || r.status === "acknowledged").map((r) => r.userId));
+  }, [classroom.state?.helpRequests]);
   const spotlightActive = Boolean(classroom.state?.spotlight);
   const studentGroup = role === "student"
     ? (classroom.state?.groups ?? []).find((g) => g.memberUserIds.includes(identity.userId))
@@ -881,6 +885,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             participants={participantList}
             localParticipantId={session.participantId}
             getAppearance={effectiveGetAppearance}
+            activeHelpRequestUserIds={activeHelpRequestUserIds}
             onSelfClick={() => setAvatarEditorOpen(true)}
             localWaveTriggered={waveTriggered}
             onLocalWaveComplete={() => setWaveTriggered(false)}
