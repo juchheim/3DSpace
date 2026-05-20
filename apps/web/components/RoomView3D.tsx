@@ -3,7 +3,7 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html } from "@react-three/drei";
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
-import { type MeshStandardMaterial, Vector3 } from "three";
+import { BufferAttribute, BufferGeometry, type MeshStandardMaterial, Vector3 } from "three";
 import type { AvatarAppearance, ClassroomGroup, ClassroomPrivateCheck, ClassroomSpotlight, QualityLevel, RoomManifest, WallAnchorSchema, WallObject, WallObjectPlacement, WallPlaneSchema } from "@3dspace/contracts";
 import type { z } from "zod";
 import type { ParticipantView } from "./RoomClient";
@@ -466,6 +466,75 @@ function FollowLocalAvatarCamera({
   return null;
 }
 
+/**
+ * Renders one seating tier as a trapezoidal prism with a ~74° angled front riser
+ * instead of a vertical face, giving a theater-seat look rather than a concrete block.
+ */
+function TierMesh({
+  tier,
+  prevFloorY,
+  roomWidth,
+  color,
+  onMoveToPoint
+}: {
+  tier: { minZ: number; maxZ: number; floorY: number };
+  prevFloorY: number;
+  roomWidth: number;
+  color: string;
+  onMoveToPoint(point: { x: number; z: number }): void;
+}) {
+  const geometry = useMemo(() => {
+    const hw = roomWidth / 2;
+    const rh = tier.floorY - prevFloorY;
+    // Bevel the front riser face at ~28% of rise height → ~74° face angle
+    const bevel = rh * 0.28;
+
+    // 8 vertices: left face (v0-v3) then right face (v4-v7)
+    //   v0/v4 = bottom-front (inset by bevel)
+    //   v1/v5 = top-front
+    //   v2/v6 = top-back
+    //   v3/v7 = bottom-back
+    const pos = new Float32Array([
+      -hw, prevFloorY, tier.minZ - bevel,  // 0
+      -hw, tier.floorY, tier.minZ,          // 1
+      -hw, tier.floorY, tier.maxZ,          // 2
+      -hw, prevFloorY, tier.maxZ,           // 3
+       hw, prevFloorY, tier.minZ - bevel,  // 4
+       hw, tier.floorY, tier.minZ,          // 5
+       hw, tier.floorY, tier.maxZ,          // 6
+       hw, prevFloorY, tier.maxZ,           // 7
+    ]);
+
+    const idx = new Uint16Array([
+      1, 2, 6,   1, 6, 5,   // top face    (+y)
+      0, 1, 5,   0, 5, 4,   // front riser (−z/+y angled)
+      2, 3, 7,   2, 7, 6,   // back face   (+z)
+      0, 2, 1,   0, 3, 2,   // left cap    (−x)
+      4, 5, 6,   4, 6, 7,   // right cap   (+x)
+      0, 4, 7,   0, 7, 3,   // bottom face (−y)
+    ]);
+
+    const geo = new BufferGeometry();
+    geo.setAttribute("position", new BufferAttribute(pos, 3));
+    geo.setIndex(new BufferAttribute(idx, 1));
+    geo.computeVertexNormals();
+    return geo;
+  }, [tier, prevFloorY, roomWidth]);
+
+  return (
+    <mesh
+      geometry={geometry}
+      receiveShadow
+      onClick={(event) => {
+        event.stopPropagation();
+        onMoveToPoint({ x: event.point.x, z: event.point.z });
+      }}
+    >
+      <meshStandardMaterial color={color} roughness={0.92} />
+    </mesh>
+  );
+}
+
 function RoomGeometry({
   manifest,
   onMoveToPoint,
@@ -500,23 +569,19 @@ function RoomGeometry({
         args={[Math.max(manifest.dimensions.width, manifest.dimensions.depth), 24, "#4c6b58", "#31473b"]}
         position={[0, 0.01, 0]}
       />
-      {/* Raised tier platforms — each box spans from absolute y=0 up to floorY, creating step risers */}
+      {/* Raised tier platforms with angled front risers for a theater-seat appearance */}
       {manifest.tiers?.map((tier, i) => {
-        const depth = tier.maxZ - tier.minZ;
-        const centerZ = (tier.minZ + tier.maxZ) / 2;
+        const prevFloorY = i === 0 ? 0 : manifest.tiers![i - 1]!.floorY;
+        const tierColors = ["#cac0a2", "#bfb498"];
         return (
-          <mesh
+          <TierMesh
             key={`tier-${i}`}
-            position={[0, tier.floorY / 2, centerZ]}
-            receiveShadow
-            onClick={(event) => {
-              event.stopPropagation();
-              onMoveToPoint({ x: event.point.x, z: event.point.z });
-            }}
-          >
-            <boxGeometry args={[manifest.dimensions.width, tier.floorY, depth]} />
-            <meshStandardMaterial color={i % 2 === 0 ? "#cfc0a0" : "#c4b496"} roughness={0.94} />
-          </mesh>
+            tier={tier}
+            prevFloorY={prevFloorY}
+            roomWidth={manifest.dimensions.width}
+            color={tierColors[i % tierColors.length]!}
+            onMoveToPoint={onMoveToPoint}
+          />
         );
       })}
       {manifest.walls.map((wall) => <WallMesh key={wall.id} wall={wall} />)}
