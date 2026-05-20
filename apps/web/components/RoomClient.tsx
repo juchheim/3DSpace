@@ -126,6 +126,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const [avatarEditorOpen, setAvatarEditorOpen] = useState(false);
   const [localDraftAppearance, setLocalDraftAppearance] = useState<AvatarAppearance | null>(null);
   const [waveTriggered, setWaveTriggered] = useState(false);
+  const waveTriggeredRef = useRef(false);
+  waveTriggeredRef.current = waveTriggered;
   const publishRealtime = useCallback((message: RealtimeMessage) => {
     realtimeRef.current?.publish(message);
   }, []);
@@ -518,7 +520,10 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   useEffect(() => {
     if (!session) return;
     const interval = window.setInterval(() => {
-      if (avatarStateRef.current) realtimeRef.current?.publish(avatarStateRef.current);
+      const state = avatarStateRef.current;
+      if (!state) return;
+      const waving = waveTriggeredRef.current || undefined;
+      realtimeRef.current?.publish(waving ? { ...state, waving } : state);
     }, Math.max(60, 1000 / session.tuning.avatarSendHz));
     return () => window.clearInterval(interval);
   }, [session?.participantId, session?.tuning.avatarSendHz]);

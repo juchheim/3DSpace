@@ -140,7 +140,7 @@ export function RoomView3D({
               {...(group?.color ? { groupColor: group.color } : {})}
               appearance={getAppearance(participant.id)}
               helpRequestActive={false}
-              waveTriggered={isLocal ? localWaveTriggered : false}
+              waveTriggered={isLocal ? localWaveTriggered : !!(participant.state.waving)}
               onWaveComplete={isLocal && onLocalWaveComplete ? onLocalWaveComplete : () => {}}
               {...(isLocal && onSelfClick ? { onClick: onSelfClick } : {})}
             />

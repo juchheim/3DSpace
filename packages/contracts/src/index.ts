@@ -317,6 +317,7 @@ export const AvatarStateMessageSchema = z.object({
   rotation: RotationSchema,
   movement: AvatarMovementSchema,
   viewMode: ViewModeSchema,
+  waving: z.boolean().optional(),
   media: z.object({
     cameraEnabled: z.boolean(),
     microphoneEnabled: z.boolean(),
