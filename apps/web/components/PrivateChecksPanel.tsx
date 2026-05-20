@@ -39,6 +39,7 @@ export function PrivateChecksPanel({
   loading,
   currentUserId,
   manifest,
+  forceExpanded = false,
   onRunAction
 }: {
   role: Role;
@@ -46,6 +47,7 @@ export function PrivateChecksPanel({
   loading: boolean;
   currentUserId?: string | undefined;
   manifest?: RoomManifest | null | undefined;
+  forceExpanded?: boolean;
   onRunAction(action: ClassroomAction): Promise<void>;
 }) {
   const [busy, setBusy] = useState("");
@@ -241,7 +243,13 @@ export function PrivateChecksPanel({
   }
 
   return (
-    <HudCard title="Private Checks" badge={loading ? "…" : activeStudentChecks.length} ariaLabel="Private checks" defaultCollapsed={true}>
+    <HudCard
+      title="Private Checks"
+      badge={loading ? "…" : activeStudentChecks.length}
+      ariaLabel="Private checks"
+      defaultCollapsed={true}
+      forceExpanded={forceExpanded}
+    >
       {activeStudentChecks.length === 0 ? <p className="small">No active checks right now.</p> : null}
       <ul className="classroom-help-list" role="list">
         {activeStudentChecks.map((check) => {

@@ -1,21 +1,28 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 export function HudCard({
   title,
   badge,
   ariaLabel,
   defaultCollapsed = false,
+  forceExpanded = false,
   children
 }: {
   title: string;
   badge?: ReactNode;
   ariaLabel?: string;
   defaultCollapsed?: boolean;
+  forceExpanded?: boolean;
   children: ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
+
+  useEffect(() => {
+    if (!forceExpanded) return;
+    setCollapsed(false);
+  }, [forceExpanded]);
 
   return (
     <div className={`hud-card${collapsed ? " hud-card--collapsed" : ""}`} aria-label={ariaLabel}>

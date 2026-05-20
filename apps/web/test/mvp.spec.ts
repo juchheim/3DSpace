@@ -148,12 +148,13 @@ test("teacher can author and run a three-step lesson while a student joins mid-r
   test.setTimeout(90_000);
   const { room, invite } = await createRoomWithInvite(request);
   await setIdentity(page, TEACHER);
-  await page.goto(`/rooms/${room.id}`, { waitUntil: "domcontentloaded" });
+  await page.goto(`/rooms/${room.id}`, { waitUntil: "commit" });
   await expect(page.getByTestId("participant-dev-teacher")).toContainText("Ms. Rivera", { timeout: 20_000 });
 
   await page.getByTestId("lesson-run-title").fill("Forces warmup");
   await page.getByTestId("init-lesson-run").click();
   await expect(page.getByText("Lesson Script")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("lesson-script-dock")).toBeVisible({ timeout: 10_000 });
 
   await page.getByTestId("add-lesson-step-instruction").click();
   await page.getByTestId("lesson-instruction-body").fill("Read the diagram silently.");
@@ -169,7 +170,7 @@ test("teacher can author and run a three-step lesson while a student joins mid-r
 
   const studentPage = await context.newPage();
   await setIdentity(studentPage, STUDENT);
-  await studentPage.goto(`/rooms/${room.id}?invite=${invite.code}`, { waitUntil: "domcontentloaded" });
+  await studentPage.goto(`/rooms/${room.id}?invite=${invite.code}`, { waitUntil: "commit" });
   await expect(studentPage.getByTestId("participant-dev-student")).toContainText("Avery Student", { timeout: 20_000 });
   await expect(studentPage.getByTestId("lesson-student-callout")).toContainText("Step 2 of 3", { timeout: 10_000 });
   await expect(studentPage.getByTestId("lesson-student-callout")).toContainText("Use this board");
@@ -177,13 +178,14 @@ test("teacher can author and run a three-step lesson while a student joins mid-r
   await page.getByTestId("advance-lesson-step").click();
   await expect(page.getByTestId("lesson-run-current")).toContainText("Quick check", { timeout: 10_000 });
   await expect(studentPage.getByTestId("lesson-student-callout")).toContainText("Answer the active check", { timeout: 10_000 });
+  await expect(studentPage.getByLabel("Private checks")).toContainText("What do you notice?", { timeout: 10_000 });
   await page.getByTestId("advance-lesson-step").click();
   await expect(page.getByTestId("lesson-timeline")).toContainText("Quick check", { timeout: 10_000 });
 });
 
-test("lesson hud timers remain visible after advancing to the next step", async ({ page, request }) => {
+test("lesson hud timers remain visible after advancing to the next step", async ({ context, page, request }) => {
   test.setTimeout(60_000);
-  const { room } = await createRoomWithInvite(request);
+  const { room, invite } = await createRoomWithInvite(request);
   await setIdentity(page, TEACHER);
   await page.goto(`/rooms/${room.id}`, { waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("participant-dev-teacher")).toContainText("Ms. Rivera", { timeout: 20_000 });
@@ -200,9 +202,33 @@ test("lesson hud timers remain visible after advancing to the next step", async 
   await expect(page.getByTestId("lesson-run-current")).toContainText("Work timer", { timeout: 10_000 });
   await expect(page.getByTestId("lesson-timer-hud")).toContainText("Work time");
 
+  const studentPage = await context.newPage();
+  await setIdentity(studentPage, STUDENT);
+  await studentPage.goto(`/rooms/${room.id}?invite=${invite.code}`, { waitUntil: "domcontentloaded" });
+  await expect(studentPage.getByTestId("participant-dev-student")).toContainText("Avery Student", { timeout: 20_000 });
+  await expect(studentPage.getByTestId("lesson-timer-hud")).toContainText("Work time", { timeout: 10_000 });
+
   await page.getByTestId("advance-lesson-step").click();
   await expect(page.getByTestId("lesson-run-current")).toContainText("Instruction", { timeout: 10_000 });
   await expect(page.getByTestId("lesson-timer-hud")).toContainText("Work time");
+  await expect(studentPage.getByTestId("lesson-timer-hud")).toContainText("Work time", { timeout: 10_000 });
+});
+
+test("lesson quick-check multiple-choice choices accept new lines", async ({ page, request }) => {
+  const { room } = await createRoomWithInvite(request);
+  await setIdentity(page, TEACHER);
+  await page.goto(`/rooms/${room.id}`, { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("participant-dev-teacher")).toContainText("Ms. Rivera", { timeout: 20_000 });
+
+  await page.getByTestId("lesson-run-title").fill("Choice authoring");
+  await page.getByTestId("init-lesson-run").click();
+  await page.getByTestId("add-lesson-step-private-check").click();
+  await page.getByLabel("Prompt type").selectOption("multiple-choice");
+  const choices = page.getByLabel("Choices, one per line");
+  await choices.fill("A");
+  await choices.press("Enter");
+  await choices.type("B");
+  await expect(choices).toHaveValue("A\nB");
 });
 
 test("group-work lesson steps assign students to a board zone", async ({ context, page, request }) => {

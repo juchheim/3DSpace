@@ -1162,6 +1162,7 @@ function filterLessonRunForActor(run: LessonRun | null, actor: ClassroomActor): 
     steps,
     currentStepIndex: run.currentStepIndex,
     timeline: [],
+    activeTimer: run.activeTimer,
     startedAt: run.startedAt,
     endedAt: run.endedAt,
     createdByUserId: run.createdByUserId,

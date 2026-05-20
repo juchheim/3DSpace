@@ -809,6 +809,11 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const handRaised = role === "student"
     ? Boolean(classroom.activeHelpRequest)
     : false;
+  const studentQuickCheckActive =
+    role === "student" &&
+    (lesson.run?.status === "running" || lesson.run?.status === "paused") &&
+    lesson.currentStep?.kind === "private-check";
+  const detailPanelOpen = Boolean(helpBoardAccessUserId || selectedStudentId);
 
   return (
     <main className="app-shell room-shell">
@@ -1013,20 +1018,22 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
                 error={lesson.error}
                 runAction={lesson.runAction}
               />
-              <LessonAuthoringPanel
-                run={lesson.run}
-                state={classroom.state}
-                manifest={manifest}
-                participants={participantList.map((participant) => ({
-                  id: participant.id,
-                  displayName: participant.displayName,
-                  role: participant.role
-                }))}
-                loading={lesson.loading}
-                error={lesson.error}
-                runAction={lesson.runAction}
-                stepStatus={lesson.stepStatus}
-              />
+              {!lesson.run ? (
+                <LessonAuthoringPanel
+                  run={lesson.run}
+                  state={classroom.state}
+                  manifest={manifest}
+                  participants={participantList.map((participant) => ({
+                    id: participant.id,
+                    displayName: participant.displayName,
+                    role: participant.role
+                  }))}
+                  loading={lesson.loading}
+                  error={lesson.error}
+                  runAction={lesson.runAction}
+                  stepStatus={lesson.stepStatus}
+                />
+              ) : null}
               <LessonTimelinePanel run={lesson.run} />
             </>
           ) : null}
@@ -1036,6 +1043,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             loading={classroom.loading}
             currentUserId={identity.userId}
             manifest={manifest}
+            forceExpanded={studentQuickCheckActive}
             onRunAction={async (action) => {
               await classroom.runAction(action);
             }}
@@ -1097,6 +1105,30 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           ) : null}
         </div>
       </aside>
+      {CLIENT_TUNING.enableClassroomLessons && role === "teacher" && lesson.run ? (
+        <aside
+          className={`room-hud-right-secondary${detailPanelOpen ? " room-hud-right-secondary--stacked" : ""}`}
+          aria-label="Lesson script"
+          data-testid="lesson-script-dock"
+        >
+          <div className="hud-panel">
+            <LessonAuthoringPanel
+              run={lesson.run}
+              state={classroom.state}
+              manifest={manifest}
+              participants={participantList.map((participant) => ({
+                id: participant.id,
+                displayName: participant.displayName,
+                role: participant.role
+              }))}
+              loading={lesson.loading}
+              error={lesson.error}
+              runAction={lesson.runAction}
+              stepStatus={lesson.stepStatus}
+            />
+          </div>
+        </aside>
+      ) : null}
       {(() => {
         if (helpBoardAccessUserId && manifest && classroom.state) {
           const helpStudent = participantList.find((p) => p.id === helpBoardAccessUserId) ?? null;

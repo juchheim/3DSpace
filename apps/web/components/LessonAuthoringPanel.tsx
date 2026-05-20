@@ -150,12 +150,22 @@ function LessonStepEditor({
   const [title, setTitle] = useState(step.title);
   const [notes, setNotes] = useState(step.notes ?? "");
   const [payload, setPayload] = useState<LessonStepPayload>(step.payload);
+  const [multipleChoiceText, setMultipleChoiceText] = useState(
+    step.payload.kind === "private-check" && step.payload.data.promptType === "multiple-choice"
+      ? step.payload.data.choices.map((choice) => choice.label).join("\n")
+      : ""
+  );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setTitle(step.title);
     setNotes(step.notes ?? "");
     setPayload(step.payload);
+    setMultipleChoiceText(
+      step.payload.kind === "private-check" && step.payload.data.promptType === "multiple-choice"
+        ? step.payload.data.choices.map((choice) => choice.label).join("\n")
+        : ""
+    );
     // Only reset when the selected step changes, not on every server sync.
     // Including step.title/notes/payload caused real-time updates to wipe
     // in-progress edits because new object references triggered the effect.
@@ -164,6 +174,16 @@ function LessonStepEditor({
 
   function setData(patch: Record<string, unknown>) {
     setPayload((current) => ({ ...current, data: { ...current.data, ...patch } } as LessonStepPayload));
+  }
+
+  function updateMultilineChoiceText(nextValue: string) {
+    setMultipleChoiceText(nextValue);
+    setData({
+      choices: nextValue
+        .split("\n")
+        .map((label, index) => ({ id: `choice-${index + 1}`, label: label.trim() }))
+        .filter((choice) => choice.label)
+    });
   }
 
   function setGroupDraft(
@@ -272,15 +292,8 @@ function LessonStepEditor({
               <span>Choices, one per line</span>
               <textarea
                 rows={4}
-                value={payload.data.choices.map((choice) => choice.label).join("\n")}
-                onChange={(event) =>
-                  setData({
-                    choices: event.target.value
-                      .split("\n")
-                      .map((label, index) => ({ id: `choice-${index + 1}`, label: label.trim() }))
-                      .filter((choice) => choice.label)
-                  })
-                }
+                value={multipleChoiceText}
+                onChange={(event) => updateMultilineChoiceText(event.target.value)}
               />
             </label>
           ) : null}

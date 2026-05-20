@@ -565,6 +565,31 @@ label {
   display: contents;
 }
 
+.room-hud-right-secondary {
+  position: absolute;
+  right: calc(var(--hud-pw) + 12px);
+  top: calc(var(--hud-th) + 12px);
+  bottom: 6px;
+  width: var(--hud-pw);
+  z-index: 19;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  pointer-events: none;
+}
+
+.room-hud-right-secondary > * {
+  pointer-events: auto;
+}
+
+.room-hud-right-secondary::-webkit-scrollbar {
+  display: none;
+}
+
+.room-hud-right-secondary--stacked {
+  right: calc((var(--hud-pw) * 2) + 18px);
+}
+
 .student-detail-panel {
   position: absolute;
   right: calc(var(--hud-pw) + 11px);
@@ -2217,6 +2242,10 @@ button.hud-heading-btn:hover {
 
 @media (max-width: 640px) {
   .room-hud-right {
+    display: none;
+  }
+
+  .room-hud-right-secondary {
     display: none;
   }
 }

@@ -1725,7 +1725,8 @@ describe("3dspace api", () => {
       config: lessonConfig(),
       repository: new MemoryRepository()
     });
-    const { roomWithManifest } = await createClassAndRoom(app, "teacher-lesson-hud-timer");
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-lesson-hud-timer");
+    await addStudentMember(app, classRecord.id, "teacher-lesson-hud-timer", "student-lesson-hud-timer", "Avery");
     const roomId = roomWithManifest.room.id;
 
     let state = await classroomAction(app, roomId, "teacher-lesson-hud-timer", { type: "init-lesson-run", expectedVersion: 1, title: "Timer overlap" });
@@ -1761,10 +1762,34 @@ describe("3dspace api", () => {
       placement: "hud"
     });
 
+    const studentRunningView = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomId}/classroom`,
+      headers: authHeaders("student-lesson-hud-timer", "Avery")
+    });
+    expect(studentRunningView.statusCode).toBe(200);
+    expect(studentRunningView.json().lessonRun.activeTimer).toMatchObject({
+      stepId: timerStepId,
+      label: "Independent work",
+      placement: "hud"
+    });
+
     state = await classroomAction(app, roomId, "teacher-lesson-hud-timer", { type: "advance-lesson-step", expectedVersion: state.version });
     expect(state.lessonRun.status).toBe("running");
     expect(state.lessonRun.currentStepIndex).toBe(1);
     expect(state.lessonRun.activeTimer).toMatchObject({
+      stepId: timerStepId,
+      label: "Independent work",
+      placement: "hud"
+    });
+
+    const studentAdvancedView = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomId}/classroom`,
+      headers: authHeaders("student-lesson-hud-timer", "Avery")
+    });
+    expect(studentAdvancedView.statusCode).toBe(200);
+    expect(studentAdvancedView.json().lessonRun.activeTimer).toMatchObject({
       stepId: timerStepId,
       label: "Independent work",
       placement: "hud"
