@@ -448,6 +448,12 @@ async function hydrateClassroomDisplayNames(repository: Repository, classId: str
 }
 
 function sanitizeClassroomState(state: ClassroomState): ClassroomState {
+  const normalizedLessonRun = (() => {
+    if (state.lessonRun == null) return null;
+    const parsed = LessonRunSchema.safeParse(state.lessonRun);
+    return parsed.success ? parsed.data : null;
+  })();
+
   return ClassroomStateSchema.parse({
     ...state,
     helpRequests: state.helpRequests.map((request) => ({
@@ -532,7 +538,7 @@ function sanitizeClassroomState(state: ClassroomState): ClassroomState {
             ...(typeof state.spotlight.expiresAt === "string" ? { expiresAt: state.spotlight.expiresAt } : {})
           }
         : null,
-    lessonRun: state.lessonRun ?? null
+    lessonRun: normalizedLessonRun
   });
 }
 

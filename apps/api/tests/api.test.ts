@@ -846,6 +846,41 @@ describe("3dspace api", () => {
     await app.close();
   });
 
+  it("coerces legacy invalid lessonRun payloads to null on classroom reads", async () => {
+    const repository = new MemoryRepository();
+    const app = await buildApp({
+      config: lessonConfig(),
+      repository
+    });
+    const { roomWithManifest } = await createClassAndRoom(app, "teacher-classroom-legacy-lesson");
+
+    await repository.updateClassroomState(roomWithManifest.room.id, {
+      state: {
+        roomId: roomWithManifest.room.id,
+        version: 1,
+        helpRequests: [],
+        boardAccessGrants: [],
+        privateChecks: [],
+        groups: [],
+        spotlight: null,
+        lessonRun: {} as any,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom`,
+      headers: authHeaders("teacher-classroom-legacy-lesson", "Ms. Rivera")
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().lessonRun).toBeNull();
+
+    await app.close();
+  });
+
   it("filters classroom state for students and preserves teacher visibility", async () => {
     const app = await buildApp({
       config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
