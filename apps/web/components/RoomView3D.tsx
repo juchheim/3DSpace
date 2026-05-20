@@ -426,7 +426,8 @@ function FollowLocalAvatarCamera({
     const yaw = cameraYawRef.current;
     const pitch = cameraPitchRef.current;
     const horizontalDistance = followDistance * Math.cos(pitch);
-    const height = avatarY + lookAtHeight + followDistance * Math.sin(pitch);
+    // Clamp height so the camera never clips through the floor tier the avatar stands on.
+    const height = Math.max(avatarY + 0.25, avatarY + lookAtHeight + followDistance * Math.sin(pitch));
 
     desiredPosition.set(
       position.x - Math.sin(yaw) * horizontalDistance,

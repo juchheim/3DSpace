@@ -5,7 +5,7 @@ import { useCallback, useRef } from "react";
 
 const YAW_SENSITIVITY = 0.004;
 const PITCH_SENSITIVITY = 0.003;
-const MIN_PITCH = 0.18;
+const MIN_PITCH = -0.55;
 const MAX_PITCH = 1.22;
 const DRAG_CLICK_THRESHOLD_PX = 5;
 
