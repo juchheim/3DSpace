@@ -156,7 +156,7 @@ export function BlockyAvatar({
       ra.rotation.x = MathUtils.lerp(ra.rotation.x, WAVE_BASE + oscillation * envelope, delta * 8);
       ra.rotation.z = MathUtils.lerp(ra.rotation.z, -(Math.PI / 3) * envelope, delta * 8);
     } else if (helpRequestActive) {
-      ra.rotation.x = MathUtils.lerp(ra.rotation.x, Math.PI * 0.80, delta * 6);
+      ra.rotation.x = MathUtils.lerp(ra.rotation.x, -Math.PI * 0.80, delta * 6);
       ra.rotation.z = MathUtils.lerp(ra.rotation.z, 0, delta * 6);
     } else {
       ra.rotation.x = MathUtils.lerp(ra.rotation.x, rightArmWalk, delta * 8);
