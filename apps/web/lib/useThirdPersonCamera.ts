@@ -8,6 +8,7 @@ const PITCH_SENSITIVITY = 0.003;
 const MIN_PITCH = -0.55;
 const MAX_PITCH = 1.22;
 const DRAG_CLICK_THRESHOLD_PX = 5;
+const TAP_MAX_DURATION_MS = 200;
 
 function isInteractivePointerTarget(target: EventTarget | null) {
   if (!(target instanceof Element)) return false;
@@ -24,10 +25,12 @@ export function useThirdPersonCamera(input: { viewMode: ViewMode }) {
   const draggingRef = useRef(false);
   const suppressClickRef = useRef(false);
   const lastPointerRef = useRef({ x: 0, y: 0 });
+  const pointerDownTimeRef = useRef(0);
   const lockedRef = useRef(false);
 
   const consumeClickSuppress = useCallback(() => {
-    if (!suppressClickRef.current) return false;
+    const heldTooLong = Date.now() - pointerDownTimeRef.current > TAP_MAX_DURATION_MS;
+    if (!suppressClickRef.current && !heldTooLong) return false;
     suppressClickRef.current = false;
     return true;
   }, []);
@@ -42,6 +45,7 @@ export function useThirdPersonCamera(input: { viewMode: ViewMode }) {
         if (isInteractivePointerTarget(event.target)) return;
         draggingRef.current = true;
         suppressClickRef.current = false;
+        pointerDownTimeRef.current = Date.now();
         lastPointerRef.current = { x: event.clientX, y: event.clientY };
         target.setPointerCapture(event.pointerId);
         target.classList.add("dragging");
