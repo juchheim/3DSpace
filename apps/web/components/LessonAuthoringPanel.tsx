@@ -567,7 +567,12 @@ export function LessonAuthoringPanel({
   async function execute(label: string, action: ClassroomAction) {
     setBusy(label);
     try {
-      await runAction(action);
+      const result = await runAction(action);
+      if (action.type === "add-lesson-step") {
+        const next = result as { lessonRun?: { steps?: Array<{ id: string }> } | null };
+        const newStepId = next?.lessonRun?.steps?.at(-1)?.id;
+        if (newStepId) setSelectedStepId(newStepId);
+      }
     } finally {
       setBusy("");
     }
