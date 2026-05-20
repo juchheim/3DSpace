@@ -146,7 +146,7 @@ export function RoomView3D({
               helpRequestActive={activeHelpRequestUserIds?.has(participant.id) ?? false}
               waveTriggered={isLocal ? localWaveTriggered : !!(participant.state.waving)}
               onWaveComplete={isLocal && onLocalWaveComplete ? onLocalWaveComplete : () => {}}
-              {...(isLocal && onSelfClick ? { onClick: onSelfClick } : {})}
+              {...(isLocal && onSelfClick && !firstPerson ? { onClick: onSelfClick } : {})}
               {...(isLocal && firstPerson ? { hidden: true } : {})}
             />
           );
