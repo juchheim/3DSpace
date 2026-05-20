@@ -21,6 +21,8 @@ const STEP_KINDS: Array<{ kind: LessonStepKind; label: string }> = [
 ];
 
 const SHARE_TYPES: WallObjectType[] = ["note", "image.file", "whiteboard", "camera.live", "screen.live"];
+const DEFAULT_GROUP_COLOR = "#389060";
+const DEFAULT_GROUP_HOLD = { enabled: true, mode: "hard" as const, radiusMeters: 2.5 };
 
 function firstAnchorId(manifest: RoomManifest | null | undefined) {
   return manifest?.wallAnchors[0]?.id ?? "";
@@ -51,6 +53,7 @@ function defaultStep(kind: LessonStepKind, manifest: RoomManifest | null | undef
           promptType: "short-answer",
           choices: [],
           target: { kind: "all", userIds: [] },
+          wallAnchorId: anchorId || undefined,
           autoCloseOnAdvance: true
         }
       }
@@ -63,7 +66,13 @@ function defaultStep(kind: LessonStepKind, manifest: RoomManifest | null | undef
       payload: {
         kind,
         data: {
-          newGroup: { label: "Team A", color: "#389060", memberUserIds: participants.filter((p) => p.role === "student").map((p) => p.id) },
+          newGroup: {
+            label: "Team A",
+            color: DEFAULT_GROUP_COLOR,
+            memberUserIds: participants.filter((p) => p.role === "student").map((p) => p.id),
+            targetWallAnchorId: anchorId || undefined,
+            hold: anchorId ? DEFAULT_GROUP_HOLD : undefined
+          },
           releaseOnAdvance: true
         }
       }
@@ -93,6 +102,18 @@ function defaultStep(kind: LessonStepKind, manifest: RoomManifest | null | undef
 
 function stepKindLabel(kind: LessonStepKind) {
   return STEP_KINDS.find((candidate) => candidate.kind === kind)?.label ?? kind;
+}
+
+function isNonArchivedGroup(group: NonNullable<ClassroomState["groups"]>[number]) {
+  return group.status !== "archived";
+}
+
+function groupTargetBoardLabel(
+  targetWallAnchorId: string | undefined,
+  manifest: RoomManifest | null | undefined
+) {
+  if (!targetWallAnchorId) return "";
+  return manifest?.wallAnchors.find((anchor) => anchor.id === targetWallAnchorId)?.label ?? targetWallAnchorId;
 }
 
 function brokenAssetMessage(step: LessonStep, manifest: RoomManifest | null | undefined, state: ClassroomState | null, participants: ParticipantOption[]) {
@@ -135,10 +156,30 @@ function LessonStepEditor({
     setTitle(step.title);
     setNotes(step.notes ?? "");
     setPayload(step.payload);
-  }, [step.id, step.title, step.notes, step.payload]);
+    // Only reset when the selected step changes, not on every server sync.
+    // Including step.title/notes/payload caused real-time updates to wipe
+    // in-progress edits because new object references triggered the effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step.id]);
 
   function setData(patch: Record<string, unknown>) {
     setPayload((current) => ({ ...current, data: { ...current.data, ...patch } } as LessonStepPayload));
+  }
+
+  function setGroupDraft(
+    updater: (
+      current: NonNullable<Extract<LessonStepPayload, { kind: "group-work" }>["data"]["newGroup"]>
+    ) => NonNullable<Extract<LessonStepPayload, { kind: "group-work" }>["data"]["newGroup"]>
+  ) {
+    if (payload.kind !== "group-work") return;
+    const currentGroup = payload.data.newGroup ?? {
+      label: "Team",
+      color: DEFAULT_GROUP_COLOR,
+      memberUserIds: [],
+      targetWallAnchorId: firstAnchorId(manifest) || undefined,
+      hold: firstAnchorId(manifest) ? DEFAULT_GROUP_HOLD : undefined
+    };
+    setData({ existingGroupId: undefined, newGroup: updater(currentGroup) });
   }
 
   async function save() {
@@ -219,6 +260,13 @@ function LessonStepEditor({
               <option value="confidence">Confidence</option>
             </select>
           </label>
+          <label>
+            <span>Board</span>
+            <select value={payload.data.wallAnchorId ?? ""} onChange={(event) => setData({ wallAnchorId: event.target.value || undefined })}>
+              <option value="">No board</option>
+              {(manifest?.wallAnchors ?? []).map((anchor) => <option key={anchor.id} value={anchor.id}>{anchor.label}</option>)}
+            </select>
+          </label>
           {payload.data.promptType === "multiple-choice" ? (
             <label>
               <span>Choices, one per line</span>
@@ -246,18 +294,84 @@ function LessonStepEditor({
       {payload.kind === "group-work" ? (
         <>
           <label>
+            <span>Source</span>
+            <select
+              value={payload.data.existingGroupId ? "existing" : "new"}
+              onChange={(event) => {
+                if (event.target.value === "existing") {
+                  const existingGroup = (state?.groups ?? []).find(isNonArchivedGroup);
+                  setData({ existingGroupId: existingGroup?.id ?? "", newGroup: undefined });
+                  return;
+                }
+                setData({
+                  existingGroupId: undefined,
+                  newGroup: {
+                    label: "Team A",
+                    color: DEFAULT_GROUP_COLOR,
+                    memberUserIds: participants.filter((participant) => participant.role === "student").map((participant) => participant.id),
+                    targetWallAnchorId: firstAnchorId(manifest) || undefined,
+                    hold: firstAnchorId(manifest) ? DEFAULT_GROUP_HOLD : undefined
+                  }
+                });
+              }}
+            >
+              <option value="new">Create lesson group</option>
+              <option value="existing" disabled={!state?.groups.some(isNonArchivedGroup)}>Reuse existing group</option>
+            </select>
+          </label>
+          {payload.data.existingGroupId ? (
+            <>
+              <label>
+                <span>Group</span>
+                <select value={payload.data.existingGroupId} onChange={(event) => setData({ existingGroupId: event.target.value, newGroup: undefined })}>
+                  {(state?.groups ?? []).filter(isNonArchivedGroup).map((group) => <option key={group.id} value={group.id}>{group.label}</option>)}
+                </select>
+              </label>
+              {(() => {
+                const existingGroup = (state?.groups ?? []).find((group) => group.id === payload.data.existingGroupId);
+                if (!existingGroup) return <p className="small">This step references a missing group.</p>;
+                const boardLabel = groupTargetBoardLabel(existingGroup.targetWallAnchorId, manifest);
+                return (
+                  <p className="small">
+                    {existingGroup.memberUserIds.length} member{existingGroup.memberUserIds.length === 1 ? "" : "s"}
+                    {boardLabel ? ` • board: ${boardLabel}` : ""}
+                    {existingGroup.hold?.enabled ? " • locked in room" : ""}
+                  </p>
+                );
+              })()}
+            </>
+          ) : null}
+          {payload.data.newGroup ? (
+            <>
+          <label>
             <span>Group label</span>
             <input
               value={payload.data.newGroup?.label ?? ""}
-              onChange={(event) => setData({ existingGroupId: undefined, newGroup: { ...(payload.kind === "group-work" ? payload.data.newGroup : undefined), label: event.target.value, color: payload.data.newGroup?.color ?? "#389060", memberUserIds: payload.data.newGroup?.memberUserIds ?? [] } })}
+              onChange={(event) => setGroupDraft((current) => ({ ...current, label: event.target.value }))}
             />
           </label>
           <label>
             <span>Color</span>
             <input
-              value={payload.data.newGroup?.color ?? "#389060"}
-              onChange={(event) => setData({ existingGroupId: undefined, newGroup: { ...(payload.kind === "group-work" ? payload.data.newGroup : undefined), label: payload.data.newGroup?.label ?? "Team", color: event.target.value, memberUserIds: payload.data.newGroup?.memberUserIds ?? [] } })}
+              value={payload.data.newGroup?.color ?? DEFAULT_GROUP_COLOR}
+              onChange={(event) => setGroupDraft((current) => ({ ...current, color: event.target.value }))}
             />
+          </label>
+          <label>
+            <span>Work board</span>
+            <select
+              value={payload.data.newGroup.targetWallAnchorId ?? ""}
+              onChange={(event) =>
+                setGroupDraft((current) => ({
+                  ...current,
+                  targetWallAnchorId: event.target.value || undefined,
+                  hold: event.target.value ? current.hold ?? DEFAULT_GROUP_HOLD : current.hold
+                }))
+              }
+            >
+              <option value="">No board</option>
+              {(manifest?.wallAnchors ?? []).map((anchor) => <option key={anchor.id} value={anchor.id}>{anchor.label}</option>)}
+            </select>
           </label>
           <div className="lesson-member-list">
             {participants.filter((participant) => participant.role === "student").map((participant) => {
@@ -270,7 +384,7 @@ function LessonStepEditor({
                     checked={checked}
                     onChange={(event) => {
                       const nextMembers = event.target.checked ? [...members, participant.id] : members.filter((id) => id !== participant.id);
-                      setData({ existingGroupId: undefined, newGroup: { ...(payload.data.newGroup ?? { label: "Team", color: "#389060" }), memberUserIds: nextMembers } });
+                      setGroupDraft((current) => ({ ...current, memberUserIds: nextMembers }));
                     }}
                   />
                   <span>{participant.displayName}</span>
@@ -278,6 +392,46 @@ function LessonStepEditor({
               );
             })}
           </div>
+          <label className="lesson-check-row">
+            <input
+              type="checkbox"
+              checked={Boolean(payload.data.newGroup.hold?.enabled)}
+              onChange={(event) =>
+                setGroupDraft((current) => ({
+                  ...current,
+                  hold: event.target.checked ? { ...(current.hold ?? DEFAULT_GROUP_HOLD), enabled: true, mode: "hard", radiusMeters: current.hold?.radiusMeters ?? DEFAULT_GROUP_HOLD.radiusMeters } : undefined
+                }))
+              }
+            />
+            <span>Lock students into the group zone</span>
+          </label>
+          {payload.data.newGroup.hold?.enabled ? (
+            <label>
+              <span>Zone radius (m)</span>
+              <input
+                type="number"
+                min={1}
+                max={6}
+                step={0.5}
+                value={payload.data.newGroup.hold.radiusMeters}
+                onChange={(event) =>
+                  setGroupDraft((current) => ({
+                    ...current,
+                    hold: {
+                      enabled: true,
+                      mode: "hard",
+                      radiusMeters: Number(event.target.value)
+                    }
+                  }))
+                }
+              />
+            </label>
+          ) : null}
+          {payload.data.newGroup.targetWallAnchorId ? (
+            <p className="small">Students will be sent to a working zone near this board when the step starts.</p>
+          ) : null}
+            </>
+          ) : null}
           <label className="lesson-check-row">
             <input type="checkbox" checked={payload.data.releaseOnAdvance} onChange={(event) => setData({ releaseOnAdvance: event.target.checked })} />
             <span>Release on advance</span>

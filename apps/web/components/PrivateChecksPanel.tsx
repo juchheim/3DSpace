@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { ClassroomAction, ClassroomPrivateCheck, ClassroomPrivateCheckResponse, ClassroomState, Role } from "@3dspace/contracts";
+import type { ClassroomAction, ClassroomPrivateCheck, ClassroomPrivateCheckResponse, ClassroomState, Role, RoomManifest } from "@3dspace/contracts";
 import { HudCard } from "./HudCard";
 
 function checkStatusLabel(status: ClassroomPrivateCheck["status"]) {
@@ -38,12 +38,14 @@ export function PrivateChecksPanel({
   state,
   loading,
   currentUserId,
+  manifest,
   onRunAction
 }: {
   role: Role;
   state: ClassroomState | null;
   loading: boolean;
   currentUserId?: string | undefined;
+  manifest?: RoomManifest | null | undefined;
   onRunAction(action: ClassroomAction): Promise<void>;
 }) {
   const [busy, setBusy] = useState("");
@@ -79,6 +81,11 @@ export function PrivateChecksPanel({
     } finally {
       setBusy("");
     }
+  }
+
+  function boardLabel(check: ClassroomPrivateCheck) {
+    if (!check.wallAnchorId) return "";
+    return manifest?.wallAnchors.find((anchor) => anchor.id === check.wallAnchorId)?.label ?? check.wallAnchorId;
   }
 
   async function createPrivateCheck() {
@@ -180,6 +187,7 @@ export function PrivateChecksPanel({
               <p className="classroom-help-note">
                 {promptTypeLabel(check.promptType)} | {check.responses.length} response{check.responses.length === 1 ? "" : "s"}
               </p>
+              {check.wallAnchorId ? <p className="classroom-help-note">Board: {boardLabel(check)}</p> : null}
               <div className="classroom-help-actions">
                 {check.status === "open" ? (
                   <button
@@ -253,6 +261,7 @@ export function PrivateChecksPanel({
                 <span className="classroom-help-name">{check.question}</span>
                 <span className="tag active">Open</span>
               </div>
+              {check.wallAnchorId ? <p className="classroom-help-note">Board: {boardLabel(check)}</p> : null}
               {response ? <p className="classroom-help-note">Submitted: {responseSummary(check, response)}</p> : null}
               {check.promptType === "multiple-choice" ? (
                 <div className="classroom-choice-list">

@@ -10,7 +10,13 @@ function bodyForStep(step: LessonStep, state: ClassroomState | null, manifest: R
   if (payload.kind === "private-check") return "Answer the active check in the classroom panel.";
   if (payload.kind === "group-work") {
     const group = state?.groups.find((candidate) => candidate.memberUserIds.includes(currentUserId) && candidate.status === "active");
-    return group ? `You are in ${group.label}.` : "Move into your assigned group.";
+    const boardLabel = group?.targetWallAnchorId
+      ? manifest?.wallAnchors.find((candidate) => candidate.id === group.targetWallAnchorId)?.label ?? "the assigned board"
+      : "";
+    if (!group) return "Move into your assigned group.";
+    if (boardLabel && group.hold?.enabled) return `You are in ${group.label}. Work at ${boardLabel} with your group.`;
+    if (boardLabel) return `You are in ${group.label}. Head to ${boardLabel}.`;
+    return `You are in ${group.label}.`;
   }
   if (payload.kind === "student-share") {
     const anchor = manifest?.wallAnchors.find((candidate) => candidate.id === payload.data.wallAnchorId);
@@ -47,7 +53,7 @@ export function LessonStudentCallout({
       </div>
       <h2>{currentStep.title}</h2>
       {body ? <p>{body}</p> : null}
-      <LessonTimerHud run={run} step={currentStep} />
+      <LessonTimerHud run={run} currentStep={currentStep} />
     </section>
   );
 }

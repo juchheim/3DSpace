@@ -265,6 +265,16 @@ export function computeGroupMemberPosition(center: Vector3, memberIndex: number)
   return { x: center.x + Math.sin(angle) * 3.0, y: 0, z: center.z + Math.cos(angle) * 3.0 };
 }
 
+export function computeGroupTargetPositionFromAnchor(manifest: RoomManifest, anchorId: string, offsetMeters = 2.6): Vector3 | null {
+  const anchor = manifest.wallAnchors.find((candidate) => candidate.id === anchorId);
+  if (!anchor) return null;
+  return clampPositionToBounds(manifest, {
+    x: anchor.position.x + anchor.normal.x * offsetMeters,
+    y: 0,
+    z: anchor.position.z + anchor.normal.z * offsetMeters
+  });
+}
+
 export function isWithinBounds(manifest: RoomManifest, position: Vector3) {
   return (
     position.x >= manifest.bounds.minX &&

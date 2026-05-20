@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { LessonRun, LessonStep } from "@3dspace/contracts";
 
 function formatSeconds(totalSeconds: number) {
@@ -9,24 +9,13 @@ function formatSeconds(totalSeconds: number) {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
-export function LessonTimerHud({ run, step, onComplete }: { run: LessonRun; step: LessonStep; onComplete?: () => void }) {
+export function LessonTimerHud({ run, currentStep, onComplete }: { run: LessonRun; currentStep: LessonStep | null; onComplete?: () => void }) {
   const [now, setNow] = useState(() => Date.now());
-  const timer = step.kind === "timer" && step.payload.kind === "timer" && step.payload.data.placement === "hud"
-    ? step.payload.data
-    : null;
-  const startedAt = useMemo(() => {
-    let record = undefined as (typeof run.timeline)[number] | undefined;
-    for (let index = run.timeline.length - 1; index >= 0; index -= 1) {
-      const candidate = run.timeline[index];
-      if (candidate?.stepId === step.id && !candidate.completedAt) {
-        record = candidate;
-        break;
-      }
-    }
-    const raw = record?.startedAt ?? run.updatedAt;
-    const parsed = Date.parse(raw);
-    return Number.isFinite(parsed) ? parsed : Date.now();
-  }, [run.timeline, run.updatedAt, step.id]);
+  const completedTimerKey = useRef("");
+  const timer = run.activeTimer?.placement === "hud" ? run.activeTimer : null;
+  const startedAtRaw = timer?.startedAt ?? run.updatedAt;
+  const parsedStartedAt = Date.parse(startedAtRaw);
+  const startedAt = Number.isFinite(parsedStartedAt) ? parsedStartedAt : Date.now();
 
   useEffect(() => {
     if (!timer) return;
@@ -37,15 +26,23 @@ export function LessonTimerHud({ run, step, onComplete }: { run: LessonRun; step
   const remaining = timer ? Math.max(0, timer.durationSeconds - Math.floor((now - startedAt) / 1000)) : 0;
 
   useEffect(() => {
-    if (!timer?.autoAdvanceOnComplete || remaining > 0) return;
+    if (!timer) {
+      completedTimerKey.current = "";
+      return;
+    }
+    const timerKey = `${timer.stepId}:${timer.startedAt}`;
+    if (!timer.autoAdvanceOnComplete || currentStep?.id !== timer.stepId || remaining > 0) return;
+    if (completedTimerKey.current === timerKey) return;
+    completedTimerKey.current = timerKey;
     onComplete?.();
-  }, [onComplete, remaining, timer?.autoAdvanceOnComplete]);
+  }, [currentStep?.id, onComplete, remaining, timer]);
 
   if (!timer) return null;
+  const title = timer.label || (currentStep?.id === timer.stepId ? timer.title : "Timer");
 
   return (
     <div className="lesson-timer" data-testid="lesson-timer-hud" aria-label="Lesson timer">
-      <span>{timer.label || step.title}</span>
+      <span>{title}</span>
       <strong>{formatSeconds(remaining)}</strong>
     </div>
   );

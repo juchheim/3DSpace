@@ -39,6 +39,7 @@ import {
   type ClassroomPrivateCheck,
   type ClassroomSpotlight,
   type ClassroomState,
+  type LessonActiveTimer,
   type LessonRun,
   type LessonRunStepRecord,
   type LessonStep,
@@ -51,6 +52,7 @@ import {
 import {
   anchorHasOccupyingWallObject,
   applyDefaultWallAnchorDimensions,
+  computeGroupTargetPositionFromAnchor,
   createDefaultRoomManifest,
   createInitialPollState,
   isValidPollChoiceId,
@@ -719,6 +721,40 @@ function hasAnchor(stateManifest: Awaited<ReturnType<Repository["getActiveManife
   return Boolean(stateManifest?.wallAnchors.some((anchor) => anchor.id === anchorId));
 }
 
+function hydrateGroupPlacementFromAnchor(
+  manifest: Awaited<ReturnType<Repository["getActiveManifest"]>>,
+  group: Pick<ClassroomGroup, "targetPosition" | "targetWallAnchorId" | "hold">
+) {
+  if (!manifest || !group.targetWallAnchorId) return true;
+  const nextPosition = group.targetPosition ?? computeGroupTargetPositionFromAnchor(manifest, group.targetWallAnchorId);
+  if (!nextPosition) return false;
+  group.targetPosition = nextPosition;
+  return true;
+}
+
+async function clearActiveLessonTimer(input: {
+  repository: Repository;
+  roomId: string;
+  run: LessonRun;
+  actor: ClassroomActor;
+}): Promise<LessonEffectResult> {
+  const activeTimer = input.run.activeTimer;
+  if (!activeTimer) return {};
+
+  input.run.activeTimer = null;
+  if (activeTimer.placement !== "wall" || !activeTimer.wallObjectId) return {};
+
+  const wallObject = await input.repository.getWallObject(input.roomId, activeTimer.wallObjectId);
+  if (!wallObject || wallObject.status === "removed") {
+    return { drifted: true, driftReason: "Wall timer was removed" };
+  }
+  if (wallObject.permissions?.lessonRunId !== input.run.id || wallObject.permissions?.lessonStepId !== activeTimer.stepId) {
+    return { drifted: true, driftReason: "Wall timer ownership changed" };
+  }
+  await input.repository.softRemoveWallObject(input.roomId, wallObject.id, { updatedByUserId: input.actor.userId });
+  return { emittedActionIds: ["remove-wall-timer"] };
+}
+
 function sameStringArray(left: string[], right: string[]) {
   if (left.length !== right.length) return false;
   const rightSet = new Set(right);
@@ -872,25 +908,65 @@ async function startLessonStep(input: {
 
   if (input.step.kind === "group-work" && input.step.payload.kind === "group-work") {
     const payload = input.step.payload.data;
+    const manifest = await input.repository.getActiveManifest(input.roomId);
     if (payload.existingGroupId) {
       const group = input.state.groups.find((candidate) => candidate.id === payload.existingGroupId && candidate.status !== "archived");
       if (!group) return { ...record, drifted: true, driftReason: "Missing group" };
+      if (!hydrateGroupPlacementFromAnchor(manifest, group)) {
+        return { ...record, drifted: true, driftReason: "Missing group target board" };
+      }
       group.status = "active";
       group.updatedAt = input.now;
       return { ...record, createdGroupId: group.id, emittedActionIds: ["update-group"] };
     }
     if (!payload.newGroup) return { ...record, drifted: true, driftReason: "Missing group configuration" };
-    const groupId = upsertCreatedLessonGroup(input.state, payload.newGroup, input.actor, input.now, prior?.createdGroupId);
+    if (payload.newGroup.targetWallAnchorId && !hasAnchor(manifest, payload.newGroup.targetWallAnchorId)) {
+      return { ...record, drifted: true, driftReason: "Missing group target board" };
+    }
+    const normalizedGroup = {
+      ...payload.newGroup,
+      targetPosition:
+        payload.newGroup.targetPosition ??
+        (manifest && payload.newGroup.targetWallAnchorId ? computeGroupTargetPositionFromAnchor(manifest, payload.newGroup.targetWallAnchorId) ?? undefined : undefined)
+    };
+    const groupId = upsertCreatedLessonGroup(input.state, normalizedGroup, input.actor, input.now, prior?.createdGroupId);
+    const group = input.state.groups.find((candidate) => candidate.id === groupId);
+    if (group) {
+      group.targetPosition = normalizedGroup.targetPosition;
+      group.targetWallAnchorId = normalizedGroup.targetWallAnchorId;
+      group.hold = normalizedGroup.hold;
+      group.updatedAt = input.now;
+    }
     return { ...record, createdGroupId: groupId, emittedActionIds: prior?.createdGroupId ? ["update-group", "assign-group"] : ["create-group", "assign-group"] };
   }
 
   if (input.step.kind === "timer" && input.step.payload.kind === "timer") {
     const payload = input.step.payload.data;
-    if (payload.placement === "hud") return record;
+    const activeTimer: LessonActiveTimer = {
+      stepId: input.step.id,
+      title: input.step.title,
+      label: payload.label,
+      durationSeconds: payload.durationSeconds,
+      placement: payload.placement,
+      ...(payload.wallAnchorId ? { wallAnchorId: payload.wallAnchorId } : {}),
+      autoAdvanceOnComplete: payload.autoAdvanceOnComplete,
+      startedAt: input.now
+    };
+    if (payload.placement === "hud") {
+      const clearedTimer = await clearActiveLessonTimer(input);
+      input.run.activeTimer = activeTimer;
+      return {
+        ...record,
+        drifted: Boolean(record.drifted || clearedTimer.drifted),
+        driftReason: clearedTimer.driftReason ?? record.driftReason,
+        emittedActionIds: [...record.emittedActionIds, ...(clearedTimer.emittedActionIds ?? [])]
+      };
+    }
     const manifest = await input.repository.getActiveManifest(input.roomId);
     if (!hasAnchor(manifest, payload.wallAnchorId)) {
       return { ...record, drifted: true, driftReason: "Missing timer wall anchor" };
     }
+    const clearedTimer = await clearActiveLessonTimer(input);
     const wallObject = await input.repository.createWallObject({
       roomId: input.roomId,
       wallAnchorId: payload.wallAnchorId!,
@@ -914,7 +990,14 @@ async function startLessonStep(input: {
       createdByUserId: input.actor.userId,
       updatedByUserId: input.actor.userId
     });
-    return { ...record, createdWallObjectId: wallObject.id, emittedActionIds: ["create-wall-timer"] };
+    input.run.activeTimer = { ...activeTimer, wallObjectId: wallObject.id };
+    return {
+      ...record,
+      createdWallObjectId: wallObject.id,
+      drifted: Boolean(record.drifted || clearedTimer.drifted),
+      driftReason: clearedTimer.driftReason ?? record.driftReason,
+      emittedActionIds: [...record.emittedActionIds, ...(clearedTimer.emittedActionIds ?? []), "create-wall-timer"]
+    };
   }
 
   if (input.step.kind === "student-share" && input.step.payload.kind === "student-share") {
@@ -1011,17 +1094,7 @@ async function cleanupLessonStep(input: {
   }
 
   if (input.step.kind === "timer" && input.step.payload.kind === "timer") {
-    if (input.step.payload.data.placement !== "wall") return {};
-    if (!input.record.createdWallObjectId) return { drifted: true, driftReason: "Missing wall timer id" };
-    const wallObject = await input.repository.getWallObject(input.roomId, input.record.createdWallObjectId);
-    if (!wallObject || wallObject.status === "removed") {
-      return { drifted: true, driftReason: "Wall timer was removed" };
-    }
-    if (wallObject.permissions?.lessonRunId !== input.run.id || wallObject.permissions?.lessonStepId !== input.step.id) {
-      return { drifted: true, driftReason: "Wall timer ownership changed" };
-    }
-    await input.repository.softRemoveWallObject(input.roomId, wallObject.id, { updatedByUserId: input.actor.userId });
-    return { emittedActionIds: ["remove-wall-timer"] };
+    return {};
   }
 
   if (input.step.kind === "student-share" && input.step.payload.kind === "student-share") {
@@ -1346,6 +1419,7 @@ async function runClassroomAction(input: {
         steps: [],
         currentStepIndex: -1,
         timeline: [],
+        activeTimer: null,
         createdByUserId: input.actor.userId,
         createdAt: now,
         updatedAt: now
@@ -1434,6 +1508,7 @@ async function runClassroomAction(input: {
       if (run.currentStepIndex < 0) throw conflict("Lesson run has no current step");
       await completeCurrentLessonStep({ repository: input.repository, roomId: input.roomId, state, run, actor: input.actor, now });
       if (run.currentStepIndex >= run.steps.length - 1) {
+        await clearActiveLessonTimer({ repository: input.repository, roomId: input.roomId, run, actor: input.actor });
         run.status = "ended";
         run.endedAt = now;
         run.updatedAt = now;
@@ -1499,6 +1574,7 @@ async function runClassroomAction(input: {
       if (run.status === "running" || run.status === "paused") {
         await completeCurrentLessonStep({ repository: input.repository, roomId: input.roomId, state, run, actor: input.actor, now });
       }
+      await clearActiveLessonTimer({ repository: input.repository, roomId: input.roomId, run, actor: input.actor });
       run.status = input.action.type === "end-lesson-run" ? "ended" : "abandoned";
       run.endedAt = now;
       run.updatedAt = now;
@@ -1506,6 +1582,9 @@ async function runClassroomAction(input: {
     }
     case "clear-lesson-run": {
       requireTeacher(input.actor);
+      if (state.lessonRun) {
+        await clearActiveLessonTimer({ repository: input.repository, roomId: input.roomId, run: state.lessonRun, actor: input.actor });
+      }
       state.lessonRun = null;
       break;
     }

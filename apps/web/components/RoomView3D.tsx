@@ -4,7 +4,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html } from "@react-three/drei";
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
 import { type MeshStandardMaterial, Vector3 } from "three";
-import type { ClassroomGroup, ClassroomSpotlight, QualityLevel, RoomManifest, WallAnchorSchema, WallObject, WallObjectPlacement, WallPlaneSchema } from "@3dspace/contracts";
+import type { ClassroomGroup, ClassroomPrivateCheck, ClassroomSpotlight, QualityLevel, RoomManifest, WallAnchorSchema, WallObject, WallObjectPlacement, WallPlaneSchema } from "@3dspace/contracts";
 import type { z } from "zod";
 import type { ParticipantView } from "./RoomClient";
 import { WallObjectCard } from "./WallObjectCard";
@@ -18,6 +18,7 @@ type WallObjectSurfaceStyle = CSSProperties & { "--wall-surface-font-size": stri
 const WALL_OBJECT_DISTANCE_FACTOR = 8;
 const WALL_OBJECT_SURFACE_OFFSET = 0.045;
 const WALL_OBJECT_LAYER_OFFSET = 0.002;
+const PRIVATE_CHECK_SURFACE_OFFSET = 0.038;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
@@ -56,6 +57,7 @@ export function RoomView3D({
   canManageWallObjects = false,
   currentUserId,
   classroomGroups = [],
+  privateChecks = [],
   spotlight,
   onWallObjectControl,
   onWallObjectRemove,
@@ -76,6 +78,7 @@ export function RoomView3D({
   canManageWallObjects?: boolean;
   currentUserId?: string | undefined;
   classroomGroups?: ClassroomGroup[];
+  privateChecks?: ClassroomPrivateCheck[];
   spotlight?: ClassroomSpotlight | null | undefined;
   onWallObjectControl?: (
     objectId: string,
@@ -116,6 +119,8 @@ export function RoomView3D({
           {...(onWallObjectStopShare ? { onWallObjectStopShare } : {})}
           {...(onWallObjectModerate ? { onWallObjectModerate } : {})}
         />
+        <GroupTargetLayer manifest={manifest} groups={classroomGroups} />
+        <PrivateCheckLayer manifest={manifest} privateChecks={privateChecks} />
         {participants.map((participant) => {
           const group = classroomGroups.find((g) => g.status === "active" && g.memberUserIds.includes(participant.id));
           return <Avatar key={participant.id} participant={participant} groupColor={group?.color} />;
@@ -128,6 +133,80 @@ export function RoomView3D({
         />
       </Canvas>
     </div>
+  );
+}
+
+function GroupTargetLayer({
+  manifest,
+  groups
+}: {
+  manifest: RoomManifest;
+  groups: ClassroomGroup[];
+}) {
+  return (
+    <group>
+      {groups
+        .filter((group) => group.status === "active" && group.targetPosition)
+        .map((group) => (
+          <GroupTargetMarker key={`group-target-${group.id}`} group={group} manifest={manifest} />
+        ))}
+    </group>
+  );
+}
+
+function PrivateCheckLayer({
+  manifest,
+  privateChecks
+}: {
+  manifest: RoomManifest;
+  privateChecks: ClassroomPrivateCheck[];
+}) {
+  const checksByAnchor = useMemo(() => {
+    const groups = new Map<string, ClassroomPrivateCheck[]>();
+    for (const check of privateChecks) {
+      if (check.status !== "open" || !check.wallAnchorId) continue;
+      groups.set(check.wallAnchorId, [...(groups.get(check.wallAnchorId) ?? []), check]);
+    }
+    return groups;
+  }, [privateChecks]);
+
+  return (
+    <group>
+      {manifest.wallAnchors.map((anchor) => {
+        const checks = checksByAnchor.get(anchor.id) ?? [];
+        if (checks.length === 0) return null;
+        return <PrivateCheckSurface key={`private-check-${anchor.id}`} anchor={anchor} checks={checks} />;
+      })}
+    </group>
+  );
+}
+
+function GroupTargetMarker({
+  group,
+  manifest
+}: {
+  group: ClassroomGroup;
+  manifest: RoomManifest;
+}) {
+  const boardLabel = group.targetWallAnchorId
+    ? manifest.wallAnchors.find((anchor) => anchor.id === group.targetWallAnchorId)?.label ?? group.targetWallAnchorId
+    : "";
+
+  return (
+    <group position={[group.targetPosition!.x, 0.02, group.targetPosition!.z]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[1.6, 2.5, 32]} />
+        <meshBasicMaterial color={group.color} transparent opacity={0.22} />
+      </mesh>
+      <Billboard position={[0, 1.6, 0]}>
+        <Html center distanceFactor={6}>
+          <div className="group-target-label">
+            <strong>{group.label}</strong>
+            {boardLabel ? <span>{boardLabel}</span> : null}
+          </div>
+        </Html>
+      </Billboard>
+    </group>
   );
 }
 
@@ -274,6 +353,47 @@ const WallObjectSurface = memo(function WallObjectSurface({
             {...(onStopShare ? { onStopShare } : {})}
             {...(onModerate ? { onModerate } : {})}
           />
+        </div>
+      </Html>
+    </group>
+  );
+});
+
+const PrivateCheckSurface = memo(function PrivateCheckSurface({
+  anchor,
+  checks
+}: {
+  anchor: Anchor;
+  checks: ClassroomPrivateCheck[];
+}) {
+  const normal = useMemo(() => new Vector3(anchor.normal.x, anchor.normal.y, anchor.normal.z).normalize(), [anchor.normal.x, anchor.normal.y, anchor.normal.z]);
+  const rotation = useMemo<[number, number, number]>(() => {
+    if (Math.abs(anchor.normal.x) > 0) return [0, anchor.normal.x > 0 ? Math.PI / 2 : -Math.PI / 2, 0];
+    return [0, anchor.normal.z < 0 ? Math.PI : 0, 0];
+  }, [anchor.normal.x, anchor.normal.z]);
+  const position = useMemo<[number, number, number]>(() => {
+    const base = new Vector3(anchor.position.x, anchor.position.y, anchor.position.z).add(normal.clone().multiplyScalar(PRIVATE_CHECK_SURFACE_OFFSET));
+    return [base.x, base.y, base.z];
+  }, [anchor.position.x, anchor.position.y, anchor.position.z, normal]);
+  const surfaceStyle = useMemo<WallObjectSurfaceStyle>(() => {
+    const widthPx = ((anchor.width * 0.82) * 400) / WALL_OBJECT_DISTANCE_FACTOR;
+    const heightPx = ((anchor.height * 0.44) * 400) / WALL_OBJECT_DISTANCE_FACTOR;
+    return {
+      width: `${widthPx}px`,
+      height: `${heightPx}px`,
+      "--wall-surface-font-size": `${clamp(heightPx * 0.24, 18, 56)}px`
+    };
+  }, [anchor.height, anchor.width]);
+  const check = checks[0]!;
+
+  return (
+    <group position={position} rotation={rotation}>
+      <Html center transform distanceFactor={WALL_OBJECT_DISTANCE_FACTOR} className="private-check-html" style={surfaceStyle} zIndexRange={[220, 0]}>
+        <div className="private-check-board-card">
+          <span className="private-check-board-kicker">Active check</span>
+          <strong>{check.question}</strong>
+          <span>{check.promptType === "multiple-choice" ? "Choose an answer in the checks panel." : check.promptType === "confidence" ? "Rate confidence in the checks panel." : "Respond in the checks panel."}</span>
+          {checks.length > 1 ? <em>+{checks.length - 1} more open check{checks.length === 2 ? "" : "s"}</em> : null}
         </div>
       </Html>
     </group>

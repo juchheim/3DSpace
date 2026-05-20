@@ -32,6 +32,11 @@ export function groupByUserId(state: ClassroomState | null | undefined): Map<str
   return map;
 }
 
+function boardLabelForGroup(group: ClassroomGroup, manifestAnchors?: Array<{ id: string; label: string }>) {
+  if (!group.targetWallAnchorId) return "";
+  return manifestAnchors?.find((anchor) => anchor.id === group.targetWallAnchorId)?.label ?? group.targetWallAnchorId;
+}
+
 export function GroupsPanel({
   role,
   state,
@@ -41,7 +46,8 @@ export function GroupsPanel({
   positioningGroupId,
   onRunAction,
   onEnterPositioningMode,
-  onCancelPositioning
+  onCancelPositioning,
+  manifestAnchors
 }: {
   role: Role;
   state: ClassroomState | null;
@@ -52,6 +58,7 @@ export function GroupsPanel({
   onRunAction(action: ClassroomAction): Promise<void>;
   onEnterPositioningMode(groupId: string): void;
   onCancelPositioning(): void;
+  manifestAnchors?: Array<{ id: string; label: string }>;
 }) {
   const [busy, setBusy] = useState("");
   const [groupLabel, setGroupLabel] = useState("");
@@ -277,6 +284,9 @@ export function GroupsPanel({
                 ) : (
                   <p className="classroom-help-note">No members yet.</p>
                 )}
+                {boardLabelForGroup(group, manifestAnchors) ? (
+                  <p className="classroom-help-note">Board: {boardLabelForGroup(group, manifestAnchors)}</p>
+                ) : null}
                 <div className="classroom-help-actions">
                   {isPositioned ? (
                     <button
@@ -335,6 +345,9 @@ export function GroupsPanel({
           <p className="classroom-help-note">
             {currentGroup.memberUserIds.length} member{currentGroup.memberUserIds.length === 1 ? "" : "s"} in your group.
           </p>
+          {boardLabelForGroup(currentGroup, manifestAnchors) ? (
+            <p className="classroom-help-note">Board: {boardLabelForGroup(currentGroup, manifestAnchors)}</p>
+          ) : null}
         </div>
       ) : (
         <p className="small">You have not been assigned to a group.</p>

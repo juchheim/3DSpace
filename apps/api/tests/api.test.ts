@@ -1720,6 +1720,63 @@ describe("3dspace api", () => {
     await app.close();
   });
 
+  it("keeps hud lesson timers active across step advancement until the run ends", async () => {
+    const app = await buildApp({
+      config: lessonConfig(),
+      repository: new MemoryRepository()
+    });
+    const { roomWithManifest } = await createClassAndRoom(app, "teacher-lesson-hud-timer");
+    const roomId = roomWithManifest.room.id;
+
+    let state = await classroomAction(app, roomId, "teacher-lesson-hud-timer", { type: "init-lesson-run", expectedVersion: 1, title: "Timer overlap" });
+    state = await classroomAction(app, roomId, "teacher-lesson-hud-timer", {
+      type: "add-lesson-step",
+      expectedVersion: state.version,
+      step: {
+        kind: "timer",
+        title: "Work time",
+        payload: {
+          kind: "timer",
+          data: { durationSeconds: 90, label: "Independent work", placement: "hud", autoAdvanceOnComplete: false }
+        }
+      }
+    });
+    state = await classroomAction(app, roomId, "teacher-lesson-hud-timer", {
+      type: "add-lesson-step",
+      expectedVersion: state.version,
+      step: {
+        kind: "instruction",
+        title: "Debrief",
+        payload: { kind: "instruction", data: { body: "Discuss what you noticed." } }
+      }
+    });
+
+    const timerStepId = state.lessonRun.steps[0].id;
+    state = await classroomAction(app, roomId, "teacher-lesson-hud-timer", { type: "start-lesson-run", expectedVersion: state.version });
+    expect(state.lessonRun.activeTimer).toMatchObject({
+      stepId: timerStepId,
+      title: "Work time",
+      label: "Independent work",
+      durationSeconds: 90,
+      placement: "hud"
+    });
+
+    state = await classroomAction(app, roomId, "teacher-lesson-hud-timer", { type: "advance-lesson-step", expectedVersion: state.version });
+    expect(state.lessonRun.status).toBe("running");
+    expect(state.lessonRun.currentStepIndex).toBe(1);
+    expect(state.lessonRun.activeTimer).toMatchObject({
+      stepId: timerStepId,
+      label: "Independent work",
+      placement: "hud"
+    });
+
+    state = await classroomAction(app, roomId, "teacher-lesson-hud-timer", { type: "advance-lesson-step", expectedVersion: state.version });
+    expect(state.lessonRun.status).toBe("ended");
+    expect(state.lessonRun.activeTimer).toBeNull();
+
+    await app.close();
+  });
+
   it("orchestrates group, student-share, timer cleanup, and focus drift", async () => {
     const repository = new MemoryRepository();
     const app = await buildApp({
@@ -1741,7 +1798,19 @@ describe("3dspace api", () => {
       {
         kind: "group-work",
         title: "Team work",
-        payload: { kind: "group-work", data: { newGroup: { label: "Team A", color: "#389060", memberUserIds: ["student-lesson-effects"] }, releaseOnAdvance: true } }
+        payload: {
+          kind: "group-work",
+          data: {
+            newGroup: {
+              label: "Team A",
+              color: "#389060",
+              memberUserIds: ["student-lesson-effects"],
+              targetWallAnchorId: secondAnchor.id,
+              hold: { enabled: true, mode: "hard", radiusMeters: 2.5 }
+            },
+            releaseOnAdvance: true
+          }
+        }
       },
       {
         kind: "student-share",
@@ -1752,6 +1821,11 @@ describe("3dspace api", () => {
         kind: "timer",
         title: "Wall timer",
         payload: { kind: "timer", data: { durationSeconds: 30, label: "Share timer", placement: "wall", wallAnchorId: secondAnchor.id } }
+      },
+      {
+        kind: "instruction",
+        title: "Wrap up",
+        payload: { kind: "instruction", data: { body: "Summarize the share-out." } }
       }
     ]) {
       state = await classroomAction(app, roomId, "teacher-lesson-effects", { type: "add-lesson-step", expectedVersion: state.version, step });
@@ -1769,7 +1843,14 @@ describe("3dspace api", () => {
     });
     state = await classroomAction(app, roomId, "teacher-lesson-effects", { type: "advance-lesson-step", expectedVersion: state.version });
     expect(state.lessonRun.timeline[0]).toMatchObject({ drifted: true });
-    expect(state.groups[0]).toMatchObject({ label: "Team A", status: "active", memberUserIds: ["student-lesson-effects"] });
+    expect(state.groups[0]).toMatchObject({
+      label: "Team A",
+      status: "active",
+      memberUserIds: ["student-lesson-effects"],
+      targetWallAnchorId: secondAnchor.id,
+      hold: { enabled: true, mode: "hard", radiusMeters: 2.5 }
+    });
+    expect(state.groups[0].targetPosition).toBeTruthy();
 
     state = await classroomAction(app, roomId, "teacher-lesson-effects", { type: "advance-lesson-step", expectedVersion: state.version });
     expect(state.groups[0].status).toBe("released");
@@ -1779,9 +1860,18 @@ describe("3dspace api", () => {
     expect(state.boardAccessGrants[0].status).toBe("revoked");
     const wallTimers = await repository.listWallObjects(roomId, { includeRemoved: true });
     expect(wallTimers.some((object) => object.type === "timer" && object.status === "active")).toBe(true);
+    expect(state.lessonRun.activeTimer).toMatchObject({ placement: "wall", wallAnchorId: secondAnchor.id, label: "Share timer" });
+
+    state = await classroomAction(app, roomId, "teacher-lesson-effects", { type: "advance-lesson-step", expectedVersion: state.version });
+    expect(state.lessonRun.status).toBe("running");
+    expect(state.lessonRun.currentStepIndex).toBe(4);
+    expect(state.lessonRun.activeTimer).toMatchObject({ placement: "wall", wallAnchorId: secondAnchor.id, label: "Share timer" });
+    const duringWrapTimers = await repository.listWallObjects(roomId, { includeRemoved: true });
+    expect(duringWrapTimers.some((object) => object.type === "timer" && object.status === "active")).toBe(true);
 
     state = await classroomAction(app, roomId, "teacher-lesson-effects", { type: "advance-lesson-step", expectedVersion: state.version });
     expect(state.lessonRun.status).toBe("ended");
+    expect(state.lessonRun.activeTimer).toBeNull();
     const afterEndTimers = await repository.listWallObjects(roomId, { includeRemoved: true });
     expect(afterEndTimers.some((object) => object.type === "timer" && object.status === "removed")).toBe(true);
 

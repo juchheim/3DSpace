@@ -740,6 +740,18 @@ export const LessonRunStepRecordSchema = z.object({
   createdWallObjectId: z.string().optional()
 });
 
+export const LessonActiveTimerSchema = z.object({
+  stepId: z.string(),
+  title: z.string().min(1).max(120),
+  label: z.string().max(80).default(""),
+  durationSeconds: z.number().int().min(5).max(60 * 60),
+  placement: z.enum(["hud", "wall"]),
+  wallAnchorId: z.string().optional(),
+  wallObjectId: z.string().optional(),
+  autoAdvanceOnComplete: z.boolean().default(false),
+  startedAt: z.string()
+});
+
 export const LessonRunStatusSchema = z.enum(["draft", "ready", "running", "paused", "ended", "abandoned"]);
 
 export const LessonRunSchema = z.object({
@@ -749,6 +761,7 @@ export const LessonRunSchema = z.object({
   steps: z.array(LessonStepSchema).default([]),
   currentStepIndex: z.number().int().min(-1).default(-1),
   timeline: z.array(LessonRunStepRecordSchema).default([]),
+  activeTimer: LessonActiveTimerSchema.nullable().default(null),
   startedAt: z.string().optional(),
   endedAt: z.string().optional(),
   createdByUserId: z.string(),
@@ -1085,6 +1098,7 @@ export type LessonStepPayload = z.infer<typeof LessonStepPayloadSchema>;
 export type LessonStep = z.infer<typeof LessonStepSchema>;
 export type LessonStepInput = z.infer<typeof LessonStepInputSchema>;
 export type LessonRunStepRecord = z.infer<typeof LessonRunStepRecordSchema>;
+export type LessonActiveTimer = z.infer<typeof LessonActiveTimerSchema>;
 export type LessonRunStatus = z.infer<typeof LessonRunStatusSchema>;
 export type LessonRun = z.infer<typeof LessonRunSchema>;
 export type ClassroomState = z.infer<typeof ClassroomStateSchema>;

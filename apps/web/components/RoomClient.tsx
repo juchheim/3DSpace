@@ -846,6 +846,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             canManageWallObjects={session.role === "teacher"}
             currentUserId={identity.userId}
             classroomGroups={classroom.state?.groups ?? []}
+            privateChecks={classroom.state?.privateChecks ?? []}
             spotlight={classroom.state?.spotlight}
             onWallObjectControl={controlWallObject}
             onWallObjectRemove={async (objectId) => {
@@ -875,6 +876,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             assetUrls={wall.assetUrls}
             wallMediaStreams={wallMediaStreams}
             classroomGroups={classroom.state?.groups ?? []}
+            privateChecks={classroom.state?.privateChecks ?? []}
             spotlight={classroom.state?.spotlight}
             positioningMode={Boolean(positioningGroupId)}
           />
@@ -1033,6 +1035,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             state={classroom.state}
             loading={classroom.loading}
             currentUserId={identity.userId}
+            manifest={manifest}
             onRunAction={async (action) => {
               await classroom.runAction(action);
             }}
@@ -1044,6 +1047,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             participants={participantList}
             currentUserId={identity.userId}
             positioningGroupId={positioningGroupId}
+            {...(manifest ? { manifestAnchors: manifest.wallAnchors } : {})}
             onRunAction={async (action) => {
               await classroom.runAction(action);
             }}

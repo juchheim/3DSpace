@@ -1,9 +1,13 @@
 "use client";
 
-import type { ClassroomGroup, ClassroomSpotlight, RoomManifest, WallObject } from "@3dspace/contracts";
+import type { ClassroomGroup, ClassroomPrivateCheck, ClassroomSpotlight, RoomManifest, WallObject } from "@3dspace/contracts";
 import { computeGroupMemberPosition, projectAnchorRectTo2D, projectPositionTo2D } from "@3dspace/room-engine";
 import type { ParticipantView } from "./RoomClient";
 import { WallObjectCard } from "./WallObjectCard";
+
+function anchorPrivateChecks(privateChecks: ClassroomPrivateCheck[], anchorId: string) {
+  return privateChecks.filter((check) => check.status === "open" && check.wallAnchorId === anchorId);
+}
 
 export function RoomView2D({
   manifest,
@@ -13,6 +17,7 @@ export function RoomView2D({
   assetUrls = {},
   wallMediaStreams = {},
   classroomGroups = [],
+  privateChecks = [],
   spotlight,
   positioningMode = false
 }: {
@@ -23,6 +28,7 @@ export function RoomView2D({
   assetUrls?: Record<string, string>;
   wallMediaStreams?: Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>;
   classroomGroups?: ClassroomGroup[];
+  privateChecks?: ClassroomPrivateCheck[];
   spotlight?: ClassroomSpotlight | null | undefined;
   positioningMode?: boolean;
 }) {
@@ -47,8 +53,10 @@ export function RoomView2D({
           const point = projectPositionTo2D(manifest, anchor.position);
           const rect = projectAnchorRectTo2D(manifest, anchor);
           const objects = wallObjects.filter((object) => object.wallAnchorId === anchor.id && object.status !== "removed");
+          const checks = anchorPrivateChecks(privateChecks, anchor.id);
           const hasLive = objects.some((object) => object.type.endsWith(".live") && object.status === "active");
           const isSpotlighted = spotlight?.anchorId === anchor.id;
+          const check = checks[0];
           return (
             <g key={anchor.id} aria-label={isSpotlighted ? `${anchor.label} (focused)` : anchor.label}>
               {isSpotlighted ? (
@@ -68,19 +76,42 @@ export function RoomView2D({
               <rect x={rect.x} y={rect.y} width={rect.width} height={rect.height} rx="0.7" fill={isSpotlighted ? "#f1c40f" : hasLive ? "#005fcc" : "#eb5e28"} opacity="0.92" />
               <text x={point.x} y={rect.y - 0.6} textAnchor="middle" fontSize="2.2" fill={isSpotlighted ? "#5a4000" : "#17201a"}>{anchor.label}</text>
               {objects.length > 0 ? <text x={point.x} y={point.y + 0.75} textAnchor="middle" fontSize="2.1" fill={isSpotlighted ? "#17201a" : "#fffaf0"}>{objects.length}</text> : null}
+              {check ? (
+                <>
+                  <rect x={rect.x} y={rect.y + rect.height + 1.2} width={rect.width} height={7.8} rx="0.9" fill="#fffaf0" stroke="#17201a" strokeOpacity="0.2" strokeWidth="0.5" />
+                  <text x={point.x} y={rect.y + rect.height + 3.6} textAnchor="middle" fontSize="1.65" fill="#17201a">Active check</text>
+                  <text x={point.x} y={rect.y + rect.height + 5.7} textAnchor="middle" fontSize="1.55" fill="#5b5347">
+                    {check.question.length > 24 ? `${check.question.slice(0, 24)}…` : check.question}
+                  </text>
+                  {checks.length > 1 ? <text x={point.x} y={rect.y + rect.height + 7.1} textAnchor="middle" fontSize="1.45" fill="#5b5347">+{checks.length - 1} more</text> : null}
+                </>
+              ) : null}
             </g>
           );
         })}
-        {classroomGroups.filter((g) => g.targetPosition && g.hold?.enabled).map((group) => {
+        {classroomGroups.filter((g) => g.targetPosition).map((group) => {
           const center = projectPositionTo2D(manifest, group.targetPosition!);
+          const boardLabel = group.targetWallAnchorId
+            ? manifest.wallAnchors.find((anchor) => anchor.id === group.targetWallAnchorId)?.label ?? group.targetWallAnchorId
+            : "";
           return (
             <g key={`zone-${group.id}`}>
-              <circle cx={center.x} cy={center.y} r={5.5} fill={`${group.color}22`} stroke={group.color} strokeWidth="0.8" strokeDasharray="2 1.5" />
+              <circle
+                cx={center.x}
+                cy={center.y}
+                r={5.5}
+                fill={`${group.color}22`}
+                stroke={group.color}
+                strokeWidth="0.8"
+                strokeDasharray={group.hold?.enabled ? "2 1.5" : "1.4 1.4"}
+              />
               {group.memberUserIds.map((userId, index) => {
                 const memberPos = computeGroupMemberPosition(group.targetPosition!, index);
                 const pt = projectPositionTo2D(manifest, memberPos);
                 return <circle key={userId} cx={pt.x} cy={pt.y} r={1.6} fill={group.color} opacity={0.55} />;
               })}
+              <text x={center.x} y={center.y - 6.8} textAnchor="middle" fontSize="2" fill="#17201a">{group.label}</text>
+              {boardLabel ? <text x={center.x} y={center.y - 4.5} textAnchor="middle" fontSize="1.6" fill="#5b5347">{boardLabel}</text> : null}
             </g>
           );
         })}

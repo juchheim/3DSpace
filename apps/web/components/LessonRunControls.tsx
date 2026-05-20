@@ -66,7 +66,7 @@ export function LessonRunControls({
           <h3>{currentStep.title}</h3>
           {currentStep.notes ? <p className="lesson-notes">{currentStep.notes}</p> : null}
           {currentRecord?.drifted ? <p className="lesson-drift" title={currentRecord.driftReason ?? "Step drifted"}>Drifted</p> : null}
-          <LessonTimerHud run={run} step={currentStep} onComplete={autoAdvance} />
+          <LessonTimerHud run={run} currentStep={currentStep} onComplete={autoAdvance} />
           {nextStep ? <p className="small">Next: {nextStep.title}</p> : <p className="small">Last step.</p>}
         </div>
       ) : (
