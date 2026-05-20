@@ -1,5 +1,6 @@
 import type {
   AcceptInviteResponseSchema,
+  AvatarAppearance,
   ClassroomActionSchema,
   ClassroomState,
   ClassMembership,
@@ -104,6 +105,14 @@ export function joinRoom(identity: ApiIdentity, roomId: string, input: { viewMod
     method: "POST",
     identity,
     body: input
+  });
+}
+
+export function patchAvatarAppearance(identity: ApiIdentity, appearance: AvatarAppearance) {
+  return apiFetch<{ ok: boolean }>("/v1/users/me/avatar", {
+    method: "PATCH",
+    identity,
+    body: { appearance }
   });
 }
 

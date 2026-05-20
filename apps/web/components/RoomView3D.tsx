@@ -4,9 +4,10 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html } from "@react-three/drei";
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
 import { type MeshStandardMaterial, Vector3 } from "three";
-import type { ClassroomGroup, ClassroomPrivateCheck, ClassroomSpotlight, QualityLevel, RoomManifest, WallAnchorSchema, WallObject, WallObjectPlacement, WallPlaneSchema } from "@3dspace/contracts";
+import type { AvatarAppearance, ClassroomGroup, ClassroomPrivateCheck, ClassroomSpotlight, QualityLevel, RoomManifest, WallAnchorSchema, WallObject, WallObjectPlacement, WallPlaneSchema } from "@3dspace/contracts";
 import type { z } from "zod";
 import type { ParticipantView } from "./RoomClient";
+import { BlockyAvatar } from "./BlockyAvatar";
 import { WallObjectCard } from "./WallObjectCard";
 
 type Wall = z.infer<typeof WallPlaneSchema>;
@@ -59,6 +60,10 @@ export function RoomView3D({
   classroomGroups = [],
   privateChecks = [],
   spotlight,
+  getAppearance,
+  onSelfClick,
+  localWaveTriggered = false,
+  onLocalWaveComplete,
   onWallObjectControl,
   onWallObjectRemove,
   onWallObjectStopShare,
@@ -80,6 +85,10 @@ export function RoomView3D({
   classroomGroups?: ClassroomGroup[];
   privateChecks?: ClassroomPrivateCheck[];
   spotlight?: ClassroomSpotlight | null | undefined;
+  getAppearance: (participantId: string) => AvatarAppearance;
+  onSelfClick?: () => void;
+  localWaveTriggered?: boolean;
+  onLocalWaveComplete?: () => void;
   onWallObjectControl?: (
     objectId: string,
     action: "play" | "pause" | "mute" | "unmute" | "seek" | "vote" | "close-poll" | "reopen-poll",
@@ -123,7 +132,19 @@ export function RoomView3D({
         <PrivateCheckLayer manifest={manifest} privateChecks={privateChecks} />
         {participants.map((participant) => {
           const group = classroomGroups.find((g) => g.status === "active" && g.memberUserIds.includes(participant.id));
-          return <Avatar key={participant.id} participant={participant} groupColor={group?.color} />;
+          const isLocal = participant.id === localParticipantId;
+          return (
+            <BlockyAvatar
+              key={participant.id}
+              participant={participant}
+              {...(group?.color ? { groupColor: group.color } : {})}
+              appearance={getAppearance(participant.id)}
+              helpRequestActive={false}
+              waveTriggered={isLocal ? localWaveTriggered : false}
+              onWaveComplete={isLocal && onLocalWaveComplete ? onLocalWaveComplete : () => {}}
+              {...(isLocal && onSelfClick ? { onClick: onSelfClick } : {})}
+            />
+          );
         })}
         <FollowLocalAvatarCamera
           participants={participants}
@@ -647,56 +668,3 @@ function AnchorMesh({ anchor, showLabel, spotlighted }: { anchor: Anchor; showLa
   );
 }
 
-function Avatar({ participant, groupColor }: { participant: ParticipantView; groupColor?: string | undefined }) {
-  const position = participant.state.position;
-  const color = groupColor ?? (participant.local ? "#eb5e28" : "#2f6b4f");
-
-  return (
-    <group position={[position.x, position.y ?? 0, position.z]} rotation={[0, participant.state.rotation.y, 0]}>
-      <mesh position={[0, 0.55, 0]}>
-        <capsuleGeometry args={[0.22, 0.58, 4, 10]} />
-        <meshStandardMaterial color={color} roughness={0.6} />
-      </mesh>
-      <mesh position={[0, 1.15, 0]}>
-        <sphereGeometry args={[0.24, 18, 12]} />
-        <meshStandardMaterial color="#fffaf0" roughness={0.42} />
-      </mesh>
-      <Billboard position={[0, 1.46, 0]}>
-        <Html center distanceFactor={3} style={{ pointerEvents: "none" }}>
-          <div className="avatar-nameplate">
-            <span className="avatar-nameplate__name">{participant.displayName}</span>
-            <span className="avatar-nameplate__status">
-              {groupColor ? <span className="avatar-nameplate__group" style={{ color: groupColor }}>● </span> : null}
-              {participant.state.media?.speaking ? "speaking" : participant.state.media?.microphoneEnabled ? "mic on" : "mic off"}
-            </span>
-          </div>
-        </Html>
-      </Billboard>
-      {participant.state.media?.cameraEnabled ? (
-        <Billboard position={[0.9, 1.36, 0]}>
-          <Html center distanceFactor={7}>
-            <AvatarVideoCard stream={participant.cameraStream ?? null} label={participant.local ? "Your camera" : `${participant.displayName} camera`} />
-          </Html>
-        </Billboard>
-      ) : null}
-    </group>
-  );
-}
-
-function AvatarVideoCard({ stream, label }: { stream: MediaStream | null; label: string }) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    video.srcObject = stream;
-    if (stream) void video.play().catch(() => undefined);
-  }, [stream]);
-
-  return (
-    <div className="avatar-video-card">
-      {stream ? <video ref={videoRef} autoPlay muted playsInline /> : null}
-      <div style={{ padding: "0.35rem 0.45rem" }}>{label}</div>
-    </div>
-  );
-}

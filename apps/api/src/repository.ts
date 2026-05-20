@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import type {
+  AvatarAppearance,
   ClassroomState,
   ClassMembership,
   ClassRecord,
@@ -48,6 +49,7 @@ export type Repository = {
   close(): Promise<void>;
   ensureUser(auth: AuthContext): Promise<User>;
   getUser(userId: string): Promise<User | undefined>;
+  updateUserAvatarAppearance(userId: string, appearance: AvatarAppearance): Promise<User>;
   createClass(input: { name: string; teacher: AuthContext }): Promise<ClassRecord>;
   listClassesForUser(userId: string): Promise<ClassRecord[]>;
   getClass(classId: string): Promise<ClassRecord | undefined>;
@@ -160,6 +162,18 @@ export class MemoryRepository implements Repository {
 
   async getUser(userId: string) {
     return this.users.get(userId);
+  }
+
+  async updateUserAvatarAppearance(userId: string, appearance: AvatarAppearance): Promise<User> {
+    const existing = this.users.get(userId);
+    if (!existing) throw notFound("User not found");
+    const updated: User = {
+      ...existing,
+      avatar: { ...existing.avatar, appearance },
+      updatedAt: nowIso()
+    };
+    this.users.set(userId, updated);
+    return updated;
   }
 
   async createClass(input: { name: string; teacher: AuthContext }) {

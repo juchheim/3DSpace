@@ -3,6 +3,7 @@ import fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { z, type ZodTypeAny } from "zod";
 import {
   AcceptInviteResponseSchema,
+  AvatarAppearanceSchema,
   ClassroomActionSchema,
   ClassroomStateSchema,
   CreateClassRequestSchema,
@@ -1589,6 +1590,11 @@ async function runClassroomAction(input: {
       state.lessonRun = null;
       break;
     }
+    case "set-avatar-editor-locked": {
+      requireTeacher(input.actor);
+      state.avatarEditorLocked = input.action.locked;
+      break;
+    }
   }
 
   return input.repository.updateClassroomState(input.roomId, {
@@ -1719,6 +1725,19 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const object = devStorage.get(params.storageKey);
     if (!object) throw notFound("Development object not found");
     return reply.header("content-type", object.contentType).send(object.body);
+  });
+
+  app.get("/v1/users/me", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const user = await repository.getUser(auth.userId);
+    if (!user) throw notFound("User not found");
+    return user;
+  });
+
+  app.patch("/v1/users/me/avatar", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const body = parseBody(z.object({ appearance: AvatarAppearanceSchema }), request);
+    return repository.updateUserAvatarAppearance(auth.userId, body.appearance);
   });
 
   app.get("/v1/classes", async (request) => {
@@ -1940,6 +1959,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       role: membership.role
     });
 
+    const sessionUser = await repository.getUser(auth.userId);
+
     return RoomSessionResponseSchema.parse({
       token,
       livekitUrl: config.livekitUrl,
@@ -1949,6 +1970,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       room,
       manifest,
       capabilities: manifest.capabilities,
+      avatarAppearance: sessionUser?.avatar?.appearance ?? null,
       tuning: {
         avatarSendHz: config.tuning.avatarSendHz,
         interpolationMs: config.tuning.interpolationMs,

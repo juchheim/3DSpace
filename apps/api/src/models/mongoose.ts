@@ -1,5 +1,5 @@
 import mongoose, { type Connection, Schema, type Model } from "mongoose";
-import type { ClassroomState, ClassMembership, ClassRecord, Invite, Role, RoomManifest, RoomRecord, User, WallAttachment, WallObject, WallObjectStatus } from "@3dspace/contracts";
+import type { AvatarAppearance, ClassroomState, ClassMembership, ClassRecord, Invite, Role, RoomManifest, RoomRecord, User, WallAttachment, WallObject, WallObjectStatus } from "@3dspace/contracts";
 import type { AuthContext } from "../auth.js";
 import { conflict, notFound } from "../errors.js";
 import { avatarFor, createDefaultClassroomState, inviteCode, newId, nowIso, type Repository, type RoomEventRecord, type RoomSettings } from "../repository.js";
@@ -36,7 +36,20 @@ export function createModels(connection: Connection): Models {
     id: { type: String, required: true, unique: true },
     externalAuthId: { type: String, required: true, index: true },
     displayName: { type: String, required: true },
-    avatar: { color: String, initials: String },
+    avatar: {
+      color: String,
+      initials: String,
+      appearance: {
+        hairTop: String, hairFront: String, headSide: String,
+        hairBack: String, faceSkin: String, faceAccent: String,
+        collar: String, shirtFront: String, shirtBelly: String,
+        shirtBack: String, shirtSide: String, shoulderTop: String,
+        shoulderCap: String, sleeve: String, hand: String,
+        thigh: String, shin: String, legSide: String,
+        legBack: String, shoeTop: String, shoeToe: String,
+        shoeSide: String, shoeSole: String,
+      }
+    },
     createdAt: String,
     updatedAt: String
   });
@@ -218,6 +231,17 @@ export class MongoRepository implements Repository {
 
   async getUser(userId: string) {
     return entity<User | undefined>(await this.models.User.findOne({ id: userId }).lean());
+  }
+
+  async updateUserAvatarAppearance(userId: string, appearance: AvatarAppearance): Promise<User> {
+    const time = nowIso();
+    const user = await this.models.User.findOneAndUpdate(
+      { id: userId },
+      { $set: { "avatar.appearance": appearance, updatedAt: time } },
+      { new: true, lean: true }
+    );
+    if (!user) throw notFound("User not found");
+    return entity<User>(user);
   }
 
   async createClass(input: { name: string; teacher: AuthContext }) {

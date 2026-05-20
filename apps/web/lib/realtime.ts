@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+  AvatarAppearanceMessage,
   AvatarStateMessage,
   ClassroomStateChangedRealtimeSchema,
   ClassroomStateRealtimeSchema,
@@ -35,7 +36,7 @@ export type WallRealtimeMessage =
 
 export type ClassroomRealtimeMessage = z.infer<typeof ClassroomStateChangedRealtimeSchema> | z.infer<typeof ClassroomStateRealtimeSchema>;
 
-export type RealtimeMessage = AvatarStateMessage | PresenceMessage | LeaveMessage | WallRealtimeMessage | ClassroomRealtimeMessage;
+export type RealtimeMessage = AvatarStateMessage | AvatarAppearanceMessage | PresenceMessage | LeaveMessage | WallRealtimeMessage | ClassroomRealtimeMessage;
 
 export type RemoteMediaUpdate = {
   participantId: string;

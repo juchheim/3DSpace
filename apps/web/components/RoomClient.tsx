@@ -3,12 +3,15 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AvatarStateMessage, Role, RoomManifest, RoomSessionResponse, ViewMode, WallObject } from "@3dspace/contracts";
+import type { AvatarAppearance, AvatarStateMessage, Role, RoomManifest, RoomSessionResponse, ViewMode, WallObject } from "@3dspace/contracts";
+import { AvatarAppearanceMessageSchema } from "@3dspace/contracts";
 import { computeGroupMemberPosition, createAvatarState, floorYFromZ, unprojectPointFrom2D } from "@3dspace/room-engine";
-import { joinRoom, listClassMembers } from "../lib/api";
+import { joinRoom, listClassMembers, patchAvatarAppearance } from "../lib/api";
 import { CLIENT_TUNING } from "../lib/config";
 import { pickDisplayName } from "../lib/displayName";
 import { useAvatarMovement } from "../lib/useAvatarMovement";
+import { useAvatarAppearance } from "../lib/useAvatarAppearance";
+import { DEFAULT_APPEARANCE } from "./BlockyAvatar";
 import { useThirdPersonCamera } from "../lib/useThirdPersonCamera";
 import { useLocalMedia } from "../lib/useLocalMedia";
 import { useDisplayMedia } from "../lib/useDisplayMedia";
@@ -36,6 +39,7 @@ import { LessonAuthoringPanel } from "./LessonAuthoringPanel";
 import { LessonRunControls } from "./LessonRunControls";
 import { LessonStudentCallout } from "./LessonStudentCallout";
 import { LessonTimelinePanel } from "./LessonTimelinePanel";
+import { AvatarEditorPanel } from "./AvatarEditorPanel";
 
 const RoomView3D = dynamic(() => import("./RoomView3D").then((module) => module.RoomView3D), {
   ssr: false,
@@ -102,6 +106,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const realtimeGenerationRef = useRef(0);
   const avatarStateRef = useRef<AvatarStateMessage | null>(null);
   const memberNamesRef = useRef(new Map<string, string>());
+  const localAppearanceRef = useRef<AvatarAppearance>(DEFAULT_APPEARANCE);
+  const seenParticipantsRef = useRef(new Set<string>());
+  const { receiveAppearance, setLocalAppearance, getAppearance } = useAvatarAppearance();
   const displayNameRef = useRef(identity.displayName);
   displayNameRef.current = identity.displayName;
   const media = useLocalMedia(session?.tuning.media);
@@ -116,6 +123,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [helpBoardAccessUserId, setHelpBoardAccessUserId] = useState("");
   const [positioningGroupId, setPositioningGroupId] = useState("");
+  const [avatarEditorOpen, setAvatarEditorOpen] = useState(false);
+  const [localDraftAppearance, setLocalDraftAppearance] = useState<AvatarAppearance | null>(null);
+  const [waveTriggered, setWaveTriggered] = useState(false);
   const publishRealtime = useCallback((message: RealtimeMessage) => {
     realtimeRef.current?.publish(message);
   }, []);
@@ -237,6 +247,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       .then((nextSession) => {
         if (cancelled) return;
         const normalizedManifest = normalizeRoomManifest(nextSession.manifest);
+        const initialAppearance = nextSession.avatarAppearance ?? DEFAULT_APPEARANCE;
+        localAppearanceRef.current = initialAppearance;
+        setLocalAppearance(nextSession.participantId, initialAppearance);
         setSession({ ...nextSession, manifest: normalizedManifest });
         setManifest(normalizedManifest);
         setStatus("Joined room. Connecting to LiveKit...");
@@ -294,6 +307,14 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       }
 
       if (message.type === "participant.presence.v1") {
+        if (!seenParticipantsRef.current.has(message.participantId)) {
+          seenParticipantsRef.current.add(message.participantId);
+          realtimeRef.current?.publish({
+            type: "avatar.appearance.v1",
+            participantId: activeSession.participantId,
+            appearance: localAppearanceRef.current,
+          });
+        }
         setParticipants((current) => {
           const existing = current[message.participantId];
           const displayName = pickDisplayName(
@@ -333,6 +354,14 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         return;
       }
 
+      if (message.type === "avatar.appearance.v1") {
+        const parsed = AvatarAppearanceMessageSchema.safeParse(message);
+        if (parsed.success) {
+          receiveAppearance(parsed.data.participantId, parsed.data.appearance);
+        }
+        return;
+      }
+
       if (message.type !== "avatar.state.v1") return;
 
       setParticipants((current) => {
@@ -356,6 +385,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       });
     }
 
+    seenParticipantsRef.current = new Set();
     setStatus("Connecting to LiveKit...");
     void warmSafariLiveKitPermissions()
       .then(() =>
@@ -427,6 +457,11 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           participantId: session.participantId,
           displayName: displayNameRef.current,
           role: session.role
+        });
+        client.publish({
+          type: "avatar.appearance.v1",
+          participantId: session.participantId,
+          appearance: localAppearanceRef.current,
         });
         client.syncParticipants();
       })
@@ -814,6 +849,18 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     (lesson.run?.status === "running" || lesson.run?.status === "paused") &&
     lesson.currentStep?.kind === "private-check";
   const detailPanelOpen = Boolean(helpBoardAccessUserId || selectedStudentId);
+  const avatarEditorLocked =
+    classroom.state?.lessonRun?.status === "running" &&
+    classroom.state?.avatarEditorLocked === true;
+
+  // Effective appearance: use draft for local participant when editor is open
+  const localParticipantIdForAppearance = session?.participantId;
+  function effectiveGetAppearance(id: string): AvatarAppearance {
+    if (id === localParticipantIdForAppearance && localDraftAppearance !== null) {
+      return localDraftAppearance;
+    }
+    return getAppearance(id);
+  }
 
   return (
     <main className="app-shell room-shell">
@@ -828,6 +875,10 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             manifest={manifest}
             participants={participantList}
             localParticipantId={session.participantId}
+            getAppearance={effectiveGetAppearance}
+            onSelfClick={() => setAvatarEditorOpen(true)}
+            localWaveTriggered={waveTriggered}
+            onLocalWaveComplete={() => setWaveTriggered(false)}
             quality={session.room.settings.defaultQuality}
             cameraYawRef={camera.yawRef}
             cameraPitchRef={camera.pitchRef}
@@ -950,7 +1001,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           </div>
         ) : null}
 
-        {/* Identity + media controls */}
+        {/* Identity + media controls + avatar editor button */}
         <div className="hud-panel">
           <div className="hud-id-card">
             <div className="hud-av" style={{ background: avatarColor }}>{initials}</div>
@@ -960,6 +1011,19 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             </div>
           </div>
           <MediaControls media={media} />
+          {viewMode === "3d" ? (
+            <div className="avatar-editor__hud-row">
+              <button
+                className={`avatar-editor__hud-btn${avatarEditorOpen ? " avatar-editor__hud-btn--active" : ""}${avatarEditorLocked ? " avatar-editor__hud-btn--locked" : ""}`}
+                onClick={() => setAvatarEditorOpen(prev => !prev)}
+                aria-pressed={avatarEditorOpen}
+                aria-label={avatarEditorLocked ? "Avatar editing paused during lesson" : "Edit your avatar"}
+                disabled={avatarEditorLocked}
+              >
+                {avatarEditorLocked ? "🔒 Avatar" : "👤 Avatar"}
+              </button>
+            </div>
+          ) : null}
           {media.permissionText ? <p className="hud-permission" style={{ padding: "4px 9px", fontSize: "9.5px", color: "var(--hud-tx-m)" }}>{media.permissionText}</p> : null}
         </div>
 
@@ -1017,6 +1081,11 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
                 loading={lesson.loading}
                 error={lesson.error}
                 runAction={lesson.runAction}
+                avatarEditorLocked={avatarEditorLocked}
+                onToggleAvatarLock={() => void classroom.runAction({
+                  type: "set-avatar-editor-locked",
+                  locked: !avatarEditorLocked
+                })}
               />
               {!lesson.run ? (
                 <LessonAuthoringPanel
@@ -1177,6 +1246,29 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           />
         ) : null;
       })()}
+      {avatarEditorOpen && session ? (
+        <AvatarEditorPanel
+          savedAppearance={localAppearanceRef.current}
+          onSave={async (appearance) => {
+            await patchAvatarAppearance(identity, appearance);
+            localAppearanceRef.current = appearance;
+            setLocalAppearance(session.participantId, appearance);
+            publishRealtime({
+              type: "avatar.appearance.v1",
+              participantId: session.participantId,
+              appearance,
+            });
+          }}
+          onDraftChange={(draft) => setLocalDraftAppearance(draft)}
+          onClose={() => {
+            setAvatarEditorOpen(false);
+            setLocalDraftAppearance(null);
+          }}
+          onTriggerWave={() => setWaveTriggered(true)}
+          waveActive={waveTriggered}
+          locked={avatarEditorLocked}
+        />
+      ) : null}
     </main>
   );
 }

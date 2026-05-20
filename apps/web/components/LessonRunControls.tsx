@@ -20,7 +20,9 @@ export function LessonRunControls({
   nextStep,
   runAction,
   loading,
-  error
+  error,
+  avatarEditorLocked = false,
+  onToggleAvatarLock
 }: {
   run: LessonRun | null;
   currentStep: LessonStep | null;
@@ -28,6 +30,8 @@ export function LessonRunControls({
   runAction(action: ClassroomAction): Promise<unknown>;
   loading: boolean;
   error: string;
+  avatarEditorLocked?: boolean;
+  onToggleAvatarLock?: () => void;
 }) {
   const [busy, setBusy] = useState("");
   const currentRecord = useMemo(() => (run ? latestCurrentRecord(run, currentStep) : null), [currentStep, run]);
@@ -146,6 +150,17 @@ export function LessonRunControls({
             onClick={() => void execute("clear", { type: "clear-lesson-run" })}
           >
             Clear
+          </button>
+        ) : null}
+        {isActive && onToggleAvatarLock ? (
+          <button
+            type="button"
+            className={`hud-btn${avatarEditorLocked ? " hud-btn--active" : ""}`}
+            data-testid="toggle-avatar-lock"
+            onClick={onToggleAvatarLock}
+            title={avatarEditorLocked ? "Unlock avatar editor" : "Lock avatar editor"}
+          >
+            {avatarEditorLocked ? "🔒 Avatars" : "Avatar editing on"}
           </button>
         ) : null}
       </div>

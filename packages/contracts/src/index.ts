@@ -152,13 +152,50 @@ export const RoomManifestSchema = z.object({
   createdAt: z.string()
 });
 
+export const AvatarAppearanceSchema = z.object({
+  hairTop:     z.string(),
+  hairFront:   z.string(),
+  headSide:    z.string(),
+  hairBack:    z.string(),
+  faceSkin:    z.string(),
+  faceAccent:  z.string(),
+  collar:      z.string(),
+  shirtFront:  z.string(),
+  shirtBelly:  z.string(),
+  shirtBack:   z.string(),
+  shirtSide:   z.string(),
+  shoulderTop: z.string(),
+  shoulderCap: z.string(),
+  sleeve:      z.string(),
+  hand:        z.string(),
+  thigh:       z.string(),
+  shin:        z.string(),
+  legSide:     z.string(),
+  legBack:     z.string(),
+  shoeTop:     z.string(),
+  shoeToe:     z.string(),
+  shoeSide:    z.string(),
+  shoeSole:    z.string(),
+});
+
+export type AvatarAppearance = z.infer<typeof AvatarAppearanceSchema>;
+
+export const AvatarAppearanceMessageSchema = z.object({
+  type:          z.literal("avatar.appearance.v1"),
+  participantId: z.string(),
+  appearance:    AvatarAppearanceSchema,
+});
+
+export type AvatarAppearanceMessage = z.infer<typeof AvatarAppearanceMessageSchema>;
+
 export const UserSchema = z.object({
   id: z.string(),
   externalAuthId: z.string(),
   displayName: z.string(),
   avatar: z.object({
     color: z.string(),
-    initials: z.string()
+    initials: z.string(),
+    appearance: AvatarAppearanceSchema.nullable().optional()
   }),
   createdAt: z.string(),
   updatedAt: z.string()
@@ -301,6 +338,7 @@ export const RoomSessionResponseSchema = z.object({
   room: RoomSchema,
   manifest: RoomManifestSchema,
   capabilities: RoomCapabilitiesSchema,
+  avatarAppearance: AvatarAppearanceSchema.nullable(),
   tuning: z.object({
     avatarSendHz: z.number(),
     interpolationMs: z.number(),
@@ -794,6 +832,7 @@ export const ClassroomStateSchema = z.object({
   groups: z.array(ClassroomGroupSchema).default([]),
   spotlight: ClassroomSpotlightSchema.nullable().default(null),
   lessonRun: LessonRunSchema.nullable().default(null),
+  avatarEditorLocked: z.boolean().default(false).optional(),
   createdAt: z.string(),
   updatedAt: z.string()
 });
@@ -984,6 +1023,11 @@ export const ClassroomClearLessonRunActionSchema = ClassroomActionBaseSchema.ext
   type: z.literal("clear-lesson-run")
 });
 
+export const ClassroomSetAvatarEditorLockedActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("set-avatar-editor-locked"),
+  locked: z.boolean()
+});
+
 export const ClassroomActionSchema = z.discriminatedUnion("type", [
   ClassroomRaiseHandActionSchema,
   ClassroomCancelHelpActionSchema,
@@ -1015,7 +1059,8 @@ export const ClassroomActionSchema = z.discriminatedUnion("type", [
   ClassroomResumeLessonRunActionSchema,
   ClassroomEndLessonRunActionSchema,
   ClassroomAbandonLessonRunActionSchema,
-  ClassroomClearLessonRunActionSchema
+  ClassroomClearLessonRunActionSchema,
+  ClassroomSetAvatarEditorLockedActionSchema
 ]);
 
 export const ClassroomStateChangedRealtimeSchema = z.object({
