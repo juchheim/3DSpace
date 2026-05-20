@@ -98,7 +98,7 @@ export function RoomView3D({
   return (
     <div className="canvas-wrap">
       <Canvas
-        camera={{ position: [0, 9.5, 10.5], fov: 48 }}
+        camera={{ position: [0, 12, 14], fov: 48 }}
         dpr={dpr}
         gl={{ antialias: quality !== "low", powerPreference: "high-performance" }}
         onCreated={({ gl }) => setCanvasElement(gl.domElement)}
@@ -422,17 +422,18 @@ function FollowLocalAvatarCamera({
     if (!localParticipant) return;
 
     const { position } = localParticipant.state;
+    const avatarY = position.y ?? 0;
     const yaw = cameraYawRef.current;
     const pitch = cameraPitchRef.current;
     const horizontalDistance = followDistance * Math.cos(pitch);
-    const height = lookAtHeight + followDistance * Math.sin(pitch);
+    const height = avatarY + lookAtHeight + followDistance * Math.sin(pitch);
 
     desiredPosition.set(
       position.x - Math.sin(yaw) * horizontalDistance,
       height,
       position.z - Math.cos(yaw) * horizontalDistance
     );
-    lookAtTarget.set(position.x, lookAtHeight, position.z);
+    lookAtTarget.set(position.x, avatarY + lookAtHeight, position.z);
 
     camera.position.copy(desiredPosition);
     camera.lookAt(lookAtTarget);
@@ -471,7 +472,29 @@ function RoomGeometry({
         <planeGeometry args={[manifest.dimensions.width, manifest.dimensions.depth]} />
         <meshStandardMaterial color="#d8c99f" roughness={0.92} />
       </mesh>
-      <gridHelper args={[18, 18, "#4c6b58", "#31473b"]} position={[0, 0.01, 0]} />
+      <gridHelper
+        args={[Math.max(manifest.dimensions.width, manifest.dimensions.depth), 24, "#4c6b58", "#31473b"]}
+        position={[0, 0.01, 0]}
+      />
+      {/* Raised tier platforms — each box spans from absolute y=0 up to floorY, creating step risers */}
+      {manifest.tiers?.map((tier, i) => {
+        const depth = tier.maxZ - tier.minZ;
+        const centerZ = (tier.minZ + tier.maxZ) / 2;
+        return (
+          <mesh
+            key={`tier-${i}`}
+            position={[0, tier.floorY / 2, centerZ]}
+            receiveShadow
+            onClick={(event) => {
+              event.stopPropagation();
+              onMoveToPoint({ x: event.point.x, z: event.point.z });
+            }}
+          >
+            <boxGeometry args={[manifest.dimensions.width, tier.floorY, depth]} />
+            <meshStandardMaterial color={i % 2 === 0 ? "#cfc0a0" : "#c4b496"} roughness={0.94} />
+          </mesh>
+        );
+      })}
       {manifest.walls.map((wall) => <WallMesh key={wall.id} wall={wall} />)}
       {manifest.wallAnchors.map((anchor) => (
         <AnchorMesh
@@ -482,7 +505,11 @@ function RoomGeometry({
         />
       ))}
       {manifest.spawnPoints.map((spawn) => (
-        <mesh key={spawn.id} position={[spawn.position.x, 0.03, spawn.position.z]} rotation={[-Math.PI / 2, 0, 0]}>
+        <mesh
+          key={spawn.id}
+          position={[spawn.position.x, (spawn.position.y ?? 0) + 0.03, spawn.position.z]}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
           <ringGeometry args={[0.22, 0.3, 24]} />
           <meshBasicMaterial color="#eb5e28" transparent opacity={0.72} />
         </mesh>
@@ -624,7 +651,7 @@ function Avatar({ participant, groupColor }: { participant: ParticipantView; gro
   const color = groupColor ?? (participant.local ? "#eb5e28" : "#2f6b4f");
 
   return (
-    <group position={[position.x, 0, position.z]} rotation={[0, participant.state.rotation.y, 0]}>
+    <group position={[position.x, position.y ?? 0, position.z]} rotation={[0, participant.state.rotation.y, 0]}>
       <mesh position={[0, 0.55, 0]}>
         <capsuleGeometry args={[0.22, 0.58, 4, 10]} />
         <meshStandardMaterial color={color} roughness={0.6} />

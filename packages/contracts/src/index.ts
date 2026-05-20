@@ -124,6 +124,12 @@ export const RoomProjectionSchema = z.object({
   origin: Vector2Schema
 });
 
+export const FloorTierSchema = z.object({
+  minZ: z.number(),
+  maxZ: z.number(),
+  floorY: z.number().nonnegative()
+});
+
 export const RoomManifestSchema = z.object({
   id: z.string(),
   roomId: z.string(),
@@ -138,6 +144,7 @@ export const RoomManifestSchema = z.object({
   spawnPoints: z.array(SpawnPointSchema).min(1),
   walls: z.array(WallPlaneSchema),
   wallAnchors: z.array(WallAnchorSchema),
+  tiers: z.array(FloorTierSchema).default([]),
   projection: RoomProjectionSchema,
   capabilities: RoomCapabilitiesSchema,
   spatialAudio: SpatialAudioConfigSchema,

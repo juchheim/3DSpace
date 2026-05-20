@@ -31,7 +31,7 @@ export const DEFAULT_SPATIAL_AUDIO: SpatialAudioConfig = {
 export const WIDESCREEN_ASPECT = 16 / 9;
 
 /** Primary front-board width in world meters (height follows 16:9). */
-export const PRIMARY_BOARD_WIDTH = 4.8;
+export const PRIMARY_BOARD_WIDTH = 9.6;
 
 export function widescreenHeight(width: number): number {
   return (width * 9) / 16;
@@ -86,43 +86,63 @@ export function createDefaultRoomManifest(input: {
     }
   };
 
+  // Lecture-hall layout: teacher at front (z=-9, y=0), students rise toward back.
+  // Tier 2: z=2.5–6, floorY=0.6 m. Tier 3: z=6–9, floorY=1.2 m.
   const manifest: RoomManifest = {
     id: input.id ?? `${input.roomId}:manifest:v${input.version ?? 1}`,
     roomId: input.roomId,
     version: input.version ?? 1,
     name: input.name ?? "Default Classroom",
     dimensions: {
-      width: 16,
-      depth: 12,
-      height: 4
+      width: 24,
+      depth: 18,
+      height: 7
     },
     bounds: {
-      minX: -7.2,
-      maxX: 7.2,
-      minZ: -5.2,
-      maxZ: 5.2
+      minX: -10.8,
+      maxX: 10.8,
+      minZ: -8.5,
+      maxZ: 8.5
     },
+    tiers: [
+      { minZ: 2.5, maxZ: 6.0, floorY: 0.6 },
+      { minZ: 6.0, maxZ: 9.0, floorY: 1.2 }
+    ],
     spawnPoints: [
-      { id: "spawn-teacher", label: "Teacher", position: { x: 0, y: 0, z: -2.2 }, rotation: { y: Math.PI } },
-      { id: "spawn-student-back-left", label: "Student Back Left", position: { x: -4.8, y: 0, z: 3.4 }, rotation: { y: Math.PI } },
-      { id: "spawn-student-back-mid-left", label: "Student Back Mid Left", position: { x: -1.6, y: 0, z: 3.8 }, rotation: { y: Math.PI } },
-      { id: "spawn-student-back-mid-right", label: "Student Back Mid Right", position: { x: 1.6, y: 0, z: 3.8 }, rotation: { y: Math.PI } },
-      { id: "spawn-student-back-right", label: "Student Back Right", position: { x: 4.8, y: 0, z: 3.4 }, rotation: { y: Math.PI } },
-      { id: "spawn-student-mid-left", label: "Student Mid Left", position: { x: -4, y: 0, z: 2 }, rotation: { y: Math.PI } },
-      { id: "spawn-student-mid-center", label: "Student Mid Center", position: { x: 0, y: 0, z: 2.4 }, rotation: { y: Math.PI } },
-      { id: "spawn-student-mid-right", label: "Student Mid Right", position: { x: 4, y: 0, z: 2 }, rotation: { y: Math.PI } }
+      // Teacher — front stage, facing the board
+      { id: "spawn-teacher", label: "Teacher", position: { x: 0, y: 0, z: -5.5 }, rotation: { y: Math.PI } },
+      // Front row — ground tier (y=0)
+      { id: "spawn-front-left", label: "Front Left", position: { x: -8, y: 0, z: 1 }, rotation: { y: Math.PI } },
+      { id: "spawn-front-mid-left", label: "Front Mid Left", position: { x: -4, y: 0, z: 1 }, rotation: { y: Math.PI } },
+      { id: "spawn-front-center", label: "Front Center", position: { x: 0, y: 0, z: 1 }, rotation: { y: Math.PI } },
+      { id: "spawn-front-mid-right", label: "Front Mid Right", position: { x: 4, y: 0, z: 1 }, rotation: { y: Math.PI } },
+      { id: "spawn-front-right", label: "Front Right", position: { x: 8, y: 0, z: 1 }, rotation: { y: Math.PI } },
+      // Middle row — tier 2 (y=0.6)
+      { id: "spawn-mid-left", label: "Mid Left", position: { x: -9, y: 0.6, z: 4.5 }, rotation: { y: Math.PI } },
+      { id: "spawn-mid-mid-left", label: "Mid Mid Left", position: { x: -4.5, y: 0.6, z: 4.5 }, rotation: { y: Math.PI } },
+      { id: "spawn-mid-center", label: "Mid Center", position: { x: 0, y: 0.6, z: 4.5 }, rotation: { y: Math.PI } },
+      { id: "spawn-mid-mid-right", label: "Mid Mid Right", position: { x: 4.5, y: 0.6, z: 4.5 }, rotation: { y: Math.PI } },
+      { id: "spawn-mid-right", label: "Mid Right", position: { x: 9, y: 0.6, z: 4.5 }, rotation: { y: Math.PI } },
+      // Back row — tier 3 (y=1.2)
+      { id: "spawn-back-left", label: "Back Left", position: { x: -9, y: 1.2, z: 7.5 }, rotation: { y: Math.PI } },
+      { id: "spawn-back-mid-left", label: "Back Mid Left", position: { x: -4.5, y: 1.2, z: 7.5 }, rotation: { y: Math.PI } },
+      { id: "spawn-back-center", label: "Back Center", position: { x: 0, y: 1.2, z: 7.5 }, rotation: { y: Math.PI } },
+      { id: "spawn-back-mid-right", label: "Back Mid Right", position: { x: 4.5, y: 1.2, z: 7.5 }, rotation: { y: Math.PI } },
+      { id: "spawn-back-right", label: "Back Right", position: { x: 9, y: 1.2, z: 7.5 }, rotation: { y: Math.PI } }
     ],
     walls: [
-      { id: "wall-front", label: "Front wall", start: { x: -8, y: 0, z: -6 }, end: { x: 8, y: 0, z: -6 }, height: 4, anchorIds: ["anchor-board", "anchor-media-left"] },
-      { id: "wall-back", label: "Back wall", start: { x: -8, y: 0, z: 6 }, end: { x: 8, y: 0, z: 6 }, height: 4, anchorIds: ["anchor-back"] },
-      { id: "wall-left", label: "Left wall", start: { x: -8, y: 0, z: -6 }, end: { x: -8, y: 0, z: 6 }, height: 4, anchorIds: ["anchor-left"] },
-      { id: "wall-right", label: "Right wall", start: { x: 8, y: 0, z: -6 }, end: { x: 8, y: 0, z: 6 }, height: 4, anchorIds: ["anchor-right"] }
+      // Front wall is taller to accommodate the large primary board
+      { id: "wall-front", label: "Front wall", start: { x: -12, y: 0, z: -9 }, end: { x: 12, y: 0, z: -9 }, height: 7, anchorIds: ["anchor-board", "anchor-media-left"] },
+      { id: "wall-back", label: "Back wall", start: { x: -12, y: 0, z: 9 }, end: { x: 12, y: 0, z: 9 }, height: 5, anchorIds: ["anchor-back"] },
+      { id: "wall-left", label: "Left wall", start: { x: -12, y: 0, z: -9 }, end: { x: -12, y: 0, z: 9 }, height: 5, anchorIds: ["anchor-left"] },
+      { id: "wall-right", label: "Right wall", start: { x: 12, y: 0, z: -9 }, end: { x: 12, y: 0, z: 9 }, height: 5, anchorIds: ["anchor-right"] }
     ],
     wallAnchors: [
       {
         id: "anchor-board",
         label: "Main board",
-        position: { x: 0, y: 2, z: -5.92 },
+        // 9.6 m wide × 5.4 m tall (16:9), centered at y=3.5 on the front wall
+        position: { x: 0, y: 3.5, z: -8.92 },
         normal: { x: 0, y: 0, z: 1 },
         width: PRIMARY_BOARD_WIDTH,
         height: widescreenHeight(PRIMARY_BOARD_WIDTH),
@@ -139,10 +159,10 @@ export function createDefaultRoomManifest(input: {
       {
         id: "anchor-media-left",
         label: "Front media",
-        position: { x: -5.6, y: 2, z: -5.92 },
+        position: { x: -9.0, y: 2.2, z: -8.92 },
         normal: { x: 0, y: 0, z: 1 },
-        width: 2.2,
-        height: widescreenHeight(2.2),
+        width: 3.0,
+        height: widescreenHeight(3.0),
         metadata: {
           accepts: ["image", "audio", "image.file", "audio.file", "microphone.live", "web.link", "note", "timer"],
           capacity: 3,
@@ -155,10 +175,11 @@ export function createDefaultRoomManifest(input: {
       {
         id: "anchor-back",
         label: "Back display",
-        position: { x: 4.5, y: 2, z: 5.92 },
+        // Sits on the back wall above tier-3 seating (absolute y accounts for 1.2 m platform)
+        position: { x: 6, y: 2.5, z: 8.92 },
         normal: { x: 0, y: 0, z: -1 },
-        width: 2.5,
-        height: widescreenHeight(2.5),
+        width: 3.0,
+        height: widescreenHeight(3.0),
         metadata: {
           accepts: ["image", "video", "audio", "image.file", "video.file", "audio.file", "camera.live", "screen.live", "browser-tab.live", "web.link", "note", "poll", "timer"],
           capacity: 4,
@@ -171,10 +192,10 @@ export function createDefaultRoomManifest(input: {
       {
         id: "anchor-left",
         label: "Left resource rail",
-        position: { x: -7.92, y: 2, z: 0 },
+        position: { x: -11.92, y: 2.5, z: 0 },
         normal: { x: 1, y: 0, z: 0 },
-        width: 3.4,
-        height: widescreenHeight(3.4),
+        width: 5.0,
+        height: widescreenHeight(5.0),
         metadata: {
           accepts: ["image", "image.file", "document.file", "slides.file", "web.link", "note", "poll", "timer"],
           capacity: 6,
@@ -187,10 +208,10 @@ export function createDefaultRoomManifest(input: {
       {
         id: "anchor-right",
         label: "Right resource rail",
-        position: { x: 7.92, y: 2, z: 0 },
+        position: { x: 11.92, y: 2.5, z: 0 },
         normal: { x: -1, y: 0, z: 0 },
-        width: 3.4,
-        height: widescreenHeight(3.4),
+        width: 5.0,
+        height: widescreenHeight(5.0),
         metadata: {
           accepts: ["image", "image.file", "document.file", "slides.file", "web.link", "note", "poll", "timer"],
           capacity: 6,
@@ -229,11 +250,21 @@ export function createDefaultRoomManifest(input: {
   return RoomManifestSchema.parse(manifest);
 }
 
+/** Returns the floor elevation (y) for a given z coordinate based on the manifest's tier definitions. */
+export function floorYFromZ(manifest: RoomManifest, z: number): number {
+  if (!manifest.tiers?.length) return 0;
+  // Walk tiers from highest minZ down — first match wins (tiers must not overlap).
+  const sorted = [...manifest.tiers].sort((a, b) => b.minZ - a.minZ);
+  const tier = sorted.find((t) => z >= t.minZ);
+  return tier?.floorY ?? 0;
+}
+
 export function clampPositionToBounds(manifest: RoomManifest, position: Vector3): Vector3 {
+  const clampedZ = Math.min(Math.max(position.z, manifest.bounds.minZ), manifest.bounds.maxZ);
   return {
     x: Math.min(Math.max(position.x, manifest.bounds.minX), manifest.bounds.maxX),
-    y: 0,
-    z: Math.min(Math.max(position.z, manifest.bounds.minZ), manifest.bounds.maxZ)
+    y: floorYFromZ(manifest, clampedZ),
+    z: clampedZ
   };
 }
 
@@ -254,15 +285,16 @@ export function transformLocalMovementToWorld(rotationY: number, local: { x: num
 /**
  * Returns a non-overlapping position for the Nth member of a group centered at `center`.
  * Slot 0 = center, slots 1–6 = ring at 1.5 m, slots 7–18 = outer ring at 3.0 m.
+ * The y coordinate is inherited from the center so all members stay on the same tier.
  */
 export function computeGroupMemberPosition(center: Vector3, memberIndex: number): Vector3 {
-  if (memberIndex === 0) return { x: center.x, y: 0, z: center.z };
+  if (memberIndex === 0) return { x: center.x, y: center.y, z: center.z };
   if (memberIndex <= 6) {
     const angle = ((memberIndex - 1) / 6) * (Math.PI * 2);
-    return { x: center.x + Math.sin(angle) * 1.5, y: 0, z: center.z + Math.cos(angle) * 1.5 };
+    return { x: center.x + Math.sin(angle) * 1.5, y: center.y, z: center.z + Math.cos(angle) * 1.5 };
   }
   const angle = ((memberIndex - 7) / 12) * (Math.PI * 2);
-  return { x: center.x + Math.sin(angle) * 3.0, y: 0, z: center.z + Math.cos(angle) * 3.0 };
+  return { x: center.x + Math.sin(angle) * 3.0, y: center.y, z: center.z + Math.cos(angle) * 3.0 };
 }
 
 export function computeGroupTargetPositionFromAnchor(manifest: RoomManifest, anchorId: string, offsetMeters = 2.6): Vector3 | null {

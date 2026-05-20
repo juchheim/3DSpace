@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AvatarStateMessage, Role, RoomManifest, RoomSessionResponse, ViewMode, WallObject } from "@3dspace/contracts";
-import { computeGroupMemberPosition, createAvatarState, unprojectPointFrom2D } from "@3dspace/room-engine";
+import { computeGroupMemberPosition, createAvatarState, floorYFromZ, unprojectPointFrom2D } from "@3dspace/room-engine";
 import { joinRoom, listClassMembers } from "../lib/api";
 import { CLIENT_TUNING } from "../lib/config";
 import { pickDisplayName } from "../lib/displayName";
@@ -838,7 +838,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
                 void classroom.runAction({
                   type: "update-group",
                   groupId: positioningGroupId,
-                  targetPosition: { x: point.x, y: 0, z: point.z },
+                  targetPosition: { x: point.x, y: manifest ? floorYFromZ(manifest, point.z) : 0, z: point.z },
                   hold: { enabled: true, mode: "hard", radiusMeters: 2 }
                 }).then(() => setPositioningGroupId(""));
               } else {
@@ -870,7 +870,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
                 void classroom.runAction({
                   type: "update-group",
                   groupId: positioningGroupId,
-                  targetPosition: { x: worldPos.x, y: 0, z: worldPos.z },
+                  targetPosition: { x: worldPos.x, y: floorYFromZ(manifest, worldPos.z), z: worldPos.z },
                   hold: { enabled: true, mode: "hard", radiusMeters: 2 }
                 }).then(() => setPositioningGroupId(""));
               } else {

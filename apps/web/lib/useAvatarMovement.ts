@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import type { AvatarStateMessage, Role, RoomManifest, Vector3, ViewMode } from "@3dspace/contracts";
-import { clampPositionToBounds, createAvatarState, transformLocalMovementToWorld, unprojectPointFrom2D } from "@3dspace/room-engine";
+import { clampPositionToBounds, createAvatarState, floorYFromZ, transformLocalMovementToWorld, unprojectPointFrom2D } from "@3dspace/room-engine";
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -93,7 +93,7 @@ export function useAvatarMovement(input: {
       if (current) {
         const locked = lockedPositionRef.current;
         if (locked) {
-          const lockedPos = { x: locked.x, y: 0, z: locked.z };
+          const lockedPos = { x: locked.x, y: floorYFromZ(input.manifest!, locked.z), z: locked.z };
           if (
             current.position.x !== lockedPos.x ||
             current.position.z !== lockedPos.z ||
