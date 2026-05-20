@@ -447,12 +447,29 @@ async function hydrateClassroomDisplayNames(repository: Repository, classId: str
   });
 }
 
+function normalizeLegacyLessonRun(run: LessonRun | null | undefined) {
+  if (run == null) return null;
+
+  function stripNulls(value: unknown): unknown {
+    if (value === null) return undefined;
+    if (Array.isArray(value)) return value.map((entry) => stripNulls(entry));
+    if (value && typeof value === "object") {
+      return Object.fromEntries(
+        Object.entries(value).flatMap(([key, entry]) => {
+          const normalized = stripNulls(entry);
+          return normalized === undefined ? [] : [[key, normalized]];
+        })
+      );
+    }
+    return value;
+  }
+
+  const parsed = LessonRunSchema.safeParse(stripNulls(run));
+  return parsed.success ? parsed.data : null;
+}
+
 function sanitizeClassroomState(state: ClassroomState): ClassroomState {
-  const normalizedLessonRun = (() => {
-    if (state.lessonRun == null) return null;
-    const parsed = LessonRunSchema.safeParse(state.lessonRun);
-    return parsed.success ? parsed.data : null;
-  })();
+  const normalizedLessonRun = normalizeLegacyLessonRun(state.lessonRun);
 
   return ClassroomStateSchema.parse({
     ...state,

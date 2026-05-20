@@ -881,6 +881,63 @@ describe("3dspace api", () => {
     await app.close();
   });
 
+  it("normalizes legacy lesson steps with null optional fields on classroom reads", async () => {
+    const repository = new MemoryRepository();
+    const app = await buildApp({
+      config: lessonConfig(),
+      repository
+    });
+    const { roomWithManifest } = await createClassAndRoom(app, "teacher-classroom-legacy-step");
+    const now = new Date().toISOString();
+
+    await repository.updateClassroomState(roomWithManifest.room.id, {
+      state: {
+        roomId: roomWithManifest.room.id,
+        version: 1,
+        helpRequests: [],
+        boardAccessGrants: [],
+        privateChecks: [],
+        groups: [],
+        spotlight: null,
+        lessonRun: {
+          id: "lessonrun_legacy",
+          title: "Legacy lesson",
+          status: "ready",
+          steps: [
+            {
+              id: "lessonstep_legacy",
+              kind: "instruction",
+              title: "Instruction",
+              notes: null,
+              payload: { kind: "instruction", data: { body: "Read the prompt." } },
+              createdAt: now,
+              updatedAt: now
+            }
+          ],
+          currentStepIndex: -1,
+          timeline: [],
+          createdByUserId: "teacher-classroom-legacy-step",
+          createdAt: now,
+          updatedAt: now
+        } as any,
+        createdAt: now,
+        updatedAt: now
+      }
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom`,
+      headers: authHeaders("teacher-classroom-legacy-step", "Ms. Rivera")
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().lessonRun?.steps).toHaveLength(1);
+    expect(response.json().lessonRun.steps[0].notes).toBeUndefined();
+
+    await app.close();
+  });
+
   it("filters classroom state for students and preserves teacher visibility", async () => {
     const app = await buildApp({
       config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
