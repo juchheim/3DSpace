@@ -52,6 +52,7 @@ export function RoomView3D({
   cameraPitchRef,
   bindCamera,
   onMoveToPoint,
+  firstPerson = false,
   wallObjects = [],
   assetUrls = {},
   wallMediaStreams = {},
@@ -78,6 +79,7 @@ export function RoomView3D({
   cameraPitchRef: MutableRefObject<number>;
   bindCamera(element: HTMLElement | null): void | (() => void);
   onMoveToPoint(point: { x: number; z: number }): void;
+  firstPerson?: boolean;
   wallObjects?: WallObject[];
   assetUrls?: Record<string, string>;
   wallMediaStreams?: Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>;
@@ -145,6 +147,7 @@ export function RoomView3D({
               waveTriggered={isLocal ? localWaveTriggered : !!(participant.state.waving)}
               onWaveComplete={isLocal && onLocalWaveComplete ? onLocalWaveComplete : () => {}}
               {...(isLocal && onSelfClick ? { onClick: onSelfClick } : {})}
+              {...(isLocal && firstPerson ? { hidden: true } : {})}
             />
           );
         })}
@@ -153,6 +156,7 @@ export function RoomView3D({
           localParticipantId={localParticipantId}
           cameraYawRef={cameraYawRef}
           cameraPitchRef={cameraPitchRef}
+          firstPerson={firstPerson}
         />
       </Canvas>
     </div>
@@ -427,12 +431,14 @@ function FollowLocalAvatarCamera({
   participants,
   localParticipantId,
   cameraYawRef,
-  cameraPitchRef
+  cameraPitchRef,
+  firstPerson
 }: {
   participants: ParticipantView[];
   localParticipantId: string;
   cameraYawRef: MutableRefObject<number>;
   cameraPitchRef: MutableRefObject<number>;
+  firstPerson: boolean;
 }) {
   const { camera } = useThree();
   const desiredPosition = useMemo(() => new Vector3(), []);
@@ -440,6 +446,7 @@ function FollowLocalAvatarCamera({
   const localParticipant = participants.find((participant) => participant.id === localParticipantId || participant.local);
   const followDistance = 2.85;
   const lookAtHeight = 1.08;
+  const eyeHeight = 1.5;
 
   useFrame(() => {
     if (!localParticipant) return;
@@ -448,18 +455,29 @@ function FollowLocalAvatarCamera({
     const avatarY = position.y ?? 0;
     const yaw = cameraYawRef.current;
     const pitch = cameraPitchRef.current;
-    const horizontalDistance = followDistance * Math.cos(pitch);
-    // Clamp height so the camera never clips through the floor tier the avatar stands on.
-    const height = Math.max(avatarY + 0.25, avatarY + lookAtHeight + followDistance * Math.sin(pitch));
 
-    desiredPosition.set(
-      position.x - Math.sin(yaw) * horizontalDistance,
-      height,
-      position.z - Math.cos(yaw) * horizontalDistance
-    );
-    lookAtTarget.set(position.x, avatarY + lookAtHeight, position.z);
+    if (firstPerson) {
+      camera.position.set(position.x, avatarY + eyeHeight, position.z);
+      // Positive pitch tilts the camera arm up in third-person (looking down), so invert for look direction.
+      lookAtTarget.set(
+        position.x + Math.sin(yaw),
+        avatarY + eyeHeight - Math.sin(pitch),
+        position.z + Math.cos(yaw)
+      );
+    } else {
+      const horizontalDistance = followDistance * Math.cos(pitch);
+      // Clamp height so the camera never clips through the floor tier the avatar stands on.
+      const height = Math.max(avatarY + 0.25, avatarY + lookAtHeight + followDistance * Math.sin(pitch));
 
-    camera.position.copy(desiredPosition);
+      desiredPosition.set(
+        position.x - Math.sin(yaw) * horizontalDistance,
+        height,
+        position.z - Math.cos(yaw) * horizontalDistance
+      );
+      lookAtTarget.set(position.x, avatarY + lookAtHeight, position.z);
+      camera.position.copy(desiredPosition);
+    }
+
     camera.lookAt(lookAtTarget);
   });
 

@@ -31,6 +31,7 @@ export type BlockyAvatarProps = {
   waveTriggered: boolean;
   onWaveComplete: () => void;
   onClick?: () => void;
+  hidden?: boolean;
 };
 
 export const DEFAULT_APPEARANCE: AvatarAppearance = {
@@ -67,6 +68,7 @@ export function BlockyAvatar({
   waveTriggered,
   onWaveComplete,
   onClick,
+  hidden,
 }: BlockyAvatarProps) {
   const position = participant.state.position;
   const movement = participant.state.movement;
@@ -233,6 +235,7 @@ export function BlockyAvatar({
     <group
       position={[position.x, position.y ?? 0, position.z]}
       rotation={[0, participant.state.rotation.y, 0]}
+      visible={!hidden}
       {...(onClick ? { onClick } : {})}
     >
 

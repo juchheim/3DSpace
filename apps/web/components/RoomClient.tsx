@@ -96,6 +96,20 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const router = useRouter();
   const { identity, loaded: identityLoaded, clerkEnabled, signedIn } = usePersistentIdentity();
   const [viewMode, setViewMode] = useState<ViewMode>("3d");
+  const [firstPerson, setFirstPerson] = useState(false);
+  useEffect(() => {
+    if (viewMode !== "3d") setFirstPerson(false);
+  }, [viewMode]);
+  useEffect(() => {
+    if (viewMode !== "3d") return;
+    function onKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target?.isContentEditable || target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return;
+      if (e.code === "KeyV") setFirstPerson((prev) => !prev);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [viewMode]);
   const [session, setSession] = useState<RoomSessionResponse | null>(null);
   const [manifest, setManifest] = useState<RoomManifest | null>(null);
   const [participants, setParticipants] = useState<Record<string, ParticipantView>>({});
@@ -893,6 +907,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             cameraYawRef={camera.yawRef}
             cameraPitchRef={camera.pitchRef}
             bindCamera={camera.bind}
+            firstPerson={firstPerson}
             onMoveToPoint={(point) => {
               if (camera.consumeClickSuppress()) return;
               if (positioningGroupId) {
@@ -967,6 +982,13 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             2D
           </button>
         </div>
+        {viewMode === "3d" ? (
+          <div className="toggle" aria-label="Camera mode" title="First-person view (V)">
+            <button aria-pressed={firstPerson} onClick={() => setFirstPerson((prev) => !prev)} disabled={!manifest}>
+              1P
+            </button>
+          </div>
+        ) : null}
       </header>
 
       {/* Left HUD: context status + identity + media controls + d-pad */}
