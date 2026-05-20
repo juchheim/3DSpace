@@ -10,11 +10,13 @@ import {
   buildHeadMaterials,
   buildBodyMaterials,
   buildArmMaterials,
+  buildHandMaterials,
   buildLegMaterials,
   buildFootMaterials,
   updateHeadMaterials,
   updateBodyMaterials,
   updateArmMaterials,
+  updateHandMaterials,
   updateLegMaterials,
   updateFootMaterials,
   disposeMaterials,
@@ -111,15 +113,15 @@ export function BlockyAvatar({
     // Idle body bob — fades out while walking
     const body = bodyGroupRef.current;
     if (body) {
-      body.position.y = Math.sin(t * 0.8 * Math.PI * 2) * 0.004 * (1 - blend);
+      body.position.y = 0.77 + Math.sin(t * 0.8 * Math.PI * 2) * 0.004 * (1 - blend);
     }
 
     // Speaking head bob
     const head = headGroupRef.current;
     if (head) {
-      head.position.y = (media?.speaking ?? false)
+      head.position.y = 1.22 + ((media?.speaking ?? false)
         ? Math.sin(t * 4 * Math.PI * 2) * 0.008
-        : 0;
+        : 0);
     }
 
     // Wave emote — one-shot trigger
@@ -167,6 +169,8 @@ export function BlockyAvatar({
   const bodyMeshRef      = useRef<Mesh>(null);
   const leftArmMeshRef   = useRef<Mesh>(null);
   const rightArmMeshRef  = useRef<Mesh>(null);
+  const leftHandMeshRef  = useRef<Mesh>(null);
+  const rightHandMeshRef = useRef<Mesh>(null);
   const leftLegMeshRef   = useRef<Mesh>(null);
   const rightLegMeshRef  = useRef<Mesh>(null);
   const leftFootMeshRef  = useRef<Mesh>(null);
@@ -176,6 +180,7 @@ export function BlockyAvatar({
   const headMatsRef      = useRef<FaceMaterials | null>(null);
   const bodyMatsRef      = useRef<FaceMaterials | null>(null);
   const armMatsRef       = useRef<FaceMaterials | null>(null);
+  const handMatsRef      = useRef<FaceMaterials | null>(null);
   const legMatsRef       = useRef<FaceMaterials | null>(null);
   const footMatsRef      = useRef<FaceMaterials | null>(null);
 
@@ -183,28 +188,32 @@ export function BlockyAvatar({
     headMatsRef.current = buildHeadMaterials(appearance);
     bodyMatsRef.current = buildBodyMaterials(appearance);
     armMatsRef.current  = buildArmMaterials(appearance);
+    handMatsRef.current = buildHandMaterials(appearance);
     legMatsRef.current  = buildLegMaterials(appearance);
     footMatsRef.current = buildFootMaterials(appearance);
   }
 
   // ── Apply material arrays to meshes once after mount ──────────────────
   useEffect(() => {
-    if (headMeshRef.current)      headMeshRef.current.material      = headMatsRef.current!;
-    if (bodyMeshRef.current)      bodyMeshRef.current.material      = bodyMatsRef.current!;
-    if (leftArmMeshRef.current)   leftArmMeshRef.current.material   = armMatsRef.current!;
-    if (rightArmMeshRef.current)  rightArmMeshRef.current.material  = armMatsRef.current!;
-    if (leftLegMeshRef.current)   leftLegMeshRef.current.material   = legMatsRef.current!;
-    if (rightLegMeshRef.current)  rightLegMeshRef.current.material  = legMatsRef.current!;
-    if (leftFootMeshRef.current)  leftFootMeshRef.current.material  = footMatsRef.current!;
-    if (rightFootMeshRef.current) rightFootMeshRef.current.material = footMatsRef.current!;
+    if (headMeshRef.current)       headMeshRef.current.material       = headMatsRef.current!;
+    if (bodyMeshRef.current)       bodyMeshRef.current.material       = bodyMatsRef.current!;
+    if (leftArmMeshRef.current)    leftArmMeshRef.current.material    = armMatsRef.current!;
+    if (rightArmMeshRef.current)   rightArmMeshRef.current.material   = armMatsRef.current!;
+    if (leftHandMeshRef.current)   leftHandMeshRef.current.material   = handMatsRef.current!;
+    if (rightHandMeshRef.current)  rightHandMeshRef.current.material  = handMatsRef.current!;
+    if (leftLegMeshRef.current)    leftLegMeshRef.current.material    = legMatsRef.current!;
+    if (rightLegMeshRef.current)   rightLegMeshRef.current.material   = legMatsRef.current!;
+    if (leftFootMeshRef.current)   leftFootMeshRef.current.material   = footMatsRef.current!;
+    if (rightFootMeshRef.current)  rightFootMeshRef.current.material  = footMatsRef.current!;
   }, []);
 
   // ── Update materials imperatively when appearance changes ──────────────
   useEffect(() => {
     updateHeadMaterials(headMatsRef.current!, appearance);
     updateBodyMaterials(bodyMatsRef.current!, appearance);
-    updateArmMaterials(armMatsRef.current!,  appearance);
-    updateLegMaterials(legMatsRef.current!,  appearance);
+    updateArmMaterials(armMatsRef.current!,   appearance);
+    updateHandMaterials(handMatsRef.current!, appearance);
+    updateLegMaterials(legMatsRef.current!,   appearance);
     updateFootMaterials(footMatsRef.current!, appearance);
   }, [appearance]);
 
@@ -214,6 +223,7 @@ export function BlockyAvatar({
       disposeMaterials(headMatsRef.current ?? []);
       disposeMaterials(bodyMatsRef.current ?? []);
       disposeMaterials(armMatsRef.current  ?? []);
+      disposeMaterials(handMatsRef.current ?? []);
       disposeMaterials(legMatsRef.current  ?? []);
       disposeMaterials(footMatsRef.current ?? []);
     };
@@ -245,12 +255,18 @@ export function BlockyAvatar({
         <mesh ref={leftArmMeshRef} position={[0, -0.22, 0]}>
           <boxGeometry args={[0.16, 0.44, 0.16]} />
         </mesh>
+        <mesh ref={leftHandMeshRef} position={[0, -0.50, 0]}>
+          <boxGeometry args={[0.16, 0.12, 0.16]} />
+        </mesh>
       </group>
 
       {/* Right arm — pivot at shoulder (x=+0.30, y=0.97) */}
       <group ref={rightArmPivotRef} position={[0.30, 0.97, 0]}>
         <mesh ref={rightArmMeshRef} position={[0, -0.22, 0]}>
           <boxGeometry args={[0.16, 0.44, 0.16]} />
+        </mesh>
+        <mesh ref={rightHandMeshRef} position={[0, -0.50, 0]}>
+          <boxGeometry args={[0.16, 0.12, 0.16]} />
         </mesh>
       </group>
 

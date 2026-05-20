@@ -95,9 +95,20 @@ export function buildArmMaterials(z: AvatarAppearance): FaceMaterials {
     solid(z.sleeve),      // +X right
     solid(z.sleeve),      // -X left
     solid(z.shoulderCap), // +Y top
-    solid(z.hand),        // -Y bottom (wrist/hand)
+    solid(z.sleeve),      // -Y bottom (hidden under hand mesh)
     solid(z.sleeve),      // +Z front
     solid(z.sleeve),      // -Z back
+  ];
+}
+
+export function buildHandMaterials(z: AvatarAppearance): FaceMaterials {
+  return [
+    solid(z.hand), // +X right
+    solid(z.hand), // -X left
+    solid(z.hand), // +Y top (hidden inside sleeve)
+    solid(z.hand), // -Y bottom
+    solid(z.hand), // +Z front
+    solid(z.hand), // -Z back
   ];
 }
 
@@ -160,9 +171,13 @@ export function updateArmMaterials(mats: FaceMaterials, z: AvatarAppearance): vo
   mats[0].color.set(z.sleeve);
   mats[1].color.set(z.sleeve);
   mats[2].color.set(z.shoulderCap);
-  mats[3].color.set(z.hand);
+  mats[3].color.set(z.sleeve);
   mats[4].color.set(z.sleeve);
   mats[5].color.set(z.sleeve);
+}
+
+export function updateHandMaterials(mats: FaceMaterials, z: AvatarAppearance): void {
+  for (const mat of mats) mat.color.set(z.hand);
 }
 
 export function updateLegMaterials(mats: FaceMaterials, z: AvatarAppearance): void {
