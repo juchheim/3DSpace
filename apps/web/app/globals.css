@@ -3465,6 +3465,21 @@ body.lobby-dark::before {
   gap: 5px;
 }
 
+.lesson-run-start-btn {
+  background: var(--hud-acc);
+  color: #fff;
+  border-color: transparent;
+  font-weight: 600;
+}
+
+.hud-panel .lesson-run-start-btn:hover:not(:disabled) {
+  background: #d18845;
+}
+
+.lesson-run-start-btn--ready {
+  box-shadow: 0 0 0 2px rgba(192, 120, 52, 0.45);
+}
+
 .lesson-editor {
   display: grid;
   gap: 8px;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ClassroomAction, LessonRun, LessonStep } from "@3dspace/contracts";
 import { HudCard } from "./HudCard";
 import { LessonTimerHud } from "./LessonTimerHud";
@@ -36,6 +36,8 @@ export function LessonRunControls({
   onOpenRecap?: () => void;
 }) {
   const [busy, setBusy] = useState("");
+  const [startAlert, setStartAlert] = useState(false);
+  const prevCanStartRef = useRef(false);
   const currentRecord = useMemo(() => (run ? latestCurrentRecord(run, currentStep) : null), [currentStep, run]);
 
   const execute = useCallback(
@@ -62,9 +64,25 @@ export function LessonRunControls({
   const isActive = run.status === "running" || run.status === "paused";
   const stepNumber = run.currentStepIndex >= 0 ? run.currentStepIndex + 1 : 0;
   const advanceLabel = run.currentStepIndex >= run.steps.length - 1 ? "Finish" : "Advance";
+  const dismissStartAlert = useCallback(() => setStartAlert(false), []);
+
+  useEffect(() => {
+    if (canStart && !prevCanStartRef.current) {
+      setStartAlert(true);
+    } else if (!canStart) {
+      setStartAlert(false);
+    }
+    prevCanStartRef.current = canStart;
+  }, [canStart]);
 
   return (
-    <HudCard title="Lesson Run" badge={loading ? "…" : run.status} ariaLabel="Lesson run controls">
+    <HudCard
+      title="Lesson Run"
+      badge={loading ? "…" : run.status}
+      ariaLabel="Lesson run controls"
+      hasAlert={startAlert}
+      onAlertDismiss={dismissStartAlert}
+    >
       {error ? <p className="small">{error}</p> : null}
       {isActive && currentStep ? (
         <div className="lesson-run-current" data-testid="lesson-run-current">
@@ -82,10 +100,13 @@ export function LessonRunControls({
         {canStart ? (
           <button
             type="button"
-            className="hud-btn"
+            className={`hud-btn lesson-run-start-btn${startAlert ? " lesson-run-start-btn--ready" : ""}`}
             data-testid="start-lesson-run"
             disabled={busy === "start"}
-            onClick={() => void execute("start", { type: "start-lesson-run" })}
+            onClick={() => {
+              dismissStartAlert();
+              void execute("start", { type: "start-lesson-run" });
+            }}
           >
             Start
           </button>
