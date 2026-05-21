@@ -142,7 +142,7 @@ export function GroupsPanel({
           <label className="classroom-note-field">
             <span className="classroom-note-label">Group name</span>
             <input
-              className="classroom-note-input"
+              className="classroom-check-select"
               type="text"
               maxLength={80}
               placeholder="Group A"

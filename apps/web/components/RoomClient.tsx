@@ -994,7 +994,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   }, [classroom.state?.helpRequests]);
   const spotlightActive = Boolean(classroom.state?.spotlight);
   const studentGroup = role === "student"
-    ? (classroom.state?.groups ?? []).find((g) => g.memberUserIds.includes(identity.userId))
+    ? (classroom.state?.groups ?? []).find((g) => g.status === "active" && g.memberUserIds.includes(identity.userId))
     : null;
   const handRaised = role === "student"
     ? Boolean(classroom.activeHelpRequest)
