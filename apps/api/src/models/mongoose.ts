@@ -161,7 +161,7 @@ export function createModels(connection: Connection): Models {
     lessonRun: { type: Schema.Types.Mixed, default: null },
     avatarEditorLocked: { type: Boolean, default: false },
     reactionsLocked: { type: Boolean, default: false },
-    whisper: { type: Schema.Types.Mixed, default: null },
+    whisper: { type: Schema.Types.Mixed },
     createdAt: String,
     updatedAt: String
   });
