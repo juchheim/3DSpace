@@ -157,7 +157,7 @@ function roomSettings(config: AppConfig) {
     maxActiveWallObjects: config.tuning.wallObjectMaxActivePerRoom,
     maxActiveLiveShares: config.tuning.wallObjectMaxActiveLiveShares,
     hallpass: { enabled: true, maxConcurrent: 1, perPeriodLimit: 2 },
-    pods: { enabled: false, podRadiusMeters: 3, podMurmurFloor: 0.08, drawPartitions: false }
+    pods: { enabled: true, podRadiusMeters: 3, podMurmurFloor: 0.08, drawPartitions: false }
   };
 }
 

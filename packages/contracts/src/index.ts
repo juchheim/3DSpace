@@ -309,11 +309,11 @@ export const RoomSettingsSchema = z.object({
     perPeriodLimit: z.number().int().min(0).max(20).default(2)
   }).default({ enabled: true, maxConcurrent: 1, perPeriodLimit: 2 }),
   pods: z.object({
-    enabled: z.boolean().default(false),
+    enabled: z.boolean().default(true),
     podRadiusMeters: z.number().positive().max(8).default(3),
     podMurmurFloor: z.number().min(0).max(1).default(0.08),
     drawPartitions: z.boolean().default(false)
-  }).default({ enabled: false, podRadiusMeters: 3, podMurmurFloor: 0.08, drawPartitions: false })
+  }).default({ enabled: true, podRadiusMeters: 3, podMurmurFloor: 0.08, drawPartitions: false })
 });
 
 export const RoomSchema = z.object({
