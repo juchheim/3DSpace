@@ -1918,6 +1918,489 @@ describe("3dspace api", () => {
     await app.close();
   });
 
+  it("exit-ticket step creates 3 open private checks with correct shape when includeConfidence and whatsNext are set", async () => {
+    const app = await buildApp({ config: lessonConfig(), repository: new MemoryRepository() });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-exit-ticket");
+    await addStudentMember(app, classRecord.id, "teacher-exit-ticket", "student-exit-ticket", "Avery");
+    const roomId = roomWithManifest.room.id;
+
+    let state = await classroomAction(app, roomId, "teacher-exit-ticket", { type: "init-lesson-run", expectedVersion: 1 });
+    state = await classroomAction(app, roomId, "teacher-exit-ticket", {
+      type: "add-lesson-step",
+      expectedVersion: state.version,
+      step: {
+        kind: "exit-ticket",
+        title: "End of class reflection",
+        payload: {
+          kind: "exit-ticket",
+          data: {
+            reflectionPrompt: "What was the muddiest point today?",
+            includeConfidence: true,
+            whatsNext: {
+              question: "What would help you most next class?",
+              choices: [
+                { id: "c1", label: "More practice problems" },
+                { id: "c2", label: "Review the concept again" },
+                { id: "c3", label: "Move on to the next topic" }
+              ]
+            },
+            requiredToEnd: false,
+            autoCloseOnAdvance: true
+          }
+        }
+      }
+    });
+
+    state = await classroomAction(app, roomId, "teacher-exit-ticket", { type: "start-lesson-run", expectedVersion: state.version });
+
+    expect(state.privateChecks).toHaveLength(3);
+    const shortAnswer = state.privateChecks.find((c: { promptType: string }) => c.promptType === "short-answer");
+    const confidence = state.privateChecks.find((c: { promptType: string }) => c.promptType === "confidence");
+    const multiChoice = state.privateChecks.find((c: { promptType: string }) => c.promptType === "multiple-choice");
+
+    expect(shortAnswer).toBeDefined();
+    expect(shortAnswer.question).toBe("What was the muddiest point today?");
+    expect(shortAnswer.status).toBe("open");
+    expect(shortAnswer.visibility).toBe("teacher-only");
+    expect(shortAnswer.target.kind).toBe("all");
+
+    expect(confidence).toBeDefined();
+    expect(confidence.question).toBe("How confident do you feel about today's material?");
+    expect(confidence.status).toBe("open");
+    expect(confidence.visibility).toBe("teacher-only");
+    expect(confidence.target.kind).toBe("all");
+
+    expect(multiChoice).toBeDefined();
+    expect(multiChoice.question).toBe("What would help you most next class?");
+    expect(multiChoice.choices).toHaveLength(3);
+    expect(multiChoice.status).toBe("open");
+    expect(multiChoice.visibility).toBe("teacher-only");
+    expect(multiChoice.target.kind).toBe("all");
+
+    const record = state.lessonRun.timeline[state.lessonRun.timeline.length - 1];
+    expect(record.createdExitTicket.reflectionCheckId).toBe(shortAnswer.id);
+    expect(record.createdExitTicket.confidenceCheckId).toBe(confidence.id);
+    expect(record.createdExitTicket.whatsNextCheckId).toBe(multiChoice.id);
+
+    await app.close();
+  });
+
+  it("exit-ticket step without whatsNext creates only 2 checks; without confidence creates only 1", async () => {
+    const app = await buildApp({ config: lessonConfig(), repository: new MemoryRepository() });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-exit-ticket-min");
+    await addStudentMember(app, classRecord.id, "teacher-exit-ticket-min", "student-exit-ticket-min", "Avery");
+    const roomId = roomWithManifest.room.id;
+
+    let state = await classroomAction(app, roomId, "teacher-exit-ticket-min", { type: "init-lesson-run", expectedVersion: 1 });
+    state = await classroomAction(app, roomId, "teacher-exit-ticket-min", {
+      type: "add-lesson-step",
+      expectedVersion: state.version,
+      step: {
+        kind: "exit-ticket",
+        title: "Minimal exit ticket",
+        payload: {
+          kind: "exit-ticket",
+          data: {
+            reflectionPrompt: "One word: how do you feel?",
+            includeConfidence: false,
+            autoCloseOnAdvance: true
+          }
+        }
+      }
+    });
+
+    state = await classroomAction(app, roomId, "teacher-exit-ticket-min", { type: "start-lesson-run", expectedVersion: state.version });
+
+    expect(state.privateChecks).toHaveLength(1);
+    expect(state.privateChecks[0].promptType).toBe("short-answer");
+    expect(state.privateChecks[0].status).toBe("open");
+
+    await app.close();
+  });
+
+  it("exit-ticket checks are visible to students and student responses are filtered", async () => {
+    const app = await buildApp({ config: lessonConfig(), repository: new MemoryRepository() });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-exit-privacy");
+    await addStudentMember(app, classRecord.id, "teacher-exit-privacy", "student-exit-privacy", "Avery");
+    const roomId = roomWithManifest.room.id;
+
+    let state = await classroomAction(app, roomId, "teacher-exit-privacy", { type: "init-lesson-run", expectedVersion: 1 });
+    state = await classroomAction(app, roomId, "teacher-exit-privacy", {
+      type: "add-lesson-step",
+      expectedVersion: state.version,
+      step: {
+        kind: "exit-ticket",
+        title: "Privacy test",
+        payload: {
+          kind: "exit-ticket",
+          data: { reflectionPrompt: "What did you learn?", includeConfidence: true, autoCloseOnAdvance: true }
+        }
+      }
+    });
+    state = await classroomAction(app, roomId, "teacher-exit-privacy", { type: "start-lesson-run", expectedVersion: state.version });
+
+    const reflectionId = state.privateChecks.find((c: { promptType: string }) => c.promptType === "short-answer")?.id;
+    const confidenceId = state.privateChecks.find((c: { promptType: string }) => c.promptType === "confidence")?.id;
+
+    await classroomAction(app, roomId, "student-exit-privacy", { type: "submit-private-check", checkId: reflectionId, answer: "I learned a lot." });
+    await classroomAction(app, roomId, "student-exit-privacy", { type: "submit-private-check", checkId: confidenceId, confidence: 4 });
+
+    const studentView = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomId}/classroom`,
+      headers: authHeaders("student-exit-privacy", "Avery")
+    });
+    expect(studentView.statusCode).toBe(200);
+    const studentChecks = studentView.json().privateChecks;
+    expect(studentChecks).toHaveLength(2);
+    const studentReflection = studentChecks.find((c: { promptType: string }) => c.promptType === "short-answer");
+    expect(studentReflection.responses).toHaveLength(1);
+    expect(studentReflection.responses[0].answer).toBe("I learned a lot.");
+
+    const teacherView = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomId}/classroom`,
+      headers: authHeaders("teacher-exit-privacy", "Ms. Rivera")
+    });
+    expect(teacherView.statusCode).toBe(200);
+    const teacherChecks = teacherView.json().privateChecks;
+    const teacherReflection = teacherChecks.find((c: { promptType: string }) => c.promptType === "short-answer");
+    expect(teacherReflection.responses).toHaveLength(1);
+    expect(teacherReflection.responses[0].userId).toBe("student-exit-privacy");
+
+    await app.close();
+  });
+
+  it("exit-ticket autoCloseOnAdvance closes all 3 checks when the step completes", async () => {
+    const app = await buildApp({ config: lessonConfig(), repository: new MemoryRepository() });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-exit-cleanup");
+    await addStudentMember(app, classRecord.id, "teacher-exit-cleanup", "student-exit-cleanup", "Avery");
+    const roomId = roomWithManifest.room.id;
+
+    let state = await classroomAction(app, roomId, "teacher-exit-cleanup", { type: "init-lesson-run", expectedVersion: 1 });
+    state = await classroomAction(app, roomId, "teacher-exit-cleanup", {
+      type: "add-lesson-step",
+      expectedVersion: state.version,
+      step: {
+        kind: "exit-ticket",
+        title: "Cleanup test",
+        payload: {
+          kind: "exit-ticket",
+          data: {
+            reflectionPrompt: "Final thoughts?",
+            includeConfidence: true,
+            whatsNext: { question: "Next?", choices: [{ id: "a", label: "A" }, { id: "b", label: "B" }] },
+            autoCloseOnAdvance: true
+          }
+        }
+      }
+    });
+    state = await classroomAction(app, roomId, "teacher-exit-cleanup", {
+      type: "add-lesson-step",
+      expectedVersion: state.version,
+      step: { kind: "instruction", title: "Done", payload: { kind: "instruction", data: { body: "" } } }
+    });
+
+    state = await classroomAction(app, roomId, "teacher-exit-cleanup", { type: "start-lesson-run", expectedVersion: state.version });
+    expect(state.privateChecks.filter((c: { status: string }) => c.status === "open")).toHaveLength(3);
+
+    state = await classroomAction(app, roomId, "teacher-exit-cleanup", { type: "advance-lesson-step", expectedVersion: state.version });
+    expect(state.privateChecks.filter((c: { status: string }) => c.status === "open")).toHaveLength(0);
+    expect(state.privateChecks.filter((c: { status: string }) => c.status === "closed")).toHaveLength(3);
+
+    await app.close();
+  });
+
+  it("end-lesson-run with requiredToEnd exit ticket and unsubmitted student returns 409 exit-ticket-incomplete", async () => {
+    const app = await buildApp({ config: lessonConfig(), repository: new MemoryRepository() });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-et-gate");
+    await addStudentMember(app, classRecord.id, "teacher-et-gate", "student-et-gate", "Avery");
+    const roomId = roomWithManifest.room.id;
+
+    let state = await classroomAction(app, roomId, "teacher-et-gate", { type: "init-lesson-run", expectedVersion: 1 });
+    state = await classroomAction(app, roomId, "teacher-et-gate", {
+      type: "add-lesson-step",
+      expectedVersion: state.version,
+      step: {
+        kind: "exit-ticket",
+        title: "Required exit ticket",
+        payload: {
+          kind: "exit-ticket",
+          data: { reflectionPrompt: "What did you learn?", includeConfidence: false, requiredToEnd: true, autoCloseOnAdvance: false }
+        }
+      }
+    });
+    state = await classroomAction(app, roomId, "teacher-et-gate", { type: "start-lesson-run", expectedVersion: state.version });
+
+    const endAttempt = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/classroom/actions`,
+      headers: authHeaders("teacher-et-gate", "Ms. Rivera"),
+      payload: { type: "end-lesson-run", force: false }
+    });
+    expect(endAttempt.statusCode).toBe(409);
+    expect(endAttempt.json().error).toBe("exit-ticket-incomplete");
+    expect(endAttempt.json().missingUserIds).toContain("student-et-gate");
+    expect(endAttempt.json().submittedCount).toBe(0);
+    expect(endAttempt.json().expectedCount).toBe(1);
+    expect(endAttempt.json().stepId).toBeDefined();
+
+    await app.close();
+  });
+
+  it("end-lesson-run with force: true bypasses exit-ticket gate and ends the lesson", async () => {
+    const app = await buildApp({ config: lessonConfig(), repository: new MemoryRepository() });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-et-force");
+    await addStudentMember(app, classRecord.id, "teacher-et-force", "student-et-force", "Avery");
+    const roomId = roomWithManifest.room.id;
+
+    let state = await classroomAction(app, roomId, "teacher-et-force", { type: "init-lesson-run", expectedVersion: 1 });
+    state = await classroomAction(app, roomId, "teacher-et-force", {
+      type: "add-lesson-step",
+      expectedVersion: state.version,
+      step: {
+        kind: "exit-ticket",
+        title: "Required exit ticket",
+        payload: {
+          kind: "exit-ticket",
+          data: { reflectionPrompt: "Summary?", includeConfidence: false, requiredToEnd: true, autoCloseOnAdvance: false }
+        }
+      }
+    });
+    state = await classroomAction(app, roomId, "teacher-et-force", { type: "start-lesson-run", expectedVersion: state.version });
+
+    const forceEnd = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/classroom/actions`,
+      headers: authHeaders("teacher-et-force", "Ms. Rivera"),
+      payload: { type: "end-lesson-run", force: true }
+    });
+    expect(forceEnd.statusCode).toBe(200);
+    expect(forceEnd.json().lessonRun.status).toBe("ended");
+
+    await app.close();
+  });
+
+  it("end-lesson-run succeeds without force once all students have submitted the exit ticket", async () => {
+    const app = await buildApp({ config: lessonConfig(), repository: new MemoryRepository() });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-et-submitted");
+    await addStudentMember(app, classRecord.id, "teacher-et-submitted", "student-et-submitted", "Avery");
+    const roomId = roomWithManifest.room.id;
+
+    let state = await classroomAction(app, roomId, "teacher-et-submitted", { type: "init-lesson-run", expectedVersion: 1 });
+    state = await classroomAction(app, roomId, "teacher-et-submitted", {
+      type: "add-lesson-step",
+      expectedVersion: state.version,
+      step: {
+        kind: "exit-ticket",
+        title: "Required exit ticket",
+        payload: {
+          kind: "exit-ticket",
+          data: { reflectionPrompt: "What did you learn?", includeConfidence: false, requiredToEnd: true, autoCloseOnAdvance: false }
+        }
+      }
+    });
+    state = await classroomAction(app, roomId, "teacher-et-submitted", { type: "start-lesson-run", expectedVersion: state.version });
+
+    const reflectionId = state.privateChecks.find((c: { promptType: string }) => c.promptType === "short-answer")?.id;
+    await classroomAction(app, roomId, "student-et-submitted", { type: "submit-private-check", checkId: reflectionId, answer: "Everything!" });
+
+    const endResult = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/classroom/actions`,
+      headers: authHeaders("teacher-et-submitted", "Ms. Rivera"),
+      payload: { type: "end-lesson-run", force: false }
+    });
+    expect(endResult.statusCode).toBe(200);
+    expect(endResult.json().lessonRun.status).toBe("ended");
+
+    await app.close();
+  });
+
+  it("abandon-lesson-run always succeeds regardless of exit-ticket gate", async () => {
+    const app = await buildApp({ config: lessonConfig(), repository: new MemoryRepository() });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-et-abandon");
+    await addStudentMember(app, classRecord.id, "teacher-et-abandon", "student-et-abandon", "Avery");
+    const roomId = roomWithManifest.room.id;
+
+    let state = await classroomAction(app, roomId, "teacher-et-abandon", { type: "init-lesson-run", expectedVersion: 1 });
+    state = await classroomAction(app, roomId, "teacher-et-abandon", {
+      type: "add-lesson-step",
+      expectedVersion: state.version,
+      step: {
+        kind: "exit-ticket",
+        title: "Required exit ticket",
+        payload: {
+          kind: "exit-ticket",
+          data: { reflectionPrompt: "Reflect.", includeConfidence: false, requiredToEnd: true, autoCloseOnAdvance: false }
+        }
+      }
+    });
+    state = await classroomAction(app, roomId, "teacher-et-abandon", { type: "start-lesson-run", expectedVersion: state.version });
+
+    const abandonResult = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/classroom/actions`,
+      headers: authHeaders("teacher-et-abandon", "Ms. Rivera"),
+      payload: { type: "abandon-lesson-run" }
+    });
+    expect(abandonResult.statusCode).toBe(200);
+    expect(abandonResult.json().lessonRun.status).toBe("abandoned");
+
+    await app.close();
+  });
+
+  it("recap GET returns correct attendance, check counts, and exit ticket section", async () => {
+    const app = await buildApp({ config: lessonConfig(), repository: new MemoryRepository() });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-recap");
+    await addStudentMember(app, classRecord.id, "teacher-recap", "student-recap-1", "Avery");
+    await addStudentMember(app, classRecord.id, "teacher-recap", "student-recap-2", "Blake");
+    const roomId = roomWithManifest.room.id;
+
+    let state = await classroomAction(app, roomId, "teacher-recap", { type: "init-lesson-run", expectedVersion: 1 });
+    state = await classroomAction(app, roomId, "teacher-recap", {
+      type: "add-lesson-step",
+      expectedVersion: state.version,
+      step: {
+        kind: "exit-ticket",
+        title: "Reflection",
+        payload: {
+          kind: "exit-ticket",
+          data: {
+            reflectionPrompt: "What did you learn?",
+            includeConfidence: true,
+            whatsNext: { question: "Next?", choices: [{ id: "a", label: "A" }, { id: "b", label: "B" }] },
+            requiredToEnd: false,
+            autoCloseOnAdvance: false
+          }
+        }
+      }
+    });
+    state = await classroomAction(app, roomId, "teacher-recap", { type: "start-lesson-run", expectedVersion: state.version });
+
+    const reflectionId = state.privateChecks.find((c: { promptType: string }) => c.promptType === "short-answer")?.id;
+    const confidenceId = state.privateChecks.find((c: { promptType: string }) => c.promptType === "confidence")?.id;
+    const whatsNextId = state.privateChecks.find((c: { promptType: string }) => c.promptType === "multiple-choice")?.id;
+
+    await classroomAction(app, roomId, "student-recap-1", { type: "submit-private-check", checkId: reflectionId, answer: "I learned loops." });
+    await classroomAction(app, roomId, "student-recap-1", { type: "submit-private-check", checkId: confidenceId, confidence: 4 });
+    await classroomAction(app, roomId, "student-recap-1", { type: "submit-private-check", checkId: whatsNextId, choiceId: "a" });
+
+    state = await classroomAction(app, roomId, "teacher-recap", { type: "end-lesson-run", force: true });
+    const runId = state.lessonRun.id;
+
+    const recapRes = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomId}/lesson-runs/${runId}/recap`,
+      headers: authHeaders("teacher-recap", "Ms. Rivera")
+    });
+    expect(recapRes.statusCode).toBe(200);
+    const recap = recapRes.json();
+
+    expect(recap.lessonRunId).toBe(runId);
+    expect(recap.attendance.total).toBe(2);
+    expect(recap.attendance.knownParticipantIds).toContain("student-recap-1");
+    expect(recap.attendance.knownParticipantIds).toContain("student-recap-2");
+
+    expect(recap.steps).toHaveLength(1);
+    expect(recap.steps[0].kind).toBe("exit-ticket");
+    expect(recap.steps[0].drifted).toBe(false);
+
+    expect(recap.privateChecks).toHaveLength(3);
+    const reflectionSummary = recap.privateChecks.find((c: { promptType: string }) => c.promptType === "short-answer");
+    expect(reflectionSummary.responseCount).toBe(1);
+    const confidenceSummary = recap.privateChecks.find((c: { promptType: string }) => c.promptType === "confidence");
+    expect(confidenceSummary.confidenceAverage).toBe(4);
+
+    expect(recap.exitTicket).toBeDefined();
+    expect(recap.exitTicket.submittedCount).toBe(1);
+    expect(recap.exitTicket.expectedCount).toBe(2);
+    expect(recap.exitTicket.confidenceAverage).toBe(4);
+    expect(recap.exitTicket.reflections).toHaveLength(1);
+    expect(recap.exitTicket.reflections[0].answer).toBe("I learned loops.");
+    expect(recap.exitTicket.reflections[0].confidence).toBe(4);
+    expect(recap.exitTicket.reflections[0].whatsNextChoiceId).toBe("a");
+
+    await app.close();
+  });
+
+  it("recap GET returns 403 for students", async () => {
+    const app = await buildApp({ config: lessonConfig(), repository: new MemoryRepository() });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-recap-authz");
+    await addStudentMember(app, classRecord.id, "teacher-recap-authz", "student-recap-authz", "Avery");
+    const roomId = roomWithManifest.room.id;
+
+    let state = await classroomAction(app, roomId, "teacher-recap-authz", { type: "init-lesson-run", expectedVersion: 1 });
+    state = await classroomAction(app, roomId, "teacher-recap-authz", {
+      type: "add-lesson-step",
+      expectedVersion: state.version,
+      step: { kind: "instruction", title: "Intro", payload: { kind: "instruction", data: { body: "" } } }
+    });
+    state = await classroomAction(app, roomId, "teacher-recap-authz", { type: "start-lesson-run", expectedVersion: state.version });
+    state = await classroomAction(app, roomId, "teacher-recap-authz", { type: "end-lesson-run", force: true });
+    const runId = state.lessonRun.id;
+
+    const studentRes = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomId}/lesson-runs/${runId}/recap`,
+      headers: authHeaders("student-recap-authz", "Avery")
+    });
+    expect(studentRes.statusCode).toBe(403);
+
+    await app.close();
+  });
+
+  it("recap GET with ?format=csv returns text/csv starting with the documented header", async () => {
+    const app = await buildApp({ config: lessonConfig(), repository: new MemoryRepository() });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-recap-csv");
+    await addStudentMember(app, classRecord.id, "teacher-recap-csv", "student-recap-csv-1", "Avery");
+    await addStudentMember(app, classRecord.id, "teacher-recap-csv", "student-recap-csv-2", "Blake");
+    const roomId = roomWithManifest.room.id;
+
+    let state = await classroomAction(app, roomId, "teacher-recap-csv", { type: "init-lesson-run", expectedVersion: 1 });
+    state = await classroomAction(app, roomId, "teacher-recap-csv", {
+      type: "add-lesson-step",
+      expectedVersion: state.version,
+      step: {
+        kind: "exit-ticket",
+        title: "Reflection",
+        payload: {
+          kind: "exit-ticket",
+          data: { reflectionPrompt: "Summary?", includeConfidence: true, requiredToEnd: false, autoCloseOnAdvance: false }
+        }
+      }
+    });
+    state = await classroomAction(app, roomId, "teacher-recap-csv", { type: "start-lesson-run", expectedVersion: state.version });
+
+    const reflectionId = state.privateChecks.find((c: { promptType: string }) => c.promptType === "short-answer")?.id;
+    const confidenceId = state.privateChecks.find((c: { promptType: string }) => c.promptType === "confidence")?.id;
+    await classroomAction(app, roomId, "student-recap-csv-1", { type: "submit-private-check", checkId: reflectionId, answer: 'He said "hello".' });
+    await classroomAction(app, roomId, "student-recap-csv-1", { type: "submit-private-check", checkId: confidenceId, confidence: 5 });
+
+    state = await classroomAction(app, roomId, "teacher-recap-csv", { type: "end-lesson-run", force: true });
+    const runId = state.lessonRun.id;
+
+    const csvRes = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomId}/lesson-runs/${runId}/recap?format=csv`,
+      headers: authHeaders("teacher-recap-csv", "Ms. Rivera")
+    });
+    expect(csvRes.statusCode).toBe(200);
+    expect(csvRes.headers["content-type"]).toContain("text/csv");
+    const body = csvRes.body;
+    expect(body.startsWith("userId,displayName,reflection,confidence,whatsNextChoiceId,submittedAt")).toBe(true);
+    const lines = body.trim().split("\n");
+    expect(lines).toHaveLength(3);
+    const submitterLine = lines.find((l: string) => l.includes("student-recap-csv-1"))!;
+    expect(submitterLine).toBeDefined();
+    expect(submitterLine).toContain('"He said ""hello""."');
+    expect(submitterLine).toContain('"5"');
+    const nonSubmitterLine = lines.find((l: string) => l.includes("student-recap-csv-2"))!;
+    expect(nonSubmitterLine).toBeDefined();
+
+    await app.close();
+  });
+
   it("teacher can lock and unlock reactions; GET classroom reflects the value", async () => {
     const app = await buildApp({
       config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),

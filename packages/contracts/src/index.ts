@@ -730,7 +730,8 @@ export const LessonStepKindSchema = z.enum([
   "private-check",
   "group-work",
   "timer",
-  "student-share"
+  "student-share",
+  "exit-ticket"
 ]);
 
 export const LessonStepInstructionPayloadSchema = z.object({
@@ -788,13 +789,33 @@ export const LessonStepStudentSharePayloadSchema = z.object({
   expiresAt: z.string().optional()
 });
 
+export const LessonStepExitTicketChoiceSchema = ClassroomPrivateCheckChoiceSchema;
+
+export const LessonStepExitTicketPayloadSchema = z.object({
+  reflectionPrompt: z.string().min(1).max(500),
+  includeConfidence: z.boolean().default(true),
+  confidenceRange: z
+    .object({ min: z.number().int().min(1), max: z.number().int().min(2).max(10) })
+    .default({ min: 1, max: 5 }),
+  whatsNext: z
+    .object({
+      question: z.string().min(1).max(500),
+      choices: z.array(LessonStepExitTicketChoiceSchema).min(2).max(6)
+    })
+    .optional(),
+  requiredToEnd: z.boolean().default(false),
+  autoCloseOnAdvance: z.boolean().default(true),
+  wallAnchorId: z.string().optional()
+});
+
 export const LessonStepPayloadSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("instruction"), data: LessonStepInstructionPayloadSchema }),
   z.object({ kind: z.literal("focus-board"), data: LessonStepFocusBoardPayloadSchema }),
   z.object({ kind: z.literal("private-check"), data: LessonStepPrivateCheckPayloadSchema }),
   z.object({ kind: z.literal("group-work"), data: LessonStepGroupWorkPayloadSchema }),
   z.object({ kind: z.literal("timer"), data: LessonStepTimerPayloadSchema }),
-  z.object({ kind: z.literal("student-share"), data: LessonStepStudentSharePayloadSchema })
+  z.object({ kind: z.literal("student-share"), data: LessonStepStudentSharePayloadSchema }),
+  z.object({ kind: z.literal("exit-ticket"), data: LessonStepExitTicketPayloadSchema })
 ]);
 
 export const LessonStepSchema = z.object({
@@ -819,7 +840,12 @@ export const LessonRunStepRecordSchema = z.object({
   createdCheckId: z.string().optional(),
   createdGroupId: z.string().optional(),
   createdGrantId: z.string().optional(),
-  createdWallObjectId: z.string().optional()
+  createdWallObjectId: z.string().optional(),
+  createdExitTicket: z.object({
+    reflectionCheckId: z.string(),
+    confidenceCheckId: z.string().optional(),
+    whatsNextCheckId: z.string().optional()
+  }).optional()
 });
 
 export const LessonActiveTimerSchema = z.object({
@@ -1055,7 +1081,8 @@ export const ClassroomResumeLessonRunActionSchema = ClassroomActionBaseSchema.ex
 });
 
 export const ClassroomEndLessonRunActionSchema = ClassroomActionBaseSchema.extend({
-  type: z.literal("end-lesson-run")
+  type: z.literal("end-lesson-run"),
+  force: z.boolean().default(false)
 });
 
 export const ClassroomAbandonLessonRunActionSchema = ClassroomActionBaseSchema.extend({
@@ -1143,6 +1170,48 @@ export const ClassroomActionSchema = z.discriminatedUnion("type", [
   ClassroomUpdateWhisperSettingsActionSchema
 ]);
 
+export const LessonRecapSchema = z.object({
+  lessonRunId: z.string(),
+  roomId: z.string(),
+  title: z.string(),
+  startedAt: z.string().optional(),
+  endedAt: z.string().optional(),
+  attendance: z.object({
+    knownParticipantIds: z.array(z.string()),
+    total: z.number().int().nonnegative()
+  }),
+  steps: z.array(z.object({
+    stepId: z.string(),
+    kind: LessonStepKindSchema,
+    title: z.string(),
+    drifted: z.boolean(),
+    driftReason: z.string().optional()
+  })),
+  privateChecks: z.array(z.object({
+    checkId: z.string(),
+    question: z.string(),
+    promptType: z.enum(["multiple-choice", "short-answer", "confidence"]),
+    responseCount: z.number().int().nonnegative(),
+    choiceCounts: z.record(z.string(), z.number().int().nonnegative()).optional(),
+    confidenceAverage: z.number().optional()
+  })),
+  exitTicket: z.object({
+    stepId: z.string(),
+    submittedCount: z.number().int().nonnegative(),
+    expectedCount: z.number().int().nonnegative(),
+    confidenceAverage: z.number().optional(),
+    reflections: z.array(z.object({
+      userId: z.string(),
+      displayName: z.string(),
+      answer: z.string(),
+      confidence: z.number().optional(),
+      whatsNextChoiceId: z.string().optional(),
+      submittedAt: z.string()
+    }))
+  }).optional()
+});
+export type LessonRecap = z.infer<typeof LessonRecapSchema>;
+
 export const ClassroomStateChangedRealtimeSchema = z.object({
   type: z.literal("classroom.state.changed.v1"),
   roomId: z.string(),
@@ -1227,6 +1296,8 @@ export type ClassroomPrivateCheckTarget = z.infer<typeof ClassroomPrivateCheckTa
 export type ClassroomPrivateCheck = z.infer<typeof ClassroomPrivateCheckSchema>;
 export type LessonStepKind = z.infer<typeof LessonStepKindSchema>;
 export type LessonStepPayload = z.infer<typeof LessonStepPayloadSchema>;
+export type LessonStepExitTicketChoice = z.infer<typeof LessonStepExitTicketChoiceSchema>;
+export type LessonStepExitTicketPayload = z.infer<typeof LessonStepExitTicketPayloadSchema>;
 export type LessonStep = z.infer<typeof LessonStepSchema>;
 export type LessonStepInput = z.infer<typeof LessonStepInputSchema>;
 export type LessonRunStepRecord = z.infer<typeof LessonRunStepRecordSchema>;
@@ -1282,7 +1353,8 @@ export const apiRoutes: ApiRoute[] = [
   { method: "post", path: "/v1/rooms/{roomId}/web-resources/preview", summary: "Preview safe wall web resource support", tags: ["wall-objects"], request: WebResourcePreviewRequestSchema, response: WebResourcePreviewResponseSchema },
   { method: "get", path: "/v1/rooms/{roomId}/classroom", summary: "Get classroom state visible to the current user", tags: ["classroom"], response: ClassroomStateSchema },
   { method: "post", path: "/v1/rooms/{roomId}/classroom/actions", summary: "Run a classroom state action", tags: ["classroom"], request: ClassroomActionSchema, response: ClassroomStateSchema },
-  { method: "post", path: "/v1/rooms/{roomId}/events", summary: "Persist optional durable room events", tags: ["rooms"], request: RoomEventRequestSchema, response: RoomEventResponseSchema }
+  { method: "post", path: "/v1/rooms/{roomId}/events", summary: "Persist optional durable room events", tags: ["rooms"], request: RoomEventRequestSchema, response: RoomEventResponseSchema },
+  { method: "get", path: "/v1/rooms/{roomId}/lesson-runs/{runId}/recap", summary: "Get lesson run recap (teacher only)", tags: ["classroom"], response: LessonRecapSchema }
 ];
 
 function asJsonSchema(schema: z.ZodTypeAny) {

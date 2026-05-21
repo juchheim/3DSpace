@@ -2,7 +2,8 @@ export class HttpError extends Error {
   constructor(
     public readonly statusCode: number,
     message: string,
-    public readonly code: string
+    public readonly code: string,
+    public readonly details?: Record<string, unknown>
   ) {
     super(message);
   }
@@ -26,6 +27,20 @@ export function notFound(message = "Resource not found") {
 
 export function conflict(message: string) {
   return new HttpError(409, message, "conflict");
+}
+
+export function exitTicketIncomplete(details: {
+  stepId: string;
+  missingUserIds: string[];
+  submittedCount: number;
+  expectedCount: number;
+}) {
+  return new HttpError(
+    409,
+    `${details.missingUserIds.length} student(s) have not submitted the exit ticket.`,
+    "exit-ticket-incomplete",
+    details as Record<string, unknown>
+  );
 }
 
 export function tooManyRequests(message: string) {

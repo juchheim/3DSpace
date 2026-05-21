@@ -17,7 +17,8 @@ const STEP_KINDS: Array<{ kind: LessonStepKind; label: string }> = [
   { kind: "private-check", label: "Private Check" },
   { kind: "group-work", label: "Group Work" },
   { kind: "timer", label: "Timer" },
-  { kind: "student-share", label: "Student Share" }
+  { kind: "student-share", label: "Student Share" },
+  { kind: "exit-ticket", label: "Exit Ticket" }
 ];
 
 const SHARE_TYPES: WallObjectType[] = ["note", "image.file", "whiteboard", "camera.live", "screen.live"];
@@ -97,6 +98,22 @@ function defaultStep(kind: LessonStepKind, manifest: RoomManifest | null | undef
       }
     };
   }
+  if (kind === "exit-ticket") {
+    return {
+      kind,
+      title: "Exit ticket",
+      payload: {
+        kind,
+        data: {
+          reflectionPrompt: "What was the muddiest point from today's lesson?",
+          includeConfidence: true,
+          confidenceRange: { min: 1, max: 5 },
+          requiredToEnd: false,
+          autoCloseOnAdvance: true
+        }
+      }
+    };
+  }
   return { kind, title: "Instruction", payload: { kind: "instruction", data: { body: "Share the next direction with students." } } };
 }
 
@@ -131,6 +148,9 @@ function brokenAssetMessage(step: LessonStep, manifest: RoomManifest | null | un
     if (!userIds.has(payload.data.userId)) return "This share step references a missing student.";
     if (!anchorIds.has(payload.data.wallAnchorId)) return "This share step references a missing board.";
   }
+  if (payload.kind === "exit-ticket" && payload.data.wallAnchorId && !anchorIds.has(payload.data.wallAnchorId)) {
+    return "This exit ticket references a missing board.";
+  }
   return "";
 }
 
@@ -155,6 +175,11 @@ function LessonStepEditor({
       ? step.payload.data.choices.map((choice) => choice.label).join("\n")
       : ""
   );
+  const [whatsNextChoiceText, setWhatsNextChoiceText] = useState(
+    step.payload.kind === "exit-ticket" && step.payload.data.whatsNext
+      ? step.payload.data.whatsNext.choices.map((choice) => choice.label).join("\n")
+      : ""
+  );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -164,6 +189,11 @@ function LessonStepEditor({
     setMultipleChoiceText(
       step.payload.kind === "private-check" && step.payload.data.promptType === "multiple-choice"
         ? step.payload.data.choices.map((choice) => choice.label).join("\n")
+        : ""
+    );
+    setWhatsNextChoiceText(
+      step.payload.kind === "exit-ticket" && step.payload.data.whatsNext
+        ? step.payload.data.whatsNext.choices.map((choice) => choice.label).join("\n")
         : ""
     );
     // Only reset when the selected step changes, not on every server sync.
@@ -183,6 +213,20 @@ function LessonStepEditor({
         .split("\n")
         .map((label, index) => ({ id: `choice-${index + 1}`, label: label.trim() }))
         .filter((choice) => choice.label)
+    });
+  }
+
+  function updateWhatsNextChoiceText(nextValue: string) {
+    setWhatsNextChoiceText(nextValue);
+    if (payload.kind !== "exit-ticket") return;
+    setData({
+      whatsNext: {
+        question: payload.data.whatsNext?.question ?? "",
+        choices: nextValue
+          .split("\n")
+          .map((label, index) => ({ id: `choice-${index + 1}`, label: label.trim() }))
+          .filter((choice) => choice.label)
+      }
     });
   }
 
@@ -521,6 +565,95 @@ function LessonStepEditor({
           <label className="lesson-check-row">
             <input type="checkbox" checked={payload.data.revokeOnAdvance} onChange={(event) => setData({ revokeOnAdvance: event.target.checked })} />
             <span>Revoke on advance</span>
+          </label>
+        </>
+      ) : null}
+
+      {payload.kind === "exit-ticket" ? (
+        <>
+          <label>
+            <span>Reflection prompt</span>
+            <textarea
+              data-testid="lesson-exit-ticket-prompt"
+              rows={3}
+              maxLength={500}
+              value={payload.data.reflectionPrompt}
+              onChange={(event) => setData({ reflectionPrompt: event.target.value })}
+            />
+          </label>
+          <label>
+            <span>Board for prompt</span>
+            <select
+              value={payload.data.wallAnchorId ?? ""}
+              onChange={(event) => setData({ wallAnchorId: event.target.value || undefined })}
+            >
+              <option value="">No board (HUD only)</option>
+              {(manifest?.wallAnchors ?? []).map((anchor) => (
+                <option key={anchor.id} value={anchor.id}>{anchor.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="lesson-check-row">
+            <input
+              type="checkbox"
+              checked={payload.data.includeConfidence}
+              onChange={(event) => setData({ includeConfidence: event.target.checked })}
+            />
+            <span>Include confidence rating (1–5)</span>
+          </label>
+          <label className="lesson-check-row">
+            <input
+              type="checkbox"
+              checked={payload.data.whatsNext != null}
+              onChange={(event) => {
+                if (event.target.checked) {
+                  setData({ whatsNext: { question: "", choices: [] } });
+                } else {
+                  setData({ whatsNext: undefined });
+                  setWhatsNextChoiceText("");
+                }
+              }}
+            />
+            <span>Include &ldquo;what&apos;s next&rdquo; question</span>
+          </label>
+          {payload.data.whatsNext != null ? (
+            <>
+              <label>
+                <span>What&apos;s next question</span>
+                <input
+                  maxLength={500}
+                  value={payload.data.whatsNext.question}
+                  onChange={(event) => {
+                    if (payload.kind !== "exit-ticket") return;
+                    setData({ whatsNext: { question: event.target.value, choices: payload.data.whatsNext?.choices ?? [] } });
+                  }}
+                />
+              </label>
+              <label>
+                <span>Choices, one per line (2–6)</span>
+                <textarea
+                  rows={4}
+                  value={whatsNextChoiceText}
+                  onChange={(event) => updateWhatsNextChoiceText(event.target.value)}
+                />
+              </label>
+            </>
+          ) : null}
+          <label className="lesson-check-row">
+            <input
+              type="checkbox"
+              checked={payload.data.requiredToEnd}
+              onChange={(event) => setData({ requiredToEnd: event.target.checked })}
+            />
+            <span>Required to end lesson</span>
+          </label>
+          <label className="lesson-check-row">
+            <input
+              type="checkbox"
+              checked={payload.data.autoCloseOnAdvance}
+              onChange={(event) => setData({ autoCloseOnAdvance: event.target.checked })}
+            />
+            <span>Auto-close on advance</span>
           </label>
         </>
       ) : null}

@@ -136,7 +136,7 @@ export function LessonRunControls({
             className="hud-btn"
             data-testid="end-lesson-run"
             disabled={busy === "end"}
-            onClick={() => void execute("end", { type: "end-lesson-run" })}
+            onClick={() => void execute("end", { type: "end-lesson-run", force: false })}
           >
             End
           </button>

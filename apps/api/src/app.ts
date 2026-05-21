@@ -34,6 +34,7 @@ import {
   WebResourcePreviewRequestSchema,
   WebResourcePreviewResponseSchema,
   createOpenApiDocument,
+  type ClassMembership,
   type ClassroomAction,
   type ClassroomBoardAccessGrant,
   type ClassroomGroup,
@@ -41,6 +42,7 @@ import {
   type ClassroomSpotlight,
   type ClassroomState,
   type LessonActiveTimer,
+  type LessonRecap,
   type LessonRun,
   type LessonRunStepRecord,
   type LessonStep,
@@ -62,7 +64,7 @@ import {
 } from "@3dspace/room-engine";
 import { authenticate, type AuthContext } from "./auth.js";
 import { loadConfig, livekitConfigured, storageConfigured, type AppConfig } from "./config.js";
-import { badRequest, conflict, forbidden, HttpError, notFound, tooManyRequests } from "./errors.js";
+import { badRequest, conflict, exitTicketIncomplete, forbidden, HttpError, notFound, tooManyRequests } from "./errors.js";
 import { connectMongo, MongoRepository } from "./models/mongoose.js";
 import { MemoryRepository, newId, type Repository } from "./repository.js";
 import { mintLiveKitToken } from "./services/livekit.js";
@@ -77,6 +79,7 @@ const ParamsWithClassId = z.object({ classId: z.string() });
 const ParamsWithRoomId = z.object({ roomId: z.string() });
 const ParamsWithRoomAndAttachmentId = z.object({ roomId: z.string(), attachmentId: z.string() });
 const ParamsWithRoomAndObjectId = z.object({ roomId: z.string(), objectId: z.string() });
+const ParamsWithRoomAndRunId = z.object({ roomId: z.string(), runId: z.string() });
 const ParamsWithInviteCode = z.object({ inviteCode: z.string() });
 const ParamsWithDevStorageKey = z.object({ storageKey: z.string() });
 const SESSION_JOIN_RATE_LIMIT_WINDOW_MS = 60_000;
@@ -848,6 +851,43 @@ type LessonEffectResult = {
   createdWallObjectId?: string;
 };
 
+async function findExitTicketBlocker(input: {
+  repository: Repository;
+  classId: string;
+  state: ClassroomState;
+  run: LessonRun;
+}): Promise<{ stepId: string; missingUserIds: string[]; submittedCount: number; expectedCount: number } | null> {
+  let blockerRecord: LessonRunStepRecord | undefined;
+  let blockerStep: LessonStep | undefined;
+  for (let i = input.run.timeline.length - 1; i >= 0; i--) {
+    const record = input.run.timeline[i]!;
+    const step = input.run.steps.find((s) => s.id === record.stepId);
+    if (step?.kind === "exit-ticket" && step.payload.kind === "exit-ticket" && step.payload.data.requiredToEnd) {
+      blockerRecord = record;
+      blockerStep = step;
+      break;
+    }
+  }
+  if (!blockerRecord?.createdExitTicket || !blockerStep) return null;
+
+  const { reflectionCheckId } = blockerRecord.createdExitTicket;
+  const reflectionCheck = input.state.privateChecks.find((c) => c.id === reflectionCheckId);
+  const submittedUserIds = new Set((reflectionCheck?.responses ?? []).map((r) => r.userId));
+
+  const memberships = await input.repository.listMemberships(input.classId);
+  const expectedStudents = memberships.filter((m) => m.status === "active" && m.role === "student");
+  const missingUserIds = expectedStudents.map((m) => m.userId).filter((id) => !submittedUserIds.has(id));
+
+  if (missingUserIds.length === 0) return null;
+
+  return {
+    stepId: blockerStep.id,
+    missingUserIds,
+    submittedCount: submittedUserIds.size,
+    expectedCount: expectedStudents.length
+  };
+}
+
 async function startLessonStep(input: {
   repository: Repository;
   roomId: string;
@@ -1045,6 +1085,88 @@ async function startLessonStep(input: {
     return { ...record, createdGrantId: grantId, emittedActionIds };
   }
 
+  if (input.step.kind === "exit-ticket" && input.step.payload.kind === "exit-ticket") {
+    const payload = input.step.payload.data;
+
+    if (prior?.createdExitTicket) {
+      const { reflectionCheckId, confidenceCheckId, whatsNextCheckId } = prior.createdExitTicket;
+      const checkIds = [reflectionCheckId, confidenceCheckId, whatsNextCheckId].filter((id): id is string => Boolean(id));
+      let reopened = false;
+      for (const checkId of checkIds) {
+        const check = input.state.privateChecks.find((c) => c.id === checkId);
+        if (check && check.status === "closed") {
+          check.status = "open";
+          check.updatedAt = input.now;
+          reopened = true;
+        }
+      }
+      record.createdCheckId = reflectionCheckId;
+      record.createdExitTicket = prior.createdExitTicket;
+      if (reopened) record.emittedActionIds.push("reopen-private-check");
+      return record;
+    }
+
+    const reflectionCheckId = newId("check");
+    input.state.privateChecks.unshift({
+      id: reflectionCheckId,
+      question: payload.reflectionPrompt,
+      promptType: "short-answer",
+      choices: [],
+      target: { kind: "all", userIds: [] },
+      status: "open",
+      visibility: "teacher-only",
+      responses: [],
+      wallAnchorId: payload.wallAnchorId,
+      createdByUserId: input.actor.userId,
+      createdAt: input.now,
+      updatedAt: input.now
+    });
+
+    let confidenceCheckId: string | undefined;
+    if (payload.includeConfidence) {
+      confidenceCheckId = newId("check");
+      input.state.privateChecks.unshift({
+        id: confidenceCheckId,
+        question: "How confident do you feel about today's material?",
+        promptType: "confidence",
+        choices: [],
+        target: { kind: "all", userIds: [] },
+        status: "open",
+        visibility: "teacher-only",
+        responses: [],
+        createdByUserId: input.actor.userId,
+        createdAt: input.now,
+        updatedAt: input.now
+      });
+    }
+
+    let whatsNextCheckId: string | undefined;
+    if (payload.whatsNext) {
+      whatsNextCheckId = newId("check");
+      input.state.privateChecks.unshift({
+        id: whatsNextCheckId,
+        question: payload.whatsNext.question,
+        promptType: "multiple-choice",
+        choices: payload.whatsNext.choices,
+        target: { kind: "all", userIds: [] },
+        status: "open",
+        visibility: "teacher-only",
+        responses: [],
+        createdByUserId: input.actor.userId,
+        createdAt: input.now,
+        updatedAt: input.now
+      });
+    }
+
+    const createdExitTicket = { reflectionCheckId, confidenceCheckId, whatsNextCheckId };
+    return {
+      ...record,
+      createdCheckId: reflectionCheckId,
+      createdExitTicket,
+      emittedActionIds: ["create-private-check", "open-private-check"]
+    };
+  }
+
   return record;
 }
 
@@ -1114,6 +1236,23 @@ async function cleanupLessonStep(input: {
     return {};
   }
 
+  if (input.step.kind === "exit-ticket" && input.step.payload.kind === "exit-ticket") {
+    if (!input.step.payload.data.autoCloseOnAdvance) return {};
+    if (!input.record.createdExitTicket) return { drifted: true, driftReason: "Missing exit ticket check ids" };
+    const { reflectionCheckId, confidenceCheckId, whatsNextCheckId } = input.record.createdExitTicket;
+    const checkIds = [reflectionCheckId, confidenceCheckId, whatsNextCheckId].filter((id): id is string => Boolean(id));
+    const emittedActionIds: string[] = [];
+    for (const checkId of checkIds) {
+      const check = input.state.privateChecks.find((c) => c.id === checkId);
+      if (check && check.status === "open") {
+        check.status = "closed";
+        check.updatedAt = input.now;
+        emittedActionIds.push("close-private-check");
+      }
+    }
+    return { emittedActionIds };
+  }
+
   return {};
 }
 
@@ -1177,9 +1316,153 @@ function filterLessonRunForActor(run: LessonRun | null, actor: ClassroomActor): 
   });
 }
 
+function buildLessonRecap(input: {
+  memberships: ClassMembership[];
+  room: { id: string; classId: string };
+  state: ClassroomState;
+  run: LessonRun;
+}): LessonRecap {
+  const activeStudents = input.memberships.filter((m) => m.status === "active" && m.role === "student");
+
+  const lessonCheckIds = new Set<string>();
+  for (const record of input.run.timeline) {
+    if (record.createdCheckId) lessonCheckIds.add(record.createdCheckId);
+    if (record.createdExitTicket) {
+      lessonCheckIds.add(record.createdExitTicket.reflectionCheckId);
+      if (record.createdExitTicket.confidenceCheckId) lessonCheckIds.add(record.createdExitTicket.confidenceCheckId);
+      if (record.createdExitTicket.whatsNextCheckId) lessonCheckIds.add(record.createdExitTicket.whatsNextCheckId);
+    }
+  }
+
+  const lessonChecks = input.state.privateChecks.filter((c) => lessonCheckIds.has(c.id));
+
+  const privateChecks = lessonChecks.map((check) => {
+    const choiceCounts: Record<string, number> = {};
+    let confidenceSum = 0;
+    let confidenceCount = 0;
+    for (const response of check.responses) {
+      if (response.choiceId) {
+        choiceCounts[response.choiceId] = (choiceCounts[response.choiceId] ?? 0) + 1;
+      }
+      if (response.confidence != null) {
+        confidenceSum += response.confidence;
+        confidenceCount++;
+      }
+    }
+    return {
+      checkId: check.id,
+      question: check.question,
+      promptType: check.promptType,
+      responseCount: check.responses.length,
+      ...(Object.keys(choiceCounts).length > 0 ? { choiceCounts } : {}),
+      ...(confidenceCount > 0 ? { confidenceAverage: confidenceSum / confidenceCount } : {})
+    };
+  });
+
+  const steps = input.run.timeline.map((record) => {
+    const step = input.run.steps.find((s) => s.id === record.stepId);
+    return {
+      stepId: record.stepId,
+      kind: (step?.kind ?? "instruction") as LessonRecap["steps"][number]["kind"],
+      title: step?.title ?? "Unknown step",
+      drifted: record.drifted,
+      ...(record.driftReason ? { driftReason: record.driftReason } : {})
+    };
+  });
+
+  let exitTicket: LessonRecap["exitTicket"];
+  for (let i = input.run.timeline.length - 1; i >= 0; i--) {
+    const record = input.run.timeline[i]!;
+    if (!record.createdExitTicket) continue;
+    const step = input.run.steps.find((s) => s.id === record.stepId);
+    if (!step || step.kind !== "exit-ticket") continue;
+
+    const { reflectionCheckId, confidenceCheckId, whatsNextCheckId } = record.createdExitTicket;
+    const reflectionCheck = input.state.privateChecks.find((c) => c.id === reflectionCheckId);
+    const confidenceCheck = confidenceCheckId ? input.state.privateChecks.find((c) => c.id === confidenceCheckId) : undefined;
+    const whatsNextCheck = whatsNextCheckId ? input.state.privateChecks.find((c) => c.id === whatsNextCheckId) : undefined;
+
+    const confidenceByUser = new Map<string, number>();
+    let confidenceSum = 0;
+    for (const r of confidenceCheck?.responses ?? []) {
+      if (r.confidence != null) {
+        confidenceByUser.set(r.userId, r.confidence);
+        confidenceSum += r.confidence;
+      }
+    }
+    const whatsNextByUser = new Map<string, string>();
+    for (const r of whatsNextCheck?.responses ?? []) {
+      if (r.choiceId) whatsNextByUser.set(r.userId, r.choiceId);
+    }
+
+    const reflections = (reflectionCheck?.responses ?? []).map((r) => ({
+      userId: r.userId,
+      displayName: r.displayName,
+      answer: r.answer ?? "",
+      ...(confidenceByUser.has(r.userId) ? { confidence: confidenceByUser.get(r.userId) } : {}),
+      ...(whatsNextByUser.has(r.userId) ? { whatsNextChoiceId: whatsNextByUser.get(r.userId) } : {}),
+      submittedAt: r.submittedAt
+    }));
+
+    const confidenceAverage = confidenceByUser.size > 0 ? confidenceSum / confidenceByUser.size : undefined;
+    exitTicket = {
+      stepId: record.stepId,
+      submittedCount: reflectionCheck?.responses.length ?? 0,
+      expectedCount: activeStudents.length,
+      ...(confidenceAverage != null ? { confidenceAverage } : {}),
+      reflections
+    };
+    break;
+  }
+
+  return {
+    lessonRunId: input.run.id,
+    roomId: input.room.id,
+    title: input.run.title,
+    ...(input.run.startedAt ? { startedAt: input.run.startedAt } : {}),
+    ...(input.run.endedAt ? { endedAt: input.run.endedAt } : {}),
+    attendance: {
+      knownParticipantIds: activeStudents.map((m) => m.userId),
+      total: activeStudents.length
+    },
+    steps,
+    privateChecks,
+    ...(exitTicket ? { exitTicket } : {})
+  };
+}
+
+function csvField(value: string | number | undefined | null): string {
+  if (value == null) return '""';
+  return '"' + String(value).replace(/"/g, '""') + '"';
+}
+
+function renderRecapCsv(recap: LessonRecap, displayNameById: Map<string, string>): string {
+  const header = "userId,displayName,reflection,confidence,whatsNextChoiceId,submittedAt";
+  if (!recap.exitTicket) return header + "\n";
+
+  const reflectionMap = new Map(recap.exitTicket.reflections.map((r) => [r.userId, r]));
+  const rows = recap.attendance.knownParticipantIds.map((userId) => {
+    const r = reflectionMap.get(userId);
+    if (!r) {
+      return [csvField(userId), csvField(displayNameById.get(userId) ?? ""), csvField(""), csvField(""), csvField(""), csvField("")].join(",");
+    }
+    return [
+      csvField(r.userId),
+      csvField(r.displayName),
+      csvField(r.answer),
+      csvField(r.confidence),
+      csvField(r.whatsNextChoiceId),
+      csvField(r.submittedAt)
+    ].join(",");
+  });
+
+  return [header, ...rows].join("\n");
+}
+
 async function runClassroomAction(input: {
   repository: Repository;
   roomId: string;
+  classId: string;
   actor: ClassroomActor;
   action: ClassroomAction;
   lessonsEnabled: boolean;
@@ -1580,6 +1863,10 @@ async function runClassroomAction(input: {
     case "abandon-lesson-run": {
       requireTeacher(input.actor);
       const run = requireLessonRun(state);
+      if (input.action.type === "end-lesson-run" && !input.action.force) {
+        const blocker = await findExitTicketBlocker({ repository: input.repository, classId: input.classId, state, run });
+        if (blocker) throw exitTicketIncomplete(blocker);
+      }
       if (run.status === "running" || run.status === "paused") {
         await completeCurrentLessonStep({ repository: input.repository, roomId: input.roomId, state, run, actor: input.actor, now });
       }
@@ -1750,7 +2037,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
 
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof HttpError) {
-      void reply.status(error.statusCode).send({ error: error.code, message: error.message });
+      void reply.status(error.statusCode).send({ error: error.code, message: error.message, ...error.details });
       return;
     }
 
@@ -2622,6 +2909,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const state = await runClassroomAction({
       repository,
       roomId: params.roomId,
+      classId: room.classId,
       actor,
       action: body,
       lessonsEnabled: config.tuning.enableClassroomLessons,
@@ -2629,6 +2917,32 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     });
     const hydrated = await hydrateClassroomDisplayNames(repository, room.classId, sanitizeClassroomState(state));
     return filterClassroomStateForActor(hydrated, actor);
+  });
+
+  app.get("/v1/rooms/:roomId/lesson-runs/:runId/recap", async (request, reply) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomAndRunId, request);
+    const { room, membership } = await requireRoomAccess(repository, params.roomId, auth);
+    const actor = await resolveClassroomActor({ repository, room, membership, auth });
+    requireTeacher(actor);
+
+    const state = sanitizeClassroomState(await repository.getClassroomState(params.roomId));
+    const hydrated = await hydrateClassroomDisplayNames(repository, room.classId, state);
+    const run = hydrated.lessonRun;
+    if (!run || run.id !== params.runId) throw notFound("Lesson run not found");
+
+    const memberships = await repository.listMemberships(room.classId);
+    const recap = buildLessonRecap({ memberships, room, state: hydrated, run });
+
+    const format = parseQuery(z.object({ format: z.string().optional() }), request).format;
+    if (format === "csv") {
+      const displayNameById = new Map(memberships.map((m) => [m.userId, m.displayName]));
+      return reply
+        .header("Content-Type", "text/csv; charset=utf-8")
+        .header("Content-Disposition", `attachment; filename="recap-${run.id}.csv"`)
+        .send(renderRecapCsv(recap, displayNameById));
+    }
+    return recap;
   });
 
   app.post("/v1/rooms/:roomId/events", async (request) => {

@@ -23,6 +23,18 @@ import type { z } from "zod";
 import { API_URL } from "./config";
 import { identityHeaders, type ApiIdentity } from "./identity";
 
+export class ApiError extends Error {
+  constructor(
+    public readonly statusCode: number,
+    message: string,
+    public readonly code?: string,
+    public readonly details?: Record<string, unknown>
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 type RequestOptions = {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
@@ -53,7 +65,12 @@ export async function apiFetch<T>(path: string, options: RequestOptions): Promis
 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({ message: response.statusText }));
-    throw new Error(payload.message ?? `Request failed with ${response.status}`);
+    throw new ApiError(
+      response.status,
+      payload.message ?? `Request failed with ${response.status}`,
+      payload.error,
+      payload
+    );
   }
 
   return response.json() as Promise<T>;
