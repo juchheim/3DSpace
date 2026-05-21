@@ -19,6 +19,16 @@ These four were the recommended first sprint per `LEARNING_FEATURE_IDEAS.md` "Re
 
 Total: ~10–12 dev-days for four shippable features — **all complete**.
 
+### Big-idea implementations in flight
+
+Planning + implementation docs for one of the two `LEARNING_FEATURE_IDEAS.md` "Alternate big ideas." This is a multi-week effort and ships behind its own feature flag.
+
+| Doc | Idea | Effort | Status |
+| --- | --- | --- | --- |
+| [`PLAN_BREAKOUT_PODS.md`](./PLAN_BREAKOUT_PODS.md) + [`IMPL_BREAKOUT_PODS.md`](./IMPL_BREAKOUT_PODS.md) | Breakout pods with per-pod audio islands (Alternate B) | ~3–5 weeks | **Planned** |
+
+`PLAN_*` docs spell out functionality, design decisions, and overlap migration; `IMPL_*` docs are the phase-by-phase build plan.
+
 ## How to use these docs
 
 Each `IMPL_*` doc follows the same shape as `docs/planning/avatars/07-implementation-order.md` and `docs/planning/mvp+1/MVP_PLUS_ONE_CLASSROOM_TOOLS_IMPLEMENTATION.md`:
