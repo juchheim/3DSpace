@@ -3592,6 +3592,223 @@ body.lobby-dark::before {
   font-style: normal;
 }
 
+/* Lesson recap modal */
+.lesson-recap-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: rgba(8, 12, 10, 0.62);
+  backdrop-filter: blur(6px);
+}
+
+.lesson-recap-modal {
+  width: min(34rem, 100%);
+  max-height: min(82vh, 44rem);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.lesson-recap-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--hud-bd);
+}
+
+.lesson-recap-kicker {
+  margin: 0;
+  color: var(--hud-tx-m);
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lesson-recap-header h2 {
+  margin: 2px 0 0;
+  color: var(--hud-tx);
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.lesson-recap-meta {
+  margin: 4px 0 0;
+  color: var(--hud-tx-m);
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-size: 10.5px;
+}
+
+.lesson-recap-close {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: 1px solid var(--hud-bd);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--hud-tx-m);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.lesson-recap-close:hover {
+  color: var(--hud-tx);
+}
+
+.lesson-recap-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px 12px 12px;
+  overflow: auto;
+}
+
+.lesson-recap-status,
+.lesson-recap-empty {
+  margin: 0;
+  padding: 10px 12px;
+  color: var(--hud-tx-m);
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-size: 11px;
+}
+
+.lesson-recap-error {
+  margin: 0;
+  padding: 0 12px 10px;
+  color: #e4a09a;
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-size: 10.5px;
+}
+
+.lesson-recap-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+  gap: 8px;
+}
+
+.lesson-recap-stat {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid var(--hud-bd);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.lesson-recap-stat-label {
+  color: var(--hud-tx-m);
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.lesson-recap-stat strong {
+  color: var(--hud-tx);
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.1;
+}
+
+.lesson-recap-section h3 {
+  margin: 0 0 6px;
+  color: var(--hud-tx);
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.lesson-recap-check-list,
+.lesson-recap-reflections {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lesson-recap-check-list li,
+.lesson-recap-reflections li {
+  display: grid;
+  gap: 3px;
+  padding: 7px 8px;
+  border: 1px solid var(--hud-bd);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.lesson-recap-check-question,
+.lesson-recap-reflection-head strong {
+  color: var(--hud-tx);
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.lesson-recap-check-meta,
+.lesson-recap-reflection-meta {
+  margin: 0;
+  color: var(--hud-tx-m);
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-size: 10px;
+}
+
+.lesson-recap-reflections {
+  max-height: 14rem;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hud-bd) transparent;
+}
+
+.lesson-recap-reflection-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.lesson-recap-reflection-confidence {
+  color: var(--hud-tx-m);
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-size: 9.5px;
+  white-space: nowrap;
+}
+
+.lesson-recap-reflection-answer {
+  margin: 0;
+  color: var(--hud-tx);
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.lesson-recap-footer {
+  display: grid;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.lesson-recap-footer .lesson-recap-error {
+  padding: 0;
+}
+
 /* Student detail panel — dark theme (appears alongside right panel) */
 .student-detail-header {
   display: flex;

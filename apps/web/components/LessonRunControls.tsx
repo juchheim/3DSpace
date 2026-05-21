@@ -22,7 +22,8 @@ export function LessonRunControls({
   loading,
   error,
   avatarEditorLocked = false,
-  onToggleAvatarLock
+  onToggleAvatarLock,
+  onOpenRecap
 }: {
   run: LessonRun | null;
   currentStep: LessonStep | null;
@@ -32,6 +33,7 @@ export function LessonRunControls({
   error: string;
   avatarEditorLocked?: boolean;
   onToggleAvatarLock?: () => void;
+  onOpenRecap?: () => void;
 }) {
   const [busy, setBusy] = useState("");
   const currentRecord = useMemo(() => (run ? latestCurrentRecord(run, currentStep) : null), [currentStep, run]);
@@ -139,6 +141,16 @@ export function LessonRunControls({
             onClick={() => void execute("end", { type: "end-lesson-run", force: false })}
           >
             End
+          </button>
+        ) : null}
+        {run.status === "ended" ? (
+          <button
+            type="button"
+            className="hud-btn"
+            data-testid="last-lesson-recap"
+            onClick={() => onOpenRecap?.()}
+          >
+            Last lesson recap
           </button>
         ) : null}
         {run.status === "ended" || run.status === "abandoned" ? (

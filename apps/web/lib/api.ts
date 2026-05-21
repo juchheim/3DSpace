@@ -6,6 +6,7 @@ import type {
   ClassMembership,
   ClassRecord,
   Invite,
+  LessonRecap,
   Role,
   RoomRecord,
   RoomSessionResponse,
@@ -277,4 +278,34 @@ export function postRoomEvent(identity: ApiIdentity, roomId: string, type: strin
     `/v1/rooms/${roomId}/events`,
     { method: "POST", identity, body: { type, payload } }
   );
+}
+
+export function fetchLessonRecap(identity: ApiIdentity, roomId: string, runId: string) {
+  return apiFetch<LessonRecap>(`/v1/rooms/${roomId}/lesson-runs/${runId}/recap`, { identity });
+}
+
+export function lessonRecapCsvUrl(roomId: string, runId: string) {
+  return `${API_URL}/v1/rooms/${roomId}/lesson-runs/${runId}/recap?format=csv`;
+}
+
+export async function downloadLessonRecapCsv(identity: ApiIdentity, roomId: string, runId: string) {
+  const headers: Record<string, string> = {
+    ...identityHeaders(identity)
+  };
+  const token = await identity.getAuthToken?.();
+  if (token) {
+    headers.authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(lessonRecapCsvUrl(roomId, runId), { headers });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({ message: response.statusText }));
+    throw new ApiError(
+      response.status,
+      payload.message ?? `Request failed with ${response.status}`,
+      payload.error,
+      payload
+    );
+  }
+  return response.text();
 }

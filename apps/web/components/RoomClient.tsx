@@ -41,6 +41,7 @@ import { LessonAuthoringPanel } from "./LessonAuthoringPanel";
 import { LessonRunControls } from "./LessonRunControls";
 import { LessonStudentCallout } from "./LessonStudentCallout";
 import { LessonTimelinePanel } from "./LessonTimelinePanel";
+import { LessonRecapPanel } from "./LessonRecapPanel";
 import { AvatarEditorPanel } from "./AvatarEditorPanel";
 import { CopyRoomInviteButton } from "./CopyRoomInviteButton";
 
@@ -153,6 +154,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const [waveTriggered, setWaveTriggered] = useState(false);
   const [hallpassBusy, setHallpassBusy] = useState(false);
   const [hallpassElapsedSeconds, setHallpassElapsedSeconds] = useState(0);
+  const [recapOpen, setRecapOpen] = useState(false);
+  const [recapRunId, setRecapRunId] = useState<string | null>(null);
+  const prevLessonStatusRef = useRef<string | undefined>(undefined);
   const waveTriggeredRef = useRef(false);
   waveTriggeredRef.current = waveTriggered;
   const publishRealtime = useCallback((message: RealtimeMessage) => {
@@ -179,6 +183,22 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     role,
     runAction: classroom.runAction
   });
+
+  const openLessonRecap = useCallback((runId: string) => {
+    setRecapRunId(runId);
+    setRecapOpen(true);
+  }, []);
+
+  useEffect(() => {
+    const status = classroom.state?.lessonRun?.status;
+    const runId = classroom.state?.lessonRun?.id;
+    const prev = prevLessonStatusRef.current;
+    prevLessonStatusRef.current = status;
+    if (!status || !runId || role !== "teacher") return;
+    if ((prev === "running" || prev === "paused") && status === "ended") {
+      openLessonRecap(runId);
+    }
+  }, [classroom.state?.lessonRun?.status, classroom.state?.lessonRun?.id, openLessonRecap, role]);
   const wallRealtimeHandlerRef = useRef(wall.handleRealtimeMessage);
   wallRealtimeHandlerRef.current = wall.handleRealtimeMessage;
   const classroomRealtimeHandlerRef = useRef(classroom.handleRealtimeMessage);
@@ -1344,6 +1364,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
                   type: "set-avatar-editor-locked",
                   locked: !avatarEditorLocked
                 })}
+                onOpenRecap={() => {
+                  if (lesson.run?.id) openLessonRecap(lesson.run.id);
+                }}
               />
               {!lesson.run ? (
                 <LessonAuthoringPanel
@@ -1504,6 +1527,14 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           />
         ) : null;
       })()}
+      {CLIENT_TUNING.enableClassroomLessons && role === "teacher" && recapOpen && recapRunId && session ? (
+        <LessonRecapPanel
+          identity={identity}
+          roomId={session.room.id}
+          runId={recapRunId}
+          onClose={() => setRecapOpen(false)}
+        />
+      ) : null}
       {avatarEditorOpen && session ? (
         <AvatarEditorPanel
           savedAppearance={localAppearanceRef.current}
