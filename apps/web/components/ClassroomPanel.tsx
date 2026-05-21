@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type {
+  AvatarReactionSlug,
   ClassroomAction,
   ClassroomBoardAccessGrant,
   ClassroomHelpRequest,
@@ -10,7 +11,18 @@ import type {
   RoomManifest
 } from "@3dspace/contracts";
 import { isBoardGrantActive, summarizeBoardGrantTypes } from "../lib/classroomGrants";
+import { CLIENT_TUNING } from "../lib/config";
+import type { ReactionLogEntry } from "../lib/useAvatarReactions";
 import { HudCard } from "./HudCard";
+
+const REACTION_SLUGS: { slug: AvatarReactionSlug; emoji: string }[] = [
+  { slug: "thumbs-up", emoji: "👍" },
+  { slug: "confused",  emoji: "😕" },
+  { slug: "question",  emoji: "❓" },
+  { slug: "me",        emoji: "🙋" },
+  { slug: "pause",     emoji: "🤚" },
+  { slug: "celebrate", emoji: "🎉" }
+];
 
 function statusLabel(status: ClassroomHelpRequest["status"]) {
   if (status === "raised") return "Raised";
@@ -28,6 +40,7 @@ export function ClassroomPanel({
   manifest,
   currentUserId,
   boardAccessUserId = "",
+  reactionLog = [],
   onOpenBoardAccess,
   onRunAction
 }: {
@@ -39,6 +52,7 @@ export function ClassroomPanel({
   manifest?: RoomManifest | null | undefined;
   currentUserId?: string | undefined;
   boardAccessUserId?: string | undefined;
+  reactionLog?: ReactionLogEntry[];
   onOpenBoardAccess?(userId: string): void;
   onRunAction(action: ClassroomAction): Promise<void>;
 }) {
@@ -114,6 +128,27 @@ export function ClassroomPanel({
             </li>
           ))}
         </ul>
+        {CLIENT_TUNING.enableAvatarReactions ? (
+          <div className="reaction-heat">
+            <div className="reaction-heat-counts">
+              {REACTION_SLUGS.map(({ slug, emoji }) => (
+                <span key={slug} className="reaction-heat-item">
+                  <span>{emoji}</span>
+                  <span>{reactionLog.filter((e) => e.reaction === slug).length}</span>
+                </span>
+              ))}
+              <span className="reaction-heat-window">last 60s</span>
+            </div>
+            <button
+              type="button"
+              className="hud-btn"
+              disabled={busy === "reactions-lock"}
+              onClick={() => void run("reactions-lock", { type: "set-reactions-locked", locked: !state?.reactionsLocked })}
+            >
+              {state?.reactionsLocked ? "Unmute reactions" : "Mute reactions"}
+            </button>
+          </div>
+        ) : null}
       </HudCard>
     );
   }

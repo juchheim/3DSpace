@@ -1,10 +1,15 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import type { AvatarReactionMessage } from "@3dspace/contracts";
+import { useCallback, useEffect, useState } from "react";
+import type { AvatarReactionMessage, AvatarReactionSlug } from "@3dspace/contracts";
+
+const WINDOW_MS = 60_000;
+
+export type ReactionLogEntry = { reaction: AvatarReactionSlug; receivedAt: number };
 
 export function useAvatarReactions() {
   const [reactions, setReactions] = useState<Map<string, AvatarReactionMessage>>(new Map());
+  const [log, setLog] = useState<ReactionLogEntry[]>([]);
 
   const receive = useCallback((msg: AvatarReactionMessage) => {
     setReactions((prev) => new Map(prev).set(msg.participantId, msg));
@@ -16,6 +21,22 @@ export function useAvatarReactions() {
         return next;
       });
     }, ms);
+    setLog((prev) => [
+      ...prev.filter((e) => Date.now() - e.receivedAt < WINDOW_MS),
+      { reaction: msg.reaction, receivedAt: Date.now() }
+    ]);
+  }, []);
+
+  // Prune stale log entries so counts stay accurate when reactions stop arriving.
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setLog((prev) => {
+        const cutoff = Date.now() - WINDOW_MS;
+        const next = prev.filter((e) => e.receivedAt >= cutoff);
+        return next.length === prev.length ? prev : next;
+      });
+    }, 5_000);
+    return () => window.clearInterval(id);
   }, []);
 
   const drop = useCallback((participantId: string) => {
@@ -29,5 +50,5 @@ export function useAvatarReactions() {
 
   const getReaction = useCallback((id: string) => reactions.get(id), [reactions]);
 
-  return { receive, drop, getReaction, all: reactions };
+  return { receive, drop, getReaction, all: reactions, log };
 }

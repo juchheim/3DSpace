@@ -124,7 +124,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const localAppearanceRef = useRef<AvatarAppearance>(DEFAULT_APPEARANCE);
   const seenParticipantsRef = useRef(new Set<string>());
   const { receiveAppearance, setLocalAppearance, getAppearance } = useAvatarAppearance();
-  const { receive: receiveReaction, drop: dropReaction, getReaction } = useAvatarReactions();
+  const { receive: receiveReaction, drop: dropReaction, getReaction, log } = useAvatarReactions();
   const displayNameRef = useRef(identity.displayName);
   displayNameRef.current = identity.displayName;
   const media = useLocalMedia(session?.tuning.media);
@@ -1141,6 +1141,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             manifest={manifest}
             currentUserId={identity.userId}
             boardAccessUserId={helpBoardAccessUserId}
+            reactionLog={log}
             onOpenBoardAccess={(userId) => {
               setSelectedStudentId("");
               setHelpBoardAccessUserId((current) => (current === userId ? "" : userId));

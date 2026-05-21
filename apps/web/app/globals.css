@@ -1577,6 +1577,40 @@ button.hud-heading-btn:hover {
   cursor: default;
 }
 
+.reaction-heat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.38rem;
+  padding: 0.42rem 0.5rem;
+  border-top: 1px solid rgba(255, 250, 240, 0.08);
+}
+
+.reaction-heat-counts {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.reaction-heat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.75rem;
+  color: var(--hud-tx);
+}
+
+.reaction-heat-item span:first-child {
+  font-size: 0.88rem;
+}
+
+.reaction-heat-window {
+  margin-left: auto;
+  font-size: 0.67rem;
+  color: var(--hud-tx-m);
+  white-space: nowrap;
+}
+
 .avatar-video-card {
   overflow: hidden;
   width: 9rem;
