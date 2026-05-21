@@ -941,7 +941,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         type: "avatar.reaction.v1",
         participantId: session.participantId,
         reaction: slug,
-        expiresAt: new Date(Date.now() + 2500).toISOString()
+        expiresAt: new Date(Date.now() + 5000).toISOString()
       };
       receiveReaction(msg);
       realtimeRef.current?.publish(msg);

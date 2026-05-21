@@ -326,14 +326,14 @@ export function BlockyAvatar({
       {!hidden ? (
         <>
           {reaction ? (
-            <Billboard position={[0, 2.1, 0]}>
-              <Html center distanceFactor={3} style={{ pointerEvents: "none" }}>
+            <Billboard position={[0, 1.85, 0]}>
+              <Html center style={{ pointerEvents: "none" }}>
                 <div className="avatar-reaction">{REACTION_EMOJI[reaction]}</div>
               </Html>
             </Billboard>
           ) : null}
           <Billboard position={[0, 1.52, 0]}>
-            <Html center distanceFactor={3} style={{ pointerEvents: "none" }}>
+            <Html center style={{ pointerEvents: "none" }}>
               <div className="avatar-nameplate">
                 <span className="avatar-nameplate__name">{participant.displayName}{audioMode === "whisper" ? " 🔇" : ""}</span>
                 <span className="avatar-nameplate__status">
