@@ -2478,7 +2478,7 @@ button.hud-heading-btn:hover {
   left: calc(var(--hud-lw) + 12px);
   right: calc(var(--hud-pw) + 12px);
   bottom: 8px;
-  z-index: 250;
+  z-index: 16777272; /* above drei Html default zIndexRange max of 16777271 */
   display: flex;
   flex-direction: column;
   background: rgba(8, 14, 11, 0.97);
