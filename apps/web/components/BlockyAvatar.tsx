@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Billboard, Html } from "@react-three/drei";
 import { MathUtils, type Group, type Mesh } from "three";
@@ -44,6 +44,7 @@ export type BlockyAvatarProps = {
   reaction?: AvatarReactionSlug;
   audioMode?: ParticipantAudioMode;
   whisperRadiusMeters?: number;
+  crossPodOutlineColor?: string;
 };
 
 export const DEFAULT_APPEARANCE: AvatarAppearance = {
@@ -84,6 +85,7 @@ export function BlockyAvatar({
   reaction,
   audioMode,
   whisperRadiusMeters = 3,
+  crossPodOutlineColor,
 }: BlockyAvatarProps) {
   const position = participant.state.position;
   const movement = participant.state.movement;
@@ -334,7 +336,11 @@ export function BlockyAvatar({
           ) : null}
           <Billboard position={[0, 1.52, 0]}>
             <Html center style={{ pointerEvents: "none" }}>
-              <div className="avatar-nameplate">
+              <div
+                className={`avatar-nameplate${crossPodOutlineColor ? " avatar-nameplate--cross-pod" : ""}`}
+                data-testid={`participant-${participant.id}-nameplate`}
+                style={crossPodOutlineColor ? ({ "--avatar-cross-pod-ring": crossPodOutlineColor } as CSSProperties) : undefined}
+              >
                 <span className="avatar-nameplate__name">{participant.displayName}{audioMode === "whisper" ? " 🔇" : ""}</span>
                 <span className="avatar-nameplate__status">
                   {groupColor ? <span className="avatar-nameplate__group" style={{ color: groupColor }}>● </span> : null}

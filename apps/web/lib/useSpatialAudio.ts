@@ -12,6 +12,46 @@ type SpatialNode = {
   stream: MediaStream;
 };
 
+type PodsInput = {
+  enabled: boolean;
+  murmurFloor: number;
+  broadcastUserIds: Set<string>;
+  groupByUserId: Map<string, string>;
+};
+
+function computeWhisperGain(input: {
+  audioMode?: { mode: ParticipantAudioMode; radiusMeters: number } | undefined;
+  listenerPosition: { x: number; z: number };
+  sourcePosition: { x: number; z: number };
+}) {
+  if (input.audioMode?.mode !== "whisper") return 1;
+  const dx = input.listenerPosition.x - input.sourcePosition.x;
+  const dz = input.listenerPosition.z - input.sourcePosition.z;
+  const dist = Math.sqrt(dx * dx + dz * dz);
+  return dist <= input.audioMode.radiusMeters ? 1 : 0;
+}
+
+function computePodGain(input: {
+  pods?: PodsInput | undefined;
+  listenerId: string;
+  listenerRole: ParticipantView["role"];
+  sourceId: string;
+  sourceRole: ParticipantView["role"];
+  sourceMode: ParticipantAudioMode;
+}) {
+  if (!input.pods?.enabled) return 1;
+  if (input.listenerRole === "teacher") return 1;
+  if (input.sourceRole === "teacher") return 1;
+  if (input.sourceMode === "broadcast" || input.pods.broadcastUserIds.has(input.sourceId)) return 1;
+
+  const sourcePodId = input.pods.groupByUserId.get(input.sourceId);
+  if (!sourcePodId) return 1;
+
+  const listenerPodId = input.pods.groupByUserId.get(input.listenerId);
+  if (!listenerPodId) return input.pods.murmurFloor;
+  return listenerPodId === sourcePodId ? 1 : input.pods.murmurFloor;
+}
+
 export function useSpatialAudio(input: {
   participants: ParticipantView[];
   localParticipantId?: string | undefined;
@@ -20,6 +60,7 @@ export function useSpatialAudio(input: {
   wallObjects?: WallObject[] | undefined;
   wallMediaStreams?: Record<string, { audioStream?: MediaStream | null | undefined }> | undefined;
   audioModes?: Map<string, { mode: ParticipantAudioMode; radiusMeters: number }> | undefined;
+  pods?: PodsInput | undefined;
 }) {
   const contextRef = useRef<AudioContext | null>(null);
   const nodesRef = useRef(new Map<string, SpatialNode>());
@@ -92,15 +133,26 @@ export function useSpatialAudio(input: {
       node.panner.positionZ.value = sourcePosition.z;
 
       const audioMode = input.audioModes?.get(participant.id);
-      if (audioMode?.mode === "whisper") {
-        const dx = listenerPosition.x - sourcePosition.x;
-        const dz = listenerPosition.z - sourcePosition.z;
-        const dist = Math.sqrt(dx * dx + dz * dz);
-        const micOn = participant.state.media?.microphoneEnabled ? 1 : 0;
-        const targetGain = micOn * (dist <= audioMode.radiusMeters ? 1 : 0);
+      const micOn = participant.state.media?.microphoneEnabled ? 1 : 0;
+      const whisperGain = computeWhisperGain({
+        audioMode,
+        listenerPosition,
+        sourcePosition
+      });
+      const podGain = computePodGain({
+        pods: input.pods,
+        listenerId: input.localParticipantId,
+        listenerRole: local.role,
+        sourceId: participant.id,
+        sourceRole: participant.role,
+        sourceMode: audioMode?.mode ?? "normal"
+      });
+      const targetGain = micOn * whisperGain * podGain;
+
+      if (audioMode?.mode === "whisper" || input.pods?.enabled) {
         node.gain.gain.setTargetAtTime(targetGain, context.currentTime, 0.1);
       } else {
-        node.gain.gain.value = participant.state.media?.microphoneEnabled ? 1 : 0;
+        node.gain.gain.value = micOn;
       }
     }
 
@@ -138,7 +190,7 @@ export function useSpatialAudio(input: {
         nodesRef.current.delete(participantId);
       }
     });
-  }, [input.participants, input.localParticipantId, input.config, input.manifest, input.wallObjects, input.wallMediaStreams, input.audioModes]);
+  }, [input.participants, input.localParticipantId, input.config, input.manifest, input.wallObjects, input.wallMediaStreams, input.audioModes, input.pods]);
 
   useEffect(
     () => () => {

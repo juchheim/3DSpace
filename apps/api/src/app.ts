@@ -64,7 +64,7 @@ import {
 } from "@3dspace/room-engine";
 import { authenticate, type AuthContext } from "./auth.js";
 import { loadConfig, livekitConfigured, storageConfigured, type AppConfig } from "./config.js";
-import { badRequest, conflict, exitTicketIncomplete, forbidden, HttpError, notFound, tooManyRequests } from "./errors.js";
+import { badRequest, conflict, exitTicketIncomplete, forbidden, HttpError, notFound, tooManyRequests, unprocessableEntity } from "./errors.js";
 import { connectMongo, MongoRepository } from "./models/mongoose.js";
 import { MemoryRepository, newId, type Repository } from "./repository.js";
 import { mintLiveKitToken } from "./services/livekit.js";
@@ -83,6 +83,10 @@ const ParamsWithRoomAndRunId = z.object({ roomId: z.string(), runId: z.string() 
 const ParamsWithInviteCode = z.object({ inviteCode: z.string() });
 const ParamsWithDevStorageKey = z.object({ storageKey: z.string() });
 const SESSION_JOIN_RATE_LIMIT_WINDOW_MS = 60_000;
+const DEFAULT_PODS_RUNTIME = {
+  podsEnabled: false,
+  broadcastFromUserIds: [] as string[]
+};
 
 function parseBody<T extends ZodTypeAny>(schema: T, request: FastifyRequest): z.infer<T> {
   return schema.parse(request.body ?? {});
@@ -152,7 +156,8 @@ function roomSettings(config: AppConfig) {
     allowEmbeds: config.tuning.enableWallWebEmbeds,
     maxActiveWallObjects: config.tuning.wallObjectMaxActivePerRoom,
     maxActiveLiveShares: config.tuning.wallObjectMaxActiveLiveShares,
-    hallpass: { enabled: true, maxConcurrent: 1, perPeriodLimit: 2 }
+    hallpass: { enabled: true, maxConcurrent: 1, perPeriodLimit: 2 },
+    pods: { enabled: false, podRadiusMeters: 3, podMurmurFloor: 0.08, drawPartitions: false }
   };
 }
 
@@ -477,6 +482,7 @@ function normalizeLegacyLessonRun(run: LessonRun | null | undefined) {
 
 function sanitizeClassroomState(state: ClassroomState): ClassroomState {
   const normalizedLessonRun = normalizeLegacyLessonRun(state.lessonRun);
+  const podsRuntime = state.podsRuntime ?? DEFAULT_PODS_RUNTIME;
 
   return ClassroomStateSchema.parse({
     ...state,
@@ -566,8 +572,34 @@ function sanitizeClassroomState(state: ClassroomState): ClassroomState {
             ...(typeof state.spotlight.expiresAt === "string" ? { expiresAt: state.spotlight.expiresAt } : {})
           }
         : null,
+    podsRuntime: {
+      podsEnabled: podsRuntime.podsEnabled,
+      broadcastFromUserIds: [...new Set(podsRuntime.broadcastFromUserIds.filter((userId) => typeof userId === "string" && userId.length > 0))]
+    },
     lessonRun: normalizedLessonRun
   });
+}
+
+function ensurePodsRuntime(state: ClassroomState) {
+  if (!state.podsRuntime) {
+    state.podsRuntime = {
+      podsEnabled: false,
+      broadcastFromUserIds: []
+    };
+  }
+  return state.podsRuntime;
+}
+
+function isActivePositionedGroup(group: ClassroomGroup) {
+  return group.status === "active" && Boolean(group.targetPosition);
+}
+
+function hasActivePositionedGroups(state: ClassroomState) {
+  return state.groups.some((group) => isActivePositionedGroup(group));
+}
+
+function findActivePositionedGroupForUser(state: ClassroomState, userId: string) {
+  return state.groups.find((group) => isActivePositionedGroup(group) && group.memberUserIds.includes(userId));
 }
 
 function currentGroupIdForUser(state: ClassroomState, userId: string) {
@@ -586,6 +618,8 @@ function filterClassroomStateForActor(state: ClassroomState, actor: ClassroomAct
     return ClassroomStateSchema.parse(state);
   }
 
+  const podsRuntime = state.podsRuntime ?? DEFAULT_PODS_RUNTIME;
+
   return ClassroomStateSchema.parse({
     ...state,
     helpRequests: state.helpRequests.filter((request) => request.userId === actor.userId),
@@ -596,6 +630,10 @@ function filterClassroomStateForActor(state: ClassroomState, actor: ClassroomAct
         ...check,
         responses: check.responses.filter((response) => response.userId === actor.userId)
       })),
+    podsRuntime: {
+      podsEnabled: podsRuntime.podsEnabled,
+      broadcastFromUserIds: podsRuntime.broadcastFromUserIds.includes(actor.userId) ? [actor.userId] : []
+    },
     lessonRun: filterLessonRunForActor(state.lessonRun, actor)
   });
 }
@@ -895,6 +933,8 @@ async function startLessonStep(input: {
   run: LessonRun;
   step: LessonStep;
   actor: ClassroomActor;
+  roomSettings: RoomSettings | undefined;
+  breakoutPodsEnabled: boolean;
   now: string;
 }): Promise<LessonRunStepRecord> {
   const record: LessonRunStepRecord = {
@@ -963,7 +1003,12 @@ async function startLessonStep(input: {
       }
       group.status = "active";
       group.updatedAt = input.now;
-      return { ...record, createdGroupId: group.id, emittedActionIds: ["update-group"] };
+      const emittedActionIds = ["update-group"];
+      if (input.breakoutPodsEnabled && input.roomSettings?.pods.enabled === true && hasActivePositionedGroups(input.state)) {
+        ensurePodsRuntime(input.state).podsEnabled = true;
+        emittedActionIds.push("toggle-pods");
+      }
+      return { ...record, createdGroupId: group.id, emittedActionIds };
     }
     if (!payload.newGroup) return { ...record, drifted: true, driftReason: "Missing group configuration" };
     if (payload.newGroup.targetWallAnchorId && !hasAnchor(manifest, payload.newGroup.targetWallAnchorId)) {
@@ -983,7 +1028,12 @@ async function startLessonStep(input: {
       group.hold = normalizedGroup.hold;
       group.updatedAt = input.now;
     }
-    return { ...record, createdGroupId: groupId, emittedActionIds: prior?.createdGroupId ? ["update-group", "assign-group"] : ["create-group", "assign-group"] };
+    const emittedActionIds = prior?.createdGroupId ? ["update-group", "assign-group"] : ["create-group", "assign-group"];
+    if (input.breakoutPodsEnabled && input.roomSettings?.pods.enabled === true && hasActivePositionedGroups(input.state)) {
+      ensurePodsRuntime(input.state).podsEnabled = true;
+      emittedActionIds.push("toggle-pods");
+    }
+    return { ...record, createdGroupId: groupId, emittedActionIds };
   }
 
   if (input.step.kind === "timer" && input.step.payload.kind === "timer") {
@@ -1053,6 +1103,10 @@ async function startLessonStep(input: {
       return { ...record, drifted: true, driftReason: "Missing share wall anchor" };
     }
     const emittedActionIds: string[] = [];
+    if (input.breakoutPodsEnabled && ensurePodsRuntime(input.state).podsEnabled) {
+      ensurePodsRuntime(input.state).podsEnabled = false;
+      emittedActionIds.push("toggle-pods");
+    }
     if (payload.acknowledgeHandIfRaised) {
       const help = input.state.helpRequests.find(
         (request) => request.userId === payload.userId && (request.status === "raised" || request.status === "acknowledged")
@@ -1178,6 +1232,8 @@ async function cleanupLessonStep(input: {
   step: LessonStep;
   record: LessonRunStepRecord;
   actor: ClassroomActor;
+  roomSettings: RoomSettings | undefined;
+  breakoutPodsEnabled: boolean;
   now: string;
 }): Promise<LessonEffectResult> {
   if (input.step.kind === "focus-board") {
@@ -1226,14 +1282,36 @@ async function cleanupLessonStep(input: {
   }
 
   if (input.step.kind === "student-share" && input.step.payload.kind === "student-share") {
-    if (!input.step.payload.data.revokeOnAdvance || !input.record.createdGrantId) return {};
-    const grant = input.state.boardAccessGrants.find((candidate) => candidate.id === input.record.createdGrantId);
-    if (grant?.status === "active") {
-      grant.status = "revoked";
-      grant.updatedAt = input.now;
-      return { emittedActionIds: ["revoke-board-access"] };
+    const emittedActionIds: string[] = [];
+    let drifted = false;
+    let driftReason: string | undefined;
+
+    if (input.step.payload.data.revokeOnAdvance) {
+      if (!input.record.createdGrantId) {
+        drifted = true;
+        driftReason = "Missing grant id";
+      } else {
+        const grant = input.state.boardAccessGrants.find((candidate) => candidate.id === input.record.createdGrantId);
+        if (grant?.status === "active") {
+          grant.status = "revoked";
+          grant.updatedAt = input.now;
+          emittedActionIds.push("revoke-board-access");
+        }
+      }
     }
-    return {};
+
+    if (input.breakoutPodsEnabled && input.record.emittedActionIds.includes("toggle-pods") && !ensurePodsRuntime(input.state).podsEnabled) {
+      ensurePodsRuntime(input.state).podsEnabled = true;
+      emittedActionIds.push("toggle-pods");
+    }
+
+    return emittedActionIds.length > 0 || drifted
+      ? {
+          emittedActionIds,
+          ...(drifted ? { drifted: true } : {}),
+          ...(driftReason ? { driftReason } : {})
+        }
+      : {};
   }
 
   if (input.step.kind === "exit-ticket" && input.step.payload.kind === "exit-ticket") {
@@ -1262,6 +1340,8 @@ async function completeCurrentLessonStep(input: {
   state: ClassroomState;
   run: LessonRun;
   actor: ClassroomActor;
+  roomSettings: RoomSettings | undefined;
+  breakoutPodsEnabled: boolean;
   now: string;
 }) {
   const step = input.run.steps[input.run.currentStepIndex];
@@ -1473,10 +1553,14 @@ async function runClassroomAction(input: {
   actor: ClassroomActor;
   action: ClassroomAction;
   lessonsEnabled: boolean;
+  breakoutPodsEnabled: boolean;
   roomSettings?: RoomSettings;
 }) {
   if (isLessonAction(input.action) && !input.lessonsEnabled) {
     throw notFound("Classroom lessons are disabled");
+  }
+  if ((input.action.type === "toggle-pods" || input.action.type === "set-student-broadcast") && !input.breakoutPodsEnabled) {
+    throw notFound("Breakout pods are disabled");
   }
 
   const current = sanitizeClassroomState(await input.repository.getClassroomState(input.roomId));
@@ -1487,6 +1571,10 @@ async function runClassroomAction(input: {
     privateChecks: current.privateChecks.map((check) => ({ ...check, choices: [...check.choices], responses: [...check.responses], target: { ...check.target } })),
     groups: current.groups.map((group) => ({ ...group, memberUserIds: [...group.memberUserIds], hold: group.hold ? { ...group.hold } : undefined })),
     spotlight: current.spotlight ? { ...current.spotlight } : null,
+    podsRuntime: current.podsRuntime
+      ? { ...current.podsRuntime, broadcastFromUserIds: [...current.podsRuntime.broadcastFromUserIds] }
+      : { podsEnabled: false, broadcastFromUserIds: [] },
+    whisper: current.whisper ? { ...current.whisper } : undefined,
     lessonRun: cloneLessonRun(current.lessonRun)
   };
   const now = new Date().toISOString();
@@ -1683,6 +1771,26 @@ async function runClassroomAction(input: {
       group.updatedAt = now;
       break;
     }
+    case "toggle-pods": {
+      requireTeacher(input.actor);
+      if (input.action.enabled && !hasActivePositionedGroups(state)) {
+        throw unprocessableEntity("Pod audio requires at least one active group with a target position");
+      }
+      ensurePodsRuntime(state).podsEnabled = input.action.enabled;
+      break;
+    }
+    case "set-student-broadcast": {
+      requireTeacher(input.actor);
+      const podsRuntime = ensurePodsRuntime(state);
+      if (input.action.enabled && !findActivePositionedGroupForUser(state, input.action.userId)) {
+        throw unprocessableEntity("Student must belong to an active positioned group to broadcast");
+      }
+      const nextBroadcastIds = new Set(podsRuntime.broadcastFromUserIds);
+      if (input.action.enabled) nextBroadcastIds.add(input.action.userId);
+      else nextBroadcastIds.delete(input.action.userId);
+      podsRuntime.broadcastFromUserIds = [...nextBroadcastIds];
+      break;
+    }
     case "set-spotlight": {
       requireTeacher(input.actor);
       if (input.action.targetType === "wall-anchor" && !input.action.anchorId) {
@@ -1797,7 +1905,19 @@ async function runClassroomAction(input: {
       run.startedAt = now;
       delete run.endedAt;
       run.updatedAt = now;
-      run.timeline.push(await startLessonStep({ repository: input.repository, roomId: input.roomId, state, run, step: run.steps[0]!, actor: input.actor, now }));
+      run.timeline.push(
+        await startLessonStep({
+          repository: input.repository,
+          roomId: input.roomId,
+          state,
+          run,
+          step: run.steps[0]!,
+          actor: input.actor,
+          roomSettings: input.roomSettings,
+          breakoutPodsEnabled: input.breakoutPodsEnabled,
+          now
+        })
+      );
       break;
     }
     case "advance-lesson-step": {
@@ -1805,7 +1925,16 @@ async function runClassroomAction(input: {
       const run = requireLessonRun(state);
       if (run.status !== "running") throw conflict("Lesson run is not running");
       if (run.currentStepIndex < 0) throw conflict("Lesson run has no current step");
-      await completeCurrentLessonStep({ repository: input.repository, roomId: input.roomId, state, run, actor: input.actor, now });
+      await completeCurrentLessonStep({
+        repository: input.repository,
+        roomId: input.roomId,
+        state,
+        run,
+        actor: input.actor,
+        roomSettings: input.roomSettings,
+        breakoutPodsEnabled: input.breakoutPodsEnabled,
+        now
+      });
       if (run.currentStepIndex >= run.steps.length - 1) {
         await clearActiveLessonTimer({ repository: input.repository, roomId: input.roomId, run, actor: input.actor });
         run.status = "ended";
@@ -1823,6 +1952,8 @@ async function runClassroomAction(input: {
           run,
           step: run.steps[run.currentStepIndex]!,
           actor: input.actor,
+          roomSettings: input.roomSettings,
+          breakoutPodsEnabled: input.breakoutPodsEnabled,
           now
         })
       );
@@ -1833,7 +1964,16 @@ async function runClassroomAction(input: {
       const run = requireLessonRun(state);
       if (run.status !== "running" && run.status !== "paused") throw conflict("Lesson run is not active");
       if (run.currentStepIndex <= 0) throw conflict("Already at the first lesson step");
-      await completeCurrentLessonStep({ repository: input.repository, roomId: input.roomId, state, run, actor: input.actor, now });
+      await completeCurrentLessonStep({
+        repository: input.repository,
+        roomId: input.roomId,
+        state,
+        run,
+        actor: input.actor,
+        roomSettings: input.roomSettings,
+        breakoutPodsEnabled: input.breakoutPodsEnabled,
+        now
+      });
       run.currentStepIndex -= 1;
       run.status = "running";
       run.updatedAt = now;
@@ -1845,6 +1985,8 @@ async function runClassroomAction(input: {
           run,
           step: run.steps[run.currentStepIndex]!,
           actor: input.actor,
+          roomSettings: input.roomSettings,
+          breakoutPodsEnabled: input.breakoutPodsEnabled,
           now
         })
       );
@@ -1875,7 +2017,16 @@ async function runClassroomAction(input: {
         if (blocker) throw exitTicketIncomplete(blocker);
       }
       if (run.status === "running" || run.status === "paused") {
-        await completeCurrentLessonStep({ repository: input.repository, roomId: input.roomId, state, run, actor: input.actor, now });
+        await completeCurrentLessonStep({
+          repository: input.repository,
+          roomId: input.roomId,
+          state,
+          run,
+          actor: input.actor,
+          roomSettings: input.roomSettings,
+          breakoutPodsEnabled: input.breakoutPodsEnabled,
+          now
+        });
       }
       await clearActiveLessonTimer({ repository: input.repository, roomId: input.roomId, run, actor: input.actor });
       run.status = input.action.type === "end-lesson-run" ? "ended" : "abandoned";
@@ -2920,6 +3071,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       actor,
       action: body,
       lessonsEnabled: config.tuning.enableClassroomLessons,
+      breakoutPodsEnabled: config.tuning.enableBreakoutPods,
       roomSettings: room.settings
     });
     const hydrated = await hydrateClassroomDisplayNames(repository, room.classId, sanitizeClassroomState(state));

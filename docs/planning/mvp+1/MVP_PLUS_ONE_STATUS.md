@@ -1,6 +1,6 @@
 # MVP+1 Implementation Status
 
-Last updated: 2026-05-19
+Last updated: 2026-05-21
 Branch: `mvp-plus-one`
 
 ## Objective
@@ -85,6 +85,29 @@ Validation:
 - `npx vitest run packages/contracts/tests/lesson-run.test.ts apps/api/tests/api.test.ts` — pass, 33 tests.
 - `PLAYWRIGHT_SKIP_WEB_SERVER=1 PLAYWRIGHT_BASE_URL=http://localhost:3000 NEXT_PUBLIC_API_URL=http://127.0.0.1:8080 npx playwright test apps/web/test/mvp.spec.ts --grep "three-step lesson"` — pass, 1 focused Chromium test.
 
+## Breakout Pods
+
+Plan: [`docs/planning/new-features/PLAN_BREAKOUT_PODS.md`](../new-features/PLAN_BREAKOUT_PODS.md) and [`docs/planning/new-features/IMPL_BREAKOUT_PODS.md`](../new-features/IMPL_BREAKOUT_PODS.md)
+
+Status: complete locally behind `ENABLE_BREAKOUT_PODS` / `NEXT_PUBLIC_ENABLE_BREAKOUT_PODS`; room-level default remains off.
+
+Completed:
+
+- Contracts, API orchestration, and room/classroom runtime state landed in Phases 1–2.
+- Client spatial-audio routing, teacher controls, student HUD actions, and pod visuals landed in Phases 3–6.
+- Env templates and Playwright local dev commands now opt into breakout pods for validation while keeping production defaults off.
+- Focused browser coverage now seeds a two-pod classroom, enables pods from the teacher HUD, verifies student HUD indicators, verifies filled 2D pod zones plus cross-pod nameplate outlines, and checks that a teacher broadcast grant appears in both API state and the granted student's HUD.
+
+Validation:
+
+- `npm run typecheck -w @3dspace/web` — pass.
+- `npm run test -- apps/api/tests/api.test.ts -t "pods runtime|group-work steps|student-share steps|pod actions"` — pass.
+- `npx playwright test apps/web/test/breakout-pods.spec.ts` — pass locally with breakout-pod flags enabled through `playwright.config.ts`.
+
+Rollout note:
+
+- Planned staging rollout date: 2026-05-21, with `ENABLE_BREAKOUT_PODS=true` in staging only after merge; production default remains off until teacher validation is complete.
+
 ## Next Concrete Step
 
-Local MVP+1 wall media and Phase 7 lesson planning discovery implementation are complete. Recommended follow-up before release: manually validate live wall shares against the deployed LiveKit/browser-permission path, decide production values for web embed allowlists and file size limits, and run the lesson slice with at least one teacher before promoting Phase 8 product decisions.
+Local MVP+1 wall media, lesson planning discovery, and breakout-pods implementation are complete. Recommended follow-up before release: manually validate live wall shares against the deployed LiveKit/browser-permission path, run a 3-user breakout-pods perceptual check in staging, decide production values for web embed allowlists and file size limits, and run the lesson slice with at least one teacher before promoting the next product slice.

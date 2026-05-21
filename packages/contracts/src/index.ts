@@ -189,13 +189,14 @@ export const AvatarAppearanceMessageSchema = z.object({
 
 export type AvatarAppearanceMessage = z.infer<typeof AvatarAppearanceMessageSchema>;
 
-export const ParticipantAudioModeSchema = z.enum(["normal", "whisper"]);
+export const ParticipantAudioModeSchema = z.enum(["normal", "whisper", "broadcast"]);
 
 export const ParticipantAudioModeMessageSchema = z.object({
   type: z.literal("participant.audio-mode.v1"),
   participantId: z.string(),
   mode: ParticipantAudioModeSchema,
-  radiusMeters: z.number().positive().max(20).default(3)
+  radiusMeters: z.number().positive().max(20).default(3),
+  podId: z.string().optional()
 });
 
 export type ParticipantAudioMode = z.infer<typeof ParticipantAudioModeSchema>;
@@ -306,7 +307,13 @@ export const RoomSettingsSchema = z.object({
     enabled: z.boolean().default(true),
     maxConcurrent: z.number().int().min(0).max(10).default(1),
     perPeriodLimit: z.number().int().min(0).max(20).default(2)
-  }).default({ enabled: true, maxConcurrent: 1, perPeriodLimit: 2 })
+  }).default({ enabled: true, maxConcurrent: 1, perPeriodLimit: 2 }),
+  pods: z.object({
+    enabled: z.boolean().default(false),
+    podRadiusMeters: z.number().positive().max(8).default(3),
+    podMurmurFloor: z.number().min(0).max(1).default(0.08),
+    drawPartitions: z.boolean().default(false)
+  }).default({ enabled: false, podRadiusMeters: 3, podMurmurFloor: 0.08, drawPartitions: false })
 });
 
 export const RoomSchema = z.object({
@@ -886,6 +893,11 @@ export const LessonStepInputSchema = z.object({
   message: "Step kind must match payload kind."
 });
 
+export const ClassroomPodsRuntimeSchema = z.object({
+  podsEnabled: z.boolean().default(false),
+  broadcastFromUserIds: z.array(z.string()).default([])
+});
+
 export const ClassroomStateSchema = z.object({
   roomId: z.string(),
   version: z.number().int().positive(),
@@ -897,6 +909,10 @@ export const ClassroomStateSchema = z.object({
   lessonRun: LessonRunSchema.nullable().default(null),
   avatarEditorLocked: z.boolean().default(false).optional(),
   reactionsLocked: z.boolean().default(false).optional(),
+  podsRuntime: ClassroomPodsRuntimeSchema.default({
+    podsEnabled: false,
+    broadcastFromUserIds: []
+  }).optional(),
   whisper: z.object({
     allowed: z.boolean().default(false),
     maxRadiusMeters: z.number().positive().max(20).default(3),
@@ -1008,6 +1024,17 @@ export const ClassroomAssignGroupActionSchema = ClassroomActionBaseSchema.extend
 export const ClassroomReleaseGroupActionSchema = ClassroomActionBaseSchema.extend({
   type: z.literal("release-group"),
   groupId: z.string().min(1)
+});
+
+export const ClassroomTogglePodsActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("toggle-pods"),
+  enabled: z.boolean()
+});
+
+export const ClassroomSetStudentBroadcastActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("set-student-broadcast"),
+  userId: z.string().min(1),
+  enabled: z.boolean()
 });
 
 export const ClassroomSetSpotlightActionSchema = ClassroomActionBaseSchema.extend({
@@ -1145,6 +1172,8 @@ export const ClassroomActionSchema = z.discriminatedUnion("type", [
   ClassroomUpdateGroupActionSchema,
   ClassroomAssignGroupActionSchema,
   ClassroomReleaseGroupActionSchema,
+  ClassroomTogglePodsActionSchema,
+  ClassroomSetStudentBroadcastActionSchema,
   ClassroomSetSpotlightActionSchema,
   ClassroomClearSpotlightActionSchema,
   ClassroomInitLessonRunActionSchema,
@@ -1290,6 +1319,7 @@ export type ClassroomHelpRequest = z.infer<typeof ClassroomHelpRequestSchema>;
 export type ClassroomBoardAccessGrant = z.infer<typeof ClassroomBoardAccessGrantSchema>;
 export type ClassroomGroupHold = z.infer<typeof ClassroomGroupHoldSchema>;
 export type ClassroomGroup = z.infer<typeof ClassroomGroupSchema>;
+export type ClassroomPodsRuntime = z.infer<typeof ClassroomPodsRuntimeSchema>;
 export type ClassroomSpotlight = z.infer<typeof ClassroomSpotlightSchema>;
 export type ClassroomPrivateCheckChoice = z.infer<typeof ClassroomPrivateCheckChoiceSchema>;
 export type ClassroomPrivateCheckResponse = z.infer<typeof ClassroomPrivateCheckResponseSchema>;
@@ -1307,6 +1337,8 @@ export type LessonRunStatus = z.infer<typeof LessonRunStatusSchema>;
 export type LessonRun = z.infer<typeof LessonRunSchema>;
 export type ClassroomState = z.infer<typeof ClassroomStateSchema>;
 export type ClassroomAction = z.infer<typeof ClassroomActionSchema>;
+export type ClassroomTogglePodsAction = z.infer<typeof ClassroomTogglePodsActionSchema>;
+export type ClassroomSetStudentBroadcastAction = z.infer<typeof ClassroomSetStudentBroadcastActionSchema>;
 export type ClassroomHelpRequestKind = z.infer<typeof ClassroomHelpRequestSchema>["kind"];
 export type ClassroomStateChangedRealtimeMessage = z.infer<typeof ClassroomStateChangedRealtimeSchema>;
 export type ClassroomStateRealtimeMessage = z.infer<typeof ClassroomStateRealtimeSchema>;

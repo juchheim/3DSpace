@@ -40,6 +40,10 @@ export function createDefaultClassroomState(roomId: string): ClassroomState {
     groups: [],
     spotlight: null,
     lessonRun: null,
+    podsRuntime: {
+      podsEnabled: false,
+      broadcastFromUserIds: []
+    },
     createdAt: time,
     updatedAt: time
   };

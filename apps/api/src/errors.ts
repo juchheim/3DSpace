@@ -29,6 +29,10 @@ export function conflict(message: string) {
   return new HttpError(409, message, "conflict");
 }
 
+export function unprocessableEntity(message: string) {
+  return new HttpError(422, message, "unprocessable_entity");
+}
+
 export function exitTicketIncomplete(details: {
   stepId: string;
   missingUserIds: string[];

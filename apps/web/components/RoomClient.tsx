@@ -132,6 +132,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const [whisperMode, setWhisperMode] = useState<"normal" | "whisper">("normal");
   const whisperModeRef = useRef(whisperMode);
   whisperModeRef.current = whisperMode;
+  const [broadcastMode, setBroadcastMode] = useState<"normal" | "broadcast">("normal");
+  const broadcastModeRef = useRef(broadcastMode);
+  broadcastModeRef.current = broadcastMode;
   const displayNameRef = useRef(identity.displayName);
   displayNameRef.current = identity.displayName;
   const media = useLocalMedia(session?.tuning.media);
@@ -716,6 +719,16 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   }, [media.cameraStream, session?.participantId, wall.wallObjects]);
 
   const participantList = useMemo(() => Object.values(participants), [participants]);
+  const groupByUserId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const group of classroom.state?.groups ?? []) {
+      if (group.status !== "active" || !group.targetPosition) continue;
+      for (const userId of group.memberUserIds) {
+        map.set(userId, group.id);
+      }
+    }
+    return map;
+  }, [classroom.state?.groups]);
 
   useEffect(() => {
     if (selectedStudentId && !participantList.some((p) => p.id === selectedStudentId)) {
@@ -765,6 +778,17 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     }
     return next;
   }, [localWallMedia, participantList, remoteWallMedia, wall.wallObjects]);
+  const podsInput = useMemo(() => {
+    if (!CLIENT_TUNING.enableBreakoutPods) return undefined;
+    const runtime = classroom.state?.podsRuntime;
+    if (!runtime?.podsEnabled) return undefined;
+    return {
+      enabled: true,
+      murmurFloor: session?.room.settings.pods?.podMurmurFloor ?? 0.08,
+      broadcastUserIds: new Set(runtime.broadcastFromUserIds),
+      groupByUserId
+    };
+  }, [classroom.state?.podsRuntime, groupByUserId, session]);
   useSpatialAudio(
     session
       ? {
@@ -774,7 +798,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           manifest: manifest ?? undefined,
           wallObjects: wall.wallObjects,
           wallMediaStreams,
-          audioModes
+          audioModes,
+          pods: podsInput
         }
       : { participants: participantList }
   );
@@ -920,40 +945,49 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     role === "student" &&
     lesson.currentStep?.kind === "group-work" &&
     classroom.state?.whisper?.autoEnableInGroupWork === true &&
+    classroom.state?.podsRuntime?.podsEnabled !== true &&
     whisperMode === "normal";
+
+  const publishAudioMode = useCallback(
+    (mode: "normal" | "whisper" | "broadcast", radiusMeters = 3) => {
+      if (!session) return null;
+      setWhisperMode(mode === "whisper" ? "whisper" : "normal");
+      setBroadcastMode(mode === "broadcast" ? "broadcast" : "normal");
+      const msg = {
+        type: "participant.audio-mode.v1" as const,
+        participantId: session.participantId,
+        mode,
+        radiusMeters
+      };
+      receiveAudioMode(msg);
+      realtimeRef.current?.publish(msg);
+      return msg;
+    },
+    [receiveAudioMode, session]
+  );
 
   const toggleWhisper = useCallback(() => {
     if (!session || role === "teacher") return;
     const maxRadius = classroom.state?.whisper?.maxRadiusMeters ?? 3;
     const nextMode: "normal" | "whisper" = whisperModeRef.current === "normal" ? "whisper" : "normal";
-    setWhisperMode(nextMode);
-    const msg = {
-      type: "participant.audio-mode.v1" as const,
-      participantId: session.participantId,
-      mode: nextMode,
-      radiusMeters: Math.min(3, maxRadius)
-    };
-    receiveAudioMode(msg);
-    realtimeRef.current?.publish(msg);
+    const radiusMeters = Math.min(3, maxRadius);
+    publishAudioMode(nextMode, radiusMeters);
     if (nextMode === "whisper") {
       void postRoomEvent(identity, session.room.id, "whisper.toggled.v1", {
         participantId: session.participantId,
         displayName: identity.displayName,
-        radiusMeters: msg.radiusMeters
+        radiusMeters
       }).catch(() => undefined);
     }
-  }, [session, role, classroom.state?.whisper?.maxRadiusMeters, receiveAudioMode, identity]);
+  }, [session, role, classroom.state?.whisper?.maxRadiusMeters, publishAudioMode, identity]);
 
   // Auto-revert to normal when teacher disallows whisper mid-session
   useEffect(() => {
     if (!session || role === "teacher") return;
     if (classroom.state?.whisper?.allowed !== false || whisperModeRef.current !== "whisper") return;
-    const msg = { type: "participant.audio-mode.v1" as const, participantId: session.participantId, mode: "normal" as const, radiusMeters: 3 };
-    setWhisperMode("normal");
-    receiveAudioMode(msg);
-    realtimeRef.current?.publish(msg);
+    publishAudioMode("normal");
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [classroom.state?.whisper?.allowed, session?.participantId, role]);
+  }, [classroom.state?.whisper?.allowed, publishAudioMode, role, session]);
 
   const fireReaction = useCallback(
     (slug: AvatarReactionSlug) => {
@@ -1013,9 +1047,30 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     return new Set(reqs.filter((r) => r.status === "raised" || r.status === "acknowledged").map((r) => r.userId));
   }, [classroom.state?.helpRequests]);
   const spotlightActive = Boolean(classroom.state?.spotlight);
+  const podsEnabled = classroom.state?.podsRuntime?.podsEnabled === true;
+  const broadcastFromUserIds = classroom.state?.podsRuntime?.broadcastFromUserIds ?? [];
+  const podsVisualEnabled =
+    CLIENT_TUNING.enableBreakoutPods &&
+    session?.room.settings.pods?.enabled === true &&
+    podsEnabled;
+  const podRadiusMeters = session?.room.settings.pods?.podRadiusMeters ?? 3;
+  const podDrawPartitions = session?.room.settings.pods?.drawPartitions === true;
   const studentGroup = role === "student"
     ? (classroom.state?.groups ?? []).find((g) => g.status === "active" && g.memberUserIds.includes(identity.userId))
     : null;
+  const studentPositionedGroup = role === "student" && studentGroup?.targetPosition
+    ? studentGroup
+    : null;
+  const studentPodTarget = useMemo(() => {
+    if (!studentPositionedGroup?.targetPosition) return null;
+    const memberIndex = studentPositionedGroup.memberUserIds.indexOf(identity.userId);
+    if (memberIndex < 0) return null;
+    const point = computeGroupMemberPosition(studentPositionedGroup.targetPosition, memberIndex);
+    return { x: point.x, z: point.z };
+  }, [identity.userId, studentPositionedGroup]);
+  const studentHasBroadcastGrant =
+    role === "student" &&
+    Boolean(session?.participantId && broadcastFromUserIds.includes(session.participantId));
   const handRaised = role === "student"
     ? Boolean(classroom.activeHelpRequest)
     : false;
@@ -1036,6 +1091,22 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     }
     return getAppearance(id);
   }
+
+  const toggleBroadcast = useCallback(() => {
+    if (!session || role === "teacher" || !studentHasBroadcastGrant) return;
+    publishAudioMode(broadcastModeRef.current === "broadcast" ? "normal" : "broadcast");
+  }, [publishAudioMode, role, session, studentHasBroadcastGrant]);
+
+  const moveToMyPod = useCallback(() => {
+    if (!studentPodTarget) return;
+    movement.moveTo3DPoint(studentPodTarget);
+  }, [movement, studentPodTarget]);
+
+  useEffect(() => {
+    if (!session || role === "teacher") return;
+    if (studentHasBroadcastGrant || broadcastModeRef.current !== "broadcast") return;
+    publishAudioMode("normal");
+  }, [publishAudioMode, role, session, studentHasBroadcastGrant]);
 
   return (
     <main className="app-shell room-shell">
@@ -1082,6 +1153,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             canManageWallObjects={session.role === "teacher"}
             currentUserId={identity.userId}
             classroomGroups={classroom.state?.groups ?? []}
+            podsEnabled={podsVisualEnabled}
+            podRadiusMeters={podRadiusMeters}
+            drawPodPartitions={podDrawPartitions}
             privateChecks={classroom.state?.privateChecks ?? []}
             spotlight={classroom.state?.spotlight}
             onWallObjectControl={controlWallObject}
@@ -1113,6 +1187,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             assetUrls={wall.assetUrls}
             wallMediaStreams={wallMediaStreams}
             classroomGroups={classroom.state?.groups ?? []}
+            podsEnabled={podsVisualEnabled}
+            podRadiusMeters={podRadiusMeters}
             privateChecks={classroom.state?.privateChecks ?? []}
             spotlight={classroom.state?.spotlight}
             positioningMode={Boolean(positioningGroupId)}
@@ -1139,6 +1215,35 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               className="room-exit-btn"
               disabled={leaving}
             />
+          </>
+        ) : null}
+        {podsEnabled ? (
+          <>
+            <div className="room-hud-top-sep" />
+            <div className="hud-pill--pods" data-testid="pods-indicator">
+              {role === "student" && studentPositionedGroup ? (
+                <>
+                  <span className="group-dot" style={{ background: studentPositionedGroup.color ?? "#4678b4" }} />
+                  <span>Pods on</span>
+                </>
+              ) : role === "student" ? (
+                <span>Pods on · unassigned</span>
+              ) : (
+                <>
+                  <span>Pods on</span>
+                  <button
+                    type="button"
+                    className="hud-pill--pods__off"
+                    disabled={classroom.loading}
+                    onClick={() => {
+                      void classroom.runAction({ type: "toggle-pods", enabled: false });
+                    }}
+                  >
+                    off
+                  </button>
+                </>
+              )}
+            </div>
           </>
         ) : null}
         <div className="room-hud-top-fill" />
@@ -1241,6 +1346,26 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
                 </div>
               );
             })() : null}
+          </div>
+        ) : null}
+
+        {role === "student" && (studentPodTarget || (podsEnabled && studentHasBroadcastGrant)) ? (
+          <div className="hud-panel">
+            {studentPodTarget ? (
+              <button type="button" className="hud-btn" onClick={moveToMyPod}>
+                Go to my pod
+              </button>
+            ) : null}
+            {podsEnabled && studentHasBroadcastGrant ? (
+              <button
+                type="button"
+                className={`hud-btn hud-btn--broadcast${broadcastMode === "broadcast" ? " hud-btn--active" : ""}`}
+                data-testid="student-broadcast-toggle"
+                onClick={toggleBroadcast}
+              >
+                {broadcastMode === "broadcast" ? "Broadcast on" : "Broadcast off"}
+              </button>
+            ) : null}
           </div>
         ) : null}
 
@@ -1406,6 +1531,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             participants={participantList}
             currentUserId={identity.userId}
             positioningGroupId={positioningGroupId}
+            podsEnabled={classroom.state?.podsRuntime?.podsEnabled === true}
+            broadcastUserIds={classroom.state?.podsRuntime?.broadcastFromUserIds ?? []}
+            podsAllowedInRoom={CLIENT_TUNING.enableBreakoutPods && session?.room.settings.pods?.enabled === true}
             {...(manifest ? { manifestAnchors: manifest.wallAnchors } : {})}
             onRunAction={async (action) => {
               await classroom.runAction(action);

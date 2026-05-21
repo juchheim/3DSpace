@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-21 (Exit-ticket recap modal + Phase 7 UI)
+Last updated: 2026-05-21 (Breakout pods Phase 7 rollout + validation)
 
 ## Project Summary
 
@@ -8,7 +8,7 @@ Last updated: 2026-05-21 (Exit-ticket recap modal + Phase 7 UI)
 
 Workspace: `/Users/ejuchheim/Projects/3DSpace/3DSpace`
 
-Implementation state: **MVP complete in production** (Vercel + Koyeb + Atlas + Clerk + LiveKit + R2). Sentry not provisioned. MVP+1 wall media implementation complete locally on `mvp-plus-one`; wall polls support teacher-defined choices, student voting via `vote` control action, and live result bars with choice labels separated from vote summaries on board surfaces; deployed LiveKit/browser-permission wall-share validation still recommended before release. MVP+1 classroom tools phases 1-7 are now locally implemented, including help queue, People-panel board access grants, private checks, groups, focus, and the feature-flagged lesson planning discovery slice.
+Implementation state: **MVP complete in production** (Vercel + Koyeb + Atlas + Clerk + LiveKit + R2). Sentry not provisioned. MVP+1 wall media implementation complete locally on `mvp-plus-one`; wall polls support teacher-defined choices, student voting via `vote` control action, and live result bars with choice labels separated from vote summaries on board surfaces; deployed LiveKit/browser-permission wall-share validation still recommended before release. MVP+1 classroom tools phases 1-7 are now locally implemented, including help queue, People-panel board access grants, private checks, groups, focus, the feature-flagged lesson planning discovery slice, and the feature-flagged breakout-pods slice.
 
 ## Entities
 
@@ -63,6 +63,7 @@ Notable vars added during implementation:
 - `PORT` (API, default 8080)
 - `SESSION_JOIN_RATE_LIMIT_PER_MINUTE` (default 20)
 - `ENABLE_CLASSROOM_LESSONS` / `NEXT_PUBLIC_ENABLE_CLASSROOM_LESSONS` (default off; gates Phase 7 lesson actions and UI)
+- `ENABLE_BREAKOUT_PODS` / `NEXT_PUBLIC_ENABLE_BREAKOUT_PODS` (default off; gates pod runtime, UI, and validation paths)
 
 Local loading:
 - API dev: `tsx --env-file=../../.env.local` (and `.env`)
@@ -183,6 +184,7 @@ Screen share, computer audio, teacher moderation, rich wall placement, room buil
 - **2026-05-21**: Join spawn rotation used fixed `spawn.rotation.y = Math.PI` (+Z), so back-row and side seats often faced walls. `createAvatarState` now sets yaw via `rotationFacingRoomCenter` (bounds center, same `atan2` as movement/camera).
 - **2026-05-21**: Spawn center-facing regressed in 3D because `useAvatarMovement` overwrites avatar `rotation.y` from `cameraYawRef` (default 0) every frame. Fixed by seeding `cameraYawRef` from spawn rotation in `createAvatarState` effect and syncing camera when spawn rotation is set.
 - **2026-05-21**: Drafted `docs/planning/new-features/PLAN_BREAKOUT_PODS.md` + `IMPL_BREAKOUT_PODS.md` for `LEARNING_FEATURE_IDEAS.md` Alternate B. Pods reuse the existing `ClassroomGroup` entity (no parallel model); new behavior is listener-side gain attenuation in `useSpatialAudio`, a `podsRuntime` field on `ClassroomState`, `toggle-pods` + `set-student-broadcast` classroom actions, widened `participant.audio-mode.v1` enum with `"broadcast"`, and a filled pod-floor visual. Whisper stays orthogonal; whisper-suggested glow is suppressed when pods are on; `autoEnableInGroupWork` is deprecated (kept in v1). Lesson `group-work` step auto-enables pods when `room.settings.pods.enabled === true`; `student-share` step temporarily disables them. Flag: `ENABLE_BREAKOUT_PODS` / `NEXT_PUBLIC_ENABLE_BREAKOUT_PODS`. 3–5 weeks estimated. README index updated; both docs follow existing PLAN/IMPL shape.
+- **2026-05-21**: Breakout pods Phase 7 landed: env templates now expose `ENABLE_BREAKOUT_PODS=false` / `NEXT_PUBLIC_ENABLE_BREAKOUT_PODS=false`, Playwright local web servers boot with both pod flags on, and `apps/web/test/breakout-pods.spec.ts` seeds a two-pod classroom through the API before verifying the teacher pod toggle, student HUD indicator, filled 2D pod zones, cross-pod nameplate outlines, and teacher broadcast grant visibility.
 - **2026-05-19**: Teacher Help Queue lost board-access grant UI after HUD redesign (grant controls only lived in floating `StudentDetailPanel`). Restored presets, share-type checkboxes, and Grant board in Help Queue via shared `BoardAccessGrantControls`.
 
 ## Maintenance Rules

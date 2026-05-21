@@ -161,6 +161,16 @@ export function createModels(connection: Connection): Models {
     lessonRun: { type: Schema.Types.Mixed, default: null },
     avatarEditorLocked: { type: Boolean, default: false },
     reactionsLocked: { type: Boolean, default: false },
+    podsRuntime: {
+      type: new Schema(
+        {
+          podsEnabled: { type: Boolean, default: false },
+          broadcastFromUserIds: { type: [String], default: [] }
+        },
+        { _id: false }
+      ),
+      default: { podsEnabled: false, broadcastFromUserIds: [] }
+    },
     whisper: { type: Schema.Types.Mixed },
     createdAt: String,
     updatedAt: String

@@ -26,6 +26,8 @@ export function RoomView2D({
   assetUrls = {},
   wallMediaStreams = {},
   classroomGroups = [],
+  podsEnabled = false,
+  podRadiusMeters = 3,
   privateChecks = [],
   spotlight,
   positioningMode = false,
@@ -40,6 +42,8 @@ export function RoomView2D({
   assetUrls?: Record<string, string>;
   wallMediaStreams?: Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>;
   classroomGroups?: ClassroomGroup[];
+  podsEnabled?: boolean;
+  podRadiusMeters?: number;
   privateChecks?: ClassroomPrivateCheck[];
   spotlight?: ClassroomSpotlight | null | undefined;
   positioningMode?: boolean;
@@ -104,29 +108,37 @@ export function RoomView2D({
             </g>
           );
         })}
-        {classroomGroups.filter((g) => g.targetPosition).map((group) => {
+        {classroomGroups.filter((group) => group.status === "active" && group.targetPosition).map((group) => {
           const center = projectPositionTo2D(manifest, group.targetPosition!);
+          const radiusPoint = projectPositionTo2D(manifest, {
+            x: group.targetPosition!.x + podRadiusMeters,
+            y: group.targetPosition!.y,
+            z: group.targetPosition!.z
+          });
+          const projectedPodRadius = Math.max(5.5, Math.abs(radiusPoint.x - center.x));
           const boardLabel = group.targetWallAnchorId
             ? manifest.wallAnchors.find((anchor) => anchor.id === group.targetWallAnchorId)?.label ?? group.targetWallAnchorId
             : "";
           return (
             <g key={`zone-${group.id}`}>
               <circle
+                data-testid={`pod-zone-${group.id}`}
                 cx={center.x}
                 cy={center.y}
-                r={5.5}
-                fill={`${group.color}22`}
+                r={podsEnabled ? projectedPodRadius : 5.5}
+                fill={podsEnabled ? group.color : "none"}
+                opacity={podsEnabled ? 0.24 : 1}
                 stroke={group.color}
                 strokeWidth="0.8"
-                strokeDasharray={group.hold?.enabled ? "2 1.5" : "1.4 1.4"}
+                strokeDasharray={podsEnabled ? undefined : (group.hold?.enabled ? "2 1.5" : "1.4 1.4")}
               />
               {group.memberUserIds.map((userId, index) => {
                 const memberPos = computeGroupMemberPosition(group.targetPosition!, index);
                 const pt = projectPositionTo2D(manifest, memberPos);
                 return <circle key={userId} cx={pt.x} cy={pt.y} r={1.6} fill={group.color} opacity={0.55} />;
               })}
-              <text x={center.x} y={center.y - 6.8} textAnchor="middle" fontSize="2" fill="#17201a">{group.label}</text>
-              {boardLabel ? <text x={center.x} y={center.y - 4.5} textAnchor="middle" fontSize="1.6" fill="#5b5347">{boardLabel}</text> : null}
+              <text x={center.x} y={center.y - (podsEnabled ? projectedPodRadius + 2.8 : 6.8)} textAnchor="middle" fontSize={podsEnabled ? "4" : "2"} fill="#17201a">{group.label}</text>
+              {boardLabel ? <text x={center.x} y={center.y - (podsEnabled ? projectedPodRadius - 0.6 : 4.5)} textAnchor="middle" fontSize={podsEnabled ? "3.2" : "1.6"} fill="#5b5347">{boardLabel}</text> : null}
             </g>
           );
         })}

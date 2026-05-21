@@ -49,6 +49,7 @@ export type AppConfig = {
     enableWallStudentUploads: boolean;
     enableWallStudentLiveShares: boolean;
     enableClassroomLessons: boolean;
+    enableBreakoutPods: boolean;
     spatialAudio: SpatialAudioConfig;
     media: {
       defaultCameraEnabled: boolean;
@@ -191,6 +192,7 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       enableWallStudentUploads: envBoolean(raw, "ENABLE_WALL_STUDENT_UPLOADS", false),
       enableWallStudentLiveShares: envBoolean(raw, "ENABLE_WALL_STUDENT_LIVE_SHARES", false),
       enableClassroomLessons: envBoolean(raw, "ENABLE_CLASSROOM_LESSONS", false),
+      enableBreakoutPods: envBoolean(raw, "ENABLE_BREAKOUT_PODS", false),
       spatialAudio: {
         enabled: envBoolean(raw, "SPATIAL_AUDIO_ENABLED", true),
         distanceModel,

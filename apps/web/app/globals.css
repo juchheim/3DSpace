@@ -970,6 +970,34 @@ button.hud-heading-btn:hover {
   flex-wrap: wrap;
 }
 
+.pod-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.55rem;
+  margin-bottom: 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 250, 240, 0.68);
+}
+
+.pod-toggle-row__label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--night);
+}
+
+.pod-toggle-row__hint {
+  margin: 0.18rem 0 0;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
 .classroom-grant-row {
   display: flex;
   flex-direction: column;
@@ -1173,6 +1201,14 @@ button.hud-heading-btn:hover {
   overflow-wrap: anywhere;
 }
 
+.pod-member-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
 .classroom-choice-list {
   display: grid;
   gap: 0.35rem;
@@ -1313,6 +1349,58 @@ button.hud-heading-btn:hover {
 .hud-btn--active {
   background: var(--night);
   color: var(--chalk);
+}
+
+.hud-btn--broadcast {
+  background: rgba(197, 112, 20, 0.12);
+  color: #7a4110;
+  border: 1px solid rgba(197, 112, 20, 0.28);
+}
+
+.hud-btn--broadcast.hud-btn--active {
+  background: #7a4110;
+  color: #fff6ec;
+  border-color: #7a4110;
+}
+
+.hud-pill--pods {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(42, 158, 106, 0.12);
+  border: 1px solid rgba(42, 158, 106, 0.28);
+  color: #1d7045;
+  font-size: 0.68rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.hud-pill--pods .group-dot {
+  margin-right: 0;
+}
+
+.hud-pill--pods__off {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  text-transform: lowercase;
+  cursor: pointer;
+  opacity: 0.82;
+}
+
+.hud-pill--pods__off:hover:not(:disabled) {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.hud-pill--pods__off:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .hud-btn--glow {
@@ -1543,6 +1631,10 @@ button.hud-heading-btn:hover {
   line-height: 1.1;
   text-align: center;
   pointer-events: none;
+}
+
+.avatar-nameplate--cross-pod {
+  box-shadow: 0 0 0 1px var(--avatar-cross-pod-ring, rgba(190, 196, 191, 0.9));
 }
 
 .avatar-nameplate__name {
@@ -3563,6 +3655,12 @@ body.lobby-dark::before {
   font-family: 'Barlow', system-ui, sans-serif;
 }
 
+.group-target-label--pod {
+  min-width: 104px;
+  gap: 3px;
+  padding: 7px 9px;
+}
+
 .hallpass-hud-row {
   display: flex;
   flex-direction: column;
@@ -3611,6 +3709,20 @@ body.lobby-dark::before {
 .group-target-label span {
   font-size: 10px;
   color: #5b5347;
+}
+
+.group-target-label__pill {
+  justify-self: center;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(197, 112, 20, 0.14);
+  border: 1px solid rgba(197, 112, 20, 0.25);
+  color: #7a4110;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
 }
 
 .lesson-timeline__item {

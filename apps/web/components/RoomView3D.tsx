@@ -43,6 +43,19 @@ function constrainPlacement(placement: WallObjectPlacement): ConstrainedPlacemen
   };
 }
 
+function isActiveGroup(group: ClassroomGroup) {
+  return group.status === "active";
+}
+
+function isActivePodGroup(group: ClassroomGroup) {
+  return group.status === "active" && Boolean(group.targetPosition);
+}
+
+function pointInsidePod(group: ClassroomGroup, point: { x: number; z: number } | undefined, podRadiusMeters: number) {
+  if (!group.targetPosition || !point) return false;
+  return Math.hypot(point.x - group.targetPosition.x, point.z - group.targetPosition.z) <= podRadiusMeters;
+}
+
 export function RoomView3D({
   manifest,
   participants,
@@ -59,6 +72,9 @@ export function RoomView3D({
   canManageWallObjects = false,
   currentUserId,
   classroomGroups = [],
+  podsEnabled = false,
+  podRadiusMeters = 3,
+  drawPodPartitions = false,
   privateChecks = [],
   spotlight,
   getAppearance,
@@ -89,6 +105,9 @@ export function RoomView3D({
   canManageWallObjects?: boolean;
   currentUserId?: string | undefined;
   classroomGroups?: ClassroomGroup[];
+  podsEnabled?: boolean;
+  podRadiusMeters?: number;
+  drawPodPartitions?: boolean;
   privateChecks?: ClassroomPrivateCheck[];
   spotlight?: ClassroomSpotlight | null | undefined;
   getAppearance: (participantId: string) => AvatarAppearance;
@@ -111,6 +130,28 @@ export function RoomView3D({
 }) {
   const dpr = quality === "high" ? 1.8 : quality === "medium" ? 1.4 : 1;
   const [canvasElement, setCanvasElement] = useState<HTMLCanvasElement | null>(null);
+  const activeGroupByParticipantId = useMemo(() => {
+    const map = new Map<string, ClassroomGroup>();
+    for (const group of classroomGroups) {
+      if (!isActiveGroup(group)) continue;
+      for (const memberId of group.memberUserIds) {
+        map.set(memberId, group);
+      }
+    }
+    return map;
+  }, [classroomGroups]);
+  const podGroupByParticipantId = useMemo(() => {
+    const map = new Map<string, ClassroomGroup>();
+    for (const group of classroomGroups) {
+      if (!isActivePodGroup(group)) continue;
+      for (const memberId of group.memberUserIds) {
+        map.set(memberId, group);
+      }
+    }
+    return map;
+  }, [classroomGroups]);
+  const localParticipantPosition = participants.find((participant) => participant.id === localParticipantId)?.state.position;
+  const localPodGroup = podsEnabled ? (podGroupByParticipantId.get(localParticipantId) ?? null) : null;
 
   useEffect(() => bindCamera(canvasElement), [bindCamera, canvasElement]);
 
@@ -138,17 +179,31 @@ export function RoomView3D({
           {...(onWallObjectStopShare ? { onWallObjectStopShare } : {})}
           {...(onWallObjectModerate ? { onWallObjectModerate } : {})}
         />
-        <GroupTargetLayer manifest={manifest} groups={classroomGroups} />
+        <GroupTargetLayer
+          manifest={manifest}
+          groups={classroomGroups}
+          podsEnabled={podsEnabled}
+          podRadiusMeters={podRadiusMeters}
+          drawPodPartitions={drawPodPartitions}
+          {...(localParticipantPosition ? { localParticipantPosition } : {})}
+          {...(getAudioMode ? { getAudioMode } : {})}
+        />
         {hallpassZone ? <HallpassZoneMarker zone={hallpassZone} /> : null}
         <PrivateCheckLayer manifest={manifest} privateChecks={privateChecks} />
         {participants.map((participant) => {
-          const group = classroomGroups.find((g) => g.status === "active" && g.memberUserIds.includes(participant.id));
+          const group = activeGroupByParticipantId.get(participant.id);
+          const podGroup = podGroupByParticipantId.get(participant.id) ?? null;
           const isLocal = participant.id === localParticipantId;
+          const crossPodOutlineColor =
+            podsEnabled && localPodGroup && !isLocal && podGroup?.id !== localPodGroup.id
+              ? podGroup?.color ?? "#9aa49d"
+              : undefined;
           return (
             <BlockyAvatar
               key={participant.id}
               participant={participant}
               {...(group?.color ? { groupColor: group.color } : {})}
+              {...(crossPodOutlineColor ? { crossPodOutlineColor } : {})}
               appearance={getAppearance(participant.id)}
               helpRequestActive={activeHelpRequestUserIds?.has(participant.id) ?? false}
               waveTriggered={isLocal ? localWaveTriggered : !!(participant.state.waving)}
@@ -174,17 +229,39 @@ export function RoomView3D({
 
 function GroupTargetLayer({
   manifest,
-  groups
+  groups,
+  podsEnabled,
+  podRadiusMeters,
+  drawPodPartitions,
+  localParticipantPosition,
+  getAudioMode
 }: {
   manifest: RoomManifest;
   groups: ClassroomGroup[];
+  podsEnabled: boolean;
+  podRadiusMeters: number;
+  drawPodPartitions: boolean;
+  localParticipantPosition?: { x: number; y?: number; z: number };
+  getAudioMode?: (participantId: string) => { mode: ParticipantAudioMode; radiusMeters: number } | undefined;
 }) {
   return (
     <group>
       {groups
-        .filter((group) => group.status === "active" && group.targetPosition)
+        .filter(isActivePodGroup)
         .map((group) => (
-          <GroupTargetMarker key={`group-target-${group.id}`} group={group} manifest={manifest} />
+          podsEnabled ? (
+            <PodFloor
+              key={`group-target-${group.id}`}
+              group={group}
+              manifest={manifest}
+              podRadiusMeters={podRadiusMeters}
+              drawPodPartitions={drawPodPartitions}
+              highlightLocalParticipant={pointInsidePod(group, localParticipantPosition, podRadiusMeters)}
+              hasBroadcast={group.memberUserIds.some((memberId) => getAudioMode?.(memberId)?.mode === "broadcast")}
+            />
+          ) : (
+            <GroupTargetMarker key={`group-target-${group.id}`} group={group} manifest={manifest} />
+          )
         ))}
     </group>
   );
@@ -239,6 +316,68 @@ function GroupTargetMarker({
           <div className="group-target-label">
             <strong>{group.label}</strong>
             {boardLabel ? <span>{boardLabel}</span> : null}
+          </div>
+        </Html>
+      </Billboard>
+    </group>
+  );
+}
+
+function PodFloor({
+  group,
+  manifest,
+  podRadiusMeters,
+  drawPodPartitions,
+  highlightLocalParticipant,
+  hasBroadcast
+}: {
+  group: ClassroomGroup;
+  manifest: RoomManifest;
+  podRadiusMeters: number;
+  drawPodPartitions: boolean;
+  highlightLocalParticipant: boolean;
+  hasBroadcast: boolean;
+}) {
+  const boardLabel = group.targetWallAnchorId
+    ? manifest.wallAnchors.find((anchor) => anchor.id === group.targetWallAnchorId)?.label ?? group.targetWallAnchorId
+    : "";
+  const groupColor = group.color ?? "#4678b4";
+  const panelSpecs = [
+    { position: [0, 0.3, -podRadiusMeters] as const, rotation: [0, 0, 0] as const, size: [podRadiusMeters * 1.15, 0.6, 0.08] as const },
+    { position: [-podRadiusMeters, 0.3, -podRadiusMeters * 0.1] as const, rotation: [0, Math.PI / 2, 0] as const, size: [podRadiusMeters * 1.55, 0.6, 0.08] as const },
+    { position: [podRadiusMeters, 0.3, -podRadiusMeters * 0.1] as const, rotation: [0, Math.PI / 2, 0] as const, size: [podRadiusMeters * 1.55, 0.6, 0.08] as const },
+    { position: [0, 0.3, podRadiusMeters * 0.72] as const, rotation: [0, 0, 0] as const, size: [podRadiusMeters * 0.9, 0.6, 0.08] as const }
+  ];
+
+  return (
+    <group position={[group.targetPosition!.x, 0, group.targetPosition!.z]}>
+      <mesh position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[podRadiusMeters, 48]} />
+        <meshBasicMaterial color={groupColor} transparent opacity={highlightLocalParticipant ? 0.32 : 0.18} />
+      </mesh>
+      <mesh position={[0, 0.017, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[Math.max(0.01, podRadiusMeters - 0.12), podRadiusMeters, 64]} />
+        <meshBasicMaterial color={groupColor} transparent opacity={highlightLocalParticipant ? 0.42 : 0.28} />
+      </mesh>
+      {drawPodPartitions
+        ? panelSpecs.map((panel, index) => (
+            <mesh key={`pod-partition-${group.id}-${index}`} position={panel.position} rotation={panel.rotation}>
+              <boxGeometry args={panel.size} />
+              <meshBasicMaterial color={groupColor} transparent opacity={0.12} />
+            </mesh>
+          ))
+        : null}
+      <Billboard position={[0, 1.72, 0]}>
+        <Html center distanceFactor={6}>
+          <div
+            className="group-target-label group-target-label--pod"
+            data-testid={`pod-floor-${group.id}`}
+            data-has-broadcast={hasBroadcast ? "true" : "false"}
+          >
+            <strong>{group.label}</strong>
+            <span>{group.memberUserIds.length} {group.memberUserIds.length === 1 ? "member" : "members"}</span>
+            {boardLabel ? <span>{boardLabel}</span> : null}
+            {hasBroadcast ? <em className="group-target-label__pill">Broadcast</em> : null}
           </div>
         </Html>
       </Billboard>
@@ -781,4 +920,3 @@ function AnchorMesh({ anchor, showLabel, spotlighted }: { anchor: Anchor; showLa
     </group>
   );
 }
-

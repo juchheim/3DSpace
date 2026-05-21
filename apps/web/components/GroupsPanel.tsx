@@ -44,6 +44,9 @@ export function GroupsPanel({
   participants,
   currentUserId,
   positioningGroupId,
+  podsEnabled,
+  broadcastUserIds,
+  podsAllowedInRoom,
   onRunAction,
   onEnterPositioningMode,
   onCancelPositioning,
@@ -55,6 +58,9 @@ export function GroupsPanel({
   participants: ParticipantView[];
   currentUserId?: string | undefined;
   positioningGroupId: string;
+  podsEnabled: boolean;
+  broadcastUserIds: string[];
+  podsAllowedInRoom: boolean;
   onRunAction(action: ClassroomAction): Promise<void>;
   onEnterPositioningMode(groupId: string): void;
   onCancelPositioning(): void;
@@ -90,6 +96,15 @@ export function GroupsPanel({
     () => activeGroups.find((g) => g.id === assignGroupId) ?? null,
     [activeGroups, assignGroupId]
   );
+  const broadcastUserIdSet = useMemo(
+    () => new Set(broadcastUserIds),
+    [broadcastUserIds]
+  );
+  const positionedActiveGroups = useMemo(
+    () => activeGroups.filter((group) => Boolean(group.targetPosition)),
+    [activeGroups]
+  );
+  const hasPositionedGroups = positionedActiveGroups.length > 0;
 
   async function run(label: string, action: ClassroomAction) {
     setBusy(label);
@@ -178,6 +193,28 @@ export function GroupsPanel({
           </button>
         </div>
 
+        {podsAllowedInRoom ? (
+          <div className="pod-toggle-row" data-testid="pod-toggle-row">
+            <div>
+              <div className="pod-toggle-row__label">
+                <span>Pod audio</span>
+                <span className={`tag${podsEnabled ? " active" : ""}`}>{podsEnabled ? "On" : "Off"}</span>
+              </div>
+              <p className="pod-toggle-row__hint" title="Pods make group work quieter, not private.">
+                {hasPositionedGroups ? "Quieter, not private." : "Position a group to enable pod audio."}
+              </p>
+            </div>
+            <button
+              type="button"
+              className={`hud-btn${podsEnabled ? " hud-btn--active" : ""}`}
+              disabled={loading || busy === "toggle-pods" || !hasPositionedGroups}
+              onClick={() => void run("toggle-pods", { type: "toggle-pods", enabled: !podsEnabled })}
+            >
+              {podsEnabled ? "Turn off" : "Turn on"}
+            </button>
+          </div>
+        ) : null}
+
         {activeGroups.length > 0 ? (
           <div className="classroom-check-create">
             <div className="classroom-check-field">
@@ -247,6 +284,7 @@ export function GroupsPanel({
         <ul className="classroom-help-list" role="list">
           {activeGroups.map((group) => {
             const isPositioned = Boolean(group.targetPosition && group.hold?.enabled);
+            const isPodReady = Boolean(group.targetPosition);
             const isPositioning = positioningGroupId === group.id;
             return (
               <li key={group.id} className="classroom-help-item" data-testid={`group-${group.id}`}>
@@ -264,19 +302,40 @@ export function GroupsPanel({
                     {group.memberUserIds.map((userId) => {
                       const participant = participants.find((p) => p.id === userId);
                       const name = participant?.displayName ?? userId.slice(0, 8);
+                      const broadcastEnabled = broadcastUserIdSet.has(userId);
                       return (
                         <li key={userId} className="classroom-check-response" style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                           <span>{name}</span>
-                          <button
-                            type="button"
-                            className="hud-btn"
-                            style={{ padding: "0.1rem 0.4rem", fontSize: "0.7rem" }}
-                            disabled={busy === `remove-${group.id}-${userId}`}
-                            aria-label={`Remove ${name} from ${group.label}`}
-                            onClick={() => void removeMember(group, userId)}
-                          >
-                            ×
-                          </button>
+                          <span className="pod-member-actions">
+                            {podsAllowedInRoom && isPodReady ? (
+                              <button
+                                type="button"
+                                className={`hud-btn${broadcastEnabled ? " hud-btn--active" : ""}`}
+                                style={{ padding: "0.1rem 0.45rem", fontSize: "0.7rem" }}
+                                disabled={busy === `broadcast-${userId}`}
+                                aria-label={`${broadcastEnabled ? "Revoke" : "Grant"} broadcast for ${name}`}
+                                onClick={() =>
+                                  void run(`broadcast-${userId}`, {
+                                    type: "set-student-broadcast",
+                                    userId,
+                                    enabled: !broadcastEnabled
+                                  })
+                                }
+                              >
+                                {broadcastEnabled ? "Revoke broadcast" : "Grant broadcast"}
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              className="hud-btn"
+                              style={{ padding: "0.1rem 0.4rem", fontSize: "0.7rem" }}
+                              disabled={busy === `remove-${group.id}-${userId}`}
+                              aria-label={`Remove ${name} from ${group.label}`}
+                              onClick={() => void removeMember(group, userId)}
+                            >
+                              ×
+                            </button>
+                          </span>
                         </li>
                       );
                     })}
@@ -284,6 +343,9 @@ export function GroupsPanel({
                 ) : (
                   <p className="classroom-help-note">No members yet.</p>
                 )}
+                {podsAllowedInRoom && !isPodReady ? (
+                  <p className="classroom-help-note">Position this group before broadcast can be granted.</p>
+                ) : null}
                 {boardLabelForGroup(group, manifestAnchors) ? (
                   <p className="classroom-help-note">Board: {boardLabelForGroup(group, manifestAnchors)}</p>
                 ) : null}

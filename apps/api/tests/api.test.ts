@@ -51,6 +51,34 @@ function lessonConfig() {
   return loadConfig({ NODE_ENV: "test", ENABLE_CLASSROOM_LESSONS: "true" } as NodeJS.ProcessEnv);
 }
 
+function breakoutPodsConfig() {
+  return loadConfig({ NODE_ENV: "test", ENABLE_BREAKOUT_PODS: "true" } as NodeJS.ProcessEnv);
+}
+
+function breakoutPodsLessonConfig() {
+  return loadConfig({ NODE_ENV: "test", ENABLE_BREAKOUT_PODS: "true", ENABLE_CLASSROOM_LESSONS: "true" } as NodeJS.ProcessEnv);
+}
+
+async function enableRoomPods(app: Awaited<ReturnType<typeof buildApp>>, roomId: string, teacherId: string) {
+  const response = await app.inject({
+    method: "PATCH",
+    url: `/v1/rooms/${roomId}`,
+    headers: authHeaders(teacherId, "Ms. Rivera"),
+    payload: {
+      settings: {
+        pods: {
+          enabled: true,
+          podRadiusMeters: 3,
+          podMurmurFloor: 0.08,
+          drawPartitions: false
+        }
+      }
+    }
+  });
+  expect(response.statusCode).toBe(200);
+  return response.json();
+}
+
 async function classroomAction(app: Awaited<ReturnType<typeof buildApp>>, roomId: string, actorId: string, payload: Record<string, unknown>) {
   const response = await app.inject({
     method: "POST",
@@ -2520,6 +2548,278 @@ describe("3dspace api", () => {
       payload: { type: "update-whisper-settings", allowed: true }
     });
     expect(attempt.statusCode).toBe(403);
+
+    await app.close();
+  });
+
+  it("manages pods runtime, enforces teacher-only access, and filters broadcast visibility for students", async () => {
+    const app = await buildApp({
+      config: breakoutPodsConfig(),
+      repository: new MemoryRepository()
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-pods-runtime");
+    await addStudentMember(app, classRecord.id, "teacher-pods-runtime", "student-pods-a", "Avery");
+    await addStudentMember(app, classRecord.id, "teacher-pods-runtime", "student-pods-b", "Sam");
+    const roomId = roomWithManifest.room.id;
+
+    await enableRoomPods(app, roomId, "teacher-pods-runtime");
+
+    const initialView = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomId}/classroom`,
+      headers: authHeaders("teacher-pods-runtime", "Ms. Rivera")
+    });
+    expect(initialView.statusCode).toBe(200);
+    expect(initialView.json().podsRuntime).toEqual({
+      podsEnabled: false,
+      broadcastFromUserIds: []
+    });
+
+    const invalidToggle = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/classroom/actions`,
+      headers: authHeaders("teacher-pods-runtime", "Ms. Rivera"),
+      payload: { type: "toggle-pods", enabled: true }
+    });
+    expect(invalidToggle.statusCode).toBe(422);
+
+    const groupState = await classroomAction(app, roomId, "teacher-pods-runtime", {
+      type: "create-group",
+      label: "Pod A",
+      color: "#389060",
+      memberUserIds: ["student-pods-a"],
+      targetPosition: { x: 2, y: 0, z: 2 },
+      status: "active"
+    });
+    const groupId = groupState.groups[0].id;
+
+    const toggledState = await classroomAction(app, roomId, "teacher-pods-runtime", {
+      type: "toggle-pods",
+      expectedVersion: groupState.version,
+      enabled: true
+    });
+    expect(toggledState.podsRuntime).toEqual({
+      podsEnabled: true,
+      broadcastFromUserIds: []
+    });
+
+    const studentToggle = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/classroom/actions`,
+      headers: authHeaders("student-pods-a", "Avery"),
+      payload: { type: "toggle-pods", enabled: false }
+    });
+    expect(studentToggle.statusCode).toBe(403);
+
+    const broadcastState = await classroomAction(app, roomId, "teacher-pods-runtime", {
+      type: "set-student-broadcast",
+      expectedVersion: toggledState.version,
+      userId: "student-pods-a",
+      enabled: true
+    });
+    expect(broadcastState.groups.find((group: { id: string }) => group.id === groupId)?.memberUserIds).toEqual(["student-pods-a"]);
+    expect(broadcastState.podsRuntime.broadcastFromUserIds).toEqual(["student-pods-a"]);
+
+    const studentABody = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomId}/classroom`,
+      headers: authHeaders("student-pods-a", "Avery")
+    });
+    expect(studentABody.statusCode).toBe(200);
+    expect(studentABody.json().podsRuntime).toEqual({
+      podsEnabled: true,
+      broadcastFromUserIds: ["student-pods-a"]
+    });
+
+    const studentBBody = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomId}/classroom`,
+      headers: authHeaders("student-pods-b", "Sam")
+    });
+    expect(studentBBody.statusCode).toBe(200);
+    expect(studentBBody.json().podsRuntime).toEqual({
+      podsEnabled: true,
+      broadcastFromUserIds: []
+    });
+
+    const invalidBroadcast = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/classroom/actions`,
+      headers: authHeaders("teacher-pods-runtime", "Ms. Rivera"),
+      payload: {
+        type: "set-student-broadcast",
+        expectedVersion: broadcastState.version,
+        userId: "student-pods-b",
+        enabled: true
+      }
+    });
+    expect(invalidBroadcast.statusCode).toBe(422);
+
+    await app.close();
+  });
+
+  it("auto-enables pods for group-work steps when the room is configured for pods", async () => {
+    const app = await buildApp({
+      config: breakoutPodsLessonConfig(),
+      repository: new MemoryRepository()
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-pods-lesson-group");
+    await addStudentMember(app, classRecord.id, "teacher-pods-lesson-group", "student-pods-group", "Avery");
+    const roomId = roomWithManifest.room.id;
+
+    await enableRoomPods(app, roomId, "teacher-pods-lesson-group");
+
+    let state = await classroomAction(app, roomId, "teacher-pods-lesson-group", {
+      type: "init-lesson-run",
+      expectedVersion: 1,
+      title: "Pods lesson"
+    });
+    state = await classroomAction(app, roomId, "teacher-pods-lesson-group", {
+      type: "add-lesson-step",
+      expectedVersion: state.version,
+      step: {
+        kind: "group-work",
+        title: "Collaborate",
+        payload: {
+          kind: "group-work",
+          data: {
+            newGroup: {
+              label: "Pod A",
+              color: "#389060",
+              memberUserIds: ["student-pods-group"],
+              targetPosition: { x: 3, y: 0, z: 3 }
+            },
+            releaseOnAdvance: false
+          }
+        }
+      }
+    });
+    state = await classroomAction(app, roomId, "teacher-pods-lesson-group", {
+      type: "add-lesson-step",
+      expectedVersion: state.version,
+      step: {
+        kind: "instruction",
+        title: "Debrief",
+        payload: { kind: "instruction", data: { body: "Discuss the work." } }
+      }
+    });
+
+    state = await classroomAction(app, roomId, "teacher-pods-lesson-group", {
+      type: "start-lesson-run",
+      expectedVersion: state.version
+    });
+    expect(state.podsRuntime.podsEnabled).toBe(true);
+    expect(state.lessonRun.timeline[0].emittedActionIds).toContain("toggle-pods");
+
+    state = await classroomAction(app, roomId, "teacher-pods-lesson-group", {
+      type: "advance-lesson-step",
+      expectedVersion: state.version
+    });
+    expect(state.lessonRun.currentStepIndex).toBe(1);
+    expect(state.podsRuntime.podsEnabled).toBe(true);
+
+    await app.close();
+  });
+
+  it("temporarily disables pods for student-share steps and restores them on advance", async () => {
+    const app = await buildApp({
+      config: breakoutPodsLessonConfig(),
+      repository: new MemoryRepository()
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-pods-lesson-share");
+    await addStudentMember(app, classRecord.id, "teacher-pods-lesson-share", "student-pods-share", "Avery");
+    const roomId = roomWithManifest.room.id;
+    const anchorId = roomWithManifest.manifest.wallAnchors[0].id;
+
+    await enableRoomPods(app, roomId, "teacher-pods-lesson-share");
+
+    let state = await classroomAction(app, roomId, "teacher-pods-lesson-share", {
+      type: "init-lesson-run",
+      expectedVersion: 1,
+      title: "Pods share"
+    });
+    for (const step of [
+      {
+        kind: "group-work",
+        title: "Collaborate",
+        payload: {
+          kind: "group-work",
+          data: {
+            newGroup: {
+              label: "Pod A",
+              color: "#389060",
+              memberUserIds: ["student-pods-share"],
+              targetPosition: { x: 4, y: 0, z: 4 }
+            },
+            releaseOnAdvance: false
+          }
+        }
+      },
+      {
+        kind: "student-share",
+        title: "Share out",
+        payload: {
+          kind: "student-share",
+          data: {
+            userId: "student-pods-share",
+            wallAnchorId: anchorId,
+            allowedObjectTypes: ["note"],
+            revokeOnAdvance: true
+          }
+        }
+      },
+      {
+        kind: "instruction",
+        title: "Wrap",
+        payload: { kind: "instruction", data: { body: "Close the discussion." } }
+      }
+    ]) {
+      state = await classroomAction(app, roomId, "teacher-pods-lesson-share", {
+        type: "add-lesson-step",
+        expectedVersion: state.version,
+        step
+      });
+    }
+
+    state = await classroomAction(app, roomId, "teacher-pods-lesson-share", {
+      type: "start-lesson-run",
+      expectedVersion: state.version
+    });
+    expect(state.podsRuntime.podsEnabled).toBe(true);
+
+    state = await classroomAction(app, roomId, "teacher-pods-lesson-share", {
+      type: "advance-lesson-step",
+      expectedVersion: state.version
+    });
+    expect(state.lessonRun.currentStepIndex).toBe(1);
+    expect(state.podsRuntime.podsEnabled).toBe(false);
+    expect(state.lessonRun.timeline[1].emittedActionIds).toContain("toggle-pods");
+
+    state = await classroomAction(app, roomId, "teacher-pods-lesson-share", {
+      type: "advance-lesson-step",
+      expectedVersion: state.version
+    });
+    expect(state.lessonRun.currentStepIndex).toBe(2);
+    expect(state.podsRuntime.podsEnabled).toBe(true);
+    expect(state.lessonRun.timeline[1].emittedActionIds.filter((actionId: string) => actionId === "toggle-pods")).toHaveLength(2);
+
+    await app.close();
+  });
+
+  it("returns 404 for pod actions when the feature flag is off", async () => {
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { roomWithManifest } = await createClassAndRoom(app, "teacher-pods-disabled");
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-pods-disabled", "Ms. Rivera"),
+      payload: { type: "toggle-pods", enabled: true }
+    });
+    expect(response.statusCode).toBe(404);
 
     await app.close();
   });
