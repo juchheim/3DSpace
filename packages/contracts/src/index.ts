@@ -1200,6 +1200,7 @@ export const LessonRecapSchema = z.object({
     submittedCount: z.number().int().nonnegative(),
     expectedCount: z.number().int().nonnegative(),
     confidenceAverage: z.number().optional(),
+    whatsNextChoices: z.array(ClassroomPrivateCheckChoiceSchema).optional(),
     reflections: z.array(z.object({
       userId: z.string(),
       displayName: z.string(),

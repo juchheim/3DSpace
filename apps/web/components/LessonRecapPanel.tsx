@@ -159,7 +159,12 @@ export function LessonRecapPanel({
               <section className="lesson-recap-section" aria-label="Exit ticket reflections">
                 <h3>Reflections</h3>
                 <ul className="lesson-recap-reflections" data-testid="lesson-recap-reflections">
-                  {recap.exitTicket.reflections.map((reflection) => (
+                  {recap.exitTicket.reflections.map((reflection) => {
+                    const whatsNextLabel = reflection.whatsNextChoiceId
+                      ? recap.exitTicket?.whatsNextChoices?.find((choice) => choice.id === reflection.whatsNextChoiceId)?.label
+                        ?? reflection.whatsNextChoiceId
+                      : null;
+                    return (
                     <li key={`${reflection.userId}-${reflection.submittedAt}`}>
                       <div className="lesson-recap-reflection-head">
                         <strong>{reflection.displayName}</strong>
@@ -168,11 +173,12 @@ export function LessonRecapPanel({
                         ) : null}
                       </div>
                       <p className="lesson-recap-reflection-answer">{reflection.answer}</p>
-                      {reflection.whatsNextChoiceId ? (
-                        <p className="lesson-recap-reflection-meta">Next: {reflection.whatsNextChoiceId}</p>
+                      {whatsNextLabel ? (
+                        <p className="lesson-recap-reflection-meta">Next: {whatsNextLabel}</p>
                       ) : null}
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               </section>
             ) : recap.exitTicket ? (

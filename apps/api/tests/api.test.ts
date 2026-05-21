@@ -2366,7 +2366,19 @@ describe("3dspace api", () => {
         title: "Reflection",
         payload: {
           kind: "exit-ticket",
-          data: { reflectionPrompt: "Summary?", includeConfidence: true, requiredToEnd: false, autoCloseOnAdvance: false }
+          data: {
+            reflectionPrompt: "Summary?",
+            includeConfidence: true,
+            whatsNext: {
+              question: "What's next?",
+              choices: [
+                { id: "choice-1", label: "Review tomorrow" },
+                { id: "choice-2", label: "Move on" }
+              ]
+            },
+            requiredToEnd: false,
+            autoCloseOnAdvance: false
+          }
         }
       }
     });
@@ -2374,8 +2386,10 @@ describe("3dspace api", () => {
 
     const reflectionId = state.privateChecks.find((c: { promptType: string }) => c.promptType === "short-answer")?.id;
     const confidenceId = state.privateChecks.find((c: { promptType: string }) => c.promptType === "confidence")?.id;
+    const whatsNextId = state.privateChecks.find((c: { promptType: string }) => c.promptType === "multiple-choice")?.id;
     await classroomAction(app, roomId, "student-recap-csv-1", { type: "submit-private-check", checkId: reflectionId, answer: 'He said "hello".' });
     await classroomAction(app, roomId, "student-recap-csv-1", { type: "submit-private-check", checkId: confidenceId, confidence: 5 });
+    await classroomAction(app, roomId, "student-recap-csv-1", { type: "submit-private-check", checkId: whatsNextId, choiceId: "choice-1" });
 
     state = await classroomAction(app, roomId, "teacher-recap-csv", { type: "end-lesson-run", force: true });
     const runId = state.lessonRun.id;
@@ -2395,6 +2409,8 @@ describe("3dspace api", () => {
     expect(submitterLine).toBeDefined();
     expect(submitterLine).toContain('"He said ""hello""."');
     expect(submitterLine).toContain('"5"');
+    expect(submitterLine).toContain('"Review tomorrow"');
+    expect(submitterLine).not.toContain('"choice-1"');
     const nonSubmitterLine = lines.find((l: string) => l.includes("student-recap-csv-2"))!;
     expect(nonSubmitterLine).toBeDefined();
 

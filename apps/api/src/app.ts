@@ -1410,6 +1410,7 @@ function buildLessonRecap(input: {
       submittedCount: reflectionCheck?.responses.length ?? 0,
       expectedCount: activeStudents.length,
       ...(confidenceAverage != null ? { confidenceAverage } : {}),
+      ...(whatsNextCheck && whatsNextCheck.choices.length > 0 ? { whatsNextChoices: whatsNextCheck.choices } : {}),
       reflections
     };
     break;
@@ -1440,18 +1441,24 @@ function renderRecapCsv(recap: LessonRecap, displayNameById: Map<string, string>
   const header = "userId,displayName,reflection,confidence,whatsNextChoiceId,submittedAt";
   if (!recap.exitTicket) return header + "\n";
 
+  const whatsNextLabelById = new Map(
+    (recap.exitTicket.whatsNextChoices ?? []).map((choice) => [choice.id, choice.label])
+  );
   const reflectionMap = new Map(recap.exitTicket.reflections.map((r) => [r.userId, r]));
   const rows = recap.attendance.knownParticipantIds.map((userId) => {
     const r = reflectionMap.get(userId);
     if (!r) {
       return [csvField(userId), csvField(displayNameById.get(userId) ?? ""), csvField(""), csvField(""), csvField(""), csvField("")].join(",");
     }
+    const whatsNextValue = r.whatsNextChoiceId
+      ? whatsNextLabelById.get(r.whatsNextChoiceId) ?? r.whatsNextChoiceId
+      : undefined;
     return [
       csvField(r.userId),
       csvField(r.displayName),
       csvField(r.answer),
       csvField(r.confidence),
-      csvField(r.whatsNextChoiceId),
+      csvField(whatsNextValue),
       csvField(r.submittedAt)
     ].join(",");
   });
