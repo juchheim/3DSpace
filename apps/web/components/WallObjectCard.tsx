@@ -332,7 +332,7 @@ function WallPollDisplay({
   );
 }
 
-function WallObjectContent({
+export function WallObjectContent({
   object,
   canManage,
   currentUserId,
@@ -432,7 +432,8 @@ export function WallObjectCard({
   onRemove,
   onStopShare,
   onControl,
-  onModerate
+  onModerate,
+  onFullscreen
 }: {
   object: WallObject;
   assetUrl?: string | undefined;
@@ -446,6 +447,7 @@ export function WallObjectCard({
   onStopShare?: (objectId: string) => void;
   onControl?: (objectId: string, action: WallObjectControlAction, positionSeconds?: number, choiceId?: string) => void;
   onModerate?: (objectId: string, action: "approve" | "reject") => void;
+  onFullscreen?: (objectId: string) => void;
 }) {
   const live = object.type.endsWith(".live") && object.status === "active";
   const fit = object.placement.fit === "stretch" ? "fill" : object.placement.fit;
@@ -473,6 +475,19 @@ export function WallObjectCard({
       data-wall-object-type={object.type}
       style={style}
     >
+      {surface && onFullscreen ? (
+        <button
+          type="button"
+          className="wall-object-fullscreen-btn"
+          onClick={() => onFullscreen(object.id)}
+          aria-label="View fullscreen"
+          title="View fullscreen"
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
+            <path d="M1 4V1h3M9 4V1H6M1 6v3h3M9 6v3H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+      ) : null}
       <header className="wall-object-card__header">
         <strong>{object.title}</strong>
         <span className="wall-object-card__badges">

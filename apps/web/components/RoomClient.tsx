@@ -44,6 +44,7 @@ import { LessonTimelinePanel } from "./LessonTimelinePanel";
 import { LessonRecapPanel } from "./LessonRecapPanel";
 import { AvatarEditorPanel } from "./AvatarEditorPanel";
 import { CopyRoomInviteButton } from "./CopyRoomInviteButton";
+import { WallObjectContent } from "./WallObjectCard";
 
 const RoomView3D = dynamic(() => import("./RoomView3D").then((module) => module.RoomView3D), {
   ssr: false,
@@ -159,6 +160,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const [hallpassElapsedSeconds, setHallpassElapsedSeconds] = useState(0);
   const [recapOpen, setRecapOpen] = useState(false);
   const [recapRunId, setRecapRunId] = useState<string | null>(null);
+  const [fullscreenObjectId, setFullscreenObjectId] = useState<string | null>(null);
   const prevLessonStatusRef = useRef<string | undefined>(undefined);
   const waveTriggeredRef = useRef(false);
   waveTriggeredRef.current = waveTriggered;
@@ -739,6 +741,12 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     }
   }, [helpBoardAccessUserId, participantList, selectedStudentId]);
 
+  useEffect(() => {
+    if (!fullscreenObjectId) return;
+    const obj = wall.wallObjects.find((o) => o.id === fullscreenObjectId);
+    if (!obj || obj.status === "removed") setFullscreenObjectId(null);
+  }, [fullscreenObjectId, wall.wallObjects]);
+
   const activeBoardGrant = useMemo(
     () =>
       (classroom.state?.boardAccessGrants ?? []).find(
@@ -1164,6 +1172,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             }}
             onWallObjectStopShare={stopShare}
             onWallObjectModerate={moderateWallObject}
+            onWallObjectFullscreen={setFullscreenObjectId}
           />
         ) : (
           <RoomView2D
@@ -1687,6 +1696,42 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           locked={avatarEditorLocked}
         />
       ) : null}
+      {(() => {
+        if (!fullscreenObjectId) return null;
+        const fsObject = wall.wallObjects.find((o) => o.id === fullscreenObjectId && o.status !== "removed");
+        if (!fsObject) return null;
+        const fsStreams = wallMediaStreams[fullscreenObjectId] ?? {};
+        return (
+          <div className="board-fullscreen-overlay" role="dialog" aria-label={`${fsObject.title} — fullscreen`}>
+            <div className="board-fullscreen-header">
+              <span className="board-fullscreen-title">{fsObject.title}</span>
+              <button
+                type="button"
+                className="board-fullscreen-close"
+                onClick={() => setFullscreenObjectId(null)}
+                aria-label="Exit fullscreen"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
+                  <path d="M3 1v3H1M7 1v3h2M3 9v-3H1M7 9v-3h2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Exit fullscreen
+              </button>
+            </div>
+            <div className="board-fullscreen-body">
+              <WallObjectContent
+                object={fsObject}
+                canManage={session?.role === "teacher"}
+                currentUserId={identity.userId}
+                surface={false}
+                assetUrl={wall.assetUrls[fullscreenObjectId]}
+                videoStream={fsStreams.videoStream}
+                audioStream={fsStreams.audioStream}
+                onControl={controlWallObject}
+              />
+            </div>
+          </div>
+        );
+      })()}
     </main>
   );
 }

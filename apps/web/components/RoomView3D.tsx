@@ -88,6 +88,7 @@ export function RoomView3D({
   onWallObjectRemove,
   onWallObjectStopShare,
   onWallObjectModerate,
+  onWallObjectFullscreen,
   hallpassZone
 }: {
   manifest: RoomManifest;
@@ -126,6 +127,7 @@ export function RoomView3D({
   onWallObjectRemove?: (objectId: string) => void | Promise<void>;
   onWallObjectStopShare?: (objectId: string) => void | Promise<void>;
   onWallObjectModerate?: (objectId: string, action: "approve" | "reject") => void | Promise<void>;
+  onWallObjectFullscreen?: (objectId: string) => void;
   hallpassZone?: RoomManifest["hallpassHoldingZone"];
 }) {
   const dpr = quality === "high" ? 1.8 : quality === "medium" ? 1.4 : 1;
@@ -178,6 +180,7 @@ export function RoomView3D({
           {...(onWallObjectRemove ? { onWallObjectRemove } : {})}
           {...(onWallObjectStopShare ? { onWallObjectStopShare } : {})}
           {...(onWallObjectModerate ? { onWallObjectModerate } : {})}
+          {...(onWallObjectFullscreen ? { onWallObjectFullscreen } : {})}
         />
         <GroupTargetLayer
           manifest={manifest}
@@ -415,7 +418,8 @@ function WallObjectLayer({
   onWallObjectControl,
   onWallObjectRemove,
   onWallObjectStopShare,
-  onWallObjectModerate
+  onWallObjectModerate,
+  onWallObjectFullscreen
 }: {
   manifest: RoomManifest;
   wallObjects: WallObject[];
@@ -432,6 +436,7 @@ function WallObjectLayer({
   onWallObjectRemove?: (objectId: string) => void | Promise<void>;
   onWallObjectStopShare?: (objectId: string) => void | Promise<void>;
   onWallObjectModerate?: (objectId: string, action: "approve" | "reject") => void | Promise<void>;
+  onWallObjectFullscreen?: (objectId: string) => void;
 }) {
   return (
     <group>
@@ -454,6 +459,7 @@ function WallObjectLayer({
               {...(onWallObjectRemove ? { onRemove: onWallObjectRemove } : {})}
               {...(onWallObjectStopShare ? { onStopShare: onWallObjectStopShare } : {})}
               {...(onWallObjectModerate ? { onModerate: onWallObjectModerate } : {})}
+              {...(onWallObjectFullscreen ? { onFullscreen: onWallObjectFullscreen } : {})}
             />
           );
         })}
@@ -472,7 +478,8 @@ const WallObjectSurface = memo(function WallObjectSurface({
   onControl,
   onRemove,
   onStopShare,
-  onModerate
+  onModerate,
+  onFullscreen
 }: {
   anchor: Anchor;
   object: WallObject;
@@ -490,6 +497,7 @@ const WallObjectSurface = memo(function WallObjectSurface({
   onRemove?: (objectId: string) => void | Promise<void>;
   onStopShare?: (objectId: string) => void | Promise<void>;
   onModerate?: (objectId: string, action: "approve" | "reject") => void | Promise<void>;
+  onFullscreen?: (objectId: string) => void;
 }) {
   const normal = useMemo(() => new Vector3(anchor.normal.x, anchor.normal.y, anchor.normal.z).normalize(), [anchor.normal.x, anchor.normal.y, anchor.normal.z]);
   const right = useMemo(() => {
@@ -547,6 +555,7 @@ const WallObjectSurface = memo(function WallObjectSurface({
             {...(onRemove ? { onRemove } : {})}
             {...(onStopShare ? { onStopShare } : {})}
             {...(onModerate ? { onModerate } : {})}
+            {...(onFullscreen ? { onFullscreen } : {})}
           />
         </div>
       </Html>
