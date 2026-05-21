@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ClassroomAction, ClassroomPrivateCheck, ClassroomPrivateCheckResponse, ClassroomState, Role, RoomManifest } from "@3dspace/contracts";
 import { HudCard } from "./HudCard";
 
@@ -51,6 +51,9 @@ export function PrivateChecksPanel({
   onRunAction(action: ClassroomAction): Promise<void>;
 }) {
   const [busy, setBusy] = useState("");
+  const [checksAlert, setChecksAlert] = useState(false);
+  const prevResponseTotal = useRef(0);
+  const prevOpenCheckCount = useRef(0);
   const [checkQuestion, setCheckQuestion] = useState("");
   const [checkPromptType, setCheckPromptType] = useState<ClassroomPrivateCheck["promptType"]>("multiple-choice");
   const [choiceText, setChoiceText] = useState(initialChoiceText);
@@ -63,6 +66,21 @@ export function PrivateChecksPanel({
     () => privateChecks.filter((check) => check.status === "open"),
     [privateChecks]
   );
+  const totalResponses = useMemo(
+    () => privateChecks.filter((c) => c.status === "open").reduce((sum, c) => sum + c.responses.length, 0),
+    [privateChecks]
+  );
+
+  useEffect(() => {
+    if (role === "teacher" && totalResponses > prevResponseTotal.current) setChecksAlert(true);
+    prevResponseTotal.current = totalResponses;
+  }, [role, totalResponses]);
+
+  useEffect(() => {
+    if (role === "student" && activeStudentChecks.length > prevOpenCheckCount.current) setChecksAlert(true);
+    prevOpenCheckCount.current = activeStudentChecks.length;
+  }, [role, activeStudentChecks.length]);
+
   const parsedChoices = useMemo(
     () =>
       choiceText
@@ -131,7 +149,7 @@ export function PrivateChecksPanel({
   if (role === "teacher") {
     const openCount = privateChecks.filter((c) => c.status === "open").length;
     return (
-      <HudCard title="Private Checks" badge={loading ? "…" : `${openCount} open`} ariaLabel="Private checks" defaultCollapsed={true}>
+      <HudCard title="Private Checks" badge={loading ? "…" : `${openCount} open`} ariaLabel="Private checks" defaultCollapsed={true} hasAlert={checksAlert} onAlertDismiss={() => setChecksAlert(false)}>
         <div className="classroom-check-create" data-testid="private-check-create">
           <label className="classroom-note-field">
             <span className="classroom-note-label">Question</span>
@@ -249,6 +267,8 @@ export function PrivateChecksPanel({
       ariaLabel="Private checks"
       defaultCollapsed={true}
       forceExpanded={forceExpanded}
+      hasAlert={checksAlert}
+      onAlertDismiss={() => setChecksAlert(false)}
     >
       {activeStudentChecks.length === 0 ? <p className="small">No active checks right now.</p> : null}
       <ul className="classroom-help-list" role="list">

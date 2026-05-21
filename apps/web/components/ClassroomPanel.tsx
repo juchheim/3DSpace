@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   AvatarReactionSlug,
   ClassroomAction,
@@ -74,6 +74,12 @@ export function ClassroomPanel({
 }) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState("");
+  const [helpAlert, setHelpAlert] = useState(false);
+  const [hallpassAlert, setHallpassAlert] = useState(false);
+  const [boardGrantAlert, setBoardGrantAlert] = useState(false);
+  const prevHelpCount = useRef(0);
+  const prevPendingCount = useRef(0);
+  const prevBoardGrant = useRef<string | null>(null);
 
   const teacherQueue = useMemo(
     () => (state?.helpRequests ?? []).filter((r) => r.kind !== "hallpass" && (r.status === "raised" || r.status === "acknowledged")),
@@ -101,6 +107,22 @@ export function ClassroomPanel({
     [currentUserId, state?.boardAccessGrants]
   );
 
+  useEffect(() => {
+    if (teacherQueue.length > prevHelpCount.current) setHelpAlert(true);
+    prevHelpCount.current = teacherQueue.length;
+  }, [teacherQueue.length]);
+
+  useEffect(() => {
+    if (pendingHallpasses.length > prevPendingCount.current) setHallpassAlert(true);
+    prevPendingCount.current = pendingHallpasses.length;
+  }, [pendingHallpasses.length]);
+
+  useEffect(() => {
+    const grantId = activeBoardGrant?.id ?? null;
+    if (grantId && grantId !== prevBoardGrant.current) setBoardGrantAlert(true);
+    prevBoardGrant.current = grantId;
+  }, [activeBoardGrant?.id]);
+
   async function run(label: string, action: ClassroomAction) {
     setBusy(label);
     try {
@@ -117,7 +139,7 @@ export function ClassroomPanel({
     const limitReached = hallpassSettings !== undefined && hallpassSettings.maxConcurrent > 0 && currentlyOutPasses.length >= hallpassSettings.maxConcurrent;
     return (
       <>
-        <HudCard title="Help Queue" badge={loading ? "…" : teacherQueue.length} ariaLabel="Help queue">
+        <HudCard title="Help Queue" badge={loading ? "…" : teacherQueue.length} ariaLabel="Help queue" hasAlert={helpAlert} onAlertDismiss={() => setHelpAlert(false)}>
           {error ? <p className="small">{error}</p> : null}
           {teacherQueue.length === 0 ? <p className="small">No raised hands right now.</p> : null}
           <ul className="classroom-help-list" role="list">
@@ -232,6 +254,8 @@ export function ClassroomPanel({
             badge={loading ? "…" : currentlyOutPasses.length + pendingHallpasses.length || undefined}
             ariaLabel="Hall passes"
             defaultCollapsed
+            hasAlert={hallpassAlert}
+            onAlertDismiss={() => setHallpassAlert(false)}
           >
             {pendingHallpasses.length > 0 ? (
               <>
@@ -309,7 +333,7 @@ export function ClassroomPanel({
   }
 
   return (
-    <HudCard title="Help" badge={loading ? "…" : activeHelpRequest ? statusLabel(activeHelpRequest.status) : "Ready"} ariaLabel="Classroom tools">
+    <HudCard title="Help" badge={loading ? "…" : activeHelpRequest ? statusLabel(activeHelpRequest.status) : "Ready"} ariaLabel="Classroom tools" hasAlert={boardGrantAlert} onAlertDismiss={() => setBoardGrantAlert(false)}>
       {error ? <p className="small">{error}</p> : null}
       {activeBoardGrant && manifest ? (
         <div className="classroom-grant-panel">

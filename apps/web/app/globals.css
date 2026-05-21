@@ -690,6 +690,21 @@ button.hud-heading-btn:hover {
   transform: rotate(90deg);
 }
 
+.hud-alert-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f97316;
+  flex-shrink: 0;
+  animation: hud-alert-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes hud-alert-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.65); }
+}
+
 /* Compact media controls */
 
 .media-controls-compact {
