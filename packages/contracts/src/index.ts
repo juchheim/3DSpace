@@ -149,6 +149,7 @@ export const RoomManifestSchema = z.object({
   capabilities: RoomCapabilitiesSchema,
   spatialAudio: SpatialAudioConfigSchema,
   features: z.array(RoomFeatureSchema).default([]),
+  hallpassHoldingZone: RoomBoundsSchema.optional(),
   createdAt: z.string()
 });
 
@@ -288,7 +289,12 @@ export const RoomSettingsSchema = z.object({
   allowWebLinks: z.boolean().default(true),
   allowEmbeds: z.boolean().default(false),
   maxActiveWallObjects: z.number().int().positive().default(20),
-  maxActiveLiveShares: z.number().int().positive().default(4)
+  maxActiveLiveShares: z.number().int().positive().default(4),
+  hallpass: z.object({
+    enabled: z.boolean().default(true),
+    maxConcurrent: z.number().int().min(0).max(10).default(1),
+    perPeriodLimit: z.number().int().min(0).max(20).default(2)
+  }).default({ enabled: true, maxConcurrent: 1, perPeriodLimit: 2 })
 });
 
 export const RoomSchema = z.object({
@@ -616,7 +622,11 @@ export const ClassroomHelpRequestSchema = z.object({
   userId: z.string(),
   displayName: z.string(),
   note: z.string().max(500).optional(),
+  kind: z.enum(["help", "hallpass"]).default("help"),
   status: z.enum(["raised", "acknowledged", "closed", "cancelled"]),
+  approvedAt: z.string().optional(),
+  returnedAt: z.string().optional(),
+  durationSeconds: z.number().int().nonnegative().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
   closedByUserId: z.string().optional()
@@ -1049,6 +1059,25 @@ export const ClassroomSetReactionsLockedActionSchema = ClassroomActionBaseSchema
   locked: z.boolean()
 });
 
+export const ClassroomRequestHallpassActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("request-hallpass")
+});
+
+export const ClassroomApproveHallpassActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("approve-hallpass"),
+  requestId: z.string().min(1)
+});
+
+export const ClassroomDenyHallpassActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("deny-hallpass"),
+  requestId: z.string().min(1)
+});
+
+export const ClassroomReturnFromHallpassActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("return-from-hallpass"),
+  requestId: z.string().optional()
+});
+
 export const ClassroomActionSchema = z.discriminatedUnion("type", [
   ClassroomRaiseHandActionSchema,
   ClassroomCancelHelpActionSchema,
@@ -1082,7 +1111,11 @@ export const ClassroomActionSchema = z.discriminatedUnion("type", [
   ClassroomAbandonLessonRunActionSchema,
   ClassroomClearLessonRunActionSchema,
   ClassroomSetAvatarEditorLockedActionSchema,
-  ClassroomSetReactionsLockedActionSchema
+  ClassroomSetReactionsLockedActionSchema,
+  ClassroomRequestHallpassActionSchema,
+  ClassroomApproveHallpassActionSchema,
+  ClassroomDenyHallpassActionSchema,
+  ClassroomReturnFromHallpassActionSchema
 ]);
 
 export const ClassroomStateChangedRealtimeSchema = z.object({
@@ -1177,6 +1210,7 @@ export type LessonRunStatus = z.infer<typeof LessonRunStatusSchema>;
 export type LessonRun = z.infer<typeof LessonRunSchema>;
 export type ClassroomState = z.infer<typeof ClassroomStateSchema>;
 export type ClassroomAction = z.infer<typeof ClassroomActionSchema>;
+export type ClassroomHelpRequestKind = z.infer<typeof ClassroomHelpRequestSchema>["kind"];
 export type ClassroomStateChangedRealtimeMessage = z.infer<typeof ClassroomStateChangedRealtimeSchema>;
 export type ClassroomStateRealtimeMessage = z.infer<typeof ClassroomStateRealtimeSchema>;
 

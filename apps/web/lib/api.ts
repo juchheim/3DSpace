@@ -9,6 +9,7 @@ import type {
   Role,
   RoomRecord,
   RoomSessionResponse,
+  RoomSettings,
   RoomWithManifest,
   WallAttachment,
   WallAttachmentDownloadResponse,
@@ -97,6 +98,14 @@ export function deleteRoom(identity: ApiIdentity, roomId: string) {
   return apiFetch<{ roomId: string; deleted: true }>(`/v1/rooms/${roomId}`, {
     method: "DELETE",
     identity
+  });
+}
+
+export function patchRoom(identity: ApiIdentity, roomId: string, input: { name?: string; settings?: Partial<RoomSettings> }) {
+  return apiFetch<RoomRecord>(`/v1/rooms/${roomId}`, {
+    method: "PATCH",
+    identity,
+    body: input
   });
 }
 

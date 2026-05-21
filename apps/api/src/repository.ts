@@ -490,6 +490,10 @@ export class MemoryRepository implements Repository {
     return record;
   }
 
+  listRoomEvents(roomId: string): RoomEventRecord[] {
+    return Array.from(this.roomEvents.values()).filter((e) => e.roomId === roomId);
+  }
+
   async recordRoomSession(input: { roomId: string; participantIdentity: string; userId: string; role: Role; maxParticipants: number }) {
     const sessionKey = `${input.roomId}:${input.participantIdentity}`;
     const cutoff = Date.now() - 90_000;

@@ -8,5 +8,6 @@ export const CLIENT_TUNING = {
   defaultViewMode: ViewModeSchema.parse(process.env.DEFAULT_VIEW_MODE ?? "3d"),
   defaultQuality: QualityLevelSchema.parse(process.env.DEFAULT_3D_QUALITY ?? "low"),
   enableClassroomLessons: process.env.NEXT_PUBLIC_ENABLE_CLASSROOM_LESSONS === "true",
-  enableAvatarReactions: process.env.NEXT_PUBLIC_ENABLE_AVATAR_REACTIONS !== "false"
+  enableAvatarReactions: process.env.NEXT_PUBLIC_ENABLE_AVATAR_REACTIONS !== "false",
+  enableHallPass: process.env.NEXT_PUBLIC_ENABLE_HALL_PASS === "true"
 };

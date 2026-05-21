@@ -148,7 +148,8 @@ function roomSettings(config: AppConfig) {
     allowWebLinks: config.tuning.enableWallWebLinks,
     allowEmbeds: config.tuning.enableWallWebEmbeds,
     maxActiveWallObjects: config.tuning.wallObjectMaxActivePerRoom,
-    maxActiveLiveShares: config.tuning.wallObjectMaxActiveLiveShares
+    maxActiveLiveShares: config.tuning.wallObjectMaxActiveLiveShares,
+    hallpass: { enabled: true, maxConcurrent: 1, perPeriodLimit: 2 }
   };
 }
 
@@ -481,7 +482,11 @@ function sanitizeClassroomState(state: ClassroomState): ClassroomState {
       userId: request.userId,
       displayName: request.displayName,
       ...(typeof request.note === "string" ? { note: request.note } : {}),
+      kind: request.kind,
       status: request.status,
+      ...(typeof request.approvedAt === "string" ? { approvedAt: request.approvedAt } : {}),
+      ...(typeof request.returnedAt === "string" ? { returnedAt: request.returnedAt } : {}),
+      ...(typeof request.durationSeconds === "number" ? { durationSeconds: request.durationSeconds } : {}),
       createdAt: request.createdAt,
       updatedAt: request.updatedAt,
       ...(typeof request.closedByUserId === "string" ? { closedByUserId: request.closedByUserId } : {})
@@ -1178,6 +1183,7 @@ async function runClassroomAction(input: {
   actor: ClassroomActor;
   action: ClassroomAction;
   lessonsEnabled: boolean;
+  roomSettings?: RoomSettings;
 }) {
   if (isLessonAction(input.action) && !input.lessonsEnabled) {
     throw notFound("Classroom lessons are disabled");
@@ -1213,6 +1219,7 @@ async function runClassroomAction(input: {
         userId: input.actor.userId,
         displayName: input.actor.displayName,
         note: input.action.note?.trim() || undefined,
+        kind: "help",
         status: "raised",
         createdAt: now,
         updatedAt: now
@@ -1598,6 +1605,85 @@ async function runClassroomAction(input: {
     case "set-reactions-locked": {
       requireTeacher(input.actor);
       state.reactionsLocked = input.action.locked;
+      break;
+    }
+    case "request-hallpass": {
+      const hp = input.roomSettings?.hallpass;
+      if (hp && !hp.enabled) throw badRequest("Hall pass is disabled for this room");
+      const active = state.helpRequests.find(
+        (r) => r.userId === input.actor.userId && r.kind === "hallpass" && ["raised", "acknowledged"].includes(r.status)
+      );
+      if (active) throw badRequest("You already have an active hall pass request");
+      if (hp && hp.perPeriodLimit > 0) {
+        const todayPrefix = now.slice(0, 10);
+        const usedToday = state.helpRequests.filter(
+          (r) => r.userId === input.actor.userId && r.kind === "hallpass" && r.status === "closed" && r.returnedAt?.startsWith(todayPrefix)
+        ).length;
+        if (usedToday >= hp.perPeriodLimit) throw badRequest("You have reached today's hall-pass limit");
+      }
+      state.helpRequests.unshift({
+        id: newId("help"),
+        userId: input.actor.userId,
+        displayName: input.actor.displayName,
+        kind: "hallpass",
+        status: "raised",
+        createdAt: now,
+        updatedAt: now
+      });
+      break;
+    }
+    case "approve-hallpass": {
+      requireTeacher(input.actor);
+      const maxConcurrent = input.roomSettings?.hallpass?.maxConcurrent ?? 1;
+      const concurrentCount = state.helpRequests.filter(
+        (r) => r.kind === "hallpass" && r.status === "acknowledged"
+      ).length;
+      if (concurrentCount >= maxConcurrent) throw badRequest("Maximum concurrent hall passes reached");
+      const approveRequest = findHelpRequest(state, input.action.requestId);
+      approveRequest.status = "acknowledged";
+      approveRequest.approvedAt = now;
+      approveRequest.updatedAt = now;
+      break;
+    }
+    case "deny-hallpass": {
+      requireTeacher(input.actor);
+      const denyRequest = findHelpRequest(state, input.action.requestId);
+      denyRequest.status = "cancelled";
+      denyRequest.closedByUserId = input.actor.userId;
+      denyRequest.updatedAt = now;
+      break;
+    }
+    case "return-from-hallpass": {
+      const returnRequest = input.action.requestId
+        ? findHelpRequest(state, input.action.requestId)
+        : state.helpRequests.find(
+            (r) => r.userId === input.actor.userId && r.kind === "hallpass" && ["raised", "acknowledged"].includes(r.status)
+          );
+      if (!returnRequest) throw notFound("Active hall pass not found");
+      if (returnRequest.userId !== input.actor.userId && input.actor.role !== "teacher") {
+        throw forbidden("You can only return your own hall pass");
+      }
+      const durationSeconds = returnRequest.approvedAt
+        ? Math.max(0, Math.round((Date.parse(now) - Date.parse(returnRequest.approvedAt)) / 1000))
+        : 0;
+      returnRequest.status = "closed";
+      returnRequest.returnedAt = now;
+      returnRequest.durationSeconds = durationSeconds;
+      returnRequest.closedByUserId = input.actor.userId;
+      returnRequest.updatedAt = now;
+      await input.repository.recordRoomEvent({
+        roomId: input.roomId,
+        type: "hallpass.completed.v1",
+        payload: {
+          userId: returnRequest.userId,
+          displayName: returnRequest.displayName,
+          requestedAt: returnRequest.createdAt,
+          approvedAt: returnRequest.approvedAt ?? null,
+          returnedAt: now,
+          durationSeconds
+        },
+        createdByUserId: input.actor.userId
+      });
       break;
     }
   }
@@ -2505,7 +2591,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       roomId: params.roomId,
       actor,
       action: body,
-      lessonsEnabled: config.tuning.enableClassroomLessons
+      lessonsEnabled: config.tuning.enableClassroomLessons,
+      roomSettings: room.settings
     });
     const hydrated = await hydrateClassroomDisplayNames(repository, room.classId, sanitizeClassroomState(state));
     return filterClassroomStateForActor(hydrated, actor);

@@ -70,7 +70,8 @@ export function RoomView3D({
   onWallObjectControl,
   onWallObjectRemove,
   onWallObjectStopShare,
-  onWallObjectModerate
+  onWallObjectModerate,
+  hallpassZone
 }: {
   manifest: RoomManifest;
   participants: ParticipantView[];
@@ -104,6 +105,7 @@ export function RoomView3D({
   onWallObjectRemove?: (objectId: string) => void | Promise<void>;
   onWallObjectStopShare?: (objectId: string) => void | Promise<void>;
   onWallObjectModerate?: (objectId: string, action: "approve" | "reject") => void | Promise<void>;
+  hallpassZone?: RoomManifest["hallpassHoldingZone"];
 }) {
   const dpr = quality === "high" ? 1.8 : quality === "medium" ? 1.4 : 1;
   const [canvasElement, setCanvasElement] = useState<HTMLCanvasElement | null>(null);
@@ -135,6 +137,7 @@ export function RoomView3D({
           {...(onWallObjectModerate ? { onWallObjectModerate } : {})}
         />
         <GroupTargetLayer manifest={manifest} groups={classroomGroups} />
+        {hallpassZone ? <HallpassZoneMarker zone={hallpassZone} /> : null}
         <PrivateCheckLayer manifest={manifest} privateChecks={privateChecks} />
         {participants.map((participant) => {
           const group = classroomGroups.find((g) => g.status === "active" && g.memberUserIds.includes(participant.id));
@@ -234,6 +237,26 @@ function GroupTargetMarker({
             <strong>{group.label}</strong>
             {boardLabel ? <span>{boardLabel}</span> : null}
           </div>
+        </Html>
+      </Billboard>
+    </group>
+  );
+}
+
+function HallpassZoneMarker({ zone }: { zone: NonNullable<RoomManifest["hallpassHoldingZone"]> }) {
+  const cx = (zone.minX + zone.maxX) / 2;
+  const cz = (zone.minZ + zone.maxZ) / 2;
+  const radius = Math.min((zone.maxX - zone.minX) / 2, (zone.maxZ - zone.minZ) / 2);
+
+  return (
+    <group position={[cx, 0.02, cz]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[radius, 32]} />
+        <meshBasicMaterial color="#4a90e2" transparent opacity={0.2} />
+      </mesh>
+      <Billboard position={[0, 1.4, 0]}>
+        <Html center distanceFactor={6}>
+          <div className="hallpass-zone-label">Hall pass</div>
         </Html>
       </Billboard>
     </group>

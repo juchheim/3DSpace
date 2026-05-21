@@ -118,7 +118,7 @@ export function useClassroomState(input: {
   );
 
   const activeHelpRequest = useMemo(
-    () => state?.helpRequests.find((request) => request.status === "raised" || request.status === "acknowledged") ?? null,
+    () => state?.helpRequests.find((request) => request.kind === "help" && (request.status === "raised" || request.status === "acknowledged")) ?? null,
     [state]
   );
 

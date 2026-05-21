@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { ClassRecord, Invite, RoomRecord } from "@3dspace/contracts";
-import { acceptInvite, createClass, createInvite, createRoom, deleteRoom, listClasses, listRooms } from "../lib/api";
+import type { ClassRecord, Invite, RoomRecord, RoomSettings } from "@3dspace/contracts";
+import { acceptInvite, createClass, createInvite, createRoom, deleteRoom, listClasses, listRooms, patchRoom } from "../lib/api";
 import { AuthGate } from "../lib/auth";
-import { APP_URL } from "../lib/config";
+import { APP_URL, CLIENT_TUNING } from "../lib/config";
 import { usePersistentIdentity } from "../lib/usePersistentIdentity";
 
 function inviteJoinUrl(roomId: string, code: string) {
@@ -23,6 +23,8 @@ export function Lobby() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [copyStatus, setCopyStatus] = useState<"code" | "link" | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState<string | null>(null);
+  const [draftHallpass, setDraftHallpass] = useState<RoomSettings["hallpass"] | null>(null);
 
   useEffect(() => {
     document.body.classList.add("lobby-dark");
@@ -80,6 +82,22 @@ export function Lobby() {
   function canManageRoom(room: RoomRecord) {
     const classRecord = classes.find((record) => record.id === room.classId);
     return classRecord?.teacherUserId === identity.userId;
+  }
+
+  async function saveHallpassSettings(roomId: string) {
+    if (!draftHallpass) return;
+    setBusy(true);
+    setError("");
+    try {
+      await patchRoom(identity, roomId, { settings: { hallpass: draftHallpass } });
+      await refresh();
+      setSettingsOpen(null);
+      setDraftHallpass(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to save settings.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function removeRoom(room: RoomRecord) {
@@ -314,6 +332,23 @@ export function Lobby() {
                     <Link className="lb-btn lb-btn-sec lb-btn-sm" href={`/rooms/${room.id}`}>
                       Open →
                     </Link>
+                    {canManageRoom(room) && CLIENT_TUNING.enableHallPass ? (
+                      <button
+                        className="lb-btn lb-btn-sec lb-btn-sm"
+                        disabled={busy}
+                        onClick={() => {
+                          if (settingsOpen === room.id) {
+                            setSettingsOpen(null);
+                            setDraftHallpass(null);
+                          } else {
+                            setSettingsOpen(room.id);
+                            setDraftHallpass(room.settings.hallpass);
+                          }
+                        }}
+                      >
+                        Settings
+                      </button>
+                    ) : null}
                     {canManageRoom(room) && (
                       <button
                         className="lb-btn lb-btn-dan lb-btn-sm"
@@ -324,6 +359,56 @@ export function Lobby() {
                       </button>
                     )}
                   </div>
+                  {settingsOpen === room.id && draftHallpass ? (
+                    <div className="lb-room-settings">
+                      <p className="lb-label" style={{ marginBottom: 6 }}>Hall pass settings</p>
+                      <label className="lb-settings-row">
+                        <input
+                          type="checkbox"
+                          checked={draftHallpass.enabled}
+                          onChange={(e) => setDraftHallpass({ ...draftHallpass, enabled: e.target.checked })}
+                        />
+                        <span className="lb-label">Enabled</span>
+                      </label>
+                      <label className="lb-settings-row">
+                        <span className="lb-label">Max concurrent</span>
+                        <input
+                          type="number"
+                          className="lb-inp lb-inp-sm"
+                          min={0}
+                          max={10}
+                          value={draftHallpass.maxConcurrent}
+                          onChange={(e) => setDraftHallpass({ ...draftHallpass, maxConcurrent: Math.max(0, Math.min(10, Number(e.target.value))) })}
+                        />
+                      </label>
+                      <label className="lb-settings-row">
+                        <span className="lb-label">Per-period limit</span>
+                        <input
+                          type="number"
+                          className="lb-inp lb-inp-sm"
+                          min={0}
+                          max={20}
+                          value={draftHallpass.perPeriodLimit}
+                          onChange={(e) => setDraftHallpass({ ...draftHallpass, perPeriodLimit: Math.max(0, Math.min(20, Number(e.target.value))) })}
+                        />
+                      </label>
+                      <div className="lb-btn-row" style={{ marginTop: 8 }}>
+                        <button
+                          className="lb-btn lb-btn-pri lb-btn-sm"
+                          disabled={busy}
+                          onClick={() => void saveHallpassSettings(room.id)}
+                        >
+                          Save
+                        </button>
+                        <button
+                          className="lb-btn lb-btn-sec lb-btn-sm"
+                          onClick={() => { setSettingsOpen(null); setDraftHallpass(null); }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>

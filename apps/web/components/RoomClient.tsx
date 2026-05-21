@@ -128,6 +128,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const displayNameRef = useRef(identity.displayName);
   displayNameRef.current = identity.displayName;
   const media = useLocalMedia(session?.tuning.media);
+  const priorHallpassMicRef = useRef<boolean | null>(null);
+  const micEnabledRef = useRef(media.microphoneEnabled);
+  micEnabledRef.current = media.microphoneEnabled;
   const displayMedia = useDisplayMedia();
   const camera = useThirdPersonCamera({ viewMode });
   const occupiedSpawnPositions = useMemo(
@@ -142,6 +145,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const [avatarEditorOpen, setAvatarEditorOpen] = useState(false);
   const [localDraftAppearance, setLocalDraftAppearance] = useState<AvatarAppearance | null>(null);
   const [waveTriggered, setWaveTriggered] = useState(false);
+  const [hallpassBusy, setHallpassBusy] = useState(false);
+  const [hallpassElapsedSeconds, setHallpassElapsedSeconds] = useState(0);
   const waveTriggeredRef = useRef(false);
   waveTriggeredRef.current = waveTriggered;
   const publishRealtime = useCallback((message: RealtimeMessage) => {
@@ -173,7 +178,24 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   classroomRealtimeHandlerRef.current = classroom.handleRealtimeMessage;
   camera.lockedRef.current = classroom.state?.spotlight?.mode === "force";
 
+  const myActiveHallpass = useMemo(() => {
+    return (classroom.state?.helpRequests ?? []).find(
+      (r) => r.userId === identity.userId && r.kind === "hallpass" && (r.status === "raised" || r.status === "acknowledged")
+    ) ?? null;
+  }, [classroom.state?.helpRequests, identity.userId]);
+
+  const myTodayPassCount = useMemo(() => {
+    const todayPrefix = new Date().toISOString().slice(0, 10);
+    return (classroom.state?.helpRequests ?? []).filter(
+      (r) => r.userId === identity.userId && r.kind === "hallpass" && r.status === "closed" && typeof r.returnedAt === "string" && r.returnedAt.startsWith(todayPrefix)
+    ).length;
+  }, [classroom.state?.helpRequests, identity.userId]);
+
   const lockedPosition = useMemo(() => {
+    if (myActiveHallpass?.status === "acknowledged" && manifest?.hallpassHoldingZone) {
+      const zone = manifest.hallpassHoldingZone;
+      return { x: (zone.minX + zone.maxX) / 2, y: 0, z: (zone.minZ + zone.maxZ) / 2 };
+    }
     const userId = session?.participantId ?? identity.userId;
     const group = classroom.state?.groups.find(
       (g) => g.status === "active" && g.hold?.enabled && g.hold.mode === "hard" && g.targetPosition && g.memberUserIds.includes(userId)
@@ -181,7 +203,37 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     if (!group?.targetPosition) return null;
     const memberIndex = group.memberUserIds.indexOf(userId);
     return computeGroupMemberPosition(group.targetPosition, memberIndex);
-  }, [classroom.state?.groups, session?.participantId, identity.userId]);
+  }, [myActiveHallpass?.status, manifest?.hallpassHoldingZone, classroom.state?.groups, session?.participantId, identity.userId]);
+
+  useEffect(() => {
+    if (myActiveHallpass?.status === "acknowledged") {
+      if (priorHallpassMicRef.current === null) {
+        priorHallpassMicRef.current = micEnabledRef.current;
+      }
+      media.setMicrophoneEnabled(false);
+    } else if (priorHallpassMicRef.current !== null) {
+      media.setMicrophoneEnabled(priorHallpassMicRef.current);
+      priorHallpassMicRef.current = null;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myActiveHallpass?.status, media.setMicrophoneEnabled]);
+
+  useEffect(() => {
+    if (myActiveHallpass?.status !== "acknowledged" || !myActiveHallpass.approvedAt) {
+      setHallpassElapsedSeconds(0);
+      return;
+    }
+    const start = new Date(myActiveHallpass.approvedAt).getTime();
+    setHallpassElapsedSeconds(Math.floor((Date.now() - start) / 1000));
+    const id = window.setInterval(() => setHallpassElapsedSeconds(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => window.clearInterval(id);
+  }, [myActiveHallpass?.status, myActiveHallpass?.approvedAt]);
+
+  function formatElapsed(seconds: number) {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return m > 0 ? `${m}m ${s}s` : `${s}s`;
+  }
 
   const movement = useAvatarMovement({
     manifest,
@@ -933,6 +985,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             cameraPitchRef={camera.pitchRef}
             bindCamera={camera.bind}
             firstPerson={firstPerson}
+            hallpassZone={manifest.hallpassHoldingZone}
             onMoveToPoint={(point) => {
               if (camera.consumeClickSuppress()) return;
               if (positioningGroupId) {
@@ -965,6 +1018,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           <RoomView2D
             manifest={manifest}
             participants={participantList}
+            hallpassZone={manifest.hallpassHoldingZone}
             onMoveToPoint={(point) => {
               if (positioningGroupId && manifest) {
                 const worldPos = unprojectPointFrom2D(manifest, point);
@@ -1056,6 +1110,48 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
                 <span className="hud-ctx-sub">Waiting for your teacher</span>
               </div>
             ) : null}
+            {CLIENT_TUNING.enableHallPass && session?.room.settings.hallpass.enabled ? (() => {
+              const hp = session.room.settings.hallpass;
+              const periodLimitReached = !myActiveHallpass && hp.perPeriodLimit > 0 && myTodayPassCount >= hp.perPeriodLimit;
+              return (
+                <div className="hud-ctx-card">
+                  {myActiveHallpass?.status === "acknowledged" ? (
+                    <div className="hallpass-hud-row">
+                      <span className="hud-ctx-lbl">Hall pass · {formatElapsed(hallpassElapsedSeconds)}</span>
+                      <button
+                        type="button"
+                        className="hud-btn hallpass-btn--out"
+                        disabled={hallpassBusy}
+                        onClick={() => {
+                          setHallpassBusy(true);
+                          void classroom.runAction({ type: "return-from-hallpass", requestId: myActiveHallpass.id })
+                            .catch(() => undefined)
+                            .finally(() => setHallpassBusy(false));
+                        }}
+                      >
+                        🚪 I'm back
+                      </button>
+                    </div>
+                  ) : periodLimitReached ? (
+                    <p className="hud-ctx-sub" style={{ fontSize: "10px" }}>You've reached today's hall-pass limit.</p>
+                  ) : (
+                    <button
+                      type="button"
+                      className="hud-btn"
+                      disabled={hallpassBusy || Boolean(myActiveHallpass)}
+                      onClick={() => {
+                        setHallpassBusy(true);
+                        void classroom.runAction({ type: "request-hallpass" })
+                          .catch(() => undefined)
+                          .finally(() => setHallpassBusy(false));
+                      }}
+                    >
+                      {myActiveHallpass?.status === "raised" ? "🚪 Pending..." : "🚪 Step out"}
+                    </button>
+                  )}
+                </div>
+              );
+            })() : null}
           </div>
         ) : null}
 
@@ -1142,6 +1238,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             currentUserId={identity.userId}
             boardAccessUserId={helpBoardAccessUserId}
             reactionLog={log}
+            hallpassSettings={session?.room.settings.hallpass}
             onOpenBoardAccess={(userId) => {
               setSelectedStudentId("");
               setHelpBoardAccessUserId((current) => (current === userId ? "" : userId));

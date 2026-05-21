@@ -29,7 +29,8 @@ export function RoomView2D({
   privateChecks = [],
   spotlight,
   positioningMode = false,
-  getReaction
+  getReaction,
+  hallpassZone
 }: {
   manifest: RoomManifest;
   participants: ParticipantView[];
@@ -42,6 +43,7 @@ export function RoomView2D({
   spotlight?: ClassroomSpotlight | null | undefined;
   positioningMode?: boolean;
   getReaction?: (participantId: string) => AvatarReactionSlug | undefined;
+  hallpassZone?: RoomManifest["hallpassHoldingZone"];
 }) {
   function handlePointer(event: React.PointerEvent<SVGSVGElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -126,6 +128,26 @@ export function RoomView2D({
             </g>
           );
         })}
+        {hallpassZone ? (() => {
+          const tl = projectPositionTo2D(manifest, { x: hallpassZone.minX, y: 0, z: hallpassZone.minZ });
+          const br = projectPositionTo2D(manifest, { x: hallpassZone.maxX, y: 0, z: hallpassZone.maxZ });
+          const cx = (tl.x + br.x) / 2;
+          const cy = (tl.y + br.y) / 2;
+          return (
+            <g aria-label="Hall pass zone" pointerEvents="none">
+              <rect
+                x={tl.x} y={tl.y}
+                width={br.x - tl.x} height={br.y - tl.y}
+                rx="0.8"
+                fill="#4a90e222"
+                stroke="#4a90e2"
+                strokeWidth="0.7"
+                strokeDasharray="2 1.5"
+              />
+              <text x={cx} y={cy + 0.7} textAnchor="middle" fontSize="2" fill="#2255a4">Hall pass</text>
+            </g>
+          );
+        })() : null}
         {positioningMode ? (
           <rect x="2" y="2" width="96" height="96" rx="5" fill="none" stroke="#e67e22" strokeWidth="1.5" strokeDasharray="4 3" pointerEvents="none" />
         ) : null}

@@ -250,6 +250,8 @@ export function createDefaultRoomManifest(input: {
     },
     capabilities: createRoomCapabilities(config),
     spatialAudio: config.spatialAudio,
+    // Left of teacher stage, well inside bounds and clear of all spawn points.
+    hallpassHoldingZone: { minX: -13, maxX: -11, minZ: -8, maxZ: -6 },
     features: [
       { key: "screen-share", enabled: false, config: { preparedTrackKind: "screen" } },
       { key: "computer-audio", enabled: false, config: { preparedTrackKind: "system-audio" } },

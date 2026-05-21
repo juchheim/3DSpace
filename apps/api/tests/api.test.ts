@@ -1976,4 +1976,139 @@ describe("3dspace api", () => {
 
     await app.close();
   });
+
+  it("hall pass: request → approve → return records a hallpass.completed.v1 RoomEvent with positive durationSeconds", async () => {
+    const repository = new MemoryRepository();
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-hallpass-1");
+    await addStudentMember(app, classRecord.id, "teacher-hallpass-1", "student-hp-1", "Avery");
+    const roomId = roomWithManifest.room.id;
+
+    const requestRes = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/classroom/actions`,
+      headers: authHeaders("student-hp-1", "Avery"),
+      payload: { type: "request-hallpass" }
+    });
+    expect(requestRes.statusCode).toBe(200);
+    const requestState = requestRes.json();
+    const passId = requestState.helpRequests.find((r: { kind: string }) => r.kind === "hallpass")?.id;
+    expect(passId).toBeDefined();
+
+    const approveRes = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/classroom/actions`,
+      headers: authHeaders("teacher-hallpass-1", "Ms. Rivera"),
+      payload: { type: "approve-hallpass", requestId: passId }
+    });
+    expect(approveRes.statusCode).toBe(200);
+
+    const returnRes = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/classroom/actions`,
+      headers: authHeaders("student-hp-1", "Avery"),
+      payload: { type: "return-from-hallpass" }
+    });
+    expect(returnRes.statusCode).toBe(200);
+    const returnState = returnRes.json();
+    const closedPass = returnState.helpRequests.find((r: { kind: string; status: string }) => r.kind === "hallpass" && r.status === "closed");
+    expect(closedPass).toBeDefined();
+    expect(closedPass.durationSeconds).toBeGreaterThanOrEqual(0);
+
+    const events = repository.listRoomEvents(roomId);
+    const hallpassEvent = events.find((e) => e.type === "hallpass.completed.v1");
+    expect(hallpassEvent).toBeDefined();
+    expect(hallpassEvent!.payload.durationSeconds).toBeGreaterThanOrEqual(0);
+    expect(hallpassEvent!.payload.userId).toBe("student-hp-1");
+
+    await app.close();
+  });
+
+  it("hall pass: approving above maxConcurrent returns 400", async () => {
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-hallpass-2");
+    await addStudentMember(app, classRecord.id, "teacher-hallpass-2", "student-hp-2a", "Sam");
+    await addStudentMember(app, classRecord.id, "teacher-hallpass-2", "student-hp-2b", "Lee");
+    const roomId = roomWithManifest.room.id;
+
+    // Both students request; default maxConcurrent = 1
+    const req1 = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/classroom/actions`,
+      headers: authHeaders("student-hp-2a", "Sam"),
+      payload: { type: "request-hallpass" }
+    });
+    expect(req1.statusCode).toBe(200);
+    const pass1Id = req1.json().helpRequests.find((r: { kind: string }) => r.kind === "hallpass")?.id;
+
+    const req2 = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/classroom/actions`,
+      headers: authHeaders("student-hp-2b", "Lee"),
+      payload: { type: "request-hallpass" }
+    });
+    expect(req2.statusCode).toBe(200);
+    // Teacher view to get pass 2 id
+    const teacherView = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomId}/classroom`,
+      headers: authHeaders("teacher-hallpass-2", "Ms. Rivera")
+    });
+    const pass2Id = teacherView.json().helpRequests.find((r: { kind: string; id: string }) => r.kind === "hallpass" && r.id !== pass1Id)?.id;
+
+    // Approve first — should succeed
+    const approve1 = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/classroom/actions`,
+      headers: authHeaders("teacher-hallpass-2", "Ms. Rivera"),
+      payload: { type: "approve-hallpass", requestId: pass1Id }
+    });
+    expect(approve1.statusCode).toBe(200);
+
+    // Approve second — should fail (maxConcurrent = 1)
+    const approve2 = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/classroom/actions`,
+      headers: authHeaders("teacher-hallpass-2", "Ms. Rivera"),
+      payload: { type: "approve-hallpass", requestId: pass2Id }
+    });
+    expect(approve2.statusCode).toBe(400);
+
+    await app.close();
+  });
+
+  it("hall pass: student cannot approve a hall pass", async () => {
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-hallpass-3");
+    await addStudentMember(app, classRecord.id, "teacher-hallpass-3", "student-hp-3", "Jordan");
+    const roomId = roomWithManifest.room.id;
+
+    const requestRes = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/classroom/actions`,
+      headers: authHeaders("student-hp-3", "Jordan"),
+      payload: { type: "request-hallpass" }
+    });
+    expect(requestRes.statusCode).toBe(200);
+    const passId = requestRes.json().helpRequests.find((r: { kind: string }) => r.kind === "hallpass")?.id;
+
+    const approveAttempt = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/classroom/actions`,
+      headers: authHeaders("student-hp-3", "Jordan"),
+      payload: { type: "approve-hallpass", requestId: passId }
+    });
+    expect(approveAttempt.statusCode).toBe(403);
+
+    await app.close();
+  });
 });
