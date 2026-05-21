@@ -186,6 +186,7 @@ export function ClassroomPanel({
         </HudCard>
         {CLIENT_TUNING.enableWhisper ? (
           <HudCard title="Whisper" ariaLabel="Whisper settings" defaultCollapsed>
+            {error ? <p className="small" style={{ color: "var(--hud-tx-warn, #c08010)" }}>{error}</p> : null}
             <button
               type="button"
               className="hud-btn"
