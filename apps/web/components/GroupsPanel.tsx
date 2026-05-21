@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ClassroomAction, ClassroomGroup, ClassroomState, Role } from "@3dspace/contracts";
 import type { ParticipantView } from "./RoomClient";
 import { HudCard } from "./HudCard";
@@ -105,6 +105,20 @@ export function GroupsPanel({
     [activeGroups]
   );
   const hasPositionedGroups = positionedActiveGroups.length > 0;
+  const createGroupReady = groupLabel.trim().length > 0;
+  const addMembersReady = Boolean(assignGroupId && addUserIds.length > 0);
+  const podToggleReady = hasPositionedGroups && !loading && busy !== "toggle-pods";
+
+  useEffect(() => {
+    if (activeGroups.length === 0) {
+      if (assignGroupId) setAssignGroupId("");
+      if (addUserIds.length > 0) setAddUserIds([]);
+      return;
+    }
+    if (assignGroupId && activeGroups.some((group) => group.id === assignGroupId)) return;
+    setAssignGroupId(activeGroups[0]?.id ?? "");
+    setAddUserIds([]);
+  }, [activeGroups, addUserIds.length, assignGroupId]);
 
   async function run(label: string, action: ClassroomAction) {
     setBusy(label);
@@ -184,9 +198,9 @@ export function GroupsPanel({
           </div>
           <button
             type="button"
-            className="hud-btn"
+            className={`hud-btn${createGroupReady ? " hud-btn--ready" : ""}`}
             data-testid="create-group-button"
-            disabled={busy === "create-group" || !groupLabel.trim()}
+            disabled={busy === "create-group" || !createGroupReady}
             onClick={() => void createGroup()}
           >
             Create group
@@ -206,7 +220,7 @@ export function GroupsPanel({
             </div>
             <button
               type="button"
-              className={`hud-btn hud-btn--pod-toggle${podsEnabled ? " hud-btn--pod-toggle-active" : ""}`}
+              className={`hud-btn hud-btn--pod-toggle${podsEnabled ? " hud-btn--pod-toggle-active" : ""}${!podsEnabled && podToggleReady ? " hud-btn--ready" : ""}`}
               disabled={loading || busy === "toggle-pods" || !hasPositionedGroups}
               onClick={() => void run("toggle-pods", { type: "toggle-pods", enabled: !podsEnabled })}
             >
@@ -254,12 +268,12 @@ export function GroupsPanel({
                 })}
               </div>
             ) : assignGroupId && unassignedStudents.length === 0 ? (
-              <p className="small">All students are assigned to a group.</p>
+              <p className="small">All students currently in the room are already assigned to a group.</p>
             ) : null}
             <button
               type="button"
-              className="hud-btn"
-              disabled={busy === `assign-${assignGroupId}` || !assignGroupId || addUserIds.length === 0}
+              className={`hud-btn${addMembersReady ? " hud-btn--ready" : ""}`}
+              disabled={busy === `assign-${assignGroupId}` || !addMembersReady}
               onClick={() => void addMembers()}
             >
               Add to group
