@@ -923,6 +923,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             participants={participantList}
             localParticipantId={session.participantId}
             getAppearance={effectiveGetAppearance}
+            getReaction={(id) => getReaction(id)?.reaction}
             activeHelpRequestUserIds={activeHelpRequestUserIds}
             onSelfClick={() => setAvatarEditorOpen(true)}
             localWaveTriggered={waveTriggered}
@@ -984,6 +985,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             privateChecks={classroom.state?.privateChecks ?? []}
             spotlight={classroom.state?.spotlight}
             positioningMode={Boolean(positioningGroupId)}
+            getReaction={(id) => getReaction(id)?.reaction}
           />
         )}
       </div>
@@ -1082,6 +1084,25 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           ) : null}
           {media.permissionText ? <p className="hud-permission" style={{ padding: "4px 9px", fontSize: "9.5px", color: "var(--hud-tx-m)" }}>{media.permissionText}</p> : null}
         </div>
+
+        {/* Reactions */}
+        {CLIENT_TUNING.enableAvatarReactions ? (
+          <div className="hud-panel">
+            <div className="hud-reactions" aria-label="Reactions">
+              {(["thumbs-up", "confused", "question", "me", "pause", "celebrate"] as const).map((slug) => (
+                <button
+                  key={slug}
+                  type="button"
+                  aria-label={slug}
+                  disabled={!!classroom.state?.reactionsLocked}
+                  onClick={() => fireReaction(slug)}
+                >
+                  {slug === "thumbs-up" ? "👍" : slug === "confused" ? "😕" : slug === "question" ? "❓" : slug === "me" ? "🙋" : slug === "pause" ? "🤚" : "🎉"}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {/* D-pad */}
         <div className="hud-panel dpad-card">

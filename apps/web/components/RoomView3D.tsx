@@ -4,7 +4,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html } from "@react-three/drei";
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
 import { BufferAttribute, BufferGeometry, type MeshStandardMaterial, Vector3 } from "three";
-import type { AvatarAppearance, ClassroomGroup, ClassroomPrivateCheck, ClassroomSpotlight, QualityLevel, RoomManifest, WallAnchorSchema, WallObject, WallObjectPlacement, WallPlaneSchema } from "@3dspace/contracts";
+import type { AvatarAppearance, AvatarReactionSlug, ClassroomGroup, ClassroomPrivateCheck, ClassroomSpotlight, QualityLevel, RoomManifest, WallAnchorSchema, WallObject, WallObjectPlacement, WallPlaneSchema } from "@3dspace/contracts";
 import type { z } from "zod";
 import type { ParticipantView } from "./RoomClient";
 import { BlockyAvatar } from "./BlockyAvatar";
@@ -62,6 +62,7 @@ export function RoomView3D({
   privateChecks = [],
   spotlight,
   getAppearance,
+  getReaction,
   activeHelpRequestUserIds,
   onSelfClick,
   localWaveTriggered = false,
@@ -89,6 +90,7 @@ export function RoomView3D({
   privateChecks?: ClassroomPrivateCheck[];
   spotlight?: ClassroomSpotlight | null | undefined;
   getAppearance: (participantId: string) => AvatarAppearance;
+  getReaction?: (participantId: string) => AvatarReactionSlug | undefined;
   activeHelpRequestUserIds?: ReadonlySet<string>;
   onSelfClick?: () => void;
   localWaveTriggered?: boolean;
@@ -146,6 +148,7 @@ export function RoomView3D({
               helpRequestActive={activeHelpRequestUserIds?.has(participant.id) ?? false}
               waveTriggered={isLocal ? localWaveTriggered : !!(participant.state.waving)}
               onWaveComplete={isLocal && onLocalWaveComplete ? onLocalWaveComplete : () => {}}
+              {...(() => { const r = getReaction?.(participant.id); return r ? { reaction: r } : {}; })()}
               {...(isLocal && onSelfClick && !firstPerson ? { onClick: onSelfClick } : {})}
               {...(isLocal && firstPerson ? { hidden: true } : {})}
             />

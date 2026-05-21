@@ -1,6 +1,6 @@
 "use client";
 
-import type { ClassroomGroup, ClassroomPrivateCheck, ClassroomSpotlight, RoomManifest, WallObject } from "@3dspace/contracts";
+import type { AvatarReactionSlug, ClassroomGroup, ClassroomPrivateCheck, ClassroomSpotlight, RoomManifest, WallObject } from "@3dspace/contracts";
 import { computeGroupMemberPosition, projectAnchorRectTo2D, projectPositionTo2D } from "@3dspace/room-engine";
 import type { ParticipantView } from "./RoomClient";
 import { WallObjectCard } from "./WallObjectCard";
@@ -8,6 +8,15 @@ import { WallObjectCard } from "./WallObjectCard";
 function anchorPrivateChecks(privateChecks: ClassroomPrivateCheck[], anchorId: string) {
   return privateChecks.filter((check) => check.status === "open" && check.wallAnchorId === anchorId);
 }
+
+const REACTION_EMOJI_2D: Record<AvatarReactionSlug, string> = {
+  "thumbs-up": "👍",
+  "confused":  "😕",
+  "question":  "❓",
+  "me":        "🙋",
+  "pause":     "🤚",
+  "celebrate": "🎉"
+};
 
 export function RoomView2D({
   manifest,
@@ -19,7 +28,8 @@ export function RoomView2D({
   classroomGroups = [],
   privateChecks = [],
   spotlight,
-  positioningMode = false
+  positioningMode = false,
+  getReaction
 }: {
   manifest: RoomManifest;
   participants: ParticipantView[];
@@ -31,6 +41,7 @@ export function RoomView2D({
   privateChecks?: ClassroomPrivateCheck[];
   spotlight?: ClassroomSpotlight | null | undefined;
   positioningMode?: boolean;
+  getReaction?: (participantId: string) => AvatarReactionSlug | undefined;
 }) {
   function handlePointer(event: React.PointerEvent<SVGSVGElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -122,6 +133,7 @@ export function RoomView2D({
           const point = projectPositionTo2D(manifest, participant.state.position);
           const group = classroomGroups.find((g) => g.status === "active" && g.memberUserIds.includes(participant.id));
           const fillColor = group?.color ?? (participant.local ? "#eb5e28" : "#2f6b4f");
+          const reaction = getReaction?.(participant.id);
           return (
             <g key={participant.id}>
               <circle
@@ -133,6 +145,7 @@ export function RoomView2D({
                 strokeWidth="1.2"
               />
               {participant.state.media?.cameraEnabled ? <rect x={point.x + 2.5} y={point.y - 2.2} width="4" height="3" rx="0.6" fill="#17201a" /> : null}
+              {reaction ? <text x={point.x} y={point.y - 4.5} textAnchor="middle" fontSize="4.5">{REACTION_EMOJI_2D[reaction]}</text> : null}
               <text x={point.x} y={point.y + 6} textAnchor="middle" fontSize="2.4" fill="#17201a">{participant.displayName}</text>
             </g>
           );

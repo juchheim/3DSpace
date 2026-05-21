@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Billboard, Html } from "@react-three/drei";
 import { MathUtils, type Group, type Mesh } from "three";
-import type { AvatarAppearance } from "@3dspace/contracts";
+import type { AvatarAppearance, AvatarReactionSlug } from "@3dspace/contracts";
 import type { ParticipantView } from "./RoomClient";
 import {
   buildHeadMaterials,
@@ -23,6 +23,15 @@ import {
   type FaceMaterials,
 } from "../lib/avatarMaterials";
 
+const REACTION_EMOJI: Record<AvatarReactionSlug, string> = {
+  "thumbs-up": "👍",
+  "confused":  "😕",
+  "question":  "❓",
+  "me":        "🙋",
+  "pause":     "🤚",
+  "celebrate": "🎉"
+};
+
 export type BlockyAvatarProps = {
   participant: ParticipantView;
   groupColor?: string;
@@ -32,6 +41,7 @@ export type BlockyAvatarProps = {
   onWaveComplete: () => void;
   onClick?: () => void;
   hidden?: boolean;
+  reaction?: AvatarReactionSlug;
 };
 
 export const DEFAULT_APPEARANCE: AvatarAppearance = {
@@ -69,6 +79,7 @@ export function BlockyAvatar({
   onWaveComplete,
   onClick,
   hidden,
+  reaction,
 }: BlockyAvatarProps) {
   const position = participant.state.position;
   const movement = participant.state.movement;
@@ -296,6 +307,13 @@ export function BlockyAvatar({
       {/* Nameplate and camera feed are skipped when hidden (e.g. first-person) because Html ignores visible={false} */}
       {!hidden ? (
         <>
+          {reaction ? (
+            <Billboard position={[0, 2.1, 0]}>
+              <Html center distanceFactor={3} style={{ pointerEvents: "none" }}>
+                <div className="avatar-reaction">{REACTION_EMOJI[reaction]}</div>
+              </Html>
+            </Billboard>
+          ) : null}
           <Billboard position={[0, 1.52, 0]}>
             <Html center distanceFactor={3} style={{ pointerEvents: "none" }}>
               <div className="avatar-nameplate">
