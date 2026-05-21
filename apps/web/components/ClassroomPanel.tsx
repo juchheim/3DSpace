@@ -210,11 +210,12 @@ export function ClassroomPanel({
                     onTouchEnd={(e) => void run("whisper-radius", { type: "update-whisper-settings", maxRadiusMeters: Number((e.target as HTMLInputElement).value) })}
                   />
                 </label>
-                <label className="classroom-whisper-label" style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 5, fontSize: "11px" }}>
+                <label className="classroom-whisper-label" style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, fontSize: "11px" }}>
                   <input
                     type="checkbox"
                     checked={state.whisper.autoEnableInGroupWork}
                     onChange={(e) => void run("whisper-group-work", { type: "update-whisper-settings", autoEnableInGroupWork: e.target.checked })}
+                    style={{ width: 11, height: 11, margin: 0, flexShrink: 0 }}
                   />
                   Suggest during group work
                 </label>
