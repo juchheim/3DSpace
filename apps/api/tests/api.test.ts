@@ -1903,6 +1903,62 @@ describe("3dspace api", () => {
     await app.close();
   });
 
+  it("teacher can lock and unlock reactions; GET classroom reflects the value", async () => {
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-reactions-lock");
+    await addStudentMember(app, classRecord.id, "teacher-reactions-lock", "student-reactions-1", "Sam");
+
+    const lockResponse = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-reactions-lock", "Ms. Rivera"),
+      payload: { type: "set-reactions-locked", locked: true }
+    });
+    expect(lockResponse.statusCode).toBe(200);
+    expect(lockResponse.json().reactionsLocked).toBe(true);
+
+    const studentView = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom`,
+      headers: authHeaders("student-reactions-1", "Sam")
+    });
+    expect(studentView.statusCode).toBe(200);
+    expect(studentView.json().reactionsLocked).toBe(true);
+
+    const unlockResponse = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-reactions-lock", "Ms. Rivera"),
+      payload: { type: "set-reactions-locked", locked: false }
+    });
+    expect(unlockResponse.statusCode).toBe(200);
+    expect(unlockResponse.json().reactionsLocked).toBe(false);
+
+    await app.close();
+  });
+
+  it("student cannot lock reactions", async () => {
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "student-reactions-reject");
+    await addStudentMember(app, classRecord.id, "student-reactions-reject", "student-reactions-2", "Avery");
+
+    const attempt = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("student-reactions-2", "Avery"),
+      payload: { type: "set-reactions-locked", locked: true }
+    });
+    expect(attempt.statusCode).toBe(403);
+
+    await app.close();
+  });
+
   it("returns 404 for lesson actions when the feature flag is off", async () => {
     const app = await buildApp({
       config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),

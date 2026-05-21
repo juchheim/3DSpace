@@ -1595,6 +1595,11 @@ async function runClassroomAction(input: {
       state.avatarEditorLocked = input.action.locked;
       break;
     }
+    case "set-reactions-locked": {
+      requireTeacher(input.actor);
+      state.reactionsLocked = input.action.locked;
+      break;
+    }
   }
 
   return input.repository.updateClassroomState(input.roomId, {
