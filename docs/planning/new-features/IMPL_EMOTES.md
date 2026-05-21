@@ -6,6 +6,8 @@ Effort estimate: ~2 days.
 
 ## Status / Scope
 
+**Status:** Complete — shipped on `mvp-plus-one`.
+
 A small palette of avatar reactions (👍 got it, 😕 confused, ❓ question, 🙋 me!, 🤚 pause please, 🎉 done) fired from a HUD button. Reactions appear as a floating sprite above the avatar in 3D and a small badge in 2D for 2–3 seconds.
 
 **In scope (v1):**

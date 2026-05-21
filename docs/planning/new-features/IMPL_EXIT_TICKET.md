@@ -7,6 +7,8 @@ Effort estimate: ~3–4 days.
 
 ## Status / Scope
 
+**Status:** Complete — shipped on `mvp-plus-one`.
+
 Add a seventh lesson-run step kind, `exit-ticket`, that bundles a short-answer reflection + a confidence rating (1–5) + an optional multi-choice "what next?" question. When the teacher ends the lesson, the system surfaces a teacher-only `LessonRecap` with attendance, per-check counts, exit-ticket aggregates, and a CSV export.
 
 **In scope (v1):**

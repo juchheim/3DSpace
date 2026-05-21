@@ -6,6 +6,8 @@ Effort estimate: ~2 days.
 
 ## Status / Scope
 
+**Status:** Complete — shipped on `mvp-plus-one`.
+
 Students can silently request to "step out." Teachers approve with one tap. The student's avatar parks in a holding zone outside the seating area with a timer; their mic auto-mutes. Per-room durations log to `RoomEvents` for principal-level reports.
 
 **In scope (v1):**

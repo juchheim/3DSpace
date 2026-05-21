@@ -6,6 +6,8 @@ Effort estimate: ~3 days.
 
 ## Status / Scope
 
+**Status:** Complete — shipped on `mvp-plus-one`.
+
 A user (student or teacher) can toggle **Whisper mode**: their mic is heard at full gain only by listeners within a configurable radius (default 3 m) of the *speaker's* avatar; gain falls to zero outside. The room still hears the teacher and any non-whisper speakers at normal spatial-audio levels.
 
 **In scope (v1):**
