@@ -1319,6 +1319,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               state={classroom.state}
               manifest={manifest}
               currentUserId={identity.userId}
+              onRunAction={lesson.runAction}
             />
           ) : null}
           <Roster

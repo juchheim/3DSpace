@@ -3352,6 +3352,36 @@ body.lobby-dark::before {
   line-height: 1.45;
 }
 
+.lesson-callout-form {
+  display: grid;
+  gap: 8px;
+}
+
+.lesson-callout-field {
+  display: grid;
+  gap: 4px;
+}
+
+.lesson-callout-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.lesson-callout__status {
+  color: var(--hud-tx-m);
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-size: 10px;
+}
+
+.lesson-callout__status--error {
+  color: #e4a09a;
+}
+
+.lesson-callout__status--success {
+  color: #cfe8d8;
+}
+
 .lesson-add-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
