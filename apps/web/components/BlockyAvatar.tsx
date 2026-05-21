@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Billboard, Html } from "@react-three/drei";
 import { MathUtils, type Group, type Mesh } from "three";
-import type { AvatarAppearance, AvatarReactionSlug } from "@3dspace/contracts";
+import type { AvatarAppearance, AvatarReactionSlug, ParticipantAudioMode } from "@3dspace/contracts";
 import type { ParticipantView } from "./RoomClient";
 import {
   buildHeadMaterials,
@@ -42,6 +42,8 @@ export type BlockyAvatarProps = {
   onClick?: () => void;
   hidden?: boolean;
   reaction?: AvatarReactionSlug;
+  audioMode?: ParticipantAudioMode;
+  whisperRadiusMeters?: number;
 };
 
 export const DEFAULT_APPEARANCE: AvatarAppearance = {
@@ -80,6 +82,8 @@ export function BlockyAvatar({
   onClick,
   hidden,
   reaction,
+  audioMode,
+  whisperRadiusMeters = 3,
 }: BlockyAvatarProps) {
   const position = participant.state.position;
   const movement = participant.state.movement;
@@ -304,6 +308,20 @@ export function BlockyAvatar({
         </mesh>
       </group>
 
+      {/* Whisper floor ring + outer fade band */}
+      {audioMode === "whisper" ? (
+        <>
+          <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[Math.max(0.01, whisperRadiusMeters - 0.08), whisperRadiusMeters, 48]} />
+            <meshBasicMaterial color="#4488cc" transparent opacity={0.45} />
+          </mesh>
+          <mesh position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[whisperRadiusMeters, whisperRadiusMeters + 0.5, 48]} />
+            <meshBasicMaterial color="#4488cc" transparent opacity={0.12} />
+          </mesh>
+        </>
+      ) : null}
+
       {/* Nameplate and camera feed are skipped when hidden (e.g. first-person) because Html ignores visible={false} */}
       {!hidden ? (
         <>
@@ -317,7 +335,7 @@ export function BlockyAvatar({
           <Billboard position={[0, 1.52, 0]}>
             <Html center distanceFactor={3} style={{ pointerEvents: "none" }}>
               <div className="avatar-nameplate">
-                <span className="avatar-nameplate__name">{participant.displayName}</span>
+                <span className="avatar-nameplate__name">{participant.displayName}{audioMode === "whisper" ? " 🔇" : ""}</span>
                 <span className="avatar-nameplate__status">
                   {groupColor ? <span className="avatar-nameplate__group" style={{ color: groupColor }}>● </span> : null}
                   {participant.state.media?.speaking ? "speaking" : participant.state.media?.microphoneEnabled ? "mic on" : "mic off"}

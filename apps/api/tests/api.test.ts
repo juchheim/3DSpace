@@ -1959,6 +1959,57 @@ describe("3dspace api", () => {
     await app.close();
   });
 
+  it("teacher can update whisper settings and change persists", async () => {
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-whisper-settings");
+    await addStudentMember(app, classRecord.id, "teacher-whisper-settings", "student-whisper-1", "Sam");
+
+    const enableRes = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-whisper-settings", "Ms. Rivera"),
+      payload: { type: "update-whisper-settings", allowed: true, maxRadiusMeters: 5 }
+    });
+    expect(enableRes.statusCode).toBe(200);
+    expect(enableRes.json().whisper?.allowed).toBe(true);
+    expect(enableRes.json().whisper?.maxRadiusMeters).toBe(5);
+    expect(enableRes.json().whisper?.autoEnableInGroupWork).toBe(true);
+
+    const disableRes = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("teacher-whisper-settings", "Ms. Rivera"),
+      payload: { type: "update-whisper-settings", allowed: false }
+    });
+    expect(disableRes.statusCode).toBe(200);
+    expect(disableRes.json().whisper?.allowed).toBe(false);
+    expect(disableRes.json().whisper?.maxRadiusMeters).toBe(5);
+
+    await app.close();
+  });
+
+  it("student cannot update whisper settings", async () => {
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "student-whisper-reject");
+    await addStudentMember(app, classRecord.id, "student-whisper-reject", "student-whisper-2", "Avery");
+
+    const attempt = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/classroom/actions`,
+      headers: authHeaders("student-whisper-2", "Avery"),
+      payload: { type: "update-whisper-settings", allowed: true }
+    });
+    expect(attempt.statusCode).toBe(403);
+
+    await app.close();
+  });
+
   it("returns 404 for lesson actions when the feature flag is off", async () => {
     const app = await buildApp({
       config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),

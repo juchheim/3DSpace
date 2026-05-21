@@ -4,14 +4,15 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AvatarAppearance, AvatarReactionMessage, AvatarReactionSlug, AvatarStateMessage, Role, RoomManifest, RoomSessionResponse, ViewMode, WallObject } from "@3dspace/contracts";
-import { AvatarAppearanceMessageSchema, AvatarReactionMessageSchema } from "@3dspace/contracts";
+import { AvatarAppearanceMessageSchema, AvatarReactionMessageSchema, ParticipantAudioModeMessageSchema } from "@3dspace/contracts";
 import { computeGroupMemberPosition, createAvatarState, floorYFromZ, unprojectPointFrom2D } from "@3dspace/room-engine";
-import { joinRoom, listClassMembers, patchAvatarAppearance } from "../lib/api";
+import { joinRoom, listClassMembers, patchAvatarAppearance, postRoomEvent } from "../lib/api";
 import { CLIENT_TUNING } from "../lib/config";
 import { pickDisplayName } from "../lib/displayName";
 import { useAvatarMovement } from "../lib/useAvatarMovement";
 import { useAvatarAppearance } from "../lib/useAvatarAppearance";
 import { useAvatarReactions } from "../lib/useAvatarReactions";
+import { useAudioModes } from "../lib/useAudioModes";
 import { DEFAULT_APPEARANCE } from "./BlockyAvatar";
 import { useThirdPersonCamera } from "../lib/useThirdPersonCamera";
 import { useLocalMedia } from "../lib/useLocalMedia";
@@ -125,6 +126,10 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const seenParticipantsRef = useRef(new Set<string>());
   const { receiveAppearance, setLocalAppearance, getAppearance } = useAvatarAppearance();
   const { receive: receiveReaction, drop: dropReaction, getReaction, log } = useAvatarReactions();
+  const { receive: receiveAudioMode, drop: dropAudioMode, all: audioModes } = useAudioModes();
+  const [whisperMode, setWhisperMode] = useState<"normal" | "whisper">("normal");
+  const whisperModeRef = useRef(whisperMode);
+  whisperModeRef.current = whisperMode;
   const displayNameRef = useRef(identity.displayName);
   displayNameRef.current = identity.displayName;
   const media = useLocalMedia(session?.tuning.media);
@@ -165,11 +170,12 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     enabled: Boolean(session),
     publish: publishRealtime
   });
+  const role = session?.role ?? identity.role;
   const lesson = useLessonRun({
     state: classroom.state,
     loading: classroom.loading,
     error: classroom.error,
-    role: session?.role ?? identity.role,
+    role,
     runAction: classroom.runAction
   });
   const wallRealtimeHandlerRef = useRef(wall.handleRealtimeMessage);
@@ -369,11 +375,18 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
 
       if (message.type === "participant.leave.v1") {
         dropReaction(message.participantId);
+        dropAudioMode(message.participantId);
         setParticipants((current) => {
           const next = { ...current };
           delete next[message.participantId];
           return next;
         });
+        return;
+      }
+
+      if (message.type === "participant.audio-mode.v1") {
+        const parsed = ParticipantAudioModeMessageSchema.safeParse(message);
+        if (parsed.success) receiveAudioMode(parsed.data);
         return;
       }
 
@@ -739,10 +752,13 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           config: session.tuning.spatialAudio,
           manifest: manifest ?? undefined,
           wallObjects: wall.wallObjects,
-          wallMediaStreams
+          wallMediaStreams,
+          audioModes
         }
       : { participants: participantList }
   );
+
+  const getAudioMode = useCallback((id: string) => audioModes.get(id), [audioModes]);
 
   const createFileObject = useCallback(
     async (input: { anchorId: string; file: File; title: string; altText?: string | undefined; caption?: string | undefined }) => {
@@ -877,6 +893,47 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     [wall.controlObject]
   );
 
+  const whisperAllowed = classroom.state?.whisper?.allowed === true;
+  const whisperSuggested =
+    whisperAllowed &&
+    role === "student" &&
+    lesson.currentStep?.kind === "group-work" &&
+    classroom.state?.whisper?.autoEnableInGroupWork === true &&
+    whisperMode === "normal";
+
+  const toggleWhisper = useCallback(() => {
+    if (!session || role === "teacher") return;
+    const maxRadius = classroom.state?.whisper?.maxRadiusMeters ?? 3;
+    const nextMode: "normal" | "whisper" = whisperModeRef.current === "normal" ? "whisper" : "normal";
+    setWhisperMode(nextMode);
+    const msg = {
+      type: "participant.audio-mode.v1" as const,
+      participantId: session.participantId,
+      mode: nextMode,
+      radiusMeters: Math.min(3, maxRadius)
+    };
+    receiveAudioMode(msg);
+    realtimeRef.current?.publish(msg);
+    if (nextMode === "whisper") {
+      void postRoomEvent(identity, session.room.id, "whisper.toggled.v1", {
+        participantId: session.participantId,
+        displayName: identity.displayName,
+        radiusMeters: msg.radiusMeters
+      }).catch(() => undefined);
+    }
+  }, [session, role, classroom.state?.whisper?.maxRadiusMeters, receiveAudioMode, identity]);
+
+  // Auto-revert to normal when teacher disallows whisper mid-session
+  useEffect(() => {
+    if (!session || role === "teacher") return;
+    if (classroom.state?.whisper?.allowed !== false || whisperModeRef.current !== "whisper") return;
+    const msg = { type: "participant.audio-mode.v1" as const, participantId: session.participantId, mode: "normal" as const, radiusMeters: 3 };
+    setWhisperMode("normal");
+    receiveAudioMode(msg);
+    realtimeRef.current?.publish(msg);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classroom.state?.whisper?.allowed, session?.participantId, role]);
+
   const fireReaction = useCallback(
     (slug: AvatarReactionSlug) => {
       if (!session) return;
@@ -920,8 +977,6 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       </main>
     );
   }
-
-  const role = session?.role ?? identity.role;
 
   const avatarColor = role === "teacher" ? "#c07834" : "#389060";
   const initials = identity.displayName
@@ -976,6 +1031,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             localParticipantId={session.participantId}
             getAppearance={effectiveGetAppearance}
             getReaction={(id) => getReaction(id)?.reaction}
+            getAudioMode={getAudioMode}
             activeHelpRequestUserIds={activeHelpRequestUserIds}
             onSelfClick={() => setAvatarEditorOpen(true)}
             localWaveTriggered={waveTriggered}
@@ -1040,6 +1096,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             spotlight={classroom.state?.spotlight}
             positioningMode={Boolean(positioningGroupId)}
             getReaction={(id) => getReaction(id)?.reaction}
+            getAudioMode={getAudioMode}
           />
         )}
       </div>
@@ -1197,6 +1254,20 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
                 </button>
               ))}
             </div>
+          </div>
+        ) : null}
+
+        {/* Whisper toggle (students only, when allowed) */}
+        {CLIENT_TUNING.enableWhisper && role === "student" && whisperAllowed ? (
+          <div className="hud-panel">
+            <button
+              type="button"
+              className={`hud-btn${whisperMode === "whisper" ? " hud-btn--active" : ""}${whisperSuggested ? " hud-btn--glow" : ""}`}
+              onClick={toggleWhisper}
+            >
+              {whisperMode === "whisper" ? "🔇 Whisper on" : "🔊 Normal"}
+            </button>
+            {whisperSuggested ? <p className="hud-ctx-sub" style={{ fontSize: "10px", padding: "2px 0" }}>Suggested for group work</p> : null}
           </div>
         ) : null}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import type { AvatarReactionSlug, ClassroomGroup, ClassroomPrivateCheck, ClassroomSpotlight, RoomManifest, WallObject } from "@3dspace/contracts";
+import type { AvatarReactionSlug, ClassroomGroup, ClassroomPrivateCheck, ClassroomSpotlight, ParticipantAudioMode, RoomManifest, WallObject } from "@3dspace/contracts";
 import { computeGroupMemberPosition, projectAnchorRectTo2D, projectPositionTo2D } from "@3dspace/room-engine";
 import type { ParticipantView } from "./RoomClient";
 import { WallObjectCard } from "./WallObjectCard";
@@ -30,6 +30,7 @@ export function RoomView2D({
   spotlight,
   positioningMode = false,
   getReaction,
+  getAudioMode,
   hallpassZone
 }: {
   manifest: RoomManifest;
@@ -43,6 +44,7 @@ export function RoomView2D({
   spotlight?: ClassroomSpotlight | null | undefined;
   positioningMode?: boolean;
   getReaction?: (participantId: string) => AvatarReactionSlug | undefined;
+  getAudioMode?: (participantId: string) => { mode: ParticipantAudioMode; radiusMeters: number } | undefined;
   hallpassZone?: RoomManifest["hallpassHoldingZone"];
 }) {
   function handlePointer(event: React.PointerEvent<SVGSVGElement>) {
@@ -156,8 +158,31 @@ export function RoomView2D({
           const group = classroomGroups.find((g) => g.status === "active" && g.memberUserIds.includes(participant.id));
           const fillColor = group?.color ?? (participant.local ? "#eb5e28" : "#2f6b4f");
           const reaction = getReaction?.(participant.id);
+          const audioMode = getAudioMode?.(participant.id);
+          const whisperCircleRadius = (() => {
+            if (!audioMode || audioMode.mode !== "whisper") return null;
+            const offsetPt = projectPositionTo2D(manifest, {
+              x: participant.state.position.x + audioMode.radiusMeters,
+              y: participant.state.position.y,
+              z: participant.state.position.z
+            });
+            return Math.abs(offsetPt.x - point.x);
+          })();
           return (
             <g key={participant.id}>
+              {whisperCircleRadius !== null ? (
+                <circle
+                  cx={point.x}
+                  cy={point.y}
+                  r={whisperCircleRadius}
+                  fill="none"
+                  stroke="#4488cc"
+                  strokeWidth="0.7"
+                  strokeDasharray="1.8 1.2"
+                  opacity="0.75"
+                  pointerEvents="none"
+                />
+              ) : null}
               <circle
                 cx={point.x}
                 cy={point.y}

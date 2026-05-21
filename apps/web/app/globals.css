@@ -1300,6 +1300,16 @@ button.hud-heading-btn:hover {
   color: var(--chalk);
 }
 
+.hud-btn--glow {
+  box-shadow: 0 0 0 2px rgba(68, 136, 204, 0.55);
+  animation: whisper-glow-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes whisper-glow-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(68, 136, 204, 0.55); }
+  50%       { box-shadow: 0 0 0 5px rgba(68, 136, 204, 0.2); }
+}
+
 /* Focus / spotlight panel */
 
 .spotlight-callout {

@@ -189,6 +189,18 @@ export const AvatarAppearanceMessageSchema = z.object({
 
 export type AvatarAppearanceMessage = z.infer<typeof AvatarAppearanceMessageSchema>;
 
+export const ParticipantAudioModeSchema = z.enum(["normal", "whisper"]);
+
+export const ParticipantAudioModeMessageSchema = z.object({
+  type: z.literal("participant.audio-mode.v1"),
+  participantId: z.string(),
+  mode: ParticipantAudioModeSchema,
+  radiusMeters: z.number().positive().max(20).default(3)
+});
+
+export type ParticipantAudioMode = z.infer<typeof ParticipantAudioModeSchema>;
+export type ParticipantAudioModeMessage = z.infer<typeof ParticipantAudioModeMessageSchema>;
+
 export const AvatarReactionSlugSchema = z.enum([
   "thumbs-up", "confused", "question", "me", "pause", "celebrate"
 ]);
@@ -859,6 +871,11 @@ export const ClassroomStateSchema = z.object({
   lessonRun: LessonRunSchema.nullable().default(null),
   avatarEditorLocked: z.boolean().default(false).optional(),
   reactionsLocked: z.boolean().default(false).optional(),
+  whisper: z.object({
+    allowed: z.boolean().default(false),
+    maxRadiusMeters: z.number().positive().max(20).default(3),
+    autoEnableInGroupWork: z.boolean().default(true)
+  }).default({ allowed: false, maxRadiusMeters: 3, autoEnableInGroupWork: true }).optional(),
   createdAt: z.string(),
   updatedAt: z.string()
 });
@@ -1078,6 +1095,13 @@ export const ClassroomReturnFromHallpassActionSchema = ClassroomActionBaseSchema
   requestId: z.string().optional()
 });
 
+export const ClassroomUpdateWhisperSettingsActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("update-whisper-settings"),
+  allowed: z.boolean().optional(),
+  maxRadiusMeters: z.number().positive().max(20).optional(),
+  autoEnableInGroupWork: z.boolean().optional()
+});
+
 export const ClassroomActionSchema = z.discriminatedUnion("type", [
   ClassroomRaiseHandActionSchema,
   ClassroomCancelHelpActionSchema,
@@ -1115,7 +1139,8 @@ export const ClassroomActionSchema = z.discriminatedUnion("type", [
   ClassroomRequestHallpassActionSchema,
   ClassroomApproveHallpassActionSchema,
   ClassroomDenyHallpassActionSchema,
-  ClassroomReturnFromHallpassActionSchema
+  ClassroomReturnFromHallpassActionSchema,
+  ClassroomUpdateWhisperSettingsActionSchema
 ]);
 
 export const ClassroomStateChangedRealtimeSchema = z.object({

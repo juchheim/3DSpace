@@ -250,3 +250,10 @@ export function runClassroomAction(identity: ApiIdentity, roomId: string, input:
     body: input
   });
 }
+
+export function postRoomEvent(identity: ApiIdentity, roomId: string, type: string, payload: Record<string, unknown> = {}) {
+  return apiFetch<{ id: string; roomId: string; type: string; persisted: boolean; createdAt: string }>(
+    `/v1/rooms/${roomId}/events`,
+    { method: "POST", identity, body: { type, payload } }
+  );
+}

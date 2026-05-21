@@ -1686,6 +1686,16 @@ async function runClassroomAction(input: {
       });
       break;
     }
+    case "update-whisper-settings": {
+      requireTeacher(input.actor);
+      const current = state.whisper ?? { allowed: false, maxRadiusMeters: 3, autoEnableInGroupWork: true };
+      state.whisper = {
+        allowed: input.action.allowed ?? current.allowed,
+        maxRadiusMeters: input.action.maxRadiusMeters ?? current.maxRadiusMeters,
+        autoEnableInGroupWork: input.action.autoEnableInGroupWork ?? current.autoEnableInGroupWork
+      };
+      break;
+    }
   }
 
   return input.repository.updateClassroomState(input.roomId, {

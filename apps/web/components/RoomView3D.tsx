@@ -4,7 +4,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html } from "@react-three/drei";
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
 import { BufferAttribute, BufferGeometry, type MeshStandardMaterial, Vector3 } from "three";
-import type { AvatarAppearance, AvatarReactionSlug, ClassroomGroup, ClassroomPrivateCheck, ClassroomSpotlight, QualityLevel, RoomManifest, WallAnchorSchema, WallObject, WallObjectPlacement, WallPlaneSchema } from "@3dspace/contracts";
+import type { AvatarAppearance, AvatarReactionSlug, ClassroomGroup, ClassroomPrivateCheck, ClassroomSpotlight, ParticipantAudioMode, QualityLevel, RoomManifest, WallAnchorSchema, WallObject, WallObjectPlacement, WallPlaneSchema } from "@3dspace/contracts";
 import type { z } from "zod";
 import type { ParticipantView } from "./RoomClient";
 import { BlockyAvatar } from "./BlockyAvatar";
@@ -63,6 +63,7 @@ export function RoomView3D({
   spotlight,
   getAppearance,
   getReaction,
+  getAudioMode,
   activeHelpRequestUserIds,
   onSelfClick,
   localWaveTriggered = false,
@@ -92,6 +93,7 @@ export function RoomView3D({
   spotlight?: ClassroomSpotlight | null | undefined;
   getAppearance: (participantId: string) => AvatarAppearance;
   getReaction?: (participantId: string) => AvatarReactionSlug | undefined;
+  getAudioMode?: (participantId: string) => { mode: ParticipantAudioMode; radiusMeters: number } | undefined;
   activeHelpRequestUserIds?: ReadonlySet<string>;
   onSelfClick?: () => void;
   localWaveTriggered?: boolean;
@@ -152,6 +154,7 @@ export function RoomView3D({
               waveTriggered={isLocal ? localWaveTriggered : !!(participant.state.waving)}
               onWaveComplete={isLocal && onLocalWaveComplete ? onLocalWaveComplete : () => {}}
               {...(() => { const r = getReaction?.(participant.id); return r ? { reaction: r } : {}; })()}
+              {...(() => { const m = getAudioMode?.(participant.id); return m ? { audioMode: m.mode, whisperRadiusMeters: m.radiusMeters } : {}; })()}
               {...(isLocal && onSelfClick && !firstPerson ? { onClick: onSelfClick } : {})}
               {...(isLocal && firstPerson ? { hidden: true } : {})}
             />

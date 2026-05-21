@@ -184,6 +184,46 @@ export function ClassroomPanel({
             </div>
           ) : null}
         </HudCard>
+        {CLIENT_TUNING.enableWhisper ? (
+          <HudCard title="Whisper" ariaLabel="Whisper settings" defaultCollapsed>
+            <button
+              type="button"
+              className="hud-btn"
+              disabled={busy === "whisper-allowed"}
+              onClick={() => void run("whisper-allowed", { type: "update-whisper-settings", allowed: !state?.whisper?.allowed })}
+            >
+              {state?.whisper?.allowed ? "Disable whisper" : "Allow whisper"}
+            </button>
+            {state?.whisper?.allowed ? (
+              <>
+                <label className="classroom-whisper-label" style={{ display: "block", marginTop: 6, fontSize: "11px" }}>
+                  Max radius: {state.whisper.maxRadiusMeters} m
+                  <input
+                    type="range"
+                    min={1}
+                    max={10}
+                    step={1}
+                    style={{ display: "block", width: "100%", marginTop: 2 }}
+                    defaultValue={state.whisper.maxRadiusMeters}
+                    onMouseUp={(e) => void run("whisper-radius", { type: "update-whisper-settings", maxRadiusMeters: Number((e.target as HTMLInputElement).value) })}
+                    onTouchEnd={(e) => void run("whisper-radius", { type: "update-whisper-settings", maxRadiusMeters: Number((e.target as HTMLInputElement).value) })}
+                  />
+                </label>
+                <label className="classroom-whisper-label" style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 5, fontSize: "11px" }}>
+                  <input
+                    type="checkbox"
+                    checked={state.whisper.autoEnableInGroupWork}
+                    onChange={(e) => void run("whisper-group-work", { type: "update-whisper-settings", autoEnableInGroupWork: e.target.checked })}
+                  />
+                  Suggest during group work
+                </label>
+                <p className="small" style={{ marginTop: 5, color: "var(--hud-tx-m)", fontSize: "9.5px" }}>
+                  Whisper mode — quieter for the room, not private.
+                </p>
+              </>
+            ) : null}
+          </HudCard>
+        ) : null}
         {showHallPasses ? (
           <HudCard
             title="Hall passes"

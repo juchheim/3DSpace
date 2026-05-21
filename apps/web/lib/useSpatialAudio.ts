@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { RoomManifest, SpatialAudioConfig, WallObject } from "@3dspace/contracts";
+import type { ParticipantAudioMode, RoomManifest, SpatialAudioConfig, WallObject } from "@3dspace/contracts";
 import { getWallAnchorAudioPosition } from "@3dspace/room-engine";
 import type { ParticipantView } from "../components/RoomClient";
 
@@ -19,6 +19,7 @@ export function useSpatialAudio(input: {
   manifest?: RoomManifest | undefined;
   wallObjects?: WallObject[] | undefined;
   wallMediaStreams?: Record<string, { audioStream?: MediaStream | null | undefined }> | undefined;
+  audioModes?: Map<string, { mode: ParticipantAudioMode; radiusMeters: number }> | undefined;
 }) {
   const contextRef = useRef<AudioContext | null>(null);
   const nodesRef = useRef(new Map<string, SpatialNode>());
@@ -89,7 +90,18 @@ export function useSpatialAudio(input: {
       node.panner.positionX.value = sourcePosition.x;
       node.panner.positionY.value = sourcePosition.y;
       node.panner.positionZ.value = sourcePosition.z;
-      node.gain.gain.value = participant.state.media?.microphoneEnabled ? 1 : 0;
+
+      const audioMode = input.audioModes?.get(participant.id);
+      if (audioMode?.mode === "whisper") {
+        const dx = listenerPosition.x - sourcePosition.x;
+        const dz = listenerPosition.z - sourcePosition.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        const micOn = participant.state.media?.microphoneEnabled ? 1 : 0;
+        const targetGain = micOn * (dist <= audioMode.radiusMeters ? 1 : 0);
+        node.gain.gain.setTargetAtTime(targetGain, context.currentTime, 0.1);
+      } else {
+        node.gain.gain.value = participant.state.media?.microphoneEnabled ? 1 : 0;
+      }
     }
 
     for (const object of input.wallObjects ?? []) {
@@ -126,7 +138,7 @@ export function useSpatialAudio(input: {
         nodesRef.current.delete(participantId);
       }
     });
-  }, [input.participants, input.localParticipantId, input.config, input.manifest, input.wallObjects, input.wallMediaStreams]);
+  }, [input.participants, input.localParticipantId, input.config, input.manifest, input.wallObjects, input.wallMediaStreams, input.audioModes]);
 
   useEffect(
     () => () => {

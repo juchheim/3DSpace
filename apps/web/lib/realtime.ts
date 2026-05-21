@@ -6,6 +6,7 @@ import type {
   AvatarStateMessage,
   ClassroomStateChangedRealtimeSchema,
   ClassroomStateRealtimeSchema,
+  ParticipantAudioModeMessage,
   Role,
   RoomSessionResponse,
   WallModerationStateMessageSchema,
@@ -37,7 +38,7 @@ export type WallRealtimeMessage =
 
 export type ClassroomRealtimeMessage = z.infer<typeof ClassroomStateChangedRealtimeSchema> | z.infer<typeof ClassroomStateRealtimeSchema>;
 
-export type RealtimeMessage = AvatarStateMessage | AvatarAppearanceMessage | AvatarReactionMessage | PresenceMessage | LeaveMessage | WallRealtimeMessage | ClassroomRealtimeMessage;
+export type RealtimeMessage = AvatarStateMessage | AvatarAppearanceMessage | AvatarReactionMessage | ParticipantAudioModeMessage | PresenceMessage | LeaveMessage | WallRealtimeMessage | ClassroomRealtimeMessage;
 
 export type RemoteMediaUpdate = {
   participantId: string;
