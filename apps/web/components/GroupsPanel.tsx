@@ -198,7 +198,7 @@ export function GroupsPanel({
             <div>
               <div className="pod-toggle-row__label">
                 <span>Pod audio</span>
-                <span className={`tag${podsEnabled ? " active" : ""}`}>{podsEnabled ? "On" : "Off"}</span>
+                <span className={`pod-toggle-row__status${podsEnabled ? " pod-toggle-row__status--active" : ""}`}>{podsEnabled ? "On" : "Off"}</span>
               </div>
               <p className="pod-toggle-row__hint" title="Pods make group work quieter, not private.">
                 {hasPositionedGroups ? "Quieter, not private." : "Position a group to enable pod audio."}
@@ -206,7 +206,7 @@ export function GroupsPanel({
             </div>
             <button
               type="button"
-              className={`hud-btn${podsEnabled ? " hud-btn--active" : ""}`}
+              className={`hud-btn hud-btn--pod-toggle${podsEnabled ? " hud-btn--pod-toggle-active" : ""}`}
               disabled={loading || busy === "toggle-pods" || !hasPositionedGroups}
               onClick={() => void run("toggle-pods", { type: "toggle-pods", enabled: !podsEnabled })}
             >
