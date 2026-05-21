@@ -58,12 +58,9 @@ export function LessonRunControls({
     void execute("advance", { type: "advance-lesson-step" });
   }, [execute, run]);
 
-  if (!run) return null;
-
-  const canStart = (run.status === "draft" || run.status === "ready") && run.steps.length > 0;
-  const isActive = run.status === "running" || run.status === "paused";
-  const stepNumber = run.currentStepIndex >= 0 ? run.currentStepIndex + 1 : 0;
-  const advanceLabel = run.currentStepIndex >= run.steps.length - 1 ? "Finish" : "Advance";
+  const canStart = Boolean(
+    run && (run.status === "draft" || run.status === "ready") && run.steps.length > 0
+  );
   const dismissStartAlert = useCallback(() => setStartAlert(false), []);
 
   useEffect(() => {
@@ -74,6 +71,12 @@ export function LessonRunControls({
     }
     prevCanStartRef.current = canStart;
   }, [canStart]);
+
+  if (!run) return null;
+
+  const isActive = run.status === "running" || run.status === "paused";
+  const stepNumber = run.currentStepIndex >= 0 ? run.currentStepIndex + 1 : 0;
+  const advanceLabel = run.currentStepIndex >= run.steps.length - 1 ? "Finish" : "Advance";
 
   return (
     <HudCard
