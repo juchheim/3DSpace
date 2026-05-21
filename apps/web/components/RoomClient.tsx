@@ -3,14 +3,15 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AvatarAppearance, AvatarStateMessage, Role, RoomManifest, RoomSessionResponse, ViewMode, WallObject } from "@3dspace/contracts";
-import { AvatarAppearanceMessageSchema } from "@3dspace/contracts";
+import type { AvatarAppearance, AvatarReactionMessage, AvatarReactionSlug, AvatarStateMessage, Role, RoomManifest, RoomSessionResponse, ViewMode, WallObject } from "@3dspace/contracts";
+import { AvatarAppearanceMessageSchema, AvatarReactionMessageSchema } from "@3dspace/contracts";
 import { computeGroupMemberPosition, createAvatarState, floorYFromZ, unprojectPointFrom2D } from "@3dspace/room-engine";
 import { joinRoom, listClassMembers, patchAvatarAppearance } from "../lib/api";
 import { CLIENT_TUNING } from "../lib/config";
 import { pickDisplayName } from "../lib/displayName";
 import { useAvatarMovement } from "../lib/useAvatarMovement";
 import { useAvatarAppearance } from "../lib/useAvatarAppearance";
+import { useAvatarReactions } from "../lib/useAvatarReactions";
 import { DEFAULT_APPEARANCE } from "./BlockyAvatar";
 import { useThirdPersonCamera } from "../lib/useThirdPersonCamera";
 import { useLocalMedia } from "../lib/useLocalMedia";
@@ -123,6 +124,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const localAppearanceRef = useRef<AvatarAppearance>(DEFAULT_APPEARANCE);
   const seenParticipantsRef = useRef(new Set<string>());
   const { receiveAppearance, setLocalAppearance, getAppearance } = useAvatarAppearance();
+  const { receive: receiveReaction, drop: dropReaction, getReaction } = useAvatarReactions();
   const displayNameRef = useRef(identity.displayName);
   displayNameRef.current = identity.displayName;
   const media = useLocalMedia(session?.tuning.media);
@@ -314,6 +316,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       if (message.type.startsWith("wall.")) return;
 
       if (message.type === "participant.leave.v1") {
+        dropReaction(message.participantId);
         setParticipants((current) => {
           const next = { ...current };
           delete next[message.participantId];
@@ -375,6 +378,12 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         if (parsed.success) {
           receiveAppearance(parsed.data.participantId, parsed.data.appearance);
         }
+        return;
+      }
+
+      if (message.type === "avatar.reaction.v1") {
+        const parsed = AvatarReactionMessageSchema.safeParse(message);
+        if (parsed.success) receiveReaction(parsed.data);
         return;
       }
 
@@ -814,6 +823,21 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       await wall.controlObject(objectId, { action });
     },
     [wall.controlObject]
+  );
+
+  const fireReaction = useCallback(
+    (slug: AvatarReactionSlug) => {
+      if (!session) return;
+      const msg: AvatarReactionMessage = {
+        type: "avatar.reaction.v1",
+        participantId: session.participantId,
+        reaction: slug,
+        expiresAt: new Date(Date.now() + 2500).toISOString()
+      };
+      receiveReaction(msg);
+      realtimeRef.current?.publish(msg);
+    },
+    [session, receiveReaction]
   );
 
   const exitToLobby = (label: string) => (
