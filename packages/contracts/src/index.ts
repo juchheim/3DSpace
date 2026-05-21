@@ -188,6 +188,20 @@ export const AvatarAppearanceMessageSchema = z.object({
 
 export type AvatarAppearanceMessage = z.infer<typeof AvatarAppearanceMessageSchema>;
 
+export const AvatarReactionSlugSchema = z.enum([
+  "thumbs-up", "confused", "question", "me", "pause", "celebrate"
+]);
+
+export const AvatarReactionMessageSchema = z.object({
+  type: z.literal("avatar.reaction.v1"),
+  participantId: z.string(),
+  reaction: AvatarReactionSlugSchema,
+  expiresAt: z.string()
+});
+
+export type AvatarReactionSlug = z.infer<typeof AvatarReactionSlugSchema>;
+export type AvatarReactionMessage = z.infer<typeof AvatarReactionMessageSchema>;
+
 export const UserSchema = z.object({
   id: z.string(),
   externalAuthId: z.string(),
@@ -834,6 +848,7 @@ export const ClassroomStateSchema = z.object({
   spotlight: ClassroomSpotlightSchema.nullable().default(null),
   lessonRun: LessonRunSchema.nullable().default(null),
   avatarEditorLocked: z.boolean().default(false).optional(),
+  reactionsLocked: z.boolean().default(false).optional(),
   createdAt: z.string(),
   updatedAt: z.string()
 });
@@ -1029,6 +1044,11 @@ export const ClassroomSetAvatarEditorLockedActionSchema = ClassroomActionBaseSch
   locked: z.boolean()
 });
 
+export const ClassroomSetReactionsLockedActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("set-reactions-locked"),
+  locked: z.boolean()
+});
+
 export const ClassroomActionSchema = z.discriminatedUnion("type", [
   ClassroomRaiseHandActionSchema,
   ClassroomCancelHelpActionSchema,
@@ -1061,7 +1081,8 @@ export const ClassroomActionSchema = z.discriminatedUnion("type", [
   ClassroomEndLessonRunActionSchema,
   ClassroomAbandonLessonRunActionSchema,
   ClassroomClearLessonRunActionSchema,
-  ClassroomSetAvatarEditorLockedActionSchema
+  ClassroomSetAvatarEditorLockedActionSchema,
+  ClassroomSetReactionsLockedActionSchema
 ]);
 
 export const ClassroomStateChangedRealtimeSchema = z.object({
