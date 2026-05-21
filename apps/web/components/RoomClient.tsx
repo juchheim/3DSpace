@@ -306,9 +306,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   }, []);
 
   useEffect(() => {
-    if (!movement.avatarState) return;
+    if (!movement.avatarState || viewMode !== "3d") return;
     camera.yawRef.current = movement.avatarState.rotation.y;
-  }, [movement.avatarState?.participantId]);
+  }, [movement.avatarState?.participantId, movement.avatarState?.rotation.y, viewMode]);
 
   const releaseMedia = media.release;
   const teardownSession = useCallback(() => {

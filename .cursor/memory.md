@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-21 (Teachers can re-copy room invite codes from lobby and in-room HUD)
+Last updated: 2026-05-21 (Exit-ticket recap modal + Phase 7 UI)
 
 ## Project Summary
 
@@ -176,8 +176,12 @@ Screen share, computer audio, teacher moderation, rich wall placement, room buil
 - **2026-05-18**: Safari LiveKit ICE — minimal repro at `/debug/livekit-safari/[roomId]` (`LiveKitSafariDebug.tsx`) rules out main app join/realtime/classroom code; raw relay-only TURN probe returns `candidates: []` on school Wi‑Fi and cellular hotspot. Documented in `docs/planning/mvp+1/safari-livekit-ice-failure.md`; investigation shifts to Safari × LiveKit Cloud TURN / support ticket.
 - **2026-05-19**: Re-granting board access could stack multiple active grants for one student while the student UI only honored the newest one. Fixed by revoking prior active grants for that student before persisting a new grant; targeted API tests now cover the replacement behavior.
 - **2026-05-19**: HUD panel smallest text was hard to read against the dark panel background. Lightened `--hud-tx-m` and `--hud-tx-d` tokens in `globals.css` for better contrast on secondary labels, subs, chevrons, and anchor hints.
+- **2026-05-21**: Committed and pushed exit-ticket phases 1–6 on `mvp-plus-one` (`0d5f635`): contracts, server orchestration/recap/CSV/end-gate, authoring UI, `ApiError`, API tests.
+- **2026-05-21**: Phase 7 exit-ticket recap UI: `LessonRecapPanel` modal (attendance, check counts, exit-ticket ratio/confidence, reflections list, authenticated CSV download), `fetchLessonRecap`/`lessonRecapCsvUrl`/`downloadLessonRecapCsv` in `apps/web/lib/api.ts`, auto-open on lesson `running|paused` → `ended` and **Last lesson recap** button in `LessonRunControls`. Follow-up fixed combined student exit-ticket submit path by using raw classroom actions for the reflection/confidence/what's-next sequence; using `lesson.runAction` added a stale `expectedVersion` after the first submit.
+- **2026-05-21**: Teacher lesson-run ready state now surfaces as a highlighted Start button plus `HudCard` alert dot on `LessonRunControls`; the pulsing dot dismisses when the teacher clicks into the card or starts the run.
 - **2026-05-21**: Teachers could only copy invite codes immediately after creating a classroom. Added `GET /v1/rooms/:roomId/invite` (teacher-only, get-or-create shareable student invite), `listInvitesForRoom` repository method, shared `CopyRoomInviteButton` in lobby **Your rooms** and `RoomClient` top HUD bar.
 - **2026-05-21**: Join spawn rotation used fixed `spawn.rotation.y = Math.PI` (+Z), so back-row and side seats often faced walls. `createAvatarState` now sets yaw via `rotationFacingRoomCenter` (bounds center, same `atan2` as movement/camera).
+- **2026-05-21**: Spawn center-facing regressed in 3D because `useAvatarMovement` overwrites avatar `rotation.y` from `cameraYawRef` (default 0) every frame. Fixed by seeding `cameraYawRef` from spawn rotation in `createAvatarState` effect and syncing camera when spawn rotation is set.
 - **2026-05-19**: Teacher Help Queue lost board-access grant UI after HUD redesign (grant controls only lived in floating `StudentDetailPanel`). Restored presets, share-type checkboxes, and Grant board in Help Queue via shared `BoardAccessGrantControls`.
 
 ## Maintenance Rules

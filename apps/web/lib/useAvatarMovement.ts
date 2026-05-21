@@ -44,6 +44,10 @@ export function useAvatarMovement(input: {
       ...(input.occupiedPositions ? { occupiedPositions: input.occupiedPositions } : {}),
       viewMode: input.viewMode
     });
+    // 3D movement copies rotation from camera yaw each frame; initialize it from spawn facing.
+    if (input.cameraYawRef) {
+      input.cameraYawRef.current = next.rotation.y;
+    }
     stateRef.current = next;
     setAvatarState(next);
   }, [input.manifest, input.participantId, input.role]);
