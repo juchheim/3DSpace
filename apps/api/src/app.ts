@@ -1909,6 +1909,29 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     return repository.createInvite(inviteInput);
   });
 
+  const ROOM_INVITE_TTL_MINUTES = 60 * 24 * 7;
+
+  function isInviteShareable(invite: { expiresAt?: string | undefined }) {
+    return !invite.expiresAt || new Date(invite.expiresAt).getTime() >= Date.now();
+  }
+
+  app.get("/v1/rooms/:roomId/invite", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomId, request);
+    const room = await requireRoomTeacher(repository, params.roomId, auth);
+    const invites = await repository.listInvitesForRoom(room.id);
+    const existing = invites.find((invite) => invite.role === "student" && isInviteShareable(invite));
+    if (existing) return existing;
+    const expiresAt = new Date(Date.now() + ROOM_INVITE_TTL_MINUTES * 60_000).toISOString();
+    return repository.createInvite({
+      classId: room.classId,
+      roomId: room.id,
+      role: "student",
+      createdByUserId: auth.userId,
+      expiresAt
+    });
+  });
+
   app.post("/v1/invites/:inviteCode/accept", async (request) => {
     const auth = await requireUser(request, config, repository);
     const params = parseParams(ParamsWithInviteCode, request);

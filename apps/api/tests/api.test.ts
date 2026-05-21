@@ -97,6 +97,21 @@ describe("3dspace api", () => {
     expect(inviteResponse.statusCode).toBe(200);
     const invite = inviteResponse.json();
 
+    const getInviteResponse = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomWithManifest.room.id}/invite`,
+      headers: authHeaders("teacher-1", "Ms. Rivera")
+    });
+    expect(getInviteResponse.statusCode).toBe(200);
+    expect(getInviteResponse.json().code).toBe(invite.code);
+
+    const studentGetInviteResponse = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomWithManifest.room.id}/invite`,
+      headers: authHeaders("student-1", "Avery")
+    });
+    expect(studentGetInviteResponse.statusCode).toBe(403);
+
     const sessionResponse = await app.inject({
       method: "POST",
       url: `/v1/rooms/${roomWithManifest.room.id}/session`,

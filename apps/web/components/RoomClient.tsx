@@ -42,6 +42,7 @@ import { LessonRunControls } from "./LessonRunControls";
 import { LessonStudentCallout } from "./LessonStudentCallout";
 import { LessonTimelinePanel } from "./LessonTimelinePanel";
 import { AvatarEditorPanel } from "./AvatarEditorPanel";
+import { CopyRoomInviteButton } from "./CopyRoomInviteButton";
 
 const RoomView3D = dynamic(() => import("./RoomView3D").then((module) => module.RoomView3D), {
   ssr: false,
@@ -1109,6 +1110,17 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         <div className="room-hud-top-sep" />
         <span className="room-hud-name">{roomName}</span>
         <span className="room-hud-meta">{role} · {status}</span>
+        {role === "teacher" && session ? (
+          <>
+            <div className="room-hud-top-sep" />
+            <CopyRoomInviteButton
+              identity={identity}
+              roomId={roomId}
+              className="room-exit-btn"
+              disabled={leaving}
+            />
+          </>
+        ) : null}
         <div className="room-hud-top-fill" />
         <div className="room-hud-top-sep" />
         <div className="toggle" aria-label="View mode">

@@ -71,6 +71,7 @@ export type Repository = {
     createdByUserId: string;
   }): Promise<Invite>;
   getInvite(code: string): Promise<Invite | undefined>;
+  listInvitesForRoom(roomId: string): Promise<Invite[]>;
   markInviteUsed(code: string): Promise<Invite>;
   createRoom(input: { classId: string; name: string; settings: RoomSettings; manifest: RoomManifest }): Promise<{ room: RoomRecord; manifest: RoomManifest }>;
   listRoomsForUser(userId: string): Promise<RoomRecord[]>;
@@ -277,6 +278,12 @@ export class MemoryRepository implements Repository {
 
   async getInvite(code: string) {
     return this.invites.get(code.toUpperCase());
+  }
+
+  async listInvitesForRoom(roomId: string) {
+    return [...this.invites.values()]
+      .filter((invite) => invite.roomId === roomId)
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   }
 
   async markInviteUsed(code: string) {

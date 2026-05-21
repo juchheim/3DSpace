@@ -340,6 +340,12 @@ export class MongoRepository implements Repository {
     return entity<Invite | undefined>(await this.models.Invite.findOne({ code: code.toUpperCase() }).lean());
   }
 
+  async listInvitesForRoom(roomId: string) {
+    return entities<Invite>(
+      await this.models.Invite.find({ roomId }).sort({ createdAt: -1 }).lean()
+    );
+  }
+
   async markInviteUsed(code: string) {
     const record = await this.models.Invite.findOneAndUpdate({ code: code.toUpperCase() }, { $set: { usedAt: nowIso() } }, { new: true, lean: true });
     if (!record) throw notFound("Invite not found");

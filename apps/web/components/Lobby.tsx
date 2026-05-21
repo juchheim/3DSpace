@@ -5,12 +5,10 @@ import { useEffect, useState } from "react";
 import type { ClassRecord, Invite, RoomRecord, RoomSettings } from "@3dspace/contracts";
 import { acceptInvite, createClass, createInvite, createRoom, deleteRoom, listClasses, listRooms, patchRoom } from "../lib/api";
 import { AuthGate } from "../lib/auth";
-import { APP_URL, CLIENT_TUNING } from "../lib/config";
+import { CLIENT_TUNING } from "../lib/config";
+import { inviteJoinUrl } from "../lib/invite";
 import { usePersistentIdentity } from "../lib/usePersistentIdentity";
-
-function inviteJoinUrl(roomId: string, code: string) {
-  return `${APP_URL}/rooms/${roomId}?invite=${encodeURIComponent(code)}`;
-}
+import { CopyRoomInviteButton } from "./CopyRoomInviteButton";
 
 export function Lobby() {
   const { identity, loaded, clerkEnabled, signedIn } = usePersistentIdentity();
@@ -329,6 +327,14 @@ export function Lobby() {
                     {classes.find((c) => c.id === room.classId)?.name ?? room.classId}
                   </span>
                   <div className="lb-room-acts">
+                    {canManageRoom(room) ? (
+                      <CopyRoomInviteButton
+                        identity={identity}
+                        roomId={room.id}
+                        className="lb-btn lb-btn-sec lb-btn-sm"
+                        disabled={busy}
+                      />
+                    ) : null}
                     <Link className="lb-btn lb-btn-sec lb-btn-sm" href={`/rooms/${room.id}`}>
                       Open →
                     </Link>

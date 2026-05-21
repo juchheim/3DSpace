@@ -1257,6 +1257,7 @@ export const apiRoutes: ApiRoute[] = [
   { method: "get", path: "/v1/classes/{classId}/members", summary: "List class memberships", tags: ["classes"], response: z.array(ClassMembershipSchema) },
   { method: "post", path: "/v1/classes/{classId}/members", summary: "Add or update a class membership", tags: ["classes"], request: UpsertClassMemberRequestSchema, response: ClassMembershipSchema },
   { method: "post", path: "/v1/classes/{classId}/invites", summary: "Create a class or room invite", tags: ["classes"], request: CreateInviteRequestSchema, response: InviteSchema },
+  { method: "get", path: "/v1/rooms/{roomId}/invite", summary: "Get or create the shareable student invite for a room", tags: ["rooms"], response: InviteSchema },
   { method: "post", path: "/v1/invites/{inviteCode}/accept", summary: "Accept a class or room invite", tags: ["invites"], response: AcceptInviteResponseSchema },
   { method: "get", path: "/v1/rooms", summary: "List rooms visible to the current user", tags: ["rooms"], response: z.array(RoomSchema) },
   { method: "post", path: "/v1/rooms", summary: "Create a room for a class", tags: ["rooms"], request: CreateRoomRequestSchema, response: RoomWithManifestSchema },

@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-20 (Sweet-spot implementation docs added under docs/planning/new-features/)
+Last updated: 2026-05-21 (Teachers can re-copy room invite codes from lobby and in-room HUD)
 
 ## Project Summary
 
@@ -42,7 +42,7 @@ Implementation state: **MVP complete in production** (Vercel + Koyeb + Atlas + C
 
 ## Key Features Implemented
 
-- Teacher lobby: class/room/invite creation
+- Teacher lobby: class/room/invite creation; **Your rooms** and in-room top bar expose **Copy invite** (GET `/v1/rooms/:roomId/invite` returns latest valid student invite or creates one)
 - Student invite join (two-page Playwright validated)
 - 3D room: floor, walls, anchors, avatars, third-person local camera follow, camera billboards, pointer click-to-move
 - 2D analog: same manifest, movement, presence, media state
@@ -176,6 +176,7 @@ Screen share, computer audio, teacher moderation, rich wall placement, room buil
 - **2026-05-18**: Safari LiveKit ICE — minimal repro at `/debug/livekit-safari/[roomId]` (`LiveKitSafariDebug.tsx`) rules out main app join/realtime/classroom code; raw relay-only TURN probe returns `candidates: []` on school Wi‑Fi and cellular hotspot. Documented in `docs/planning/mvp+1/safari-livekit-ice-failure.md`; investigation shifts to Safari × LiveKit Cloud TURN / support ticket.
 - **2026-05-19**: Re-granting board access could stack multiple active grants for one student while the student UI only honored the newest one. Fixed by revoking prior active grants for that student before persisting a new grant; targeted API tests now cover the replacement behavior.
 - **2026-05-19**: HUD panel smallest text was hard to read against the dark panel background. Lightened `--hud-tx-m` and `--hud-tx-d` tokens in `globals.css` for better contrast on secondary labels, subs, chevrons, and anchor hints.
+- **2026-05-21**: Teachers could only copy invite codes immediately after creating a classroom. Added `GET /v1/rooms/:roomId/invite` (teacher-only, get-or-create shareable student invite), `listInvitesForRoom` repository method, shared `CopyRoomInviteButton` in lobby **Your rooms** and `RoomClient` top HUD bar.
 - **2026-05-19**: Teacher Help Queue lost board-access grant UI after HUD redesign (grant controls only lived in floating `StudentDetailPanel`). Restored presets, share-type checkboxes, and Grant board in Help Queue via shared `BoardAccessGrantControls`.
 
 ## Maintenance Rules

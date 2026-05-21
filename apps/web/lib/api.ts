@@ -83,6 +83,10 @@ export function createInvite(identity: ApiIdentity, classId: string, input: { ro
   });
 }
 
+export function getRoomInvite(identity: ApiIdentity, roomId: string) {
+  return apiFetch<Invite>(`/v1/rooms/${roomId}/invite`, { identity });
+}
+
 export function acceptInvite(identity: ApiIdentity, code: string) {
   return apiFetch<z.infer<typeof AcceptInviteResponseSchema>>(`/v1/invites/${code}/accept`, {
     method: "POST",
