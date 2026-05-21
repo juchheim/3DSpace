@@ -7,6 +7,8 @@ import {
   isOccupyingWallObjectStatus,
   clampPositionToBounds,
   createAvatarState,
+  roomCenterXZ,
+  rotationFacingRoomCenter,
   createDefaultRoomManifest,
   interpolateAvatarState,
   projectPositionTo2D,
@@ -115,8 +117,17 @@ describe("room engine", () => {
     const student = createAvatarState({ participantId: "student-1", manifest, role: "student" });
 
     expect(teacher.position.z).toBeLessThan(0);
-    expect(teacher.rotation.y).toBeCloseTo(Math.PI);
     expect(student.position.z).toBeGreaterThan(0);
+
+    const center = roomCenterXZ(manifest);
+    for (const avatar of [teacher, student]) {
+      const facingX = Math.sin(avatar.rotation.y);
+      const facingZ = Math.cos(avatar.rotation.y);
+      const toCenterX = center.x - avatar.position.x;
+      const toCenterZ = center.z - avatar.position.z;
+      expect(facingX * toCenterX + facingZ * toCenterZ).toBeGreaterThan(0);
+      expect(avatar.rotation.y).toBeCloseTo(rotationFacingRoomCenter(manifest, avatar.position).y);
+    }
   });
 
   it("avoids occupied spawn points when another candidate is available", () => {

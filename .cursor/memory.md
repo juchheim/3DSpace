@@ -177,6 +177,7 @@ Screen share, computer audio, teacher moderation, rich wall placement, room buil
 - **2026-05-19**: Re-granting board access could stack multiple active grants for one student while the student UI only honored the newest one. Fixed by revoking prior active grants for that student before persisting a new grant; targeted API tests now cover the replacement behavior.
 - **2026-05-19**: HUD panel smallest text was hard to read against the dark panel background. Lightened `--hud-tx-m` and `--hud-tx-d` tokens in `globals.css` for better contrast on secondary labels, subs, chevrons, and anchor hints.
 - **2026-05-21**: Teachers could only copy invite codes immediately after creating a classroom. Added `GET /v1/rooms/:roomId/invite` (teacher-only, get-or-create shareable student invite), `listInvitesForRoom` repository method, shared `CopyRoomInviteButton` in lobby **Your rooms** and `RoomClient` top HUD bar.
+- **2026-05-21**: Join spawn rotation used fixed `spawn.rotation.y = Math.PI` (+Z), so back-row and side seats often faced walls. `createAvatarState` now sets yaw via `rotationFacingRoomCenter` (bounds center, same `atan2` as movement/camera).
 - **2026-05-19**: Teacher Help Queue lost board-access grant UI after HUD redesign (grant controls only lived in floating `StudentDetailPanel`). Restored presets, share-type checkboxes, and Grant board in Help Queue via shared `BoardAccessGrantControls`.
 
 ## Maintenance Rules

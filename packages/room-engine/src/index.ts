@@ -406,6 +406,23 @@ function isSpawnOccupied(spawn: RoomManifest["spawnPoints"][number], occupiedPos
   });
 }
 
+/** Walkable floor center in XZ (matches movement / camera yaw convention). */
+export function roomCenterXZ(manifest: RoomManifest): { x: number; z: number } {
+  return {
+    x: (manifest.bounds.minX + manifest.bounds.maxX) / 2,
+    z: (manifest.bounds.minZ + manifest.bounds.maxZ) / 2
+  };
+}
+
+/** Yaw so the avatar faces `toward` from `from` (same atan2 as click-to-move). */
+export function rotationFacingPosition(from: Vector3, toward: { x: number; z: number }): { y: number } {
+  return { y: Math.atan2(toward.x - from.x, toward.z - from.z) };
+}
+
+export function rotationFacingRoomCenter(manifest: RoomManifest, position: Vector3): { y: number } {
+  return rotationFacingPosition(position, roomCenterXZ(manifest));
+}
+
 export function selectSpawnPoint(input: {
   manifest: RoomManifest;
   participantId: string;
@@ -449,7 +466,7 @@ export function createAvatarState(input: {
     sentAt: input.sentAt ?? Date.now(),
     participantId: input.participantId,
     position: spawn.position,
-    rotation: spawn.rotation,
+    rotation: rotationFacingRoomCenter(input.manifest, spawn.position),
     movement: "idle",
     viewMode: input.viewMode ?? "3d",
     media: {
