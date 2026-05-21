@@ -103,7 +103,7 @@ export function LessonRunControls({
         {canStart ? (
           <button
             type="button"
-            className={`hud-btn lesson-run-start-btn${startAlert ? " lesson-run-start-btn--ready" : ""}`}
+            className="hud-btn lesson-run-primary-btn"
             data-testid="start-lesson-run"
             disabled={busy === "start"}
             onClick={() => {
@@ -118,7 +118,7 @@ export function LessonRunControls({
           <>
             <button
               type="button"
-              className="hud-btn"
+              className="hud-btn lesson-run-primary-btn"
               data-testid="advance-lesson-step"
               disabled={busy === "advance"}
               onClick={() => void execute("advance", { type: "advance-lesson-step" })}
@@ -148,7 +148,7 @@ export function LessonRunControls({
         {run.status === "paused" ? (
           <button
             type="button"
-            className="hud-btn"
+            className="hud-btn lesson-run-primary-btn"
             data-testid="resume-lesson-run"
             disabled={busy === "resume"}
             onClick={() => void execute("resume", { type: "resume-lesson-run" })}

@@ -3465,47 +3465,17 @@ body.lobby-dark::before {
   gap: 5px;
 }
 
-.hud-panel .lesson-run-start-btn {
-  width: 100%;
-  padding: 7px 12px;
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  background: linear-gradient(180deg, #d48a42 0%, #b86a28 100%);
-  color: #fffaf0;
-  border: 1px solid rgba(255, 196, 120, 0.7);
-  border-radius: 4px;
-  box-shadow:
-    0 0 0 1px rgba(192, 120, 52, 0.35),
-    0 4px 14px rgba(192, 120, 52, 0.35);
+.hud-panel .lesson-run-primary-btn {
+  background: rgba(192, 120, 52, 0.28);
+  color: #f8ead8;
+  border-color: rgba(192, 120, 52, 0.62);
+  font-weight: 600;
 }
 
-.hud-panel .lesson-run-start-btn:hover:not(:disabled) {
-  background: linear-gradient(180deg, #e09a4f 0%, #c07834 100%);
-  border-color: rgba(255, 214, 150, 0.9);
-  box-shadow:
-    0 0 0 1px rgba(255, 196, 120, 0.55),
-    0 6px 18px rgba(192, 120, 52, 0.45);
-}
-
-.hud-panel .lesson-run-start-btn--ready {
-  animation: lesson-run-start-pulse 1.6s ease-in-out infinite;
-}
-
-@keyframes lesson-run-start-pulse {
-  0%, 100% {
-    box-shadow:
-      0 0 0 1px rgba(255, 196, 120, 0.55),
-      0 0 12px rgba(192, 120, 52, 0.4);
-    filter: brightness(1);
-  }
-  50% {
-    box-shadow:
-      0 0 0 2px rgba(255, 214, 150, 0.8),
-      0 0 20px rgba(232, 140, 60, 0.55);
-    filter: brightness(1.08);
-  }
+.hud-panel .lesson-run-primary-btn:hover:not(:disabled) {
+  background: var(--hud-acc);
+  color: #fff;
+  border-color: rgba(255, 196, 120, 0.75);
 }
 
 .lesson-editor {
