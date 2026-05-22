@@ -155,8 +155,8 @@ function buildLayout(bondAngleDeg: number, bondLength: number) {
 
 // ── Sub-components ──────────────────────────────────────────────────────────
 
-/** Scales H/O surface glyphs relative to atom radius. */
-const ATOM_SYMBOL_SCALE = 2 / 3;
+/** Scales H/O surface glyphs relative to atom radius (tuned for large instance scales). */
+const ATOM_SYMBOL_SCALE = 0.38;
 
 function HydrogenSurfaceLabel({ radius }: { radius: number }) {
   const height = radius * 1.35 * ATOM_SYMBOL_SCALE;
