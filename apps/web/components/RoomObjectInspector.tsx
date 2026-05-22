@@ -64,6 +64,7 @@ export function RoomObjectInspector({
   const [poseDraft, setPoseDraft] = useState<Pose>(object.pose);
   const [scaleDraft, setScaleDraft] = useState(object.scale);
   const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState("");
   const { min: minScale, max: maxScale, step: scaleStep } = useMemo(
     () => scaleBounds(template.defaultScale),
     [template.defaultScale]
@@ -84,14 +85,19 @@ export function RoomObjectInspector({
     setGrantGroupIds(object.grantedGroupIds);
     setPoseDraft(object.pose);
     setScaleDraft(object.scale);
-  }, [object]);
+    setActionError("");
+  }, [object.id, object.updatedAt, object.touchPolicy, object.grantedUserIds, object.grantedGroupIds, object.pose, object.scale]);
 
   if (!visible) return null;
 
   async function runAction(action: () => Promise<unknown>) {
     setBusy(true);
+    setActionError("");
     try {
       await action();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Unable to update room object.");
+      throw error;
     } finally {
       setBusy(false);
     }
@@ -291,6 +297,7 @@ export function RoomObjectInspector({
             </label>
           );
         })}
+        {actionError ? <p className="room-object-inspector__error">{actionError}</p> : null}
         <button
           type="button"
           className="hud-btn"
@@ -301,7 +308,7 @@ export function RoomObjectInspector({
                 pose: poseDraft,
                 scale: scaleDraft
               })
-            );
+            ).catch(() => undefined);
           }}
         >
           Apply transform

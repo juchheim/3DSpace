@@ -70,14 +70,8 @@ export function useRoomObjects(input: {
   const myActiveGrabRef = useRef<string | null>(null);
   myActiveGrabRef.current = myActiveGrabObjectId;
 
-  const clearLocalGrabState = useCallback((objectId: string) => {
+  const clearGrabHolder = useCallback((objectId: string) => {
     setGrabsById((current) => {
-      if (!(objectId in current)) return current;
-      const next = { ...current };
-      delete next[objectId];
-      return next;
-    });
-    setOptimisticOverrides((current) => {
       if (!(objectId in current)) return current;
       const next = { ...current };
       delete next[objectId];
@@ -85,6 +79,19 @@ export function useRoomObjects(input: {
     });
     setMyActiveGrabObjectId((current) => (current === objectId ? null : current));
   }, []);
+
+  const clearLocalGrabState = useCallback(
+    (objectId: string) => {
+      clearGrabHolder(objectId);
+      setOptimisticOverrides((current) => {
+        if (!(objectId in current)) return current;
+        const next = { ...current };
+        delete next[objectId];
+        return next;
+      });
+    },
+    [clearGrabHolder]
+  );
 
   const upsertLocal = useCallback((object: RoomObject) => {
     setObjectsById((current) => {
@@ -100,7 +107,6 @@ export function useRoomObjects(input: {
 
       if (message.type === "room.object.upsert.v1") {
         upsertLocal(message.object);
-        clearLocalGrabState(message.object.id);
         return true;
       }
 
@@ -273,13 +279,33 @@ export function useRoomObjects(input: {
   const update = useCallback(
     async (objectId: string, patch: UpdateRoomObjectPatch) => {
       if (!input.roomId) throw new Error("Room is not ready.");
+      if (patch.pose || patch.scale !== undefined) {
+        setOptimisticOverrides((current) => {
+          const existing = current[objectId] ?? objectsById[objectId];
+          if (!existing) return current;
+          return {
+            ...current,
+            [objectId]: {
+              pose: patch.pose ?? existing.pose,
+              scale: patch.scale ?? existing.scale
+            }
+          };
+        });
+      }
       const result = await updateRoomObject(input.identity, input.roomId, objectId, patch);
       upsertLocal(result.object);
+      if (patch.pose || patch.scale !== undefined) {
+        setOptimisticOverrides((current) => {
+          const next = { ...current };
+          delete next[objectId];
+          return next;
+        });
+      }
       applyRealtimeMessages(result.realtimeMessages);
       publishMessages(input.publish, result.realtimeMessages);
       return result.object;
     },
-    [applyRealtimeMessages, input.identity, input.publish, input.roomId, upsertLocal]
+    [applyRealtimeMessages, input.identity, input.publish, input.roomId, objectsById, upsertLocal]
   );
 
   const remove = useCallback(

@@ -4679,6 +4679,13 @@ body.lobby-dark::before {
   line-height: 1.4;
 }
 
+.room-object-inspector__error {
+  margin: 0;
+  font-size: 10px;
+  color: #e05a5a;
+  line-height: 1.4;
+}
+
 .room-object-inspector__checks {
   display: flex;
   flex-direction: column;

@@ -202,13 +202,15 @@ export function RoomObjectMesh({
     [actions, applyPose, canTouch, hovered, localIsHolder, object.id, pose, scale, template.defaultScale]
   );
 
+  const pitch = pose.rotation.pitch ?? 0;
   const yaw = pose.rotation.yaw;
+  const roll = pose.rotation.roll ?? 0;
 
   return (
     <group
       ref={rootRef}
       position={[pose.position.x, pose.position.y, pose.position.z]}
-      rotation={[0, yaw, 0]}
+      rotation={[pitch, yaw, roll]}
       scale={template.renderer === "gltf" ? scale : 1}
       onPointerDown={onPointerDown}
       onWheel={onWheel}

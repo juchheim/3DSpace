@@ -1,4 +1,4 @@
-import { clampPositionToBounds } from "@3dspace/room-engine";
+import { clampPositionToBounds, floorYFromZ } from "@3dspace/room-engine";
 import type { ClassMembership, Pose, RoomManifest, RoomObject, RoomObjectTemplate, RoomSettings } from "@3dspace/contracts";
 import type { AuthContext } from "../auth.js";
 import type { AppConfig } from "../config.js";
@@ -6,7 +6,8 @@ import { roomObjectDisabled, roomObjectLimitReached, roomObjectNotFound, roomObj
 import type { Repository } from "../repository.js";
 
 const ROOM_OBJECT_BBOX_AXIS_METERS = 1.5;
-const ROOM_OBJECT_MIN_SCALE = 0.25;
+const ROOM_OBJECT_MIN_HEIGHT_ABOVE_FLOOR_M = 0.05;
+const ROOM_OBJECT_MAX_HEIGHT_ABOVE_FLOOR_M = 3;
 
 export function assertRoomObjectsEnabled(config: AppConfig, room: { settings: RoomSettings }) {
   if (!config.tuning.enableRoomObjects || !room.settings.roomObjects.enabled) {
@@ -19,14 +20,28 @@ export function roomObjectBboxAxisMeters(template: RoomObjectTemplate) {
 }
 
 export function clampRoomObjectScale(scale: number, template: RoomObjectTemplate) {
-  const axis = roomObjectBboxAxisMeters(template);
-  const maxScale = 4 / axis;
-  return Math.min(Math.max(scale, ROOM_OBJECT_MIN_SCALE), maxScale);
+  const min = template.defaultScale * 0.5;
+  const max = template.defaultScale * 2;
+  return Math.min(Math.max(scale, min), max);
 }
 
 export function clampRoomObjectPose(manifest: RoomManifest, pose: Pose): Pose {
   const position = clampPositionToBounds(manifest, pose.position);
-  return { ...pose, position };
+  const floorY = floorYFromZ(manifest, position.z);
+  const minY = floorY + ROOM_OBJECT_MIN_HEIGHT_ABOVE_FLOOR_M;
+  const maxY = floorY + ROOM_OBJECT_MAX_HEIGHT_ABOVE_FLOOR_M;
+  return {
+    ...pose,
+    position: {
+      ...position,
+      y: Math.min(Math.max(pose.position.y, minY), maxY)
+    },
+    rotation: {
+      yaw: pose.rotation.yaw,
+      pitch: pose.rotation.pitch ?? 0,
+      roll: pose.rotation.roll ?? 0
+    }
+  };
 }
 
 export async function requireRoomObject(

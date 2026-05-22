@@ -3088,7 +3088,25 @@ describe("room object instances", () => {
     expect(created.pose.position.x).toBeGreaterThanOrEqual(bounds.minX);
     expect(created.pose.position.z).toBeLessThanOrEqual(bounds.maxZ);
     expect(created.pose.position.z).toBeGreaterThanOrEqual(bounds.minZ);
-    expect(created.scale).toBeLessThanOrEqual(4 / 1.5);
+    expect(created.scale).toBe(4.4);
+    expect(created.pose.position.y).toBeGreaterThan(0);
+
+    const heightPatch = await app.inject({
+      method: "PATCH",
+      url: `/v1/rooms/${roomId}/objects/${created.id}`,
+      headers: authHeaders(teacherId, "Ms. Rivera"),
+      payload: {
+        pose: {
+          position: { x: created.pose.position.x, y: 2.5, z: created.pose.position.z },
+          rotation: { yaw: 0.5, pitch: 0.25, roll: 0.1 }
+        },
+        scale: 3
+      }
+    });
+    expect(heightPatch.statusCode).toBe(200);
+    expect(heightPatch.json().pose.position.y).toBeCloseTo(2.5, 1);
+    expect(heightPatch.json().pose.rotation.pitch).toBeCloseTo(0.25, 2);
+    expect(heightPatch.json().scale).toBe(3);
 
     const patchRes = await app.inject({
       method: "PATCH",
@@ -3128,7 +3146,7 @@ describe("room object instances", () => {
     });
     expect(resetRes.statusCode).toBe(200);
     expect(resetRes.json().object.parameters.modelStyle).toBe("ball-and-stick");
-    expect(resetRes.json().object.scale).toBe(1);
+    expect(resetRes.json().object.scale).toBe(2.2);
 
     const deleteRes = await app.inject({
       method: "DELETE",
