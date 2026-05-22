@@ -12,10 +12,10 @@
   "license": "CC0-1.0",
   "attribution": "3DSpace — built-in procedural manipulative",
   "defaultPose": {
-    "position": { "x": 0, "y": 1.1, "z": 0 },
+    "position": { "x": 0, "y": 1.5, "z": 0 },
     "rotation": { "yaw": 0, "pitch": 0, "roll": 0 }
   },
-  "defaultScale": 1,
+  "defaultScale": 2.2,
   "recommendedTouchPolicy": "teacher-only",
   "defaultParameters": {
     "modelStyle": "ball-and-stick",

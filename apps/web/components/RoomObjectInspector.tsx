@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   ClassroomGroup,
+  Pose,
   Role,
   RoomObject,
   RoomObjectTemplate,
@@ -10,10 +11,10 @@ import type {
 } from "@3dspace/contracts";
 import { parseRoomObjectParameterSchemaJson } from "@3dspace/contracts";
 import type { ParticipantView } from "./RoomClient";
-import { canTouchRoomObject } from "../lib/roomObjectInteraction";
+import { canTouchRoomObject, scaleBounds } from "../lib/roomObjectInteraction";
 
 type RoomObjectActions = {
-  update(objectId: string, patch: { colorTintHex?: string }): Promise<unknown>;
+  update(objectId: string, patch: { pose?: Pose; scale?: number; colorTintHex?: string }): Promise<unknown>;
   remove(objectId: string): Promise<void>;
   reset(objectId: string): Promise<unknown>;
   setTouch(
@@ -60,7 +61,13 @@ export function RoomObjectInspector({
   const [touchPolicyDraft, setTouchPolicyDraft] = useState<RoomObjectTouchPolicy>(object.touchPolicy);
   const [grantUserIds, setGrantUserIds] = useState<string[]>(object.grantedUserIds);
   const [grantGroupIds, setGrantGroupIds] = useState<string[]>(object.grantedGroupIds);
+  const [poseDraft, setPoseDraft] = useState<Pose>(object.pose);
+  const [scaleDraft, setScaleDraft] = useState(object.scale);
   const [busy, setBusy] = useState(false);
+  const { min: minScale, max: maxScale, step: scaleStep } = useMemo(
+    () => scaleBounds(template.defaultScale),
+    [template.defaultScale]
+  );
 
   const students = useMemo(
     () => participants.filter((participant) => participant.role === "student"),
@@ -70,6 +77,14 @@ export function RoomObjectInspector({
     () => classroomGroups.filter((group) => group.status === "active"),
     [classroomGroups]
   );
+
+  useEffect(() => {
+    setTouchPolicyDraft(object.touchPolicy);
+    setGrantUserIds(object.grantedUserIds);
+    setGrantGroupIds(object.grantedGroupIds);
+    setPoseDraft(object.pose);
+    setScaleDraft(object.scale);
+  }, [object]);
 
   if (!visible) return null;
 
@@ -204,6 +219,93 @@ export function RoomObjectInspector({
             }}
           />
         </label>
+      </div>
+
+      <div className={`room-object-inspector__section${!canTouch ? " room-object-inspector__section--readonly" : ""}`}>
+        <span className="room-object-inspector__label">Transform</span>
+        <p className="room-object-inspector__hint">
+          Drag on the floor for x/z placement. Use these controls for height, scale, and full 3D orientation.
+        </p>
+        <label className="room-object-inspector__row room-object-inspector__row--stacked">
+          <span>Height</span>
+          <div className="room-object-inspector__control">
+            <input
+              type="range"
+              min={0.2}
+              max={3}
+              step={0.05}
+              value={poseDraft.position.y}
+              disabled={!canTouch || busy}
+              onChange={(event) =>
+                setPoseDraft((current) => ({
+                  ...current,
+                  position: { ...current.position, y: Number(event.target.value) }
+                }))
+              }
+            />
+            <span className="room-object-inspector__value">{poseDraft.position.y.toFixed(2)} m</span>
+          </div>
+        </label>
+        <label className="room-object-inspector__row room-object-inspector__row--stacked">
+          <span>Scale</span>
+          <div className="room-object-inspector__control">
+            <input
+              type="range"
+              min={minScale}
+              max={maxScale}
+              step={scaleStep}
+              value={scaleDraft}
+              disabled={!canTouch || busy}
+              onChange={(event) => setScaleDraft(Number(event.target.value))}
+            />
+            <span className="room-object-inspector__value">{scaleDraft.toFixed(2)}x</span>
+          </div>
+        </label>
+        {([
+          ["yaw", "Yaw"],
+          ["pitch", "Pitch"],
+          ["roll", "Roll"]
+        ] as const).map(([axis, label]) => {
+          const degrees = (poseDraft.rotation[axis] * 180) / Math.PI;
+          return (
+            <label key={axis} className="room-object-inspector__row room-object-inspector__row--stacked">
+              <span>{label}</span>
+              <div className="room-object-inspector__control">
+                <input
+                  type="range"
+                  min={-180}
+                  max={180}
+                  step={5}
+                  value={degrees}
+                  disabled={!canTouch || busy}
+                  onChange={(event) => {
+                    const radians = (Number(event.target.value) * Math.PI) / 180;
+                    setPoseDraft((current) => ({
+                      ...current,
+                      rotation: { ...current.rotation, [axis]: radians }
+                    }));
+                  }}
+                />
+                <span className="room-object-inspector__value">{Math.round(degrees)}°</span>
+              </div>
+            </label>
+          );
+        })}
+        <button
+          type="button"
+          className="hud-btn"
+          disabled={!canTouch || busy}
+          onClick={() => {
+            void runAction(() =>
+              actions.update(object.id, {
+                pose: poseDraft,
+                scale: scaleDraft
+              })
+            );
+          }}
+        >
+          Apply transform
+        </button>
       </div>
 
       {isTeacher ? (

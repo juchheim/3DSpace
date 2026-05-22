@@ -4650,6 +4650,28 @@ body.lobby-dark::before {
   gap: 8px;
 }
 
+.room-object-inspector__row--stacked {
+  align-items: stretch;
+  flex-direction: column;
+}
+
+.room-object-inspector__control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.room-object-inspector__control input[type="range"] {
+  flex: 1;
+}
+
+.room-object-inspector__value {
+  min-width: 48px;
+  text-align: right;
+  color: #c8d0d6;
+  font-variant-numeric: tabular-nums;
+}
+
 .room-object-inspector__hint {
   margin: 0;
   font-size: 10px;

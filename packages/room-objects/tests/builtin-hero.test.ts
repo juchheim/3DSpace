@@ -27,6 +27,8 @@ describe("room object builtin catalog", () => {
     expect(entry.displayName).toBe(heroDraft.displayName);
     expect(entry.description).toBe(heroDraft.description);
     expect(entry.proceduralId).toBe(heroDraft.proceduralId);
+    expect(entry.defaultPose).toEqual(heroDraft.defaultPose);
+    expect(entry.defaultScale).toBe(heroDraft.defaultScale);
     expect(entry.parameterSchemaJson).toBe(draftJson);
     expect(entry.defaultParameters).toEqual(heroDraft.defaultParameters);
     expect(entry.thumbnailUrl).toBe("/room-objects/thumbnails/water-molecule.png");
