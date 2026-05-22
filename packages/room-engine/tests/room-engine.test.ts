@@ -11,6 +11,7 @@ import {
   rotationFacingRoomCenter,
   createDefaultRoomManifest,
   interpolateAvatarState,
+  delta2DToWorldXZ,
   projectPositionTo2D,
   selectSpawnPoint,
   transformLocalMovementToWorld,
@@ -151,6 +152,16 @@ describe("room engine", () => {
 
     expect(projected.x).toBeCloseTo(position.x);
     expect(projected.z).toBeCloseTo(position.z);
+  });
+
+  it("maps 2D drag deltas to world XZ", () => {
+    const manifest = createDefaultRoomManifest({ roomId: "room_1" });
+    const width = manifest.bounds.maxX - manifest.bounds.minX;
+    const depth = manifest.bounds.maxZ - manifest.bounds.minZ;
+    const delta = delta2DToWorldXZ(manifest, { dx: 10, dy: -5 });
+
+    expect(delta.dx).toBeCloseTo(width * 0.1);
+    expect(delta.dz).toBeCloseTo(-depth * 0.05);
   });
 
   it("interpolates avatar state", () => {

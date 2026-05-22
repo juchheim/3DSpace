@@ -288,6 +288,247 @@ export const AcceptInviteResponseSchema = z.object({
   roomId: z.string().optional()
 });
 
+// --- Room manipulatives (free-standing floor objects; distinct from WallObject) ---
+
+export const PoseSchema = z.object({
+  position: z.object({ x: z.number(), y: z.number(), z: z.number() }),
+  rotation: z.object({
+    yaw: z.number(),
+    pitch: z.number().default(0),
+    roll: z.number().default(0)
+  })
+});
+
+export const RoomObjectTouchPolicySchema = z.enum(["teacher-only", "granted", "all-class"]);
+export const RoomObjectStatusSchema = z.enum(["active", "locked", "archived"]);
+export const RoomObjectSourceSchema = z.enum(["builtin", "custom", "partner"]);
+export const RoomObjectRendererSchema = z.enum(["gltf", "procedural"]);
+export const RoomObjectCategorySchema = z.enum(["math", "science", "geography", "ela", "art", "custom"]);
+
+export const RoomObjectColorTintHexSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+
+export const RoomObjectParameterEnumOptionSchema = z.object({
+  value: z.string(),
+  label: z.string().min(1)
+});
+
+export const RoomObjectParameterFieldSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("enum"),
+    label: z.string().min(1),
+    default: z.string(),
+    options: z.array(RoomObjectParameterEnumOptionSchema).min(1)
+  }),
+  z.object({
+    type: z.literal("boolean"),
+    label: z.string().min(1),
+    default: z.boolean()
+  }),
+  z.object({
+    type: z.literal("number"),
+    label: z.string().min(1),
+    default: z.number(),
+    min: z.number().optional(),
+    max: z.number().optional(),
+    step: z.number().optional()
+  }),
+  z.object({
+    type: z.literal("range"),
+    label: z.string().min(1),
+    default: z.tuple([z.number(), z.number()]),
+    min: z.number(),
+    max: z.number(),
+    step: z.number().optional()
+  }),
+  z.object({
+    type: z.literal("vector3"),
+    label: z.string().min(1),
+    default: z.object({ x: z.number(), y: z.number(), z: z.number() })
+  })
+]);
+
+/** Map of parameter key → field definition (stored on templates as JSON string). */
+export const RoomObjectParameterSchemaMapSchema = z.record(z.string(), RoomObjectParameterFieldSchema);
+
+export const RoomObjectTemplateSchema = z.object({
+  id: z.string(),
+  slug: z.string().min(2).max(64),
+  displayName: z.string().min(1).max(120),
+  category: RoomObjectCategorySchema,
+  description: z.string().max(500),
+  assetUrl: z.string().url().optional(),
+  thumbnailUrl: z.string().min(1),
+  defaultPose: PoseSchema,
+  defaultScale: z.number().positive().default(1),
+  defaultColorTintHex: RoomObjectColorTintHexSchema.optional(),
+  defaultParameters: z.record(z.string(), z.unknown()).default({}),
+  parameterSchemaJson: z.string().default("{}"),
+  recommendedTouchPolicy: RoomObjectTouchPolicySchema.default("teacher-only"),
+  kinematic: z.boolean().default(false),
+  ownerClassId: z.string().optional(),
+  source: RoomObjectSourceSchema.default("builtin"),
+  license: z.string().max(60).default("CC-BY"),
+  attribution: z.string().max(240).default(""),
+  renderer: RoomObjectRendererSchema.default("gltf"),
+  proceduralId: z.string().min(1).optional(),
+  exportable: z.boolean().default(true),
+  fileSizeBytes: z.number().int().nonnegative(),
+  triangleCount: z.number().int().nonnegative(),
+  createdAt: z.string()
+}).superRefine((value, ctx) => {
+  if (value.renderer === "procedural" && !value.proceduralId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "proceduralId is required when renderer is procedural",
+      path: ["proceduralId"]
+    });
+  }
+  if (value.renderer === "gltf" && !value.assetUrl) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "assetUrl is required when renderer is gltf",
+      path: ["assetUrl"]
+    });
+  }
+});
+
+export const RoomObjectSchema = z.object({
+  id: z.string(),
+  roomId: z.string(),
+  templateId: z.string(),
+  displayName: z.string().min(1).max(120),
+  pose: PoseSchema,
+  scale: z.number().positive(),
+  colorTintHex: RoomObjectColorTintHexSchema.optional(),
+  parameters: z.record(z.string(), z.unknown()).default({}),
+  touchPolicy: RoomObjectTouchPolicySchema.default("teacher-only"),
+  grantedUserIds: z.array(z.string()).default([]),
+  grantedGroupIds: z.array(z.string()).default([]),
+  status: RoomObjectStatusSchema.default("active"),
+  createdByUserId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string()
+});
+
+export const RoomObjectsSettingsSchema = z.object({
+  enabled: z.boolean().default(false),
+  maxActive: z.number().int().positive().max(16).default(8),
+  customUploadsEnabled: z.boolean().default(false),
+  maxUploadSizeBytes: z.number().int().positive().default(8 * 1024 * 1024),
+  defaultTouchPolicy: RoomObjectTouchPolicySchema.default("teacher-only")
+});
+
+export const ListRoomObjectTemplatesResponseSchema = z.object({
+  templates: z.array(RoomObjectTemplateSchema)
+});
+
+export const CreateRoomObjectTemplateRequestSchema = z.object({
+  slug: z.string().min(2).max(64),
+  displayName: z.string().min(1).max(120),
+  category: RoomObjectCategorySchema.default("custom"),
+  description: z.string().max(500).default(""),
+  assetUrl: z.string().url(),
+  thumbnailUrl: z.string().min(1),
+  defaultPose: PoseSchema.optional(),
+  defaultScale: z.number().positive().default(1),
+  defaultColorTintHex: RoomObjectColorTintHexSchema.optional(),
+  defaultParameters: z.record(z.string(), z.unknown()).default({}),
+  parameterSchemaJson: z.string().default("{}"),
+  license: z.string().max(60).default("CC-BY"),
+  attribution: z.string().max(240).default(""),
+  exportable: z.boolean().default(true)
+});
+
+export const CreateRoomObjectTemplateResponseSchema = z.object({
+  template: RoomObjectTemplateSchema
+});
+
+export const ListRoomObjectsQuerySchema = z.object({
+  status: RoomObjectStatusSchema.optional()
+});
+
+export const ListRoomObjectsResponseSchema = z.object({
+  objects: z.array(RoomObjectSchema)
+});
+
+export const CreateRoomObjectRequestSchema = z.object({
+  templateId: z.string().min(1),
+  displayName: z.string().min(1).max(120).optional(),
+  pose: PoseSchema.optional(),
+  scale: z.number().positive().optional(),
+  colorTintHex: RoomObjectColorTintHexSchema.optional(),
+  parameters: z.record(z.string(), z.unknown()).optional(),
+  touchPolicy: RoomObjectTouchPolicySchema.optional()
+});
+
+export const CreateRoomObjectResponseSchema = z.object({
+  object: RoomObjectSchema
+});
+
+export const UpdateRoomObjectRequestSchema = z.object({
+  displayName: z.string().min(1).max(120).optional(),
+  pose: PoseSchema.optional(),
+  scale: z.number().positive().optional(),
+  colorTintHex: RoomObjectColorTintHexSchema.optional(),
+  parameters: z.record(z.string(), z.unknown()).optional(),
+  touchPolicy: RoomObjectTouchPolicySchema.optional(),
+  status: RoomObjectStatusSchema.optional()
+});
+
+export const RoomObjectTouchRequestSchema = z.object({
+  touchPolicy: RoomObjectTouchPolicySchema,
+  userIds: z.array(z.string()).default([]),
+  groupIds: z.array(z.string()).default([])
+});
+
+export const RoomObjectResetResponseSchema = z.object({
+  object: RoomObjectSchema
+});
+
+/** Client-side procedural renderer inputs (no React/Three refs — those stay in the web app). */
+export const RoomObjectProceduralRenderPropsSchema = z.object({
+  parameters: z.record(z.string(), z.unknown()),
+  scale: z.number().positive(),
+  colorTintHex: RoomObjectColorTintHexSchema.optional()
+});
+
+export const ApiErrorCodeSchema = z.enum([
+  "bad_request",
+  "unauthorized",
+  "forbidden",
+  "not_found",
+  "conflict",
+  "unprocessable_entity",
+  "exit-ticket-incomplete",
+  "rate_limited",
+  "room-object-disabled",
+  "room-object-limit-reached",
+  "room-object-not-found",
+  "room-object-grab-conflict",
+  "room-object-touch-denied",
+  "room-object-template-invalid",
+  "room-object-upload-too-large",
+  "room-object-upload-rejected"
+]);
+
+export function parseRoomObjectParameterSchemaJson(json: string) {
+  const parsed = JSON.parse(json) as unknown;
+  return RoomObjectParameterSchemaMapSchema.parse(parsed);
+}
+
+export function stringifyRoomObjectParameterSchema(
+  schema: z.infer<typeof RoomObjectParameterSchemaMapSchema>
+) {
+  return JSON.stringify(schema);
+}
+
+/** Build a template-ready `parameterSchemaJson` from a Phase 0 `parameterSchema` object. */
+export function parameterSchemaToJson(
+  schema: z.infer<typeof RoomObjectParameterSchemaMapSchema>
+) {
+  return stringifyRoomObjectParameterSchema(schema);
+}
+
 export const RoomSettingsSchema = z.object({
   maxParticipants: z.number().int().positive(),
   defaultViewMode: ViewModeSchema,
@@ -313,7 +554,14 @@ export const RoomSettingsSchema = z.object({
     podRadiusMeters: z.number().positive().max(8).default(3),
     podMurmurFloor: z.number().min(0).max(1).default(0.08),
     drawPartitions: z.boolean().default(false)
-  }).default({ enabled: true, podRadiusMeters: 3, podMurmurFloor: 0.08, drawPartitions: false })
+  }).default({ enabled: true, podRadiusMeters: 3, podMurmurFloor: 0.08, drawPartitions: false }),
+  roomObjects: RoomObjectsSettingsSchema.default({
+    enabled: false,
+    maxActive: 8,
+    customUploadsEnabled: false,
+    maxUploadSizeBytes: 8 * 1024 * 1024,
+    defaultTouchPolicy: "teacher-only"
+  })
 });
 
 export const RoomSchema = z.object({
@@ -634,6 +882,113 @@ export const WallModerationStateMessageSchema = z.object({
   status: WallObjectStatusSchema,
   sentAt: z.number().int(),
   senderId: z.string()
+});
+
+export const RoomObjectRealtimeUpsertMessageSchema = z.object({
+  type: z.literal("room.object.upsert.v1"),
+  roomId: z.string(),
+  object: RoomObjectSchema,
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const RoomObjectRealtimeRemoveMessageSchema = z.object({
+  type: z.literal("room.object.remove.v1"),
+  roomId: z.string(),
+  objectId: z.string(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const RoomObjectRealtimeTouchMessageSchema = z.object({
+  type: z.literal("room.object.touch.v1"),
+  roomId: z.string(),
+  objectId: z.string(),
+  touchPolicy: RoomObjectTouchPolicySchema,
+  grantedUserIds: z.array(z.string()),
+  grantedGroupIds: z.array(z.string()),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const RoomObjectRealtimeGrabMessageSchema = z.object({
+  type: z.literal("room.object.grab.v1"),
+  roomId: z.string(),
+  objectId: z.string(),
+  holderUserId: z.string(),
+  expiresAt: z.string(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const RoomObjectRealtimePoseMessageSchema = z.object({
+  type: z.literal("room.object.pose.v1"),
+  roomId: z.string(),
+  objectId: z.string(),
+  holderUserId: z.string(),
+  pose: PoseSchema,
+  scale: z.number().positive(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const RoomObjectRealtimeReleaseMessageSchema = z.object({
+  type: z.literal("room.object.release.v1"),
+  roomId: z.string(),
+  objectId: z.string(),
+  holderUserId: z.string(),
+  finalPose: PoseSchema,
+  finalScale: z.number().positive(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const RoomObjectRealtimeParameterMessageSchema = z.object({
+  type: z.literal("room.object.parameter.v1"),
+  roomId: z.string(),
+  objectId: z.string(),
+  parameters: z.record(z.string(), z.unknown()),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const RoomObjectRealtimeMessageSchema = z.discriminatedUnion("type", [
+  RoomObjectRealtimeUpsertMessageSchema,
+  RoomObjectRealtimeRemoveMessageSchema,
+  RoomObjectRealtimeTouchMessageSchema,
+  RoomObjectRealtimeGrabMessageSchema,
+  RoomObjectRealtimePoseMessageSchema,
+  RoomObjectRealtimeReleaseMessageSchema,
+  RoomObjectRealtimeParameterMessageSchema
+]);
+
+/** Client → server realtime dispatch (roomId comes from the URL). */
+export const RoomObjectRealtimeInboundSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("room.object.grab.v1"),
+    objectId: z.string()
+  }),
+  z.object({
+    type: z.literal("room.object.pose.v1"),
+    objectId: z.string(),
+    pose: PoseSchema,
+    scale: z.number().positive()
+  }),
+  z.object({
+    type: z.literal("room.object.release.v1"),
+    objectId: z.string(),
+    finalPose: PoseSchema,
+    finalScale: z.number().positive()
+  }),
+  z.object({
+    type: z.literal("room.object.parameter.v1"),
+    objectId: z.string(),
+    parameters: z.record(z.string(), z.unknown())
+  })
+]);
+
+export const RoomObjectRealtimeDispatchResponseSchema = z.object({
+  messages: z.array(RoomObjectRealtimeMessageSchema)
 });
 
 export const ClassroomHelpRequestSchema = z.object({
@@ -1314,6 +1669,29 @@ export type WallObjectStatus = z.infer<typeof WallObjectStatusSchema>;
 export type WallObjectSource = z.infer<typeof WallObjectSourceSchema>;
 export type WallObjectPlacement = z.infer<typeof WallObjectPlacementSchema>;
 export type WallObject = z.infer<typeof WallObjectSchema>;
+export type Pose = z.infer<typeof PoseSchema>;
+export type RoomObjectTouchPolicy = z.infer<typeof RoomObjectTouchPolicySchema>;
+export type RoomObjectStatus = z.infer<typeof RoomObjectStatusSchema>;
+export type RoomObjectSource = z.infer<typeof RoomObjectSourceSchema>;
+export type RoomObjectRenderer = z.infer<typeof RoomObjectRendererSchema>;
+export type RoomObjectCategory = z.infer<typeof RoomObjectCategorySchema>;
+export type RoomObjectParameterField = z.infer<typeof RoomObjectParameterFieldSchema>;
+export type RoomObjectParameterSchemaMap = z.infer<typeof RoomObjectParameterSchemaMapSchema>;
+export type RoomObjectTemplate = z.infer<typeof RoomObjectTemplateSchema>;
+export type RoomObject = z.infer<typeof RoomObjectSchema>;
+export type RoomObjectsSettings = z.infer<typeof RoomObjectsSettingsSchema>;
+export type RoomObjectProceduralRenderProps = z.infer<typeof RoomObjectProceduralRenderPropsSchema>;
+export type ApiErrorCode = z.infer<typeof ApiErrorCodeSchema>;
+export type RoomObjectRealtimeMessage = z.infer<typeof RoomObjectRealtimeMessageSchema>;
+export type RoomObjectRealtimeInbound = z.infer<typeof RoomObjectRealtimeInboundSchema>;
+export type RoomObjectRealtimeDispatchResponse = z.infer<typeof RoomObjectRealtimeDispatchResponseSchema>;
+export type RoomObjectRealtimeUpsertMessage = z.infer<typeof RoomObjectRealtimeUpsertMessageSchema>;
+export type RoomObjectRealtimeRemoveMessage = z.infer<typeof RoomObjectRealtimeRemoveMessageSchema>;
+export type RoomObjectRealtimeTouchMessage = z.infer<typeof RoomObjectRealtimeTouchMessageSchema>;
+export type RoomObjectRealtimeGrabMessage = z.infer<typeof RoomObjectRealtimeGrabMessageSchema>;
+export type RoomObjectRealtimePoseMessage = z.infer<typeof RoomObjectRealtimePoseMessageSchema>;
+export type RoomObjectRealtimeReleaseMessage = z.infer<typeof RoomObjectRealtimeReleaseMessageSchema>;
+export type RoomObjectRealtimeParameterMessage = z.infer<typeof RoomObjectRealtimeParameterMessageSchema>;
 export type WallPlaybackStateMessage = z.infer<typeof WallPlaybackStateMessageSchema>;
 export type ClassroomHelpRequest = z.infer<typeof ClassroomHelpRequestSchema>;
 export type ClassroomBoardAccessGrant = z.infer<typeof ClassroomBoardAccessGrantSchema>;
@@ -1387,7 +1765,24 @@ export const apiRoutes: ApiRoute[] = [
   { method: "get", path: "/v1/rooms/{roomId}/classroom", summary: "Get classroom state visible to the current user", tags: ["classroom"], response: ClassroomStateSchema },
   { method: "post", path: "/v1/rooms/{roomId}/classroom/actions", summary: "Run a classroom state action", tags: ["classroom"], request: ClassroomActionSchema, response: ClassroomStateSchema },
   { method: "post", path: "/v1/rooms/{roomId}/events", summary: "Persist optional durable room events", tags: ["rooms"], request: RoomEventRequestSchema, response: RoomEventResponseSchema },
-  { method: "get", path: "/v1/rooms/{roomId}/lesson-runs/{runId}/recap", summary: "Get lesson run recap (teacher only)", tags: ["classroom"], response: LessonRecapSchema }
+  { method: "get", path: "/v1/rooms/{roomId}/lesson-runs/{runId}/recap", summary: "Get lesson run recap (teacher only)", tags: ["classroom"], response: LessonRecapSchema },
+  { method: "get", path: "/v1/room-objects/templates", summary: "List room object templates visible to the current user", tags: ["room-objects"], response: ListRoomObjectTemplatesResponseSchema },
+  { method: "post", path: "/v1/room-objects/templates", summary: "Register a custom room object template after asset upload", tags: ["room-objects"], request: CreateRoomObjectTemplateRequestSchema, response: CreateRoomObjectTemplateResponseSchema },
+  { method: "delete", path: "/v1/room-objects/templates/{templateId}", summary: "Archive a custom room object template", tags: ["room-objects"], response: RoomObjectTemplateSchema },
+  { method: "get", path: "/v1/rooms/{roomId}/objects", summary: "List room manipulatives in a room", tags: ["room-objects"], response: ListRoomObjectsResponseSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/objects", summary: "Instantiate a room object template into a room", tags: ["room-objects"], request: CreateRoomObjectRequestSchema, response: CreateRoomObjectResponseSchema },
+  { method: "patch", path: "/v1/rooms/{roomId}/objects/{objectId}", summary: "Update a room object instance", tags: ["room-objects"], request: UpdateRoomObjectRequestSchema, response: RoomObjectSchema },
+  { method: "delete", path: "/v1/rooms/{roomId}/objects/{objectId}", summary: "Remove a room object from a room", tags: ["room-objects"], response: RoomObjectSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/objects/{objectId}/touch", summary: "Set touch policy and grants on a room object", tags: ["room-objects"], request: RoomObjectTouchRequestSchema, response: RoomObjectSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/objects/{objectId}/reset", summary: "Reset a room object to template defaults", tags: ["room-objects"], response: RoomObjectResetResponseSchema },
+  {
+    method: "post",
+    path: "/v1/rooms/{roomId}/room-objects/realtime",
+    summary: "Authoritative room object realtime dispatch (grab lock, pose relay, release persist)",
+    tags: ["room-objects"],
+    request: RoomObjectRealtimeInboundSchema,
+    response: RoomObjectRealtimeDispatchResponseSchema
+  }
 ];
 
 function asJsonSchema(schema: z.ZodTypeAny) {

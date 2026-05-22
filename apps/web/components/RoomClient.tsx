@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AvatarAppearance, AvatarReactionMessage, AvatarReactionSlug, AvatarStateMessage, Role, RoomManifest, RoomSessionResponse, ViewMode, WallObject } from "@3dspace/contracts";
+import type { AvatarAppearance, AvatarReactionMessage, AvatarReactionSlug, AvatarStateMessage, Role, RoomManifest, RoomObjectTemplate, RoomSessionResponse, ViewMode, WallObject } from "@3dspace/contracts";
 import { AvatarAppearanceMessageSchema, AvatarReactionMessageSchema, ParticipantAudioModeMessageSchema } from "@3dspace/contracts";
 import { computeGroupMemberPosition, createAvatarState, floorYFromZ, unprojectPointFrom2D } from "@3dspace/room-engine";
 import { joinRoom, listClassMembers, patchAvatarAppearance, postRoomEvent } from "../lib/api";
@@ -18,6 +18,8 @@ import { useThirdPersonCamera } from "../lib/useThirdPersonCamera";
 import { useLocalMedia } from "../lib/useLocalMedia";
 import { useDisplayMedia } from "../lib/useDisplayMedia";
 import { useWallObjects } from "../lib/useWallObjects";
+import { useRoomObjects } from "../lib/useRoomObjects";
+import { useRoomObjectTemplates } from "../lib/useRoomObjectTemplates";
 import { usePersistentIdentity } from "../lib/usePersistentIdentity";
 import { navigateToLobby } from "../lib/navigateToLobby";
 import { normalizeRoomManifest } from "../lib/manifest";
@@ -45,6 +47,8 @@ import { LessonRecapPanel } from "./LessonRecapPanel";
 import { AvatarEditorPanel } from "./AvatarEditorPanel";
 import { CopyRoomInviteButton } from "./CopyRoomInviteButton";
 import { WallObjectContent } from "./WallObjectCard";
+import { RoomObjectsToolbar } from "./RoomObjectsToolbar";
+import { buildSpawnPoseInFront } from "../lib/roomObjectInteraction";
 
 const RoomView3D = dynamic(() => import("./RoomView3D").then((module) => module.RoomView3D), {
   ssr: false,
@@ -188,6 +192,19 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     role,
     runAction: classroom.runAction
   });
+  const roomObjectsEnabled = CLIENT_TUNING.enableRoomObjects && session?.room.settings.roomObjects?.enabled === true;
+  const roomObjectTemplates = useRoomObjectTemplates({
+    identity,
+    classId: session?.room.classId,
+    enabled: roomObjectsEnabled
+  });
+  const roomObjects = useRoomObjects({
+    identity,
+    roomId: session?.room.id ?? roomId,
+    enabled: roomObjectsEnabled,
+    publish: publishRealtime
+  });
+  const [selectedRoomObjectId, setSelectedRoomObjectId] = useState<string | null>(null);
 
   const openLessonRecap = useCallback((runId: string) => {
     setRecapRunId(runId);
@@ -206,9 +223,45 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   }, [classroom.state?.lessonRun?.status, classroom.state?.lessonRun?.id, openLessonRecap, role]);
   const wallRealtimeHandlerRef = useRef(wall.handleRealtimeMessage);
   wallRealtimeHandlerRef.current = wall.handleRealtimeMessage;
+  const roomObjectsRealtimeHandlerRef = useRef(roomObjects.handleRealtimeMessage);
+  roomObjectsRealtimeHandlerRef.current = roomObjects.handleRealtimeMessage;
   const classroomRealtimeHandlerRef = useRef(classroom.handleRealtimeMessage);
   classroomRealtimeHandlerRef.current = classroom.handleRealtimeMessage;
   camera.lockedRef.current = classroom.state?.spotlight?.mode === "force";
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const debugWindow = window as Window & { __debug?: Record<string, unknown> };
+    debugWindow.__debug = debugWindow.__debug ?? {};
+    debugWindow.__debug.roomObjects = {
+      enabled: roomObjectsEnabled,
+      templatesStatus: roomObjectTemplates.status,
+      templates: roomObjectTemplates.templates,
+      objects: roomObjects.objects,
+      objectsById: roomObjects.objectsById,
+      grabs: roomObjects.grabs,
+      myActiveGrab: roomObjects.myActiveGrab,
+      refresh: roomObjects.refresh,
+      refetchTemplates: roomObjectTemplates.refetch,
+      actions: roomObjects.actions
+    };
+    return () => {
+      if (debugWindow.__debug) {
+        delete debugWindow.__debug.roomObjects;
+      }
+    };
+  }, [
+    roomObjects.actions,
+    roomObjects.grabs,
+    roomObjects.myActiveGrab,
+    roomObjects.objects,
+    roomObjects.objectsById,
+    roomObjects.refresh,
+    roomObjectsEnabled,
+    roomObjectTemplates.refetch,
+    roomObjectTemplates.status,
+    roomObjectTemplates.templates
+  ]);
 
   const myActiveHallpass = useMemo(() => {
     return (classroom.state?.helpRequests ?? []).find(
@@ -396,8 +449,10 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
 
     function handleMessage(message: RealtimeMessage) {
       if (wallRealtimeHandlerRef.current(message)) return;
+      if (roomObjectsRealtimeHandlerRef.current(message)) return;
       if (classroomRealtimeHandlerRef.current(message)) return;
       if (message.type.startsWith("wall.")) return;
+      if (message.type.startsWith("room.object.")) return;
 
       if (message.type === "participant.leave.v1") {
         dropReaction(message.participantId);
@@ -721,6 +776,27 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   }, [media.cameraStream, session?.participantId, wall.wallObjects]);
 
   const participantList = useMemo(() => Object.values(participants), [participants]);
+  const roomObjectTemplatesById = useMemo(() => {
+    const map: Record<string, RoomObjectTemplate> = {};
+    for (const template of roomObjectTemplates.templates) {
+      map[template.id] = template;
+    }
+    return map;
+  }, [roomObjectTemplates.templates]);
+  const memberGroupIdsForRoomObjects = useMemo(
+    () =>
+      (classroom.state?.groups ?? [])
+        .filter((group) => group.status === "active" && group.memberUserIds.includes(identity.userId))
+        .map((group) => group.id),
+    [classroom.state?.groups, identity.userId]
+  );
+  const localParticipantForRoomObjects = useMemo(
+    () =>
+      participantList.find((participant) => participant.id === session?.participantId) ??
+      participantList.find((participant) => participant.local) ??
+      null,
+    [participantList, session?.participantId]
+  );
   const groupByUserId = useMemo(() => {
     const map = new Map<string, string>();
     for (const group of classroom.state?.groups ?? []) {
@@ -1173,6 +1249,20 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             onWallObjectStopShare={stopShare}
             onWallObjectModerate={moderateWallObject}
             onWallObjectFullscreen={setFullscreenObjectId}
+            {...(roomObjectsEnabled && manifest
+              ? {
+                  roomObjects: roomObjects.objects,
+                  roomObjectTemplatesById,
+                  roomObjectGrabs: roomObjects.grabs,
+                  myActiveRoomObjectGrabId: roomObjects.myActiveGrab?.objectId ?? null,
+                  roomObjectRole: role,
+                  roomObjectCurrentUserId: identity.userId,
+                  roomObjectMemberGroupIds: memberGroupIdsForRoomObjects,
+                  selectedRoomObjectId,
+                  onSelectRoomObject: setSelectedRoomObjectId,
+                  roomObjectActions: roomObjects.actions
+                }
+              : {})}
           />
         ) : (
           <RoomView2D
@@ -1203,6 +1293,21 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             positioningMode={Boolean(positioningGroupId)}
             getReaction={(id) => getReaction(id)?.reaction}
             getAudioMode={getAudioMode}
+            {...(roomObjectsEnabled && manifest
+              ? {
+                  roomObjects: roomObjects.objects,
+                  roomObjectTemplatesById,
+                  roomObjectGrabs: roomObjects.grabs,
+                  myActiveRoomObjectGrabId: roomObjects.myActiveGrab?.objectId ?? null,
+                  roomObjectRole: role,
+                  roomObjectCurrentUserId: identity.userId,
+                  roomObjectMemberGroupIds: memberGroupIdsForRoomObjects,
+                  selectedRoomObjectId,
+                  onSelectRoomObject: setSelectedRoomObjectId,
+                  roomObjectActions: roomObjects.actions,
+                  getAppearance: effectiveGetAppearance
+                }
+              : {})}
           />
         )}
       </div>
@@ -1454,6 +1559,39 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               manifest={manifest}
               currentUserId={identity.userId}
               onRunAction={classroom.runAction}
+            />
+          ) : null}
+          {roomObjectsEnabled && role === "teacher" && manifest ? (
+            <RoomObjectsToolbar
+              templates={roomObjectTemplates.templates}
+              objects={roomObjects.objects}
+              manifest={manifest}
+              localAvatarPosition={
+                localParticipantForRoomObjects?.state.position ?? { x: 0, y: 0, z: 0 }
+              }
+              localAvatarYaw={localParticipantForRoomObjects?.state.rotation.y ?? 0}
+              loading={roomObjects.loading || roomObjectTemplates.status === "loading"}
+              error={roomObjects.error || (roomObjectTemplates.status === "error" ? "Unable to load object catalog." : "")}
+              selectedObjectId={selectedRoomObjectId}
+              onSelectObject={setSelectedRoomObjectId}
+              onInstantiate={async (templateId) => {
+                const template = roomObjectTemplatesById[templateId];
+                const pose =
+                  template && localParticipantForRoomObjects
+                    ? buildSpawnPoseInFront({
+                        manifest,
+                        avatarPosition: localParticipantForRoomObjects.state.position,
+                        avatarYaw: localParticipantForRoomObjects.state.rotation.y,
+                        template
+                      })
+                    : undefined;
+                const object = await roomObjects.actions.instantiate(templateId, pose);
+                setSelectedRoomObjectId(object.id);
+              }}
+              onRemove={async (objectId) => {
+                await roomObjects.actions.remove(objectId);
+                setSelectedRoomObjectId((current) => (current === objectId ? null : current));
+              }}
             />
           ) : null}
           <Roster

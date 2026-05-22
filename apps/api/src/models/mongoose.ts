@@ -1,5 +1,21 @@
 import mongoose, { type Connection, Schema, type Model } from "mongoose";
-import type { AvatarAppearance, ClassroomState, ClassMembership, ClassRecord, Invite, Role, RoomManifest, RoomRecord, User, WallAttachment, WallObject, WallObjectStatus } from "@3dspace/contracts";
+import type {
+  AvatarAppearance,
+  ClassroomState,
+  ClassMembership,
+  ClassRecord,
+  Invite,
+  Role,
+  RoomManifest,
+  RoomObject,
+  RoomObjectStatus,
+  RoomObjectTemplate,
+  RoomRecord,
+  User,
+  WallAttachment,
+  WallObject,
+  WallObjectStatus
+} from "@3dspace/contracts";
 import type { AuthContext } from "../auth.js";
 import { conflict, notFound } from "../errors.js";
 import { avatarFor, createDefaultClassroomState, inviteCode, newId, nowIso, type Repository, type RoomEventRecord, type RoomSettings } from "../repository.js";
@@ -14,6 +30,8 @@ type Models = {
   ClassroomState: Model<any>;
   WallAttachment: Model<any>;
   WallObject: Model<any>;
+  RoomObjectTemplate: Model<any>;
+  RoomObject: Model<any>;
   RoomEvent: Model<any>;
   RoomSession: Model<any>;
 };
@@ -150,6 +168,55 @@ export function createModels(connection: Connection): Models {
   wallObjectSchema.index({ roomId: 1, updatedAt: -1 });
   wallObjectSchema.index({ roomId: 1, type: 1, status: 1 });
 
+  const roomObjectTemplateSchema = new Schema({
+    id: { type: String, required: true, unique: true },
+    slug: { type: String, required: true, unique: true },
+    displayName: String,
+    category: String,
+    description: String,
+    assetUrl: String,
+    thumbnailUrl: String,
+    defaultPose: Schema.Types.Mixed,
+    defaultScale: Number,
+    defaultColorTintHex: String,
+    defaultParameters: Schema.Types.Mixed,
+    parameterSchemaJson: String,
+    recommendedTouchPolicy: String,
+    kinematic: Boolean,
+    ownerClassId: String,
+    source: String,
+    license: String,
+    attribution: String,
+    renderer: String,
+    proceduralId: String,
+    exportable: Boolean,
+    fileSizeBytes: Number,
+    triangleCount: Number,
+    createdAt: String,
+    archivedAt: String
+  });
+  roomObjectTemplateSchema.index({ slug: 1 }, { unique: true });
+  roomObjectTemplateSchema.index({ source: 1, ownerClassId: 1 });
+
+  const roomObjectSchema = new Schema({
+    id: { type: String, required: true, unique: true },
+    roomId: { type: String, required: true, index: true },
+    templateId: String,
+    displayName: String,
+    pose: Schema.Types.Mixed,
+    scale: Number,
+    colorTintHex: String,
+    parameters: Schema.Types.Mixed,
+    touchPolicy: String,
+    grantedUserIds: { type: [String], default: [] },
+    grantedGroupIds: { type: [String], default: [] },
+    status: { type: String, required: true, enum: ["active", "locked", "archived"], index: true },
+    createdByUserId: String,
+    createdAt: String,
+    updatedAt: String
+  });
+  roomObjectSchema.index({ roomId: 1, status: 1 });
+
   const classroomStateSchema = new Schema({
     roomId: { type: String, required: true, unique: true },
     version: { type: Number, required: true },
@@ -208,6 +275,8 @@ export function createModels(connection: Connection): Models {
     ClassroomState: connection.model("ClassroomState", classroomStateSchema),
     WallAttachment: connection.model("WallAttachment", attachmentSchema),
     WallObject: connection.model("WallObject", wallObjectSchema),
+    RoomObjectTemplate: connection.model("RoomObjectTemplate", roomObjectTemplateSchema),
+    RoomObject: connection.model("RoomObject", roomObjectSchema),
     RoomEvent: connection.model("RoomEvent", eventSchema),
     RoomSession: connection.model("RoomSession", sessionSchema)
   };
@@ -396,6 +465,7 @@ export class MongoRepository implements Repository {
       this.models.ClassroomState.deleteMany({ roomId }),
       this.models.WallAttachment.deleteMany({ roomId }),
       this.models.WallObject.deleteMany({ roomId }),
+      this.models.RoomObject.deleteMany({ roomId }),
       this.models.RoomEvent.deleteMany({ roomId }),
       this.models.RoomSession.deleteMany({ roomId }),
       this.models.Invite.deleteMany({ roomId })
@@ -558,6 +628,88 @@ export class MongoRepository implements Repository {
 
   async softRemoveWallObject(roomId: string, objectId: string, input: { updatedByUserId: string; expectedVersion?: number | undefined }) {
     return this.updateWallObject(roomId, objectId, { updatedByUserId: input.updatedByUserId, expectedVersion: input.expectedVersion, status: "removed" });
+  }
+
+  async upsertBuiltinRoomObjectTemplates(templates: RoomObjectTemplate[]) {
+    const time = nowIso();
+    for (const template of templates) {
+      await this.models.RoomObjectTemplate.findOneAndUpdate(
+        { slug: template.slug },
+        { $set: template, $unset: { archivedAt: "" }, $setOnInsert: { createdAt: template.createdAt || time } },
+        { upsert: true, new: true, lean: true }
+      );
+    }
+  }
+
+  async listRoomObjectTemplatesVisibleTo(userId: string) {
+    const classes = await this.listClassesForUser(userId);
+    const classIds = classes.map((record) => record.id);
+    const query = {
+      archivedAt: { $exists: false },
+      $or: [{ source: "builtin" }, { ownerClassId: { $in: classIds } }]
+    };
+    const docs = await this.models.RoomObjectTemplate.find(query).sort({ displayName: 1 }).lean();
+    return entities<RoomObjectTemplate>(docs);
+  }
+
+  async getRoomObjectTemplate(templateId: string) {
+    const doc = await this.models.RoomObjectTemplate.findOne({ id: templateId, archivedAt: { $exists: false } }).lean();
+    return entity<RoomObjectTemplate | undefined>(doc);
+  }
+
+  async archiveRoomObjectTemplate(templateId: string) {
+    const existing = entity<RoomObjectTemplate | undefined>(
+      await this.models.RoomObjectTemplate.findOne({ id: templateId }).lean()
+    );
+    if (!existing) throw notFound("Room object template not found");
+    if (existing.source === "builtin") throw conflict("Built-in templates cannot be archived");
+    await this.models.RoomObjectTemplate.findOneAndUpdate({ id: templateId }, { $set: { archivedAt: nowIso() } });
+    return existing;
+  }
+
+  async listRoomObjectsForRoom(roomId: string, filter: { status?: RoomObjectStatus | undefined } = {}) {
+    const query: Record<string, unknown> = { roomId };
+    if (filter.status) {
+      query.status = filter.status;
+    } else {
+      query.status = { $ne: "archived" };
+    }
+    return entities<RoomObject>(await this.models.RoomObject.find(query).sort({ updatedAt: -1 }).lean());
+  }
+
+  async getRoomObject(roomId: string, objectId: string) {
+    return entity<RoomObject | undefined>(await this.models.RoomObject.findOne({ roomId, id: objectId }).lean());
+  }
+
+  async createRoomObject(input: Omit<RoomObject, "id" | "createdAt" | "updatedAt">) {
+    const time = nowIso();
+    const record: RoomObject = {
+      ...input,
+      id: newId("robj"),
+      createdAt: time,
+      updatedAt: time
+    };
+    await this.models.RoomObject.create(record);
+    return record;
+  }
+
+  async updateRoomObject(
+    roomId: string,
+    objectId: string,
+    patch: Partial<Omit<RoomObject, "id" | "roomId" | "createdAt" | "createdByUserId">>
+  ) {
+    const existing = await this.getRoomObject(roomId, objectId);
+    if (!existing) throw notFound("Room object not found");
+    const record = await this.models.RoomObject.findOneAndUpdate(
+      { roomId, id: objectId },
+      { $set: { ...patch, updatedAt: nowIso() } },
+      { new: true, lean: true }
+    );
+    return entity<RoomObject>(record);
+  }
+
+  async removeRoomObject(roomId: string, objectId: string) {
+    return this.updateRoomObject(roomId, objectId, { status: "archived" });
   }
 
   async recordRoomEvent(input: { roomId: string; type: string; payload: Record<string, unknown>; createdByUserId: string }) {

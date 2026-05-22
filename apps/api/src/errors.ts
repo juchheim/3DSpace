@@ -50,3 +50,23 @@ export function exitTicketIncomplete(details: {
 export function tooManyRequests(message: string) {
   return new HttpError(429, message, "rate_limited");
 }
+
+export function notImplemented(message: string) {
+  return new HttpError(501, message, "not_implemented");
+}
+
+export function roomObjectDisabled() {
+  return new HttpError(404, "Room objects are disabled for this room", "room-object-disabled");
+}
+
+export function roomObjectLimitReached() {
+  return new HttpError(422, "Active room object limit reached", "room-object-limit-reached");
+}
+
+export function roomObjectNotFound() {
+  return new HttpError(404, "Room object not found", "room-object-not-found");
+}
+
+export function roomObjectTouchDenied() {
+  return new HttpError(403, "You do not have permission to manipulate this object", "room-object-touch-denied");
+}

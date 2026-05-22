@@ -8,6 +8,8 @@ import {
   ClassroomStateSchema,
   CreateClassRequestSchema,
   CreateInviteRequestSchema,
+  CreateRoomObjectRequestSchema,
+  CreateRoomObjectResponseSchema,
   CreateRoomRequestSchema,
   CreateWallObjectRequestSchema,
   CreateWallShareRequestSchema,
@@ -17,12 +19,22 @@ import {
   FinalizeWallAttachmentRequestSchema,
   HealthResponseSchema,
   JoinRoomSessionRequestSchema,
+  ListRoomObjectTemplatesResponseSchema,
+  ListRoomObjectsQuerySchema,
+  ListRoomObjectsResponseSchema,
   ListWallObjectsQuerySchema,
   LessonRunSchema,
   RoomEventRequestSchema,
   RoomSessionResponseSchema,
   RoomWithManifestSchema,
+  RoomObjectRealtimeDispatchResponseSchema,
+  RoomObjectRealtimeInboundSchema,
+  RoomObjectResetResponseSchema,
+  RoomObjectSchema,
+  RoomObjectTemplateSchema,
+  RoomObjectTouchRequestSchema,
   UpdateClassRequestSchema,
+  UpdateRoomObjectRequestSchema,
   UpdateRoomRequestSchema,
   UpdateWallAttachmentRequestSchema,
   UpdateWallObjectRequestSchema,
@@ -48,6 +60,7 @@ import {
   type LessonStep,
   type LessonStepInput,
   type WallAttachment,
+  type RoomObjectRealtimeMessage,
   type WallObject,
   type WallObjectType,
   type RoomSettings
@@ -64,7 +77,40 @@ import {
 } from "@3dspace/room-engine";
 import { authenticate, type AuthContext } from "./auth.js";
 import { loadConfig, livekitConfigured, storageConfigured, type AppConfig } from "./config.js";
-import { badRequest, conflict, exitTicketIncomplete, forbidden, HttpError, notFound, tooManyRequests, unprocessableEntity } from "./errors.js";
+import {
+  badRequest,
+  conflict,
+  exitTicketIncomplete,
+  forbidden,
+  HttpError,
+  notFound,
+  notImplemented,
+  roomObjectDisabled,
+  roomObjectTouchDenied,
+  tooManyRequests,
+  unprocessableEntity
+} from "./errors.js";
+import { seedBuiltinRoomObjectTemplates } from "./room-objects/builtin-catalog.js";
+import { RoomObjectGrabLock } from "./room-objects/grab-lock.js";
+import {
+  assertCanTouchRoomObject,
+  assertRoomObjectsEnabled,
+  clampRoomObjectPose,
+  clampRoomObjectScale,
+  enforceActiveRoomObjectCap,
+  requireRoomObject,
+  studentPatchKeysOnly
+} from "./room-objects/helpers.js";
+import {
+  buildRoomObjectRemoveMessage,
+  buildRoomObjectTouchMessage,
+  buildRoomObjectUpsertMessage
+} from "./room-objects/realtime-outbox.js";
+import {
+  clearRoomObjectParameterDebounceForTests,
+  dispatchRoomObjectRealtimeMessage,
+  forceReleaseRoomObjectGrab
+} from "./room-objects/realtime-dispatch.js";
 import { connectMongo, MongoRepository } from "./models/mongoose.js";
 import { MemoryRepository, newId, type Repository } from "./repository.js";
 import { mintLiveKitToken } from "./services/livekit.js";
@@ -73,12 +119,14 @@ import { createDownloadTarget, createUploadTarget, storageKeyFor } from "./servi
 type BuildAppOptions = {
   config?: AppConfig;
   repository?: Repository;
+  roomObjectGrabLock?: RoomObjectGrabLock;
 };
 
 const ParamsWithClassId = z.object({ classId: z.string() });
 const ParamsWithRoomId = z.object({ roomId: z.string() });
 const ParamsWithRoomAndAttachmentId = z.object({ roomId: z.string(), attachmentId: z.string() });
 const ParamsWithRoomAndObjectId = z.object({ roomId: z.string(), objectId: z.string() });
+const ParamsWithTemplateId = z.object({ templateId: z.string() });
 const ParamsWithRoomAndRunId = z.object({ roomId: z.string(), runId: z.string() });
 const ParamsWithInviteCode = z.object({ inviteCode: z.string() });
 const ParamsWithDevStorageKey = z.object({ storageKey: z.string() });
@@ -157,7 +205,14 @@ function roomSettings(config: AppConfig) {
     maxActiveWallObjects: config.tuning.wallObjectMaxActivePerRoom,
     maxActiveLiveShares: config.tuning.wallObjectMaxActiveLiveShares,
     hallpass: { enabled: true, maxConcurrent: 1, perPeriodLimit: 2 },
-    pods: { enabled: true, podRadiusMeters: 3, podMurmurFloor: 0.08, drawPartitions: false }
+    pods: { enabled: true, podRadiusMeters: 3, podMurmurFloor: 0.08, drawPartitions: false },
+    roomObjects: {
+      enabled: false,
+      maxActive: 8,
+      customUploadsEnabled: false,
+      maxUploadSizeBytes: 8 * 1024 * 1024,
+      defaultTouchPolicy: "teacher-only" as const
+    }
   };
 }
 
@@ -2152,6 +2207,11 @@ async function runClassroomAction(input: {
 export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
   const config = options.config ?? loadConfig();
   const repository = options.repository ?? (await buildRepository(config));
+  await seedBuiltinRoomObjectTemplates(repository);
+  const roomObjectGrabLock = options.roomObjectGrabLock ?? new RoomObjectGrabLock();
+  if (config.tuning.enableRoomObjects) {
+    roomObjectGrabLock.startReaper();
+  }
   const sessionJoinAttempts = new Map<string, { count: number; resetAt: number }>();
   const devStorage = new Map<string, { body: Buffer; contentType: string }>();
   const app = fastify({ logger: config.nodeEnv !== "test" });
@@ -2209,6 +2269,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   });
 
   app.addHook("onClose", async () => {
+    roomObjectGrabLock.stopReaper();
+    clearRoomObjectParameterDebounceForTests();
     await repository.close();
   });
 
@@ -3121,6 +3183,216 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       type: event.type,
       persisted: true,
       createdAt: event.createdAt
+    };
+  });
+
+  app.get("/v1/room-objects/templates", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    if (!config.tuning.enableRoomObjects) throw roomObjectDisabled();
+    const templates = await repository.listRoomObjectTemplatesVisibleTo(auth.userId);
+    return ListRoomObjectTemplatesResponseSchema.parse({ templates });
+  });
+
+  app.post("/v1/room-objects/templates", async (request) => {
+    await requireUser(request, config, repository);
+    if (!config.tuning.enableRoomObjects) throw roomObjectDisabled();
+    throw notImplemented("Custom room object template upload is not available yet");
+  });
+
+  app.delete("/v1/room-objects/templates/:templateId", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    if (!config.tuning.enableRoomObjects) throw roomObjectDisabled();
+    const params = parseParams(ParamsWithTemplateId, request);
+    const template = await repository.getRoomObjectTemplate(params.templateId);
+    if (!template) throw notFound("Room object template not found");
+    if (template.source !== "custom" || !template.ownerClassId) {
+      throw notImplemented("Only custom templates can be archived in this release");
+    }
+    await requireClassTeacher(repository, template.ownerClassId, auth);
+    const archived = await repository.archiveRoomObjectTemplate(params.templateId);
+    return RoomObjectTemplateSchema.parse(archived);
+  });
+
+  app.get("/v1/rooms/:roomId/objects", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomId, request);
+    const query = parseQuery(ListRoomObjectsQuerySchema, request);
+    const { room } = await requireRoomAccess(repository, params.roomId, auth);
+    assertRoomObjectsEnabled(config, room);
+    const objects = await repository.listRoomObjectsForRoom(params.roomId, { status: query.status });
+    return ListRoomObjectsResponseSchema.parse({ objects });
+  });
+
+  app.post("/v1/rooms/:roomId/objects", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomId, request);
+    const body = parseBody(CreateRoomObjectRequestSchema, request);
+    const { room, manifest } = await requireRoomAccess(repository, params.roomId, auth);
+    assertRoomObjectsEnabled(config, room);
+    await requireRoomTeacher(repository, params.roomId, auth);
+    const template = await repository.getRoomObjectTemplate(body.templateId);
+    if (!template) throw notFound("Room object template not found");
+    await enforceActiveRoomObjectCap(repository, room);
+    const pose = clampRoomObjectPose(manifest, body.pose ?? template.defaultPose);
+    const scale = clampRoomObjectScale(body.scale ?? template.defaultScale, template);
+    const object = RoomObjectSchema.parse(
+      await repository.createRoomObject({
+        roomId: params.roomId,
+        templateId: template.id,
+        displayName: body.displayName ?? template.displayName,
+        pose,
+        scale,
+        ...(body.colorTintHex !== undefined
+          ? { colorTintHex: body.colorTintHex }
+          : template.defaultColorTintHex
+            ? { colorTintHex: template.defaultColorTintHex }
+            : {}),
+        parameters: body.parameters ?? template.defaultParameters,
+        touchPolicy: body.touchPolicy ?? template.recommendedTouchPolicy,
+        grantedUserIds: [],
+        grantedGroupIds: [],
+        status: "active",
+        createdByUserId: auth.userId
+      })
+    );
+    const realtimeMessages = [
+      buildRoomObjectUpsertMessage({ roomId: params.roomId, object, senderId: auth.userId })
+    ];
+    return { ...CreateRoomObjectResponseSchema.parse({ object }), realtimeMessages };
+  });
+
+  app.post("/v1/rooms/:roomId/room-objects/realtime", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomId, request);
+    const inbound = parseBody(RoomObjectRealtimeInboundSchema, request);
+    const access = await requireRoomAccess(repository, params.roomId, auth);
+    assertRoomObjectsEnabled(config, access.room);
+    const messages = await dispatchRoomObjectRealtimeMessage(
+      {
+        repository,
+        grabLock: roomObjectGrabLock,
+        config,
+        roomId: params.roomId,
+        manifest: access.manifest,
+        auth,
+        membership: access.membership,
+        sentAt: Date.now()
+      },
+      inbound
+    );
+    return RoomObjectRealtimeDispatchResponseSchema.parse({ messages });
+  });
+
+  app.patch("/v1/rooms/:roomId/objects/:objectId", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomAndObjectId, request);
+    const body = parseBody(UpdateRoomObjectRequestSchema, request);
+    const { room, manifest, membership } = await requireRoomAccess(repository, params.roomId, auth);
+    assertRoomObjectsEnabled(config, room);
+    const existing = await requireRoomObject(repository, params.roomId, params.objectId);
+    const template = await repository.getRoomObjectTemplate(existing.templateId);
+    if (!template) throw notFound("Room object template not found");
+    const { teacher } = await actorIsRoomTeacher(repository, params.roomId, auth);
+    if (!teacher) {
+      if (!membership) throw forbidden("Class membership required");
+      await assertCanTouchRoomObject(repository, params.roomId, existing, auth, membership);
+      if (!studentPatchKeysOnly(body)) throw roomObjectTouchDenied();
+    }
+    const patch: Parameters<Repository["updateRoomObject"]>[2] = {};
+    if (body.displayName !== undefined) patch.displayName = body.displayName;
+    if (body.pose !== undefined) patch.pose = clampRoomObjectPose(manifest, body.pose);
+    if (body.scale !== undefined) patch.scale = clampRoomObjectScale(body.scale, template);
+    if (body.colorTintHex !== undefined) patch.colorTintHex = body.colorTintHex;
+    if (body.parameters !== undefined) patch.parameters = body.parameters;
+    if (body.touchPolicy !== undefined) patch.touchPolicy = body.touchPolicy;
+    if (body.status !== undefined) patch.status = body.status;
+    const updated = RoomObjectSchema.parse(await repository.updateRoomObject(params.roomId, params.objectId, patch));
+    if (roomObjectGrabLock.get(params.objectId) && (body.pose !== undefined || body.scale !== undefined)) {
+      roomObjectGrabLock.release(params.objectId);
+    }
+    return {
+      ...updated,
+      realtimeMessages: [buildRoomObjectUpsertMessage({ roomId: params.roomId, object: updated, senderId: auth.userId })]
+    };
+  });
+
+  app.delete("/v1/rooms/:roomId/objects/:objectId", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomAndObjectId, request);
+    const { room } = await requireRoomAccess(repository, params.roomId, auth);
+    assertRoomObjectsEnabled(config, room);
+    await requireRoomTeacher(repository, params.roomId, auth);
+    await requireRoomObject(repository, params.roomId, params.objectId);
+    roomObjectGrabLock.release(params.objectId);
+    const removed = RoomObjectSchema.parse(await repository.removeRoomObject(params.roomId, params.objectId));
+    return {
+      ...removed,
+      realtimeMessages: [
+        buildRoomObjectRemoveMessage({ roomId: params.roomId, objectId: params.objectId, senderId: auth.userId })
+      ]
+    };
+  });
+
+  app.post("/v1/rooms/:roomId/objects/:objectId/touch", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomAndObjectId, request);
+    const body = parseBody(RoomObjectTouchRequestSchema, request);
+    const { room } = await requireRoomAccess(repository, params.roomId, auth);
+    assertRoomObjectsEnabled(config, room);
+    await requireRoomTeacher(repository, params.roomId, auth);
+    const existing = await requireRoomObject(repository, params.roomId, params.objectId);
+    const previousGrantees = new Set(existing.grantedUserIds);
+    const updated = RoomObjectSchema.parse(
+      await repository.updateRoomObject(params.roomId, params.objectId, {
+        touchPolicy: body.touchPolicy,
+        grantedUserIds: body.userIds,
+        grantedGroupIds: body.groupIds
+      })
+    );
+    const realtimeMessages: RoomObjectRealtimeMessage[] = [
+      buildRoomObjectTouchMessage({ roomId: params.roomId, object: updated, senderId: auth.userId })
+    ];
+    for (const userId of previousGrantees) {
+      if (!body.userIds.includes(userId)) {
+        const forced = await forceReleaseRoomObjectGrab({
+          repository,
+          grabLock: roomObjectGrabLock,
+          roomId: params.roomId,
+          objectId: params.objectId,
+          holderUserId: userId,
+          senderId: auth.userId
+        });
+        realtimeMessages.push(...forced);
+      }
+    }
+    return { ...updated, realtimeMessages };
+  });
+
+  app.post("/v1/rooms/:roomId/objects/:objectId/reset", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomAndObjectId, request);
+    const { room, manifest, membership } = await requireRoomAccess(repository, params.roomId, auth);
+    assertRoomObjectsEnabled(config, room);
+    const existing = await requireRoomObject(repository, params.roomId, params.objectId);
+    const template = await repository.getRoomObjectTemplate(existing.templateId);
+    if (!template) throw notFound("Room object template not found");
+    const { teacher } = await actorIsRoomTeacher(repository, params.roomId, auth);
+    if (!teacher) {
+      if (!membership) throw forbidden("Class membership required");
+      await assertCanTouchRoomObject(repository, params.roomId, existing, auth, membership);
+    }
+    const object = RoomObjectSchema.parse(
+      await repository.updateRoomObject(params.roomId, params.objectId, {
+        pose: clampRoomObjectPose(manifest, template.defaultPose),
+        scale: clampRoomObjectScale(template.defaultScale, template),
+        parameters: template.defaultParameters,
+        ...(template.defaultColorTintHex ? { colorTintHex: template.defaultColorTintHex } : { colorTintHex: undefined })
+      })
+    );
+    roomObjectGrabLock.release(params.objectId);
+    return {
+      ...RoomObjectResetResponseSchema.parse({ object }),
+      realtimeMessages: [buildRoomObjectUpsertMessage({ roomId: params.roomId, object, senderId: auth.userId })]
     };
   });
 

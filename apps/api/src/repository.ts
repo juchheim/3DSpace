@@ -11,6 +11,9 @@ import type {
   RoomSettingsSchema,
   User,
   WallAttachment,
+  RoomObject,
+  RoomObjectStatus,
+  RoomObjectTemplate,
   WallObject,
   WallObjectStatus
 } from "@3dspace/contracts";
@@ -99,6 +102,19 @@ export type Repository = {
     input: Partial<Omit<WallObject, "id" | "roomId" | "createdAt" | "createdByUserId" | "version">> & { updatedByUserId: string; expectedVersion?: number | undefined }
   ): Promise<WallObject>;
   softRemoveWallObject(roomId: string, objectId: string, input: { updatedByUserId: string; expectedVersion?: number | undefined }): Promise<WallObject>;
+  upsertBuiltinRoomObjectTemplates(templates: RoomObjectTemplate[]): Promise<void>;
+  listRoomObjectTemplatesVisibleTo(userId: string): Promise<RoomObjectTemplate[]>;
+  getRoomObjectTemplate(templateId: string): Promise<RoomObjectTemplate | undefined>;
+  archiveRoomObjectTemplate(templateId: string): Promise<RoomObjectTemplate>;
+  listRoomObjectsForRoom(roomId: string, filter?: { status?: RoomObjectStatus | undefined }): Promise<RoomObject[]>;
+  getRoomObject(roomId: string, objectId: string): Promise<RoomObject | undefined>;
+  createRoomObject(input: Omit<RoomObject, "id" | "createdAt" | "updatedAt">): Promise<RoomObject>;
+  updateRoomObject(
+    roomId: string,
+    objectId: string,
+    patch: Partial<Omit<RoomObject, "id" | "roomId" | "createdAt" | "createdByUserId">>
+  ): Promise<RoomObject>;
+  removeRoomObject(roomId: string, objectId: string): Promise<RoomObject>;
   recordRoomEvent(input: { roomId: string; type: string; payload: Record<string, unknown>; createdByUserId: string }): Promise<RoomEventRecord>;
   recordRoomSession(input: { roomId: string; participantIdentity: string; userId: string; role: Role; maxParticipants: number }): Promise<number>;
 };
@@ -137,6 +153,8 @@ export class MemoryRepository implements Repository {
   private classroomStates = new Map<string, ClassroomState>();
   private attachments = new Map<string, WallAttachment>();
   private wallObjects = new Map<string, WallObject>();
+  private roomObjectTemplates = new Map<string, RoomObjectTemplate & { archivedAt?: string }>();
+  private roomObjects = new Map<string, RoomObject>();
   private roomEvents = new Map<string, RoomEventRecord>();
   private activeSessions = new Map<string, { roomId: string; participantIdentity: string; lastSeenAt: number }>();
 
@@ -349,6 +367,9 @@ export class MemoryRepository implements Repository {
     for (const [id, object] of this.wallObjects.entries()) {
       if (object.roomId === roomId) this.wallObjects.delete(id);
     }
+    for (const [id, object] of this.roomObjects.entries()) {
+      if (object.roomId === roomId) this.roomObjects.delete(id);
+    }
     this.classroomStates.delete(roomId);
     for (const [id, event] of this.roomEvents.entries()) {
       if (event.roomId === roomId) this.roomEvents.delete(id);
@@ -486,6 +507,94 @@ export class MemoryRepository implements Repository {
 
   async softRemoveWallObject(roomId: string, objectId: string, input: { updatedByUserId: string; expectedVersion?: number | undefined }) {
     return this.updateWallObject(roomId, objectId, { updatedByUserId: input.updatedByUserId, expectedVersion: input.expectedVersion, status: "removed" });
+  }
+
+  async upsertBuiltinRoomObjectTemplates(templates: RoomObjectTemplate[]) {
+    const time = nowIso();
+    for (const template of templates) {
+      const existing = Array.from(this.roomObjectTemplates.values()).find((entry) => entry.slug === template.slug);
+      const record = {
+        ...template,
+        ...(existing ? { createdAt: existing.createdAt } : { createdAt: template.createdAt || time })
+      };
+      this.roomObjectTemplates.set(record.id, record);
+    }
+  }
+
+  async listRoomObjectTemplatesVisibleTo(userId: string) {
+    const classes = await this.listClassesForUser(userId);
+    const classIds = new Set(classes.map((record) => record.id));
+    return Array.from(this.roomObjectTemplates.values()).filter((template) => {
+      if (template.archivedAt) return false;
+      if (template.source === "builtin") return true;
+      return Boolean(template.ownerClassId && classIds.has(template.ownerClassId));
+    });
+  }
+
+  async getRoomObjectTemplate(templateId: string) {
+    const template = this.roomObjectTemplates.get(templateId);
+    if (!template || template.archivedAt) return undefined;
+    const { archivedAt: _archivedAt, ...rest } = template;
+    return rest;
+  }
+
+  async archiveRoomObjectTemplate(templateId: string) {
+    const template = this.roomObjectTemplates.get(templateId);
+    if (!template) throw notFound("Room object template not found");
+    if (template.source === "builtin") throw conflict("Built-in templates cannot be archived");
+    const archived = { ...template, archivedAt: nowIso() };
+    this.roomObjectTemplates.set(templateId, archived);
+    const { archivedAt: _archivedAt, ...rest } = archived;
+    return rest;
+  }
+
+  async listRoomObjectsForRoom(roomId: string, filter: { status?: RoomObjectStatus | undefined } = {}) {
+    return Array.from(this.roomObjects.values()).filter((object) => {
+      if (object.roomId !== roomId) return false;
+      if (filter.status) return object.status === filter.status;
+      return object.status !== "archived";
+    });
+  }
+
+  async getRoomObject(roomId: string, objectId: string) {
+    const object = this.roomObjects.get(objectId);
+    return object?.roomId === roomId ? object : undefined;
+  }
+
+  async createRoomObject(input: Omit<RoomObject, "id" | "createdAt" | "updatedAt">) {
+    const time = nowIso();
+    const record: RoomObject = {
+      ...input,
+      id: newId("robj"),
+      createdAt: time,
+      updatedAt: time
+    };
+    this.roomObjects.set(record.id, record);
+    return record;
+  }
+
+  async updateRoomObject(
+    roomId: string,
+    objectId: string,
+    patch: Partial<Omit<RoomObject, "id" | "roomId" | "createdAt" | "createdByUserId">>
+  ) {
+    const existing = await this.getRoomObject(roomId, objectId);
+    if (!existing) throw notFound("Room object not found");
+    const updated: RoomObject = {
+      ...existing,
+      ...patch,
+      id: objectId,
+      roomId,
+      createdAt: existing.createdAt,
+      createdByUserId: existing.createdByUserId,
+      updatedAt: nowIso()
+    };
+    this.roomObjects.set(objectId, updated);
+    return updated;
+  }
+
+  async removeRoomObject(roomId: string, objectId: string) {
+    return this.updateRoomObject(roomId, objectId, { status: "archived" });
   }
 
   async recordRoomEvent(input: { roomId: string; type: string; payload: Record<string, unknown>; createdByUserId: string }) {

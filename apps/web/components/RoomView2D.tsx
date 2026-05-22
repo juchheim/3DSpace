@@ -1,8 +1,24 @@
 "use client";
 
-import type { AvatarReactionSlug, ClassroomGroup, ClassroomPrivateCheck, ClassroomSpotlight, ParticipantAudioMode, RoomManifest, WallObject } from "@3dspace/contracts";
+import { useEffect, useMemo, useState } from "react";
+import type {
+  AvatarAppearance,
+  AvatarReactionSlug,
+  ClassroomGroup,
+  ClassroomPrivateCheck,
+  ClassroomSpotlight,
+  ParticipantAudioMode,
+  Role,
+  RoomManifest,
+  RoomObject,
+  RoomObjectTemplate,
+  WallObject
+} from "@3dspace/contracts";
 import { computeGroupMemberPosition, projectAnchorRectTo2D, projectPositionTo2D } from "@3dspace/room-engine";
 import type { ParticipantView } from "./RoomClient";
+import { RoomObjectIcon2D } from "./RoomObjectIcon2D";
+import { RoomObjectInspector } from "./RoomObjectInspector";
+import { canTouchRoomObject, snapPosition, snapScale, snapYaw } from "../lib/roomObjectInteraction";
 import { WallObjectCard } from "./WallObjectCard";
 
 function anchorPrivateChecks(privateChecks: ClassroomPrivateCheck[], anchorId: string) {
@@ -16,6 +32,23 @@ const REACTION_EMOJI_2D: Record<AvatarReactionSlug, string> = {
   "me":        "🙋",
   "pause":     "🤚",
   "celebrate": "🎉"
+};
+
+type GrabInfo = { holderUserId: string; expiresAt: string };
+
+type RoomObjectActions = {
+  beginGrab(objectId: string): Promise<boolean>;
+  publishPose(objectId: string, pose: import("@3dspace/contracts").Pose, scale: number): void;
+  endGrab(objectId: string, finalPose: import("@3dspace/contracts").Pose, finalScale: number): Promise<void>;
+  update(objectId: string, patch: { colorTintHex?: string }): Promise<unknown>;
+  remove(objectId: string): Promise<void>;
+  reset(objectId: string): Promise<unknown>;
+  setTouch(
+    objectId: string,
+    touchPolicy: import("@3dspace/contracts").RoomObjectTouchPolicy,
+    grants?: { userIds?: string[]; groupIds?: string[] }
+  ): Promise<unknown>;
+  setParameters(objectId: string, parameters: Record<string, unknown>): void;
 };
 
 export function RoomView2D({
@@ -33,7 +66,18 @@ export function RoomView2D({
   positioningMode = false,
   getReaction,
   getAudioMode,
-  hallpassZone
+  hallpassZone,
+  roomObjects = [],
+  roomObjectTemplatesById = {},
+  roomObjectGrabs,
+  myActiveRoomObjectGrabId,
+  roomObjectRole,
+  roomObjectCurrentUserId,
+  roomObjectMemberGroupIds = [],
+  selectedRoomObjectId = null,
+  onSelectRoomObject,
+  roomObjectActions,
+  getAppearance
 }: {
   manifest: RoomManifest;
   participants: ParticipantView[];
@@ -50,8 +94,165 @@ export function RoomView2D({
   getReaction?: (participantId: string) => AvatarReactionSlug | undefined;
   getAudioMode?: (participantId: string) => { mode: ParticipantAudioMode; radiusMeters: number } | undefined;
   hallpassZone?: RoomManifest["hallpassHoldingZone"];
+  roomObjects?: RoomObject[];
+  roomObjectTemplatesById?: Record<string, RoomObjectTemplate>;
+  roomObjectGrabs?: Map<string, GrabInfo>;
+  myActiveRoomObjectGrabId?: string | null;
+  roomObjectRole?: Role;
+  roomObjectCurrentUserId?: string;
+  roomObjectMemberGroupIds?: string[];
+  selectedRoomObjectId?: string | null;
+  onSelectRoomObject?: (objectId: string | null) => void;
+  roomObjectActions?: RoomObjectActions;
+  getAppearance?: (participantId: string) => AvatarAppearance;
 }) {
+  const [liveAnnouncement, setLiveAnnouncement] = useState("");
+  const objectsEnabled = Boolean(
+    roomObjectActions &&
+      roomObjectRole &&
+      roomObjectCurrentUserId &&
+      onSelectRoomObject &&
+      roomObjectGrabs
+  );
+
+  const selectedObject = useMemo(
+    () => roomObjects.find((object) => object.id === selectedRoomObjectId) ?? null,
+    [roomObjects, selectedRoomObjectId]
+  );
+  const selectedTemplate = selectedObject ? roomObjectTemplatesById[selectedObject.templateId] : undefined;
+  const selectedMapPoint = selectedObject
+    ? projectPositionTo2D(manifest, selectedObject.pose.position)
+    : null;
+
+  useEffect(() => {
+    if (!objectsEnabled || !selectedObject || !selectedTemplate || !roomObjectActions) return;
+    const activeObject = selectedObject;
+    const activeTemplate = selectedTemplate;
+
+    const canTouch = canTouchRoomObject({
+      object: activeObject,
+      userId: roomObjectCurrentUserId!,
+      role: roomObjectRole!,
+      memberGroupIds: roomObjectMemberGroupIds
+    });
+    if (!canTouch) return;
+
+    const isHolder = myActiveRoomObjectGrabId === activeObject.id;
+
+    async function ensureGrab() {
+      if (isHolder) return true;
+      return roomObjectActions!.beginGrab(activeObject.id);
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.target instanceof HTMLElement && event.target.closest(".room-object-html")) return;
+      const bypass = event.shiftKey;
+      const step = 0.25;
+      const scaleStep = activeTemplate.defaultScale * 0.05;
+
+      const mutate = async (nextPose: typeof activeObject.pose, nextScale: number) => {
+        const pose = {
+          position: snapPosition(manifest, nextPose.position, bypass),
+          rotation: {
+            ...nextPose.rotation,
+            yaw: snapYaw(nextPose.rotation.yaw, bypass)
+          }
+        };
+        const scale = snapScale(nextScale, activeTemplate.defaultScale, bypass);
+        roomObjectActions!.publishPose(activeObject.id, pose, scale);
+        await roomObjectActions!.endGrab(activeObject.id, pose, scale);
+      };
+
+      void (async () => {
+        const grabbed = await ensureGrab();
+        if (!grabbed) return;
+
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          await mutate(
+            {
+              ...activeObject.pose,
+              position: { ...activeObject.pose.position, x: activeObject.pose.position.x - step }
+            },
+            activeObject.scale
+          );
+        } else if (event.key === "ArrowRight") {
+          event.preventDefault();
+          await mutate(
+            {
+              ...activeObject.pose,
+              position: { ...activeObject.pose.position, x: activeObject.pose.position.x + step }
+            },
+            activeObject.scale
+          );
+        } else if (event.key === "ArrowUp") {
+          event.preventDefault();
+          await mutate(
+            {
+              ...activeObject.pose,
+              position: { ...activeObject.pose.position, z: activeObject.pose.position.z - step }
+            },
+            activeObject.scale
+          );
+        } else if (event.key === "ArrowDown") {
+          event.preventDefault();
+          await mutate(
+            {
+              ...activeObject.pose,
+              position: { ...activeObject.pose.position, z: activeObject.pose.position.z + step }
+            },
+            activeObject.scale
+          );
+        } else if (event.key === "[") {
+          event.preventDefault();
+          await mutate(
+            {
+              ...activeObject.pose,
+              rotation: {
+                ...activeObject.pose.rotation,
+                yaw: activeObject.pose.rotation.yaw - Math.PI / 12
+              }
+            },
+            activeObject.scale
+          );
+        } else if (event.key === "]") {
+          event.preventDefault();
+          await mutate(
+            {
+              ...activeObject.pose,
+              rotation: {
+                ...activeObject.pose.rotation,
+                yaw: activeObject.pose.rotation.yaw + Math.PI / 12
+              }
+            },
+            activeObject.scale
+          );
+        } else if (event.key === "+" || event.key === "=") {
+          event.preventDefault();
+          await mutate(activeObject.pose, activeObject.scale + scaleStep);
+        } else if (event.key === "-" || event.key === "_") {
+          event.preventDefault();
+          await mutate(activeObject.pose, activeObject.scale - scaleStep);
+        }
+      })();
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [
+    manifest,
+    myActiveRoomObjectGrabId,
+    objectsEnabled,
+    roomObjectActions,
+    roomObjectCurrentUserId,
+    roomObjectMemberGroupIds,
+    roomObjectRole,
+    selectedObject,
+    selectedTemplate
+  ]);
+
   function handlePointer(event: React.PointerEvent<SVGSVGElement>) {
+    if ((event.target as Element).closest(".room-object-icon-2d")) return;
     const rect = event.currentTarget.getBoundingClientRect();
     onMoveToPoint({
       x: ((event.clientX - rect.left) / rect.width) * 100,
@@ -60,7 +261,7 @@ export function RoomView2D({
   }
 
   return (
-    <div className="map2d">
+    <div className={`map2d${objectsEnabled ? " map2d--room-objects" : ""}`}>
       <svg role="img" aria-label={`${manifest.name} top-down 2D analog`} viewBox="0 0 100 100" onPointerDown={handlePointer}>
         <rect x="2" y="2" width="96" height="96" rx="5" fill="#f6edcf" stroke="#17201a" strokeOpacity="0.28" strokeWidth="1" />
         {manifest.walls.map((wall) => {
@@ -162,6 +363,43 @@ export function RoomView2D({
             </g>
           );
         })() : null}
+        {objectsEnabled
+          ? roomObjects.map((object) => {
+              const template = roomObjectTemplatesById[object.templateId];
+              if (!template) return null;
+              const grab = roomObjectGrabs!.get(object.id);
+              const holderId = grab?.holderUserId;
+              const holderParticipant = holderId
+                ? participants.find((participant) => participant.id === holderId)
+                : undefined;
+              const grabHolderColor = holderParticipant && getAppearance
+                ? getAppearance(holderParticipant.id).shirtFront
+                : "#f4b63f";
+
+              return (
+                <RoomObjectIcon2D
+                  key={object.id}
+                  manifest={manifest}
+                  object={object}
+                  template={template}
+                  canTouch={canTouchRoomObject({
+                    object,
+                    userId: roomObjectCurrentUserId!,
+                    role: roomObjectRole!,
+                    memberGroupIds: roomObjectMemberGroupIds
+                  })}
+                  isGrabbed={Boolean(grab)}
+                  grabHolderColor={grabHolderColor}
+                  holderDisplayName={holderParticipant?.displayName}
+                  localIsHolder={holderId === roomObjectCurrentUserId}
+                  selected={selectedRoomObjectId === object.id}
+                  actions={roomObjectActions!}
+                  onSelect={() => onSelectRoomObject!(object.id)}
+                  onAnnounce={setLiveAnnouncement}
+                />
+              );
+            })
+          : null}
         {positioningMode ? (
           <rect x="2" y="2" width="96" height="96" rx="5" fill="none" stroke="#e67e22" strokeWidth="1.5" strokeDasharray="4 3" pointerEvents="none" />
         ) : null}
@@ -210,6 +448,31 @@ export function RoomView2D({
           );
         })}
       </svg>
+
+      {objectsEnabled && selectedObject && selectedTemplate && selectedMapPoint ? (
+        <div
+          className="room-object-2d-inspector-anchor room-object-html"
+          style={{ left: `${selectedMapPoint.x}%`, top: `${selectedMapPoint.y}%` }}
+        >
+          <RoomObjectInspector
+            object={selectedObject}
+            template={selectedTemplate}
+            role={roomObjectRole!}
+            currentUserId={roomObjectCurrentUserId!}
+            memberGroupIds={roomObjectMemberGroupIds}
+            participants={participants}
+            classroomGroups={classroomGroups}
+            visible={true}
+            actions={roomObjectActions!}
+            onClose={() => onSelectRoomObject?.(null)}
+          />
+        </div>
+      ) : null}
+
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {liveAnnouncement}
+      </div>
+
       {wallObjects.length > 0 ? (
         <div className="wall-object-list" aria-label="Wall objects list">
           {wallObjects.map((object) => (

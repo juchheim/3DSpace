@@ -5,13 +5,20 @@ import type {
   ClassroomState,
   ClassMembership,
   ClassRecord,
+  CreateRoomObjectRequestSchema,
   Invite,
   LessonRecap,
   Role,
   RoomRecord,
+  RoomObject,
+  RoomObjectRealtimeInbound,
+  RoomObjectRealtimeMessage,
+  RoomObjectTemplate,
   RoomSessionResponse,
   RoomSettings,
+  RoomObjectTouchRequestSchema,
   RoomWithManifest,
+  UpdateRoomObjectRequestSchema,
   WallAttachment,
   WallAttachmentDownloadResponse,
   WallObject,
@@ -75,6 +82,29 @@ export async function apiFetch<T>(path: string, options: RequestOptions): Promis
   }
 
   return response.json() as Promise<T>;
+}
+
+type RoomObjectMutationResult = {
+  object: RoomObject;
+  realtimeMessages: RoomObjectRealtimeMessage[];
+};
+
+function normalizeRoomObjectMutationResult(
+  payload:
+    | { object: RoomObject; realtimeMessages?: RoomObjectRealtimeMessage[] | undefined }
+    | (RoomObject & { realtimeMessages?: RoomObjectRealtimeMessage[] | undefined })
+): RoomObjectMutationResult {
+  if ("object" in payload) {
+    return {
+      object: payload.object,
+      realtimeMessages: payload.realtimeMessages ?? []
+    };
+  }
+  const { realtimeMessages = [], ...object } = payload;
+  return {
+    object: object as RoomObject,
+    realtimeMessages
+  };
 }
 
 export function listClasses(identity: ApiIdentity) {
@@ -259,6 +289,63 @@ export function createWebResource(
     identity,
     body: input
   });
+}
+
+export function listRoomObjectTemplates(identity: ApiIdentity) {
+  return apiFetch<{ templates: RoomObjectTemplate[] }>("/v1/room-objects/templates", { identity }).then((response) => response.templates);
+}
+
+export function listRoomObjects(identity: ApiIdentity, roomId: string, options?: { status?: RoomObject["status"] | undefined }) {
+  const params = new URLSearchParams();
+  if (options?.status) params.set("status", options.status);
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return apiFetch<{ objects: RoomObject[] }>(`/v1/rooms/${roomId}/objects${suffix}`, { identity }).then((response) => response.objects);
+}
+
+export function createRoomObject(identity: ApiIdentity, roomId: string, input: z.infer<typeof CreateRoomObjectRequestSchema>) {
+  return apiFetch<{ object: RoomObject; realtimeMessages?: RoomObjectRealtimeMessage[] }>(`/v1/rooms/${roomId}/objects`, {
+    method: "POST",
+    identity,
+    body: input
+  }).then(normalizeRoomObjectMutationResult);
+}
+
+export function updateRoomObject(identity: ApiIdentity, roomId: string, objectId: string, input: z.infer<typeof UpdateRoomObjectRequestSchema>) {
+  return apiFetch<RoomObject & { realtimeMessages?: RoomObjectRealtimeMessage[] }>(`/v1/rooms/${roomId}/objects/${objectId}`, {
+    method: "PATCH",
+    identity,
+    body: input
+  }).then(normalizeRoomObjectMutationResult);
+}
+
+export function deleteRoomObject(identity: ApiIdentity, roomId: string, objectId: string) {
+  return apiFetch<RoomObject & { realtimeMessages?: RoomObjectRealtimeMessage[] }>(`/v1/rooms/${roomId}/objects/${objectId}`, {
+    method: "DELETE",
+    identity
+  }).then(normalizeRoomObjectMutationResult);
+}
+
+export function setRoomObjectTouch(identity: ApiIdentity, roomId: string, objectId: string, input: z.infer<typeof RoomObjectTouchRequestSchema>) {
+  return apiFetch<RoomObject & { realtimeMessages?: RoomObjectRealtimeMessage[] }>(`/v1/rooms/${roomId}/objects/${objectId}/touch`, {
+    method: "POST",
+    identity,
+    body: input
+  }).then(normalizeRoomObjectMutationResult);
+}
+
+export function resetRoomObject(identity: ApiIdentity, roomId: string, objectId: string) {
+  return apiFetch<{ object: RoomObject; realtimeMessages?: RoomObjectRealtimeMessage[] }>(`/v1/rooms/${roomId}/objects/${objectId}/reset`, {
+    method: "POST",
+    identity
+  }).then(normalizeRoomObjectMutationResult);
+}
+
+export function dispatchRoomObjectRealtime(identity: ApiIdentity, roomId: string, message: RoomObjectRealtimeInbound) {
+  return apiFetch<{ messages: RoomObjectRealtimeMessage[] }>(`/v1/rooms/${roomId}/room-objects/realtime`, {
+    method: "POST",
+    identity,
+    body: message
+  }).then((response) => response.messages);
 }
 
 export function getClassroomState(identity: ApiIdentity, roomId: string) {

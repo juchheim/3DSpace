@@ -1,0 +1,56 @@
+{
+  "_draft": "Phase 0 draft catalog entry for the RoomObject hero. Phase 1 validates this against RoomObjectTemplateSchema; Phase 7 copies it into builtin.json — stringifying parameterSchema into parameterSchemaJson, assigning id/createdAt, and confirming thumbnailUrl/triangleCount.",
+  "slug": "water-molecule",
+  "displayName": "Water molecule (H₂O)",
+  "category": "science",
+  "description": "A bent H₂O molecule with CPK colouring. Rotate it to explore the 104.5° bond angle, switch between ball-and-stick and space-filling models, and toggle a colourblind-safe palette.",
+  "renderer": "procedural",
+  "proceduralId": "water-molecule",
+  "exportable": true,
+  "kinematic": false,
+  "source": "builtin",
+  "license": "CC0-1.0",
+  "attribution": "3DSpace — built-in procedural manipulative",
+  "defaultPose": {
+    "position": { "x": 0, "y": 1.1, "z": 0 },
+    "rotation": { "yaw": 0, "pitch": 0, "roll": 0 }
+  },
+  "defaultScale": 1,
+  "recommendedTouchPolicy": "teacher-only",
+  "defaultParameters": {
+    "modelStyle": "ball-and-stick",
+    "bondAngleVisible": true,
+    "palette": "cpk"
+  },
+  "parameterSchema": {
+    "modelStyle": {
+      "type": "enum",
+      "label": "Model style",
+      "default": "ball-and-stick",
+      "options": [
+        { "value": "ball-and-stick", "label": "Ball & stick" },
+        { "value": "space-filling", "label": "Space-filling" }
+      ]
+    },
+    "bondAngleVisible": {
+      "type": "boolean",
+      "label": "Bond-angle readout",
+      "default": true
+    },
+    "palette": {
+      "type": "enum",
+      "label": "Colour palette",
+      "default": "cpk",
+      "options": [
+        { "value": "cpk", "label": "CPK standard" },
+        { "value": "accessible", "label": "Colourblind-safe" }
+      ]
+    }
+  },
+  "thumbnailUrl": "/room-objects/thumbnails/water-molecule.png",
+  "assetBudget": {
+    "renderer": "procedural",
+    "triangleCountEstimate": 18600,
+    "notes": "No .glb asset in v1 — geometry is procedural. The dev harness footer reports the live triangle count. exportRootRef is wired for the deferred in-app .glb export (PLAN_ROOM_OBJECTS § 3.5)."
+  }
+}

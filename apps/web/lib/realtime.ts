@@ -8,6 +8,7 @@ import type {
   ClassroomStateRealtimeSchema,
   ParticipantAudioModeMessage,
   Role,
+  RoomObjectRealtimeMessageSchema,
   RoomSessionResponse,
   WallModerationStateMessageSchema,
   WallObjectRealtimeRemoveSchema,
@@ -38,7 +39,28 @@ export type WallRealtimeMessage =
 
 export type ClassroomRealtimeMessage = z.infer<typeof ClassroomStateChangedRealtimeSchema> | z.infer<typeof ClassroomStateRealtimeSchema>;
 
-export type RealtimeMessage = AvatarStateMessage | AvatarAppearanceMessage | AvatarReactionMessage | ParticipantAudioModeMessage | PresenceMessage | LeaveMessage | WallRealtimeMessage | ClassroomRealtimeMessage;
+export type RoomObjectRealtimeMessage = z.infer<typeof RoomObjectRealtimeMessageSchema>;
+
+export type RealtimeMessage =
+  | AvatarStateMessage
+  | AvatarAppearanceMessage
+  | AvatarReactionMessage
+  | ParticipantAudioModeMessage
+  | PresenceMessage
+  | LeaveMessage
+  | WallRealtimeMessage
+  | ClassroomRealtimeMessage
+  | RoomObjectRealtimeMessage;
+
+const ROOM_OBJECT_UNRELIABLE_TYPES = new Set(["room.object.pose.v1"]);
+
+export function isRoomObjectRealtimeUnreliable(type: string) {
+  return ROOM_OBJECT_UNRELIABLE_TYPES.has(type);
+}
+
+export function isRealtimeUnreliable(message: RealtimeMessage) {
+  return message.type === "avatar.state.v1" || isRoomObjectRealtimeUnreliable(message.type);
+}
 
 export type RemoteMediaUpdate = {
   participantId: string;
@@ -577,8 +599,9 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
 
     return {
       publish(message) {
-        const reliable = message.type !== "avatar.state.v1";
-        void room.localParticipant.publishData(encoder.encode(JSON.stringify(message)), { reliable });
+        void room.localParticipant.publishData(encoder.encode(JSON.stringify(message)), {
+          reliable: !isRealtimeUnreliable(message)
+        });
       },
       syncParticipants() {
         room.remoteParticipants.forEach((participant) => {

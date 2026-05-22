@@ -21,11 +21,12 @@ Total: ~10–12 dev-days for four shippable features — **all complete**.
 
 ### Big-idea implementations in flight
 
-Planning + implementation docs for one of the two `LEARNING_FEATURE_IDEAS.md` "Alternate big ideas." This is a multi-week effort and ships behind its own feature flag.
+Planning + implementation docs for the two `LEARNING_FEATURE_IDEAS.md` "Alternate big ideas." Each is a multi-week effort and ships behind its own feature flag.
 
 | Doc | Idea | Effort | Status |
 | --- | --- | --- | --- |
 | [`PLAN_BREAKOUT_PODS.md`](./PLAN_BREAKOUT_PODS.md) + [`IMPL_BREAKOUT_PODS.md`](./IMPL_BREAKOUT_PODS.md) | Breakout pods with per-pod audio islands (Alternate B) | ~3–5 weeks | **Planned** |
+| [`PLAN_ROOM_OBJECTS.md`](./PLAN_ROOM_OBJECTS.md) + [`IMPL_ROOM_OBJECTS.md`](./IMPL_ROOM_OBJECTS.md) + [`ROOM_OBJECT_DEMO_SCRIPT.md`](./ROOM_OBJECT_DEMO_SCRIPT.md) | 3D manipulatives — RoomObject library (Alternate A); hero **water-molecule** | Phases 0–7 implemented locally; Phase 8+ import & rollout | **In progress** (Phases 0–7) |
 
 `PLAN_*` docs spell out functionality, design decisions, and overlap migration; `IMPL_*` docs are the phase-by-phase build plan.
 

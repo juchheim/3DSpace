@@ -379,6 +379,16 @@ export function unprojectPointFrom2D(manifest: RoomManifest, point: { x: number;
   });
 }
 
+/** Maps a 2D viewBox delta (percent of map width/depth) to world-space XZ movement. */
+export function delta2DToWorldXZ(manifest: RoomManifest, delta: { dx: number; dy: number }) {
+  const width = manifest.bounds.maxX - manifest.bounds.minX;
+  const depth = manifest.bounds.maxZ - manifest.bounds.minZ;
+  return {
+    dx: (delta.dx / 100) * width,
+    dz: (delta.dy / 100) * depth
+  };
+}
+
 const SPAWN_OCCUPIED_RADIUS = 0.9;
 
 function stableHash(value: string) {

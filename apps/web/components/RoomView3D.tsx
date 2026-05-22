@@ -4,10 +4,27 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html } from "@react-three/drei";
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
 import { BufferAttribute, BufferGeometry, type MeshStandardMaterial, Vector3 } from "three";
-import type { AvatarAppearance, AvatarReactionSlug, ClassroomGroup, ClassroomPrivateCheck, ClassroomSpotlight, ParticipantAudioMode, QualityLevel, RoomManifest, WallAnchorSchema, WallObject, WallObjectPlacement, WallPlaneSchema } from "@3dspace/contracts";
+import type {
+  AvatarAppearance,
+  AvatarReactionSlug,
+  ClassroomGroup,
+  ClassroomPrivateCheck,
+  ClassroomSpotlight,
+  ParticipantAudioMode,
+  QualityLevel,
+  Role,
+  RoomManifest,
+  RoomObject,
+  RoomObjectTemplate,
+  WallAnchorSchema,
+  WallObject,
+  WallObjectPlacement,
+  WallPlaneSchema
+} from "@3dspace/contracts";
 import type { z } from "zod";
 import type { ParticipantView } from "./RoomClient";
 import { BlockyAvatar } from "./BlockyAvatar";
+import { RoomObjectsLayer } from "./RoomObjectsLayer";
 import { WallObjectCard } from "./WallObjectCard";
 
 type Wall = z.infer<typeof WallPlaneSchema>;
@@ -89,7 +106,17 @@ export function RoomView3D({
   onWallObjectStopShare,
   onWallObjectModerate,
   onWallObjectFullscreen,
-  hallpassZone
+  hallpassZone,
+  roomObjects,
+  roomObjectTemplatesById,
+  roomObjectGrabs,
+  myActiveRoomObjectGrabId,
+  roomObjectRole,
+  roomObjectCurrentUserId,
+  roomObjectMemberGroupIds,
+  selectedRoomObjectId,
+  onSelectRoomObject,
+  roomObjectActions
 }: {
   manifest: RoomManifest;
   participants: ParticipantView[];
@@ -129,6 +156,29 @@ export function RoomView3D({
   onWallObjectModerate?: (objectId: string, action: "approve" | "reject") => void | Promise<void>;
   onWallObjectFullscreen?: (objectId: string) => void;
   hallpassZone?: RoomManifest["hallpassHoldingZone"];
+  roomObjects?: RoomObject[];
+  roomObjectTemplatesById?: Record<string, RoomObjectTemplate>;
+  roomObjectGrabs?: Map<string, { holderUserId: string; expiresAt: string }>;
+  myActiveRoomObjectGrabId?: string | null;
+  roomObjectRole?: Role;
+  roomObjectCurrentUserId?: string;
+  roomObjectMemberGroupIds?: string[];
+  selectedRoomObjectId?: string | null;
+  onSelectRoomObject?: (objectId: string | null) => void;
+  roomObjectActions?: {
+    beginGrab(objectId: string): Promise<boolean>;
+    publishPose(objectId: string, pose: import("@3dspace/contracts").Pose, scale: number): void;
+    endGrab(objectId: string, finalPose: import("@3dspace/contracts").Pose, finalScale: number): Promise<void>;
+    update(objectId: string, patch: { colorTintHex?: string }): Promise<unknown>;
+    remove(objectId: string): Promise<void>;
+    reset(objectId: string): Promise<unknown>;
+    setTouch(
+      objectId: string,
+      touchPolicy: import("@3dspace/contracts").RoomObjectTouchPolicy,
+      grants?: { userIds?: string[]; groupIds?: string[] }
+    ): Promise<unknown>;
+    setParameters(objectId: string, parameters: Record<string, unknown>): void;
+  };
 }) {
   const dpr = quality === "high" ? 1.8 : quality === "medium" ? 1.4 : 1;
   const [canvasElement, setCanvasElement] = useState<HTMLCanvasElement | null>(null);
@@ -169,6 +219,31 @@ export function RoomView3D({
         <ambientLight intensity={0.82} />
         <directionalLight position={[4, 8, 6]} intensity={1.4} />
         <RoomGeometry manifest={manifest} onMoveToPoint={onMoveToPoint} wallObjects={wallObjects} spotlightAnchorId={spotlight?.anchorId} />
+        {roomObjects &&
+        roomObjectTemplatesById &&
+        roomObjectGrabs &&
+        roomObjectRole &&
+        roomObjectCurrentUserId &&
+        roomObjectMemberGroupIds &&
+        onSelectRoomObject &&
+        roomObjectActions ? (
+          <RoomObjectsLayer
+            manifest={manifest}
+            objects={roomObjects}
+            templatesById={roomObjectTemplatesById}
+            grabs={roomObjectGrabs}
+            myActiveGrabObjectId={myActiveRoomObjectGrabId ?? null}
+            role={roomObjectRole}
+            currentUserId={roomObjectCurrentUserId}
+            memberGroupIds={roomObjectMemberGroupIds}
+            participants={participants}
+            classroomGroups={classroomGroups}
+            getAppearance={getAppearance}
+            selectedObjectId={selectedRoomObjectId ?? null}
+            onSelectObject={onSelectRoomObject}
+            actions={roomObjectActions}
+          />
+        ) : null}
         <WallObjectLayer
           manifest={manifest}
           wallObjects={wallObjects}

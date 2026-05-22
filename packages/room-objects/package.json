@@ -1,0 +1,7 @@
+{
+  "name": "@3dspace/room-objects",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RoomObject catalog data and asset tooling. No compiled output.",
+  "type": "module"
+}

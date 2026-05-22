@@ -14,7 +14,7 @@ function isInteractivePointerTarget(target: EventTarget | null) {
   if (!(target instanceof Element)) return false;
   return Boolean(
     target.closest(
-      "button, a, input, select, textarea, label, [role='button'], .wall-object-html, .wall-anchor-label-html, .avatar-video-card"
+      "button, a, input, select, textarea, label, [role='button'], .wall-object-html, .room-object-html, .wall-anchor-label-html, .avatar-video-card"
     )
   );
 }
