@@ -4543,6 +4543,13 @@ body.lobby-dark::before {
   user-select: none;
 }
 
+.room-object-label--select {
+  pointer-events: auto;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
 .room-object-label__name {
   font: 600 12px "Barlow", system-ui, sans-serif;
   color: #f4f6f8;
@@ -4675,22 +4682,8 @@ body.lobby-dark::before {
   border-color: rgba(224, 90, 90, 0.45);
 }
 
-.room-object-toolbar-shell {
-  position: relative;
-}
-
-.room-object-toolbar__dock {
-  position: absolute;
-  top: 0;
-  right: calc(100% + 12px);
-  width: min(320px, calc(100vw - 32px));
-  z-index: 21;
-}
-
-.room-object-toolbar__dock .room-object-inspector {
+.room-object-inspector-dock .room-object-inspector {
   width: 100%;
-  max-height: calc(100vh - var(--hud-th) - 26px);
-  overflow-y: auto;
 }
 
 .room-object-toolbar-card {
@@ -4844,14 +4837,3 @@ body.lobby-dark::before {
   padding: 4px 8px;
 }
 
-@media (max-width: 1280px) {
-  .room-object-toolbar__dock {
-    position: static;
-    width: auto;
-    margin-bottom: 10px;
-  }
-
-  .room-object-toolbar__dock .room-object-inspector {
-    max-height: none;
-  }
-}

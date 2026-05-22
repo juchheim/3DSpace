@@ -48,6 +48,7 @@ import { AvatarEditorPanel } from "./AvatarEditorPanel";
 import { CopyRoomInviteButton } from "./CopyRoomInviteButton";
 import { WallObjectContent } from "./WallObjectCard";
 import { RoomObjectsToolbar } from "./RoomObjectsToolbar";
+import { RoomObjectInspector } from "./RoomObjectInspector";
 import { buildSpawnPoseInFront } from "../lib/roomObjectInteraction";
 
 const RoomView3D = dynamic(() => import("./RoomView3D").then((module) => module.RoomView3D), {
@@ -797,6 +798,14 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       null,
     [participantList, session?.participantId]
   );
+  const selectedRoomObject = useMemo(
+    () => roomObjects.objects.find((object) => object.id === selectedRoomObjectId) ?? null,
+    [roomObjects.objects, selectedRoomObjectId]
+  );
+  const selectedRoomObjectTemplate = useMemo(
+    () => (selectedRoomObject ? roomObjectTemplatesById[selectedRoomObject.templateId] : undefined),
+    [roomObjectTemplatesById, selectedRoomObject]
+  );
   const groupByUserId = useMemo(() => {
     const map = new Map<string, string>();
     for (const group of classroom.state?.groups ?? []) {
@@ -1163,6 +1172,12 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     (lesson.run?.status === "running" || lesson.run?.status === "paused") &&
     lesson.currentStep?.kind === "private-check";
   const detailPanelOpen = Boolean(helpBoardAccessUserId || selectedStudentId);
+  const lessonScriptDockOpen = CLIENT_TUNING.enableClassroomLessons && role === "teacher" && Boolean(lesson.run);
+  const roomObjectInspectorDockOpen =
+    roomObjectsEnabled &&
+    role === "teacher" &&
+    Boolean(selectedRoomObject && selectedRoomObjectTemplate);
+  const roomObjectInspectorStacked = detailPanelOpen || lessonScriptDockOpen;
   const avatarEditorLocked =
     classroom.state?.lessonRun?.status === "running" &&
     classroom.state?.avatarEditorLocked === true;
@@ -1573,12 +1588,6 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               loading={roomObjects.loading || roomObjectTemplates.status === "loading"}
               error={roomObjects.error || (roomObjectTemplates.status === "error" ? "Unable to load object catalog." : "")}
               selectedObjectId={selectedRoomObjectId}
-              role={role}
-              currentUserId={identity.userId}
-              memberGroupIds={memberGroupIdsForRoomObjects}
-              participants={participantList}
-              classroomGroups={classroom.state?.groups ?? []}
-              actions={roomObjects.actions}
               onSelectObject={setSelectedRoomObjectId}
               onInstantiate={async (templateId) => {
                 const template = roomObjectTemplatesById[templateId];
@@ -1737,6 +1746,29 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           ) : null}
         </div>
       </aside>
+      {roomObjectInspectorDockOpen && selectedRoomObject && selectedRoomObjectTemplate ? (
+        <aside
+          className={`room-hud-right-secondary room-object-inspector-dock${roomObjectInspectorStacked ? " room-hud-right-secondary--stacked" : ""}`}
+          aria-label={`${selectedRoomObject.displayName} inspector`}
+          data-testid="room-object-inspector-dock"
+        >
+          <div className="hud-panel">
+            <RoomObjectInspector
+              key={selectedRoomObject.id}
+              object={selectedRoomObject}
+              template={selectedRoomObjectTemplate}
+              role={role}
+              currentUserId={identity.userId}
+              memberGroupIds={memberGroupIdsForRoomObjects}
+              participants={participantList}
+              classroomGroups={classroom.state?.groups ?? []}
+              visible={true}
+              actions={roomObjects.actions}
+              onClose={() => setSelectedRoomObjectId(null)}
+            />
+          </div>
+        </aside>
+      ) : null}
       {CLIENT_TUNING.enableClassroomLessons && role === "teacher" && lesson.run ? (
         <aside
           className={`room-hud-right-secondary${detailPanelOpen ? " room-hud-right-secondary--stacked" : ""}`}

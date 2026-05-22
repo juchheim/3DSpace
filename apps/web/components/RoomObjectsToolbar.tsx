@@ -1,10 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import type { ClassroomGroup, Role, RoomManifest, RoomObject, RoomObjectTemplate } from "@3dspace/contracts";
+import { useState } from "react";
+import type { RoomManifest, RoomObject, RoomObjectTemplate } from "@3dspace/contracts";
 import { HudCard } from "./HudCard";
-import { RoomObjectInspector } from "./RoomObjectInspector";
-import type { ParticipantView } from "./RoomClient";
 import {
   isRoomObjectTemplatePlaceable,
   isRoomObjectTemplateSelectableInV1,
@@ -20,12 +18,6 @@ export function RoomObjectsToolbar({
   loading,
   error,
   selectedObjectId,
-  role,
-  currentUserId,
-  memberGroupIds,
-  participants,
-  classroomGroups,
-  actions,
   onSelectObject,
   onInstantiate,
   onRemove
@@ -38,25 +30,11 @@ export function RoomObjectsToolbar({
   loading: boolean;
   error: string;
   selectedObjectId: string | null;
-  role: Role;
-  currentUserId: string;
-  memberGroupIds: string[];
-  participants: ParticipantView[];
-  classroomGroups: ClassroomGroup[];
-  actions: Parameters<typeof RoomObjectInspector>[0]["actions"];
   onSelectObject(objectId: string | null): void;
   onInstantiate(templateId: string): Promise<void>;
   onRemove(objectId: string): Promise<void>;
 }) {
   const [placingId, setPlacingId] = useState<string | null>(null);
-  const selectedObject = useMemo(
-    () => objects.find((object) => object.id === selectedObjectId) ?? null,
-    [objects, selectedObjectId]
-  );
-  const selectedTemplate = useMemo(
-    () => (selectedObject ? templates.find((template) => template.id === selectedObject.templateId) ?? null : null),
-    [selectedObject, templates]
-  );
   const catalog = [...templates].sort((left, right) => {
     if (left.slug === ROOM_OBJECT_HERO_SLUG) return -1;
     if (right.slug === ROOM_OBJECT_HERO_SLUG) return 1;
@@ -64,31 +42,13 @@ export function RoomObjectsToolbar({
   });
 
   return (
-    <div className="room-object-toolbar-shell">
-      {selectedObject && selectedTemplate ? (
-        <div className="room-object-toolbar__dock" aria-label={`${selectedObject.displayName} inspector`}>
-          <RoomObjectInspector
-            key={selectedObject.id}
-            object={selectedObject}
-            template={selectedTemplate}
-            role={role}
-            currentUserId={currentUserId}
-            memberGroupIds={memberGroupIds}
-            participants={participants}
-            classroomGroups={classroomGroups}
-            visible={true}
-            actions={actions}
-            onClose={() => onSelectObject(null)}
-          />
-        </div>
-      ) : null}
-      <HudCard
-        title="Objects"
-        badge={loading ? "…" : objects.length}
-        ariaLabel="Room objects"
-        defaultCollapsed={false}
-        forceExpanded={Boolean(selectedObject)}
-      >
+    <HudCard
+      title="Objects"
+      badge={loading ? "…" : objects.length}
+      ariaLabel="Room objects"
+      defaultCollapsed={false}
+      forceExpanded={Boolean(selectedObjectId)}
+    >
         {error ? <p className="room-object-toolbar__error">{error}</p> : null}
         <div className="room-object-toolbar-card">
           <span className="room-object-toolbar__heading">Catalog</span>
@@ -169,7 +129,6 @@ export function RoomObjectsToolbar({
             </ul>
           )}
         </div>
-      </HudCard>
-    </div>
+    </HudCard>
   );
 }

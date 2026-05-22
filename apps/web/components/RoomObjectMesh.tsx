@@ -238,7 +238,7 @@ export function RoomObjectMesh({
         )}
       </group>
 
-      <mesh visible={false} scale={[1.2, 1.2, 0.35]}>
+      <mesh visible={false} scale={[1.4, 1.2, 1.4]}>
         <boxGeometry args={[1, 1, 1]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
         {showOutline ? (
@@ -252,10 +252,17 @@ export function RoomObjectMesh({
       </mesh>
 
       <Html center distanceFactor={7} position={[0, 1.1, 0]} className="room-object-html">
-        <div className="room-object-label">
+        <button
+          type="button"
+          className="room-object-label room-object-label--select"
+          onPointerDown={(event) => {
+            event.stopPropagation();
+            onSelect();
+          }}
+        >
           <span className="room-object-label__name">{object.displayName}</span>
           {summary ? <span className="room-object-label__meta">{summary}</span> : null}
-        </div>
+        </button>
       </Html>
     </group>
   );
