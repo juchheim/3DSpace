@@ -1,0 +1,242 @@
+/* Dev-only styling for the World Skins Phase 0 harness. Not shipped to app nav. */
+
+.harness {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  background: #0b0e14;
+  color: #d7dae0;
+  font-family: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  overflow: hidden;
+}
+
+/* ── Left control panel ───────────────────────────────────────────────────── */
+
+.panel {
+  flex: 0 0 300px;
+  display: flex;
+  flex-direction: column;
+  background: #11151e;
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  overflow-y: auto;
+}
+
+.panelHeader {
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.kicker {
+  margin: 0 0 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: #6b7282;
+}
+
+.title {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #f1f3f6;
+}
+
+.description {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #828a99;
+}
+
+.section {
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sectionTitle {
+  margin: 0 0 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #7d8494;
+}
+
+.paramHelp {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #828a99;
+}
+
+.paramHelp code {
+  font-family: "Fira Code", "Cascadia Code", ui-monospace, monospace;
+  font-size: 10.5px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+/* ── Segmented view control ───────────────────────────────────────────────── */
+
+.segmented {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 10px;
+  background: #161b27;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.segment {
+  flex: 1;
+  padding: 7px 6px;
+  border-radius: 7px;
+  border: 0;
+  background: transparent;
+  color: #9aa1b0;
+  box-shadow: none;
+  font: 600 11.5px "Barlow", system-ui, sans-serif;
+  cursor: pointer;
+  transition: background 130ms ease, color 130ms ease;
+  white-space: nowrap;
+}
+
+.segment:hover {
+  color: #d7dbe3;
+}
+
+.segmentActive,
+.segmentActive:hover {
+  background: #2f3a4f;
+  color: #f4f6f9;
+}
+
+/* ── Walk-speed stat rows ─────────────────────────────────────────────────── */
+
+.statRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+}
+
+.statLabel {
+  font-size: 12px;
+  color: #9aa1b0;
+}
+
+.statValue {
+  font-size: 14px;
+  font-weight: 700;
+  color: #e8c27a;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Ambient slider ───────────────────────────────────────────────────────── */
+
+.sliderRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.slider {
+  flex: 1;
+  accent-color: #e8c27a;
+  cursor: pointer;
+}
+
+.sliderValue {
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #e8c27a;
+  min-width: 36px;
+  text-align: right;
+}
+
+/* ── Details list ─────────────────────────────────────────────────────────── */
+
+.details {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px 12px;
+  font-size: 12px;
+}
+
+.details dt {
+  color: #7d8494;
+  font-weight: 600;
+}
+
+.details dd {
+  margin: 0;
+  color: #d7dae0;
+}
+
+/* ── Actions / hint ───────────────────────────────────────────────────────── */
+
+.actions {
+  padding: 16px 20px 22px;
+  margin-top: auto;
+}
+
+.hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #707888;
+}
+
+.hint strong {
+  color: #a0a8b8;
+}
+
+/* ── Right stage ──────────────────────────────────────────────────────────── */
+
+.stage {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.splitStage {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.splitStage > .canvasWrap:first-child {
+  border-right: 2px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ── Individual canvas pane ───────────────────────────────────────────────── */
+
+.canvasWrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.canvasLabel {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(8, 10, 15, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #c8cdd8;
+  pointer-events: none;
+  white-space: nowrap;
+}

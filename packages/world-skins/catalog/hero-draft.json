@@ -1,0 +1,57 @@
+{
+  "_draft": "Phase 0 pilot catalog entry for Mars Surface. Phase 2 validates against WorldSkinSchema. Production walls: one panorama.webp 8192x1024 (see docs/planning/new-features/WORLD_SKIN_PANORAMA_SPEC.md); this file uses color-only walls until textures ship.",
+  "slug": "mars-surface",
+  "label": "Mars Surface",
+  "description": "Ochre regolith walls, pale dust sky, low-gravity walk speed, and wind ambient loop. Students experience space science context on the Martian surface without leaving the classroom.",
+  "gradeBands": ["5-8", "9-12"],
+  "subjects": ["earth-science", "space-science"],
+  "baseManifestId": "default-theater",
+  "version": 1,
+  "overrides": {
+    "walls": {
+      "wall-front":    { "colorHex": "#b06030", "roughness": 0.92 },
+      "wall-left":     { "colorHex": "#a85c2c", "roughness": 0.92 },
+      "wall-right":    { "colorHex": "#a85c2c", "roughness": 0.92 },
+      "wall-back-lo":  { "colorHex": "#c07038", "roughness": 0.90 },
+      "wall-back-li":  { "colorHex": "#c47a40", "roughness": 0.90 },
+      "wall-back-c":   { "colorHex": "#c88040", "roughness": 0.90 },
+      "wall-back-ri":  { "colorHex": "#c47a40", "roughness": 0.90 },
+      "wall-back-ro":  { "colorHex": "#c07038", "roughness": 0.90 }
+    },
+    "floor": {
+      "colorHex": "#9a5020",
+      "roughness": 0.96
+    },
+    "tiers": {
+      "colorHex": "#ae6030",
+      "roughness": 0.94
+    },
+    "lighting": {
+      "backgroundColor": "#c8865a",
+      "ambientColor": "#d4906a",
+      "ambientIntensity": 0.6,
+      "directionalColor": "#ffb080",
+      "directionalIntensity": 1.8,
+      "directionalPosition": [6, 4, 2],
+      "fogColor": "#b87050",
+      "fogNear": 18,
+      "fogFar": 55
+    },
+    "walkSpeedMultiplier": 0.38,
+    "avatarScale": 1.0,
+    "ambient": {
+      "storageKey": "/world-skins/mars-surface/v1/ambient.ogg",
+      "defaultGain": 0.15,
+      "minGrade": "5"
+    },
+    "props": []
+  },
+  "thumbnailStorageKey": "/world-skins/thumbnails/mars-surface.png",
+  "licenseAttribution": [
+    {
+      "assetId": "mars-surface-colors",
+      "notice": "Phase 0: color-only materials. Production textures will be sourced from NASA/CC0 Mars imagery (Mars Reconnaissance Orbiter HiRISE dataset, public domain)."
+    }
+  ],
+  "source": "builtin"
+}

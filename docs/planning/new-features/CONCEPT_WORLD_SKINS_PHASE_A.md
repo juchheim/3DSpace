@@ -105,7 +105,7 @@ Phase A ships the **full skin experience** the product promises (five environmen
 
 | Layer | Delivery | Asset type |
 | --- | --- | --- |
-| **Walls** | Per `wall.id` materials (repeatable textures across segments) | WebP/KTX2 in R2 |
+| **Walls** | **One** unwrap image (`panorama.webp`, **8192×1024**) sliced per `wall.id` in the engine | WebP in R2 |
 | **Floor / tiers** | Themed floor surfaces on existing tier meshes | WebP |
 | **Sky / backdrop** | Fog color, sun/ambient light presets, optional **panorama image** (one 2D file) | JSON + optional image |
 | **Lighting mood** | Per-skin preset (day/night for Forum = preset swap) | Catalog JSON only |
@@ -134,8 +134,9 @@ Phase A ships the **full skin experience** the product promises (five environmen
 
 ### Content pipeline (Phase A)
 
-- **Source of truth:** `packages/world-skins/catalog/builtin.json` — wall keys, floor key, sky/lighting preset, audio key, 2D map key, tuning numbers. Optional empty `props: []`.
-- **Binaries:** Cloudflare R2 under `world-skins/<slug>/<version>/` — **textures and audio only** (~1–3 MB compressed per skin).
+- **Authoritative wall art spec:** [`WORLD_SKIN_PANORAMA_SPEC.md`](./WORLD_SKIN_PANORAMA_SPEC.md) — **8192×1024** `panorama.webp`, horizon at **640 px** from bottom, unwrap order left → back arc → right → front; companion **`floor.webp` 2048×2048**.
+- **Source of truth:** `packages/world-skins/catalog/builtin.json` — `overrides.panoramaWall` (storage key + UV slices), floor key, sky/lighting preset, audio key, 2D map key, tuning numbers. Optional empty `props: []`. Per-wall `walls` map remains for Phase 0 color-only harnesses.
+- **Binaries:** Cloudflare R2 under `world-skins/<slug>/<version>/` — **`panorama.webp` + `floor.webp`** (+ optional sky/map2d/audio). Budget target **≤3 MB** where feasible; the 8192-wide panorama may exceed that alone — document actuals per skin in QA.
 - **Who makes art:** 2D illustrator, stock/CC textures (NASA Mars imagery, etc.), or engineer-sourced placeholders for pilot — **not** a 3D modeling contractor.
 - **Per room:** still only `room.settings.skinId` in Mongo — not a copy of assets per classroom.
 - **Services:** unchanged — existing API, R2, Mongo, web client (see prior architecture discussion).
@@ -148,7 +149,7 @@ Phase A ships the **full skin experience** the product promises (five environmen
 
 ### Engineering implication
 
-`SkinLayer` load order for Phase A: placeholder theater → wall/floor materials → sky/fog/lighting → 2D map → ambient audio. **Skip** glTF prop injection until `overrides.props` is non-empty. Schema and API should treat `props` and `gltfUrls` as **optional** from day one so A+ is additive.
+`SkinLayer` load order for Phase A: placeholder theater → **one wall texture** (UV-sliced per mesh) + floor → sky/fog/lighting → 2D map → ambient audio. **Skip** glTF prop injection until `overrides.props` is non-empty. Schema and API should treat `props` and `gltfUrls` as **optional** from day one so A+ is additive.
 
 ---
 

@@ -64,7 +64,7 @@ Geometry invariant ([CONCEPT §1.3](./CONCEPT_WORLD_SKINS_PHASE_A.md)): skin ove
   - `package.json` (`"name": "@3dspace/world-skins"`, no exports beyond `catalog/`).
   - `catalog/hero-draft.json` — pilot skin draft (Mars), keys point to local `apps/web/public/world-skins/mars-surface/v1/...` for harness; will be re-keyed to R2 in Phase 2.
   - `tsconfig.json`, `scripts/render-skin-thumbnail.mjs` (dependency-free PNG generator → `apps/web/public/world-skins/thumbnails/mars-surface.png`, 800×500).
-- `apps/web/public/world-skins/mars-surface/v1/` — placeholder WebP textures (one per `wall.id` or one tiled for back walls), `floor.webp`, optional `sky.webp`, `ambient.ogg`. CC/CC0/NASA-licensed inputs only.
+- `apps/web/public/world-skins/mars-surface/v1/` — production art uses **one** [`panorama.webp` at 8192×1024](./WORLD_SKIN_PANORAMA_SPEC.md) + `floor.webp` (2048×2048). Phase 0 may stay **color-only** in `hero-draft.json` until textures land; do **not** author eight per-wall files.
 - `apps/web/public/world-skins/thumbnails/mars-surface.png` — catalog thumbnail.
 
 **Quality gate (do not exit Phase 0 until):**
@@ -72,7 +72,7 @@ Geometry invariant ([CONCEPT §1.3](./CONCEPT_WORLD_SKINS_PHASE_A.md)): skin ove
 - Walls/floor look credibly "Martian" in 3D; main board text on `anchor-board` reads at WCAG AA contrast over the wall texture.
 - Wind ambient loops without click; gain caps at ~15% (P3 in concept).
 - Walk speed multiplier works in the harness (Mars + reset to 1×).
-- Pilot skin pack ≤3 MB compressed on wire (`du -sh apps/web/public/world-skins/mars-surface/v1`).
+- When textures are added: `panorama.webp` is **8192×1024** per [panorama spec](./WORLD_SKIN_PANORAMA_SPEC.md); record compressed size in QA (≤3 MB is a stretch goal for this resolution).
 - Sign-off recorded as a one-line addendum to `CONCEPT_WORLD_SKINS_PHASE_A.md` "open questions" with the chosen pilot.
 
 **Checkpoint:**
@@ -120,8 +120,11 @@ Geometry invariant ([CONCEPT §1.3](./CONCEPT_WORLD_SKINS_PHASE_A.md)): skin ove
        repeat: z.tuple([z.number().positive(), z.number().positive()]).optional()
      });
 
+     export const WorldSkinPanoramaWallSchema = z.object({ ... });  // 8192×1024 unwrap — see WORLD_SKIN_PANORAMA_SPEC.md
+
      export const WorldSkinOverridesSchema = z.object({
-       walls: z.record(WorldSkinMaterialOverrideSchema).default({}),   // key: wall.id
+       panoramaWall: WorldSkinPanoramaWallSchema.optional(),           // production path
+       walls: z.record(WorldSkinMaterialOverrideSchema).default({}),   // Phase 0 color-only / legacy
        floor: WorldSkinMaterialOverrideSchema.optional(),
        tiers: WorldSkinMaterialOverrideSchema.optional(),
        lighting: WorldSkinLightingPresetSchema,
@@ -240,6 +243,8 @@ Geometry invariant ([CONCEPT §1.3](./CONCEPT_WORLD_SKINS_PHASE_A.md)): skin ove
 - Existing contracts tests still pass.
 - `apps/api` / `apps/web` typecheck fails only in known places (no skin handlers / no SkinLayer yet).
 
+**If you already finished Phase 1:** no rework. **`panoramaWall`** is an optional additive field on `WorldSkinOverridesSchema` (see [`WORLD_SKIN_PANORAMA_SPEC.md`](./WORLD_SKIN_PANORAMA_SPEC.md) and `WorldSkinPanoramaWallSchema` in `packages/contracts/src/index.ts`). Phase 0 `hero-draft.json` color-only `walls` still validates.
+
 ---
 
 ## Phase 2 — Catalog package, R2 layout, builtin seed
@@ -254,7 +259,7 @@ Geometry invariant ([CONCEPT §1.3](./CONCEPT_WORLD_SKINS_PHASE_A.md)): skin ove
   - `catalog/hero-draft.json` (from Phase 0) is retained for the harness route and **not** consumed by the API.
   - `tsconfig.json` (mirrors `packages/room-objects`).
   - `scripts/render-skin-thumbnail.mjs` (Phase 0) extended to render the remaining four thumbnails into `apps/web/public/world-skins/thumbnails/<slug>.png`.
-  - `tests/builtin-catalog.test.ts` — Zod-parse every entry of `builtin.json` against `WorldSkinSchema`; assert all five expected slugs are present; assert `props.length === 0` for every Phase A entry; assert each entry has `walls`, `floor`, `lighting`, `ambient`.
+  - `tests/builtin-catalog.test.ts` — Zod-parse every entry of `builtin.json` against `WorldSkinSchema`; assert all five expected slugs are present; assert `props.length === 0` for every Phase A entry; assert each entry has **`overrides.panoramaWall`** (8192×1024 + default slices from `WORLD_SKIN_PANORAMA_SLICES_DEFAULT`), `floor`, `lighting`, `ambient`.
 
 - `apps/api/src/world-skins/builtin-catalog.ts` (mirror `room-objects/builtin-catalog.ts`):
   - `resolveBuiltinCatalogPath()` checks bundled `dist/world-skins/catalog/builtin.json` then falls back to monorepo source.
@@ -274,7 +279,7 @@ Geometry invariant ([CONCEPT §1.3](./CONCEPT_WORLD_SKINS_PHASE_A.md)): skin ove
 
 - **R2 layout (operator note in IMPL — not code):**
   - Prefix: `world-skins/<slug>/<version>/...`.
-  - Files per skin: `wall-<wallId>.webp` (or `walls.webp` if tiled), `floor.webp`, optional `sky.webp`, `map2d.webp`, `ambient.ogg`, `thumbnail.png`.
+  - **Required:** [`panorama.webp` (8192×1024)](./WORLD_SKIN_PANORAMA_SPEC.md), `floor.webp` (2048×2048). Optional: `sky.webp`, `map2d.webp`, `ambient.ogg`, `thumbnail.png`. **Do not** upload per-wall `wall-<id>.webp` for production skins.
   - Upload via `wrangler r2 object put` from the artist's delivered folder; not a code path in Phase A.
 
 **Checkpoint:**
@@ -408,7 +413,7 @@ Geometry invariant ([CONCEPT §1.3](./CONCEPT_WORLD_SKINS_PHASE_A.md)): skin ove
   - Behavior:
     1. When `skinId === null` → return `{ skin: null, ready: true, fadeMs: 0 }`.
     2. Otherwise fetch via `fetchWorldSkin(skinId)` (LRU per-skin cache; 1h TTL).
-    3. Preload critical textures (`walls[*].textureStorageKey`, `floor.textureStorageKey`) via `new Image()` + `<link rel="preload">` to warm the browser cache before applying.
+    3. Preload critical textures (`overrides.panoramaWall.storageKey`, `floor.textureStorageKey`) via `new Image()` + `<link rel="preload">` to warm the browser cache before applying (one wall image + floor).
     4. Expose `ready: boolean` (false until at least walls + floor are decoded) so `SkinLayer` can hold off the swap until the minimum-viable set is loaded ([CONCEPT §8.7](./CONCEPT_WORLD_SKINS_PHASE_A.md)).
     5. Expose `fadeMs` so the caller can run crossfade timing.
   - On error (network / 404 asset): return `{ skin: null, ready: true, fadeMs: 0, error }` so the renderer falls back to default theater.
@@ -441,7 +446,7 @@ Geometry invariant ([CONCEPT §1.3](./CONCEPT_WORLD_SKINS_PHASE_A.md)): skin ove
 
   1. Add a `skin?: SkinRuntime | null` prop. `SkinRuntime` is the lightweight runtime view of the resolved `WorldSkin` (typed in `lib/useWorldSkin.ts`): material lookup function `materialForWall(wallId)`, `materialForFloor()`, `lightingPreset`, `backgroundColor`, `fog`, `avatarScale`, `walkSpeedMultiplier`, `ambient`.
   2. Replace fixed scene lighting (`<ambientLight intensity={0.82} />`, `<directionalLight position={[4, 8, 6]} intensity={1.4} />`, `<color attach="background" args={["#16231d"]} />`) with values driven by `skin?.lightingPreset` and fall back to existing defaults when `skin === null`.
-  3. `WallMesh` (line ~907): accept the resolved material descriptor as a prop or look it up from a `WorldSkinContext` (preferred — avoids drilling). Default behavior unchanged when no skin context; with a skin, swap `meshStandardMaterial` `color` / `map` accordingly. Texture loading via `useLoader(TextureLoader, url)` from `three`. Keep the existing camera-distance opacity fade.
+  3. `WallMesh` (line ~907): accept the resolved material descriptor as a prop or look it up from a `WorldSkinContext` (preferred — avoids drilling). Default behavior unchanged when no skin context; with a skin, swap `meshStandardMaterial` `color` / `map` accordingly. When `overrides.panoramaWall` is set, load **one** `TextureLoader` image and set per-mesh UVs from `slices[wall.id]` (`u0`, `u1`, `v1`; `v0` = 0). Texture loading via `useLoader(TextureLoader, url)` from `three`. Keep the existing camera-distance opacity fade.
   4. `RoomGeometry` floor plane (line ~826): same treatment for `meshStandardMaterial color="#d8c99f"`.
   5. `TierMesh` tier colors (line ~845–854): if `skin?.materialForTier()`, override per tier.
   6. Add an **optional board-darken pass**: behind each anchor mesh, render a subtle dark quad (`<mesh>` + `<meshBasicMaterial transparent opacity={skin?.boardDarkenOpacity ?? 0}>`) sized to the anchor rect. This addresses the readability concern ([CONCEPT §3.5](./CONCEPT_WORLD_SKINS_PHASE_A.md)) for busy wall textures without requiring artist work.
@@ -450,7 +455,7 @@ Geometry invariant ([CONCEPT §1.3](./CONCEPT_WORLD_SKINS_PHASE_A.md)): skin ove
 
   - Context provider `WorldSkinContext` consumed by `WallMesh` / `RoomGeometry` floor / `TierMesh`.
   - Inputs: the resolved skin from `useWorldSkin`.
-  - Texture cache: per `storageKey`, a memoized `Three.Texture` (with `colorSpace = SRGBColorSpace`, `wrapS/T = RepeatWrapping`, `anisotropy = max(8, gl.capabilities.getMaxAnisotropy())`).
+  - Texture cache: one memoized panorama `Three.Texture` per skin (with `colorSpace = SRGBColorSpace`, `ClampToEdgeWrapping` on U/V for the unwrap strip, `anisotropy = max(8, gl.capabilities.getMaxAnisotropy())`). Per-wall meshes clone or share that texture with mesh-specific UV offset/scale from `panoramaWall.slices`.
   - Crossfade plumbing: when `skinId` changes, hold the **previous** material descriptor for `fadeMs` and blend opacity from 1 → 0 on the old layer while 0 → 1 on the new. For Phase A, the blend uses two overlapping wall pass-throughs (acceptable cost — ten walls, ten extra meshes during the ~1s fade). Reduced-motion path: skip the blend, hard-cut.
 
 - `apps/web/components/worldSkins/ambientPlayer.ts` (new) — non-React audio loop helper:
@@ -683,10 +688,10 @@ These resolve open questions in [CONCEPT §17](./CONCEPT_WORLD_SKINS_PHASE_A.md)
 
 ## Risks during implementation
 
-- **Wall texture seams** — `wall-back-lo` / `wall-back-li` / `wall-back-c` / `wall-back-ri` / `wall-back-ro` are five separate meshes forming an arc ([`packages/room-engine/src/index.ts:155–159`](../../packages/room-engine/src/index.ts)). A single tileable WebP must look continuous across them. **Mitigation:** artists supply per-segment textures or use a single low-frequency tile + `repeat` set so seams don't appear at human eye level (~2 m). QA each skin with a wide-angle screenshot of the back wall.
+- **Wall texture seams** — back arc is five meshes but one **panorama** strip ([`WORLD_SKIN_PANORAMA_SPEC.md`](./WORLD_SKIN_PANORAMA_SPEC.md)). **Mitigation:** paint segments 2–6 continuously in the master 8192×1024 file; engine slices UVs — no per-wall files. QA each skin with a wide-angle screenshot of the back wall.
 - **Board readability** — busy wall textures fail WCAG contrast behind notes/polls. **Mitigation:** `boardDarkenOpacity` (Phase 5, board-darken pass). QA every skin with at least one `note` and one `poll` on the main board before sign-off.
 - **Anchor face-on-the-skin** — `WallMesh` already fades opacity by camera distance ([`apps/web/components/RoomView3D.tsx:906–932`](../../apps/web/components/RoomView3D.tsx)); the new material lookup must preserve the per-frame `useFrame` opacity update. Keep the existing `MeshStandardMaterial` instance and just swap `color` / `map` properties.
-- **Texture memory on iPad Safari** — five skins × eight wall meshes is ~40 textures live during demo if not GC'd on switch. **Mitigation:** `SkinLayer` texture cache drops references when the consumer unmounts; explicit `texture.dispose()` on skin change after the crossfade.
+- **Texture memory on iPad Safari** — five skins × one panorama each is manageable; avoid loading eight separate wall textures per skin. **Mitigation:** `SkinLayer` holds one panorama texture per active skin; explicit `texture.dispose()` on skin change after the crossfade.
 - **Ambient autoplay** — Chrome blocks audio until user gesture. **Mitigation:** ambient `play()` first happens on the same teacher click that selects the skin (gesture-bound); for students, ambient first plays on their next click anywhere in the room (debounced).
 - **Crossfade jank during a `LessonRun` step** — `useFrame` work + texture decode can drop frames. **Mitigation:** Phase 5's crossfade is opt-in; on `prefers-reduced-motion` or while a `private-check` step is open, hard-cut.
 - **Lesson `private-check` step UX** — teachers should avoid switching skins during a check. **Mitigation:** the EnvironmentCard "Change…" button shows a subtle warning when `classroom.state?.privateChecks.some(c => c.status === "open")`. Phase A does not block the action; it only warns.

@@ -439,6 +439,136 @@ export const ListRoomObjectTemplatesResponseSchema = z.object({
   templates: z.array(RoomObjectTemplateSchema)
 });
 
+// ── World Skins ───────────────────────────────────────────────────────────────
+
+export const WorldSkinSlugSchema = z.string().min(2).max(64);
+
+export const WorldSkinDayNightModeSchema = z.enum(["day", "night"]);
+
+export const WorldSkinLightingPresetSchema = z.object({
+  ambientColor: z.string(),
+  ambientIntensity: z.number().min(0).max(4).default(0.82),
+  directionalColor: z.string(),
+  directionalIntensity: z.number().min(0).max(4).default(1.4),
+  directionalPosition: z.tuple([z.number(), z.number(), z.number()]).default([4, 8, 6]),
+  hemisphereSkyColor: z.string().optional(),
+  hemisphereGroundColor: z.string().optional(),
+  hemisphereIntensity: z.number().min(0).max(4).optional(),
+  fogColor: z.string().optional(),
+  fogNear: z.number().nonnegative().optional(),
+  fogFar: z.number().nonnegative().optional(),
+  backgroundColor: z.string().optional(),
+  exposure: z.number().min(0).max(4).optional()
+});
+
+export const WorldSkinMaterialOverrideSchema = z.object({
+  colorHex: z.string().optional(),
+  textureStorageKey: z.string().optional(),
+  roughness: z.number().min(0).max(1).optional(),
+  metalness: z.number().min(0).max(1).optional(),
+  repeat: z.tuple([z.number().positive(), z.number().positive()]).optional()
+});
+
+/** Theater wall ids — keys for panorama unwrap slices. */
+export const WorldSkinWallIdSchema = z.enum([
+  "wall-front",
+  "wall-left",
+  "wall-right",
+  "wall-back-lo",
+  "wall-back-li",
+  "wall-back-c",
+  "wall-back-ri",
+  "wall-back-ro"
+]);
+
+export const WorldSkinPanoramaSliceSchema = z.object({
+  u0: z.number().min(0).max(1),
+  u1: z.number().min(0).max(1),
+  /** Bottom of slice is always v0 = 0; v1 = wallHeight / maxWorldHeight (8 m theater). */
+  v1: z.number().min(0).max(1)
+});
+
+/** Single 8192×1024 unwrap for all walls — see docs/planning/new-features/WORLD_SKIN_PANORAMA_SPEC.md */
+export const WorldSkinPanoramaWallSchema = z.object({
+  storageKey: z.string().min(1),
+  widthPx: z.literal(8192),
+  heightPx: z.literal(1024),
+  horizonWorldY: z.number().positive().default(5),
+  maxWorldHeight: z.number().positive().default(8),
+  unwrapOrder: z.array(WorldSkinWallIdSchema).length(8),
+  slices: z.record(WorldSkinWallIdSchema, WorldSkinPanoramaSliceSchema)
+});
+
+export const WORLD_SKIN_PANORAMA_SLICES_DEFAULT: Record<
+  z.infer<typeof WorldSkinWallIdSchema>,
+  z.infer<typeof WorldSkinPanoramaSliceSchema>
+> = {
+  "wall-left": { u0: 0, u1: 0.199, v1: 0.75 },
+  "wall-back-lo": { u0: 0.199, u1: 0.2509, v1: 0.625 },
+  "wall-back-li": { u0: 0.2509, u1: 0.3108, v1: 0.625 },
+  "wall-back-c": { u0: 0.3108, u1: 0.3904, v1: 0.625 },
+  "wall-back-ri": { u0: 0.3904, u1: 0.4503, v1: 0.625 },
+  "wall-back-ro": { u0: 0.4503, u1: 0.5022, v1: 0.625 },
+  "wall-right": { u0: 0.5022, u1: 0.7013, v1: 0.75 },
+  "wall-front": { u0: 0.7013, u1: 1, v1: 1 }
+};
+
+export const WorldSkinOverridesSchema = z.object({
+  /** Production path: one 8192×1024 panorama.webp (preferred). */
+  panoramaWall: WorldSkinPanoramaWallSchema.optional(),
+  /** Phase 0 / fallback: per-wall color or legacy per-wall textures. */
+  walls: z.record(z.string(), WorldSkinMaterialOverrideSchema).default({}),
+  floor: WorldSkinMaterialOverrideSchema.optional(),
+  tiers: WorldSkinMaterialOverrideSchema.optional(),
+  lighting: WorldSkinLightingPresetSchema,
+  lightingNight: WorldSkinLightingPresetSchema.optional(),
+  sky: z.object({
+    kind: z.enum(["color", "panorama"]).default("color"),
+    storageKey: z.string().optional()
+  }).optional(),
+  walkSpeedMultiplier: z.number().positive().max(2).optional(),
+  avatarScale: z.number().positive().max(2).optional(),
+  map2dStorageKey: z.string().optional(),
+  boardDarkenOpacity: z.number().min(0).max(1).optional(),
+  ambient: z.object({
+    storageKey: z.string(),
+    defaultGain: z.number().min(0).max(1).default(0.15),
+    minGrade: z.string().optional()
+  }).optional(),
+  props: z.array(z.unknown()).default([])
+});
+
+export const WorldSkinSchema = z.object({
+  id: z.string(),
+  slug: WorldSkinSlugSchema,
+  label: z.string().min(1),
+  description: z.string().max(500),
+  gradeBands: z.array(z.string()).default([]),
+  subjects: z.array(z.string()).default([]),
+  baseManifestId: z.string().default("default-theater"),
+  version: z.number().int().positive(),
+  overrides: WorldSkinOverridesSchema,
+  thumbnailStorageKey: z.string(),
+  standardsCrosswalkUrl: z.string().optional(),
+  licenseAttribution: z.array(z.object({
+    assetId: z.string(),
+    notice: z.string()
+  })).default([]),
+  review: z.object({
+    reviewedAt: z.string(),
+    reviewer: z.string(),
+    notes: z.string().optional()
+  }).optional(),
+  source: z.enum(["builtin", "district"]).default("builtin"),
+  createdAt: z.string(),
+  updatedAt: z.string()
+});
+export type WorldSkin = z.infer<typeof WorldSkinSchema>;
+
+export const ListWorldSkinsResponseSchema = z.object({
+  skins: z.array(WorldSkinSchema)
+});
+
 export const RoomObjectUploadKindSchema = z.enum(["asset", "thumbnail"]);
 
 export const CreateRoomObjectUploadRequestSchema = z.object({
@@ -545,7 +675,8 @@ export const ApiErrorCodeSchema = z.enum([
   "room-object-locked",
   "room-object-template-invalid",
   "room-object-upload-too-large",
-  "room-object-upload-rejected"
+  "room-object-upload-rejected",
+  "world-skins-disabled"
 ]);
 
 export function parseRoomObjectParameterSchemaJson(json: string) {
@@ -598,6 +729,19 @@ export const RoomSettingsSchema = z.object({
     customUploadsEnabled: false,
     maxUploadSizeBytes: 8 * 1024 * 1024,
     defaultTouchPolicy: "teacher-only"
+  }),
+  worldSkins: z.object({
+    enabled: z.boolean().default(true),
+    skinId: z.string().nullable().default(null),
+    skinDayNightMode: WorldSkinDayNightModeSchema.default("day"),
+    skinLocked: z.boolean().default(false),
+    ambientGainOverride: z.number().min(0).max(1).nullable().default(null)
+  }).default({
+    enabled: true,
+    skinId: null,
+    skinDayNightMode: "day",
+    skinLocked: false,
+    ambientGainOverride: null
   })
 });
 
@@ -1427,6 +1571,21 @@ export const ClassroomReleaseGroupActionSchema = ClassroomActionBaseSchema.exten
   groupId: z.string().min(1)
 });
 
+export const ClassroomSetRoomSkinActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("set-room-skin"),
+  skinId: z.string().nullable()
+});
+
+export const ClassroomLockRoomSkinActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("lock-room-skin"),
+  locked: z.boolean()
+});
+
+export const ClassroomSetRoomSkinDayNightActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("set-room-skin-day-night"),
+  mode: WorldSkinDayNightModeSchema
+});
+
 export const ClassroomTogglePodsActionSchema = ClassroomActionBaseSchema.extend({
   type: z.literal("toggle-pods"),
   enabled: z.boolean()
@@ -1573,6 +1732,9 @@ export const ClassroomActionSchema = z.discriminatedUnion("type", [
   ClassroomUpdateGroupActionSchema,
   ClassroomAssignGroupActionSchema,
   ClassroomReleaseGroupActionSchema,
+  ClassroomSetRoomSkinActionSchema,
+  ClassroomLockRoomSkinActionSchema,
+  ClassroomSetRoomSkinDayNightActionSchema,
   ClassroomTogglePodsActionSchema,
   ClassroomSetStudentBroadcastActionSchema,
   ClassroomSetSpotlightActionSchema,
@@ -1658,6 +1820,15 @@ export const ClassroomStateRealtimeSchema = z.object({
   sentAt: z.number().int(),
   senderId: z.string()
 });
+
+export const RoomSkinMessageSchema = z.object({
+  type: z.literal("room.skin.v1"),
+  skinId: z.string().nullable(),
+  version: z.number().int().positive().optional(),
+  dayNight: WorldSkinDayNightModeSchema.default("day"),
+  crossfadeMs: z.number().int().min(0).max(5000).default(1000)
+});
+export type RoomSkinMessage = z.infer<typeof RoomSkinMessageSchema>;
 
 export const RoomEventRequestSchema = z.object({
   type: z.string().min(1).max(120),
@@ -1767,6 +1938,16 @@ export type ClassroomSetStudentBroadcastAction = z.infer<typeof ClassroomSetStud
 export type ClassroomHelpRequestKind = z.infer<typeof ClassroomHelpRequestSchema>["kind"];
 export type ClassroomStateChangedRealtimeMessage = z.infer<typeof ClassroomStateChangedRealtimeSchema>;
 export type ClassroomStateRealtimeMessage = z.infer<typeof ClassroomStateRealtimeSchema>;
+export type WorldSkinOverrides = z.infer<typeof WorldSkinOverridesSchema>;
+export type WorldSkinLightingPreset = z.infer<typeof WorldSkinLightingPresetSchema>;
+export type WorldSkinMaterialOverride = z.infer<typeof WorldSkinMaterialOverrideSchema>;
+export type WorldSkinPanoramaWall = z.infer<typeof WorldSkinPanoramaWallSchema>;
+export type WorldSkinPanoramaSlice = z.infer<typeof WorldSkinPanoramaSliceSchema>;
+export type WorldSkinWallId = z.infer<typeof WorldSkinWallIdSchema>;
+export type WorldSkinDayNightMode = z.infer<typeof WorldSkinDayNightModeSchema>;
+export type ClassroomSetRoomSkinAction = z.infer<typeof ClassroomSetRoomSkinActionSchema>;
+export type ClassroomLockRoomSkinAction = z.infer<typeof ClassroomLockRoomSkinActionSchema>;
+export type ClassroomSetRoomSkinDayNightAction = z.infer<typeof ClassroomSetRoomSkinDayNightActionSchema>;
 
 type ApiRoute = {
   method: "get" | "post" | "patch" | "delete";
@@ -1837,7 +2018,10 @@ export const apiRoutes: ApiRoute[] = [
     tags: ["room-objects"],
     request: RoomObjectRealtimeInboundSchema,
     response: RoomObjectRealtimeDispatchResponseSchema
-  }
+  },
+  { method: "get", path: "/v1/world-skins", summary: "List world skin catalog entries (flag-gated)", tags: ["world-skins"], response: ListWorldSkinsResponseSchema },
+  { method: "get", path: "/v1/world-skins/{slug}", summary: "Get a world skin by slug with absolute asset URLs (flag-gated)", tags: ["world-skins"], response: WorldSkinSchema }
+  // Note: GET /v1/world-skin-assets/* serves raw bytes (content-type varies); not registered as a JSON schema route.
 ];
 
 function asJsonSchema(schema: z.ZodTypeAny) {

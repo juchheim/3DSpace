@@ -950,7 +950,7 @@
                             "properties": {
                               "enabled": {
                                 "type": "boolean",
-                                "default": false
+                                "default": true
                               },
                               "maxActive": {
                                 "type": "integer",
@@ -981,11 +981,52 @@
                             },
                             "additionalProperties": false,
                             "default": {
-                              "enabled": false,
+                              "enabled": true,
                               "maxActive": 8,
                               "customUploadsEnabled": false,
                               "maxUploadSizeBytes": 8388608,
                               "defaultTouchPolicy": "teacher-only"
+                            }
+                          },
+                          "worldSkins": {
+                            "type": "object",
+                            "properties": {
+                              "enabled": {
+                                "type": "boolean",
+                                "default": true
+                              },
+                              "skinId": {
+                                "type": "string",
+                                "nullable": true,
+                                "default": null
+                              },
+                              "skinDayNightMode": {
+                                "type": "string",
+                                "enum": [
+                                  "day",
+                                  "night"
+                                ],
+                                "default": "day"
+                              },
+                              "skinLocked": {
+                                "type": "boolean",
+                                "default": false
+                              },
+                              "ambientGainOverride": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1,
+                                "nullable": true,
+                                "default": null
+                              }
+                            },
+                            "additionalProperties": false,
+                            "default": {
+                              "enabled": true,
+                              "skinId": null,
+                              "skinDayNightMode": "day",
+                              "skinLocked": false,
+                              "ambientGainOverride": null
                             }
                           }
                         },
@@ -1222,7 +1263,7 @@
                               "properties": {
                                 "enabled": {
                                   "type": "boolean",
-                                  "default": false
+                                  "default": true
                                 },
                                 "maxActive": {
                                   "type": "integer",
@@ -1253,11 +1294,52 @@
                               },
                               "additionalProperties": false,
                               "default": {
-                                "enabled": false,
+                                "enabled": true,
                                 "maxActive": 8,
                                 "customUploadsEnabled": false,
                                 "maxUploadSizeBytes": 8388608,
                                 "defaultTouchPolicy": "teacher-only"
+                              }
+                            },
+                            "worldSkins": {
+                              "type": "object",
+                              "properties": {
+                                "enabled": {
+                                  "type": "boolean",
+                                  "default": true
+                                },
+                                "skinId": {
+                                  "type": "string",
+                                  "nullable": true,
+                                  "default": null
+                                },
+                                "skinDayNightMode": {
+                                  "type": "string",
+                                  "enum": [
+                                    "day",
+                                    "night"
+                                  ],
+                                  "default": "day"
+                                },
+                                "skinLocked": {
+                                  "type": "boolean",
+                                  "default": false
+                                },
+                                "ambientGainOverride": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 1,
+                                  "nullable": true,
+                                  "default": null
+                                }
+                              },
+                              "additionalProperties": false,
+                              "default": {
+                                "enabled": true,
+                                "skinId": null,
+                                "skinDayNightMode": "day",
+                                "skinLocked": false,
+                                "ambientGainOverride": null
                               }
                             }
                           },
@@ -1980,7 +2062,7 @@
                         "properties": {
                           "enabled": {
                             "type": "boolean",
-                            "default": false
+                            "default": true
                           },
                           "maxActive": {
                             "type": "integer",
@@ -2011,11 +2093,52 @@
                         },
                         "additionalProperties": false,
                         "default": {
-                          "enabled": false,
+                          "enabled": true,
                           "maxActive": 8,
                           "customUploadsEnabled": false,
                           "maxUploadSizeBytes": 8388608,
                           "defaultTouchPolicy": "teacher-only"
+                        }
+                      },
+                      "worldSkins": {
+                        "type": "object",
+                        "properties": {
+                          "enabled": {
+                            "type": "boolean",
+                            "default": true
+                          },
+                          "skinId": {
+                            "type": "string",
+                            "nullable": true,
+                            "default": null
+                          },
+                          "skinDayNightMode": {
+                            "type": "string",
+                            "enum": [
+                              "day",
+                              "night"
+                            ],
+                            "default": "day"
+                          },
+                          "skinLocked": {
+                            "type": "boolean",
+                            "default": false
+                          },
+                          "ambientGainOverride": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1,
+                            "nullable": true,
+                            "default": null
+                          }
+                        },
+                        "additionalProperties": false,
+                        "default": {
+                          "enabled": true,
+                          "skinId": null,
+                          "skinDayNightMode": "day",
+                          "skinLocked": false,
+                          "ambientGainOverride": null
                         }
                       }
                     },
@@ -2193,7 +2316,7 @@
                           "properties": {
                             "enabled": {
                               "type": "boolean",
-                              "default": false
+                              "default": true
                             },
                             "maxActive": {
                               "type": "integer",
@@ -2224,11 +2347,52 @@
                           },
                           "additionalProperties": false,
                           "default": {
-                            "enabled": false,
+                            "enabled": true,
                             "maxActive": 8,
                             "customUploadsEnabled": false,
                             "maxUploadSizeBytes": 8388608,
                             "defaultTouchPolicy": "teacher-only"
+                          }
+                        },
+                        "worldSkins": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean",
+                              "default": true
+                            },
+                            "skinId": {
+                              "type": "string",
+                              "nullable": true,
+                              "default": null
+                            },
+                            "skinDayNightMode": {
+                              "type": "string",
+                              "enum": [
+                                "day",
+                                "night"
+                              ],
+                              "default": "day"
+                            },
+                            "skinLocked": {
+                              "type": "boolean",
+                              "default": false
+                            },
+                            "ambientGainOverride": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1,
+                              "nullable": true,
+                              "default": null
+                            }
+                          },
+                          "additionalProperties": false,
+                          "default": {
+                            "enabled": true,
+                            "skinId": null,
+                            "skinDayNightMode": "day",
+                            "skinLocked": false,
+                            "ambientGainOverride": null
                           }
                         }
                       },
@@ -3051,7 +3215,7 @@
                               "properties": {
                                 "enabled": {
                                   "type": "boolean",
-                                  "default": false
+                                  "default": true
                                 },
                                 "maxActive": {
                                   "type": "integer",
@@ -3082,11 +3246,52 @@
                               },
                               "additionalProperties": false,
                               "default": {
-                                "enabled": false,
+                                "enabled": true,
                                 "maxActive": 8,
                                 "customUploadsEnabled": false,
                                 "maxUploadSizeBytes": 8388608,
                                 "defaultTouchPolicy": "teacher-only"
+                              }
+                            },
+                            "worldSkins": {
+                              "type": "object",
+                              "properties": {
+                                "enabled": {
+                                  "type": "boolean",
+                                  "default": true
+                                },
+                                "skinId": {
+                                  "type": "string",
+                                  "nullable": true,
+                                  "default": null
+                                },
+                                "skinDayNightMode": {
+                                  "type": "string",
+                                  "enum": [
+                                    "day",
+                                    "night"
+                                  ],
+                                  "default": "day"
+                                },
+                                "skinLocked": {
+                                  "type": "boolean",
+                                  "default": false
+                                },
+                                "ambientGainOverride": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 1,
+                                  "nullable": true,
+                                  "default": null
+                                }
+                              },
+                              "additionalProperties": false,
+                              "default": {
+                                "enabled": true,
+                                "skinId": null,
+                                "skinDayNightMode": "day",
+                                "skinLocked": false,
+                                "ambientGainOverride": null
                               }
                             }
                           },
@@ -9705,6 +9910,83 @@
                       "type": {
                         "type": "string",
                         "enum": [
+                          "set-room-skin"
+                        ]
+                      },
+                      "skinId": {
+                        "type": "string",
+                        "nullable": true
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "skinId"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "expectedVersion": {
+                        "type": "integer",
+                        "exclusiveMinimum": true,
+                        "minimum": 0
+                      },
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "lock-room-skin"
+                        ]
+                      },
+                      "locked": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "locked"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "expectedVersion": {
+                        "type": "integer",
+                        "exclusiveMinimum": true,
+                        "minimum": 0
+                      },
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "set-room-skin-day-night"
+                        ]
+                      },
+                      "mode": {
+                        "type": "string",
+                        "enum": [
+                          "day",
+                          "night"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "mode"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "expectedVersion": {
+                        "type": "integer",
+                        "exclusiveMinimum": true,
+                        "minimum": 0
+                      },
+                      "type": {
+                        "type": "string",
+                        "enum": [
                           "toggle-pods"
                         ]
                       },
@@ -13165,6 +13447,18 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "roomId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "assetStorageKey": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "thumbnailStorageKey": {
+                    "type": "string",
+                    "minLength": 1
+                  },
                   "slug": {
                     "type": "string",
                     "minLength": 2,
@@ -13191,14 +13485,6 @@
                     "type": "string",
                     "maxLength": 500,
                     "default": ""
-                  },
-                  "assetUrl": {
-                    "type": "string",
-                    "format": "uri"
-                  },
-                  "thumbnailUrl": {
-                    "type": "string",
-                    "minLength": 1
                   },
                   "defaultPose": {
                     "type": "object",
@@ -13285,10 +13571,10 @@
                   }
                 },
                 "required": [
-                  "slug",
-                  "displayName",
-                  "assetUrl",
-                  "thumbnailUrl"
+                  "roomId",
+                  "assetStorageKey",
+                  "thumbnailStorageKey",
+                  "displayName"
                 ],
                 "additionalProperties": false
               }
@@ -13491,6 +13777,103 @@
                   },
                   "required": [
                     "template"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{roomId}/room-objects/uploads": {
+      "post": {
+        "summary": "Create a signed upload target for a custom room object asset or thumbnail",
+        "tags": [
+          "room-objects"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "asset",
+                      "thumbnail"
+                    ],
+                    "default": "asset"
+                  },
+                  "fileName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255
+                  },
+                  "contentType": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  }
+                },
+                "required": [
+                  "fileName",
+                  "contentType"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "storageKey": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "assetUrl": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "upload": {
+                      "type": "object",
+                      "properties": {
+                        "url": {
+                          "type": "string"
+                        },
+                        "method": {
+                          "type": "string",
+                          "enum": [
+                            "PUT"
+                          ]
+                        },
+                        "headers": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "url",
+                        "method",
+                        "headers"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "storageKey",
+                    "assetUrl",
+                    "upload"
                   ],
                   "additionalProperties": false
                 }
@@ -14868,6 +15251,1731 @@
                   },
                   "required": [
                     "object"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{roomId}/room-objects/realtime": {
+      "post": {
+        "summary": "Authoritative room object realtime dispatch (grab lock, pose relay, release persist)",
+        "tags": [
+          "room-objects"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "room.object.grab.v1"
+                        ]
+                      },
+                      "objectId": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "objectId"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "room.object.pose.v1"
+                        ]
+                      },
+                      "objectId": {
+                        "type": "string"
+                      },
+                      "pose": {
+                        "type": "object",
+                        "properties": {
+                          "position": {
+                            "type": "object",
+                            "properties": {
+                              "x": {
+                                "type": "number"
+                              },
+                              "y": {
+                                "type": "number"
+                              },
+                              "z": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "x",
+                              "y",
+                              "z"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "rotation": {
+                            "type": "object",
+                            "properties": {
+                              "yaw": {
+                                "type": "number"
+                              },
+                              "pitch": {
+                                "type": "number",
+                                "default": 0
+                              },
+                              "roll": {
+                                "type": "number",
+                                "default": 0
+                              }
+                            },
+                            "required": [
+                              "yaw"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "position",
+                          "rotation"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "scale": {
+                        "type": "number",
+                        "exclusiveMinimum": true,
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "objectId",
+                      "pose",
+                      "scale"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "room.object.release.v1"
+                        ]
+                      },
+                      "objectId": {
+                        "type": "string"
+                      },
+                      "finalPose": {
+                        "type": "object",
+                        "properties": {
+                          "position": {
+                            "type": "object",
+                            "properties": {
+                              "x": {
+                                "type": "number"
+                              },
+                              "y": {
+                                "type": "number"
+                              },
+                              "z": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "x",
+                              "y",
+                              "z"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "rotation": {
+                            "type": "object",
+                            "properties": {
+                              "yaw": {
+                                "type": "number"
+                              },
+                              "pitch": {
+                                "type": "number",
+                                "default": 0
+                              },
+                              "roll": {
+                                "type": "number",
+                                "default": 0
+                              }
+                            },
+                            "required": [
+                              "yaw"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "position",
+                          "rotation"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "finalScale": {
+                        "type": "number",
+                        "exclusiveMinimum": true,
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "objectId",
+                      "finalPose",
+                      "finalScale"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "room.object.parameter.v1"
+                        ]
+                      },
+                      "objectId": {
+                        "type": "string"
+                      },
+                      "parameters": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "objectId",
+                      "parameters"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "messages": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.object.upsert.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "object": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "roomId": {
+                                    "type": "string"
+                                  },
+                                  "templateId": {
+                                    "type": "string"
+                                  },
+                                  "displayName": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 120
+                                  },
+                                  "pose": {
+                                    "type": "object",
+                                    "properties": {
+                                      "position": {
+                                        "type": "object",
+                                        "properties": {
+                                          "x": {
+                                            "type": "number"
+                                          },
+                                          "y": {
+                                            "type": "number"
+                                          },
+                                          "z": {
+                                            "type": "number"
+                                          }
+                                        },
+                                        "required": [
+                                          "x",
+                                          "y",
+                                          "z"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "rotation": {
+                                        "type": "object",
+                                        "properties": {
+                                          "yaw": {
+                                            "type": "number"
+                                          },
+                                          "pitch": {
+                                            "type": "number",
+                                            "default": 0
+                                          },
+                                          "roll": {
+                                            "type": "number",
+                                            "default": 0
+                                          }
+                                        },
+                                        "required": [
+                                          "yaw"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "required": [
+                                      "position",
+                                      "rotation"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "scale": {
+                                    "type": "number",
+                                    "exclusiveMinimum": true,
+                                    "minimum": 0
+                                  },
+                                  "colorTintHex": {
+                                    "type": "string",
+                                    "pattern": "^#[0-9a-fA-F]{6}$"
+                                  },
+                                  "parameters": {
+                                    "type": "object",
+                                    "additionalProperties": {},
+                                    "default": {}
+                                  },
+                                  "touchPolicy": {
+                                    "type": "string",
+                                    "enum": [
+                                      "teacher-only",
+                                      "granted",
+                                      "all-class"
+                                    ],
+                                    "default": "teacher-only"
+                                  },
+                                  "grantedUserIds": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "default": []
+                                  },
+                                  "grantedGroupIds": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "default": []
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "active",
+                                      "locked",
+                                      "archived"
+                                    ],
+                                    "default": "active"
+                                  },
+                                  "createdByUserId": {
+                                    "type": "string"
+                                  },
+                                  "createdAt": {
+                                    "type": "string"
+                                  },
+                                  "updatedAt": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "roomId",
+                                  "templateId",
+                                  "displayName",
+                                  "pose",
+                                  "scale",
+                                  "createdByUserId",
+                                  "createdAt",
+                                  "updatedAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "object",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.object.remove.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "objectId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "objectId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.object.touch.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "objectId": {
+                                "type": "string"
+                              },
+                              "touchPolicy": {
+                                "type": "string",
+                                "enum": [
+                                  "teacher-only",
+                                  "granted",
+                                  "all-class"
+                                ]
+                              },
+                              "grantedUserIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "grantedGroupIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "objectId",
+                              "touchPolicy",
+                              "grantedUserIds",
+                              "grantedGroupIds",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.object.grab.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "objectId": {
+                                "type": "string"
+                              },
+                              "holderUserId": {
+                                "type": "string"
+                              },
+                              "expiresAt": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "objectId",
+                              "holderUserId",
+                              "expiresAt",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.object.pose.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "objectId": {
+                                "type": "string"
+                              },
+                              "holderUserId": {
+                                "type": "string"
+                              },
+                              "pose": {
+                                "type": "object",
+                                "properties": {
+                                  "position": {
+                                    "type": "object",
+                                    "properties": {
+                                      "x": {
+                                        "type": "number"
+                                      },
+                                      "y": {
+                                        "type": "number"
+                                      },
+                                      "z": {
+                                        "type": "number"
+                                      }
+                                    },
+                                    "required": [
+                                      "x",
+                                      "y",
+                                      "z"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "rotation": {
+                                    "type": "object",
+                                    "properties": {
+                                      "yaw": {
+                                        "type": "number"
+                                      },
+                                      "pitch": {
+                                        "type": "number",
+                                        "default": 0
+                                      },
+                                      "roll": {
+                                        "type": "number",
+                                        "default": 0
+                                      }
+                                    },
+                                    "required": [
+                                      "yaw"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": [
+                                  "position",
+                                  "rotation"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "scale": {
+                                "type": "number",
+                                "exclusiveMinimum": true,
+                                "minimum": 0
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "objectId",
+                              "holderUserId",
+                              "pose",
+                              "scale",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.object.release.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "objectId": {
+                                "type": "string"
+                              },
+                              "holderUserId": {
+                                "type": "string"
+                              },
+                              "finalPose": {
+                                "type": "object",
+                                "properties": {
+                                  "position": {
+                                    "type": "object",
+                                    "properties": {
+                                      "x": {
+                                        "type": "number"
+                                      },
+                                      "y": {
+                                        "type": "number"
+                                      },
+                                      "z": {
+                                        "type": "number"
+                                      }
+                                    },
+                                    "required": [
+                                      "x",
+                                      "y",
+                                      "z"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "rotation": {
+                                    "type": "object",
+                                    "properties": {
+                                      "yaw": {
+                                        "type": "number"
+                                      },
+                                      "pitch": {
+                                        "type": "number",
+                                        "default": 0
+                                      },
+                                      "roll": {
+                                        "type": "number",
+                                        "default": 0
+                                      }
+                                    },
+                                    "required": [
+                                      "yaw"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": [
+                                  "position",
+                                  "rotation"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "finalScale": {
+                                "type": "number",
+                                "exclusiveMinimum": true,
+                                "minimum": 0
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "objectId",
+                              "holderUserId",
+                              "finalPose",
+                              "finalScale",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.object.parameter.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "objectId": {
+                                "type": "string"
+                              },
+                              "parameters": {
+                                "type": "object",
+                                "additionalProperties": {}
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "objectId",
+                              "parameters",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "messages"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/world-skins": {
+      "get": {
+        "summary": "List world skin catalog entries (flag-gated)",
+        "tags": [
+          "world-skins"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "skins": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string",
+                            "minLength": 2,
+                            "maxLength": 64
+                          },
+                          "label": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "description": {
+                            "type": "string",
+                            "maxLength": 500
+                          },
+                          "gradeBands": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "default": []
+                          },
+                          "subjects": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "default": []
+                          },
+                          "baseManifestId": {
+                            "type": "string",
+                            "default": "default-theater"
+                          },
+                          "version": {
+                            "type": "integer",
+                            "exclusiveMinimum": true,
+                            "minimum": 0
+                          },
+                          "overrides": {
+                            "type": "object",
+                            "properties": {
+                              "walls": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "object",
+                                  "properties": {
+                                    "colorHex": {
+                                      "type": "string"
+                                    },
+                                    "textureStorageKey": {
+                                      "type": "string"
+                                    },
+                                    "roughness": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "metalness": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "repeat": {
+                                      "type": "array",
+                                      "minItems": 2,
+                                      "maxItems": 2,
+                                      "items": [
+                                        {
+                                          "type": "number",
+                                          "exclusiveMinimum": true,
+                                          "minimum": 0
+                                        },
+                                        {
+                                          "type": "number",
+                                          "exclusiveMinimum": true,
+                                          "minimum": 0
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "default": {}
+                              },
+                              "floor": {
+                                "type": "object",
+                                "properties": {
+                                  "colorHex": {
+                                    "type": "string"
+                                  },
+                                  "textureStorageKey": {
+                                    "type": "string"
+                                  },
+                                  "roughness": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "metalness": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "repeat": {
+                                    "type": "array",
+                                    "minItems": 2,
+                                    "maxItems": 2,
+                                    "items": [
+                                      {
+                                        "type": "number",
+                                        "exclusiveMinimum": true,
+                                        "minimum": 0
+                                      },
+                                      {
+                                        "type": "number",
+                                        "exclusiveMinimum": true,
+                                        "minimum": 0
+                                      }
+                                    ]
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "tiers": {
+                                "type": "object",
+                                "properties": {
+                                  "colorHex": {
+                                    "type": "string"
+                                  },
+                                  "textureStorageKey": {
+                                    "type": "string"
+                                  },
+                                  "roughness": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "metalness": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "repeat": {
+                                    "type": "array",
+                                    "minItems": 2,
+                                    "maxItems": 2,
+                                    "items": [
+                                      {
+                                        "type": "number",
+                                        "exclusiveMinimum": true,
+                                        "minimum": 0
+                                      },
+                                      {
+                                        "type": "number",
+                                        "exclusiveMinimum": true,
+                                        "minimum": 0
+                                      }
+                                    ]
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "lighting": {
+                                "type": "object",
+                                "properties": {
+                                  "ambientColor": {
+                                    "type": "string"
+                                  },
+                                  "ambientIntensity": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 4,
+                                    "default": 0.82
+                                  },
+                                  "directionalColor": {
+                                    "type": "string"
+                                  },
+                                  "directionalIntensity": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 4,
+                                    "default": 1.4
+                                  },
+                                  "directionalPosition": {
+                                    "type": "array",
+                                    "minItems": 3,
+                                    "maxItems": 3,
+                                    "items": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "number"
+                                      }
+                                    ],
+                                    "default": [
+                                      4,
+                                      8,
+                                      6
+                                    ]
+                                  },
+                                  "hemisphereSkyColor": {
+                                    "type": "string"
+                                  },
+                                  "hemisphereGroundColor": {
+                                    "type": "string"
+                                  },
+                                  "hemisphereIntensity": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 4
+                                  },
+                                  "fogColor": {
+                                    "type": "string"
+                                  },
+                                  "fogNear": {
+                                    "type": "number",
+                                    "minimum": 0
+                                  },
+                                  "fogFar": {
+                                    "type": "number",
+                                    "minimum": 0
+                                  },
+                                  "backgroundColor": {
+                                    "type": "string"
+                                  },
+                                  "exposure": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 4
+                                  }
+                                },
+                                "required": [
+                                  "ambientColor",
+                                  "directionalColor"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "lightingNight": {
+                                "type": "object",
+                                "properties": {
+                                  "ambientColor": {
+                                    "type": "string"
+                                  },
+                                  "ambientIntensity": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 4,
+                                    "default": 0.82
+                                  },
+                                  "directionalColor": {
+                                    "type": "string"
+                                  },
+                                  "directionalIntensity": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 4,
+                                    "default": 1.4
+                                  },
+                                  "directionalPosition": {
+                                    "type": "array",
+                                    "minItems": 3,
+                                    "maxItems": 3,
+                                    "items": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "number"
+                                      }
+                                    ],
+                                    "default": [
+                                      4,
+                                      8,
+                                      6
+                                    ]
+                                  },
+                                  "hemisphereSkyColor": {
+                                    "type": "string"
+                                  },
+                                  "hemisphereGroundColor": {
+                                    "type": "string"
+                                  },
+                                  "hemisphereIntensity": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 4
+                                  },
+                                  "fogColor": {
+                                    "type": "string"
+                                  },
+                                  "fogNear": {
+                                    "type": "number",
+                                    "minimum": 0
+                                  },
+                                  "fogFar": {
+                                    "type": "number",
+                                    "minimum": 0
+                                  },
+                                  "backgroundColor": {
+                                    "type": "string"
+                                  },
+                                  "exposure": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 4
+                                  }
+                                },
+                                "required": [
+                                  "ambientColor",
+                                  "directionalColor"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sky": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "color",
+                                      "panorama"
+                                    ],
+                                    "default": "color"
+                                  },
+                                  "storageKey": {
+                                    "type": "string"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "walkSpeedMultiplier": {
+                                "type": "number",
+                                "exclusiveMinimum": true,
+                                "minimum": 0,
+                                "maximum": 2
+                              },
+                              "avatarScale": {
+                                "type": "number",
+                                "exclusiveMinimum": true,
+                                "minimum": 0,
+                                "maximum": 2
+                              },
+                              "map2dStorageKey": {
+                                "type": "string"
+                              },
+                              "boardDarkenOpacity": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "ambient": {
+                                "type": "object",
+                                "properties": {
+                                  "storageKey": {
+                                    "type": "string"
+                                  },
+                                  "defaultGain": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1,
+                                    "default": 0.15
+                                  },
+                                  "minGrade": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "storageKey"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "props": {
+                                "type": "array",
+                                "items": {},
+                                "default": []
+                              }
+                            },
+                            "required": [
+                              "lighting"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "thumbnailStorageKey": {
+                            "type": "string"
+                          },
+                          "standardsCrosswalkUrl": {
+                            "type": "string"
+                          },
+                          "licenseAttribution": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "assetId": {
+                                  "type": "string"
+                                },
+                                "notice": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "assetId",
+                                "notice"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "default": []
+                          },
+                          "review": {
+                            "type": "object",
+                            "properties": {
+                              "reviewedAt": {
+                                "type": "string"
+                              },
+                              "reviewer": {
+                                "type": "string"
+                              },
+                              "notes": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "reviewedAt",
+                              "reviewer"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "builtin",
+                              "district"
+                            ],
+                            "default": "builtin"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "slug",
+                          "label",
+                          "description",
+                          "version",
+                          "overrides",
+                          "thumbnailStorageKey",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "skins"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/world-skins/{slug}": {
+      "get": {
+        "summary": "Get a world skin by slug with absolute asset URLs (flag-gated)",
+        "tags": [
+          "world-skins"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "slug": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 64
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "description": {
+                      "type": "string",
+                      "maxLength": 500
+                    },
+                    "gradeBands": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "default": []
+                    },
+                    "subjects": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "default": []
+                    },
+                    "baseManifestId": {
+                      "type": "string",
+                      "default": "default-theater"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "exclusiveMinimum": true,
+                      "minimum": 0
+                    },
+                    "overrides": {
+                      "type": "object",
+                      "properties": {
+                        "walls": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                              "colorHex": {
+                                "type": "string"
+                              },
+                              "textureStorageKey": {
+                                "type": "string"
+                              },
+                              "roughness": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "metalness": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "repeat": {
+                                "type": "array",
+                                "minItems": 2,
+                                "maxItems": 2,
+                                "items": [
+                                  {
+                                    "type": "number",
+                                    "exclusiveMinimum": true,
+                                    "minimum": 0
+                                  },
+                                  {
+                                    "type": "number",
+                                    "exclusiveMinimum": true,
+                                    "minimum": 0
+                                  }
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "default": {}
+                        },
+                        "floor": {
+                          "type": "object",
+                          "properties": {
+                            "colorHex": {
+                              "type": "string"
+                            },
+                            "textureStorageKey": {
+                              "type": "string"
+                            },
+                            "roughness": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1
+                            },
+                            "metalness": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1
+                            },
+                            "repeat": {
+                              "type": "array",
+                              "minItems": 2,
+                              "maxItems": 2,
+                              "items": [
+                                {
+                                  "type": "number",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0
+                                },
+                                {
+                                  "type": "number",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0
+                                }
+                              ]
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "tiers": {
+                          "type": "object",
+                          "properties": {
+                            "colorHex": {
+                              "type": "string"
+                            },
+                            "textureStorageKey": {
+                              "type": "string"
+                            },
+                            "roughness": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1
+                            },
+                            "metalness": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1
+                            },
+                            "repeat": {
+                              "type": "array",
+                              "minItems": 2,
+                              "maxItems": 2,
+                              "items": [
+                                {
+                                  "type": "number",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0
+                                },
+                                {
+                                  "type": "number",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0
+                                }
+                              ]
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "lighting": {
+                          "type": "object",
+                          "properties": {
+                            "ambientColor": {
+                              "type": "string"
+                            },
+                            "ambientIntensity": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 4,
+                              "default": 0.82
+                            },
+                            "directionalColor": {
+                              "type": "string"
+                            },
+                            "directionalIntensity": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 4,
+                              "default": 1.4
+                            },
+                            "directionalPosition": {
+                              "type": "array",
+                              "minItems": 3,
+                              "maxItems": 3,
+                              "items": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "number"
+                                }
+                              ],
+                              "default": [
+                                4,
+                                8,
+                                6
+                              ]
+                            },
+                            "hemisphereSkyColor": {
+                              "type": "string"
+                            },
+                            "hemisphereGroundColor": {
+                              "type": "string"
+                            },
+                            "hemisphereIntensity": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 4
+                            },
+                            "fogColor": {
+                              "type": "string"
+                            },
+                            "fogNear": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "fogFar": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "backgroundColor": {
+                              "type": "string"
+                            },
+                            "exposure": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 4
+                            }
+                          },
+                          "required": [
+                            "ambientColor",
+                            "directionalColor"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "lightingNight": {
+                          "type": "object",
+                          "properties": {
+                            "ambientColor": {
+                              "type": "string"
+                            },
+                            "ambientIntensity": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 4,
+                              "default": 0.82
+                            },
+                            "directionalColor": {
+                              "type": "string"
+                            },
+                            "directionalIntensity": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 4,
+                              "default": 1.4
+                            },
+                            "directionalPosition": {
+                              "type": "array",
+                              "minItems": 3,
+                              "maxItems": 3,
+                              "items": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "number"
+                                }
+                              ],
+                              "default": [
+                                4,
+                                8,
+                                6
+                              ]
+                            },
+                            "hemisphereSkyColor": {
+                              "type": "string"
+                            },
+                            "hemisphereGroundColor": {
+                              "type": "string"
+                            },
+                            "hemisphereIntensity": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 4
+                            },
+                            "fogColor": {
+                              "type": "string"
+                            },
+                            "fogNear": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "fogFar": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "backgroundColor": {
+                              "type": "string"
+                            },
+                            "exposure": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 4
+                            }
+                          },
+                          "required": [
+                            "ambientColor",
+                            "directionalColor"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "sky": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "color",
+                                "panorama"
+                              ],
+                              "default": "color"
+                            },
+                            "storageKey": {
+                              "type": "string"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "walkSpeedMultiplier": {
+                          "type": "number",
+                          "exclusiveMinimum": true,
+                          "minimum": 0,
+                          "maximum": 2
+                        },
+                        "avatarScale": {
+                          "type": "number",
+                          "exclusiveMinimum": true,
+                          "minimum": 0,
+                          "maximum": 2
+                        },
+                        "map2dStorageKey": {
+                          "type": "string"
+                        },
+                        "boardDarkenOpacity": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "ambient": {
+                          "type": "object",
+                          "properties": {
+                            "storageKey": {
+                              "type": "string"
+                            },
+                            "defaultGain": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1,
+                              "default": 0.15
+                            },
+                            "minGrade": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "storageKey"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "props": {
+                          "type": "array",
+                          "items": {},
+                          "default": []
+                        }
+                      },
+                      "required": [
+                        "lighting"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "thumbnailStorageKey": {
+                      "type": "string"
+                    },
+                    "standardsCrosswalkUrl": {
+                      "type": "string"
+                    },
+                    "licenseAttribution": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "assetId": {
+                            "type": "string"
+                          },
+                          "notice": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "assetId",
+                          "notice"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "default": []
+                    },
+                    "review": {
+                      "type": "object",
+                      "properties": {
+                        "reviewedAt": {
+                          "type": "string"
+                        },
+                        "reviewer": {
+                          "type": "string"
+                        },
+                        "notes": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "reviewedAt",
+                        "reviewer"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "builtin",
+                        "district"
+                      ],
+                      "default": "builtin"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "slug",
+                    "label",
+                    "description",
+                    "version",
+                    "overrides",
+                    "thumbnailStorageKey",
+                    "createdAt",
+                    "updatedAt"
                   ],
                   "additionalProperties": false
                 }
