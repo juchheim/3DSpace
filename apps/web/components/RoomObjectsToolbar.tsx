@@ -23,6 +23,7 @@ export function RoomObjectsToolbar({
   onSelectObject,
   onInstantiate,
   onRemove,
+  onDeleteTemplate,
   roomObjectsReady,
   gateSyncing,
   customUploadsEnabled,
@@ -39,6 +40,7 @@ export function RoomObjectsToolbar({
   onSelectObject(objectId: string | null): void;
   onInstantiate(templateId: string): Promise<void>;
   onRemove(objectId: string): Promise<void>;
+  onDeleteTemplate(templateId: string): Promise<void>;
   roomObjectsReady: boolean;
   gateSyncing: boolean;
   customUploadsEnabled: boolean;
@@ -53,6 +55,7 @@ export function RoomObjectsToolbar({
   }): Promise<void>;
 }) {
   const [placingId, setPlacingId] = useState<string | null>(null);
+  const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [uploadDisplayName, setUploadDisplayName] = useState("");
@@ -146,6 +149,8 @@ export function RoomObjectsToolbar({
               const placeable = isRoomObjectTemplatePlaceable(template);
               const selectable = isRoomObjectTemplateSelectableInV1(template);
               const isHero = template.slug === ROOM_OBJECT_HERO_SLUG;
+              const isCustom = template.source === "custom";
+              const placedCount = objects.filter((object) => object.templateId === template.id).length;
               return (
                 <li
                   key={template.id}
@@ -171,18 +176,39 @@ export function RoomObjectsToolbar({
                     <p className="room-object-toolbar__desc">{template.description}</p>
                   </div>
                   {selectable ? (
-                    <button
-                      type="button"
-                      className="hud-btn"
-                      data-testid={`room-object-place-${template.slug}`}
-                      disabled={placingId === template.id || !placeable}
-                      onClick={() => {
-                        setPlacingId(template.id);
-                        void onInstantiate(template.id).finally(() => setPlacingId(null));
-                      }}
-                    >
-                      {placingId === template.id ? "Placing…" : "Place"}
-                    </button>
+                    <div className="room-object-toolbar__catalog-actions">
+                      <button
+                        type="button"
+                        className="hud-btn"
+                        data-testid={`room-object-place-${template.slug}`}
+                        disabled={Boolean(placingId) || Boolean(deletingTemplateId) || !placeable}
+                        onClick={() => {
+                          setPlacingId(template.id);
+                          void onInstantiate(template.id).finally(() => setPlacingId(null));
+                        }}
+                      >
+                        {placingId === template.id ? "Placing…" : "Place"}
+                      </button>
+                      {isCustom ? (
+                        <button
+                          type="button"
+                          className="hud-btn room-object-toolbar__delete-template"
+                          data-testid={`room-object-delete-template-${template.slug}`}
+                          disabled={Boolean(placingId) || Boolean(deletingTemplateId)}
+                          onClick={() => {
+                            const copy =
+                              placedCount > 0
+                                ? `Remove "${template.displayName}" from your class catalog and delete ${placedCount} placed copy${placedCount === 1 ? "" : "ies"} in this room?`
+                                : `Remove "${template.displayName}" from your class catalog?`;
+                            if (!window.confirm(copy)) return;
+                            setDeletingTemplateId(template.id);
+                            void onDeleteTemplate(template.id).finally(() => setDeletingTemplateId(null));
+                          }}
+                        >
+                          {deletingTemplateId === template.id ? "Deleting…" : "Delete"}
+                        </button>
+                      ) : null}
+                    </div>
                   ) : (
                     <span className="room-object-toolbar__soon">Coming soon</span>
                   )}

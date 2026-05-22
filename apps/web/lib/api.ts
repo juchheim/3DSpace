@@ -322,6 +322,13 @@ export function createRoomObjectTemplate(identity: ApiIdentity, input: z.infer<t
   }).then((response) => response.template);
 }
 
+export function archiveRoomObjectTemplate(identity: ApiIdentity, templateId: string) {
+  return apiFetch<RoomObjectTemplate>(`/v1/room-objects/templates/${templateId}`, {
+    method: "DELETE",
+    identity
+  });
+}
+
 function buildCustomRoomObjectSlug(displayName: string) {
   const base = displayName
     .toLowerCase()

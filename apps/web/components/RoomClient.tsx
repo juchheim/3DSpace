@@ -6,7 +6,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AvatarAppearance, AvatarReactionMessage, AvatarReactionSlug, AvatarStateMessage, Role, RoomManifest, RoomObjectTemplate, RoomSessionResponse, ViewMode, WallObject } from "@3dspace/contracts";
 import { AvatarAppearanceMessageSchema, AvatarReactionMessageSchema, ParticipantAudioModeMessageSchema, parseRoomSettings } from "@3dspace/contracts";
 import { computeGroupMemberPosition, createAvatarState, floorYFromZ, unprojectPointFrom2D } from "@3dspace/room-engine";
-import { joinRoom, listClassMembers, patchAvatarAppearance, patchRoom, postRoomEvent, uploadRoomObjectGlb } from "../lib/api";
+import {
+  archiveRoomObjectTemplate,
+  joinRoom,
+  listClassMembers,
+  patchAvatarAppearance,
+  patchRoom,
+  postRoomEvent,
+  uploadRoomObjectGlb
+} from "../lib/api";
 import { CLIENT_TUNING } from "../lib/config";
 import { pickDisplayName } from "../lib/displayName";
 import { useAvatarMovement } from "../lib/useAvatarMovement";
@@ -1699,6 +1707,17 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               onRemove={async (objectId) => {
                 await roomObjects.actions.remove(objectId);
                 setSelectedRoomObjectId((current) => (current === objectId ? null : current));
+              }}
+              onDeleteTemplate={async (templateId) => {
+                const placed = roomObjects.objects.filter((object) => object.templateId === templateId);
+                for (const object of placed) {
+                  await roomObjects.actions.remove(object.id);
+                }
+                await archiveRoomObjectTemplate(identity, templateId);
+                if (placed.some((object) => object.id === selectedRoomObjectId)) {
+                  setSelectedRoomObjectId(null);
+                }
+                await roomObjectTemplates.refetch();
               }}
               customUploadsEnabled={roomObjectCustomUploadsEnabled}
               onUpload={async (input) => {
