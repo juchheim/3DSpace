@@ -155,11 +155,14 @@ function buildLayout(bondAngleDeg: number, bondLength: number) {
 
 // ── Sub-components ──────────────────────────────────────────────────────────
 
+/** Scales H/O surface glyphs relative to atom radius. */
+const ATOM_SYMBOL_SCALE = 2 / 3;
+
 function HydrogenSurfaceLabel({ radius }: { radius: number }) {
-  const height = radius * 1.35;
-  const width = radius * 0.9;
-  const stroke = radius * 0.2;
-  const depth = radius * 0.08;
+  const height = radius * 1.35 * ATOM_SYMBOL_SCALE;
+  const width = radius * 0.9 * ATOM_SYMBOL_SCALE;
+  const stroke = radius * 0.2 * ATOM_SYMBOL_SCALE;
+  const depth = radius * 0.08 * ATOM_SYMBOL_SCALE;
   const z = radius * 1.04;
   const materialColor = "#18212b";
 
@@ -184,7 +187,7 @@ function HydrogenSurfaceLabel({ radius }: { radius: number }) {
 function OxygenSurfaceLabel({ radius }: { radius: number }) {
   return (
     <mesh position={[0, 0, radius * 1.04]}>
-      <torusGeometry args={[radius * 0.38, radius * 0.065, 14, 40]} />
+      <torusGeometry args={[radius * 0.38 * ATOM_SYMBOL_SCALE, radius * 0.065 * ATOM_SYMBOL_SCALE, 14, 40]} />
       <meshBasicMaterial color="#f4f6f8" />
     </mesh>
   );
