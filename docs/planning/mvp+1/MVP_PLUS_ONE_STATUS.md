@@ -1,6 +1,6 @@
 # MVP+1 Implementation Status
 
-Last updated: 2026-05-21
+Last updated: 2026-05-22
 Branch: `mvp-plus-one`
 
 ## Objective
@@ -108,6 +108,31 @@ Rollout note:
 
 - Planned staging rollout date: 2026-05-21, with `ENABLE_BREAKOUT_PODS=true` in staging only after merge; production default remains off until teacher validation is complete.
 
+## RoomObject library
+
+Plan: [`docs/planning/new-features/PLAN_ROOM_OBJECTS.md`](../new-features/PLAN_ROOM_OBJECTS.md) and [`docs/planning/new-features/IMPL_ROOM_OBJECTS.md`](../new-features/IMPL_ROOM_OBJECTS.md)
+
+Status: complete locally behind `ENABLE_ROOM_OBJECTS` / `NEXT_PUBLIC_ENABLE_ROOM_OBJECTS`; per-room `settings.roomObjects.enabled` remains the teacher opt-in gate (defaults **true** on new rooms when the feature flag is on).
+
+Completed:
+
+- Contracts, API persistence, grab lock, pose/release realtime, and teacher/student authorization through Phases 1–6.
+- District-demo hero (`water-molecule` procedural) with v1 toolbar gating, inspector pedagogical parameters, 3D layer + 2D analog icons, and demo script in Phase 7.
+- Custom `.glb` upload pipeline (signed targets, GLB validation, class-scoped templates) in Phase 8.
+- Env templates (root, API, web) default room objects off; Playwright dev servers opt in for e2e.
+- Playwright coverage: teacher opt-in + place hero, 3D canvas + inspector params + 2D icon, and two-tab grant → student 2D grab + transform sync → teacher reset/remove.
+
+Validation:
+
+- `npm run typecheck` — pass (see IMPL Phase 9 evidence).
+- `npm run test -- apps/api/tests/api.test.ts -t "room object|template|grab|pose|release|custom template|glb upload"` — pass.
+- `npm run test:e2e -- --grep "room objects"` — pass with Playwright-managed dev servers (`playwright.config.ts` flags).
+
+Rollout note:
+
+- Planned staging rollout date: **2026-05-22**, with `ENABLE_ROOM_OBJECTS=true` and `NEXT_PUBLIC_ENABLE_ROOM_OBJECTS=true` in staging only after merge; production flags stay off until the 60–90 s hero demo and Chromebook load check pass.
+- `settings.roomObjects.customUploadsEnabled` stays off until Phase 8 stabilizes in staging; whitelist friendly districts before enabling uploads broadly.
+
 ## Next Concrete Step
 
-Local MVP+1 wall media, lesson planning discovery, and breakout-pods implementation are complete. Recommended follow-up before release: manually validate live wall shares against the deployed LiveKit/browser-permission path, run a 3-user breakout-pods perceptual check in staging, decide production values for web embed allowlists and file size limits, and run the lesson slice with at least one teacher before promoting the next product slice.
+Local MVP+1 wall media, lesson planning discovery, breakout pods, and the RoomObject library are complete. Recommended follow-up before release: manually validate live wall shares against the deployed LiveKit/browser-permission path, run the RoomObject district demo script twice on staging, complete the 3-user grab read-only inspector check, and run a 3-user breakout-pods perceptual check in staging.

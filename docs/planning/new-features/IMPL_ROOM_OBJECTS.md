@@ -619,7 +619,7 @@ Phase 0 can run **before** Phase 1 or **in parallel** with Phases 1–2. Do not 
 - [x] `apps/web/test/room-objects.spec.ts` + Playwright flags for room objects.
 - [x] `packages/room-objects/test/builtin-hero.test.ts` catalog parity test.
 - [ ] Manual: 60–90 s demo runs cleanly twice in a row on staging.
-- [ ] `npm run test:e2e -- --grep "room objects"` passes (requires API + web dev servers).
+- [x] `npm run test:e2e -- --grep "room objects"` passes (2026-05-22; Playwright-managed dev servers).
 - [ ] Re-run Phase 0 harness only if in-room rendering regressed (materials, scale, labels).
 
 ---
@@ -694,10 +694,10 @@ Phase 0 can run **before** Phase 1 or **in parallel** with Phases 1–2. Do not 
 
 **Validation evidence (fill in):**
 
-- [ ] `npm run typecheck` — pass
-- [ ] `npm test` — pass (existing 47 + new RoomObject tests)
-- [ ] `npm run test -- apps/api/tests/api.test.ts -t "room object|template|grab|pose|release"` — pass
-- [ ] `npm run test:e2e -- --grep "room objects"` — pass
+- [x] `npm run typecheck` — pass (2026-05-22)
+- [x] `npm test` — 101/104 pass (2026-05-22); 3 pre-existing failures in `packages/room-engine/tests/room-engine.test.ts` (wall anchor width + avatar interpolation expectations, unrelated to RoomObject). RoomObject contract/API/package tests pass.
+- [x] `npm run test -- apps/api/tests/api.test.ts -t "room object|template|grab|pose|release|custom template|glb upload"` — pass (2026-05-22)
+- [x] `npm run test:e2e -- --grep "room objects"` — pass (2026-05-22; Playwright dev servers with room-object flags from `playwright.config.ts`)
 - [ ] Manual: 3-user grab test (one holder, two observers; observer inspector is read-only)
 - [ ] Manual: 2D-only teacher places + manipulates the hero primitive end-to-end
 - [ ] Manual: hero loads in ≤ 5 s on baseline Chromebook
