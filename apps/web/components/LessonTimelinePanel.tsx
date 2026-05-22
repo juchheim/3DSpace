@@ -12,7 +12,7 @@ function durationLabel(startedAt: string, completedAt?: string) {
 export function LessonTimelinePanel({ run }: { run: LessonRun | null }) {
   if (!run || (run.status !== "ended" && run.status !== "abandoned")) return null;
   return (
-    <HudCard title="Lesson Timeline" badge={run.timeline.length} ariaLabel="Lesson timeline">
+    <HudCard title="Lesson Timeline" badge={run.timeline.length} ariaLabel="Lesson timeline" defaultCollapsed>
       {run.timeline.length === 0 ? <p className="small">No steps ran.</p> : null}
       <ol className="lesson-timeline" data-testid="lesson-timeline">
         {run.timeline.map((record, index) => {

@@ -540,34 +540,20 @@ label {
   pointer-events: auto;
 }
 
-.room-hud-left-stack {
+.room-hud-people--dock-top {
   position: absolute;
   left: 6px;
-  bottom: 6px;
   top: calc(var(--hud-th) + 12px);
   width: var(--hud-pw);
   z-index: 20;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: 5px;
-  min-height: 0;
   pointer-events: none;
 }
 
-.room-hud-left-stack > * {
+.room-hud-people--dock-top > * {
   pointer-events: auto;
 }
 
-.room-hud-left-stack .room-hud-people {
-  flex: 0 1 auto;
-  min-height: 0;
-  max-height: 100%;
-  width: 100%;
-  overflow: hidden;
-}
-
-.room-hud-left-stack .room-hud-people .hud-card-body {
+.room-hud-people--dock-top .hud-card-body {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
@@ -575,26 +561,13 @@ label {
   max-height: calc(100dvh - var(--hud-th) - 18px - var(--hud-left-floor, 300px));
 }
 
-.room-hud-left-stack .room-hud-people .hud-card-body::-webkit-scrollbar {
+.room-hud-people--dock-top .hud-card-body::-webkit-scrollbar {
   width: 4px;
 }
 
-.room-hud-left-stack .room-hud-people .hud-card-body::-webkit-scrollbar-thumb {
+.room-hud-people--dock-top .hud-card-body::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.18);
   border-radius: 2px;
-}
-
-.room-hud-left-stack .room-hud-left--in-stack {
-  position: static;
-  top: auto;
-  bottom: auto;
-  left: auto;
-  flex: 0 0 auto;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: 5px;
 }
 
 .room-hud-right {
@@ -2738,7 +2711,7 @@ button.hud-heading-btn:hover {
     display: none;
   }
 
-  .room-hud-left-stack .room-hud-people {
+  .room-hud-people--dock-top {
     display: none;
   }
 

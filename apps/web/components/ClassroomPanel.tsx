@@ -139,7 +139,7 @@ export function ClassroomPanel({
     const limitReached = hallpassSettings !== undefined && hallpassSettings.maxConcurrent > 0 && currentlyOutPasses.length >= hallpassSettings.maxConcurrent;
     return (
       <>
-        <HudCard title="Help Queue" badge={loading ? "…" : teacherQueue.length} ariaLabel="Help queue" hasAlert={helpAlert} onAlertDismiss={() => setHelpAlert(false)}>
+        <HudCard title="Help Queue" badge={loading ? "…" : teacherQueue.length} ariaLabel="Help queue" defaultCollapsed hasAlert={helpAlert} onAlertDismiss={() => setHelpAlert(false)}>
           {error ? <p className="small">{error}</p> : null}
           {teacherQueue.length === 0 ? <p className="small">No raised hands right now.</p> : null}
           <ul className="classroom-help-list" role="list">

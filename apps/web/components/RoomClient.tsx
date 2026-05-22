@@ -1564,28 +1564,25 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         ) : null}
       </header>
 
-      {/* Left HUD: people roster (teachers) + identity / media / movement */}
       {role === "teacher" ? (
-        <div className="room-hud-left-stack">
-          <aside className="room-hud-people" aria-label="Participants">
-            <div className="hud-panel room-hud-people-panel">
-              <Roster
-                participants={participantList}
-                classroomState={classroom.state}
-                role={role}
-                selectedStudentId={selectedStudentId}
-                onSelectStudent={(id) => {
-                  setHelpBoardAccessUserId("");
-                  setSelectedStudentId(id);
-                }}
-              />
-            </div>
-          </aside>
-          <div className="room-hud-left room-hud-left--in-stack">{leftHudControls}</div>
-        </div>
-      ) : (
-        <div className="room-hud-left">{leftHudControls}</div>
-      )}
+        <aside className="room-hud-people room-hud-people--dock-top" aria-label="Participants">
+          <div className="hud-panel room-hud-people-panel">
+            <Roster
+              participants={participantList}
+              classroomState={classroom.state}
+              role={role}
+              selectedStudentId={selectedStudentId}
+              onSelectStudent={(id) => {
+                setHelpBoardAccessUserId("");
+                setSelectedStudentId(id);
+              }}
+            />
+          </div>
+        </aside>
+      ) : null}
+
+      {/* Left HUD: identity / media / movement */}
+      <div className="room-hud-left">{leftHudControls}</div>
 
       {/* Right HUD: unified collapsible panel */}
       <aside className="room-hud-right" aria-label="Room details">

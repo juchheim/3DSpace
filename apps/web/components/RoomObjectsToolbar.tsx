@@ -46,7 +46,7 @@ export function RoomObjectsToolbar({
       title="Objects"
       badge={loading ? "…" : objects.length}
       ariaLabel="Room objects"
-      defaultCollapsed={false}
+      defaultCollapsed
       forceExpanded={Boolean(selectedObjectId)}
     >
         {error ? <p className="room-object-toolbar__error">{error}</p> : null}

@@ -205,7 +205,7 @@ export function AnchorPanel({
   }
 
   return (
-    <HudCard title="Wall" badge={loading ? "…" : `${wallObjects.length} obj`} ariaLabel="Wall objects">
+    <HudCard title="Walls" badge={loading ? "…" : `${wallObjects.length} obj`} ariaLabel="Wall objects" defaultCollapsed>
 
       {canCreate ? (
         <>

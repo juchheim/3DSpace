@@ -83,6 +83,7 @@ export function LessonRunControls({
       title="Lesson Run"
       badge={loading ? "…" : run.status}
       ariaLabel="Lesson run controls"
+      defaultCollapsed
       hasAlert={startAlert}
       onAlertDismiss={dismissStartAlert}
     >

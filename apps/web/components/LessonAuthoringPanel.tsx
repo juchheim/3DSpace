@@ -713,7 +713,7 @@ export function LessonAuthoringPanel({
 
   if (!run) {
     return (
-      <HudCard title="Lesson" badge={loading ? "…" : "Off"} ariaLabel="Lesson authoring">
+      <HudCard title="Lesson" badge={loading ? "…" : "Off"} ariaLabel="Lesson authoring" defaultCollapsed>
         {error ? <p className="small">{error}</p> : null}
         <label>
           <span>Lesson title</span>
@@ -733,7 +733,7 @@ export function LessonAuthoringPanel({
   }
 
   return (
-    <HudCard title="Lesson Script" badge={`${run.steps.length}`} ariaLabel="Lesson authoring">
+    <HudCard title="Lesson Script" badge={`${run.steps.length}`} ariaLabel="Lesson authoring" defaultCollapsed>
       {error ? <p className="small">{error}</p> : null}
       <label>
         <span>Lesson title</span>
