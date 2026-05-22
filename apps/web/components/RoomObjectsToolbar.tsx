@@ -23,6 +23,8 @@ export function RoomObjectsToolbar({
   onSelectObject,
   onInstantiate,
   onRemove,
+  roomObjectsReady,
+  gateSyncing,
   customUploadsEnabled,
   onUpload
 }: {
@@ -37,6 +39,8 @@ export function RoomObjectsToolbar({
   onSelectObject(objectId: string | null): void;
   onInstantiate(templateId: string): Promise<void>;
   onRemove(objectId: string): Promise<void>;
+  roomObjectsReady: boolean;
+  gateSyncing: boolean;
   customUploadsEnabled: boolean;
   onUpload(input: {
     file: File;
@@ -127,6 +131,14 @@ export function RoomObjectsToolbar({
     >
         {error ? <p className="room-object-toolbar__error">{error}</p> : null}
         {uploadError ? <p className="room-object-toolbar__error">{uploadError}</p> : null}
+        {gateSyncing ? (
+          <p className="room-object-toolbar__hint">Turning on 3D manipulatives and custom uploads for this room…</p>
+        ) : null}
+        {!roomObjectsReady && !gateSyncing ? (
+          <p className="room-object-toolbar__hint">Manipulatives are not enabled for this room yet.</p>
+        ) : null}
+        {roomObjectsReady ? (
+        <>
         <div className="room-object-toolbar-card">
           <span className="room-object-toolbar__heading">Catalog</span>
           <ul className="room-object-toolbar__catalog">
@@ -212,7 +224,7 @@ export function RoomObjectsToolbar({
           )}
         </div>
         {customUploadsEnabled ? (
-          <div className="room-object-toolbar-card">
+          <div className="room-object-toolbar-card" data-testid="room-object-upload-panel">
             <span className="room-object-toolbar__heading">Upload .glb</span>
             <form className="room-object-toolbar__upload-form" onSubmit={(event) => void handleUploadSubmit(event)}>
               <label className="room-object-toolbar__field">
@@ -267,6 +279,8 @@ export function RoomObjectsToolbar({
               </button>
             </form>
           </div>
+        ) : null}
+        </>
         ) : null}
     </HudCard>
   );

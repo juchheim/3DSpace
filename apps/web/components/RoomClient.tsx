@@ -4,9 +4,9 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AvatarAppearance, AvatarReactionMessage, AvatarReactionSlug, AvatarStateMessage, Role, RoomManifest, RoomObjectTemplate, RoomSessionResponse, ViewMode, WallObject } from "@3dspace/contracts";
-import { AvatarAppearanceMessageSchema, AvatarReactionMessageSchema, ParticipantAudioModeMessageSchema } from "@3dspace/contracts";
+import { AvatarAppearanceMessageSchema, AvatarReactionMessageSchema, ParticipantAudioModeMessageSchema, parseRoomSettings } from "@3dspace/contracts";
 import { computeGroupMemberPosition, createAvatarState, floorYFromZ, unprojectPointFrom2D } from "@3dspace/room-engine";
-import { joinRoom, listClassMembers, patchAvatarAppearance, postRoomEvent, uploadRoomObjectGlb } from "../lib/api";
+import { joinRoom, listClassMembers, patchAvatarAppearance, patchRoom, postRoomEvent, uploadRoomObjectGlb } from "../lib/api";
 import { CLIENT_TUNING } from "../lib/config";
 import { pickDisplayName } from "../lib/displayName";
 import { useAvatarMovement } from "../lib/useAvatarMovement";
@@ -193,8 +193,64 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     role,
     runAction: classroom.runAction
   });
-  const roomObjectsEnabled = CLIENT_TUNING.enableRoomObjects && session?.room.settings.roomObjects?.enabled === true;
-  const roomObjectCustomUploadsEnabled = roomObjectsEnabled && session?.room.settings.roomObjects?.customUploadsEnabled === true;
+  const parsedRoomSettings = useMemo(
+    () => (session ? parseRoomSettings(session.room.settings) : null),
+    [session?.room.settings]
+  );
+  const roomObjectsSettings = parsedRoomSettings?.roomObjects;
+  const roomObjectsEnabled = CLIENT_TUNING.enableRoomObjects && roomObjectsSettings?.enabled === true;
+  const roomObjectCustomUploadsEnabled = roomObjectsEnabled && roomObjectsSettings?.customUploadsEnabled === true;
+  const roomObjectsTeacherToolbarVisible = CLIENT_TUNING.enableRoomObjects && role === "teacher" && Boolean(manifest);
+  const roomObjectsGateSyncRef = useRef<string | null>(null);
+  const [roomObjectsGateSyncing, setRoomObjectsGateSyncing] = useState(false);
+
+  useEffect(() => {
+    if (!CLIENT_TUNING.enableRoomObjects || role !== "teacher" || !session?.room.id || !roomObjectsSettings) return;
+    if (roomObjectsSettings.enabled && roomObjectsSettings.customUploadsEnabled) return;
+
+    const activeRoomId = session.room.id;
+    if (roomObjectsGateSyncRef.current === activeRoomId) return;
+    roomObjectsGateSyncRef.current = activeRoomId;
+    setRoomObjectsGateSyncing(true);
+
+    void patchRoom(identity, activeRoomId, {
+      settings: {
+        roomObjects: {
+          ...roomObjectsSettings,
+          enabled: true,
+          customUploadsEnabled: true
+        }
+      }
+    })
+      .then((updated) => {
+        const nextRoomObjects = parseRoomSettings(updated.settings).roomObjects;
+        setSession((current) =>
+          current?.room.id === activeRoomId
+            ? {
+                ...current,
+                room: {
+                  ...current.room,
+                  settings: {
+                    ...current.room.settings,
+                    roomObjects: nextRoomObjects
+                  }
+                }
+              }
+            : current
+        );
+      })
+      .catch(() => {
+        roomObjectsGateSyncRef.current = null;
+      })
+      .finally(() => {
+        setRoomObjectsGateSyncing(false);
+      });
+  }, [
+    identity,
+    role,
+    roomObjectsSettings,
+    session?.room.id
+  ]);
   const roomObjectTemplates = useRoomObjectTemplates({
     identity,
     classId: session?.room.classId,
@@ -1611,11 +1667,13 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               onRunAction={classroom.runAction}
             />
           ) : null}
-          {roomObjectsEnabled && role === "teacher" && manifest ? (
+          {roomObjectsTeacherToolbarVisible ? (
             <RoomObjectsToolbar
               templates={roomObjectTemplates.templates}
               objects={roomObjects.objects}
-              manifest={manifest}
+              manifest={manifest!}
+              roomObjectsReady={roomObjectsEnabled}
+              gateSyncing={roomObjectsGateSyncing}
               localAvatarPosition={
                 localParticipantForRoomObjects?.state.position ?? { x: 0, y: 0, z: 0 }
               }
@@ -1629,7 +1687,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
                 const pose =
                   template && localParticipantForRoomObjects
                     ? buildSpawnPoseInFront({
-                        manifest,
+                        manifest: manifest!,
                         avatarPosition: localParticipantForRoomObjects.state.position,
                         avatarYaw: localParticipantForRoomObjects.state.rotation.y,
                         template

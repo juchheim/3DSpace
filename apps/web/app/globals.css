@@ -4861,6 +4861,13 @@ body.lobby-dark::before {
   color: #e05a5a;
 }
 
+.room-object-toolbar__hint {
+  margin: 0 0 10px;
+  font-size: 11px;
+  color: #8a969e;
+  line-height: 1.45;
+}
+
 .room-object-toolbar__catalog,
 .room-object-toolbar__active {
   list-style: none;

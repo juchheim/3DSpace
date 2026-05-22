@@ -229,7 +229,7 @@ function roomSettings(config: AppConfig) {
     roomObjects: {
       enabled: true,
       maxActive: 8,
-      customUploadsEnabled: false,
+      customUploadsEnabled: config.tuning.enableRoomObjects,
       maxUploadSizeBytes: 8 * 1024 * 1024,
       defaultTouchPolicy: "teacher-only" as const
     }

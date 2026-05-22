@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { ClassRecord, Invite, RoomRecord, RoomSettings } from "@3dspace/contracts";
+import type { ClassRecord, Invite, RoomObjectsSettings, RoomRecord, RoomSettings } from "@3dspace/contracts";
+import { parseRoomSettings } from "@3dspace/contracts";
 import { acceptInvite, createClass, createInvite, createRoom, deleteRoom, listClasses, listRooms, patchRoom } from "../lib/api";
 import { AuthGate } from "../lib/auth";
 import { CLIENT_TUNING } from "../lib/config";
@@ -23,6 +24,7 @@ export function Lobby() {
   const [copyStatus, setCopyStatus] = useState<"code" | "link" | null>(null);
   const [settingsOpen, setSettingsOpen] = useState<string | null>(null);
   const [draftHallpass, setDraftHallpass] = useState<RoomSettings["hallpass"] | null>(null);
+  const [draftRoomObjects, setDraftRoomObjects] = useState<RoomObjectsSettings | null>(null);
 
   useEffect(() => {
     document.body.classList.add("lobby-dark");
@@ -82,15 +84,30 @@ export function Lobby() {
     return classRecord?.teacherUserId === identity.userId;
   }
 
-  async function saveHallpassSettings(roomId: string) {
-    if (!draftHallpass) return;
+  function openRoomSettings(room: RoomRecord) {
+    const parsed = parseRoomSettings(room.settings);
+    setSettingsOpen(room.id);
+    setDraftHallpass(parsed.hallpass);
+    setDraftRoomObjects(parsed.roomObjects);
+  }
+
+  function closeRoomSettings() {
+    setSettingsOpen(null);
+    setDraftHallpass(null);
+    setDraftRoomObjects(null);
+  }
+
+  async function saveRoomSettings(roomId: string) {
+    if (!draftHallpass && !draftRoomObjects) return;
     setBusy(true);
     setError("");
     try {
-      await patchRoom(identity, roomId, { settings: { hallpass: draftHallpass } });
+      const settings: Partial<RoomSettings> = {};
+      if (draftHallpass) settings.hallpass = draftHallpass;
+      if (draftRoomObjects) settings.roomObjects = draftRoomObjects;
+      await patchRoom(identity, roomId, { settings });
       await refresh();
-      setSettingsOpen(null);
-      setDraftHallpass(null);
+      closeRoomSettings();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to save settings.");
     } finally {
@@ -338,17 +355,15 @@ export function Lobby() {
                     <Link className="lb-btn lb-btn-sec lb-btn-sm" href={`/rooms/${room.id}`}>
                       Open →
                     </Link>
-                    {canManageRoom(room) && CLIENT_TUNING.enableHallPass ? (
+                    {canManageRoom(room) && (CLIENT_TUNING.enableHallPass || CLIENT_TUNING.enableRoomObjects) ? (
                       <button
                         className="lb-btn lb-btn-sec lb-btn-sm"
                         disabled={busy}
                         onClick={() => {
                           if (settingsOpen === room.id) {
-                            setSettingsOpen(null);
-                            setDraftHallpass(null);
+                            closeRoomSettings();
                           } else {
-                            setSettingsOpen(room.id);
-                            setDraftHallpass(room.settings.hallpass);
+                            openRoomSettings(room);
                           }
                         }}
                       >
@@ -365,50 +380,80 @@ export function Lobby() {
                       </button>
                     )}
                   </div>
-                  {settingsOpen === room.id && draftHallpass ? (
+                  {settingsOpen === room.id && (draftHallpass || draftRoomObjects) ? (
                     <div className="lb-room-settings">
-                      <p className="lb-label" style={{ marginBottom: 6 }}>Hall pass settings</p>
-                      <label className="lb-settings-row">
-                        <input
-                          type="checkbox"
-                          checked={draftHallpass.enabled}
-                          onChange={(e) => setDraftHallpass({ ...draftHallpass, enabled: e.target.checked })}
-                        />
-                        <span className="lb-label">Enabled</span>
-                      </label>
-                      <label className="lb-settings-row">
-                        <span className="lb-label">Max concurrent</span>
-                        <input
-                          type="number"
-                          className="lb-inp lb-inp-sm"
-                          min={0}
-                          max={10}
-                          value={draftHallpass.maxConcurrent}
-                          onChange={(e) => setDraftHallpass({ ...draftHallpass, maxConcurrent: Math.max(0, Math.min(10, Number(e.target.value))) })}
-                        />
-                      </label>
-                      <label className="lb-settings-row">
-                        <span className="lb-label">Per-period limit</span>
-                        <input
-                          type="number"
-                          className="lb-inp lb-inp-sm"
-                          min={0}
-                          max={20}
-                          value={draftHallpass.perPeriodLimit}
-                          onChange={(e) => setDraftHallpass({ ...draftHallpass, perPeriodLimit: Math.max(0, Math.min(20, Number(e.target.value))) })}
-                        />
-                      </label>
+                      {CLIENT_TUNING.enableRoomObjects && draftRoomObjects ? (
+                        <>
+                          <p className="lb-label" style={{ marginBottom: 6 }}>3D manipulatives</p>
+                          <label className="lb-settings-row">
+                            <input
+                              type="checkbox"
+                              checked={draftRoomObjects.enabled}
+                              onChange={(e) => setDraftRoomObjects({ ...draftRoomObjects, enabled: e.target.checked })}
+                            />
+                            <span className="lb-label">Enabled in this room</span>
+                          </label>
+                          <label className="lb-settings-row">
+                            <input
+                              type="checkbox"
+                              checked={draftRoomObjects.customUploadsEnabled}
+                              disabled={!draftRoomObjects.enabled}
+                              onChange={(e) =>
+                                setDraftRoomObjects({ ...draftRoomObjects, customUploadsEnabled: e.target.checked })
+                              }
+                            />
+                            <span className="lb-label">Allow custom .glb uploads</span>
+                          </label>
+                        </>
+                      ) : null}
+                      {CLIENT_TUNING.enableHallPass && draftHallpass ? (
+                        <>
+                          <p className="lb-label" style={{ marginBottom: 6, marginTop: draftRoomObjects ? 12 : 0 }}>
+                            Hall pass settings
+                          </p>
+                          <label className="lb-settings-row">
+                            <input
+                              type="checkbox"
+                              checked={draftHallpass.enabled}
+                              onChange={(e) => setDraftHallpass({ ...draftHallpass, enabled: e.target.checked })}
+                            />
+                            <span className="lb-label">Enabled</span>
+                          </label>
+                          <label className="lb-settings-row">
+                            <span className="lb-label">Max concurrent</span>
+                            <input
+                              type="number"
+                              className="lb-inp lb-inp-sm"
+                              min={0}
+                              max={10}
+                              value={draftHallpass.maxConcurrent}
+                              onChange={(e) => setDraftHallpass({ ...draftHallpass, maxConcurrent: Math.max(0, Math.min(10, Number(e.target.value))) })}
+                            />
+                          </label>
+                          <label className="lb-settings-row">
+                            <span className="lb-label">Per-period limit</span>
+                            <input
+                              type="number"
+                              className="lb-inp lb-inp-sm"
+                              min={0}
+                              max={20}
+                              value={draftHallpass.perPeriodLimit}
+                              onChange={(e) => setDraftHallpass({ ...draftHallpass, perPeriodLimit: Math.max(0, Math.min(20, Number(e.target.value))) })}
+                            />
+                          </label>
+                        </>
+                      ) : null}
                       <div className="lb-btn-row" style={{ marginTop: 8 }}>
                         <button
                           className="lb-btn lb-btn-pri lb-btn-sm"
                           disabled={busy}
-                          onClick={() => void saveHallpassSettings(room.id)}
+                          onClick={() => void saveRoomSettings(room.id)}
                         >
                           Save
                         </button>
                         <button
                           className="lb-btn lb-btn-sec lb-btn-sm"
-                          onClick={() => { setSettingsOpen(null); setDraftHallpass(null); }}
+                          onClick={closeRoomSettings}
                         >
                           Cancel
                         </button>

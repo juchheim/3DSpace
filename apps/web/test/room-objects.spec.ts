@@ -190,23 +190,24 @@ test.describe("room objects", () => {
       if (!debug?.actions) throw new Error("roomObjects debug hook is unavailable");
       const grabbed = await debug.actions.beginGrab(objectId);
       if (!grabbed) throw new Error("student could not acquire grab lock");
-      const current = debug.objectsById[objectId];
+      const current = debug.objectsById[objectId]!;
       const nextPose = {
         ...current.pose,
         position: { ...current.pose.position, x: current.pose.position.x + 0.75 },
         rotation: { ...current.pose.rotation, yaw: current.pose.rotation.yaw + 0.35 }
       };
       await debug.actions.endGrab(objectId, nextPose, current.scale);
-    }, placedObject.id);
+    }, placedObject!.id);
 
     await expect
       .poll(
         async () => {
           const [current] = await listRoomObjects(request, room.id);
+          if (!current) return false;
           const moved =
-            Math.abs(current.pose.position.x - placedObject.pose.position.x) > 0.05 ||
-            Math.abs(current.pose.position.z - placedObject.pose.position.z) > 0.05;
-          const rotated = Math.abs(current.pose.rotation.yaw - placedObject.pose.rotation.yaw) > 0.05;
+            Math.abs(current.pose.position.x - placedObject!.pose.position.x) > 0.05 ||
+            Math.abs(current.pose.position.z - placedObject!.pose.position.z) > 0.05;
+          const rotated = Math.abs(current.pose.rotation.yaw - placedObject!.pose.rotation.yaw) > 0.05;
           return moved || rotated;
         },
         { timeout: 30_000 }
@@ -219,6 +220,7 @@ test.describe("room objects", () => {
       .poll(
         async () => {
           const [current] = await listRoomObjects(request, room.id);
+          if (!current || !afterManip) return false;
           const poseReset =
             Math.abs(current.pose.position.x - afterManip.pose.position.x) > 0.05 ||
             Math.abs(current.pose.position.z - afterManip.pose.position.z) > 0.05 ||
