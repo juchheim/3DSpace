@@ -1564,22 +1564,20 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         ) : null}
       </header>
 
-      {role === "teacher" ? (
-        <aside className="room-hud-people room-hud-people--dock-top" aria-label="Participants">
-          <div className="hud-panel room-hud-people-panel">
-            <Roster
-              participants={participantList}
-              classroomState={classroom.state}
-              role={role}
-              selectedStudentId={selectedStudentId}
-              onSelectStudent={(id) => {
-                setHelpBoardAccessUserId("");
-                setSelectedStudentId(id);
-              }}
-            />
-          </div>
-        </aside>
-      ) : null}
+      <aside className="room-hud-people room-hud-people--dock-top" aria-label="Participants">
+        <div className="hud-panel room-hud-people-panel">
+          <Roster
+            participants={participantList}
+            classroomState={classroom.state}
+            role={role}
+            selectedStudentId={selectedStudentId}
+            onSelectStudent={(id) => {
+              setHelpBoardAccessUserId("");
+              setSelectedStudentId(id);
+            }}
+          />
+        </div>
+      </aside>
 
       {/* Left HUD: identity / media / movement */}
       <div className="room-hud-left">{leftHudControls}</div>
@@ -1627,18 +1625,6 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               onRemove={async (objectId) => {
                 await roomObjects.actions.remove(objectId);
                 setSelectedRoomObjectId((current) => (current === objectId ? null : current));
-              }}
-            />
-          ) : null}
-          {role !== "teacher" ? (
-            <Roster
-              participants={participantList}
-              classroomState={classroom.state}
-              role={role}
-              selectedStudentId={selectedStudentId}
-              onSelectStudent={(id) => {
-                setHelpBoardAccessUserId("");
-                setSelectedStudentId(id);
               }}
             />
           ) : null}
