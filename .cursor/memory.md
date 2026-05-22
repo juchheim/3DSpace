@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-22 (Teacher People panel docked left; student detail opens to its right)
+Last updated: 2026-05-22 (RoomObject catalog now includes procedural caffeine molecule)
 
 ## Project Summary
 
@@ -17,6 +17,7 @@ Implementation state: **MVP complete in production** (Vercel + Koyeb + Atlas + C
 - **Memory**: `.cursor/memory.md` (this file)
 - **Env templates**: `.env.example`, `apps/api/.env.example`, `apps/web/.env.example`
 - **Deploy artifacts**: `apps/api/Dockerfile`, `vercel.json`
+- **RoomObject catalog**: `packages/room-objects/catalog/builtin.json`; procedural renderers in `apps/web/components/roomObjectProcedurals/` currently include water molecule and caffeine molecule.
 
 ## Stack (Current)
 
@@ -129,6 +130,7 @@ Local loading:
 - `Roster` People panel now owns teacher board-access selection UI; `ClassroomState.boardAccessGrants` feeds both teacher participant controls and student `AnchorPanel` creation gating through `activeBoardGrant`. Teacher view docks People in `room-hud-people` (left); selecting a student opens `BoardAccessSidePanel` to the right via `student-detail-panel--left-people`. Students still see People in `room-hud-right`.
 - `ClassroomPanel` owns private-check authoring/open-close controls, student active-check forms, and teacher response review while relying on role-filtered classroom API responses to keep student clients limited to their own submissions.
 - Wall object clients now periodically refresh persisted room wall objects and hydrate signed asset URLs, so teacher boards recover from missed student upload realtime messages without polling or resetting avatar state.
+- RoomObject builtin catalog entries become placeable when their `proceduralId` is registered in `ROOM_OBJECT_PROCEDURALS`; `ROOM_OBJECT_HERO_SLUG` now only controls water's sort order/demo badge, not overall selectability.
 
 ## Post-MVP Backlog
 
@@ -191,7 +193,8 @@ Screen share, computer audio, teacher moderation, rich wall placement, room buil
 - **2026-05-22**: **Apply transform** appeared broken because `clampRoomObjectPose` forced `y` to floor height and `clampRoomObjectScale` used a tight bbox cap (~1.2×) while the inspector allowed `defaultScale × 0.5…2`. Fixed API clamps to preserve height above floor (0.05–3 m) and align scale with the UI; stopped clearing optimistic overrides on realtime upsert; apply now sets optimistic pose/scale until PATCH returns; inspector shows API errors.
 - **2026-05-22**: Room object scale range raised to **0.5×–10×** of template `defaultScale` via shared `roomObjectScaleBounds` / `clampRoomObjectScaleValue` in `@3dspace/contracts` (API + inspector + drag snap).
 - **2026-05-22**: Water molecule H/O labels are now actual mesh geometry on the atom sphere surfaces: hydrogen labels use three dark rectangular strokes and oxygen uses a white torus ring, so they render with the molecule and scale/rotate as part of it instead of relying on Html/Text overlays.
-- **2026-05-21**: **RoomObject Phase 7 (hero integration)** complete: `builtin.json` ↔ `hero-draft.json` parity test; generated `water-molecule.png` thumbnail; `ROOM_OBJECT_HERO_SLUG` + v1 toolbar gating (hero only Placeable); `ROOM_OBJECT_DEMO_SCRIPT.md`; Playwright `room-objects.spec.ts` + env flags; procedural registry confirmed. Manual district demo + full e2e run pending CI/local servers.
+- **2026-05-22**: Added a second builtin RoomObject, **Caffeine molecule (C₈H₁₀N₄O₂)** (`proceduralId: "caffeine-molecule"`): procedural ball-and-stick / space-filling renderer with CPK + colourblind-safe palettes, mesh N/O labels, optional fused-ring guide, catalog metadata, thumbnail `caffeine-molecule.png`, toolbar selectability for all registered procedurals, and API/catalog tests. Validation: `npm run typecheck`; `npx vitest run packages/room-objects/tests/builtin-hero.test.ts packages/contracts/tests/room-objects.test.ts apps/api/tests/api.test.ts -t "room object"`.
+- **2026-05-21**: **RoomObject Phase 7 (hero integration)** complete: `builtin.json` ↔ `hero-draft.json` parity test; generated `water-molecule.png` thumbnail; `ROOM_OBJECT_HERO_SLUG` + initial v1 toolbar gating; `ROOM_OBJECT_DEMO_SCRIPT.md`; Playwright `room-objects.spec.ts` + env flags; procedural registry confirmed. Manual district demo + full e2e run pending CI/local servers.
 - **2026-05-21**: **RoomObject Phase 6 (2D parity)** complete: `RoomObjectIcon2D` (SVG at `projectPositionTo2D`, drag via `unprojectPointFrom2D`, halo, keyboard/wheel, `aria-live`); `RoomView2D` + `RoomClient` wiring; `delta2DToWorldXZ` in room-engine; reuses `RoomObjectInspector` overlay. Manual 2D/3D sync test pending.
 - **2026-05-21**: **RoomObject Phase 5 (3D UI)** complete: `RoomObjectsLayer` + `RoomObjectMesh` (procedural/gltf, Drei `Outlines`, drag/rotate/scale with snap, `exportRootRef`, Html label); `RoomObjectInspector` (parameters, tint, teacher touch grants); teacher `RoomObjectsToolbar` (catalog, Place 0.5 m ahead, active list); wired in `RoomView3D` (between floor and wall layer) and `RoomClient`; `.room-object-*` CSS; `roomObjectInteraction.ts` helpers. Manual two-tab grab test still pending.
 - **2026-05-21**: **RoomObject Phase 4 (web hooks + plumbing)** complete: `CLIENT_TUNING.enableRoomObjects` + `NEXT_PUBLIC_ENABLE_ROOM_OBJECTS=false` in `apps/web/.env.example`; room-object API wrappers in `apps/web/lib/api.ts`; new `useRoomObjectTemplates()` (module cache per `classId:userId`) and `useRoomObjects()` (hydrate, 30s refresh, grab map, optimistic local pose, begin/publish/end grab, touch/reset/remove, debounced parameter sync); `RoomClient` mounts the hooks when room settings enable them, routes incoming `room.object.*` messages before avatar handling, and exposes `window.__debug.roomObjects` for manual verification pending Phase 5 UI.

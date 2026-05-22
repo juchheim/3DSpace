@@ -11,12 +11,14 @@ const heroDraft = JSON.parse(
 const builtin = JSON.parse(readFileSync(join(here, "../catalog/builtin.json"), "utf8")) as Record<string, unknown>[];
 
 describe("room object builtin catalog", () => {
-  it("ships the Phase 0 hero as the only builtin template", () => {
-    expect(builtin).toHaveLength(1);
+  it("ships the Phase 0 hero plus additional procedural builtins", () => {
+    expect(builtin).toHaveLength(2);
     const entry = builtin[0] as Record<string, unknown>;
     expect(entry.slug).toBe("water-molecule");
     expect(entry.proceduralId).toBe("water-molecule");
     expect(entry.renderer).toBe("procedural");
+
+    expect(builtin.some((template) => template.slug === "caffeine-molecule")).toBe(true);
   });
 
   it("matches hero-draft fields used at runtime", () => {
@@ -33,5 +35,22 @@ describe("room object builtin catalog", () => {
     expect(entry.defaultParameters).toEqual(heroDraft.defaultParameters);
     expect(entry.thumbnailUrl).toBe("/room-objects/thumbnails/water-molecule.png");
     expect(entry.triangleCount).toBe(18600);
+  });
+
+  it("validates the caffeine presentation molecule", () => {
+    const entry = RoomObjectTemplateSchema.parse(
+      builtin.find((template) => template.slug === "caffeine-molecule")
+    );
+
+    expect(entry.displayName).toBe("Caffeine molecule (C₈H₁₀N₄O₂)");
+    expect(entry.proceduralId).toBe("caffeine-molecule");
+    expect(entry.defaultParameters).toEqual({
+      modelStyle: "ball-and-stick",
+      ringGuideVisible: true,
+      heteroAtomLabelsVisible: true,
+      palette: "cpk"
+    });
+    expect(entry.thumbnailUrl).toBe("/room-objects/thumbnails/caffeine-molecule.png");
+    expect(entry.triangleCount).toBe(42000);
   });
 });

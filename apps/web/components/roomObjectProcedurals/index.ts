@@ -1,6 +1,11 @@
 import { createElement, type ComponentType, type ReactElement } from "react";
 import type { ProceduralProps } from "./types";
 import {
+  CaffeineMolecule,
+  CAFFEINE_MOLECULE_DISPLAY_NAME,
+  CAFFEINE_MOLECULE_PROCEDURAL_ID
+} from "./caffeineMolecule";
+import {
   WaterMolecule,
   WATER_MOLECULE_DISPLAY_NAME,
   WATER_MOLECULE_PROCEDURAL_ID
@@ -9,13 +14,19 @@ import {
 /** Catalog `slug` for the Phase 0 / Phase 7 hero manipulative. */
 export const ROOM_OBJECT_HERO_SLUG = "water-molecule";
 
-export { WATER_MOLECULE_DISPLAY_NAME, WATER_MOLECULE_PROCEDURAL_ID };
+export {
+  CAFFEINE_MOLECULE_DISPLAY_NAME,
+  CAFFEINE_MOLECULE_PROCEDURAL_ID,
+  WATER_MOLECULE_DISPLAY_NAME,
+  WATER_MOLECULE_PROCEDURAL_ID
+};
 
 /**
  * Registry of procedural RoomObject renderers, keyed by `proceduralId`.
- * Phase 0 ships the hero only; later phases register additional templates here.
+ * Builtin catalog entries become placeable when their `proceduralId` is present here.
  */
 export const ROOM_OBJECT_PROCEDURALS: Record<string, ComponentType<ProceduralProps>> = {
+  [CAFFEINE_MOLECULE_PROCEDURAL_ID]: CaffeineMolecule,
   [WATER_MOLECULE_PROCEDURAL_ID]: WaterMolecule,
 };
 

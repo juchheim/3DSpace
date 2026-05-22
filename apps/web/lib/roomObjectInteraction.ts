@@ -5,7 +5,7 @@ import { ROOM_OBJECT_PROCEDURALS } from "../components/roomObjectProcedurals";
 const POSITION_GRID_M = 0.25;
 const ROTATION_STEP_RAD = Math.PI / 12;
 
-/** v1 district-demo hero — only this template is selectable in the teacher toolbar. */
+/** v1 district-demo hero — kept first in the toolbar and badged for demos. */
 export const ROOM_OBJECT_HERO_SLUG = "water-molecule";
 
 export function isRoomObjectTemplatePlaceable(template: RoomObjectTemplate) {
@@ -15,9 +15,9 @@ export function isRoomObjectTemplatePlaceable(template: RoomObjectTemplate) {
   return Boolean(template.assetUrl);
 }
 
-/** Phase 7: hero-only toolbar until additional builtins ship. */
+/** Show every builtin that has an implemented renderer. */
 export function isRoomObjectTemplateSelectableInV1(template: RoomObjectTemplate) {
-  return template.slug === ROOM_OBJECT_HERO_SLUG && isRoomObjectTemplatePlaceable(template);
+  return isRoomObjectTemplatePlaceable(template);
 }
 
 export function isRoomObjectLocked(object: RoomObject) {
@@ -121,5 +121,7 @@ export function parameterSummary(parameters: Record<string, unknown>) {
   if (typeof parameters.palette === "string" && parameters.palette !== "cpk") {
     parts.push(`${parameters.palette} palette`);
   }
+  if (parameters.ringGuideVisible === true) parts.push("ring guide on");
+  if (parameters.heteroAtomLabelsVisible === true) parts.push("N/O labels on");
   return parts.length ? parts.join(" · ") : "";
 }

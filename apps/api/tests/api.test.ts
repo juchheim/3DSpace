@@ -3019,6 +3019,7 @@ describe("room object templates", () => {
     expect(response.statusCode).toBe(200);
     const templates = response.json().templates as Array<{ slug: string }>;
     expect(templates.some((template) => template.slug === "water-molecule")).toBe(true);
+    expect(templates.some((template) => template.slug === "caffeine-molecule")).toBe(true);
     await app.close();
   });
 

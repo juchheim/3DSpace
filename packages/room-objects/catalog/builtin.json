@@ -28,5 +28,36 @@
     "fileSizeBytes": 0,
     "triangleCount": 18600,
     "createdAt": "2026-05-21T00:00:00.000Z"
+  },
+  {
+    "id": "tpl_caffeine_molecule",
+    "slug": "caffeine-molecule",
+    "displayName": "Caffeine molecule (C₈H₁₀N₄O₂)",
+    "category": "science",
+    "description": "A procedural caffeine model with a fused xanthine ring, four nitrogens, two carbonyl oxygens, and three methyl groups. Rotate it to discuss molecular structure, switch model styles, highlight the ring scaffold, and toggle a colourblind-safe palette.",
+    "renderer": "procedural",
+    "proceduralId": "caffeine-molecule",
+    "exportable": true,
+    "kinematic": false,
+    "source": "builtin",
+    "license": "CC0-1.0",
+    "attribution": "3DSpace — built-in procedural manipulative",
+    "defaultPose": {
+      "position": { "x": 0, "y": 1.55, "z": 0 },
+      "rotation": { "yaw": 0, "pitch": 0.1, "roll": 0 }
+    },
+    "defaultScale": 1.85,
+    "recommendedTouchPolicy": "teacher-only",
+    "defaultParameters": {
+      "modelStyle": "ball-and-stick",
+      "ringGuideVisible": true,
+      "heteroAtomLabelsVisible": true,
+      "palette": "cpk"
+    },
+    "parameterSchemaJson": "{\"modelStyle\":{\"type\":\"enum\",\"label\":\"Model style\",\"default\":\"ball-and-stick\",\"options\":[{\"value\":\"ball-and-stick\",\"label\":\"Ball & stick\"},{\"value\":\"space-filling\",\"label\":\"Space-filling\"}]},\"ringGuideVisible\":{\"type\":\"boolean\",\"label\":\"Ring guide\",\"default\":true},\"heteroAtomLabelsVisible\":{\"type\":\"boolean\",\"label\":\"N/O atom labels\",\"default\":true},\"palette\":{\"type\":\"enum\",\"label\":\"Colour palette\",\"default\":\"cpk\",\"options\":[{\"value\":\"cpk\",\"label\":\"CPK standard\"},{\"value\":\"accessible\",\"label\":\"Colourblind-safe\"}]}}",
+    "thumbnailUrl": "/room-objects/thumbnails/caffeine-molecule.png",
+    "fileSizeBytes": 0,
+    "triangleCount": 42000,
+    "createdAt": "2026-05-22T00:00:00.000Z"
   }
 ]
