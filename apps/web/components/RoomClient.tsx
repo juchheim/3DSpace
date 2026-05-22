@@ -1322,16 +1322,38 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         </div>
         <MediaControls media={media} />
         {viewMode === "3d" ? (
-          <div className="avatar-editor__hud-row">
-            <button
-              className={`avatar-editor__hud-btn${avatarEditorOpen ? " avatar-editor__hud-btn--active" : ""}${avatarEditorLocked ? " avatar-editor__hud-btn--locked" : ""}`}
-              onClick={() => setAvatarEditorOpen(prev => !prev)}
-              aria-pressed={avatarEditorOpen}
-              aria-label={avatarEditorLocked ? "Avatar editing paused during lesson" : "Edit your avatar"}
-              disabled={avatarEditorLocked}
-            >
-              {avatarEditorLocked ? "🔒 Avatar" : "👤 Avatar"}
-            </button>
+          <div className="hud-person-actions">
+            <div className="hud-person-actions__cam-spacer" aria-hidden="true" />
+            <div className="hud-person-actions__buttons">
+              <div className="toggle hud-person-actions__perspective" aria-label="Camera perspective" title="First-person view (V)">
+                <button
+                  type="button"
+                  aria-pressed={firstPerson}
+                  disabled={!manifest}
+                  onClick={() => setFirstPerson(true)}
+                >
+                  1P
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={!firstPerson}
+                  disabled={!manifest}
+                  onClick={() => setFirstPerson(false)}
+                >
+                  3P
+                </button>
+              </div>
+              <button
+                type="button"
+                className={`avatar-editor__hud-btn hud-person-actions__avatar${avatarEditorOpen ? " avatar-editor__hud-btn--active" : ""}${avatarEditorLocked ? " avatar-editor__hud-btn--locked" : ""}`}
+                onClick={() => setAvatarEditorOpen((prev) => !prev)}
+                aria-pressed={avatarEditorOpen}
+                aria-label={avatarEditorLocked ? "Avatar editing paused during lesson" : "Edit your avatar"}
+                disabled={avatarEditorLocked}
+              >
+                {avatarEditorLocked ? "🔒 Avatar" : "👤 Avatar"}
+              </button>
+            </div>
           </div>
         ) : null}
         {media.permissionText ? <p className="hud-permission" style={{ padding: "4px 9px", fontSize: "9.5px", color: "var(--hud-tx-m)" }}>{media.permissionText}</p> : null}
@@ -1555,13 +1577,6 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             2D
           </button>
         </div>
-        {viewMode === "3d" ? (
-          <div className="toggle" aria-label="Camera mode" title="First-person view (V)">
-            <button aria-pressed={firstPerson} onClick={() => setFirstPerson((prev) => !prev)} disabled={!manifest}>
-              1P
-            </button>
-          </div>
-        ) : null}
       </header>
 
       <aside className="room-hud-people room-hud-people--dock-top" aria-label="Participants">
