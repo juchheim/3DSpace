@@ -205,12 +205,11 @@ export function createModels(connection: Connection): Models {
     createdAt: String,
     archivedAt: String
   });
-  roomObjectTemplateSchema.index({ slug: 1 }, { unique: true });
   roomObjectTemplateSchema.index({ source: 1, ownerClassId: 1 });
 
   const roomObjectSchema = new Schema({
     id: { type: String, required: true, unique: true },
-    roomId: { type: String, required: true, index: true },
+    roomId: { type: String, required: true },
     templateId: String,
     displayName: String,
     pose: Schema.Types.Mixed,
@@ -646,9 +645,14 @@ export class MongoRepository implements Repository {
   async upsertBuiltinRoomObjectTemplates(templates: RoomObjectTemplate[]) {
     const time = nowIso();
     for (const template of templates) {
+      const { createdAt, archivedAt: _archivedAt, ...fields } = template;
       await this.models.RoomObjectTemplate.findOneAndUpdate(
         { slug: template.slug },
-        { $set: template, $unset: { archivedAt: "" }, $setOnInsert: { createdAt: template.createdAt || time } },
+        {
+          $set: fields,
+          $unset: { archivedAt: "" },
+          $setOnInsert: { createdAt: createdAt || time }
+        },
         { upsert: true, new: true, lean: true }
       );
     }
