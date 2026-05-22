@@ -4650,6 +4650,21 @@ body.lobby-dark::before {
   flex-direction: column;
 }
 
+.room-object-inspector__row--check {
+  justify-content: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.room-object-inspector__row--check > span {
+  white-space: nowrap;
+}
+
+.room-object-inspector__row--check input[type="checkbox"] {
+  flex-shrink: 0;
+  margin: 0;
+}
+
 .room-object-inspector__control {
   display: flex;
   align-items: center;

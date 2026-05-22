@@ -336,8 +336,7 @@ export function RoomObjectInspector({
           <p className="room-object-inspector__hint">
             Lock the object so clicks in 3D only select it — no accidental drags while teaching.
           </p>
-          <label className="room-object-inspector__row">
-            <span>Lock in place</span>
+          <label className="room-object-inspector__row room-object-inspector__row--check">
             <input
               type="checkbox"
               checked={isLocked}
@@ -348,6 +347,7 @@ export function RoomObjectInspector({
                 );
               }}
             />
+            <span>Lock in place</span>
           </label>
           <span className="room-object-inspector__label">Touch access</span>
           <p className="room-object-inspector__hint">
