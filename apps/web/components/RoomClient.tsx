@@ -1207,8 +1207,178 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     publishAudioMode("normal");
   }, [publishAudioMode, role, session, studentHasBroadcastGrant]);
 
+  const leftHudControls = (
+    <>
+      {/* Teacher: spotlight active indicator */}
+      {role === "teacher" && spotlightActive ? (
+        <div className="hud-panel hud-ctx-panel">
+          <div className="hud-ctx-card">
+            <span className="hud-ctx-lbl">Focus active</span>
+            <span className="hud-ctx-val">
+              {classroom.state?.spotlight?.anchorId ?? "Board"}
+            </span>
+            <span className="hud-ctx-sub">
+              {classroom.state?.spotlight?.mode === "force"
+                ? "Force — camera locked"
+                : classroom.state?.spotlight?.mode === "guide"
+                ? "Guide — look-at prompted"
+                : "Highlight — board indicated"}
+            </span>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Student: group + hand status */}
+      {role === "student" ? (
+        <div className="hud-panel">
+          {studentGroup ? (
+            <div className="hud-ctx-card" style={{ borderBottom: handRaised ? "1px solid rgba(255,255,255,0.08)" : undefined }}>
+              <span className="hud-ctx-lbl" style={{ color: studentGroup.color ?? "#4678b4" }}>My Group</span>
+              <span className="hud-ctx-val">
+                <span className="hud-ctx-dot" style={{ background: studentGroup.color ?? "#4678b4" }} />
+                {studentGroup.label} · {studentGroup.memberUserIds.length} members
+              </span>
+            </div>
+          ) : null}
+          {handRaised ? (
+            <div className="hud-ctx-card">
+              <span className="hud-ctx-lbl acc">Hand raised</span>
+              <span className="hud-ctx-sub">Waiting for your teacher</span>
+            </div>
+          ) : null}
+          {CLIENT_TUNING.enableHallPass && session?.room.settings.hallpass.enabled ? (() => {
+            const hp = session.room.settings.hallpass;
+            const periodLimitReached = !myActiveHallpass && hp.perPeriodLimit > 0 && myTodayPassCount >= hp.perPeriodLimit;
+            return (
+              <div className="hud-ctx-card">
+                {myActiveHallpass?.status === "acknowledged" ? (
+                  <div className="hallpass-hud-row">
+                    <span className="hud-ctx-lbl">Hall pass · {formatElapsed(hallpassElapsedSeconds)}</span>
+                    <button
+                      type="button"
+                      className="hud-btn hallpass-btn--out"
+                      disabled={hallpassBusy}
+                      onClick={() => {
+                        setHallpassBusy(true);
+                        void classroom.runAction({ type: "return-from-hallpass", requestId: myActiveHallpass.id })
+                          .catch(() => undefined)
+                          .finally(() => setHallpassBusy(false));
+                      }}
+                    >
+                      🚪 I'm back
+                    </button>
+                  </div>
+                ) : periodLimitReached ? (
+                  <p className="hud-ctx-sub" style={{ fontSize: "10px" }}>You've reached today's hall-pass limit.</p>
+                ) : (
+                  <button
+                    type="button"
+                    className="hud-btn"
+                    disabled={hallpassBusy || Boolean(myActiveHallpass)}
+                    onClick={() => {
+                      setHallpassBusy(true);
+                      void classroom.runAction({ type: "request-hallpass" })
+                        .catch(() => undefined)
+                        .finally(() => setHallpassBusy(false));
+                    }}
+                  >
+                    {myActiveHallpass?.status === "raised" ? "🚪 Pending..." : "🚪 Step out"}
+                  </button>
+                )}
+              </div>
+            );
+          })() : null}
+        </div>
+      ) : null}
+
+      {role === "student" && (studentPodTarget || (podsEnabled && studentHasBroadcastGrant)) ? (
+        <div className="hud-panel">
+          {studentPodTarget ? (
+            <button type="button" className="hud-btn" onClick={moveToMyPod}>
+              Go to my pod
+            </button>
+          ) : null}
+          {podsEnabled && studentHasBroadcastGrant ? (
+            <button
+              type="button"
+              className={`hud-btn hud-btn--broadcast${broadcastMode === "broadcast" ? " hud-btn--active" : ""}`}
+              data-testid="student-broadcast-toggle"
+              onClick={toggleBroadcast}
+            >
+              {broadcastMode === "broadcast" ? "Broadcast on" : "Broadcast off"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* Identity + media controls + avatar editor button */}
+      <div className="hud-panel">
+        <div className="hud-id-card">
+          <div className="hud-av" style={{ background: avatarColor }}>{initials}</div>
+          <div className="hud-id-text">
+            <div className="hud-id-name">{identity.displayName}</div>
+            <div className="hud-id-sub">{role} · {roomName}</div>
+          </div>
+        </div>
+        <MediaControls media={media} />
+        {viewMode === "3d" ? (
+          <div className="avatar-editor__hud-row">
+            <button
+              className={`avatar-editor__hud-btn${avatarEditorOpen ? " avatar-editor__hud-btn--active" : ""}${avatarEditorLocked ? " avatar-editor__hud-btn--locked" : ""}`}
+              onClick={() => setAvatarEditorOpen(prev => !prev)}
+              aria-pressed={avatarEditorOpen}
+              aria-label={avatarEditorLocked ? "Avatar editing paused during lesson" : "Edit your avatar"}
+              disabled={avatarEditorLocked}
+            >
+              {avatarEditorLocked ? "🔒 Avatar" : "👤 Avatar"}
+            </button>
+          </div>
+        ) : null}
+        {media.permissionText ? <p className="hud-permission" style={{ padding: "4px 9px", fontSize: "9.5px", color: "var(--hud-tx-m)" }}>{media.permissionText}</p> : null}
+      </div>
+
+      {/* Reactions */}
+      {CLIENT_TUNING.enableAvatarReactions ? (
+        <div className="hud-panel">
+          <div className="hud-reactions" aria-label="Reactions">
+            {(["thumbs-up", "confused", "question", "me", "pause", "celebrate"] as const).map((slug) => (
+              <button
+                key={slug}
+                type="button"
+                aria-label={slug}
+                disabled={!!classroom.state?.reactionsLocked}
+                onClick={() => fireReaction(slug)}
+              >
+                {slug === "thumbs-up" ? "👍" : slug === "confused" ? "😕" : slug === "question" ? "❓" : slug === "me" ? "🙋" : slug === "pause" ? "🤚" : "🎉"}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Whisper toggle (students only, when allowed) */}
+      {CLIENT_TUNING.enableWhisper && role === "student" && whisperAllowed ? (
+        <div className="hud-panel">
+          <button
+            type="button"
+            className={`hud-btn${whisperMode === "whisper" ? " hud-btn--active" : ""}${whisperSuggested ? " hud-btn--glow" : ""}`}
+            onClick={toggleWhisper}
+          >
+            {whisperMode === "whisper" ? "🔇 Whisper on" : "🔊 Normal"}
+          </button>
+          {whisperSuggested ? <p className="hud-ctx-sub" style={{ fontSize: "10px", padding: "2px 0" }}>Suggested for group work</p> : null}
+        </div>
+      ) : null}
+
+      {/* D-pad */}
+      <div className="hud-panel dpad-card">
+        <MovementPad onVector={movement.setTouchVector} />
+      </div>
+    </>
+  );
+
   return (
-    <main className={`app-shell room-shell${role === "teacher" ? " room-shell--teacher-people" : ""}`}>
+    <main className="app-shell room-shell">
       {/* Stage fills the full viewport */}
       <div className="room-stage" aria-label="Shared classroom">
         {leaving ? (
@@ -1394,191 +1564,28 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         ) : null}
       </header>
 
-      {/* Left HUD: context status + identity + media controls + d-pad */}
-      <div className="room-hud-left">
-        {/* Teacher: spotlight active indicator */}
-        {role === "teacher" && spotlightActive ? (
-          <div className="hud-panel hud-ctx-panel">
-            <div className="hud-ctx-card">
-              <span className="hud-ctx-lbl">Focus active</span>
-              <span className="hud-ctx-val">
-                {classroom.state?.spotlight?.anchorId ?? "Board"}
-              </span>
-              <span className="hud-ctx-sub">
-                {classroom.state?.spotlight?.mode === "force"
-                  ? "Force — camera locked"
-                  : classroom.state?.spotlight?.mode === "guide"
-                  ? "Guide — look-at prompted"
-                  : "Highlight — board indicated"}
-              </span>
-            </div>
-          </div>
-        ) : null}
-
-        {/* Student: group + hand status */}
-        {role === "student" ? (
-          <div className="hud-panel">
-            {studentGroup ? (
-              <div className="hud-ctx-card" style={{ borderBottom: handRaised ? "1px solid rgba(255,255,255,0.08)" : undefined }}>
-                <span className="hud-ctx-lbl" style={{ color: studentGroup.color ?? "#4678b4" }}>My Group</span>
-                <span className="hud-ctx-val">
-                  <span className="hud-ctx-dot" style={{ background: studentGroup.color ?? "#4678b4" }} />
-                  {studentGroup.label} · {studentGroup.memberUserIds.length} members
-                </span>
-              </div>
-            ) : null}
-            {handRaised ? (
-              <div className="hud-ctx-card">
-                <span className="hud-ctx-lbl acc">Hand raised</span>
-                <span className="hud-ctx-sub">Waiting for your teacher</span>
-              </div>
-            ) : null}
-            {CLIENT_TUNING.enableHallPass && session?.room.settings.hallpass.enabled ? (() => {
-              const hp = session.room.settings.hallpass;
-              const periodLimitReached = !myActiveHallpass && hp.perPeriodLimit > 0 && myTodayPassCount >= hp.perPeriodLimit;
-              return (
-                <div className="hud-ctx-card">
-                  {myActiveHallpass?.status === "acknowledged" ? (
-                    <div className="hallpass-hud-row">
-                      <span className="hud-ctx-lbl">Hall pass · {formatElapsed(hallpassElapsedSeconds)}</span>
-                      <button
-                        type="button"
-                        className="hud-btn hallpass-btn--out"
-                        disabled={hallpassBusy}
-                        onClick={() => {
-                          setHallpassBusy(true);
-                          void classroom.runAction({ type: "return-from-hallpass", requestId: myActiveHallpass.id })
-                            .catch(() => undefined)
-                            .finally(() => setHallpassBusy(false));
-                        }}
-                      >
-                        🚪 I'm back
-                      </button>
-                    </div>
-                  ) : periodLimitReached ? (
-                    <p className="hud-ctx-sub" style={{ fontSize: "10px" }}>You've reached today's hall-pass limit.</p>
-                  ) : (
-                    <button
-                      type="button"
-                      className="hud-btn"
-                      disabled={hallpassBusy || Boolean(myActiveHallpass)}
-                      onClick={() => {
-                        setHallpassBusy(true);
-                        void classroom.runAction({ type: "request-hallpass" })
-                          .catch(() => undefined)
-                          .finally(() => setHallpassBusy(false));
-                      }}
-                    >
-                      {myActiveHallpass?.status === "raised" ? "🚪 Pending..." : "🚪 Step out"}
-                    </button>
-                  )}
-                </div>
-              );
-            })() : null}
-          </div>
-        ) : null}
-
-        {role === "student" && (studentPodTarget || (podsEnabled && studentHasBroadcastGrant)) ? (
-          <div className="hud-panel">
-            {studentPodTarget ? (
-              <button type="button" className="hud-btn" onClick={moveToMyPod}>
-                Go to my pod
-              </button>
-            ) : null}
-            {podsEnabled && studentHasBroadcastGrant ? (
-              <button
-                type="button"
-                className={`hud-btn hud-btn--broadcast${broadcastMode === "broadcast" ? " hud-btn--active" : ""}`}
-                data-testid="student-broadcast-toggle"
-                onClick={toggleBroadcast}
-              >
-                {broadcastMode === "broadcast" ? "Broadcast on" : "Broadcast off"}
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-
-        {/* Identity + media controls + avatar editor button */}
-        <div className="hud-panel">
-          <div className="hud-id-card">
-            <div className="hud-av" style={{ background: avatarColor }}>{initials}</div>
-            <div className="hud-id-text">
-              <div className="hud-id-name">{identity.displayName}</div>
-              <div className="hud-id-sub">{role} · {roomName}</div>
-            </div>
-          </div>
-          <MediaControls media={media} />
-          {viewMode === "3d" ? (
-            <div className="avatar-editor__hud-row">
-              <button
-                className={`avatar-editor__hud-btn${avatarEditorOpen ? " avatar-editor__hud-btn--active" : ""}${avatarEditorLocked ? " avatar-editor__hud-btn--locked" : ""}`}
-                onClick={() => setAvatarEditorOpen(prev => !prev)}
-                aria-pressed={avatarEditorOpen}
-                aria-label={avatarEditorLocked ? "Avatar editing paused during lesson" : "Edit your avatar"}
-                disabled={avatarEditorLocked}
-              >
-                {avatarEditorLocked ? "🔒 Avatar" : "👤 Avatar"}
-              </button>
-            </div>
-          ) : null}
-          {media.permissionText ? <p className="hud-permission" style={{ padding: "4px 9px", fontSize: "9.5px", color: "var(--hud-tx-m)" }}>{media.permissionText}</p> : null}
-        </div>
-
-        {/* Reactions */}
-        {CLIENT_TUNING.enableAvatarReactions ? (
-          <div className="hud-panel">
-            <div className="hud-reactions" aria-label="Reactions">
-              {(["thumbs-up", "confused", "question", "me", "pause", "celebrate"] as const).map((slug) => (
-                <button
-                  key={slug}
-                  type="button"
-                  aria-label={slug}
-                  disabled={!!classroom.state?.reactionsLocked}
-                  onClick={() => fireReaction(slug)}
-                >
-                  {slug === "thumbs-up" ? "👍" : slug === "confused" ? "😕" : slug === "question" ? "❓" : slug === "me" ? "🙋" : slug === "pause" ? "🤚" : "🎉"}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        {/* Whisper toggle (students only, when allowed) */}
-        {CLIENT_TUNING.enableWhisper && role === "student" && whisperAllowed ? (
-          <div className="hud-panel">
-            <button
-              type="button"
-              className={`hud-btn${whisperMode === "whisper" ? " hud-btn--active" : ""}${whisperSuggested ? " hud-btn--glow" : ""}`}
-              onClick={toggleWhisper}
-            >
-              {whisperMode === "whisper" ? "🔇 Whisper on" : "🔊 Normal"}
-            </button>
-            {whisperSuggested ? <p className="hud-ctx-sub" style={{ fontSize: "10px", padding: "2px 0" }}>Suggested for group work</p> : null}
-          </div>
-        ) : null}
-
-        {/* D-pad */}
-        <div className="hud-panel dpad-card">
-          <MovementPad onVector={movement.setTouchVector} />
-        </div>
-      </div>
-
+      {/* Left HUD: people roster (teachers) + identity / media / movement */}
       {role === "teacher" ? (
-        <aside className="room-hud-people" aria-label="Participants">
-          <div className="hud-panel">
-            <Roster
-              participants={participantList}
-              classroomState={classroom.state}
-              role={role}
-              selectedStudentId={selectedStudentId}
-              onSelectStudent={(id) => {
-                setHelpBoardAccessUserId("");
-                setSelectedStudentId(id);
-              }}
-            />
-          </div>
-        </aside>
-      ) : null}
+        <div className="room-hud-left-stack">
+          <aside className="room-hud-people" aria-label="Participants">
+            <div className="hud-panel room-hud-people-panel">
+              <Roster
+                participants={participantList}
+                classroomState={classroom.state}
+                role={role}
+                selectedStudentId={selectedStudentId}
+                onSelectStudent={(id) => {
+                  setHelpBoardAccessUserId("");
+                  setSelectedStudentId(id);
+                }}
+              />
+            </div>
+          </aside>
+          <div className="room-hud-left room-hud-left--in-stack">{leftHudControls}</div>
+        </div>
+      ) : (
+        <div className="room-hud-left">{leftHudControls}</div>
+      )}
 
       {/* Right HUD: unified collapsible panel */}
       <aside className="room-hud-right" aria-label="Room details">
