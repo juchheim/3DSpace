@@ -207,7 +207,7 @@ function roomSettings(config: AppConfig) {
     hallpass: { enabled: true, maxConcurrent: 1, perPeriodLimit: 2 },
     pods: { enabled: true, podRadiusMeters: 3, podMurmurFloor: 0.08, drawPartitions: false },
     roomObjects: {
-      enabled: false,
+      enabled: true,
       maxActive: 8,
       customUploadsEnabled: false,
       maxUploadSizeBytes: 8 * 1024 * 1024,

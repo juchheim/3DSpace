@@ -64,7 +64,7 @@ Notable vars added during implementation:
 - `SESSION_JOIN_RATE_LIMIT_PER_MINUTE` (default 20)
 - `ENABLE_CLASSROOM_LESSONS` / `NEXT_PUBLIC_ENABLE_CLASSROOM_LESSONS` (default off; gates Phase 7 lesson actions and UI)
 - `ENABLE_BREAKOUT_PODS` / `NEXT_PUBLIC_ENABLE_BREAKOUT_PODS` (default off; gates pod runtime, UI, and validation paths)
-- `ENABLE_ROOM_OBJECTS` / `NEXT_PUBLIC_ENABLE_ROOM_OBJECTS` (default off; gates manipulative API + per-room `settings.roomObjects.enabled`)
+- `ENABLE_ROOM_OBJECTS` / `NEXT_PUBLIC_ENABLE_ROOM_OBJECTS` (default off; gates manipulative API; per-room `settings.roomObjects.enabled` defaults **true** on create and when loading legacy rooms via `parseRoomSettings`)
 
 Local loading:
 - API dev: `tsx --env-file=../../.env.local` (and `.env`)

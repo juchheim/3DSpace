@@ -1,27 +1,32 @@
 import crypto from "node:crypto";
-import type {
-  AvatarAppearance,
-  ClassroomState,
-  ClassMembership,
-  ClassRecord,
-  Invite,
-  Role,
-  RoomManifest,
-  RoomRecord,
-  RoomSettingsSchema,
-  User,
-  WallAttachment,
-  RoomObject,
-  RoomObjectStatus,
-  RoomObjectTemplate,
-  WallObject,
-  WallObjectStatus
+import {
+  parseRoomSettings,
+  type AvatarAppearance,
+  type ClassroomState,
+  type ClassMembership,
+  type ClassRecord,
+  type Invite,
+  type Role,
+  type RoomManifest,
+  type RoomRecord,
+  type RoomSettingsSchema,
+  type User,
+  type WallAttachment,
+  type RoomObject,
+  type RoomObjectStatus,
+  type RoomObjectTemplate,
+  type WallObject,
+  type WallObjectStatus
 } from "@3dspace/contracts";
 import type { z } from "zod";
 import type { AuthContext } from "./auth.js";
 import { conflict, notFound } from "./errors.js";
 
 export type RoomSettings = z.infer<typeof RoomSettingsSchema>;
+
+export function normalizeRoomRecord(room: RoomRecord): RoomRecord {
+  return { ...room, settings: parseRoomSettings(room.settings) };
+}
 
 export type RoomEventRecord = {
   id: string;
@@ -335,22 +340,25 @@ export class MemoryRepository implements Repository {
   async listRoomsForUser(userId: string) {
     const classes = await this.listClassesForUser(userId);
     const classIds = new Set(classes.map((record) => record.id));
-    return Array.from(this.rooms.values()).filter((room) => classIds.has(room.classId));
+    return Array.from(this.rooms.values())
+      .filter((room) => classIds.has(room.classId))
+      .map(normalizeRoomRecord);
   }
 
   async getRoom(roomId: string) {
-    return this.rooms.get(roomId);
+    const room = this.rooms.get(roomId);
+    return room ? normalizeRoomRecord(room) : undefined;
   }
 
   async updateRoom(roomId: string, input: { name?: string; settings?: Partial<RoomSettings> }) {
     const room = this.rooms.get(roomId);
     if (!room) throw notFound("Room not found");
-    const updated: RoomRecord = {
+    const updated: RoomRecord = normalizeRoomRecord({
       ...room,
       name: input.name ?? room.name,
       settings: input.settings ? { ...room.settings, ...input.settings } : room.settings,
       updatedAt: nowIso()
-    };
+    });
     this.rooms.set(roomId, updated);
     return updated;
   }

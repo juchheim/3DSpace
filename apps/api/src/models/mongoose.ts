@@ -18,7 +18,17 @@ import type {
 } from "@3dspace/contracts";
 import type { AuthContext } from "../auth.js";
 import { conflict, notFound } from "../errors.js";
-import { avatarFor, createDefaultClassroomState, inviteCode, newId, nowIso, type Repository, type RoomEventRecord, type RoomSettings } from "../repository.js";
+import {
+  avatarFor,
+  createDefaultClassroomState,
+  inviteCode,
+  newId,
+  normalizeRoomRecord,
+  nowIso,
+  type Repository,
+  type RoomEventRecord,
+  type RoomSettings
+} from "../repository.js";
 
 type Models = {
   User: Model<any>;
@@ -449,11 +459,14 @@ export class MongoRepository implements Repository {
 
   async listRoomsForUser(userId: string) {
     const classes = await this.listClassesForUser(userId);
-    return entities<RoomRecord>(await this.models.Room.find({ classId: { $in: classes.map((record) => record.id) } }).lean());
+    return entities<RoomRecord>(await this.models.Room.find({ classId: { $in: classes.map((record) => record.id) } }).lean()).map(
+      normalizeRoomRecord
+    );
   }
 
   async getRoom(roomId: string) {
-    return entity<RoomRecord | undefined>(await this.models.Room.findOne({ id: roomId }).lean());
+    const room = entity<RoomRecord | undefined>(await this.models.Room.findOne({ id: roomId }).lean());
+    return room ? normalizeRoomRecord(room) : undefined;
   }
 
   async deleteRoom(roomId: string) {
@@ -486,7 +499,7 @@ export class MongoRepository implements Repository {
       },
       { new: true, lean: true }
     );
-    return entity<RoomRecord>(record);
+    return normalizeRoomRecord(entity<RoomRecord>(record));
   }
 
   async getActiveManifest(roomId: string) {

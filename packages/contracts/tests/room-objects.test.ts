@@ -6,6 +6,7 @@ import {
   CreateRoomObjectRequestSchema,
   parameterSchemaToJson,
   parseRoomObjectParameterSchemaJson,
+  parseRoomSettings,
   RoomObjectRealtimeMessageSchema,
   RoomObjectSchema,
   RoomObjectTemplateSchema,
@@ -26,9 +27,31 @@ describe("room object contracts", () => {
       enable2DAnalog: true,
       enableWallAttachments: true
     });
-    expect(settings.roomObjects.enabled).toBe(false);
+    expect(settings.roomObjects.enabled).toBe(true);
     expect(settings.roomObjects.maxActive).toBe(8);
     expect(settings.roomObjects.defaultTouchPolicy).toBe("teacher-only");
+  });
+
+  it("parseRoomSettings opts in legacy rooms missing roomObjects", () => {
+    const settings = parseRoomSettings({
+      maxParticipants: 30,
+      defaultViewMode: "3d",
+      defaultQuality: "medium",
+      enable2DAnalog: true,
+      enableWallAttachments: true,
+      enableWallObjects: true,
+      wallObjectCreation: "teacher-only",
+      wallObjectModeration: "pre",
+      allowLiveStudentShares: false,
+      allowStudentUploads: false,
+      allowWebLinks: true,
+      allowEmbeds: false,
+      maxActiveWallObjects: 20,
+      maxActiveLiveShares: 4,
+      hallpass: { enabled: true, maxConcurrent: 1, perPeriodLimit: 2 },
+      pods: { enabled: true, podRadiusMeters: 3, podMurmurFloor: 0.08, drawPartitions: false }
+    });
+    expect(settings.roomObjects.enabled).toBe(true);
   });
 
   it("parses hero-draft parameterSchema and round-trips parameterSchemaJson", () => {

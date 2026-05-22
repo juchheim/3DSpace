@@ -411,7 +411,7 @@ export const RoomObjectSchema = z.object({
 });
 
 export const RoomObjectsSettingsSchema = z.object({
-  enabled: z.boolean().default(false),
+  enabled: z.boolean().default(true),
   maxActive: z.number().int().positive().max(16).default(8),
   customUploadsEnabled: z.boolean().default(false),
   maxUploadSizeBytes: z.number().int().positive().default(8 * 1024 * 1024),
@@ -556,13 +556,18 @@ export const RoomSettingsSchema = z.object({
     drawPartitions: z.boolean().default(false)
   }).default({ enabled: true, podRadiusMeters: 3, podMurmurFloor: 0.08, drawPartitions: false }),
   roomObjects: RoomObjectsSettingsSchema.default({
-    enabled: false,
+    enabled: true,
     maxActive: 8,
     customUploadsEnabled: false,
     maxUploadSizeBytes: 8 * 1024 * 1024,
     defaultTouchPolicy: "teacher-only"
   })
 });
+
+/** Apply {@link RoomSettingsSchema} defaults to persisted room settings (e.g. `roomObjects` opt-in). */
+export function parseRoomSettings(input: unknown): z.infer<typeof RoomSettingsSchema> {
+  return RoomSettingsSchema.parse(input);
+}
 
 export const RoomSchema = z.object({
   id: z.string(),

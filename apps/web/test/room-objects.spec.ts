@@ -28,36 +28,12 @@ async function postJson<T>(request: APIRequestContext, path: string, identity: D
   return response.json() as Promise<T>;
 }
 
-async function patchJson<T>(request: APIRequestContext, path: string, identity: DevIdentity, data: unknown) {
-  const response = await request.patch(`${API_URL}${path}`, {
-    data,
-    headers: {
-      "x-dev-user-id": identity.userId,
-      "x-dev-user-name": identity.displayName,
-      "x-dev-user-role": identity.role
-    }
-  });
-  expect(response.ok()).toBeTruthy();
-  return response.json() as Promise<T>;
-}
-
 async function createRoomWithRoomObjects(request: APIRequestContext) {
   const suffix = Date.now().toString(36);
   const classRecord = await postJson<{ id: string }>(request, "/v1/classes", TEACHER, { name: `Chem ${suffix}` });
   const roomWithManifest = await postJson<{ room: { id: string; name: string } }>(request, "/v1/rooms", TEACHER, {
     classId: classRecord.id,
     name: `Manipulatives ${suffix}`
-  });
-  await patchJson(request, `/v1/rooms/${roomWithManifest.room.id}`, TEACHER, {
-    settings: {
-      roomObjects: {
-        enabled: true,
-        maxActive: 8,
-        customUploadsEnabled: false,
-        maxUploadSizeBytes: 8 * 1024 * 1024,
-        defaultTouchPolicy: "teacher-only"
-      }
-    }
   });
   return roomWithManifest.room;
 }

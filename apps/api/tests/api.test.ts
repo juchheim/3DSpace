@@ -3234,6 +3234,7 @@ describe("room object instances", () => {
     const teacherId = "teacher-ro-room-off";
     const { roomWithManifest } = await createClassAndRoom(app, teacherId);
     const roomId = roomWithManifest.room.id;
+    await enableRoomObjects(app, roomId, teacherId, { enabled: false });
 
     const listRes = await app.inject({
       method: "GET",
