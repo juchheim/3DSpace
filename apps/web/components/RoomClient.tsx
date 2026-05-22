@@ -1573,6 +1573,12 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               loading={roomObjects.loading || roomObjectTemplates.status === "loading"}
               error={roomObjects.error || (roomObjectTemplates.status === "error" ? "Unable to load object catalog." : "")}
               selectedObjectId={selectedRoomObjectId}
+              role={role}
+              currentUserId={identity.userId}
+              memberGroupIds={memberGroupIdsForRoomObjects}
+              participants={participantList}
+              classroomGroups={classroom.state?.groups ?? []}
+              actions={roomObjects.actions}
               onSelectObject={setSelectedRoomObjectId}
               onInstantiate={async (templateId) => {
                 const template = roomObjectTemplatesById[templateId];

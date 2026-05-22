@@ -1,7 +1,7 @@
 "use client";
 
 import { Html, Outlines, useGLTF } from "@react-three/drei";
-import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
+import { useThree, type ThreeEvent } from "@react-three/fiber";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Group, Plane, Vector3 } from "three";
 import type { Pose, RoomManifest, RoomObject, RoomObjectTemplate } from "@3dspace/contracts";
@@ -12,10 +12,6 @@ import {
   snapYaw
 } from "../lib/roomObjectInteraction";
 import { renderProcedural } from "./roomObjectProcedurals";
-import { RoomObjectInspector } from "./RoomObjectInspector";
-import type { ParticipantView } from "./RoomClient";
-import type { Role } from "@3dspace/contracts";
-import type { ClassroomGroup } from "@3dspace/contracts";
 
 type RoomObjectActions = {
   beginGrab(objectId: string): Promise<boolean>;
@@ -50,28 +46,17 @@ export function RoomObjectMesh({
   manifest,
   object,
   template,
-  role,
-  currentUserId,
-  memberGroupIds,
-  participants,
-  classroomGroups,
   canTouch,
   isGrabbed,
   grabHolderColor,
   localIsHolder,
   selected,
   actions,
-  onSelect,
-  onDeselect
+  onSelect
 }: {
   manifest: RoomManifest;
   object: RoomObject;
   template: RoomObjectTemplate;
-  role: Role;
-  currentUserId: string;
-  memberGroupIds: string[];
-  participants: ParticipantView[];
-  classroomGroups: ClassroomGroup[];
   canTouch: boolean;
   isGrabbed: boolean;
   grabHolderColor: string;
@@ -79,7 +64,6 @@ export function RoomObjectMesh({
   selected: boolean;
   actions: RoomObjectActions;
   onSelect(): void;
-  onDeselect?(): void;
 }) {
   const { camera, raycaster, pointer, gl } = useThree();
   const rootRef = useRef<Group>(null);
@@ -93,7 +77,6 @@ export function RoomObjectMesh({
   const [scale, setScale] = useState(object.scale);
   const [dragMode, setDragMode] = useState<"none" | "translate" | "rotate">("none");
   const [hovered, setHovered] = useState(false);
-  const [inspectorVisible, setInspectorVisible] = useState(true);
 
   useEffect(() => {
     if (dragMode === "none") {
@@ -101,13 +84,6 @@ export function RoomObjectMesh({
       setScale(object.scale);
     }
   }, [dragMode, object.pose, object.scale]);
-
-  useFrame(() => {
-    const root = rootRef.current;
-    if (!root) return;
-    const distance = camera.position.distanceTo(root.position);
-    setInspectorVisible(distance <= 8);
-  });
 
   const outlineOpacity = localIsHolder ? 1 : 0.6;
   const showOutline = selected || isGrabbed;
@@ -281,29 +257,6 @@ export function RoomObjectMesh({
           {summary ? <span className="room-object-label__meta">{summary}</span> : null}
         </div>
       </Html>
-
-      {selected ? (
-        <Html
-          position={[0.9, 0.6, 0]}
-          transform
-          distanceFactor={8}
-          className="room-object-html"
-          zIndexRange={[240, 0]}
-        >
-          <RoomObjectInspector
-            object={object}
-            template={template}
-            role={role}
-            currentUserId={currentUserId}
-            memberGroupIds={memberGroupIds}
-            participants={participants}
-            classroomGroups={classroomGroups}
-            visible={inspectorVisible}
-            actions={actions}
-            {...(onDeselect ? { onClose: onDeselect } : {})}
-          />
-        </Html>
-      ) : null}
     </group>
   );
 }

@@ -208,11 +208,6 @@ export function RoomObjectsLayer({
             manifest={manifest}
             object={object}
             template={template}
-            role={role}
-            currentUserId={currentUserId}
-            memberGroupIds={memberGroupIds}
-            participants={participants}
-            classroomGroups={classroomGroups}
             canTouch={canTouchRoomObject({ object, userId: currentUserId, role, memberGroupIds })}
             isGrabbed={Boolean(grab)}
             grabHolderColor={grabHolderColor}
@@ -220,7 +215,6 @@ export function RoomObjectsLayer({
             selected={selectedObjectId === object.id}
             actions={actions}
             onSelect={() => onSelectObject(object.id)}
-            onDeselect={() => onSelectObject(null)}
           />
         );
       })}

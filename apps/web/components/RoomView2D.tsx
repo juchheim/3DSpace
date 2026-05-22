@@ -17,7 +17,6 @@ import type {
 import { computeGroupMemberPosition, projectAnchorRectTo2D, projectPositionTo2D } from "@3dspace/room-engine";
 import type { ParticipantView } from "./RoomClient";
 import { RoomObjectIcon2D } from "./RoomObjectIcon2D";
-import { RoomObjectInspector } from "./RoomObjectInspector";
 import { canTouchRoomObject, snapPosition, snapScale, snapYaw } from "../lib/roomObjectInteraction";
 import { WallObjectCard } from "./WallObjectCard";
 
@@ -120,9 +119,6 @@ export function RoomView2D({
     [roomObjects, selectedRoomObjectId]
   );
   const selectedTemplate = selectedObject ? roomObjectTemplatesById[selectedObject.templateId] : undefined;
-  const selectedMapPoint = selectedObject
-    ? projectPositionTo2D(manifest, selectedObject.pose.position)
-    : null;
 
   useEffect(() => {
     if (!objectsEnabled || !selectedObject || !selectedTemplate || !roomObjectActions) return;
@@ -448,26 +444,6 @@ export function RoomView2D({
           );
         })}
       </svg>
-
-      {objectsEnabled && selectedObject && selectedTemplate && selectedMapPoint ? (
-        <div
-          className="room-object-2d-inspector-anchor room-object-html"
-          style={{ left: `${selectedMapPoint.x}%`, top: `${selectedMapPoint.y}%` }}
-        >
-          <RoomObjectInspector
-            object={selectedObject}
-            template={selectedTemplate}
-            role={roomObjectRole!}
-            currentUserId={roomObjectCurrentUserId!}
-            memberGroupIds={roomObjectMemberGroupIds}
-            participants={participants}
-            classroomGroups={classroomGroups}
-            visible={true}
-            actions={roomObjectActions!}
-            onClose={() => onSelectRoomObject?.(null)}
-          />
-        </div>
-      ) : null}
 
       <div className="sr-only" aria-live="polite" aria-atomic="true">
         {liveAnnouncement}
