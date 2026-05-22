@@ -544,7 +544,7 @@ label {
   position: absolute;
   left: 6px;
   top: calc(var(--hud-th) + 12px);
-  width: var(--hud-pw);
+  width: var(--hud-lw);
   z-index: 20;
   pointer-events: none;
 }
@@ -642,7 +642,7 @@ label {
 
 .student-detail-panel--left-people {
   right: auto;
-  left: calc(var(--hud-pw) + 12px);
+  left: calc(var(--hud-lw) + 12px);
 }
 
 .hud-card {
