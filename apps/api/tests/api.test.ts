@@ -3155,7 +3155,7 @@ async function createCustomRoomObjectTemplate(
     input.thumbnail ?? createPng(64, 64)
   );
 
-  return app.inject({
+  const createTemplate = await app.inject({
     method: "POST",
     url: "/v1/room-objects/templates",
     headers: authHeaders(input.teacherId, "Ms. Rivera"),
@@ -3170,6 +3170,12 @@ async function createCustomRoomObjectTemplate(
       attribution: "Uploaded by teacher"
     }
   });
+
+  return {
+    response: createTemplate,
+    assetStorageKey: assetUpload.json().storageKey as string,
+    thumbnailStorageKey: thumbnailUpload.json().storageKey as string
+  };
 }
 
 describe("room object templates", () => {
@@ -3227,7 +3233,7 @@ describe("room object templates", () => {
     await enableRoomObjects(app, roomId, teacherId, { customUploadsEnabled: true });
     await addStudentMember(app, classRecord.id, teacherId, "student-ro-custom-view", "Avery");
 
-    const createResponse = await createCustomRoomObjectTemplate(app, {
+    const { response: createResponse, assetStorageKey, thumbnailStorageKey } = await createCustomRoomObjectTemplate(app, {
       roomId,
       teacherId,
       glb: await createTinyGlb()
@@ -3238,6 +3244,21 @@ describe("room object templates", () => {
     expect(template.ownerClassId).toBe(classRecord.id);
     expect(template.renderer).toBe("gltf");
     expect(template.assetUrl).toContain("/v1/room-object-assets/");
+
+    const assetServe = await app.inject({
+      method: "GET",
+      url: `/v1/room-object-assets/${assetStorageKey}`
+    });
+    expect(assetServe.statusCode).toBe(200);
+    expect(assetServe.headers["content-type"]).toContain("model/gltf-binary");
+    expect(assetServe.rawPayload.length).toBeGreaterThan(0);
+
+    const thumbnailServe = await app.inject({
+      method: "GET",
+      url: `/v1/room-object-assets/${thumbnailStorageKey}`
+    });
+    expect(thumbnailServe.statusCode).toBe(200);
+    expect(thumbnailServe.headers["content-type"]).toContain("image/png");
 
     const teacherTemplates = await app.inject({
       method: "GET",
@@ -3300,7 +3321,7 @@ describe("room object templates", () => {
     const roomId = roomWithManifest.room.id;
     await enableRoomObjects(app, roomId, teacherId, { customUploadsEnabled: true, maxUploadSizeBytes: 64 });
 
-    const response = await createCustomRoomObjectTemplate(app, {
+    const { response } = await createCustomRoomObjectTemplate(app, {
       roomId,
       teacherId,
       glb: await createTinyGlb({ triangleCount: 4 })
@@ -3320,7 +3341,7 @@ describe("room object templates", () => {
     const glb = rewriteGlbJson(await createTinyGlb(), (json) => {
       json.extensionsUsed = ["KHR_lights_punctual"];
     });
-    const response = await createCustomRoomObjectTemplate(app, { roomId, teacherId, glb });
+    const { response } = await createCustomRoomObjectTemplate(app, { roomId, teacherId, glb });
     expect(response.statusCode).toBe(422);
     expect(response.json().error).toBe("room-object-upload-rejected");
     await app.close();
@@ -3337,7 +3358,7 @@ describe("room object templates", () => {
       const buffers = Array.isArray(json.buffers) ? (json.buffers as Array<Record<string, unknown>>) : [];
       if (buffers[0]) buffers[0].uri = "https://example.com/buffer.bin";
     });
-    const response = await createCustomRoomObjectTemplate(app, { roomId, teacherId, glb });
+    const { response } = await createCustomRoomObjectTemplate(app, { roomId, teacherId, glb });
     expect(response.statusCode).toBe(422);
     expect(response.json().error).toBe("room-object-upload-rejected");
     await app.close();
@@ -3350,7 +3371,7 @@ describe("room object templates", () => {
     const roomId = roomWithManifest.room.id;
     await enableRoomObjects(app, roomId, teacherId, { customUploadsEnabled: true });
 
-    const response = await createCustomRoomObjectTemplate(app, {
+    const { response } = await createCustomRoomObjectTemplate(app, {
       roomId,
       teacherId,
       glb: await createTinyGlb({ texturePng: createPng(4096, 1) })

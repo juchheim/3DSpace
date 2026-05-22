@@ -41,7 +41,7 @@ export async function createUploadTarget(
 ) {
   if (!storageConfigured(config)) {
     return {
-      url: `${config.apiPublicUrl}/dev-upload/${encodeURIComponent(input.storageKey)}`,
+      url: `${config.apiPublicUrl}/dev-upload/${roomObjectAssetPath(input.storageKey)}`,
       method: "PUT" as const,
       headers: {
         "content-type": input.contentType
@@ -76,7 +76,7 @@ export async function createDownloadTarget(
 
   if (!storageConfigured(config)) {
     return {
-      url: `${config.apiPublicUrl}/dev-download/${encodeURIComponent(input.storageKey)}`,
+      url: `${config.apiPublicUrl}/dev-download/${roomObjectAssetPath(input.storageKey)}`,
       method: "GET" as const,
       headers: {},
       expiresInSeconds
@@ -115,6 +115,25 @@ export function getDevStoredObject(storageKey: string) {
   return devStorage.get(storageKey);
 }
 
+function contentTypeForStorageKey(storageKey: string, fallback?: string) {
+  const lower = storageKey.toLowerCase();
+  if (lower.endsWith(".glb")) return "model/gltf-binary";
+  if (lower.endsWith(".png")) return "image/png";
+  return fallback ?? "application/octet-stream";
+}
+
+export function roomObjectAssetPath(storageKey: string) {
+  return storageKey.split("/").map((segment) => encodeURIComponent(segment)).join("/");
+}
+
+export function parseRoomObjectAssetStorageKey(raw: string) {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 export async function readStoredObject(
   config: AppConfig,
   input: {
@@ -127,19 +146,23 @@ export async function readStoredObject(
     return object;
   }
 
-  const command = new GetObjectCommand({
-    Bucket: config.objectStorage.bucket!,
-    Key: input.storageKey
-  });
-  const response = await createStorageClient(config).send(command);
-  if (!response.Body) return undefined;
-  const bytes = await response.Body.transformToByteArray();
-  return {
-    body: Buffer.from(bytes),
-    contentType: response.ContentType ?? "application/octet-stream"
-  };
+  try {
+    const command = new GetObjectCommand({
+      Bucket: config.objectStorage.bucket!,
+      Key: input.storageKey
+    });
+    const response = await createStorageClient(config).send(command);
+    if (!response.Body) return undefined;
+    const bytes = await response.Body.transformToByteArray();
+    return {
+      body: Buffer.from(bytes),
+      contentType: response.ContentType ?? contentTypeForStorageKey(input.storageKey)
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 export function roomObjectAssetUrl(config: AppConfig, storageKey: string) {
-  return `${config.apiPublicUrl}/v1/room-object-assets/${encodeURIComponent(storageKey)}`;
+  return `${config.apiPublicUrl}/v1/room-object-assets/${roomObjectAssetPath(storageKey)}`;
 }

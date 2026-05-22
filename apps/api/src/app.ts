@@ -131,6 +131,7 @@ import {
   getDevStoredObject,
   putDevStoredObject,
   readStoredObject,
+  parseRoomObjectAssetStorageKey,
   roomObjectAssetUrl,
   roomObjectStorageKeyFor,
   storageKeyFor
@@ -149,7 +150,6 @@ const ParamsWithRoomAndObjectId = z.object({ roomId: z.string(), objectId: z.str
 const ParamsWithTemplateId = z.object({ templateId: z.string() });
 const ParamsWithRoomAndRunId = z.object({ roomId: z.string(), runId: z.string() });
 const ParamsWithInviteCode = z.object({ inviteCode: z.string() });
-const ParamsWithDevStorageKey = z.object({ storageKey: z.string() });
 const SESSION_JOIN_RATE_LIMIT_WINDOW_MS = 60_000;
 const DEFAULT_PODS_RUNTIME = {
   podsEnabled: false,
@@ -2345,29 +2345,37 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
 
   app.get("/openapi.json", async () => createOpenApiDocument());
 
-  app.put("/dev-upload/:storageKey", async (request, reply) => {
+  function storageKeyFromRequest(request: FastifyRequest) {
+    const params = request.params as Record<string, string | undefined>;
+    const wildcard = params["*"];
+    if (wildcard) return parseRoomObjectAssetStorageKey(wildcard);
+    if (params.storageKey) return parseRoomObjectAssetStorageKey(params.storageKey);
+    throw notFound("Storage key is required");
+  }
+
+  app.put("/dev-upload/*", async (request, reply) => {
     if (storageConfigured(config)) throw notFound("Development upload fallback is disabled");
-    const params = parseParams(ParamsWithDevStorageKey, request);
+    const storageKey = storageKeyFromRequest(request);
     const body = Buffer.isBuffer(request.body) ? request.body : Buffer.from("");
     putDevStoredObject({
-      storageKey: params.storageKey,
+      storageKey,
       body,
       contentType: String(request.headers["content-type"] ?? "application/octet-stream")
     });
     return reply.status(204).send();
   });
 
-  app.get("/dev-download/:storageKey", async (request, reply) => {
+  app.get("/dev-download/*", async (request, reply) => {
     if (storageConfigured(config)) throw notFound("Development download fallback is disabled");
-    const params = parseParams(ParamsWithDevStorageKey, request);
-    const object = getDevStoredObject(params.storageKey);
+    const storageKey = storageKeyFromRequest(request);
+    const object = getDevStoredObject(storageKey);
     if (!object) throw notFound("Development object not found");
     return reply.header("content-type", object.contentType).send(object.body);
   });
 
-  app.get("/v1/room-object-assets/:storageKey", async (request, reply) => {
-    const params = parseParams(ParamsWithDevStorageKey, request);
-    const object = await readStoredObject(config, { storageKey: params.storageKey });
+  app.get("/v1/room-object-assets/*", async (request, reply) => {
+    const storageKey = storageKeyFromRequest(request);
+    const object = await readStoredObject(config, { storageKey });
     if (!object) throw notFound("Room object asset not found");
     return reply.header("content-type", object.contentType).send(object.body);
   });
