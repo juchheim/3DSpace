@@ -17,7 +17,7 @@ import type {
 import { computeGroupMemberPosition, projectAnchorRectTo2D, projectPositionTo2D } from "@3dspace/room-engine";
 import type { ParticipantView } from "./RoomClient";
 import { RoomObjectIcon2D } from "./RoomObjectIcon2D";
-import { canTouchRoomObject, snapPosition, snapScale, snapYaw } from "../lib/roomObjectInteraction";
+import { canGrabRoomObject, canTouchRoomObject, snapPosition, snapScale, snapYaw } from "../lib/roomObjectInteraction";
 import { WallObjectCard } from "./WallObjectCard";
 
 function anchorPrivateChecks(privateChecks: ClassroomPrivateCheck[], anchorId: string) {
@@ -125,13 +125,13 @@ export function RoomView2D({
     const activeObject = selectedObject;
     const activeTemplate = selectedTemplate;
 
-    const canTouch = canTouchRoomObject({
+    const canGrab = canGrabRoomObject({
       object: activeObject,
       userId: roomObjectCurrentUserId!,
       role: roomObjectRole!,
       memberGroupIds: roomObjectMemberGroupIds
     });
-    if (!canTouch) return;
+    if (!canGrab) return;
 
     const isHolder = myActiveRoomObjectGrabId === activeObject.id;
 
@@ -378,7 +378,7 @@ export function RoomView2D({
                   manifest={manifest}
                   object={object}
                   template={template}
-                  canTouch={canTouchRoomObject({
+                  canGrab={canGrabRoomObject({
                     object,
                     userId: roomObjectCurrentUserId!,
                     role: roomObjectRole!,

@@ -94,6 +94,7 @@ import { seedBuiltinRoomObjectTemplates } from "./room-objects/builtin-catalog.j
 import { RoomObjectGrabLock } from "./room-objects/grab-lock.js";
 import {
   assertCanTouchRoomObject,
+  assertRoomObjectNotLocked,
   assertRoomObjectsEnabled,
   clampRoomObjectPose,
   clampRoomObjectScale,
@@ -3297,6 +3298,12 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       if (!membership) throw forbidden("Class membership required");
       await assertCanTouchRoomObject(repository, params.roomId, existing, auth, membership);
       if (!studentPatchKeysOnly(body)) throw roomObjectTouchDenied();
+      if (existing.status === "locked" && (body.pose !== undefined || body.scale !== undefined)) {
+        assertRoomObjectNotLocked(existing);
+      }
+    }
+    if (body.status === "locked") {
+      roomObjectGrabLock.release(params.objectId);
     }
     const patch: Parameters<Repository["updateRoomObject"]>[2] = {};
     if (body.displayName !== undefined) patch.displayName = body.displayName;

@@ -32,7 +32,7 @@ export function RoomObjectIcon2D({
   manifest,
   object,
   template,
-  canTouch,
+  canGrab,
   isGrabbed,
   grabHolderColor,
   holderDisplayName,
@@ -45,7 +45,7 @@ export function RoomObjectIcon2D({
   manifest: RoomManifest;
   object: RoomObject;
   template: RoomObjectTemplate;
-  canTouch: boolean;
+  canGrab: boolean;
   isGrabbed: boolean;
   grabHolderColor: string;
   holderDisplayName?: string | undefined;
@@ -147,7 +147,7 @@ export function RoomObjectIcon2D({
     shiftRef.current = event.shiftKey;
     svgRef.current = event.currentTarget.ownerSVGElement;
 
-    if (!canTouch || event.button !== 0) return;
+    if (!canGrab || event.button !== 0) return;
 
     void (async () => {
       const grabbed = await actions.beginGrab(object.id);
@@ -158,7 +158,7 @@ export function RoomObjectIcon2D({
   };
 
   const onWheel = (event: React.WheelEvent<SVGGElement>) => {
-    if (!canTouch || !localIsHolder) return;
+    if (!canGrab || !localIsHolder) return;
     event.stopPropagation();
     shiftRef.current = event.shiftKey;
     const delta = event.deltaY > 0 ? -1 : 1;

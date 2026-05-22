@@ -11,10 +11,18 @@ import type {
 } from "@3dspace/contracts";
 import { parseRoomObjectParameterSchemaJson } from "@3dspace/contracts";
 import type { ParticipantView } from "./RoomClient";
-import { canTouchRoomObject, scaleBounds } from "../lib/roomObjectInteraction";
+import {
+  canEditRoomObjectTransform,
+  canTouchRoomObject,
+  isRoomObjectLocked,
+  scaleBounds
+} from "../lib/roomObjectInteraction";
 
 type RoomObjectActions = {
-  update(objectId: string, patch: { pose?: Pose; scale?: number; colorTintHex?: string }): Promise<unknown>;
+  update(
+    objectId: string,
+    patch: { pose?: Pose; scale?: number; colorTintHex?: string; status?: "active" | "locked" }
+  ): Promise<unknown>;
   remove(objectId: string): Promise<void>;
   reset(objectId: string): Promise<unknown>;
   setTouch(
@@ -49,7 +57,10 @@ export function RoomObjectInspector({
   onClose?: () => void;
 }) {
   const canTouch = canTouchRoomObject({ object, userId: currentUserId, role, memberGroupIds });
+  const canEditTransform = canEditRoomObjectTransform({ object, userId: currentUserId, role, memberGroupIds });
+  const isLocked = isRoomObjectLocked(object);
   const isTeacher = role === "teacher";
+  const canEditParameters = isTeacher || (!isLocked && canTouch);
   const parameterSchema = useMemo(() => {
     try {
       return parseRoomObjectParameterSchemaJson(template.parameterSchemaJson);
@@ -120,11 +131,12 @@ export function RoomObjectInspector({
         ) : null}
       </div>
 
-      {!canTouch ? (
+      {isLocked ? <p className="room-object-inspector__pill">Locked in place</p> : null}
+      {!canTouch && !isLocked ? (
         <p className="room-object-inspector__pill">Watching only</p>
       ) : null}
 
-      <div className={`room-object-inspector__section${!canTouch ? " room-object-inspector__section--readonly" : ""}`}>
+      <div className={`room-object-inspector__section${!canEditParameters ? " room-object-inspector__section--readonly" : ""}`}>
         <span className="room-object-inspector__label">Parameters</span>
         {Object.entries(parameterSchema).map(([key, field]) => {
           const value = object.parameters[key] ?? field.default;
@@ -135,7 +147,7 @@ export function RoomObjectInspector({
                 <input
                   type="checkbox"
                   checked={Boolean(value)}
-                  disabled={!canTouch || busy}
+                  disabled={!canEditParameters || busy}
                   onChange={(event) => {
                     actions.setParameters(object.id, { ...object.parameters, [key]: event.target.checked });
                   }}
@@ -149,7 +161,7 @@ export function RoomObjectInspector({
                 <span>{field.label}</span>
                 <select
                   value={typeof value === "string" ? value : field.default}
-                  disabled={!canTouch || busy}
+                  disabled={!canEditParameters || busy}
                   onChange={(event) => {
                     actions.setParameters(object.id, { ...object.parameters, [key]: event.target.value });
                   }}
@@ -177,7 +189,7 @@ export function RoomObjectInspector({
                   max={max}
                   step={step}
                   value={numeric}
-                  disabled={!canTouch || busy}
+                  disabled={!canEditParameters || busy}
                   onChange={(event) => {
                     actions.setParameters(object.id, { ...object.parameters, [key]: Number(event.target.value) });
                   }}
@@ -197,7 +209,7 @@ export function RoomObjectInspector({
                   max={field.max}
                   step={field.step ?? 1}
                   value={numeric}
-                  disabled={!canTouch || busy}
+                  disabled={!canEditParameters || busy}
                   onChange={(event) => {
                     const next = Number(event.target.value);
                     actions.setParameters(object.id, {
@@ -213,13 +225,13 @@ export function RoomObjectInspector({
         })}
       </div>
 
-      <div className={`room-object-inspector__section${!canTouch ? " room-object-inspector__section--readonly" : ""}`}>
+      <div className={`room-object-inspector__section${!canEditParameters ? " room-object-inspector__section--readonly" : ""}`}>
         <label className="room-object-inspector__row">
           <span>Colour tint</span>
           <input
             type="color"
             value={object.colorTintHex ?? "#f4b63f"}
-            disabled={!canTouch || busy}
+            disabled={!canEditParameters || busy}
             onChange={(event) => {
               void runAction(() => actions.update(object.id, { colorTintHex: event.target.value }));
             }}
@@ -227,8 +239,11 @@ export function RoomObjectInspector({
         </label>
       </div>
 
-      <div className={`room-object-inspector__section${!canTouch ? " room-object-inspector__section--readonly" : ""}`}>
+      <div className={`room-object-inspector__section${!canEditTransform ? " room-object-inspector__section--readonly" : ""}`}>
         <span className="room-object-inspector__label">Transform</span>
+        {isLocked && !isTeacher ? (
+          <p className="room-object-inspector__hint">Position is locked. Ask your teacher to unlock before moving.</p>
+        ) : null}
         <p className="room-object-inspector__hint">
           Drag on the floor for x/z placement. Use these controls for height, scale, and full 3D orientation.
         </p>
@@ -241,7 +256,7 @@ export function RoomObjectInspector({
               max={3}
               step={0.05}
               value={poseDraft.position.y}
-              disabled={!canTouch || busy}
+              disabled={!canEditTransform || busy}
               onChange={(event) =>
                 setPoseDraft((current) => ({
                   ...current,
@@ -261,7 +276,7 @@ export function RoomObjectInspector({
               max={maxScale}
               step={scaleStep}
               value={scaleDraft}
-              disabled={!canTouch || busy}
+              disabled={!canEditTransform || busy}
               onChange={(event) => setScaleDraft(Number(event.target.value))}
             />
             <span className="room-object-inspector__value">{scaleDraft.toFixed(2)}x</span>
@@ -283,7 +298,7 @@ export function RoomObjectInspector({
                   max={180}
                   step={5}
                   value={degrees}
-                  disabled={!canTouch || busy}
+                  disabled={!canEditTransform || busy}
                   onChange={(event) => {
                     const radians = (Number(event.target.value) * Math.PI) / 180;
                     setPoseDraft((current) => ({
@@ -301,7 +316,7 @@ export function RoomObjectInspector({
         <button
           type="button"
           className="hud-btn"
-          disabled={!canTouch || busy}
+          disabled={!canEditTransform || busy}
           onClick={() => {
             void runAction(() =>
               actions.update(object.id, {
@@ -317,6 +332,23 @@ export function RoomObjectInspector({
 
       {isTeacher ? (
         <div className="room-object-inspector__section room-object-inspector__section--teacher">
+          <span className="room-object-inspector__label">Placement</span>
+          <p className="room-object-inspector__hint">
+            Lock the object so clicks in 3D only select it — no accidental drags while teaching.
+          </p>
+          <label className="room-object-inspector__row">
+            <span>Lock in place</span>
+            <input
+              type="checkbox"
+              checked={isLocked}
+              disabled={busy}
+              onChange={(event) => {
+                void runAction(() =>
+                  actions.update(object.id, { status: event.target.checked ? "locked" : "active" })
+                );
+              }}
+            />
+          </label>
           <span className="room-object-inspector__label">Touch access</span>
           <p className="room-object-inspector__hint">
             Match board grants: teacher-only, named students/groups, or whole class.

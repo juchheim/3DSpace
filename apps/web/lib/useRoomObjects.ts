@@ -107,6 +107,9 @@ export function useRoomObjects(input: {
 
       if (message.type === "room.object.upsert.v1") {
         upsertLocal(message.object);
+        if (message.object.status === "locked") {
+          clearGrabHolder(message.object.id);
+        }
         return true;
       }
 
@@ -186,7 +189,7 @@ export function useRoomObjects(input: {
 
       return false;
     },
-    [clearLocalGrabState, input.identity.userId, input.roomId, upsertLocal]
+    [clearGrabHolder, clearLocalGrabState, input.identity.userId, input.roomId, upsertLocal]
   );
 
   const applyRealtimeMessages = useCallback(

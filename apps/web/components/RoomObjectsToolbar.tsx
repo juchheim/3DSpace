@@ -116,6 +116,11 @@ export function RoomObjectsToolbar({
                     onClick={() => onSelectObject(selectedObjectId === object.id ? null : object.id)}
                   >
                     {object.displayName}
+                    {object.status === "locked" ? (
+                      <span className="room-object-toolbar__locked" title="Locked in place">
+                        🔒
+                      </span>
+                    ) : null}
                   </button>
                   <button
                     type="button"

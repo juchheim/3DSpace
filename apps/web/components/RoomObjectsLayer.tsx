@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import type { AvatarAppearance, ClassroomGroup, Role, RoomManifest, RoomObject, RoomObjectTemplate } from "@3dspace/contracts";
-import { canTouchRoomObject, snapPosition, snapScale, snapYaw } from "../lib/roomObjectInteraction";
+import { canGrabRoomObject, snapPosition, snapScale, snapYaw } from "../lib/roomObjectInteraction";
 import { RoomObjectMesh } from "./RoomObjectMesh";
 import type { ParticipantView } from "./RoomClient";
 
@@ -65,13 +65,13 @@ export function RoomObjectsLayer({
     const activeObject = selectedObject;
     const activeTemplate = selectedTemplate;
 
-    const canTouch = canTouchRoomObject({
+    const canGrab = canGrabRoomObject({
       object: activeObject,
       userId: currentUserId,
       role,
       memberGroupIds
     });
-    if (!canTouch) return;
+    if (!canGrab) return;
 
     const isHolder = myActiveGrabObjectId === activeObject.id;
 
@@ -208,7 +208,7 @@ export function RoomObjectsLayer({
             manifest={manifest}
             object={object}
             template={template}
-            canTouch={canTouchRoomObject({ object, userId: currentUserId, role, memberGroupIds })}
+            canGrab={canGrabRoomObject({ object, userId: currentUserId, role, memberGroupIds })}
             isGrabbed={Boolean(grab)}
             grabHolderColor={grabHolderColor}
             localIsHolder={holderId === currentUserId}

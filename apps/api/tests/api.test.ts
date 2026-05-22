@@ -3324,6 +3324,50 @@ describe("room object realtime grab lock", () => {
     await app.close();
   });
 
+  it("rejects grab on a locked object", async () => {
+    const app = await buildApp({ config: roomObjectsConfig(), repository: new MemoryRepository() });
+    const teacherId = "teacher-ro-locked";
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, teacherId);
+    const roomId = roomWithManifest.room.id;
+    await enableRoomObjects(app, roomId, teacherId);
+    await addStudentMember(app, classRecord.id, teacherId, "student-ro-locked", "Avery");
+
+    const templateId = (
+      await app.inject({
+        method: "GET",
+        url: "/v1/room-objects/templates",
+        headers: authHeaders(teacherId, "Ms. Rivera")
+      })
+    ).json().templates[0].id;
+
+    const objectId = (
+      await app.inject({
+        method: "POST",
+        url: `/v1/rooms/${roomId}/objects`,
+        headers: authHeaders(teacherId, "Ms. Rivera"),
+        payload: { templateId, touchPolicy: "all-class" }
+      })
+    ).json().object.id;
+
+    const lockRes = await app.inject({
+      method: "PATCH",
+      url: `/v1/rooms/${roomId}/objects/${objectId}`,
+      headers: authHeaders(teacherId, "Ms. Rivera"),
+      payload: { status: "locked" }
+    });
+    expect(lockRes.statusCode).toBe(200);
+    expect(lockRes.json().status).toBe("locked");
+
+    const grabRes = await postRoomObjectRealtime(app, roomId, "student-ro-locked", {
+      type: "room.object.grab.v1",
+      objectId
+    });
+    expect(grabRes.statusCode).toBe(409);
+    expect(grabRes.json().error).toBe("room-object-locked");
+
+    await app.close();
+  });
+
   it("drops pose updates from non-holders", async () => {
     const app = await buildApp({ config: roomObjectsConfig(), repository: new MemoryRepository() });
     const teacherId = "teacher-ro-pose-drop";

@@ -70,3 +70,7 @@ export function roomObjectNotFound() {
 export function roomObjectTouchDenied() {
   return new HttpError(403, "You do not have permission to manipulate this object", "room-object-touch-denied");
 }
+
+export function roomObjectLocked() {
+  return new HttpError(409, "This object is locked in place", "room-object-locked");
+}

@@ -10,7 +10,13 @@ import {
 } from "@3dspace/contracts";
 import type { AuthContext } from "../auth.js";
 import type { AppConfig } from "../config.js";
-import { roomObjectDisabled, roomObjectLimitReached, roomObjectNotFound, roomObjectTouchDenied } from "../errors.js";
+import {
+  roomObjectDisabled,
+  roomObjectLimitReached,
+  roomObjectLocked,
+  roomObjectNotFound,
+  roomObjectTouchDenied
+} from "../errors.js";
 import type { Repository } from "../repository.js";
 
 const ROOM_OBJECT_BBOX_AXIS_METERS = 1.5;
@@ -60,6 +66,12 @@ export async function requireRoomObject(
     throw roomObjectNotFound();
   }
   return object;
+}
+
+export function assertRoomObjectNotLocked(object: RoomObject) {
+  if (object.status === "locked") {
+    throw roomObjectLocked();
+  }
 }
 
 export async function assertCanTouchRoomObject(

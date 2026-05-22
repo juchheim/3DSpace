@@ -41,7 +41,7 @@ export function RoomObjectMesh({
   manifest,
   object,
   template,
-  canTouch,
+  canGrab,
   isGrabbed,
   grabHolderColor,
   localIsHolder,
@@ -52,7 +52,7 @@ export function RoomObjectMesh({
   manifest: RoomManifest;
   object: RoomObject;
   template: RoomObjectTemplate;
-  canTouch: boolean;
+  canGrab: boolean;
   isGrabbed: boolean;
   grabHolderColor: string;
   localIsHolder: boolean;
@@ -162,7 +162,7 @@ export function RoomObjectMesh({
       onSelect();
       shiftRef.current = event.shiftKey;
 
-      if (!canTouch) return;
+      if (!canGrab) return;
       const native = event.nativeEvent as PointerEvent;
       const rotate = native.button === 2 || native.altKey;
 
@@ -178,13 +178,13 @@ export function RoomObjectMesh({
         gl.domElement.setPointerCapture(native.pointerId);
       })();
     },
-    [actions, canTouch, gl.domElement, object.id, onSelect, pose.position.x, pose.position.z, raycastFloorPoint]
+    [actions, canGrab, gl.domElement, object.id, onSelect, pose.position.x, pose.position.z, raycastFloorPoint]
   );
 
   const onWheel = useCallback(
     (event: ThreeEvent<WheelEvent>) => {
       if (!localIsHolder && !hovered) return;
-      if (!canTouch || !localIsHolder) return;
+      if (!canGrab || !localIsHolder) return;
       event.stopPropagation();
       shiftRef.current = event.shiftKey;
       const delta = event.deltaY > 0 ? -1 : 1;
@@ -192,7 +192,7 @@ export function RoomObjectMesh({
       const next = applyPose(pose, scale + delta * step, event.shiftKey);
       actions.publishPose(object.id, next.pose, next.scale);
     },
-    [actions, applyPose, canTouch, hovered, localIsHolder, object.id, pose, scale, template.defaultScale]
+    [actions, applyPose, canGrab, hovered, localIsHolder, object.id, pose, scale, template.defaultScale]
   );
 
   const pitch = pose.rotation.pitch ?? 0;

@@ -20,6 +20,10 @@ export function isRoomObjectTemplateSelectableInV1(template: RoomObjectTemplate)
   return template.slug === ROOM_OBJECT_HERO_SLUG && isRoomObjectTemplatePlaceable(template);
 }
 
+export function isRoomObjectLocked(object: RoomObject) {
+  return object.status === "locked";
+}
+
 export function canTouchRoomObject(input: {
   object: RoomObject;
   userId: string;
@@ -35,6 +39,29 @@ export function canTouchRoomObject(input: {
     );
   }
   return false;
+}
+
+/** In-world grab / drag / keyboard move (blocked when teacher locks the object). */
+export function canGrabRoomObject(input: {
+  object: RoomObject;
+  userId: string;
+  role: Role;
+  memberGroupIds: string[];
+}) {
+  if (isRoomObjectLocked(input.object)) return false;
+  return canTouchRoomObject(input);
+}
+
+/** Inspector pose/scale edits — teachers may adjust while locked; students may not. */
+export function canEditRoomObjectTransform(input: {
+  object: RoomObject;
+  userId: string;
+  role: Role;
+  memberGroupIds: string[];
+}) {
+  if (input.role === "teacher") return true;
+  if (isRoomObjectLocked(input.object)) return false;
+  return canTouchRoomObject(input);
 }
 
 export function buildSpawnPoseInFront(input: {

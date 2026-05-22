@@ -523,6 +523,7 @@ export const ApiErrorCodeSchema = z.enum([
   "room-object-not-found",
   "room-object-grab-conflict",
   "room-object-touch-denied",
+  "room-object-locked",
   "room-object-template-invalid",
   "room-object-upload-too-large",
   "room-object-upload-rejected"

@@ -12,6 +12,7 @@ import type { Repository } from "../repository.js";
 import { RoomObjectGrabLock } from "./grab-lock.js";
 import {
   assertCanTouchRoomObject,
+  assertRoomObjectNotLocked,
   clampRoomObjectPose,
   clampRoomObjectScale,
   requireRoomObject
@@ -73,6 +74,7 @@ function buildPoseBroadcast(
 
 async function handleGrab(ctx: RoomObjectRealtimeDispatchContext, objectId: string) {
   const object = await requireRoomObject(ctx.repository, ctx.roomId, objectId);
+  assertRoomObjectNotLocked(object);
   if (!ctx.membership) throw forbidden("Class membership required");
   await assertCanTouchRoomObject(ctx.repository, ctx.roomId, object, ctx.auth, ctx.membership);
 
@@ -95,6 +97,7 @@ async function handlePose(
   }
 
   const object = await requireRoomObject(ctx.repository, ctx.roomId, input.objectId);
+  assertRoomObjectNotLocked(object);
   const template = await ctx.repository.getRoomObjectTemplate(object.templateId);
   if (!template) return [];
 
@@ -114,6 +117,7 @@ async function handleRelease(
   }
 
   const object = await requireRoomObject(ctx.repository, ctx.roomId, input.objectId);
+  assertRoomObjectNotLocked(object);
   const template = await ctx.repository.getRoomObjectTemplate(object.templateId);
   if (!template) return [];
 
