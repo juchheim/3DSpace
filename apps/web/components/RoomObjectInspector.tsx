@@ -142,8 +142,7 @@ export function RoomObjectInspector({
           const value = object.parameters[key] ?? field.default;
           if (field.type === "boolean") {
             return (
-              <label key={key} className="room-object-inspector__row">
-                <span>{field.label}</span>
+              <label key={key} className="room-object-inspector__row room-object-inspector__row--check">
                 <input
                   type="checkbox"
                   checked={Boolean(value)}
@@ -152,6 +151,7 @@ export function RoomObjectInspector({
                     actions.setParameters(object.id, { ...object.parameters, [key]: event.target.checked });
                   }}
                 />
+                {field.label}
               </label>
             );
           }
@@ -336,9 +336,8 @@ export function RoomObjectInspector({
           <p className="room-object-inspector__hint">
             Lock the object so clicks in 3D only select it — no accidental drags while teaching.
           </p>
-          <div className="room-object-inspector__lock-row">
+          <label className="room-object-inspector__lock-row">
             <input
-              id={`room-object-lock-${object.id}`}
               type="checkbox"
               checked={isLocked}
               disabled={busy}
@@ -348,8 +347,8 @@ export function RoomObjectInspector({
                 );
               }}
             />
-            <label htmlFor={`room-object-lock-${object.id}`}>Lock in place</label>
-          </div>
+            Lock in place
+          </label>
           <span className="room-object-inspector__label">Touch access</span>
           <p className="room-object-inspector__hint">
             Match board grants: teacher-only, named students/groups, or whole class.
