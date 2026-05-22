@@ -645,7 +645,7 @@ export class MongoRepository implements Repository {
   async upsertBuiltinRoomObjectTemplates(templates: RoomObjectTemplate[]) {
     const time = nowIso();
     for (const template of templates) {
-      const { createdAt, archivedAt: _archivedAt, ...fields } = template;
+      const { createdAt, ...fields } = template;
       await this.models.RoomObjectTemplate.findOneAndUpdate(
         { slug: template.slug },
         {
