@@ -10,6 +10,10 @@ import {
   CreateInviteRequestSchema,
   CreateRoomObjectRequestSchema,
   CreateRoomObjectResponseSchema,
+  CreateRoomObjectTemplateRequestSchema,
+  CreateRoomObjectTemplateResponseSchema,
+  CreateRoomObjectUploadRequestSchema,
+  CreateRoomObjectUploadResponseSchema,
   CreateRoomRequestSchema,
   CreateWallObjectRequestSchema,
   CreateWallShareRequestSchema,
@@ -86,10 +90,16 @@ import {
   notFound,
   notImplemented,
   roomObjectDisabled,
+  roomObjectUploadRejected,
   roomObjectTouchDenied,
   tooManyRequests,
   unprocessableEntity
 } from "./errors.js";
+import {
+  buildRoomObjectTemplateSlug,
+  validateCustomRoomObjectAsset,
+  validateCustomRoomObjectThumbnail
+} from "./room-objects/custom-template-upload.js";
 import { seedBuiltinRoomObjectTemplates } from "./room-objects/builtin-catalog.js";
 import { RoomObjectGrabLock } from "./room-objects/grab-lock.js";
 import {
@@ -115,7 +125,16 @@ import {
 import { connectMongo, MongoRepository } from "./models/mongoose.js";
 import { MemoryRepository, newId, type Repository } from "./repository.js";
 import { mintLiveKitToken } from "./services/livekit.js";
-import { createDownloadTarget, createUploadTarget, storageKeyFor } from "./services/storage.js";
+import {
+  createDownloadTarget,
+  createUploadTarget,
+  getDevStoredObject,
+  putDevStoredObject,
+  readStoredObject,
+  roomObjectAssetUrl,
+  roomObjectStorageKeyFor,
+  storageKeyFor
+} from "./services/storage.js";
 
 type BuildAppOptions = {
   config?: AppConfig;
@@ -256,6 +275,16 @@ async function actorIsRoomTeacher(repository: Repository, roomId: string, auth: 
   const classRecord = await repository.getClass(room.classId);
   const membership = await repository.getMembership(room.classId, auth.userId);
   return { room, membership, teacher: membership?.role === "teacher" || classRecord?.teacherUserId === auth.userId };
+}
+
+function assertRoomObjectCustomUploadsEnabled(room: { settings: RoomSettings }) {
+  if (room.settings.roomObjects?.customUploadsEnabled !== true) {
+    throw forbidden("Custom room object uploads are disabled for this room");
+  }
+}
+
+function roomObjectStoragePrefix(classId: string, kind: "assets" | "thumbnails") {
+  return `room-objects/classes/${classId}/${kind}/`;
 }
 
 function normalizeHost(host: string) {
@@ -2214,11 +2243,10 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     roomObjectGrabLock.startReaper();
   }
   const sessionJoinAttempts = new Map<string, { count: number; resetAt: number }>();
-  const devStorage = new Map<string, { body: Buffer; contentType: string }>();
   const app = fastify({ logger: config.nodeEnv !== "test" });
 
   app.addContentTypeParser(
-    /^(image|video|audio)\//,
+    /^(image|video|audio|model)\//,
     { parseAs: "buffer" },
     (_request, body, done) => {
       done(null, body);
@@ -2321,7 +2349,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     if (storageConfigured(config)) throw notFound("Development upload fallback is disabled");
     const params = parseParams(ParamsWithDevStorageKey, request);
     const body = Buffer.isBuffer(request.body) ? request.body : Buffer.from("");
-    devStorage.set(params.storageKey, {
+    putDevStoredObject({
+      storageKey: params.storageKey,
       body,
       contentType: String(request.headers["content-type"] ?? "application/octet-stream")
     });
@@ -2331,8 +2360,15 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   app.get("/dev-download/:storageKey", async (request, reply) => {
     if (storageConfigured(config)) throw notFound("Development download fallback is disabled");
     const params = parseParams(ParamsWithDevStorageKey, request);
-    const object = devStorage.get(params.storageKey);
+    const object = getDevStoredObject(params.storageKey);
     if (!object) throw notFound("Development object not found");
+    return reply.header("content-type", object.contentType).send(object.body);
+  });
+
+  app.get("/v1/room-object-assets/:storageKey", async (request, reply) => {
+    const params = parseParams(ParamsWithDevStorageKey, request);
+    const object = await readStoredObject(config, { storageKey: params.storageKey });
+    if (!object) throw notFound("Room object asset not found");
     return reply.header("content-type", object.contentType).send(object.body);
   });
 
@@ -3194,10 +3230,97 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     return ListRoomObjectTemplatesResponseSchema.parse({ templates });
   });
 
-  app.post("/v1/room-objects/templates", async (request) => {
-    await requireUser(request, config, repository);
+  app.post("/v1/rooms/:roomId/room-objects/uploads", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomId, request);
+    const body = parseBody(CreateRoomObjectUploadRequestSchema, request);
+    const room = await requireRoomTeacher(repository, params.roomId, auth);
     if (!config.tuning.enableRoomObjects) throw roomObjectDisabled();
-    throw notImplemented("Custom room object template upload is not available yet");
+    assertRoomObjectsEnabled(config, room);
+    assertRoomObjectCustomUploadsEnabled(room);
+    if (body.kind === "asset" && body.contentType !== "model/gltf-binary") {
+      throw roomObjectUploadRejected("Room object assets must be uploaded as .glb files.", {
+        reason: "asset_content_type",
+        contentType: body.contentType
+      });
+    }
+    if (body.kind === "thumbnail" && body.contentType !== "image/png") {
+      throw roomObjectUploadRejected("Room object thumbnails must be uploaded as PNG files.", {
+        reason: "thumbnail_content_type",
+        contentType: body.contentType
+      });
+    }
+    const storageKey = roomObjectStorageKeyFor({
+      classId: room.classId,
+      kind: body.kind === "thumbnail" ? "thumbnails" : "assets",
+      fileName: body.fileName
+    });
+    const upload = await createUploadTarget(config, { storageKey, contentType: body.contentType });
+    return CreateRoomObjectUploadResponseSchema.parse({
+      storageKey,
+      assetUrl: roomObjectAssetUrl(config, storageKey),
+      upload
+    });
+  });
+
+  app.post("/v1/room-objects/templates", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    if (!config.tuning.enableRoomObjects) throw roomObjectDisabled();
+    const body = parseBody(CreateRoomObjectTemplateRequestSchema, request);
+    const room = await requireRoomTeacher(repository, body.roomId, auth);
+    assertRoomObjectsEnabled(config, room);
+    assertRoomObjectCustomUploadsEnabled(room);
+    if (!body.assetStorageKey.startsWith(roomObjectStoragePrefix(room.classId, "assets"))) {
+      throw roomObjectUploadRejected("Uploaded .glb does not belong to this class.", {
+        reason: "asset_storage_scope"
+      });
+    }
+    if (!body.thumbnailStorageKey.startsWith(roomObjectStoragePrefix(room.classId, "thumbnails"))) {
+      throw roomObjectUploadRejected("Uploaded thumbnail does not belong to this class.", {
+        reason: "thumbnail_storage_scope"
+      });
+    }
+    const assetObject = await readStoredObject(config, { storageKey: body.assetStorageKey });
+    if (!assetObject) throw notFound("Uploaded .glb not found");
+    const thumbnailObject = await readStoredObject(config, { storageKey: body.thumbnailStorageKey });
+    if (!thumbnailObject) throw notFound("Uploaded thumbnail not found");
+
+    const validation = await validateCustomRoomObjectAsset({
+      bytes: assetObject.body,
+      maxUploadSizeBytes: room.settings.roomObjects.maxUploadSizeBytes
+    });
+    validateCustomRoomObjectThumbnail({
+      bytes: thumbnailObject.body,
+      contentType: thumbnailObject.contentType
+    });
+
+    const template = await repository.createRoomObjectTemplate({
+      slug: buildRoomObjectTemplateSlug(body.displayName, body.slug),
+      displayName: body.displayName,
+      category: body.category,
+      description: body.description,
+      assetUrl: roomObjectAssetUrl(config, body.assetStorageKey),
+      thumbnailUrl: roomObjectAssetUrl(config, body.thumbnailStorageKey),
+      defaultPose: body.defaultPose ?? {
+        position: { x: 0, y: 1.1, z: 0 },
+        rotation: { yaw: 0, pitch: 0, roll: 0 }
+      },
+      defaultScale: body.defaultScale,
+      ...(body.defaultColorTintHex ? { defaultColorTintHex: body.defaultColorTintHex } : {}),
+      defaultParameters: body.defaultParameters,
+      parameterSchemaJson: body.parameterSchemaJson,
+      recommendedTouchPolicy: room.settings.roomObjects.defaultTouchPolicy,
+      kinematic: false,
+      ownerClassId: room.classId,
+      source: "custom",
+      license: body.license,
+      attribution: body.attribution,
+      renderer: "gltf",
+      exportable: body.exportable,
+      fileSizeBytes: validation.fileSizeBytes,
+      triangleCount: validation.triangleCount
+    });
+    return CreateRoomObjectTemplateResponseSchema.parse({ template });
   });
 
   app.delete("/v1/room-objects/templates/:templateId", async (request) => {

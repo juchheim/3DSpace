@@ -74,3 +74,15 @@ export function roomObjectTouchDenied() {
 export function roomObjectLocked() {
   return new HttpError(409, "This object is locked in place", "room-object-locked");
 }
+
+export function roomObjectTemplateInvalid(message: string, details?: Record<string, unknown>) {
+  return new HttpError(422, message, "room-object-template-invalid", details);
+}
+
+export function roomObjectUploadTooLarge(details: { maxUploadSizeBytes: number; fileSizeBytes: number }) {
+  return new HttpError(422, "Uploaded .glb exceeds the room upload size limit", "room-object-upload-too-large", details);
+}
+
+export function roomObjectUploadRejected(message: string, details?: Record<string, unknown>) {
+  return new HttpError(422, message, "room-object-upload-rejected", details);
+}

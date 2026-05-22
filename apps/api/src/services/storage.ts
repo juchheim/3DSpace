@@ -1,11 +1,35 @@
+import crypto from "node:crypto";
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { AppConfig } from "../config.js";
 import { storageConfigured } from "../config.js";
 
+const devStorage = new Map<string, { body: Buffer; contentType: string }>();
+
+function safeStorageName(fileName: string) {
+  return fileName.replace(/[^a-zA-Z0-9._-]+/g, "-").slice(0, 120);
+}
+
+function createStorageClient(config: AppConfig) {
+  return new S3Client({
+    region: "auto",
+    endpoint: config.objectStorage.endpoint!,
+    forcePathStyle: true,
+    credentials: {
+      accessKeyId: config.objectStorage.accessKeyId!,
+      secretAccessKey: config.objectStorage.secretAccessKey!
+    }
+  });
+}
+
 export function storageKeyFor(input: { roomId: string; wallAnchorId: string; fileName: string }) {
-  const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]+/g, "-").slice(0, 120);
+  const safeName = safeStorageName(input.fileName);
   return `rooms/${input.roomId}/anchors/${input.wallAnchorId}/${Date.now()}-${safeName}`;
+}
+
+export function roomObjectStorageKeyFor(input: { classId: string; kind: "assets" | "thumbnails"; fileName: string }) {
+  const safeName = safeStorageName(input.fileName);
+  return `room-objects/classes/${input.classId}/${input.kind}/${crypto.randomUUID()}-${safeName}`;
 }
 
 export async function createUploadTarget(
@@ -25,19 +49,8 @@ export async function createUploadTarget(
     };
   }
 
-  const endpoint = config.objectStorage.endpoint!;
   const bucket = config.objectStorage.bucket!;
-  const accessKeyId = config.objectStorage.accessKeyId!;
-  const secretAccessKey = config.objectStorage.secretAccessKey!;
-  const client = new S3Client({
-    region: "auto",
-    endpoint,
-    forcePathStyle: true,
-    credentials: {
-      accessKeyId,
-      secretAccessKey
-    }
-  });
+  const client = createStorageClient(config);
   const command = new PutObjectCommand({
     Bucket: bucket,
     Key: input.storageKey,
@@ -79,19 +92,8 @@ export async function createDownloadTarget(
     };
   }
 
-  const endpoint = config.objectStorage.endpoint!;
   const bucket = config.objectStorage.bucket!;
-  const accessKeyId = config.objectStorage.accessKeyId!;
-  const secretAccessKey = config.objectStorage.secretAccessKey!;
-  const client = new S3Client({
-    region: "auto",
-    endpoint,
-    forcePathStyle: true,
-    credentials: {
-      accessKeyId,
-      secretAccessKey
-    }
-  });
+  const client = createStorageClient(config);
   const command = new GetObjectCommand({
     Bucket: bucket,
     Key: input.storageKey
@@ -103,4 +105,41 @@ export async function createDownloadTarget(
     headers: {},
     expiresInSeconds
   };
+}
+
+export function putDevStoredObject(input: { storageKey: string; body: Buffer; contentType: string }) {
+  devStorage.set(input.storageKey, { body: input.body, contentType: input.contentType });
+}
+
+export function getDevStoredObject(storageKey: string) {
+  return devStorage.get(storageKey);
+}
+
+export async function readStoredObject(
+  config: AppConfig,
+  input: {
+    storageKey: string;
+  }
+) {
+  if (!storageConfigured(config)) {
+    const object = devStorage.get(input.storageKey);
+    if (!object) return undefined;
+    return object;
+  }
+
+  const command = new GetObjectCommand({
+    Bucket: config.objectStorage.bucket!,
+    Key: input.storageKey
+  });
+  const response = await createStorageClient(config).send(command);
+  if (!response.Body) return undefined;
+  const bytes = await response.Body.transformToByteArray();
+  return {
+    body: Buffer.from(bytes),
+    contentType: response.ContentType ?? "application/octet-stream"
+  };
+}
+
+export function roomObjectAssetUrl(config: AppConfig, storageKey: string) {
+  return `${config.apiPublicUrl}/v1/room-object-assets/${encodeURIComponent(storageKey)}`;
 }

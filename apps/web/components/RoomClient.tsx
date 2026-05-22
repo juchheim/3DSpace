@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AvatarAppearance, AvatarReactionMessage, AvatarReactionSlug, AvatarStateMessage, Role, RoomManifest, RoomObjectTemplate, RoomSessionResponse, ViewMode, WallObject } from "@3dspace/contracts";
 import { AvatarAppearanceMessageSchema, AvatarReactionMessageSchema, ParticipantAudioModeMessageSchema } from "@3dspace/contracts";
 import { computeGroupMemberPosition, createAvatarState, floorYFromZ, unprojectPointFrom2D } from "@3dspace/room-engine";
-import { joinRoom, listClassMembers, patchAvatarAppearance, postRoomEvent } from "../lib/api";
+import { joinRoom, listClassMembers, patchAvatarAppearance, postRoomEvent, uploadRoomObjectGlb } from "../lib/api";
 import { CLIENT_TUNING } from "../lib/config";
 import { pickDisplayName } from "../lib/displayName";
 import { useAvatarMovement } from "../lib/useAvatarMovement";
@@ -194,6 +194,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     runAction: classroom.runAction
   });
   const roomObjectsEnabled = CLIENT_TUNING.enableRoomObjects && session?.room.settings.roomObjects?.enabled === true;
+  const roomObjectCustomUploadsEnabled = roomObjectsEnabled && session?.room.settings.roomObjects?.customUploadsEnabled === true;
   const roomObjectTemplates = useRoomObjectTemplates({
     identity,
     classId: session?.room.classId,
@@ -1640,6 +1641,16 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               onRemove={async (objectId) => {
                 await roomObjects.actions.remove(objectId);
                 setSelectedRoomObjectId((current) => (current === objectId ? null : current));
+              }}
+              customUploadsEnabled={roomObjectCustomUploadsEnabled}
+              onUpload={async (input) => {
+                const activeRoomId = session?.room.id ?? roomId;
+                if (!activeRoomId) throw new Error("Room is not ready.");
+                await uploadRoomObjectGlb(identity, {
+                  roomId: activeRoomId,
+                  ...input
+                });
+                await roomObjectTemplates.refetch();
               }}
             />
           ) : null}

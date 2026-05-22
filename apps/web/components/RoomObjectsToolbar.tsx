@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import type { RoomManifest, RoomObject, RoomObjectTemplate } from "@3dspace/contracts";
+import { useState, type FormEvent } from "react";
+import type { RoomManifest, RoomObject, RoomObjectCategory, RoomObjectTemplate } from "@3dspace/contracts";
 import { HudCard } from "./HudCard";
 import {
   isRoomObjectTemplatePlaceable,
   isRoomObjectTemplateSelectableInV1,
   ROOM_OBJECT_HERO_SLUG
 } from "../lib/roomObjectInteraction";
+
+const ROOM_OBJECT_UPLOAD_CATEGORIES: RoomObjectCategory[] = ["math", "science", "geography", "ela", "art", "custom"];
 
 export function RoomObjectsToolbar({
   templates,
@@ -20,7 +22,9 @@ export function RoomObjectsToolbar({
   selectedObjectId,
   onSelectObject,
   onInstantiate,
-  onRemove
+  onRemove,
+  customUploadsEnabled,
+  onUpload
 }: {
   templates: RoomObjectTemplate[];
   objects: RoomObject[];
@@ -33,13 +37,85 @@ export function RoomObjectsToolbar({
   onSelectObject(objectId: string | null): void;
   onInstantiate(templateId: string): Promise<void>;
   onRemove(objectId: string): Promise<void>;
+  customUploadsEnabled: boolean;
+  onUpload(input: {
+    file: File;
+    thumbnailFile: File;
+    displayName: string;
+    category: RoomObjectCategory;
+    description: string;
+    license: string;
+    attribution: string;
+  }): Promise<void>;
 }) {
   const [placingId, setPlacingId] = useState<string | null>(null);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [uploadDisplayName, setUploadDisplayName] = useState("");
+  const [uploadCategory, setUploadCategory] = useState<RoomObjectCategory>("custom");
+  const [uploadDescription, setUploadDescription] = useState("");
+  const [uploadLicense, setUploadLicense] = useState("CC-BY");
+  const [uploadAttribution, setUploadAttribution] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const catalog = [...templates].sort((left, right) => {
     if (left.slug === ROOM_OBJECT_HERO_SLUG) return -1;
     if (right.slug === ROOM_OBJECT_HERO_SLUG) return 1;
     return left.displayName.localeCompare(right.displayName);
   });
+
+  async function handleUploadSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!uploadFile) {
+      setUploadError("Select a .glb file to upload.");
+      return;
+    }
+    if (!thumbnailFile) {
+      setUploadError("Select a PNG thumbnail.");
+      return;
+    }
+    if (!uploadDisplayName.trim()) {
+      setUploadError("Enter a display name for the object.");
+      return;
+    }
+    if (!uploadAttribution.trim()) {
+      setUploadError("Attribution is required for custom room objects.");
+      return;
+    }
+    if (!uploadFile.name.toLowerCase().endsWith(".glb")) {
+      setUploadError("Room object assets must be uploaded as .glb files.");
+      return;
+    }
+    if (!(thumbnailFile.type === "image/png" || thumbnailFile.name.toLowerCase().endsWith(".png"))) {
+      setUploadError("Room object thumbnails must be PNG files.");
+      return;
+    }
+
+    setUploading(true);
+    setUploadError("");
+    try {
+      await onUpload({
+        file: uploadFile,
+        thumbnailFile,
+        displayName: uploadDisplayName.trim(),
+        category: uploadCategory,
+        description: uploadDescription.trim(),
+        license: uploadLicense.trim(),
+        attribution: uploadAttribution.trim()
+      });
+      setUploadFile(null);
+      setThumbnailFile(null);
+      setUploadDisplayName("");
+      setUploadCategory("custom");
+      setUploadDescription("");
+      setUploadLicense("CC-BY");
+      setUploadAttribution("");
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Unable to upload room object.");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   return (
     <HudCard
@@ -50,6 +126,7 @@ export function RoomObjectsToolbar({
       forceExpanded={Boolean(selectedObjectId)}
     >
         {error ? <p className="room-object-toolbar__error">{error}</p> : null}
+        {uploadError ? <p className="room-object-toolbar__error">{uploadError}</p> : null}
         <div className="room-object-toolbar-card">
           <span className="room-object-toolbar__heading">Catalog</span>
           <ul className="room-object-toolbar__catalog">
@@ -134,6 +211,63 @@ export function RoomObjectsToolbar({
             </ul>
           )}
         </div>
+        {customUploadsEnabled ? (
+          <div className="room-object-toolbar-card">
+            <span className="room-object-toolbar__heading">Upload .glb</span>
+            <form className="room-object-toolbar__upload-form" onSubmit={(event) => void handleUploadSubmit(event)}>
+              <label className="room-object-toolbar__field">
+                <span>Model (.glb)</span>
+                <input
+                  type="file"
+                  accept=".glb,model/gltf-binary"
+                  onChange={(event) => setUploadFile(event.target.files?.[0] ?? null)}
+                />
+              </label>
+              <label className="room-object-toolbar__field">
+                <span>Thumbnail (PNG)</span>
+                <input
+                  type="file"
+                  accept=".png,image/png"
+                  onChange={(event) => setThumbnailFile(event.target.files?.[0] ?? null)}
+                />
+              </label>
+              <label className="room-object-toolbar__field">
+                <span>Display name</span>
+                <input value={uploadDisplayName} onChange={(event) => setUploadDisplayName(event.target.value)} maxLength={120} />
+              </label>
+              <label className="room-object-toolbar__field">
+                <span>Category</span>
+                <select value={uploadCategory} onChange={(event) => setUploadCategory(event.target.value as RoomObjectCategory)}>
+                  {ROOM_OBJECT_UPLOAD_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="room-object-toolbar__field">
+                <span>Description</span>
+                <textarea
+                  value={uploadDescription}
+                  onChange={(event) => setUploadDescription(event.target.value)}
+                  rows={3}
+                  maxLength={500}
+                />
+              </label>
+              <label className="room-object-toolbar__field">
+                <span>License</span>
+                <input value={uploadLicense} onChange={(event) => setUploadLicense(event.target.value)} maxLength={60} />
+              </label>
+              <label className="room-object-toolbar__field">
+                <span>Attribution</span>
+                <input value={uploadAttribution} onChange={(event) => setUploadAttribution(event.target.value)} maxLength={240} />
+              </label>
+              <button type="submit" className="hud-btn room-object-toolbar__upload-btn" disabled={uploading}>
+                {uploading ? "Uploading…" : "Upload .glb"}
+              </button>
+            </form>
+          </div>
+        ) : null}
     </HudCard>
   );
 }

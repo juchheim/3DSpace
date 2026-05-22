@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 import {
   clampRoomObjectScaleValue,
   CreateRoomObjectRequestSchema,
+  CreateRoomObjectTemplateRequestSchema,
+  CreateRoomObjectUploadRequestSchema,
   parameterSchemaToJson,
   parseRoomObjectParameterSchemaJson,
   parseRoomSettings,
@@ -137,6 +139,26 @@ describe("room object contracts", () => {
       touchPolicy: "granted"
     });
     expect(createReq.templateId).toBe("tpl-water-molecule");
+  });
+
+  it("parses custom room object upload and template registration requests", () => {
+    const upload = CreateRoomObjectUploadRequestSchema.parse({
+      kind: "asset",
+      fileName: "molecule.glb",
+      contentType: "model/gltf-binary"
+    });
+    expect(upload.kind).toBe("asset");
+
+    const template = CreateRoomObjectTemplateRequestSchema.parse({
+      roomId: "room-1",
+      assetStorageKey: "room-objects/classes/class-1/assets/file.glb",
+      thumbnailStorageKey: "room-objects/classes/class-1/thumbnails/thumb.png",
+      displayName: "Custom molecule",
+      license: "CC-BY",
+      attribution: "Teacher upload"
+    });
+    expect(template.roomId).toBe("room-1");
+    expect(template.category).toBe("custom");
   });
 
   it("parses room object realtime messages", () => {

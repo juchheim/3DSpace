@@ -4956,6 +4956,42 @@ body.lobby-dark::before {
   color: #8a969e;
 }
 
+.room-object-toolbar__upload-form {
+  display: grid;
+  gap: 8px;
+}
+
+.room-object-toolbar__field {
+  display: grid;
+  gap: 4px;
+  font-size: 10px;
+  color: #b8c2c8;
+}
+
+.room-object-toolbar__field input,
+.room-object-toolbar__field select,
+.room-object-toolbar__field textarea {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(7, 14, 19, 0.75);
+  color: #f0f4f6;
+  font: inherit;
+}
+
+.room-object-toolbar__field input[type="file"] {
+  padding: 4px 6px;
+}
+
+.room-object-toolbar__field textarea {
+  resize: vertical;
+}
+
+.room-object-toolbar__upload-btn {
+  justify-self: start;
+}
+
 .room-object-toolbar__active-row {
   display: flex;
   align-items: center;

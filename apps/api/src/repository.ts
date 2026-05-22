@@ -110,6 +110,7 @@ export type Repository = {
   upsertBuiltinRoomObjectTemplates(templates: RoomObjectTemplate[]): Promise<void>;
   listRoomObjectTemplatesVisibleTo(userId: string): Promise<RoomObjectTemplate[]>;
   getRoomObjectTemplate(templateId: string): Promise<RoomObjectTemplate | undefined>;
+  createRoomObjectTemplate(input: Omit<RoomObjectTemplate, "id" | "createdAt">): Promise<RoomObjectTemplate>;
   archiveRoomObjectTemplate(templateId: string): Promise<RoomObjectTemplate>;
   listRoomObjectsForRoom(roomId: string, filter?: { status?: RoomObjectStatus | undefined }): Promise<RoomObject[]>;
   getRoomObject(roomId: string, objectId: string): Promise<RoomObject | undefined>;
@@ -544,6 +545,18 @@ export class MemoryRepository implements Repository {
     if (!template || template.archivedAt) return undefined;
     const { archivedAt: _archivedAt, ...rest } = template;
     return rest;
+  }
+
+  async createRoomObjectTemplate(input: Omit<RoomObjectTemplate, "id" | "createdAt">) {
+    const duplicate = Array.from(this.roomObjectTemplates.values()).find((template) => template.slug === input.slug && !template.archivedAt);
+    if (duplicate) throw conflict("Room object template slug already exists");
+    const record: RoomObjectTemplate = {
+      ...input,
+      id: newId("rotpl"),
+      createdAt: nowIso()
+    };
+    this.roomObjectTemplates.set(record.id, record);
+    return record;
   }
 
   async archiveRoomObjectTemplate(templateId: string) {

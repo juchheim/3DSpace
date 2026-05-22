@@ -439,13 +439,32 @@ export const ListRoomObjectTemplatesResponseSchema = z.object({
   templates: z.array(RoomObjectTemplateSchema)
 });
 
+export const RoomObjectUploadKindSchema = z.enum(["asset", "thumbnail"]);
+
+export const CreateRoomObjectUploadRequestSchema = z.object({
+  kind: RoomObjectUploadKindSchema.default("asset"),
+  fileName: z.string().min(1).max(255),
+  contentType: z.string().min(1).max(120)
+});
+
+export const CreateRoomObjectUploadResponseSchema = z.object({
+  storageKey: z.string().min(1),
+  assetUrl: z.string().url(),
+  upload: z.object({
+    url: z.string(),
+    method: z.literal("PUT"),
+    headers: z.record(z.string())
+  })
+});
+
 export const CreateRoomObjectTemplateRequestSchema = z.object({
-  slug: z.string().min(2).max(64),
+  roomId: z.string().min(1),
+  assetStorageKey: z.string().min(1),
+  thumbnailStorageKey: z.string().min(1),
+  slug: z.string().min(2).max(64).optional(),
   displayName: z.string().min(1).max(120),
   category: RoomObjectCategorySchema.default("custom"),
   description: z.string().max(500).default(""),
-  assetUrl: z.string().url(),
-  thumbnailUrl: z.string().min(1),
   defaultPose: PoseSchema.optional(),
   defaultScale: z.number().positive().default(1),
   defaultColorTintHex: RoomObjectColorTintHexSchema.optional(),
@@ -697,23 +716,27 @@ export const UpdateWallAttachmentRequestSchema = z.object({
   metadata: z.record(z.unknown()).optional()
 });
 
+export const SignedUploadTargetSchema = z.object({
+  url: z.string(),
+  method: z.literal("PUT"),
+  headers: z.record(z.string())
+});
+
+export const SignedDownloadTargetSchema = z.object({
+  url: z.string(),
+  method: z.literal("GET"),
+  headers: z.record(z.string()),
+  expiresInSeconds: z.number().int().positive()
+});
+
 export const CreateWallAttachmentResponseSchema = z.object({
   attachment: WallAttachmentSchema,
-  upload: z.object({
-    url: z.string(),
-    method: z.literal("PUT"),
-    headers: z.record(z.string())
-  })
+  upload: SignedUploadTargetSchema
 });
 
 export const WallAttachmentDownloadResponseSchema = z.object({
   attachment: WallAttachmentSchema,
-  download: z.object({
-    url: z.string(),
-    method: z.literal("GET"),
-    headers: z.record(z.string()),
-    expiresInSeconds: z.number().int().positive()
-  })
+  download: SignedDownloadTargetSchema
 });
 
 export const WallObjectSourceSchema = z.discriminatedUnion("kind", [
@@ -1703,6 +1726,7 @@ export type RoomObjectParameterSchemaMap = z.infer<typeof RoomObjectParameterSch
 export type RoomObjectTemplate = z.infer<typeof RoomObjectTemplateSchema>;
 export type RoomObject = z.infer<typeof RoomObjectSchema>;
 export type RoomObjectsSettings = z.infer<typeof RoomObjectsSettingsSchema>;
+export type RoomObjectUploadKind = z.infer<typeof RoomObjectUploadKindSchema>;
 export type RoomObjectProceduralRenderProps = z.infer<typeof RoomObjectProceduralRenderPropsSchema>;
 export type ApiErrorCode = z.infer<typeof ApiErrorCodeSchema>;
 export type RoomObjectRealtimeMessage = z.infer<typeof RoomObjectRealtimeMessageSchema>;
@@ -1790,6 +1814,14 @@ export const apiRoutes: ApiRoute[] = [
   { method: "post", path: "/v1/rooms/{roomId}/events", summary: "Persist optional durable room events", tags: ["rooms"], request: RoomEventRequestSchema, response: RoomEventResponseSchema },
   { method: "get", path: "/v1/rooms/{roomId}/lesson-runs/{runId}/recap", summary: "Get lesson run recap (teacher only)", tags: ["classroom"], response: LessonRecapSchema },
   { method: "get", path: "/v1/room-objects/templates", summary: "List room object templates visible to the current user", tags: ["room-objects"], response: ListRoomObjectTemplatesResponseSchema },
+  {
+    method: "post",
+    path: "/v1/rooms/{roomId}/room-objects/uploads",
+    summary: "Create a signed upload target for a custom room object asset or thumbnail",
+    tags: ["room-objects"],
+    request: CreateRoomObjectUploadRequestSchema,
+    response: CreateRoomObjectUploadResponseSchema
+  },
   { method: "post", path: "/v1/room-objects/templates", summary: "Register a custom room object template after asset upload", tags: ["room-objects"], request: CreateRoomObjectTemplateRequestSchema, response: CreateRoomObjectTemplateResponseSchema },
   { method: "delete", path: "/v1/room-objects/templates/{templateId}", summary: "Archive a custom room object template", tags: ["room-objects"], response: RoomObjectTemplateSchema },
   { method: "get", path: "/v1/rooms/{roomId}/objects", summary: "List room manipulatives in a room", tags: ["room-objects"], response: ListRoomObjectsResponseSchema },

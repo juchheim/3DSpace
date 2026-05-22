@@ -674,6 +674,21 @@ export class MongoRepository implements Repository {
     return entity<RoomObjectTemplate | undefined>(doc);
   }
 
+  async createRoomObjectTemplate(input: Omit<RoomObjectTemplate, "id" | "createdAt">) {
+    const existing = await this.models.RoomObjectTemplate.findOne({
+      slug: input.slug,
+      archivedAt: { $exists: false }
+    }).lean();
+    if (existing) throw conflict("Room object template slug already exists");
+    const record: RoomObjectTemplate = {
+      ...input,
+      id: newId("rotpl"),
+      createdAt: nowIso()
+    };
+    await this.models.RoomObjectTemplate.create(record);
+    return record;
+  }
+
   async archiveRoomObjectTemplate(templateId: string) {
     const existing = entity<RoomObjectTemplate | undefined>(
       await this.models.RoomObjectTemplate.findOne({ id: templateId }).lean()

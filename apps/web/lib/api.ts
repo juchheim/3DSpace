@@ -6,11 +6,14 @@ import type {
   ClassMembership,
   ClassRecord,
   CreateRoomObjectRequestSchema,
+  CreateRoomObjectTemplateRequestSchema,
+  CreateRoomObjectUploadRequestSchema,
   Invite,
   LessonRecap,
   Role,
   RoomRecord,
   RoomObject,
+  RoomObjectCategory,
   RoomObjectRealtimeInbound,
   RoomObjectRealtimeMessage,
   RoomObjectTemplate,
@@ -293,6 +296,94 @@ export function createWebResource(
 
 export function listRoomObjectTemplates(identity: ApiIdentity) {
   return apiFetch<{ templates: RoomObjectTemplate[] }>("/v1/room-objects/templates", { identity }).then((response) => response.templates);
+}
+
+export function createRoomObjectUpload(
+  identity: ApiIdentity,
+  roomId: string,
+  input: z.infer<typeof CreateRoomObjectUploadRequestSchema>
+) {
+  return apiFetch<{
+    storageKey: string;
+    assetUrl: string;
+    upload: { url: string; method: "PUT"; headers: Record<string, string> };
+  }>(`/v1/rooms/${roomId}/room-objects/uploads`, {
+    method: "POST",
+    identity,
+    body: input
+  });
+}
+
+export function createRoomObjectTemplate(identity: ApiIdentity, input: z.infer<typeof CreateRoomObjectTemplateRequestSchema>) {
+  return apiFetch<{ template: RoomObjectTemplate }>("/v1/room-objects/templates", {
+    method: "POST",
+    identity,
+    body: input
+  }).then((response) => response.template);
+}
+
+function buildCustomRoomObjectSlug(displayName: string) {
+  const base = displayName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48) || "room-object";
+  return `${base}-${Date.now().toString(36)}`.slice(0, 64);
+}
+
+async function uploadFileToTarget(upload: { url: string; method: "PUT"; headers: Record<string, string> }, file: File) {
+  const response = await fetch(upload.url, {
+    method: upload.method,
+    headers: upload.headers,
+    body: file
+  });
+  if (!response.ok) {
+    throw new Error(`Upload failed with ${response.status}`);
+  }
+}
+
+export async function uploadRoomObjectGlb(
+  identity: ApiIdentity,
+  input: {
+    roomId: string;
+    file: File;
+    thumbnailFile: File;
+    displayName: string;
+    category?: RoomObjectCategory | undefined;
+    description?: string | undefined;
+    license: string;
+    attribution: string;
+  }
+) {
+  const assetUpload = await createRoomObjectUpload(identity, input.roomId, {
+    kind: "asset",
+    fileName: input.file.name,
+    contentType: "model/gltf-binary"
+  });
+  await uploadFileToTarget(assetUpload.upload, input.file);
+
+  const thumbnailUpload = await createRoomObjectUpload(identity, input.roomId, {
+    kind: "thumbnail",
+    fileName: input.thumbnailFile.name,
+    contentType: "image/png"
+  });
+  await uploadFileToTarget(thumbnailUpload.upload, input.thumbnailFile);
+
+  return createRoomObjectTemplate(identity, {
+    roomId: input.roomId,
+    assetStorageKey: assetUpload.storageKey,
+    thumbnailStorageKey: thumbnailUpload.storageKey,
+    slug: buildCustomRoomObjectSlug(input.displayName),
+    displayName: input.displayName,
+    category: input.category ?? "custom",
+    description: input.description ?? "",
+    defaultScale: 1,
+    defaultParameters: {},
+    parameterSchemaJson: "{}",
+    license: input.license,
+    attribution: input.attribution,
+    exportable: true
+  });
 }
 
 export function listRoomObjects(identity: ApiIdentity, roomId: string, options?: { status?: RoomObject["status"] | undefined }) {
