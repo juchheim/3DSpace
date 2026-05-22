@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, type CSSProperties } from "react";
-import { Html } from "@react-three/drei";
+import { useMemo } from "react";
+import { Billboard, Text } from "@react-three/drei";
 import { DoubleSide, MathUtils } from "three";
 import type { ProceduralProps } from "./types";
 
@@ -153,25 +153,25 @@ function buildLayout(bondAngleDeg: number, bondLength: number) {
   return { oxygen, hydrogens, bonds };
 }
 
-// ── Label styling (inline so the renderer stays self-contained) ─────────────
-
-const LABEL_FONT = "600 13px 'Barlow', system-ui, sans-serif";
-
-const ATOM_LABEL_STYLE: CSSProperties = {
-  padding: "1px 7px 2px",
-  borderRadius: "999px",
-  background: "rgba(9, 12, 18, 0.82)",
-  border: "1px solid rgba(255, 255, 255, 0.22)",
-  color: "#f4f6f8",
-  font: LABEL_FONT,
-  letterSpacing: "0.04em",
-  lineHeight: 1.2,
-  pointerEvents: "none",
-  userSelect: "none",
-  whiteSpace: "nowrap",
-};
-
 // ── Sub-components ──────────────────────────────────────────────────────────
+
+function AtomLabel({ symbol, fontSize }: { symbol: string; fontSize: number }) {
+  const outline = fontSize * 0.12;
+  return (
+    <Billboard>
+      <Text
+        fontSize={fontSize}
+        color="#f4f6f8"
+        anchorX="center"
+        anchorY="middle"
+        outlineWidth={outline}
+        outlineColor="#0c1218"
+      >
+        {symbol}
+      </Text>
+    </Billboard>
+  );
+}
 
 function Atom({
   position,
@@ -190,9 +190,7 @@ function Atom({
         <sphereGeometry args={[1, 64, 48]} />
         <meshStandardMaterial color={color} roughness={0.26} metalness={0} />
       </mesh>
-      <Html center distanceFactor={5} position={[0, 0, 0]}>
-        <div style={ATOM_LABEL_STYLE}>{symbol}</div>
-      </Html>
+      <AtomLabel symbol={symbol} fontSize={radius * 1.05} />
     </group>
   );
 }
@@ -206,19 +204,7 @@ function BondAngleAnnotation({ oxygenRadius, accent }: { oxygenRadius: number; a
   const thetaStart = Math.PI / 2 - half;
   const thetaLength = half * 2;
 
-  const degreeChipStyle: CSSProperties = {
-    padding: "2px 9px 3px",
-    borderRadius: "999px",
-    background: "rgba(9, 12, 18, 0.86)",
-    border: `1.5px solid ${accent}`,
-    color: accent,
-    font: LABEL_FONT,
-    letterSpacing: "0.02em",
-    lineHeight: 1.2,
-    pointerEvents: "none",
-    userSelect: "none",
-    whiteSpace: "nowrap",
-  };
+  const labelSize = outerRadius * 0.55;
 
   return (
     <group>
@@ -226,9 +212,18 @@ function BondAngleAnnotation({ oxygenRadius, accent }: { oxygenRadius: number; a
         <ringGeometry args={[innerRadius, outerRadius, 72, 1, thetaStart, thetaLength]} />
         <meshBasicMaterial color={accent} side={DoubleSide} transparent opacity={0.95} depthWrite={false} />
       </mesh>
-      <Html center distanceFactor={5} position={[0, outerRadius + 0.08, 0]}>
-        <div style={degreeChipStyle}>{`${BOND_ANGLE_DEG}°`}</div>
-      </Html>
+      <Billboard position={[0, outerRadius + 0.08, 0]}>
+        <Text
+          fontSize={labelSize}
+          color={accent}
+          anchorX="center"
+          anchorY="middle"
+          outlineWidth={labelSize * 0.1}
+          outlineColor="#0c1218"
+        >
+          {`${BOND_ANGLE_DEG}°`}
+        </Text>
+      </Billboard>
     </group>
   );
 }
@@ -242,7 +237,7 @@ function BondAngleAnnotation({ oxygenRadius, accent }: { oxygenRadius: number; a
  * never to the atoms — tinting the atoms would break the CPK colour convention
  * the palette parameter exists to teach.
  */
-export function WaterMolecule({ parameters, scale, colorTintHex, exportRootRef }: ProceduralProps) {
+export function WaterMolecule({ parameters, scale, colorTintHex }: ProceduralProps) {
   const modelStyle = readEnum(parameters.modelStyle, ["ball-and-stick", "space-filling"] as const, "ball-and-stick");
   const palette = readEnum(parameters.palette, ["cpk", "accessible"] as const, "cpk");
   const bondAngleVisible = readBoolean(parameters.bondAngleVisible, true);
@@ -254,7 +249,7 @@ export function WaterMolecule({ parameters, scale, colorTintHex, exportRootRef }
   const layout = useMemo(() => buildLayout(BOND_ANGLE_DEG, BOND_LENGTH), []);
 
   return (
-    <group ref={exportRootRef} scale={scale}>
+    <group scale={scale}>
       {/* Oxygen sits at the local origin — the molecule's natural anchor point. */}
       <Atom position={layout.oxygen} radius={radii.oxygen} color={colors.oxygen} symbol="O" />
       {layout.hydrogens.map((hydrogen) => (

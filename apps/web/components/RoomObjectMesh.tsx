@@ -199,12 +199,13 @@ export function RoomObjectMesh({
   const yaw = pose.rotation.yaw;
   const roll = pose.rotation.roll ?? 0;
 
+  const labelOffsetY = 1.1;
+
   return (
     <group
       ref={rootRef}
       position={[pose.position.x, pose.position.y, pose.position.z]}
       rotation={[pitch, yaw, roll]}
-      scale={template.renderer === "gltf" ? scale : 1}
       onPointerDown={onPointerDown}
       onWheel={onWheel}
       onPointerOver={(event) => {
@@ -213,13 +214,13 @@ export function RoomObjectMesh({
       }}
       onPointerOut={() => setHovered(false)}
     >
-      <group ref={exportRootRef}>
+      <group ref={exportRootRef} scale={scale}>
         {template.renderer === "procedural" && template.proceduralId ? (
           renderProcedural(template.proceduralId, {
             parameters: object.parameters,
-            scale,
+            scale: 1,
             colorTintHex: object.colorTintHex,
-            exportRootRef
+            exportRootRef: { current: null }
           })
         ) : template.assetUrl ? (
           <Suspense fallback={null}>
@@ -231,33 +232,39 @@ export function RoomObjectMesh({
             <meshStandardMaterial color="#888" wireframe />
           </mesh>
         )}
-      </group>
 
-      <mesh visible={false} scale={[1.4, 1.2, 1.4]}>
-        <boxGeometry args={[1, 1, 1]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-        {showOutline ? (
-          <Outlines
-            thickness={0.03}
-            color={grabHolderColor}
-            opacity={outlineOpacity}
-            screenspace={false}
-          />
-        ) : null}
-      </mesh>
+        <mesh visible={false} scale={[1.4, 1.2, 1.4]}>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+          {showOutline ? (
+            <Outlines
+              thickness={0.03}
+              color={grabHolderColor}
+              opacity={outlineOpacity}
+              screenspace={false}
+            />
+          ) : null}
+        </mesh>
 
-      <Html center distanceFactor={7} position={[0, 1.1, 0]} className="room-object-html">
-        <button
-          type="button"
-          className="room-object-label room-object-label--select"
-          onPointerDown={(event) => {
-            event.stopPropagation();
-            onSelect();
-          }}
+        <Html
+          transform
+          center
+          position={[0, labelOffsetY, 0]}
+          scale={0.12}
+          className="room-object-html"
         >
-          <span className="room-object-label__name">{object.displayName}</span>
-        </button>
-      </Html>
+          <button
+            type="button"
+            className="room-object-label room-object-label--select"
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              onSelect();
+            }}
+          >
+            <span className="room-object-label__name">{object.displayName}</span>
+          </button>
+        </Html>
+      </group>
     </group>
   );
 }

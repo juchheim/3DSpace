@@ -9,7 +9,7 @@ import type { Group } from "three";
 export type ProceduralProps = RoomObjectProceduralRenderProps & {
   /**
    * Ref to the single `<group>` holding every exportable mesh.
-   * `Group | null` matches the return type of React 19's `useRef<Group>(null)`.
+   * `RoomObjectMesh` owns the ref on its scaled export root; the dev harness attaches it on a wrapper.
    */
-  exportRootRef: RefObject<Group | null>;
+  exportRootRef?: RefObject<Group | null>;
 };

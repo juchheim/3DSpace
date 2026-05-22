@@ -215,7 +215,6 @@ export function RoomObjectHeroHarness() {
   const proceduralProps: ProceduralProps = {
     parameters,
     scale: 1,
-    exportRootRef,
     ...(accentTint ? { colorTintHex: accentTint } : {}),
   };
 
@@ -293,7 +292,7 @@ export function RoomObjectHeroHarness() {
           <directionalLight position={[4, 6, 5]} intensity={2.4} color="#fff4e6" />
           <directionalLight position={[-5, 2, 1.5]} intensity={0.7} color="#bcd2ff" />
           <directionalLight position={[-1.5, 3.5, -6]} intensity={1.15} />
-          {renderProcedural(WATER_MOLECULE_PROCEDURAL_ID, proceduralProps)}
+          <group ref={exportRootRef}>{renderProcedural(WATER_MOLECULE_PROCEDURAL_ID, proceduralProps)}</group>
           <OrbitControls
             makeDefault
             enablePan={false}
