@@ -11,6 +11,8 @@ function statusLabel(status: ClassroomHelpRequest["status"]) {
   return "Cancelled";
 }
 
+export type BoardAccessPanelDock = "right-hud" | "left-people";
+
 export function BoardAccessSidePanel({
   displayName,
   userId,
@@ -19,6 +21,7 @@ export function BoardAccessSidePanel({
   manifest,
   error,
   showHelpActions = false,
+  dock = "right-hud",
   onRunAction,
   onClose
 }: {
@@ -29,6 +32,7 @@ export function BoardAccessSidePanel({
   manifest: RoomManifest;
   error?: string | undefined;
   showHelpActions?: boolean | undefined;
+  dock?: BoardAccessPanelDock | undefined;
   onRunAction(action: ClassroomAction): Promise<void>;
   onClose(): void;
 }) {
@@ -44,7 +48,10 @@ export function BoardAccessSidePanel({
   }
 
   return (
-    <div className="hud-panel student-detail-panel" aria-label={`Board access for ${displayName}`}>
+    <div
+      className={`hud-panel student-detail-panel${dock === "left-people" ? " student-detail-panel--left-people" : ""}`}
+      aria-label={`Board access for ${displayName}`}
+    >
       <div className="student-detail-header">
         <div className="classroom-grant-header" style={{ flex: 1 }}>
           <span>Grant board access</span>

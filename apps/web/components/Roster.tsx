@@ -169,6 +169,7 @@ export function StudentDetailPanel({
       activeGrants={activeGrants}
       manifest={manifest}
       error={error}
+      dock="left-people"
       showHelpActions={Boolean(helpRequest)}
       onRunAction={onRunAction}
       onClose={onClose}

@@ -1171,13 +1171,13 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     role === "student" &&
     (lesson.run?.status === "running" || lesson.run?.status === "paused") &&
     lesson.currentStep?.kind === "private-check";
-  const detailPanelOpen = Boolean(helpBoardAccessUserId || selectedStudentId);
+  const helpDetailPanelOpen = Boolean(helpBoardAccessUserId);
   const lessonScriptDockOpen = CLIENT_TUNING.enableClassroomLessons && role === "teacher" && Boolean(lesson.run);
   const roomObjectInspectorDockOpen =
     roomObjectsEnabled &&
     role === "teacher" &&
     Boolean(selectedRoomObject && selectedRoomObjectTemplate);
-  const roomObjectInspectorStacked = detailPanelOpen || lessonScriptDockOpen;
+  const roomObjectInspectorStacked = helpDetailPanelOpen || lessonScriptDockOpen;
   const avatarEditorLocked =
     classroom.state?.lessonRun?.status === "running" &&
     classroom.state?.avatarEditorLocked === true;
@@ -1208,7 +1208,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   }, [publishAudioMode, role, session, studentHasBroadcastGrant]);
 
   return (
-    <main className="app-shell room-shell">
+    <main className={`app-shell room-shell${role === "teacher" ? " room-shell--teacher-people" : ""}`}>
       {/* Stage fills the full viewport */}
       <div className="room-stage" aria-label="Shared classroom">
         {leaving ? (
@@ -1563,6 +1563,23 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         </div>
       </div>
 
+      {role === "teacher" ? (
+        <aside className="room-hud-people" aria-label="Participants">
+          <div className="hud-panel">
+            <Roster
+              participants={participantList}
+              classroomState={classroom.state}
+              role={role}
+              selectedStudentId={selectedStudentId}
+              onSelectStudent={(id) => {
+                setHelpBoardAccessUserId("");
+                setSelectedStudentId(id);
+              }}
+            />
+          </div>
+        </aside>
+      ) : null}
+
       {/* Right HUD: unified collapsible panel */}
       <aside className="room-hud-right" aria-label="Room details">
         <div className="hud-panel">
@@ -1609,16 +1626,18 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               }}
             />
           ) : null}
-          <Roster
-            participants={participantList}
-            classroomState={classroom.state}
-            role={role}
-            selectedStudentId={selectedStudentId}
-            onSelectStudent={(id) => {
-              setHelpBoardAccessUserId("");
-              setSelectedStudentId(id);
-            }}
-          />
+          {role !== "teacher" ? (
+            <Roster
+              participants={participantList}
+              classroomState={classroom.state}
+              role={role}
+              selectedStudentId={selectedStudentId}
+              onSelectStudent={(id) => {
+                setHelpBoardAccessUserId("");
+                setSelectedStudentId(id);
+              }}
+            />
+          ) : null}
           <ClassroomPanel
             role={role}
             state={classroom.state}
@@ -1771,7 +1790,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       ) : null}
       {CLIENT_TUNING.enableClassroomLessons && role === "teacher" && lesson.run ? (
         <aside
-          className={`room-hud-right-secondary${detailPanelOpen ? " room-hud-right-secondary--stacked" : ""}`}
+          className={`room-hud-right-secondary${helpDetailPanelOpen ? " room-hud-right-secondary--stacked" : ""}`}
           aria-label="Lesson script"
           data-testid="lesson-script-dock"
         >

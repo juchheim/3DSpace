@@ -540,6 +540,35 @@ label {
   pointer-events: auto;
 }
 
+.room-hud-people {
+  position: absolute;
+  left: 6px;
+  top: calc(var(--hud-th) + 12px);
+  bottom: 6px;
+  width: var(--hud-pw);
+  z-index: 20;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  pointer-events: none;
+}
+
+.room-hud-people > * {
+  pointer-events: auto;
+}
+
+.room-hud-people::-webkit-scrollbar {
+  display: none;
+}
+
+.room-shell--teacher-people .room-hud-left {
+  left: calc(var(--hud-pw) + 12px);
+}
+
+.room-shell--teacher-people .avatar-editor__panel {
+  left: calc(var(--hud-pw) + var(--hud-lw) + 24px);
+}
+
 .room-hud-right {
   position: absolute;
   right: 6px;
@@ -608,6 +637,11 @@ label {
 
 .student-detail-panel::-webkit-scrollbar {
   display: none;
+}
+
+.student-detail-panel--left-people {
+  right: auto;
+  left: calc(var(--hud-pw) + 12px);
 }
 
 .hud-card {
@@ -2673,6 +2707,10 @@ button.hud-heading-btn:hover {
 
 @media (max-width: 640px) {
   .room-hud-right {
+    display: none;
+  }
+
+  .room-hud-people {
     display: none;
   }
 

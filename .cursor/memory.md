@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-22 (Room object Apply transform fix — API pose/scale clamp + inspector sync)
+Last updated: 2026-05-22 (Teacher People panel docked left; student detail opens to its right)
 
 ## Project Summary
 
@@ -126,7 +126,7 @@ Local loading:
 - MVP+1 design decision → introduce `WallObject` for visible placed wall content; keep `WallAttachment` as file asset metadata instead of stretching it to represent live streams, web links, whiteboards, polls, and timers
 - MVP+1 implementation → `WallObject` persists outside the room manifest, hydrates via API, syncs via reliable realtime messages, and renders through shared wall-object state in both 3D and 2D.
 - MVP+1 classroom tools plan → builds on `WallObject`, `ClassMembership`, LiveKit data channels, roster/people panel, and a new room-scoped `ClassroomState`; classroom state decorates participants but must not overwrite live avatar movement.
-- `Roster` People panel now owns teacher board-access selection UI; `ClassroomState.boardAccessGrants` feeds both teacher participant controls and student `AnchorPanel` creation gating through `activeBoardGrant`.
+- `Roster` People panel now owns teacher board-access selection UI; `ClassroomState.boardAccessGrants` feeds both teacher participant controls and student `AnchorPanel` creation gating through `activeBoardGrant`. Teacher view docks People in `room-hud-people` (left); selecting a student opens `BoardAccessSidePanel` to the right via `student-detail-panel--left-people`. Students still see People in `room-hud-right`.
 - `ClassroomPanel` owns private-check authoring/open-close controls, student active-check forms, and teacher response review while relying on role-filtered classroom API responses to keep student clients limited to their own submissions.
 - Wall object clients now periodically refresh persisted room wall objects and hydrate signed asset URLs, so teacher boards recover from missed student upload realtime messages without polling or resetting avatar state.
 
