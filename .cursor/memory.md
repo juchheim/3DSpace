@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-22 (RoomObject catalog now includes procedural caffeine molecule)
+Last updated: 2026-05-22 (Caffeine molecule readability fix)
 
 ## Project Summary
 
@@ -194,6 +194,7 @@ Screen share, computer audio, teacher moderation, rich wall placement, room buil
 - **2026-05-22**: Room object scale range raised to **0.5×–10×** of template `defaultScale` via shared `roomObjectScaleBounds` / `clampRoomObjectScaleValue` in `@3dspace/contracts` (API + inspector + drag snap).
 - **2026-05-22**: Water molecule H/O labels are now actual mesh geometry on the atom sphere surfaces: hydrogen labels use three dark rectangular strokes and oxygen uses a white torus ring, so they render with the molecule and scale/rotate as part of it instead of relying on Html/Text overlays.
 - **2026-05-22**: Added a second builtin RoomObject, **Caffeine molecule (C₈H₁₀N₄O₂)** (`proceduralId: "caffeine-molecule"`): procedural ball-and-stick / space-filling renderer with CPK + colourblind-safe palettes, mesh N/O labels, optional fused-ring guide, catalog metadata, thumbnail `caffeine-molecule.png`, toolbar selectability for all registered procedurals, and API/catalog tests. Validation: `npm run typecheck`; `npx vitest run packages/room-objects/tests/builtin-hero.test.ts packages/contracts/tests/room-objects.test.ts apps/api/tests/api.test.ts -t "room object"`.
+- **2026-05-22**: Caffeine molecule visual QA from in-room screenshot: nitrogen labels appeared mirrored when viewed from the back side and atom spheres hid bond connectors. Fixed `caffeineMolecule.tsx` by rendering mesh labels on both front/back atom surfaces, correcting the N diagonal orientation, and reducing caffeine atom radii in ball-and-stick / space-filling modes. Validation: `npm --workspace @3dspace/web run typecheck`.
 - **2026-05-21**: **RoomObject Phase 7 (hero integration)** complete: `builtin.json` ↔ `hero-draft.json` parity test; generated `water-molecule.png` thumbnail; `ROOM_OBJECT_HERO_SLUG` + initial v1 toolbar gating; `ROOM_OBJECT_DEMO_SCRIPT.md`; Playwright `room-objects.spec.ts` + env flags; procedural registry confirmed. Manual district demo + full e2e run pending CI/local servers.
 - **2026-05-21**: **RoomObject Phase 6 (2D parity)** complete: `RoomObjectIcon2D` (SVG at `projectPositionTo2D`, drag via `unprojectPointFrom2D`, halo, keyboard/wheel, `aria-live`); `RoomView2D` + `RoomClient` wiring; `delta2DToWorldXZ` in room-engine; reuses `RoomObjectInspector` overlay. Manual 2D/3D sync test pending.
 - **2026-05-21**: **RoomObject Phase 5 (3D UI)** complete: `RoomObjectsLayer` + `RoomObjectMesh` (procedural/gltf, Drei `Outlines`, drag/rotate/scale with snap, `exportRootRef`, Html label); `RoomObjectInspector` (parameters, tint, teacher touch grants); teacher `RoomObjectsToolbar` (catalog, Place 0.5 m ahead, active list); wired in `RoomView3D` (between floor and wall layer) and `RoomClient`; `.room-object-*` CSS; `roomObjectInteraction.ts` helpers. Manual two-tab grab test still pending.

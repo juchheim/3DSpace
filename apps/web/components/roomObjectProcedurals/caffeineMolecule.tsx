@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Quaternion, Vector3 } from "three";
 import type { ProceduralProps } from "./types";
 
@@ -106,16 +106,16 @@ const DOUBLE_BOND_OFFSET = 0.032;
 
 const ATOM_RADII: Record<ModelStyle, Record<ElementSymbol, number>> = {
   "ball-and-stick": {
-    C: 0.105,
-    H: 0.066,
-    N: 0.112,
-    O: 0.116,
+    C: 0.076,
+    H: 0.048,
+    N: 0.082,
+    O: 0.086,
   },
   "space-filling": {
-    C: 0.205,
-    H: 0.145,
-    N: 0.19,
-    O: 0.185,
+    C: 0.18,
+    H: 0.12,
+    N: 0.17,
+    O: 0.165,
   },
 };
 
@@ -309,15 +309,27 @@ function useCylinderTransform(start: Vec3, end: Vec3) {
 
 const ATOM_SYMBOL_SCALE = 0.42;
 
+function SurfaceLabelPair({ children, radius }: { children: ReactNode; radius: number }) {
+  const z = radius * 1.05;
+
+  return (
+    <>
+      <group position={[0, 0, z]}>{children}</group>
+      <group position={[0, 0, -z]} rotation={[0, Math.PI, 0]}>
+        {children}
+      </group>
+    </>
+  );
+}
+
 function HydrogenSurfaceLabel({ radius }: { radius: number }) {
   const height = radius * 1.35 * ATOM_SYMBOL_SCALE;
   const width = radius * 0.9 * ATOM_SYMBOL_SCALE;
   const stroke = radius * 0.2 * ATOM_SYMBOL_SCALE;
   const depth = radius * 0.08 * ATOM_SYMBOL_SCALE;
-  const z = radius * 1.04;
 
   return (
-    <group position={[0, 0, z]}>
+    <SurfaceLabelPair radius={radius}>
       <mesh position={[-width / 2, 0, 0]}>
         <boxGeometry args={[stroke, height, depth]} />
         <meshBasicMaterial color={LABEL_COLORS.H} />
@@ -330,16 +342,18 @@ function HydrogenSurfaceLabel({ radius }: { radius: number }) {
         <boxGeometry args={[width + stroke, stroke, depth]} />
         <meshBasicMaterial color={LABEL_COLORS.H} />
       </mesh>
-    </group>
+    </SurfaceLabelPair>
   );
 }
 
 function OxygenSurfaceLabel({ radius }: { radius: number }) {
   return (
-    <mesh position={[0, 0, radius * 1.04]}>
-      <torusGeometry args={[radius * 0.42 * ATOM_SYMBOL_SCALE, radius * 0.075 * ATOM_SYMBOL_SCALE, 12, 32]} />
-      <meshBasicMaterial color={LABEL_COLORS.O} />
-    </mesh>
+    <SurfaceLabelPair radius={radius}>
+      <mesh>
+        <torusGeometry args={[radius * 0.42 * ATOM_SYMBOL_SCALE, radius * 0.075 * ATOM_SYMBOL_SCALE, 12, 32]} />
+        <meshBasicMaterial color={LABEL_COLORS.O} />
+      </mesh>
+    </SurfaceLabelPair>
   );
 }
 
@@ -349,11 +363,10 @@ function NitrogenSurfaceLabel({ radius }: { radius: number }) {
   const stroke = radius * 0.18 * ATOM_SYMBOL_SCALE;
   const depth = radius * 0.08 * ATOM_SYMBOL_SCALE;
   const diagonalLength = Math.hypot(width, height);
-  const diagonalRotation = Math.atan2(-width, height);
-  const z = radius * 1.04;
+  const diagonalRotation = Math.atan2(width, height);
 
   return (
-    <group position={[0, 0, z]}>
+    <SurfaceLabelPair radius={radius}>
       <mesh position={[-width / 2, 0, 0]}>
         <boxGeometry args={[stroke, height, depth]} />
         <meshBasicMaterial color={LABEL_COLORS.N} />
@@ -366,7 +379,7 @@ function NitrogenSurfaceLabel({ radius }: { radius: number }) {
         <boxGeometry args={[stroke, diagonalLength, depth]} />
         <meshBasicMaterial color={LABEL_COLORS.N} />
       </mesh>
-    </group>
+    </SurfaceLabelPair>
   );
 }
 
