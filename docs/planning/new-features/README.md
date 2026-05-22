@@ -6,6 +6,14 @@ Brainstorm + implementation docs for features not yet on a committed roadmap.
 
 - [`LEARNING_FEATURE_IDEAS.md`](./LEARNING_FEATURE_IDEAS.md) — full brainstorm: 7 small ideas (2 deprioritized), 4 big ideas, 2 alternate seeds, Sequence A/B recommendations.
 
+### Big-idea concept docs
+
+| Doc | Idea | Status |
+| --- | --- | --- |
+| [`CONCEPT_WORLD_SKINS_PHASE_A.md`](./CONCEPT_WORLD_SKINS_PHASE_A.md) + [`IMPL_WORLD_SKINS_PHASE_A.md`](./IMPL_WORLD_SKINS_PHASE_A.md) | World Skins — Phase A curated launch library (Big idea #3); texture + atmosphere, no glTF props | **Planned** (concept accepted; IMPL drafted) |
+
+`CONCEPT_*` docs are the full product picture (why, who, skins, UX, integration, acceptance). `IMPL_*` is the phase-by-phase build plan. `PLAN_*` is reserved for file-level design when an extra step between concept and IMPL is useful.
+
 ### Sweet-spot implementation plans (high importance × low effort)
 
 These four were the recommended first sprint per `LEARNING_FEATURE_IDEAS.md` "Recommendation" + downstream conversation. Each shipped independently behind its own feature flag on `mvp-plus-one`.
