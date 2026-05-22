@@ -153,36 +153,45 @@ function buildLayout(bondAngleDeg: number, bondLength: number) {
   return { oxygen, hydrogens, bonds };
 }
 
-// ── Label styling (transform Html scales with the manipulative export root) ─
-
-const ATOM_LABEL_STYLE: CSSProperties = {
-  padding: "1px 7px 2px",
-  borderRadius: "999px",
-  background: "rgba(9, 12, 18, 0.82)",
-  border: "1px solid rgba(255, 255, 255, 0.22)",
-  color: "#f4f6f8",
-  font: "600 13px 'Barlow', system-ui, sans-serif",
-  letterSpacing: "0.04em",
-  lineHeight: 1.2,
-  pointerEvents: "none",
-  userSelect: "none",
-  whiteSpace: "nowrap",
-};
-
 // ── Sub-components ──────────────────────────────────────────────────────────
 
-function AtomLabel({ symbol, radius }: { symbol: string; radius: number }) {
+function HydrogenSurfaceLabel({ radius }: { radius: number }) {
+  const height = radius * 1.35;
+  const width = radius * 0.9;
+  const stroke = radius * 0.2;
+  const depth = radius * 0.08;
+  const z = radius * 1.04;
+  const materialColor = "#18212b";
+
   return (
-    <Html
-      transform
-      center
-      position={[0, radius * 0.72, 0]}
-      scale={radius * 0.55}
-      style={{ pointerEvents: "none" }}
-    >
-      <div style={ATOM_LABEL_STYLE}>{symbol}</div>
-    </Html>
+    <group position={[0, 0, z]}>
+      <mesh position={[-width / 2, 0, 0]}>
+        <boxGeometry args={[stroke, height, depth]} />
+        <meshBasicMaterial color={materialColor} />
+      </mesh>
+      <mesh position={[width / 2, 0, 0]}>
+        <boxGeometry args={[stroke, height, depth]} />
+        <meshBasicMaterial color={materialColor} />
+      </mesh>
+      <mesh>
+        <boxGeometry args={[width + stroke, stroke, depth]} />
+        <meshBasicMaterial color={materialColor} />
+      </mesh>
+    </group>
   );
+}
+
+function OxygenSurfaceLabel({ radius }: { radius: number }) {
+  return (
+    <mesh position={[0, 0, radius * 1.04]}>
+      <torusGeometry args={[radius * 0.38, radius * 0.065, 14, 40]} />
+      <meshBasicMaterial color="#f4f6f8" />
+    </mesh>
+  );
+}
+
+function AtomSurfaceLabel({ symbol, radius }: { symbol: string; radius: number }) {
+  return symbol === "O" ? <OxygenSurfaceLabel radius={radius} /> : <HydrogenSurfaceLabel radius={radius} />;
 }
 
 function Atom({
@@ -202,7 +211,7 @@ function Atom({
         <sphereGeometry args={[1, 64, 48]} />
         <meshStandardMaterial color={color} roughness={0.26} metalness={0} />
       </mesh>
-      <AtomLabel symbol={symbol} radius={radius} />
+      <AtomSurfaceLabel symbol={symbol} radius={radius} />
     </group>
   );
 }
