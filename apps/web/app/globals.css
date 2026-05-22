@@ -4650,19 +4650,27 @@ body.lobby-dark::before {
   flex-direction: column;
 }
 
-.room-object-inspector__row--check {
-  justify-content: flex-start;
-  gap: 10px;
-  cursor: pointer;
+.room-object-inspector__lock-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
 }
 
-.room-object-inspector__row--check > span {
-  white-space: nowrap;
-}
-
-.room-object-inspector__row--check input[type="checkbox"] {
-  flex-shrink: 0;
+.room-object-inspector__lock-row input[type="checkbox"] {
+  flex: 0 0 auto;
   margin: 0;
+}
+
+.room-object-inspector__lock-row label {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 500;
+  color: #e8ecef;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 .room-object-inspector__control {
@@ -4706,8 +4714,21 @@ body.lobby-dark::before {
 
 .room-object-inspector__check {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 500;
+  color: #e8ecef;
+  cursor: pointer;
+}
+
+.room-object-inspector label.room-object-inspector__row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
 }
 
 .room-object-inspector__actions {

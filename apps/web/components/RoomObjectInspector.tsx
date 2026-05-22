@@ -336,8 +336,9 @@ export function RoomObjectInspector({
           <p className="room-object-inspector__hint">
             Lock the object so clicks in 3D only select it — no accidental drags while teaching.
           </p>
-          <label className="room-object-inspector__row room-object-inspector__row--check">
+          <div className="room-object-inspector__lock-row">
             <input
+              id={`room-object-lock-${object.id}`}
               type="checkbox"
               checked={isLocked}
               disabled={busy}
@@ -347,8 +348,8 @@ export function RoomObjectInspector({
                 );
               }}
             />
-            <span>Lock in place</span>
-          </label>
+            <label htmlFor={`room-object-lock-${object.id}`}>Lock in place</label>
+          </div>
           <span className="room-object-inspector__label">Touch access</span>
           <p className="room-object-inspector__hint">
             Match board grants: teacher-only, named students/groups, or whole class.
