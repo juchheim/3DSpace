@@ -148,7 +148,6 @@ export function RoomObjectsToolbar({
             {catalog.map((template) => {
               const placeable = isRoomObjectTemplatePlaceable(template);
               const selectable = isRoomObjectTemplateSelectableInV1(template);
-              const isHero = template.slug === ROOM_OBJECT_HERO_SLUG;
               const isCustom = template.source === "custom";
               const placedCount = objects.filter((object) => object.templateId === template.id).length;
               return (
@@ -168,10 +167,7 @@ export function RoomObjectsToolbar({
                     )}
                   </div>
                   <div className="room-object-toolbar__copy">
-                    <span className="room-object-toolbar__name">
-                      {template.displayName}
-                      {isHero ? <span className="room-object-toolbar__hero-badge">District demo</span> : null}
-                    </span>
+                    <span className="room-object-toolbar__name">{template.displayName}</span>
                     <span className="room-object-toolbar__category">{template.category}</span>
                     <p className="room-object-toolbar__desc">{template.description}</p>
                   </div>
