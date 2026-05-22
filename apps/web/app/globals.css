@@ -4556,11 +4556,6 @@ body.lobby-dark::before {
   letter-spacing: 0.03em;
 }
 
-.room-object-label__meta {
-  font: 500 10px system-ui, sans-serif;
-  color: #b8c0c8;
-}
-
 .room-object-inspector {
   width: min(280px, 72vw);
   padding: 10px 12px 12px;

@@ -3088,7 +3088,7 @@ describe("room object instances", () => {
     expect(created.pose.position.x).toBeGreaterThanOrEqual(bounds.minX);
     expect(created.pose.position.z).toBeLessThanOrEqual(bounds.maxZ);
     expect(created.pose.position.z).toBeGreaterThanOrEqual(bounds.minZ);
-    expect(created.scale).toBe(4.4);
+    expect(created.scale).toBe(10);
     expect(created.pose.position.y).toBeGreaterThan(0);
 
     const heightPatch = await app.inject({

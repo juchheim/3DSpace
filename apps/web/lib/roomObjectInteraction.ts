@@ -1,4 +1,4 @@
-import type { Pose, Role, RoomManifest, RoomObject, RoomObjectTemplate, Vector3 } from "@3dspace/contracts";
+import { roomObjectScaleBounds, type Pose, type Role, type RoomManifest, type RoomObject, type RoomObjectTemplate, type Vector3 } from "@3dspace/contracts";
 import { clampPositionToBounds } from "@3dspace/room-engine";
 import { ROOM_OBJECT_PROCEDURALS } from "../components/roomObjectProcedurals";
 
@@ -75,11 +75,7 @@ export function snapYaw(yaw: number, bypassSnap: boolean) {
 }
 
 export function scaleBounds(templateDefaultScale: number) {
-  return {
-    min: templateDefaultScale * 0.5,
-    max: templateDefaultScale * 2,
-    step: templateDefaultScale * 0.05
-  };
+  return roomObjectScaleBounds(templateDefaultScale);
 }
 
 export function snapScale(value: number, templateDefaultScale: number, bypassSnap: boolean) {

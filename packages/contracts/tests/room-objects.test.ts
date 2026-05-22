@@ -3,10 +3,12 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
+  clampRoomObjectScaleValue,
   CreateRoomObjectRequestSchema,
   parameterSchemaToJson,
   parseRoomObjectParameterSchemaJson,
   parseRoomSettings,
+  roomObjectScaleBounds,
   RoomObjectRealtimeMessageSchema,
   RoomObjectSchema,
   RoomObjectTemplateSchema,
@@ -172,6 +174,14 @@ describe("room object contracts", () => {
       senderId: "student-1"
     });
     expect(grab.type).toBe("room.object.grab.v1");
+  });
+
+  it("clamps room object scale to 0.5×–10× of template default", () => {
+    const bounds = roomObjectScaleBounds(2.2);
+    expect(bounds.min).toBeCloseTo(1.1);
+    expect(bounds.max).toBeCloseTo(22);
+    expect(clampRoomObjectScaleValue(100, 2.2)).toBeCloseTo(22);
+    expect(clampRoomObjectScaleValue(0.1, 2.2)).toBeCloseTo(1.1);
   });
 });
 

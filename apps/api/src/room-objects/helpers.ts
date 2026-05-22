@@ -1,5 +1,13 @@
 import { clampPositionToBounds, floorYFromZ } from "@3dspace/room-engine";
-import type { ClassMembership, Pose, RoomManifest, RoomObject, RoomObjectTemplate, RoomSettings } from "@3dspace/contracts";
+import {
+  clampRoomObjectScaleValue,
+  type ClassMembership,
+  type Pose,
+  type RoomManifest,
+  type RoomObject,
+  type RoomObjectTemplate,
+  type RoomSettings
+} from "@3dspace/contracts";
 import type { AuthContext } from "../auth.js";
 import type { AppConfig } from "../config.js";
 import { roomObjectDisabled, roomObjectLimitReached, roomObjectNotFound, roomObjectTouchDenied } from "../errors.js";
@@ -20,9 +28,7 @@ export function roomObjectBboxAxisMeters(template: RoomObjectTemplate) {
 }
 
 export function clampRoomObjectScale(scale: number, template: RoomObjectTemplate) {
-  const min = template.defaultScale * 0.5;
-  const max = template.defaultScale * 2;
-  return Math.min(Math.max(scale, min), max);
+  return clampRoomObjectScaleValue(scale, template.defaultScale);
 }
 
 export function clampRoomObjectPose(manifest: RoomManifest, pose: Pose): Pose {

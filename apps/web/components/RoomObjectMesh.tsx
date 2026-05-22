@@ -5,12 +5,7 @@ import { useThree, type ThreeEvent } from "@react-three/fiber";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Group, Plane, Vector3 } from "three";
 import type { Pose, RoomManifest, RoomObject, RoomObjectTemplate } from "@3dspace/contracts";
-import {
-  parameterSummary,
-  snapPosition,
-  snapScale,
-  snapYaw
-} from "../lib/roomObjectInteraction";
+import { snapPosition, snapScale, snapYaw } from "../lib/roomObjectInteraction";
 import { renderProcedural } from "./roomObjectProcedurals";
 
 type RoomObjectActions = {
@@ -87,8 +82,6 @@ export function RoomObjectMesh({
 
   const outlineOpacity = localIsHolder ? 1 : 0.6;
   const showOutline = selected || isGrabbed;
-  const summary = parameterSummary(object.parameters);
-
   const applyPose = useCallback(
     (nextPose: Pose, nextScale: number, bypassSnap: boolean) => {
       const snappedPose: Pose = {
@@ -263,7 +256,6 @@ export function RoomObjectMesh({
           }}
         >
           <span className="room-object-label__name">{object.displayName}</span>
-          {summary ? <span className="room-object-label__meta">{summary}</span> : null}
         </button>
       </Html>
     </group>

@@ -392,6 +392,23 @@ export const RoomObjectTemplateSchema = z.object({
   }
 });
 
+/** Scale limits relative to `RoomObjectTemplate.defaultScale`. */
+export const ROOM_OBJECT_SCALE_MIN_MULTIPLIER = 0.5;
+export const ROOM_OBJECT_SCALE_MAX_MULTIPLIER = 10;
+
+export function roomObjectScaleBounds(templateDefaultScale: number) {
+  return {
+    min: templateDefaultScale * ROOM_OBJECT_SCALE_MIN_MULTIPLIER,
+    max: templateDefaultScale * ROOM_OBJECT_SCALE_MAX_MULTIPLIER,
+    step: templateDefaultScale * 0.05
+  };
+}
+
+export function clampRoomObjectScaleValue(scale: number, templateDefaultScale: number) {
+  const { min, max } = roomObjectScaleBounds(templateDefaultScale);
+  return Math.min(Math.max(scale, min), max);
+}
+
 export const RoomObjectSchema = z.object({
   id: z.string(),
   roomId: z.string(),
