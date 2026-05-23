@@ -1950,7 +1950,22 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               skinLocked={parsedRoomSettings?.worldSkins?.skinLocked ?? false}
               dayNightMode={skinDayNightMode}
               ambientGain={ambientGainOverride}
-              onRunAction={classroom.runAction}
+              onRunAction={async (action) => {
+                const result = await classroom.runAction(action);
+                // The skin API handler returns { skinId, realtimeMessages } rather than a
+                // full ClassroomState, so applyState silently ignores it.  Apply the
+                // optimistic local override here, then broadcast the room.skin.v1 message
+                // so all other participants update immediately via LiveKit.
+                if (action.type === "set-room-skin") {
+                  setTargetSkinId(action.skinId);
+                }
+                if (action.type === "set-room-skin-day-night") {
+                  setTargetDayNightMode(action.mode);
+                }
+                const msgs = (result as { realtimeMessages?: RealtimeMessage[] }).realtimeMessages ?? [];
+                for (const msg of msgs) publishRealtime(msg);
+                return result;
+              }}
               onAmbientChange={(gain) => {
                 setLocalAmbientGain(gain);
                 if (ambientDebounceRef.current) clearTimeout(ambientDebounceRef.current);

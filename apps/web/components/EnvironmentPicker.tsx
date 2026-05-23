@@ -8,6 +8,7 @@
  */
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import type { WorldSkin } from "@3dspace/contracts";
 import type { ApiIdentity } from "../lib/identity";
 import { useWorldSkinCatalog } from "../lib/useWorldSkinCatalog";
@@ -39,8 +40,9 @@ export function EnvironmentPicker({ identity, currentSkinId, onSelect, onClose }
     }
   }
 
-  return (
-    /* Backdrop */
+  const content = (
+    /* Backdrop — rendered via createPortal onto document.body so it is not
+       clipped or repositioned by the .hud-panel { backdrop-filter } ancestor. */
     <div
       className="environment-picker"
       role="dialog"
@@ -98,6 +100,8 @@ export function EnvironmentPicker({ identity, currentSkinId, onSelect, onClose }
       </div>
     </div>
   );
+
+  return createPortal(content, document.body);
 }
 
 function SkinTile({
