@@ -1,8 +1,17 @@
 import crypto from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { AppConfig } from "../config.js";
 import { storageConfigured } from "../config.js";
+
+// Root of apps/web/public — used as a dev-storage fallback for static assets
+// (world-skin thumbnails, etc.) that are committed as public files rather than
+// uploaded to R2. Resolves relative to this source file's location:
+// apps/api/src/services/ → up 4 → repo root → apps/web/public
+const WEB_PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), "../../../../apps/web/public");
 
 const devStorage = new Map<string, { body: Buffer; contentType: string }>();
 
@@ -142,8 +151,13 @@ export async function readStoredObject(
 ) {
   if (!storageConfigured(config)) {
     const object = devStorage.get(input.storageKey);
-    if (!object) return undefined;
-    return object;
+    if (object) return object;
+    // Fallback: serve static assets committed to apps/web/public/ (e.g. skin thumbnails)
+    const publicPath = join(WEB_PUBLIC_DIR, input.storageKey);
+    if (existsSync(publicPath)) {
+      return { body: readFileSync(publicPath), contentType: contentTypeForStorageKey(input.storageKey) };
+    }
+    return undefined;
   }
 
   try {

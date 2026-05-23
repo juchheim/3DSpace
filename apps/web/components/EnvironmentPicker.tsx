@@ -7,6 +7,7 @@
  * Fetches the catalog via useWorldSkinCatalog (cached, soft-refreshes every 30 s).
  */
 
+import { useState } from "react";
 import type { WorldSkin } from "@3dspace/contracts";
 import type { ApiIdentity } from "../lib/identity";
 import { useWorldSkinCatalog } from "../lib/useWorldSkinCatalog";
@@ -21,10 +22,21 @@ type Props = {
 
 export function EnvironmentPicker({ identity, currentSkinId, onSelect, onClose }: Props) {
   const { skins, loading, error } = useWorldSkinCatalog(identity);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   async function pick(skinId: string | null) {
-    await onSelect(skinId);
-    onClose();
+    setBusy(true);
+    setActionError(null);
+    try {
+      await onSelect(skinId);
+      onClose();
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : "Could not apply environment — please try again."
+      );
+      setBusy(false);
+    }
   }
 
   return (
@@ -49,6 +61,10 @@ export function EnvironmentPicker({ identity, currentSkinId, onSelect, onClose }
           </button>
         </div>
 
+        {actionError ? (
+          <p className="environment-picker__status environment-picker__status--error">{actionError}</p>
+        ) : null}
+
         {loading && skins.length === 0 ? (
           <p className="environment-picker__status">Loading…</p>
         ) : error ? (
@@ -62,6 +78,7 @@ export function EnvironmentPicker({ identity, currentSkinId, onSelect, onClose }
               thumbnailUrl={null}
               gradeBands={[]}
               isActive={currentSkinId === null}
+              busy={busy}
               onClick={() => void pick(null)}
             />
             {skins.map((skin) => (
@@ -72,6 +89,7 @@ export function EnvironmentPicker({ identity, currentSkinId, onSelect, onClose }
                 thumbnailUrl={skin.thumbnailStorageKey}
                 gradeBands={skin.gradeBands}
                 isActive={skin.slug === currentSkinId}
+                busy={busy}
                 onClick={() => void pick(skin.slug)}
               />
             ))}
@@ -88,6 +106,7 @@ function SkinTile({
   thumbnailUrl,
   gradeBands,
   isActive,
+  busy,
   onClick,
 }: {
   label: string;
@@ -95,20 +114,26 @@ function SkinTile({
   thumbnailUrl: string | null;
   gradeBands: string[];
   isActive: boolean;
+  busy: boolean;
   onClick: () => void;
 }) {
+  const [thumbFailed, setThumbFailed] = useState(false);
+  const showThumb = thumbnailUrl && !thumbFailed;
+
   return (
     <button
       type="button"
       className={`environment-picker__tile${isActive ? " environment-picker__tile--active" : ""}`}
       onClick={onClick}
+      disabled={busy}
       title={description}
     >
-      {thumbnailUrl ? (
+      {showThumb ? (
         <img
           src={thumbnailUrl}
           alt={`${label} thumbnail`}
           className="environment-picker__thumb"
+          onError={() => setThumbFailed(true)}
         />
       ) : (
         <div className="environment-picker__thumb environment-picker__thumb--default" />
