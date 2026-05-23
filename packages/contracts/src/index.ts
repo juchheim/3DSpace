@@ -507,14 +507,14 @@ export const WORLD_SKIN_PANORAMA_SLICES_DEFAULT: Record<
   z.infer<typeof WorldSkinWallIdSchema>,
   z.infer<typeof WorldSkinPanoramaSliceSchema>
 > = {
-  "wall-left": { u0: 0, u1: 0.2115, v1: 1 },
-  "wall-back-lo": { u0: 0.2115, u1: 0.2692, v1: 1 },
-  "wall-back-li": { u0: 0.2692, u1: 0.3269, v1: 1 },
-  "wall-back-c": { u0: 0.3269, u1: 0.3846, v1: 1 },
-  "wall-back-ri": { u0: 0.3846, u1: 0.4423, v1: 1 },
-  "wall-back-ro": { u0: 0.4423, u1: 0.5, v1: 1 },
-  "wall-right": { u0: 0.5, u1: 0.7115, v1: 1 },
-  "wall-front": { u0: 0.7115, u1: 1, v1: 1 }
+  "wall-left": { u0: 0, u1: 0.25, v1: 1 },
+  "wall-back-lo": { u0: 0.25, u1: 0.3, v1: 1 },
+  "wall-back-li": { u0: 0.3, u1: 0.35, v1: 1 },
+  "wall-back-c": { u0: 0.35, u1: 0.4, v1: 1 },
+  "wall-back-ri": { u0: 0.4, u1: 0.45, v1: 1 },
+  "wall-back-ro": { u0: 0.45, u1: 0.5, v1: 1 },
+  "wall-right": { u0: 0.5, u1: 0.75, v1: 1 },
+  "wall-front": { u0: 0.75, u1: 1, v1: 1 }
 };
 
 export const WorldSkinOverridesSchema = z.object({

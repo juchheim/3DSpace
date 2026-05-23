@@ -58,20 +58,20 @@ describe("room engine", () => {
     expect(board?.height).toBeCloseTo(widescreenHeight(9.6), 3);
   });
 
-  it("uses a rectangular same-height room shell with raised rear tiers", () => {
+  it("uses a square same-height room shell with raised rear tiers", () => {
     const manifest = createDefaultRoomManifest({ roomId: "room_1" });
     const wallHeights = new Set(manifest.walls.map((wall) => wall.height));
 
     expect(wallHeights).toEqual(new Set([manifest.dimensions.height]));
     expect(manifest.dimensions.width).toBe(30);
-    expect(manifest.dimensions.depth).toBe(24);
+    expect(manifest.dimensions.depth).toBe(30);
     expect(manifest.tiers).toEqual([
-      { minZ: 3, maxZ: 7, floorY: 0.5 },
-      { minZ: 7, maxZ: 10.5, floorY: 1 }
+      { minZ: 4, maxZ: 8.5, floorY: 0.5 },
+      { minZ: 8.5, maxZ: 12, floorY: 1 }
     ]);
   });
 
-  it("keeps panorama wall segments proportional to the rectangular four-wall unwrap", () => {
+  it("keeps panorama wall segments proportional to the square four-wall unwrap", () => {
     const manifest = createDefaultRoomManifest({ roomId: "room_1" });
     const lengthsById = new Map(
       manifest.walls.map((wall) => [
@@ -80,12 +80,12 @@ describe("room engine", () => {
       ])
     );
 
-    expect(lengthsById.get("wall-left")).toBe(22);
+    expect(lengthsById.get("wall-left")).toBe(30);
     expect(
       ["wall-back-lo", "wall-back-li", "wall-back-c", "wall-back-ri", "wall-back-ro"]
         .reduce((sum, id) => sum + (lengthsById.get(id) ?? 0), 0)
     ).toBe(30);
-    expect(lengthsById.get("wall-right")).toBe(22);
+    expect(lengthsById.get("wall-right")).toBe(30);
     expect(lengthsById.get("wall-front")).toBe(30);
   });
 
@@ -115,10 +115,10 @@ describe("room engine", () => {
     const updated = applyDefaultRoomGeometry(stale);
 
     expect(new Set(updated.walls.map((wall) => wall.height))).toEqual(new Set([8]));
-    expect(updated.bounds.maxZ).toBe(10.5);
+    expect(updated.bounds.maxZ).toBe(13.5);
     expect(updated.tiers).toEqual([
-      { minZ: 3, maxZ: 7, floorY: 0.5 },
-      { minZ: 7, maxZ: 10.5, floorY: 1 }
+      { minZ: 4, maxZ: 8.5, floorY: 0.5 },
+      { minZ: 8.5, maxZ: 12, floorY: 1 }
     ]);
   });
 
@@ -227,7 +227,7 @@ describe("room engine", () => {
 
     expect(interpolateAvatarState(previous, next, 0.5).position.x).toBeCloseTo(5);
     expect(interpolateAvatarState(previous, next, 0.5).position.y).toBeCloseTo(0);
-    expect(interpolateAvatarState(previous, next, 0.5).position.z).toBeCloseTo(2);
+    expect(interpolateAvatarState(previous, next, 0.5).position.z).toBeCloseTo((previous.position.z + next.position.z) / 2);
   });
 
   it("calculates tunable spatial audio gain and pan", () => {

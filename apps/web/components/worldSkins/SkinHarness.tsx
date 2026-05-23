@@ -17,26 +17,26 @@ import styles from "./SkinHarness.module.css";
 // Mirror of packages/room-engine default manifest. Skins may NOT alter these.
 
 const ROOM_WIDTH = 30;
-const ROOM_DEPTH = 24;
+const ROOM_DEPTH = 30;
 
 type WallDef = { id: string; sx: number; sz: number; ex: number; ez: number; h: number };
 
 const CLASSROOM_WALLS: WallDef[] = [
-  { id: "wall-front",    sx: -15, sz: -11, ex:  15,  ez: -11,  h: 8 },
-  { id: "wall-left",     sx: -15, sz: -11, ex: -15,  ez:  11,  h: 8 },
-  { id: "wall-right",    sx:  15, sz: -11, ex:  15,  ez:  11,  h: 8 },
-  { id: "wall-back-lo",  sx: -15, sz:  11, ex:  -9,  ez:  11,  h: 8 },
-  { id: "wall-back-li",  sx:  -9, sz:  11, ex:  -3,  ez:  11,  h: 8 },
-  { id: "wall-back-c",   sx:  -3, sz:  11, ex:   3,  ez:  11,  h: 8 },
-  { id: "wall-back-ri",  sx:   3, sz:  11, ex:   9,  ez:  11,  h: 8 },
-  { id: "wall-back-ro",  sx:   9, sz:  11, ex:  15,  ez:  11,  h: 8 },
+  { id: "wall-front",    sx: -15, sz: -15, ex:  15,  ez: -15,  h: 8 },
+  { id: "wall-left",     sx: -15, sz: -15, ex: -15,  ez:  15,  h: 8 },
+  { id: "wall-right",    sx:  15, sz: -15, ex:  15,  ez:  15,  h: 8 },
+  { id: "wall-back-lo",  sx: -15, sz:  15, ex:  -9,  ez:  15,  h: 8 },
+  { id: "wall-back-li",  sx:  -9, sz:  15, ex:  -3,  ez:  15,  h: 8 },
+  { id: "wall-back-c",   sx:  -3, sz:  15, ex:   3,  ez:  15,  h: 8 },
+  { id: "wall-back-ri",  sx:   3, sz:  15, ex:   9,  ez:  15,  h: 8 },
+  { id: "wall-back-ro",  sx:   9, sz:  15, ex:  15,  ez:  15,  h: 8 },
 ];
 
 type TierDef = { minZ: number; maxZ: number; floorY: number };
 
 const CLASSROOM_TIERS: TierDef[] = [
-  { minZ: 3.0, maxZ:  7.0, floorY: 0.5 },
-  { minZ: 7.0, maxZ: 10.5, floorY: 1.0 },
+  { minZ: 4.0, maxZ:  8.5, floorY: 0.5 },
+  { minZ: 8.5, maxZ: 12.0, floorY: 1.0 },
 ];
 
 const DEFAULT_LIGHTING: LightingPreset = {

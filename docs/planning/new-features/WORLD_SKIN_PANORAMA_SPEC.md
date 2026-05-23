@@ -14,7 +14,7 @@ Deliver **one** WebP that wraps the entire classroom interior:
 | --- | --- | --- |
 | **`panorama.webp`** | **8192 × 1024** | WebP, sRGB, quality 80–85 |
 
-- **Width (8192):** full rectangular room unwrap (104 m at ~79 px/m along the strip).
+- **Width (8192):** full square room unwrap (120 m perimeter: 30+30+30+30 at ~68 px/m along the strip).
 - **Height (1024):** all wall panels are 8 m tall at **128 px/m**.
 
 Do **not** ship eight separate wall files for production skins.
@@ -45,18 +45,18 @@ Paint the panorama in this order. Column widths are **exact pixel ranges** in th
 
 | Segment | `wall.id` | Direction in image | World width (m) | **x start** | **x end** (px) |
 | --- | --- | --- | ---: | ---: | ---: |
-| 1 | `wall-left` | front → back | 22.0 | 0 | 1732 |
-| 2 | `wall-back-lo` | left → right | 6.0 | 1733 | 2205 |
-| 3 | `wall-back-li` | left → right | 6.0 | 2206 | 2678 |
-| 4 | `wall-back-c` | left → right | 6.0 | 2679 | 3150 |
-| 5 | `wall-back-ri` | left → right | 6.0 | 3151 | 3623 |
-| 6 | `wall-back-ro` | left → right | 6.0 | 3624 | 4095 |
-| 7 | `wall-right` | front → back | 22.0 | 4096 | 5828 |
-| 8 | `wall-front` | left → right | 30.0 | 5829 | 8191 |
+| 1 | `wall-left` | front → back | 30.0 | 0 | 2047 |
+| 2 | `wall-back-lo` | left → right | 6.0 | 2048 | 2457 |
+| 3 | `wall-back-li` | left → right | 6.0 | 2458 | 2867 |
+| 4 | `wall-back-c` | left → right | 6.0 | 2868 | 3276 |
+| 5 | `wall-back-ri` | left → right | 6.0 | 3277 | 3686 |
+| 6 | `wall-back-ro` | left → right | 6.0 | 3687 | 4095 |
+| 7 | `wall-right` | front → back | 30.0 | 4096 | 6143 |
+| 8 | `wall-front` | left → right | 30.0 | 6144 | 8191 |
 
 **Back wall:** segments 2–6 are collinear panels and must blend continuously at column boundaries.
 
-**Authoring note:** The visual asset is four logical wall panels: left (22 m), back (30 m), right (22 m), front (30 m). The engine splits the back wall into five 6 m meshes only for anchors/UV compatibility; paint it as one continuous 30 m back wall across px 1733–4095.
+**Authoring note:** The room is a **30 m × 30 m** square. Four logical wall panels are equal-width columns: left (2048 px), back (2048 px), right (2048 px), front (2048 px). The engine splits the back wall into five 6 m meshes only for anchors/UV compatibility; paint it as one continuous 30 m back wall across px 2048–4095.
 
 **Front wall (segment 8):** keep the board zone visually calmer/darker — main board anchor sits on `wall-front`.
 
@@ -68,14 +68,14 @@ Normalized UVs for `overrides.panoramaWall.slices` (v0 is always **0**):
 
 | `wall.id` | `u0` | `u1` | `v1` | Wall height (m) |
 | --- | ---: | ---: | ---: | ---: |
-| `wall-left` | 0.0000 | 0.2115 | 1.0000 | 8 |
-| `wall-back-lo` | 0.2115 | 0.2692 | 1.0000 | 8 |
-| `wall-back-li` | 0.2692 | 0.3269 | 1.0000 | 8 |
-| `wall-back-c` | 0.3269 | 0.3846 | 1.0000 | 8 |
-| `wall-back-ri` | 0.3846 | 0.4423 | 1.0000 | 8 |
-| `wall-back-ro` | 0.4423 | 0.5000 | 1.0000 | 8 |
-| `wall-right` | 0.5000 | 0.7115 | 1.0000 | 8 |
-| `wall-front` | 0.7115 | 1.0000 | 1.0000 | 8 |
+| `wall-left` | 0.0000 | 0.2500 | 1.0000 | 8 |
+| `wall-back-lo` | 0.2500 | 0.3000 | 1.0000 | 8 |
+| `wall-back-li` | 0.3000 | 0.3500 | 1.0000 | 8 |
+| `wall-back-c` | 0.3500 | 0.4000 | 1.0000 | 8 |
+| `wall-back-ri` | 0.4000 | 0.4500 | 1.0000 | 8 |
+| `wall-back-ro` | 0.4500 | 0.5000 | 1.0000 | 8 |
+| `wall-right` | 0.5000 | 0.7500 | 1.0000 | 8 |
+| `wall-front` | 0.7500 | 1.0000 | 1.0000 | 8 |
 
 R2 path: `world-skins/<slug>/v1/panorama.webp`
 

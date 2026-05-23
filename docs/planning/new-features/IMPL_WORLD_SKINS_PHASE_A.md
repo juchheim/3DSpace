@@ -688,7 +688,7 @@ These resolve open questions in [CONCEPT §17](./CONCEPT_WORLD_SKINS_PHASE_A.md)
 
 ## Risks during implementation
 
-- **Wall texture seams** — back arc is five meshes but one **panorama** strip ([`WORLD_SKIN_PANORAMA_SPEC.md`](./WORLD_SKIN_PANORAMA_SPEC.md)). **Mitigation:** paint segments 2–6 continuously in the master 8192×1024 file; engine slices UVs — no per-wall files. QA each skin with a wide-angle screenshot of the back wall.
+- **Wall texture seams** — back wall is five collinear meshes but one **panorama** strip ([`WORLD_SKIN_PANORAMA_SPEC.md`](./WORLD_SKIN_PANORAMA_SPEC.md)). **Mitigation:** paint segments 2–6 continuously in the master 8192×1024 file; engine slices UVs — no per-wall files. QA each skin with a wide-angle screenshot of the back wall.
 - **Board readability** — busy wall textures fail WCAG contrast behind notes/polls. **Mitigation:** `boardDarkenOpacity` (Phase 5, board-darken pass). QA every skin with at least one `note` and one `poll` on the main board before sign-off.
 - **Anchor face-on-the-skin** — `WallMesh` already fades opacity by camera distance ([`apps/web/components/RoomView3D.tsx:906–932`](../../apps/web/components/RoomView3D.tsx)); the new material lookup must preserve the per-frame `useFrame` opacity update. Keep the existing `MeshStandardMaterial` instance and just swap `color` / `map` properties.
 - **Texture memory on iPad Safari** — five skins × one panorama each is manageable; avoid loading eight separate wall textures per skin. **Mitigation:** `SkinLayer` holds one panorama texture per active skin; explicit `texture.dispose()` on skin change after the crossfade.

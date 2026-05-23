@@ -86,7 +86,7 @@ export function createDefaultRoomManifest(input: {
     }
   };
 
-  // Classroom layout: 30×24 m rectangular shell, two raised rear tiers.
+  // Classroom layout: 30×30 m square shell, two raised rear tiers.
   // All wall panels share the same height so panorama skins map cleanly.
   // Back wall remains split into five collinear panels only for texture unwrap slices.
   const manifest: RoomManifest = {
@@ -96,72 +96,72 @@ export function createDefaultRoomManifest(input: {
     name: input.name ?? "Default Classroom",
     dimensions: {
       width: 30,
-      depth: 24,
+      depth: 30,
       height: 8
     },
     bounds: {
       minX: -13.5,
       maxX: 13.5,
-      minZ: -10.5,
-      maxZ: 10.5
+      minZ: -13.5,
+      maxZ: 13.5
     },
     tiers: [
-      { minZ: 3.0, maxZ: 7.0, floorY: 0.5 },
-      { minZ: 7.0, maxZ: 10.5, floorY: 1.0 }
+      { minZ: 4.0, maxZ: 8.5, floorY: 0.5 },
+      { minZ: 8.5, maxZ: 12.0, floorY: 1.0 }
     ],
     spawnPoints: [
       // Teacher — front stage
-      { id: "spawn-teacher", label: "Teacher", position: { x: 0, y: 0, z: -6 }, rotation: { y: Math.PI } },
-      // Front row — ground level (y=0, z=1.6)
-      { id: "spawn-front-1", label: "Front 1", position: { x: -12, y: 0, z: 1.6 }, rotation: { y: Math.PI } },
-      { id: "spawn-front-2", label: "Front 2", position: { x: -9,  y: 0, z: 1.6 }, rotation: { y: Math.PI } },
-      { id: "spawn-front-3", label: "Front 3", position: { x: -6,  y: 0, z: 1.6 }, rotation: { y: Math.PI } },
-      { id: "spawn-front-4", label: "Front 4", position: { x: -3,  y: 0, z: 1.6 }, rotation: { y: Math.PI } },
-      { id: "spawn-front-5", label: "Front 5", position: { x:  0,  y: 0, z: 1.6 }, rotation: { y: Math.PI } },
-      { id: "spawn-front-6", label: "Front 6", position: { x:  3,  y: 0, z: 1.6 }, rotation: { y: Math.PI } },
-      { id: "spawn-front-7", label: "Front 7", position: { x:  6,  y: 0, z: 1.6 }, rotation: { y: Math.PI } },
-      { id: "spawn-front-8", label: "Front 8", position: { x:  9,  y: 0, z: 1.6 }, rotation: { y: Math.PI } },
-      { id: "spawn-front-9", label: "Front 9", position: { x: 12,  y: 0, z: 1.6 }, rotation: { y: Math.PI } },
-      // Middle row — tier 1 (y=0.5, z=5.0)
-      { id: "spawn-mid-1", label: "Mid 1", position: { x: -12, y: 0.5, z: 5.0 }, rotation: { y: Math.PI } },
-      { id: "spawn-mid-2", label: "Mid 2", position: { x: -9,  y: 0.5, z: 5.0 }, rotation: { y: Math.PI } },
-      { id: "spawn-mid-3", label: "Mid 3", position: { x: -6,  y: 0.5, z: 5.0 }, rotation: { y: Math.PI } },
-      { id: "spawn-mid-4", label: "Mid 4", position: { x: -3,  y: 0.5, z: 5.0 }, rotation: { y: Math.PI } },
-      { id: "spawn-mid-5", label: "Mid 5", position: { x:  0,  y: 0.5, z: 5.0 }, rotation: { y: Math.PI } },
-      { id: "spawn-mid-6", label: "Mid 6", position: { x:  3,  y: 0.5, z: 5.0 }, rotation: { y: Math.PI } },
-      { id: "spawn-mid-7", label: "Mid 7", position: { x:  6,  y: 0.5, z: 5.0 }, rotation: { y: Math.PI } },
-      { id: "spawn-mid-8", label: "Mid 8", position: { x:  9,  y: 0.5, z: 5.0 }, rotation: { y: Math.PI } },
-      { id: "spawn-mid-9", label: "Mid 9", position: { x: 12,  y: 0.5, z: 5.0 }, rotation: { y: Math.PI } },
-      // Back row — tier 2 (y=1.0, z=8.8)
-      { id: "spawn-back-1",  label: "Back 1",  position: { x: -12.0, y: 1.0, z: 8.8 }, rotation: { y: Math.PI } },
-      { id: "spawn-back-2",  label: "Back 2",  position: { x:  -9.8, y: 1.0, z: 8.8 }, rotation: { y: Math.PI } },
-      { id: "spawn-back-3",  label: "Back 3",  position: { x:  -7.6, y: 1.0, z: 8.8 }, rotation: { y: Math.PI } },
-      { id: "spawn-back-4",  label: "Back 4",  position: { x:  -5.4, y: 1.0, z: 8.8 }, rotation: { y: Math.PI } },
-      { id: "spawn-back-5",  label: "Back 5",  position: { x:  -3.2, y: 1.0, z: 8.8 }, rotation: { y: Math.PI } },
-      { id: "spawn-back-6",  label: "Back 6",  position: { x:  -1.0, y: 1.0, z: 8.8 }, rotation: { y: Math.PI } },
-      { id: "spawn-back-7",  label: "Back 7",  position: { x:   1.0, y: 1.0, z: 8.8 }, rotation: { y: Math.PI } },
-      { id: "spawn-back-8",  label: "Back 8",  position: { x:   3.2, y: 1.0, z: 8.8 }, rotation: { y: Math.PI } },
-      { id: "spawn-back-9",  label: "Back 9",  position: { x:   5.4, y: 1.0, z: 8.8 }, rotation: { y: Math.PI } },
-      { id: "spawn-back-10", label: "Back 10", position: { x:   7.6, y: 1.0, z: 8.8 }, rotation: { y: Math.PI } },
-      { id: "spawn-back-11", label: "Back 11", position: { x:   9.8, y: 1.0, z: 8.8 }, rotation: { y: Math.PI } },
-      { id: "spawn-back-12", label: "Back 12", position: { x:  12.0, y: 1.0, z: 8.8 }, rotation: { y: Math.PI } }
+      { id: "spawn-teacher", label: "Teacher", position: { x: 0, y: 0, z: -7.5 }, rotation: { y: Math.PI } },
+      // Front row — ground level (y=0, z=2.0)
+      { id: "spawn-front-1", label: "Front 1", position: { x: -12, y: 0, z: 2.0 }, rotation: { y: Math.PI } },
+      { id: "spawn-front-2", label: "Front 2", position: { x: -9,  y: 0, z: 2.0 }, rotation: { y: Math.PI } },
+      { id: "spawn-front-3", label: "Front 3", position: { x: -6,  y: 0, z: 2.0 }, rotation: { y: Math.PI } },
+      { id: "spawn-front-4", label: "Front 4", position: { x: -3,  y: 0, z: 2.0 }, rotation: { y: Math.PI } },
+      { id: "spawn-front-5", label: "Front 5", position: { x:  0,  y: 0, z: 2.0 }, rotation: { y: Math.PI } },
+      { id: "spawn-front-6", label: "Front 6", position: { x:  3,  y: 0, z: 2.0 }, rotation: { y: Math.PI } },
+      { id: "spawn-front-7", label: "Front 7", position: { x:  6,  y: 0, z: 2.0 }, rotation: { y: Math.PI } },
+      { id: "spawn-front-8", label: "Front 8", position: { x:  9,  y: 0, z: 2.0 }, rotation: { y: Math.PI } },
+      { id: "spawn-front-9", label: "Front 9", position: { x: 12,  y: 0, z: 2.0 }, rotation: { y: Math.PI } },
+      // Middle row — tier 1 (y=0.5, z=5.8)
+      { id: "spawn-mid-1", label: "Mid 1", position: { x: -12, y: 0.5, z: 5.8 }, rotation: { y: Math.PI } },
+      { id: "spawn-mid-2", label: "Mid 2", position: { x: -9,  y: 0.5, z: 5.8 }, rotation: { y: Math.PI } },
+      { id: "spawn-mid-3", label: "Mid 3", position: { x: -6,  y: 0.5, z: 5.8 }, rotation: { y: Math.PI } },
+      { id: "spawn-mid-4", label: "Mid 4", position: { x: -3,  y: 0.5, z: 5.8 }, rotation: { y: Math.PI } },
+      { id: "spawn-mid-5", label: "Mid 5", position: { x:  0,  y: 0.5, z: 5.8 }, rotation: { y: Math.PI } },
+      { id: "spawn-mid-6", label: "Mid 6", position: { x:  3,  y: 0.5, z: 5.8 }, rotation: { y: Math.PI } },
+      { id: "spawn-mid-7", label: "Mid 7", position: { x:  6,  y: 0.5, z: 5.8 }, rotation: { y: Math.PI } },
+      { id: "spawn-mid-8", label: "Mid 8", position: { x:  9,  y: 0.5, z: 5.8 }, rotation: { y: Math.PI } },
+      { id: "spawn-mid-9", label: "Mid 9", position: { x: 12,  y: 0.5, z: 5.8 }, rotation: { y: Math.PI } },
+      // Back row — tier 2 (y=1.0, z=10.8), with ~4 m clearance behind it.
+      { id: "spawn-back-1",  label: "Back 1",  position: { x: -12.0, y: 1.0, z: 10.8 }, rotation: { y: Math.PI } },
+      { id: "spawn-back-2",  label: "Back 2",  position: { x:  -9.8, y: 1.0, z: 10.8 }, rotation: { y: Math.PI } },
+      { id: "spawn-back-3",  label: "Back 3",  position: { x:  -7.6, y: 1.0, z: 10.8 }, rotation: { y: Math.PI } },
+      { id: "spawn-back-4",  label: "Back 4",  position: { x:  -5.4, y: 1.0, z: 10.8 }, rotation: { y: Math.PI } },
+      { id: "spawn-back-5",  label: "Back 5",  position: { x:  -3.2, y: 1.0, z: 10.8 }, rotation: { y: Math.PI } },
+      { id: "spawn-back-6",  label: "Back 6",  position: { x:  -1.0, y: 1.0, z: 10.8 }, rotation: { y: Math.PI } },
+      { id: "spawn-back-7",  label: "Back 7",  position: { x:   1.0, y: 1.0, z: 10.8 }, rotation: { y: Math.PI } },
+      { id: "spawn-back-8",  label: "Back 8",  position: { x:   3.2, y: 1.0, z: 10.8 }, rotation: { y: Math.PI } },
+      { id: "spawn-back-9",  label: "Back 9",  position: { x:   5.4, y: 1.0, z: 10.8 }, rotation: { y: Math.PI } },
+      { id: "spawn-back-10", label: "Back 10", position: { x:   7.6, y: 1.0, z: 10.8 }, rotation: { y: Math.PI } },
+      { id: "spawn-back-11", label: "Back 11", position: { x:   9.8, y: 1.0, z: 10.8 }, rotation: { y: Math.PI } },
+      { id: "spawn-back-12", label: "Back 12", position: { x:  12.0, y: 1.0, z: 10.8 }, rotation: { y: Math.PI } }
     ],
     walls: [
-      { id: "wall-front", label: "Front wall", start: { x: -15, y: 0, z: -11 }, end: { x: 15, y: 0, z: -11 }, height: 8, anchorIds: ["anchor-board", "anchor-media-left"] },
-      { id: "wall-left",  label: "Left wall",  start: { x: -15, y: 0, z: -11 }, end: { x: -15, y: 0, z: 11 }, height: 8, anchorIds: ["anchor-left"] },
-      { id: "wall-right", label: "Right wall", start: { x:  15, y: 0, z: -11 }, end: { x:  15, y: 0, z: 11 }, height: 8, anchorIds: ["anchor-right"] },
-      { id: "wall-back-lo", label: "Back left outer",  start: { x: -15, y: 0, z: 11 }, end: { x: -9, y: 0, z: 11 }, height: 8, anchorIds: [] },
-      { id: "wall-back-li", label: "Back left inner",  start: { x:  -9, y: 0, z: 11 }, end: { x: -3, y: 0, z: 11 }, height: 8, anchorIds: [] },
-      { id: "wall-back-c",  label: "Back center",      start: { x:  -3, y: 0, z: 11 }, end: { x:  3, y: 0, z: 11 }, height: 8, anchorIds: ["anchor-back"] },
-      { id: "wall-back-ri", label: "Back right inner", start: { x:   3, y: 0, z: 11 }, end: { x:  9, y: 0, z: 11 }, height: 8, anchorIds: [] },
-      { id: "wall-back-ro", label: "Back right outer", start: { x:   9, y: 0, z: 11 }, end: { x: 15, y: 0, z: 11 }, height: 8, anchorIds: [] }
+      { id: "wall-front", label: "Front wall", start: { x: -15, y: 0, z: -15 }, end: { x: 15, y: 0, z: -15 }, height: 8, anchorIds: ["anchor-board", "anchor-media-left"] },
+      { id: "wall-left",  label: "Left wall",  start: { x: -15, y: 0, z: -15 }, end: { x: -15, y: 0, z: 15 }, height: 8, anchorIds: ["anchor-left"] },
+      { id: "wall-right", label: "Right wall", start: { x:  15, y: 0, z: -15 }, end: { x:  15, y: 0, z: 15 }, height: 8, anchorIds: ["anchor-right"] },
+      { id: "wall-back-lo", label: "Back left outer",  start: { x: -15, y: 0, z: 15 }, end: { x: -9, y: 0, z: 15 }, height: 8, anchorIds: [] },
+      { id: "wall-back-li", label: "Back left inner",  start: { x:  -9, y: 0, z: 15 }, end: { x: -3, y: 0, z: 15 }, height: 8, anchorIds: [] },
+      { id: "wall-back-c",  label: "Back center",      start: { x:  -3, y: 0, z: 15 }, end: { x:  3, y: 0, z: 15 }, height: 8, anchorIds: ["anchor-back"] },
+      { id: "wall-back-ri", label: "Back right inner", start: { x:   3, y: 0, z: 15 }, end: { x:  9, y: 0, z: 15 }, height: 8, anchorIds: [] },
+      { id: "wall-back-ro", label: "Back right outer", start: { x:   9, y: 0, z: 15 }, end: { x: 15, y: 0, z: 15 }, height: 8, anchorIds: [] }
     ],
     wallAnchors: [
       {
         id: "anchor-board",
         label: "Main board",
         // 9.6 m wide × 5.4 m tall (16:9), centered at y=3.5 on the front wall
-        position: { x: 0, y: 3.5, z: -10.92 },
+        position: { x: 0, y: 3.5, z: -14.92 },
         normal: { x: 0, y: 0, z: 1 },
         width: PRIMARY_BOARD_WIDTH,
         height: widescreenHeight(PRIMARY_BOARD_WIDTH),
@@ -178,7 +178,7 @@ export function createDefaultRoomManifest(input: {
       {
         id: "anchor-media-left",
         label: "Front media",
-        position: { x: -10.5, y: 2.2, z: -10.92 },
+        position: { x: -10.5, y: 2.2, z: -14.92 },
         normal: { x: 0, y: 0, z: 1 },
         width: 3.0,
         height: widescreenHeight(3.0),
@@ -194,8 +194,8 @@ export function createDefaultRoomManifest(input: {
       {
         id: "anchor-back",
         label: "Back display",
-        // Center of back arc wall (flat segment) — above tier-2 seating
-        position: { x: 0, y: 2.5, z: 10.92 },
+        // Center of back wall — above tier-2 seating
+        position: { x: 0, y: 2.5, z: 14.92 },
         normal: { x: 0, y: 0, z: -1 },
         width: 3.0,
         height: widescreenHeight(3.0),
@@ -249,7 +249,7 @@ export function createDefaultRoomManifest(input: {
     capabilities: createRoomCapabilities(config),
     spatialAudio: config.spatialAudio,
     // Left of teacher stage, well inside bounds and clear of all spawn points.
-    hallpassHoldingZone: { minX: -13, maxX: -11, minZ: -8, maxZ: -6 },
+    hallpassHoldingZone: { minX: -13, maxX: -11, minZ: -11, maxZ: -9 },
     features: [
       { key: "screen-share", enabled: false, config: { preparedTrackKind: "screen" } },
       { key: "computer-audio", enabled: false, config: { preparedTrackKind: "system-audio" } },
