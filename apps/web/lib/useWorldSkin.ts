@@ -95,14 +95,18 @@ export function useWorldSkin(input: {
   const load = useCallback(
     async (id: string | null) => {
       if (!enabled || id === null) {
+        prevSkinIdRef.current = null;
         setSkin(null);
         setReady(true);
         setError(undefined);
         return;
       }
 
-      // Avoid redundant fetches for the same slug
+      // Avoid redundant fetches for the same slug.
+      // NOTE: the ref must be checked *before* it is updated so the guard
+      // works correctly.  The useEffect below must NOT pre-set the ref.
       if (id === prevSkinIdRef.current) return;
+      prevSkinIdRef.current = id;
 
       setReady(false);
       setError(undefined);
@@ -125,7 +129,6 @@ export function useWorldSkin(input: {
   );
 
   useEffect(() => {
-    prevSkinIdRef.current = skinId;
     void load(skinId);
   }, [skinId, load]);
 
