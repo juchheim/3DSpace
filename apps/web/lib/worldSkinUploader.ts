@@ -116,7 +116,11 @@ export async function uploadWorldSkinFile(input: {
   file: File;
 }) {
   const contentType =
-    input.fileName === "ambient.ogg" ? "audio/ogg" : "image/webp";
+    input.fileName === "ambient.ogg"
+      ? "audio/ogg"
+      : input.fileName === "thumbnail.png"
+        ? "image/png"
+        : "image/webp";
   const target = await createWorldSkinUploadTarget(input.password, {
     slug: input.slug,
     version: input.version,
@@ -142,10 +146,29 @@ export const WORLD_SKIN_SLUG_OPTIONS: { slug: WorldSkinBuiltinSlug; label: strin
   { slug: "art-studio", label: "Art Studio" }
 ];
 
+export const WORLD_SKIN_UPLOAD_FILE_ORDER: WorldSkinAssetFileName[] = [
+  "thumbnail.png",
+  "panorama.webp",
+  "floor.webp",
+  "map2d.webp",
+  "ambient.ogg"
+];
+
+export function worldSkinUploadAccept(fileName: WorldSkinAssetFileName): string {
+  if (fileName === "ambient.ogg") return "audio/ogg,.ogg";
+  if (fileName === "thumbnail.png") return "image/png,.png";
+  return "image/webp,.webp";
+}
+
 export const WORLD_SKIN_FILE_SPECS: Record<
   WorldSkinAssetFileName,
   { label: string; required: boolean; hint: string }
 > = {
+  "thumbnail.png": {
+    label: "Environment thumbnail",
+    required: false,
+    hint: "PNG for the environment picker — stored at world-skins/thumbnails/<slug>.png"
+  },
   "panorama.webp": {
     label: "Wall panorama",
     required: true,

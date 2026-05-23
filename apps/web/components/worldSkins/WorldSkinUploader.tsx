@@ -14,6 +14,8 @@ import {
   verifyWorldSkinUploaderPassword,
   WORLD_SKIN_FILE_SPECS,
   WORLD_SKIN_SLUG_OPTIONS,
+  WORLD_SKIN_UPLOAD_FILE_ORDER,
+  worldSkinUploadAccept,
   WorldSkinUploaderError
 } from "../../lib/worldSkinUploader";
 import styles from "./WorldSkinUploader.module.css";
@@ -116,8 +118,8 @@ export function WorldSkinUploader() {
           <p className={styles.kicker}>Operator tool</p>
           <h1 className={styles.title}>World skin R2 uploader</h1>
           <p className={styles.lead}>
-            Upload <code>panorama.webp</code> and <code>floor.webp</code> to Cloudflare R2 under{" "}
-            <code>world-skins/&lt;slug&gt;/v1/</code>. See{" "}
+            Upload skin assets to Cloudflare R2 — <code>panorama.webp</code>, <code>floor.webp</code>,{" "}
+            <code>thumbnail.png</code>, and optional files. See{" "}
             <code>docs/planning/new-features/WORLD_SKIN_PANORAMA_SPEC.md</code>.
           </p>
           <form className={styles.card} onSubmit={handleLogin}>
@@ -195,14 +197,7 @@ export function WorldSkinUploader() {
 
           {error ? <p className={styles.error}>{error}</p> : null}
 
-          {(
-            [
-              "panorama.webp",
-              "floor.webp",
-              "map2d.webp",
-              "ambient.ogg"
-            ] as const satisfies readonly WorldSkinAssetFileName[]
-          ).map((fileName) => {
+          {WORLD_SKIN_UPLOAD_FILE_ORDER.map((fileName) => {
             const spec = WORLD_SKIN_FILE_SPECS[fileName]!;
             const row = status?.files.find((entry) => entry.fileName === fileName);
             return (
@@ -230,7 +225,7 @@ export function WorldSkinUploader() {
                   <input
                     type="file"
                     hidden
-                    accept={fileName.endsWith(".ogg") ? "audio/ogg,.ogg" : "image/webp,.webp"}
+                    accept={worldSkinUploadAccept(fileName)}
                     disabled={busyFile !== null}
                     onChange={(event) => {
                       const file = event.target.files?.[0];

@@ -6,6 +6,7 @@ import { badRequest, notFound, unauthorized } from "../errors.js";
 const UPLOADER_PASSWORD_HEADER = "x-world-skin-uploader-password";
 
 const CONTENT_TYPE_BY_FILE: Record<WorldSkinAssetFileName, string> = {
+  "thumbnail.png": "image/png",
   "panorama.webp": "image/webp",
   "floor.webp": "image/webp",
   "map2d.webp": "image/webp",
@@ -23,6 +24,9 @@ export function worldSkinStorageKey(input: {
   version: number;
   fileName: WorldSkinAssetFileName;
 }) {
+  if (input.fileName === "thumbnail.png") {
+    return `world-skins/thumbnails/${input.slug}.png`;
+  }
   return `world-skins/${input.slug}/v${input.version}/${input.fileName}`;
 }
 
@@ -71,6 +75,7 @@ export function isRequiredWorldSkinAsset(fileName: WorldSkinAssetFileName) {
 }
 
 export const WORLD_SKIN_ASSET_FILES: WorldSkinAssetFileName[] = [
+  "thumbnail.png",
   "panorama.webp",
   "floor.webp",
   "map2d.webp",

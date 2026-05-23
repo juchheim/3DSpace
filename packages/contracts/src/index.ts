@@ -584,6 +584,7 @@ export const WORLD_SKIN_BUILTIN_SLUGS = [
 export const WorldSkinBuiltinSlugSchema = z.enum(WORLD_SKIN_BUILTIN_SLUGS);
 
 export const WorldSkinAssetFileNameSchema = z.enum([
+  "thumbnail.png",
   "panorama.webp",
   "floor.webp",
   "map2d.webp",
