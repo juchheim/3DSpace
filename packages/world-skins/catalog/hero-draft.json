@@ -27,8 +27,8 @@
       "roughness": 0.94
     },
     "lighting": {
-      "backgroundColor": "#f0dc88",
-      "ambientColor": "#f8f0c8",
+      "backgroundColor": "#b86850",
+      "ambientColor": "#dcb0a0",
       "ambientIntensity": 0.9,
       "directionalColor": "#fff8e8",
       "directionalIntensity": 0.65,
@@ -36,10 +36,10 @@
       "directionalFillColor": "#fff8e8",
       "directionalFillIntensity": 0.55,
       "directionalFillPosition": [0, 10, 14],
-      "fogColor": "#dcc878",
+      "fogColor": "#984838",
       "fogNear": 22,
       "fogFar": 65,
-      "hemisphereSkyColor": "#faf0b0",
+      "hemisphereSkyColor": "#c87860",
       "hemisphereGroundColor": "#d09050",
       "hemisphereIntensity": 2.4
     },
