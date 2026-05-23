@@ -1,8 +1,8 @@
 "use client";
 
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
 import { Billboard, Html } from "@react-three/drei";
-import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
+import { memo, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
 import { BufferAttribute, BufferGeometry, ClampToEdgeWrapping, RepeatWrapping, SRGBColorSpace, Texture, TextureLoader, type MeshStandardMaterial, Vector3 } from "three";
 import { useWorldSkinContext, DEFAULT_LIGHTING, DEFAULT_BACKGROUND } from "./worldSkins/SkinLayer";
 import type {
@@ -861,71 +861,8 @@ function RoomGeometry({
 
   // ── Skin context ────────────────────────────────────────────────────────────
   const { skin, panoramaUrl } = useWorldSkinContext();
-  const { gl } = useThree();
 
-  // Load the panorama texture once per skin, dispose on change.
-  const [panoramaTexture, setPanoramaTexture] = useState<Texture | null>(null);
-  useEffect(() => {
-    if (!panoramaUrl) {
-      setPanoramaTexture(null);
-      return;
-    }
-    let cancelled = false;
-    const loader = new TextureLoader();
-    loader.load(
-      panoramaUrl,
-      (t) => {
-        if (cancelled) { t.dispose(); return; }
-        t.colorSpace = SRGBColorSpace;
-        t.wrapS = ClampToEdgeWrapping;
-        t.wrapT = ClampToEdgeWrapping;
-        t.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
-        setPanoramaTexture(t);
-      },
-      undefined,
-      () => { /* fail-open: wall falls back to solid color */ }
-    );
-    return () => {
-      cancelled = true;
-      setPanoramaTexture((prev) => { prev?.dispose(); return null; });
-    };
-  }, [panoramaUrl, gl]);
-
-  // Load the floor texture (textureStorageKey), dispose on change.
   const floorTextureUrl = skin?.overrides.floor?.textureStorageKey ?? null;
-  const [floorTexture, setFloorTexture] = useState<Texture | null>(null);
-  useEffect(() => {
-    if (!floorTextureUrl) {
-      setFloorTexture(null);
-      return;
-    }
-    let cancelled = false;
-    const loader = new TextureLoader();
-    loader.load(
-      floorTextureUrl,
-      (t) => {
-        if (cancelled) { t.dispose(); return; }
-        t.colorSpace = SRGBColorSpace;
-        // Tile the floor texture so it looks natural at room scale.
-        // ~0.4 repeats per world-unit ≈ one tile every 2.5 m.
-        t.wrapS = RepeatWrapping;
-        t.wrapT = RepeatWrapping;
-        t.repeat.set(
-          manifest.dimensions.width  * 0.4,
-          manifest.dimensions.depth  * 0.4
-        );
-        t.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
-        setFloorTexture(t);
-      },
-      undefined,
-      () => { /* fail-open: floor falls back to solid color */ }
-    );
-    return () => {
-      cancelled = true;
-      setFloorTexture((prev) => { prev?.dispose(); return null; });
-    };
-  }, [floorTextureUrl, gl]);
-
   const floorColor = skin?.overrides.floor?.colorHex ?? "#d8c99f";
   const floorRoughness = skin?.overrides.floor?.roughness ?? 0.92;
   const tierOverride = skin?.overrides.tiers;
@@ -933,22 +870,36 @@ function RoomGeometry({
 
   return (
     <group>
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, -0.02, 0]}
-        receiveShadow
-        onClick={(event) => {
-          event.stopPropagation();
-          onMoveToPoint({ x: event.point.x, z: event.point.z });
-        }}
+      {/* Floor — textured via Suspense/useLoader when a URL is present */}
+      <Suspense
+        fallback={
+          <FloorMesh
+            width={manifest.dimensions.width}
+            depth={manifest.dimensions.depth}
+            color={floorColor}
+            roughness={floorRoughness}
+            onMoveToPoint={onMoveToPoint}
+          />
+        }
       >
-        <planeGeometry args={[manifest.dimensions.width, manifest.dimensions.depth]} />
-        <meshStandardMaterial
-          color={floorTexture ? "#ffffff" : floorColor}
-          map={floorTexture ?? null}
-          roughness={floorRoughness}
-        />
-      </mesh>
+        {floorTextureUrl ? (
+          <FloorMeshTextured
+            width={manifest.dimensions.width}
+            depth={manifest.dimensions.depth}
+            textureUrl={floorTextureUrl}
+            roughness={floorRoughness}
+            onMoveToPoint={onMoveToPoint}
+          />
+        ) : (
+          <FloorMesh
+            width={manifest.dimensions.width}
+            depth={manifest.dimensions.depth}
+            color={floorColor}
+            roughness={floorRoughness}
+            onMoveToPoint={onMoveToPoint}
+          />
+        )}
+      </Suspense>
       <gridHelper
         args={[Math.max(manifest.dimensions.width, manifest.dimensions.depth), 24, "#4c6b58", "#31473b"]}
         position={[0, 0.01, 0]}
@@ -970,19 +921,38 @@ function RoomGeometry({
           />
         );
       })}
-      {manifest.walls.map((wall) => {
-        const slice = skin?.overrides.panoramaWall?.slices[wall.id as keyof typeof skin.overrides.panoramaWall.slices] ?? null;
-        const wallColorFallback = skin?.overrides.walls[wall.id]?.colorHex ?? null;
-        return (
-          <WallMesh
-            key={wall.id}
-            wall={wall}
-            panoramaTexture={panoramaTexture}
-            slice={slice}
-            skinWallColor={wallColorFallback}
+      {/* Walls — panorama texture loaded via Suspense/useLoader */}
+      <Suspense
+        fallback={
+          <>
+            {manifest.walls.map((wall) => (
+              <WallMesh
+                key={wall.id}
+                wall={wall}
+                skinWallColor={skin?.overrides.walls[wall.id]?.colorHex ?? null}
+              />
+            ))}
+          </>
+        }
+      >
+        {panoramaUrl ? (
+          <WallsWithPanorama
+            walls={manifest.walls}
+            panoramaUrl={panoramaUrl}
+            skin={skin}
           />
-        );
-      })}
+        ) : (
+          <>
+            {manifest.walls.map((wall) => (
+              <WallMesh
+                key={wall.id}
+                wall={wall}
+                skinWallColor={skin?.overrides.walls[wall.id]?.colorHex ?? null}
+              />
+            ))}
+          </>
+        )}
+      </Suspense>
       {manifest.wallAnchors.map((anchor) => (
         <AnchorMesh
           key={anchor.id}
@@ -1030,6 +1000,96 @@ function wallOpacityFromCameraDistance(signedDistance: number) {
   if (signedDistance >= 0) return 0.18 + (signedDistance / 2) * 0.82;
   return Math.max(0.06, 0.16 + signedDistance * 0.55);
 }
+
+// ── Floor helpers ─────────────────────────────────────────────────────────────
+
+function FloorMesh({ width, depth, color, roughness, onMoveToPoint }: {
+  width: number; depth: number; color: string; roughness: number;
+  onMoveToPoint(point: { x: number; z: number }): void;
+}) {
+  return (
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[0, -0.02, 0]}
+      receiveShadow
+      onClick={(e) => { e.stopPropagation(); onMoveToPoint({ x: e.point.x, z: e.point.z }); }}
+    >
+      <planeGeometry args={[width, depth]} />
+      <meshStandardMaterial color={color} roughness={roughness} />
+    </mesh>
+  );
+}
+
+/** Loads the floor texture via useLoader (Suspense) so it is guaranteed present when rendered. */
+function FloorMeshTextured({ width, depth, textureUrl, roughness, onMoveToPoint }: {
+  width: number; depth: number; textureUrl: string; roughness: number;
+  onMoveToPoint(point: { x: number; z: number }): void;
+}) {
+  const { gl } = useThree();
+  const t = useLoader(TextureLoader, textureUrl);
+  // Configure once — useMemo so we don't mutate on every render
+  useMemo(() => {
+    t.colorSpace = SRGBColorSpace;
+    t.wrapS = RepeatWrapping;
+    t.wrapT = RepeatWrapping;
+    // ~0.4 repeats per world-unit ≈ one tile every 2.5 m
+    t.repeat.set(width * 0.4, depth * 0.4);
+    t.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
+    t.needsUpdate = true;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t, width, depth, gl]);
+
+  return (
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[0, -0.02, 0]}
+      receiveShadow
+      onClick={(e) => { e.stopPropagation(); onMoveToPoint({ x: e.point.x, z: e.point.z }); }}
+    >
+      <planeGeometry args={[width, depth]} />
+      <meshStandardMaterial map={t} roughness={roughness} />
+    </mesh>
+  );
+}
+
+// ── Walls with panorama texture ───────────────────────────────────────────────
+
+/** Loads the panorama texture via useLoader (Suspense) and renders all walls with it. */
+function WallsWithPanorama({ walls, panoramaUrl, skin }: {
+  walls: Wall[];
+  panoramaUrl: string;
+  skin: import("@3dspace/contracts").WorldSkin | null;
+}) {
+  const { gl } = useThree();
+  const t = useLoader(TextureLoader, panoramaUrl);
+  useMemo(() => {
+    t.colorSpace = SRGBColorSpace;
+    t.wrapS = ClampToEdgeWrapping;
+    t.wrapT = ClampToEdgeWrapping;
+    t.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
+    t.needsUpdate = true;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t, gl]);
+
+  return (
+    <>
+      {walls.map((wall) => {
+        const slice = skin?.overrides.panoramaWall?.slices[wall.id as keyof typeof skin.overrides.panoramaWall.slices] ?? null;
+        return (
+          <WallMesh
+            key={wall.id}
+            wall={wall}
+            panoramaTexture={t}
+            slice={slice}
+            skinWallColor={skin?.overrides.walls[wall.id]?.colorHex ?? null}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+// ── Wall mesh ─────────────────────────────────────────────────────────────────
 
 function WallMesh({
   wall,
