@@ -891,6 +891,33 @@ function RoomGeometry({
     };
   }, [panoramaUrl, gl]);
 
+  // Load the floor texture (textureStorageKey), dispose on change.
+  const floorTextureUrl = skin?.overrides.floor?.textureStorageKey ?? null;
+  const [floorTexture, setFloorTexture] = useState<Texture | null>(null);
+  useEffect(() => {
+    if (!floorTextureUrl) {
+      setFloorTexture(null);
+      return;
+    }
+    let cancelled = false;
+    const loader = new TextureLoader();
+    loader.load(
+      floorTextureUrl,
+      (t) => {
+        if (cancelled) { t.dispose(); return; }
+        t.colorSpace = SRGBColorSpace;
+        t.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
+        setFloorTexture(t);
+      },
+      undefined,
+      () => { /* fail-open: floor falls back to solid color */ }
+    );
+    return () => {
+      cancelled = true;
+      setFloorTexture((prev) => { prev?.dispose(); return null; });
+    };
+  }, [floorTextureUrl, gl]);
+
   const floorColor = skin?.overrides.floor?.colorHex ?? "#d8c99f";
   const floorRoughness = skin?.overrides.floor?.roughness ?? 0.92;
   const tierOverride = skin?.overrides.tiers;
@@ -908,7 +935,11 @@ function RoomGeometry({
         }}
       >
         <planeGeometry args={[manifest.dimensions.width, manifest.dimensions.depth]} />
-        <meshStandardMaterial color={floorColor} roughness={floorRoughness} />
+        <meshStandardMaterial
+          color={floorTexture ? "#ffffff" : floorColor}
+          map={floorTexture ?? null}
+          roughness={floorRoughness}
+        />
       </mesh>
       <gridHelper
         args={[Math.max(manifest.dimensions.width, manifest.dimensions.depth), 24, "#4c6b58", "#31473b"]}
