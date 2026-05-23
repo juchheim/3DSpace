@@ -3,7 +3,19 @@
 import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
 import { Billboard, Html } from "@react-three/drei";
 import { memo, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
-import { BufferAttribute, BufferGeometry, ClampToEdgeWrapping, RepeatWrapping, SRGBColorSpace, Texture, TextureLoader, type MeshStandardMaterial, Vector3 } from "three";
+import {
+  BufferAttribute,
+  BufferGeometry,
+  ClampToEdgeWrapping,
+  Euler,
+  Matrix4,
+  RepeatWrapping,
+  SRGBColorSpace,
+  Texture,
+  TextureLoader,
+  type MeshStandardMaterial,
+  Vector3
+} from "three";
 import { useWorldSkinContext, DEFAULT_LIGHTING, DEFAULT_BACKGROUND } from "./worldSkins/SkinLayer";
 import type {
   AvatarAppearance,
@@ -950,6 +962,7 @@ function RoomGeometry({
             walls={manifest.walls}
             panoramaUrl={panoramaUrl}
             skin={skin}
+            maxWorldHeight={skin?.overrides.panoramaWall?.maxWorldHeight ?? manifest.dimensions.height}
           />
         ) : (
           <>
@@ -1011,6 +1024,40 @@ function wallOpacityFromCameraDistance(signedDistance: number) {
   return Math.max(0.06, 0.16 + signedDistance * 0.55);
 }
 
+/** Inset wall panels slightly along the inward normal (matches prior box inner face). */
+const WALL_PANEL_INSET = 0.06;
+
+/**
+ * Orients a single-sided wall panel: local +X runs start→end, +Y up, +Z faces the room interior.
+ * BoxGeometry maps panorama UVs differently per face (+Z vs −Z vs ±X), which flipped or
+ * stretched every wall except the front; a plane with this basis keeps slices consistent.
+ */
+function wallPanelTransform(wall: Wall, plane: WallPlane) {
+  const length = Math.hypot(wall.end.x - wall.start.x, wall.end.z - wall.start.z);
+  const tangent = new Vector3(wall.end.x - wall.start.x, 0, wall.end.z - wall.start.z);
+  if (tangent.lengthSq() > 0) tangent.normalize();
+  else tangent.set(1, 0, 0);
+
+  const yAxis = new Vector3(0, 1, 0);
+  const inward = plane.normal.clone().normalize();
+  if (new Vector3().crossVectors(tangent, yAxis).dot(inward) < 0) tangent.negate();
+
+  const rotation = new Euler().setFromRotationMatrix(
+    new Matrix4().makeBasis(tangent, yAxis, inward)
+  );
+  const position = plane.point.clone().add(inward.multiplyScalar(WALL_PANEL_INSET));
+
+  return {
+    length,
+    position: [position.x, position.y, position.z] as const,
+    rotation: [rotation.x, rotation.y, rotation.z] as const
+  };
+}
+
+function panoramaVerticalRepeat(wallHeight: number, maxWorldHeight: number) {
+  return Math.min(1, wallHeight / maxWorldHeight);
+}
+
 // ── Floor helpers ─────────────────────────────────────────────────────────────
 
 function FloorMesh({ width, depth, color, roughness, onMoveToPoint }: {
@@ -1065,10 +1112,16 @@ function FloorMeshTextured({ width, depth, textureUrl, roughness, onMoveToPoint 
 // ── Walls with panorama texture ───────────────────────────────────────────────
 
 /** Loads the panorama texture via useLoader (Suspense) and renders all walls with it. */
-function WallsWithPanorama({ walls, panoramaUrl, skin }: {
+function WallsWithPanorama({
+  walls,
+  panoramaUrl,
+  skin,
+  maxWorldHeight
+}: {
   walls: Wall[];
   panoramaUrl: string;
   skin: import("@3dspace/contracts").WorldSkin | null;
+  maxWorldHeight: number;
 }) {
   const { gl } = useThree();
   const t = useLoader(TextureLoader, panoramaUrl);
@@ -1091,6 +1144,7 @@ function WallsWithPanorama({ walls, panoramaUrl, skin }: {
             wall={wall}
             panoramaTexture={t}
             slice={slice}
+            maxWorldHeight={maxWorldHeight}
             skinWallColor={skin?.overrides.walls[wall.id]?.colorHex ?? null}
           />
         );
@@ -1105,19 +1159,23 @@ function WallMesh({
   wall,
   panoramaTexture,
   slice,
+  maxWorldHeight,
   skinWallColor
 }: {
   wall: Wall;
   panoramaTexture?: Texture | null;
   slice?: { u0: number; u1: number; v1: number } | null;
+  maxWorldHeight?: number;
   skinWallColor?: string | null;
 }) {
   const { camera } = useThree();
   const materialRef = useRef<MeshStandardMaterial | null>(null);
   const plane = useMemo(() => wallPlane(wall), [wall]);
-  const length = Math.hypot(wall.end.x - wall.start.x, wall.end.z - wall.start.z);
-  const midpoint = [(wall.start.x + wall.end.x) / 2, wall.height / 2, (wall.start.z + wall.end.z) / 2] as const;
-  const angle = Math.atan2(wall.end.z - wall.start.z, wall.end.x - wall.start.x);
+  const panel = useMemo(() => wallPanelTransform(wall, plane), [wall, plane]);
+  const verticalRepeat = useMemo(
+    () => panoramaVerticalRepeat(wall.height, maxWorldHeight ?? 8),
+    [wall.height, maxWorldHeight]
+  );
   const cameraOffset = useMemo(() => new Vector3(), []);
 
   // Clone the shared panorama texture per wall with wall-specific UV offset/repeat.
@@ -1127,9 +1185,9 @@ function WallMesh({
     const t = panoramaTexture.clone();
     t.needsUpdate = true;
     t.offset.set(slice.u0, 0);
-    t.repeat.set(slice.u1 - slice.u0, slice.v1);
+    t.repeat.set(slice.u1 - slice.u0, verticalRepeat);
     return t;
-  }, [panoramaTexture, slice?.u0, slice?.u1, slice?.v1]);
+  }, [panoramaTexture, slice?.u0, slice?.u1, verticalRepeat]);
 
   // Dispose the per-wall clone when it's replaced or the component unmounts.
   useEffect(() => {
@@ -1151,8 +1209,8 @@ function WallMesh({
   const baseColor = skinWallColor ?? (wallTexture ? "#ffffff" : "#8ea487");
 
   return (
-    <mesh position={midpoint} rotation={[0, -angle, 0]}>
-      <boxGeometry args={[length, wall.height, 0.12]} />
+    <mesh position={panel.position} rotation={panel.rotation}>
+      <planeGeometry args={[panel.length, wall.height]} />
       <meshStandardMaterial
         ref={materialRef}
         color={baseColor}
