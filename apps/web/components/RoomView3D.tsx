@@ -775,6 +775,13 @@ function SceneAtmosphere() {
         intensity={l.directionalIntensity}
         position={l.directionalPosition}
       />
+      {l.directionalFillIntensity !== undefined && l.directionalFillIntensity > 0 ? (
+        <directionalLight
+          color={(l.directionalFillColor ?? l.directionalColor) as string}
+          intensity={l.directionalFillIntensity}
+          position={(l.directionalFillPosition ?? [0, 10, 14]) as [number, number, number]}
+        />
+      ) : null}
     </>
   );
 }

@@ -18,6 +18,9 @@ export interface LightingPreset {
   directionalColor: string;
   directionalIntensity: number;
   directionalPosition: [number, number, number];
+  directionalFillColor?: string;
+  directionalFillIntensity?: number;
+  directionalFillPosition?: [number, number, number];
   fogColor?: string;
   fogNear?: number;
   fogFar?: number;

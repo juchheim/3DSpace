@@ -451,6 +451,10 @@ export const WorldSkinLightingPresetSchema = z.object({
   directionalColor: z.string(),
   directionalIntensity: z.number().min(0).max(4).default(1.4),
   directionalPosition: z.tuple([z.number(), z.number(), z.number()]).default([4, 8, 6]),
+  /** Optional second sun from the opposite side (e.g. back-wall fill on Mars). */
+  directionalFillColor: z.string().optional(),
+  directionalFillIntensity: z.number().min(0).max(4).optional(),
+  directionalFillPosition: z.tuple([z.number(), z.number(), z.number()]).optional(),
   hemisphereSkyColor: z.string().optional(),
   hemisphereGroundColor: z.string().optional(),
   hemisphereIntensity: z.number().min(0).max(4).optional(),

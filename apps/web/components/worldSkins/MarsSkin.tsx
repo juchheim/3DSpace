@@ -14,11 +14,11 @@ export const MARS_SKIN: SkinDescriptor = {
     "wall-front":    { colorHex: "#d8a878", roughness: 0.92 },
     "wall-left":     { colorHex: "#d0a070", roughness: 0.92 },
     "wall-right":    { colorHex: "#d0a070", roughness: 0.92 },
-    "wall-back-lo":  { colorHex: "#d0a068", roughness: 0.90 },
-    "wall-back-li":  { colorHex: "#d4a870", roughness: 0.90 },
-    "wall-back-c":   { colorHex: "#cca060", roughness: 0.90 },
-    "wall-back-ri":  { colorHex: "#d4a870", roughness: 0.90 },
-    "wall-back-ro":  { colorHex: "#d0a068", roughness: 0.90 },
+    "wall-back-lo":  { colorHex: "#d0a070", roughness: 0.90 },
+    "wall-back-li":  { colorHex: "#d0a070", roughness: 0.90 },
+    "wall-back-c":   { colorHex: "#d8a878", roughness: 0.90 },
+    "wall-back-ri":  { colorHex: "#d0a070", roughness: 0.90 },
+    "wall-back-ro":  { colorHex: "#d0a070", roughness: 0.90 },
   },
   floor:  { colorHex: "#9a5020", roughness: 0.96 },
   tiers:  { colorHex: "#ae6030", roughness: 0.94 },
@@ -29,6 +29,9 @@ export const MARS_SKIN: SkinDescriptor = {
     directionalColor:     "#fff4e8",
     directionalIntensity: 0.65,
     directionalPosition:  [4, 10, 4],
+    directionalFillColor:     "#fff4e8",
+    directionalFillIntensity: 0.55,
+    directionalFillPosition:  [0, 10, 14],
     fogColor: "#c89070",
     fogNear:  22,
     fogFar:   65,
@@ -74,6 +77,13 @@ export function MarsAtmosphere() {
         intensity={l.directionalIntensity}
         position={l.directionalPosition}
       />
+      {l.directionalFillIntensity !== undefined && l.directionalFillIntensity > 0 ? (
+        <directionalLight
+          color={l.directionalFillColor ?? l.directionalColor}
+          intensity={l.directionalFillIntensity}
+          position={l.directionalFillPosition ?? [0, 10, 14]}
+        />
+      ) : null}
     </>
   );
 }
