@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { WorldSkin, WorldSkinDayNightMode } from "@3dspace/contracts";
+import {
+  WORLD_SKIN_DEFAULT_THEATER_SLUG,
+  type WorldSkin,
+  type WorldSkinDayNightMode
+} from "@3dspace/contracts";
 import { fetchWorldSkin } from "./api";
 import type { ApiIdentity } from "./identity";
 
@@ -94,7 +98,7 @@ export function useWorldSkin(input: {
 
   const load = useCallback(
     async (id: string | null) => {
-      if (!enabled || id === null) {
+      if (!enabled) {
         prevSkinIdRef.current = null;
         setSkin(null);
         setReady(true);
@@ -102,16 +106,18 @@ export function useWorldSkin(input: {
         return;
       }
 
+      const resolvedId = id === null ? WORLD_SKIN_DEFAULT_THEATER_SLUG : id;
+
       // Avoid redundant fetches for the same slug.
       // NOTE: the ref must be checked *before* it is updated so the guard
       // works correctly.  The useEffect below must NOT pre-set the ref.
-      if (id === prevSkinIdRef.current) return;
-      prevSkinIdRef.current = id;
+      if (resolvedId === prevSkinIdRef.current) return;
+      prevSkinIdRef.current = resolvedId;
 
       setReady(false);
       setError(undefined);
       try {
-        const next = await loadSkin(id, identity);
+        const next = await loadSkin(resolvedId, identity);
         setSkin(next);
         await preloadSkinTextures(next);
         setSkin(next); // update again post-preload so consumers can re-render

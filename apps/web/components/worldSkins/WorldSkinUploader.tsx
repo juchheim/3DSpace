@@ -23,7 +23,7 @@ import styles from "./WorldSkinUploader.module.css";
 export function WorldSkinUploader() {
   const [password, setPassword] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
-  const [slug, setSlug] = useState<WorldSkinBuiltinSlug>("mars-surface");
+  const [slug, setSlug] = useState<WorldSkinBuiltinSlug>("default-theater");
   const [version, setVersion] = useState(1);
   const [status, setStatus] = useState<WorldSkinUploaderStatus | null>(null);
   const [busyFile, setBusyFile] = useState<WorldSkinAssetFileName | null>(null);

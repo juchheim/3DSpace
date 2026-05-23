@@ -3922,7 +3922,7 @@ describe("room object realtime grab lock", () => {
       return { app, teacherId, studentId, roomId: roomRes.json().room.id };
     }
 
-    it("seeds the builtin catalog on startup (flag on) — 5 slugs present", async () => {
+    it("seeds the builtin catalog on startup (flag on) — 6 slugs present", async () => {
       const app = await buildSkinsApp();
       const res = await app.inject({
         method: "GET",
@@ -3931,9 +3931,16 @@ describe("room object realtime grab lock", () => {
       });
       expect(res.statusCode).toBe(200);
       const body = res.json();
-      expect(body.skins).toHaveLength(5);
+      expect(body.skins).toHaveLength(6);
       const slugs = body.skins.map((s: { slug: string }) => s.slug).sort();
-      expect(slugs).toEqual(["art-studio", "cell-interior", "mars-surface", "rainforest-canopy", "roman-forum"]);
+      expect(slugs).toEqual([
+        "art-studio",
+        "cell-interior",
+        "default-theater",
+        "mars-surface",
+        "rainforest-canopy",
+        "roman-forum"
+      ]);
       await app.close();
     });
 

@@ -97,7 +97,9 @@ async function waitForRoomJoined(page: Page, roomName: string, userId: string) {
 
 // ─── Catalog API ─────────────────────────────────────────────────────────────
 
-test("world skin catalog returns all five builtin skins with absolute URLs", async ({ request }) => {
+test("world skin catalog returns default-theater plus five themed skins with absolute URLs", async ({
+  request
+}) => {
   const { skins } = await getJson<{ skins: Array<{ slug: string; thumbnailStorageKey: string }> }>(
     request,
     "/v1/world-skins",
@@ -105,7 +107,14 @@ test("world skin catalog returns all five builtin skins with absolute URLs", asy
   );
 
   const slugs = skins.map((s) => s.slug).sort();
-  expect(slugs).toEqual(["art-studio", "cell-interior", "mars-surface", "rainforest-canopy", "roman-forum"]);
+  expect(slugs).toEqual([
+    "art-studio",
+    "cell-interior",
+    "default-theater",
+    "mars-surface",
+    "rainforest-canopy",
+    "roman-forum"
+  ]);
 
   for (const skin of skins) {
     expect(skin.thumbnailStorageKey).toMatch(/^https?:\/\//);
@@ -327,9 +336,9 @@ test("teacher environment card shows current skin label and picker opens", async
   await page.getByRole("button", { name: /change/i }).click();
   await expect(page.getByRole("dialog", { name: /choose environment/i })).toBeVisible({ timeout: 5_000 });
 
-  // All five skins + default tile appear
+  // Default theater tile + five themed skins (default-theater hidden from themed grid)
   const tiles = page.locator(".environment-picker__tile");
-  await expect(tiles).toHaveCount(6, { timeout: 10_000 }); // 5 builtin + default theater
+  await expect(tiles).toHaveCount(6, { timeout: 10_000 });
 
   // Select mars-surface from picker
   await page.locator(".environment-picker__tile", { hasText: /mars surface/i }).click();

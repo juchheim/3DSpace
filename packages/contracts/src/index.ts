@@ -573,7 +573,11 @@ export const ListWorldSkinsResponseSchema = z.object({
   skins: z.array(WorldSkinSchema)
 });
 
+/** Applied when room.settings.worldSkins.skinId is null (picker "Default theater"). */
+export const WORLD_SKIN_DEFAULT_THEATER_SLUG = "default-theater" as const;
+
 export const WORLD_SKIN_BUILTIN_SLUGS = [
+  WORLD_SKIN_DEFAULT_THEATER_SLUG,
   "mars-surface",
   "cell-interior",
   "roman-forum",

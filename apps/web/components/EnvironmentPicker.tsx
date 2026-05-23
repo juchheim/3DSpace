@@ -9,7 +9,7 @@
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import type { WorldSkin } from "@3dspace/contracts";
+import { WORLD_SKIN_DEFAULT_THEATER_SLUG, type WorldSkin } from "@3dspace/contracts";
 import type { ApiIdentity } from "../lib/identity";
 import { useWorldSkinCatalog } from "../lib/useWorldSkinCatalog";
 
@@ -23,8 +23,12 @@ type Props = {
 
 export function EnvironmentPicker({ identity, currentSkinId, onSelect, onClose }: Props) {
   const { skins, loading, error } = useWorldSkinCatalog(identity);
+  const defaultSkin = skins.find((skin) => skin.slug === WORLD_SKIN_DEFAULT_THEATER_SLUG);
+  const themedSkins = skins.filter((skin) => skin.slug !== WORLD_SKIN_DEFAULT_THEATER_SLUG);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const isDefaultActive =
+    currentSkinId === null || currentSkinId === WORLD_SKIN_DEFAULT_THEATER_SLUG;
 
   async function pick(skinId: string | null) {
     setBusy(true);
@@ -76,14 +80,14 @@ export function EnvironmentPicker({ identity, currentSkinId, onSelect, onClose }
             {/* Default theater tile — always first */}
             <SkinTile
               label="Default theater"
-              description="The original classroom."
-              thumbnailUrl={null}
-              gradeBands={[]}
-              isActive={currentSkinId === null}
+              description={defaultSkin?.description ?? "The original classroom."}
+              thumbnailUrl={defaultSkin?.thumbnailStorageKey ?? null}
+              gradeBands={defaultSkin?.gradeBands ?? []}
+              isActive={isDefaultActive}
               busy={busy}
               onClick={() => void pick(null)}
             />
-            {skins.map((skin) => (
+            {themedSkins.map((skin) => (
               <SkinTile
                 key={skin.slug}
                 label={skin.label}

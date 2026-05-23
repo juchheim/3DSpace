@@ -1,5 +1,72 @@
 [
   {
+    "id": "skin_default_theater",
+    "slug": "default-theater",
+    "label": "Default theater",
+    "description": "The original classroom. Operator-uploaded panorama and floor WebP assets replace the built-in gray-green theater when present on storage.",
+    "gradeBands": [],
+    "subjects": [],
+    "baseManifestId": "default-theater",
+    "version": 1,
+    "overrides": {
+      "panoramaWall": {
+        "storageKey": "world-skins/default-theater/v1/panorama.webp",
+        "widthPx": 8192,
+        "heightPx": 1024,
+        "horizonWorldY": 5,
+        "maxWorldHeight": 8,
+        "unwrapOrder": [
+          "wall-left", "wall-back-lo", "wall-back-li", "wall-back-c",
+          "wall-back-ri", "wall-back-ro", "wall-right", "wall-front"
+        ],
+        "slices": {
+          "wall-left":    { "u0": 0.0000, "u1": 0.1990, "v1": 0.7500 },
+          "wall-back-lo": { "u0": 0.1990, "u1": 0.2509, "v1": 0.6250 },
+          "wall-back-li": { "u0": 0.2509, "u1": 0.3108, "v1": 0.6250 },
+          "wall-back-c":  { "u0": 0.3108, "u1": 0.3904, "v1": 0.6250 },
+          "wall-back-ri": { "u0": 0.3904, "u1": 0.4503, "v1": 0.6250 },
+          "wall-back-ro": { "u0": 0.4503, "u1": 0.5022, "v1": 0.6250 },
+          "wall-right":   { "u0": 0.5022, "u1": 0.7013, "v1": 0.7500 },
+          "wall-front":   { "u0": 0.7013, "u1": 1.0000, "v1": 1.0000 }
+        }
+      },
+      "walls": {
+        "wall-front":    { "colorHex": "#8ea487", "roughness": 0.85 },
+        "wall-left":     { "colorHex": "#8ea487", "roughness": 0.85 },
+        "wall-right":    { "colorHex": "#8ea487", "roughness": 0.85 },
+        "wall-back-lo":  { "colorHex": "#8ea487", "roughness": 0.85 },
+        "wall-back-li":  { "colorHex": "#8ea487", "roughness": 0.85 },
+        "wall-back-c":   { "colorHex": "#8ea487", "roughness": 0.85 },
+        "wall-back-ri":  { "colorHex": "#8ea487", "roughness": 0.85 },
+        "wall-back-ro":  { "colorHex": "#8ea487", "roughness": 0.85 }
+      },
+      "floor": {
+        "textureStorageKey": "world-skins/default-theater/v1/floor.webp",
+        "colorHex": "#d8c99f",
+        "roughness": 0.92
+      },
+      "tiers": { "colorHex": "#8ea487", "roughness": 0.92 },
+      "lighting": {
+        "backgroundColor": "#16231d",
+        "ambientColor": "#ffffff",
+        "ambientIntensity": 0.82,
+        "directionalColor": "#ffffff",
+        "directionalIntensity": 1.4,
+        "directionalPosition": [4, 8, 6]
+      },
+      "ambient": {
+        "storageKey": "world-skins/default-theater/v1/ambient.ogg",
+        "defaultGain": 0.15
+      },
+      "props": []
+    },
+    "thumbnailStorageKey": "world-skins/thumbnails/default-theater.png",
+    "licenseAttribution": [],
+    "source": "builtin",
+    "createdAt": "2026-05-22T00:00:00.000Z",
+    "updatedAt": "2026-05-22T00:00:00.000Z"
+  },
+  {
     "id": "skin_mars_surface",
     "slug": "mars-surface",
     "label": "Mars Surface",

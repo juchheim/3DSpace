@@ -12,7 +12,7 @@ const catalog = JSON.parse(
   readFileSync(join(here, "../catalog/builtin.json"), "utf8")
 ) as unknown[];
 
-const EXPECTED_SLUGS = [
+const EXPECTED_THEMED_SLUGS = [
   "mars-surface",
   "cell-interior",
   "roman-forum",
@@ -21,9 +21,10 @@ const EXPECTED_SLUGS = [
 ] as const;
 
 describe("world skins builtin catalog", () => {
-  it("contains exactly the five Phase A skins", () => {
-    expect(catalog).toHaveLength(5);
-    for (const slug of EXPECTED_SLUGS) {
+  it("contains default-theater plus the five Phase A themed skins", () => {
+    expect(catalog).toHaveLength(6);
+    expect(catalog.some((s) => (s as Record<string, unknown>).slug === "default-theater")).toBe(true);
+    for (const slug of EXPECTED_THEMED_SLUGS) {
       expect(catalog.some((s) => (s as Record<string, unknown>).slug === slug)).toBe(true);
     }
   });

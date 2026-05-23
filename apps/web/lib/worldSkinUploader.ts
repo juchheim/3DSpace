@@ -139,6 +139,7 @@ export async function uploadWorldSkinFile(input: {
 }
 
 export const WORLD_SKIN_SLUG_OPTIONS: { slug: WorldSkinBuiltinSlug; label: string }[] = [
+  { slug: "default-theater", label: "Default theater" },
   { slug: "mars-surface", label: "Mars Surface" },
   { slug: "cell-interior", label: "Cell Interior" },
   { slug: "roman-forum", label: "Roman Forum" },
