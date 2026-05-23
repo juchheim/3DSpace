@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-23 (Mars skin lighting)
+Last updated: 2026-05-23 (room dimensions)
 
 ## Project Summary
 
@@ -14,6 +14,7 @@ Implementation state: **MVP complete in production** (Vercel + Koyeb + Atlas + C
 
 - **Monorepo**: `apps/web`, `apps/api`, `packages/contracts`, `packages/room-engine`
 - **Planning**: `docs/planning/mvp/MVP_IMPLEMENTATION_PLAN.md`, `MVP_STATUS.md`, `DEPLOYMENT_CHECKLIST.md`; `docs/planning/mvp+1/MVP_PLUS_ONE_WALL_MEDIA_PLAN.md`, `MVP_PLUS_ONE_STATUS.md`, `MVP_PLUS_ONE_CLASSROOM_TOOLS_PLAN.md`, `MVP_PLUS_ONE_CLASSROOM_TOOLS_IMPLEMENTATION.md`, `MVP_PLUS_ONE_LESSON_PLANNING_DISCOVERY_PLAN.md`; `docs/planning/new-features/README.md`, `LEARNING_FEATURE_IDEAS.md`, `CONCEPT_WORLD_SKINS_PHASE_A.md`, `IMPL_WORLD_SKINS_PHASE_A.md`, `WORLD_SKIN_PANORAMA_SPEC.md`, `IMPL_EMOTES.md`, `IMPL_HALL_PASS.md`, `IMPL_WHISPER.md`, `IMPL_EXIT_TICKET.md`, `PLAN_BREAKOUT_PODS.md`, `IMPL_BREAKOUT_PODS.md`, `PLAN_ROOM_OBJECTS.md`
+- **Default classroom geometry**: `packages/room-engine/src/index.ts` defines the canonical 30×24 m room; it is now a same-height 8 m rectangular shell with two raised rear tiers. The back wall remains five collinear wall IDs for panorama unwrap compatibility.
 - **Memory**: `.cursor/memory.md` (this file)
 - **Env templates**: `.env.example`, `apps/api/.env.example`, `apps/web/.env.example`
 - **Deploy artifacts**: `apps/api/Dockerfile`, `vercel.json`
@@ -119,6 +120,7 @@ Local loading:
 ## Relationships
 
 - Room manifest → consumed by 3D and 2D renderers
+- Default room geometry → mirrored by `apps/web/components/worldSkins/SkinHarness.tsx`; existing fetched room manifests are normalized in `apps/web/lib/manifest.ts`; panorama UV slices live in `packages/contracts/src/index.ts`, `packages/world-skins/catalog/builtin.json`, and `docs/planning/new-features/WORLD_SKIN_PANORAMA_SPEC.md`
 - 3D camera follows the local participant's `avatar.state.v1` position and yaw in `RoomView3D`
 - Zod/OpenAPI = API contract; Mongoose = persistence
 - LiveKit data channels = avatar state; not persisted in MVP
@@ -211,6 +213,7 @@ Screen share, computer audio, teacher moderation, rich wall placement, room buil
 - **2026-05-21**: Updated `PLAN_ROOM_OBJECTS.md` § 3.5 + Phase F: in-app `.glb` export deferred (GLTFExporter, F1 download / F2 save-as-template); v1 forward-compat via `exportRootRef`, `exportable`, `renderer` + `proceduralId` on templates; build-time asset script noted as parallel path.
 - **2026-05-22**: Drafted `docs/planning/new-features/IMPL_WORLD_SKINS_PHASE_A.md` — 10-phase build plan (0 pilot Mars in dev harness → 1 contracts (`WorldSkinSchema`, `RoomSettings.worldSkins`, three classroom actions, `room.skin.v1`) → 2 `packages/world-skins/` catalog + API builtin seed mirroring RoomObjects → 3 API routes (`/v1/world-skins`, `/v1/world-skins/:slug`, `/v1/world-skin-assets/*`) + action handlers + tests → 4 web hooks `useWorldSkinCatalog`/`useWorldSkin` + realtime + window debug → 5 3D `SkinLayer` (wall/floor materials, lighting/fog, board-darken pass, ambient player, crossfade) → 6 2D themed floor map + banner → 7 Mars walk-speed in `useAvatarMovement`, Cell `avatarScale` in `BlockyAvatar`, Forum day/night → 8 teacher `EnvironmentCard` + `EnvironmentPicker`, no student picker → 9 polish, env templates, Playwright, rollout). Files-to-touch matrix, IMPL-resolved open questions table (live switch = both, ambient = CDN, Cell scale = visual only, Forum default = day, pilot prop priority = rover), risks (wall arc seams, board readability, iPad Safari texture memory, ambient autoplay), acceptance gate mirroring CONCEPT §13.1. Phase A+ glTF props explicitly out of scope; schema/loader hooks land additively. README index promoted to "Planned" with both CONCEPT + IMPL links.
 - **2026-05-23**: Mars Surface skin lighting: switched to `hemisphereSkyColor`/`hemisphereGroundColor` (uniform outdoor fill), reduced `directionalIntensity` to 0.28, darkened back-wall/ceiling `colorHex` tints; `WallMesh` now multiplies panorama albedo by per-wall `colorHex` when set.
+- **2026-05-23**: Room dimensions branch simplified the default classroom to a rectangular 30×24 m shell with every wall panel at 8 m height; retained two raised rear tiers (0.5 m and 1.0 m), straightened student rows, expanded walkable back bounds to z=10.5, added `applyDefaultRoomGeometry()` so existing fetched rooms normalize to the new shell, and updated world-skin panorama slices/docs so all wall panels sample full texture height. Validation: focused room-engine + world-skins Vitest suites and typechecks for contracts, room-engine, and web pass. Browser smoke check was attempted but MCP browser received `ERR_CONNECTION_REFUSED` from `localhost:3000`.
 - **2026-05-22**: Locked wall art delivery: `docs/planning/new-features/WORLD_SKIN_PANORAMA_SPEC.md` — single **`panorama.webp` 8192×1024** (horizon 640 px from bottom), companion **`floor.webp` 2048×2048**; CONCEPT §3.5 + IMPL Phases 0/2/4/5 updated; optional `WorldSkinPanoramaWallSchema` + `WORLD_SKIN_PANORAMA_SLICES_DEFAULT` in contracts (Phase 1 work unchanged; `hero-draft.json` color-only walls still valid). World Skins Phases 0–1 reported complete in codebase.
 - **2026-05-22**: Updated `CONCEPT_WORLD_SKINS_PHASE_A.md` §3.5 — Phase A = texture + atmosphere (walls, floor, sky/lighting, audio, 2D maps, code affordances); glTF decorative props deferred to Phase A+; no 3D artist required for launch; ~3 MB texture packs; acceptance criteria split 13.1 vs 13.2.
 - **2026-05-22**: Authored `docs/planning/new-features/CONCEPT_WORLD_SKINS_PHASE_A.md` — full product concept for World Skins Phase A (Big idea #3): geometry-sacred reskin of the theater, five launch skins (Mars, cell, Roman Forum, rainforest, art studio), teacher/student UX, platform integration table, `RoomManifestSkin` entity sketch, asset budget, accessibility, district narrative, acceptance criteria, risks, open questions. README index updated under "Big-idea concept docs." Next artifact: `PLAN_WORLD_SKINS_PHASE_A.md` after concept acceptance.

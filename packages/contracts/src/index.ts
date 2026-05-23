@@ -473,7 +473,7 @@ export const WorldSkinMaterialOverrideSchema = z.object({
   repeat: z.tuple([z.number().positive(), z.number().positive()]).optional()
 });
 
-/** Theater wall ids — keys for panorama unwrap slices. */
+/** Classroom wall ids — keys for panorama unwrap slices. */
 export const WorldSkinWallIdSchema = z.enum([
   "wall-front",
   "wall-left",
@@ -488,7 +488,7 @@ export const WorldSkinWallIdSchema = z.enum([
 export const WorldSkinPanoramaSliceSchema = z.object({
   u0: z.number().min(0).max(1),
   u1: z.number().min(0).max(1),
-  /** Bottom of slice is always v0 = 0; v1 = wallHeight / maxWorldHeight (8 m theater). */
+  /** Bottom of slice is always v0 = 0; v1 = wallHeight / maxWorldHeight. */
   v1: z.number().min(0).max(1)
 });
 
@@ -507,14 +507,14 @@ export const WORLD_SKIN_PANORAMA_SLICES_DEFAULT: Record<
   z.infer<typeof WorldSkinWallIdSchema>,
   z.infer<typeof WorldSkinPanoramaSliceSchema>
 > = {
-  "wall-left": { u0: 0, u1: 0.199, v1: 0.75 },
-  "wall-back-lo": { u0: 0.199, u1: 0.2509, v1: 0.625 },
-  "wall-back-li": { u0: 0.2509, u1: 0.3108, v1: 0.625 },
-  "wall-back-c": { u0: 0.3108, u1: 0.3904, v1: 0.625 },
-  "wall-back-ri": { u0: 0.3904, u1: 0.4503, v1: 0.625 },
-  "wall-back-ro": { u0: 0.4503, u1: 0.5022, v1: 0.625 },
-  "wall-right": { u0: 0.5022, u1: 0.7013, v1: 0.75 },
-  "wall-front": { u0: 0.7013, u1: 1, v1: 1 }
+  "wall-left": { u0: 0, u1: 0.2115, v1: 1 },
+  "wall-back-lo": { u0: 0.2115, u1: 0.2692, v1: 1 },
+  "wall-back-li": { u0: 0.2692, u1: 0.3269, v1: 1 },
+  "wall-back-c": { u0: 0.3269, u1: 0.3846, v1: 1 },
+  "wall-back-ri": { u0: 0.3846, u1: 0.4423, v1: 1 },
+  "wall-back-ro": { u0: 0.4423, u1: 0.5, v1: 1 },
+  "wall-right": { u0: 0.5, u1: 0.7115, v1: 1 },
+  "wall-front": { u0: 0.7115, u1: 1, v1: 1 }
 };
 
 export const WorldSkinOverridesSchema = z.object({

@@ -43,7 +43,7 @@ export interface SkinDescriptor {
   slug: string;
   label: string;
   description: string;
-  // keyed by wall.id from the theater manifest (packages/room-engine)
+  // keyed by wall.id from the default classroom manifest (packages/room-engine)
   wallMaterials: Record<string, MaterialDescriptor>;
   floor: MaterialDescriptor;
   tiers?: MaterialDescriptor;

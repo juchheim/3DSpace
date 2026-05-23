@@ -13,30 +13,30 @@ import { MARS_SKIN } from "./MarsSkin";
 import type { SkinDescriptor, LightingPreset } from "./types";
 import styles from "./SkinHarness.module.css";
 
-// ── Theater geometry constants ────────────────────────────────────────────────
-// Mirror of packages/room-engine theater manifest. Skins may NOT alter these.
+// ── Classroom geometry constants ──────────────────────────────────────────────
+// Mirror of packages/room-engine default manifest. Skins may NOT alter these.
 
 const ROOM_WIDTH = 30;
 const ROOM_DEPTH = 24;
 
 type WallDef = { id: string; sx: number; sz: number; ex: number; ez: number; h: number };
 
-const THEATER_WALLS: WallDef[] = [
+const CLASSROOM_WALLS: WallDef[] = [
   { id: "wall-front",    sx: -15, sz: -11, ex:  15,  ez: -11,  h: 8 },
-  { id: "wall-left",     sx: -15, sz: -11, ex: -15,  ez:   9,  h: 6 },
-  { id: "wall-right",    sx:  15, sz: -11, ex:  15,  ez:   9,  h: 6 },
-  { id: "wall-back-lo",  sx: -15, sz:   9, ex: -10,  ez:  10.5, h: 5 },
-  { id: "wall-back-li",  sx: -10, sz:  10.5, ex:  -4, ez:  11,  h: 5 },
-  { id: "wall-back-c",   sx:  -4, sz:  11, ex:   4,  ez:  11,  h: 5 },
-  { id: "wall-back-ri",  sx:   4, sz:  11, ex:  10,  ez:  10.5, h: 5 },
-  { id: "wall-back-ro",  sx:  10, sz:  10.5, ex:  15, ez:   9,  h: 5 },
+  { id: "wall-left",     sx: -15, sz: -11, ex: -15,  ez:  11,  h: 8 },
+  { id: "wall-right",    sx:  15, sz: -11, ex:  15,  ez:  11,  h: 8 },
+  { id: "wall-back-lo",  sx: -15, sz:  11, ex:  -9,  ez:  11,  h: 8 },
+  { id: "wall-back-li",  sx:  -9, sz:  11, ex:  -3,  ez:  11,  h: 8 },
+  { id: "wall-back-c",   sx:  -3, sz:  11, ex:   3,  ez:  11,  h: 8 },
+  { id: "wall-back-ri",  sx:   3, sz:  11, ex:   9,  ez:  11,  h: 8 },
+  { id: "wall-back-ro",  sx:   9, sz:  11, ex:  15,  ez:  11,  h: 8 },
 ];
 
 type TierDef = { minZ: number; maxZ: number; floorY: number };
 
-const THEATER_TIERS: TierDef[] = [
-  { minZ: 3.0, maxZ:  7.5, floorY: 0.5 },
-  { minZ: 7.5, maxZ: 11.0, floorY: 1.0 },
+const CLASSROOM_TIERS: TierDef[] = [
+  { minZ: 3.0, maxZ:  7.0, floorY: 0.5 },
+  { minZ: 7.0, maxZ: 10.5, floorY: 1.0 },
 ];
 
 const DEFAULT_LIGHTING: LightingPreset = {
@@ -121,7 +121,7 @@ function TierMesh({
   );
 }
 
-function TheaterScene({ skin }: { skin: SkinDescriptor | null }) {
+function ClassroomScene({ skin }: { skin: SkinDescriptor | null }) {
   const l             = skin?.lighting ?? DEFAULT_LIGHTING;
   const floorColor    = skin?.floor.colorHex    ?? DEFAULT_FLOOR_COLOR;
   const floorRoughness = skin?.floor.roughness  ?? 0.92;
@@ -172,8 +172,8 @@ function TheaterScene({ skin }: { skin: SkinDescriptor | null }) {
       />
 
       {/* Tier platforms */}
-      {THEATER_TIERS.map((tier, i) => {
-        const prevFloorY = i === 0 ? 0 : THEATER_TIERS[i - 1]!.floorY;
+      {CLASSROOM_TIERS.map((tier, i) => {
+        const prevFloorY = i === 0 ? 0 : CLASSROOM_TIERS[i - 1]!.floorY;
         const color = skin?.tiers?.colorHex ?? DEFAULT_TIER_COLORS[i % DEFAULT_TIER_COLORS.length]!;
         const roughness = skin?.tiers?.roughness ?? 0.92;
         return (
@@ -182,7 +182,7 @@ function TheaterScene({ skin }: { skin: SkinDescriptor | null }) {
       })}
 
       {/* Walls */}
-      {THEATER_WALLS.map((wall) => (
+      {CLASSROOM_WALLS.map((wall) => (
         <WallMesh key={wall.id} {...wall} skin={skin} />
       ))}
     </>
@@ -237,7 +237,7 @@ function SceneCanvas({ skin, label }: { skin: SkinDescriptor | null; label: stri
         dpr={[1, 2]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
       >
-        <TheaterScene skin={skin} />
+        <ClassroomScene skin={skin} />
         <OrbitControls
           makeDefault
           enablePan={false}
