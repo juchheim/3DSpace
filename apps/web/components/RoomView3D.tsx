@@ -1137,8 +1137,8 @@ function WallMesh({
     material.depthWrite = opacity > 0.85;
   });
 
-  // When a panorama texture is present use white base color (texture provides the color).
-  const baseColor = wallTexture ? "#ffffff" : (skinWallColor ?? "#8ea487");
+  // Panorama provides albedo; optional skinWallColor multiplies (tints sky/ceiling bands on Mars, etc.).
+  const baseColor = skinWallColor ?? (wallTexture ? "#ffffff" : "#8ea487");
 
   return (
     <mesh position={midpoint} rotation={[0, -angle, 0]}>

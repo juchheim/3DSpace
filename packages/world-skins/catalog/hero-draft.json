@@ -12,11 +12,11 @@
       "wall-front":    { "colorHex": "#b06030", "roughness": 0.92 },
       "wall-left":     { "colorHex": "#a85c2c", "roughness": 0.92 },
       "wall-right":    { "colorHex": "#a85c2c", "roughness": 0.92 },
-      "wall-back-lo":  { "colorHex": "#c07038", "roughness": 0.90 },
-      "wall-back-li":  { "colorHex": "#c47a40", "roughness": 0.90 },
-      "wall-back-c":   { "colorHex": "#c88040", "roughness": 0.90 },
-      "wall-back-ri":  { "colorHex": "#c47a40", "roughness": 0.90 },
-      "wall-back-ro":  { "colorHex": "#c07038", "roughness": 0.90 }
+      "wall-back-lo":  { "colorHex": "#9a5028", "roughness": 0.90 },
+      "wall-back-li":  { "colorHex": "#a0582c", "roughness": 0.90 },
+      "wall-back-c":   { "colorHex": "#9e5028", "roughness": 0.90 },
+      "wall-back-ri":  { "colorHex": "#a0582c", "roughness": 0.90 },
+      "wall-back-ro":  { "colorHex": "#9a5028", "roughness": 0.90 }
     },
     "floor": {
       "colorHex": "#9a5020",
@@ -27,15 +27,18 @@
       "roughness": 0.94
     },
     "lighting": {
-      "backgroundColor": "#c8865a",
+      "backgroundColor": "#a86a48",
       "ambientColor": "#d4906a",
-      "ambientIntensity": 0.6,
-      "directionalColor": "#ffb080",
-      "directionalIntensity": 1.8,
-      "directionalPosition": [6, 4, 2],
+      "ambientIntensity": 0.75,
+      "directionalColor": "#ffd4b0",
+      "directionalIntensity": 0.28,
+      "directionalPosition": [4, 9, 3],
       "fogColor": "#b87050",
       "fogNear": 18,
-      "fogFar": 55
+      "fogFar": 55,
+      "hemisphereSkyColor": "#e8b078",
+      "hemisphereGroundColor": "#8a4818",
+      "hemisphereIntensity": 1.0
     },
     "walkSpeedMultiplier": 0.38,
     "avatarScale": 1.0,
