@@ -47,7 +47,7 @@
       },
       "tiers": { "colorHex": "#ae6030", "roughness": 0.94 },
       "lighting": {
-        "backgroundColor": "#d4a078",
+        "backgroundColor": "#cc9b57",
         "ambientColor": "#e4d0b0",
         "ambientIntensity": 0.9,
         "directionalColor": "#fff8e8",
@@ -56,10 +56,10 @@
         "directionalFillColor": "#fff8e8",
         "directionalFillIntensity": 0.55,
         "directionalFillPosition": [0, 10, 14],
-        "fogColor": "#c89870",
+        "fogColor": "#cc9b57",
         "fogNear": 22,
         "fogFar": 65,
-        "hemisphereSkyColor": "#e0b888",
+        "hemisphereSkyColor": "#cc9b57",
         "hemisphereGroundColor": "#d09050",
         "hemisphereIntensity": 2.4
       },
