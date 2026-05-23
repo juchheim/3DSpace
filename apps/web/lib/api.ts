@@ -18,6 +18,7 @@ import type {
   RoomObjectRealtimeMessage,
   RoomObjectTemplate,
   RoomSessionResponse,
+  WorldSkin,
   RoomSettings,
   RoomObjectTouchRequestSchema,
   RoomWithManifest,
@@ -296,6 +297,14 @@ export function createWebResource(
 
 export function listRoomObjectTemplates(identity: ApiIdentity) {
   return apiFetch<{ templates: RoomObjectTemplate[] }>("/v1/room-objects/templates", { identity }).then((response) => response.templates);
+}
+
+export function listWorldSkins(identity: ApiIdentity) {
+  return apiFetch<{ skins: WorldSkin[] }>("/v1/world-skins", { identity }).then((r) => r.skins);
+}
+
+export function fetchWorldSkin(slug: string, identity: ApiIdentity) {
+  return apiFetch<WorldSkin>(`/v1/world-skins/${encodeURIComponent(slug)}`, { identity });
 }
 
 export function createRoomObjectUpload(

@@ -14,6 +14,12 @@ import {
   CreateRoomObjectTemplateResponseSchema,
   CreateRoomObjectUploadRequestSchema,
   CreateRoomObjectUploadResponseSchema,
+  CreateWorldSkinUploadRequestSchema,
+  CreateWorldSkinUploadResponseSchema,
+  WorldSkinUploaderVerifyRequestSchema,
+  WorldSkinUploaderVerifyResponseSchema,
+  WorldSkinUploaderStatusQuerySchema,
+  WorldSkinUploaderStatusResponseSchema,
   CreateRoomRequestSchema,
   CreateWallObjectRequestSchema,
   CreateWallShareRequestSchema,
@@ -23,6 +29,9 @@ import {
   FinalizeWallAttachmentRequestSchema,
   HealthResponseSchema,
   JoinRoomSessionRequestSchema,
+  ListWorldSkinsResponseSchema,
+  WorldSkinSchema,
+  RoomSkinMessageSchema,
   ListRoomObjectTemplatesResponseSchema,
   ListRoomObjectsQuerySchema,
   ListRoomObjectsResponseSchema,
@@ -67,6 +76,7 @@ import {
   type RoomObjectRealtimeMessage,
   type WallObject,
   type WallObjectType,
+  type WorldSkin,
   type RoomSettings
 } from "@3dspace/contracts";
 import {
@@ -91,6 +101,7 @@ import {
   notImplemented,
   roomObjectDisabled,
   roomObjectUploadRejected,
+  worldSkinsDisabled,
   roomObjectTouchDenied,
   tooManyRequests,
   unprocessableEntity
@@ -101,6 +112,7 @@ import {
   validateCustomRoomObjectThumbnail
 } from "./room-objects/custom-template-upload.js";
 import { seedBuiltinRoomObjectTemplates } from "./room-objects/builtin-catalog.js";
+import { seedBuiltinWorldSkins } from "./world-skins/builtin-catalog.js";
 import { RoomObjectGrabLock } from "./room-objects/grab-lock.js";
 import {
   assertCanTouchRoomObject,
@@ -122,6 +134,17 @@ import {
   dispatchRoomObjectRealtimeMessage,
   forceReleaseRoomObjectGrab
 } from "./room-objects/realtime-dispatch.js";
+import {
+  assertWorldSkinUploadContentType,
+  assertWorldSkinUploaderPassword,
+  isRequiredWorldSkinAsset,
+  readUploaderPasswordHeader,
+  worldSkinAssetPath,
+  worldSkinAssetUrl,
+  worldSkinStorageKey,
+  worldSkinUploaderEnabled,
+  WORLD_SKIN_ASSET_FILES
+} from "./world-skins/uploader.js";
 import { connectMongo, MongoRepository } from "./models/mongoose.js";
 import { MemoryRepository, newId, type Repository } from "./repository.js";
 import { mintLiveKitToken } from "./services/livekit.js";
@@ -232,6 +255,46 @@ function roomSettings(config: AppConfig) {
       customUploadsEnabled: config.tuning.enableRoomObjects,
       maxUploadSizeBytes: 8 * 1024 * 1024,
       defaultTouchPolicy: "teacher-only" as const
+    },
+    worldSkins: {
+      enabled: true,
+      skinId: null as string | null,
+      skinDayNightMode: "day" as const,
+      skinLocked: false,
+      ambientGainOverride: null as number | null
+    }
+  };
+}
+
+function rewriteWorldSkinAssetUrls(skin: WorldSkin, config: AppConfig): WorldSkin {
+  const o = skin.overrides;
+  return {
+    ...skin,
+    thumbnailStorageKey: worldSkinAssetUrl(config, skin.thumbnailStorageKey),
+    overrides: {
+      ...o,
+      panoramaWall: o.panoramaWall
+        ? { ...o.panoramaWall, storageKey: worldSkinAssetUrl(config, o.panoramaWall.storageKey) }
+        : undefined,
+      walls: Object.fromEntries(
+        Object.entries(o.walls).map(([id, w]) => [
+          id,
+          w.textureStorageKey ? { ...w, textureStorageKey: worldSkinAssetUrl(config, w.textureStorageKey) } : w
+        ])
+      ),
+      floor: o.floor?.textureStorageKey
+        ? { ...o.floor, textureStorageKey: worldSkinAssetUrl(config, o.floor.textureStorageKey) }
+        : o.floor,
+      tiers: o.tiers?.textureStorageKey
+        ? { ...o.tiers, textureStorageKey: worldSkinAssetUrl(config, o.tiers.textureStorageKey) }
+        : o.tiers,
+      sky: o.sky?.storageKey
+        ? { ...o.sky, storageKey: worldSkinAssetUrl(config, o.sky.storageKey) }
+        : o.sky,
+      ambient: o.ambient
+        ? { ...o.ambient, storageKey: worldSkinAssetUrl(config, o.ambient.storageKey) }
+        : undefined,
+      map2dStorageKey: o.map2dStorageKey ? worldSkinAssetUrl(config, o.map2dStorageKey) : undefined
     }
   };
 }
@@ -2238,6 +2301,9 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   const config = options.config ?? loadConfig();
   const repository = options.repository ?? (await buildRepository(config));
   await seedBuiltinRoomObjectTemplates(repository);
+  if (config.tuning.enableWorldSkins) {
+    await seedBuiltinWorldSkins(repository);
+  }
   const roomObjectGrabLock = options.roomObjectGrabLock ?? new RoomObjectGrabLock();
   if (config.tuning.enableRoomObjects) {
     roomObjectGrabLock.startReaper();
@@ -2279,7 +2345,14 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       callback(new Error(`Origin not allowed: ${origin}`), false);
     },
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-dev-user-id", "x-dev-user-name", "x-dev-user-role"]
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "x-dev-user-id",
+      "x-dev-user-name",
+      "x-dev-user-role",
+      "x-world-skin-uploader-password"
+    ]
   });
 
   app.setErrorHandler((error, _request, reply) => {
@@ -2353,6 +2426,68 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     throw notFound("Storage key is required");
   }
 
+  if (worldSkinUploaderEnabled(config)) {
+    app.post("/v1/world-skin-uploader/verify", async (request) => {
+      const body = parseBody(WorldSkinUploaderVerifyRequestSchema, request);
+      assertWorldSkinUploaderPassword(config, body.password);
+      return WorldSkinUploaderVerifyResponseSchema.parse({ ok: true });
+    });
+
+    app.get("/v1/world-skin-uploader/status", async (request) => {
+      const query = parseQuery(WorldSkinUploaderStatusQuerySchema, request);
+      assertWorldSkinUploaderPassword(config, readUploaderPasswordHeader(request));
+      const r2Prefix = `world-skins/${query.slug}/v${query.version}/`;
+      const files = await Promise.all(
+        WORLD_SKIN_ASSET_FILES.map(async (fileName) => {
+          const storageKey = worldSkinStorageKey({
+            slug: query.slug,
+            version: query.version,
+            fileName
+          });
+          const object = await readStoredObject(config, { storageKey });
+          const download =
+            object &&
+            (await createDownloadTarget(config, {
+              storageKey
+            }));
+          return {
+            fileName,
+            storageKey,
+            required: isRequiredWorldSkinAsset(fileName),
+            uploaded: Boolean(object),
+            downloadUrl: download?.url
+          };
+        })
+      );
+      return WorldSkinUploaderStatusResponseSchema.parse({
+        slug: query.slug,
+        version: query.version,
+        r2Prefix,
+        files
+      });
+    });
+
+    app.post("/v1/world-skin-uploader/uploads", async (request) => {
+      const body = parseBody(CreateWorldSkinUploadRequestSchema, request);
+      assertWorldSkinUploaderPassword(config, readUploaderPasswordHeader(request));
+      assertWorldSkinUploadContentType(body.fileName, body.contentType);
+      const storageKey = worldSkinStorageKey({
+        slug: body.slug,
+        version: body.version,
+        fileName: body.fileName
+      });
+      const upload = await createUploadTarget(config, {
+        storageKey,
+        contentType: body.contentType
+      });
+      return CreateWorldSkinUploadResponseSchema.parse({
+        storageKey,
+        assetPath: worldSkinAssetPath(storageKey),
+        upload
+      });
+    });
+  }
+
   app.put("/dev-upload/*", async (request, reply) => {
     if (storageConfigured(config)) throw notFound("Development upload fallback is disabled");
     const storageKey = storageKeyFromRequest(request);
@@ -2378,6 +2513,34 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const object = await readStoredObject(config, { storageKey });
     if (!object) throw notFound("Room object asset not found");
     return reply.header("content-type", object.contentType).send(object.body);
+  });
+
+  app.get("/v1/world-skins", async (request) => {
+    await requireUser(request, config, repository);
+    if (!config.tuning.enableWorldSkins) throw worldSkinsDisabled();
+    const skins = await repository.listWorldSkins();
+    return ListWorldSkinsResponseSchema.parse({ skins: skins.map((s) => rewriteWorldSkinAssetUrls(s, config)) });
+  });
+
+  app.get("/v1/world-skins/:slug", async (request) => {
+    await requireUser(request, config, repository);
+    if (!config.tuning.enableWorldSkins) throw worldSkinsDisabled();
+    const params = parseParams(z.object({ slug: z.string() }), request);
+    const skin = await repository.getWorldSkin(params.slug);
+    if (!skin) throw notFound("World skin not found");
+    return WorldSkinSchema.parse(rewriteWorldSkinAssetUrls(skin, config));
+  });
+
+  app.get("/v1/world-skin-assets/*", async (request, reply) => {
+    await requireUser(request, config, repository);
+    if (!config.tuning.enableWorldSkins) throw worldSkinsDisabled();
+    const storageKey = storageKeyFromRequest(request);
+    const object = await readStoredObject(config, { storageKey });
+    if (!object) throw notFound("World skin asset not found");
+    return reply
+      .header("content-type", object.contentType)
+      .header("cache-control", "public, max-age=31536000, immutable")
+      .send(object.body);
   });
 
   app.get("/v1/users/me", async (request) => {
@@ -3171,6 +3334,36 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const body = parseBody(ClassroomActionSchema, request);
     const { room, membership } = await requireRoomAccess(repository, params.roomId, auth);
     const actor = await resolveClassroomActor({ repository, room, membership, auth });
+
+    // World-skin actions mutate room settings rather than classroom state
+    if (body.type === "set-room-skin" || body.type === "lock-room-skin" || body.type === "set-room-skin-day-night") {
+      if (!config.tuning.enableWorldSkins) throw worldSkinsDisabled();
+      requireTeacher(actor);
+      const ws = room.settings.worldSkins ?? { enabled: true, skinId: null, skinDayNightMode: "day" as const, skinLocked: false, ambientGainOverride: null };
+
+      if (body.type === "set-room-skin") {
+        if (body.skinId !== null) {
+          const exists = await repository.getWorldSkin(body.skinId);
+          if (!exists) throw notFound("World skin not found");
+        }
+        await repository.updateRoom(params.roomId, { settings: { worldSkins: { ...ws, skinId: body.skinId } } });
+        const msg = RoomSkinMessageSchema.parse({ type: "room.skin.v1", skinId: body.skinId, dayNight: ws.skinDayNightMode, crossfadeMs: 1000 });
+        return { skinId: body.skinId, realtimeMessages: [msg] };
+      }
+
+      if (body.type === "lock-room-skin") {
+        await repository.updateRoom(params.roomId, { settings: { worldSkins: { ...ws, skinLocked: body.locked } } });
+        return { locked: body.locked, realtimeMessages: [] };
+      }
+
+      if (body.type === "set-room-skin-day-night") {
+        if (ws.skinId !== "roman-forum") throw unprocessableEntity("Day/night mode is only supported for the roman-forum skin");
+        await repository.updateRoom(params.roomId, { settings: { worldSkins: { ...ws, skinDayNightMode: body.mode } } });
+        const msg = RoomSkinMessageSchema.parse({ type: "room.skin.v1", skinId: ws.skinId, dayNight: body.mode, crossfadeMs: 1000 });
+        return { dayNight: body.mode, realtimeMessages: [msg] };
+      }
+    }
+
     const state = await runClassroomAction({
       repository,
       roomId: params.roomId,

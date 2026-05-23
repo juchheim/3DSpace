@@ -77,6 +77,8 @@ Normalized UVs for `overrides.panoramaWall.slices` (v0 is always **0**):
 
 R2 path: `world-skins/<slug>/v1/panorama.webp`
 
+**Operator upload UI:** `http://localhost:3000/dev/world-skin-upload` (password from API env `WORLD_SKIN_UPLOADER_PASSWORD`; see `.env.example`).
+
 ---
 
 ## R2 layout per skin

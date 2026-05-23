@@ -12,5 +12,6 @@ export const CLIENT_TUNING = {
   enableRoomObjects: process.env.NEXT_PUBLIC_ENABLE_ROOM_OBJECTS === "true",
   enableAvatarReactions: process.env.NEXT_PUBLIC_ENABLE_AVATAR_REACTIONS !== "false",
   enableHallPass: process.env.NEXT_PUBLIC_ENABLE_HALL_PASS === "true",
-  enableWhisper: process.env.NEXT_PUBLIC_ENABLE_WHISPER === "true"
+  enableWhisper: process.env.NEXT_PUBLIC_ENABLE_WHISPER === "true",
+  enableWorldSkins: process.env.NEXT_PUBLIC_ENABLE_WORLD_SKINS === "true"
 };

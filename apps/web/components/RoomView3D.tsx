@@ -3,7 +3,8 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html } from "@react-three/drei";
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
-import { BufferAttribute, BufferGeometry, type MeshStandardMaterial, Vector3 } from "three";
+import { BufferAttribute, BufferGeometry, ClampToEdgeWrapping, SRGBColorSpace, Texture, TextureLoader, type MeshStandardMaterial, Vector3 } from "three";
+import { useWorldSkinContext, DEFAULT_LIGHTING, DEFAULT_BACKGROUND } from "./worldSkins/SkinLayer";
 import type {
   AvatarAppearance,
   AvatarReactionSlug,
@@ -215,9 +216,7 @@ export function RoomView3D({
         gl={{ antialias: quality !== "low", powerPreference: "high-performance" }}
         onCreated={({ gl }) => setCanvasElement(gl.domElement)}
       >
-        <color attach="background" args={["#16231d"]} />
-        <ambientLight intensity={0.82} />
-        <directionalLight position={[4, 8, 6]} intensity={1.4} />
+        <SceneAtmosphere />
         <RoomGeometry manifest={manifest} onMoveToPoint={onMoveToPoint} wallObjects={wallObjects} spotlightAnchorId={spotlight?.anchorId} />
         {roomObjects &&
         roomObjectTemplatesById &&
@@ -268,31 +267,36 @@ export function RoomView3D({
         />
         {hallpassZone ? <HallpassZoneMarker zone={hallpassZone} /> : null}
         <PrivateCheckLayer manifest={manifest} privateChecks={privateChecks} />
-        {participants.map((participant) => {
-          const group = activeGroupByParticipantId.get(participant.id);
-          const podGroup = podGroupByParticipantId.get(participant.id) ?? null;
-          const isLocal = participant.id === localParticipantId;
-          const crossPodOutlineColor =
-            podsEnabled && localPodGroup && !isLocal && podGroup?.id !== localPodGroup.id
-              ? podGroup?.color ?? "#9aa49d"
-              : undefined;
-          return (
-            <BlockyAvatar
-              key={participant.id}
-              participant={participant}
-              {...(group?.color ? { groupColor: group.color } : {})}
-              {...(crossPodOutlineColor ? { crossPodOutlineColor } : {})}
-              appearance={getAppearance(participant.id)}
-              helpRequestActive={activeHelpRequestUserIds?.has(participant.id) ?? false}
-              waveTriggered={isLocal ? localWaveTriggered : !!(participant.state.waving)}
-              onWaveComplete={isLocal && onLocalWaveComplete ? onLocalWaveComplete : () => {}}
-              {...(() => { const r = getReaction?.(participant.id); return r ? { reaction: r } : {}; })()}
-              {...(() => { const m = getAudioMode?.(participant.id); return m ? { audioMode: m.mode, whisperRadiusMeters: m.radiusMeters } : {}; })()}
-              {...(isLocal && onSelfClick && !firstPerson ? { onClick: onSelfClick } : {})}
-              {...(isLocal && firstPerson ? { hidden: true } : {})}
-            />
-          );
-        })}
+        {(() => {
+          const { skin } = useWorldSkinContext();
+          const avatarScale = skin?.overrides.avatarScale ?? 1;
+          return participants.map((participant) => {
+            const group = activeGroupByParticipantId.get(participant.id);
+            const podGroup = podGroupByParticipantId.get(participant.id) ?? null;
+            const isLocal = participant.id === localParticipantId;
+            const crossPodOutlineColor =
+              podsEnabled && localPodGroup && !isLocal && podGroup?.id !== localPodGroup.id
+                ? podGroup?.color ?? "#9aa49d"
+                : undefined;
+            return (
+              <BlockyAvatar
+                key={participant.id}
+                participant={participant}
+                {...(group?.color ? { groupColor: group.color } : {})}
+                {...(crossPodOutlineColor ? { crossPodOutlineColor } : {})}
+                appearance={getAppearance(participant.id)}
+                helpRequestActive={activeHelpRequestUserIds?.has(participant.id) ?? false}
+                waveTriggered={isLocal ? localWaveTriggered : !!(participant.state.waving)}
+                onWaveComplete={isLocal && onLocalWaveComplete ? onLocalWaveComplete : () => {}}
+                avatarScale={avatarScale}
+                {...(() => { const r = getReaction?.(participant.id); return r ? { reaction: r } : {}; })()}
+                {...(() => { const m = getAudioMode?.(participant.id); return m ? { audioMode: m.mode, whisperRadiusMeters: m.radiusMeters } : {}; })()}
+                {...(isLocal && onSelfClick && !firstPerson ? { onClick: onSelfClick } : {})}
+                {...(isLocal && firstPerson ? { hidden: true } : {})}
+              />
+            );
+          });
+        })()}
         <FollowLocalAvatarCamera
           participants={participants}
           localParticipantId={localParticipantId}
@@ -740,17 +744,51 @@ function FollowLocalAvatarCamera({
  * Renders one seating tier as a trapezoidal prism with a ~74° angled front riser
  * instead of a vertical face, giving a theater-seat look rather than a concrete block.
  */
+/** Renders sky color, optional fog, and lights driven by the active WorldSkin. */
+function SceneAtmosphere() {
+  const { activeLighting } = useWorldSkinContext();
+  const l = activeLighting ?? DEFAULT_LIGHTING;
+  const bg = activeLighting?.backgroundColor ?? DEFAULT_BACKGROUND;
+
+  return (
+    <>
+      <color attach="background" args={[bg]} />
+      {l.fogColor !== undefined ? (
+        <fog attach="fog" args={[l.fogColor, l.fogNear ?? 20, l.fogFar ?? 60]} />
+      ) : null}
+      {l.hemisphereSkyColor !== undefined ? (
+        <hemisphereLight
+          args={[
+            l.hemisphereSkyColor as string,
+            (l.hemisphereGroundColor ?? "#000000") as string,
+            l.hemisphereIntensity ?? 1
+          ]}
+        />
+      ) : (
+        <ambientLight color={l.ambientColor} intensity={l.ambientIntensity} />
+      )}
+      <directionalLight
+        color={l.directionalColor}
+        intensity={l.directionalIntensity}
+        position={l.directionalPosition}
+      />
+    </>
+  );
+}
+
 function TierMesh({
   tier,
   prevFloorY,
   roomWidth,
   color,
+  roughness = 0.92,
   onMoveToPoint
 }: {
   tier: { minZ: number; maxZ: number; floorY: number };
   prevFloorY: number;
   roomWidth: number;
   color: string;
+  roughness?: number;
   onMoveToPoint(point: { x: number; z: number }): void;
 }) {
   const geometry = useMemo(() => {
@@ -800,7 +838,7 @@ function TierMesh({
         onMoveToPoint({ x: event.point.x, z: event.point.z });
       }}
     >
-      <meshStandardMaterial color={color} roughness={0.92} />
+      <meshStandardMaterial color={color} roughness={roughness} />
     </mesh>
   );
 }
@@ -821,6 +859,43 @@ function RoomGeometry({
     [wallObjects]
   );
 
+  // ── Skin context ────────────────────────────────────────────────────────────
+  const { skin, panoramaUrl } = useWorldSkinContext();
+  const { gl } = useThree();
+
+  // Load the panorama texture once per skin, dispose on change.
+  const [panoramaTexture, setPanoramaTexture] = useState<Texture | null>(null);
+  useEffect(() => {
+    if (!panoramaUrl) {
+      setPanoramaTexture(null);
+      return;
+    }
+    let cancelled = false;
+    const loader = new TextureLoader();
+    loader.load(
+      panoramaUrl,
+      (t) => {
+        if (cancelled) { t.dispose(); return; }
+        t.colorSpace = SRGBColorSpace;
+        t.wrapS = ClampToEdgeWrapping;
+        t.wrapT = ClampToEdgeWrapping;
+        t.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
+        setPanoramaTexture(t);
+      },
+      undefined,
+      () => { /* fail-open: wall falls back to solid color */ }
+    );
+    return () => {
+      cancelled = true;
+      setPanoramaTexture((prev) => { prev?.dispose(); return null; });
+    };
+  }, [panoramaUrl, gl]);
+
+  const floorColor = skin?.overrides.floor?.colorHex ?? "#d8c99f";
+  const floorRoughness = skin?.overrides.floor?.roughness ?? 0.92;
+  const tierOverride = skin?.overrides.tiers;
+  const defaultTierColors = ["#cac0a2", "#bfb498"] as const;
+
   return (
     <group>
       <mesh
@@ -833,7 +908,7 @@ function RoomGeometry({
         }}
       >
         <planeGeometry args={[manifest.dimensions.width, manifest.dimensions.depth]} />
-        <meshStandardMaterial color="#d8c99f" roughness={0.92} />
+        <meshStandardMaterial color={floorColor} roughness={floorRoughness} />
       </mesh>
       <gridHelper
         args={[Math.max(manifest.dimensions.width, manifest.dimensions.depth), 24, "#4c6b58", "#31473b"]}
@@ -842,19 +917,33 @@ function RoomGeometry({
       {/* Raised tier platforms with angled front risers for a theater-seat appearance */}
       {manifest.tiers?.map((tier, i) => {
         const prevFloorY = i === 0 ? 0 : manifest.tiers![i - 1]!.floorY;
-        const tierColors = ["#cac0a2", "#bfb498"];
+        const color = tierOverride?.colorHex ?? defaultTierColors[i % defaultTierColors.length]!;
+        const roughness = tierOverride?.roughness ?? 0.92;
         return (
           <TierMesh
             key={`tier-${i}`}
             tier={tier}
             prevFloorY={prevFloorY}
             roomWidth={manifest.dimensions.width}
-            color={tierColors[i % tierColors.length]!}
+            color={color}
+            roughness={roughness}
             onMoveToPoint={onMoveToPoint}
           />
         );
       })}
-      {manifest.walls.map((wall) => <WallMesh key={wall.id} wall={wall} />)}
+      {manifest.walls.map((wall) => {
+        const slice = skin?.overrides.panoramaWall?.slices[wall.id as keyof typeof skin.overrides.panoramaWall.slices] ?? null;
+        const wallColorFallback = skin?.overrides.walls[wall.id]?.colorHex ?? null;
+        return (
+          <WallMesh
+            key={wall.id}
+            wall={wall}
+            panoramaTexture={panoramaTexture}
+            slice={slice}
+            skinWallColor={wallColorFallback}
+          />
+        );
+      })}
       {manifest.wallAnchors.map((anchor) => (
         <AnchorMesh
           key={anchor.id}
@@ -903,7 +992,17 @@ function wallOpacityFromCameraDistance(signedDistance: number) {
   return Math.max(0.06, 0.16 + signedDistance * 0.55);
 }
 
-function WallMesh({ wall }: { wall: Wall }) {
+function WallMesh({
+  wall,
+  panoramaTexture,
+  slice,
+  skinWallColor
+}: {
+  wall: Wall;
+  panoramaTexture?: Texture | null;
+  slice?: { u0: number; u1: number; v1: number } | null;
+  skinWallColor?: string | null;
+}) {
   const { camera } = useThree();
   const materialRef = useRef<MeshStandardMaterial | null>(null);
   const plane = useMemo(() => wallPlane(wall), [wall]);
@@ -911,6 +1010,22 @@ function WallMesh({ wall }: { wall: Wall }) {
   const midpoint = [(wall.start.x + wall.end.x) / 2, wall.height / 2, (wall.start.z + wall.end.z) / 2] as const;
   const angle = Math.atan2(wall.end.z - wall.start.z, wall.end.x - wall.start.x);
   const cameraOffset = useMemo(() => new Vector3(), []);
+
+  // Clone the shared panorama texture per wall with wall-specific UV offset/repeat.
+  // Cloning shares the same GPU resource (no extra upload) — only the UV transform differs.
+  const wallTexture = useMemo(() => {
+    if (!panoramaTexture || !slice) return null;
+    const t = panoramaTexture.clone();
+    t.needsUpdate = true;
+    t.offset.set(slice.u0, 0);
+    t.repeat.set(slice.u1 - slice.u0, slice.v1);
+    return t;
+  }, [panoramaTexture, slice?.u0, slice?.u1, slice?.v1]);
+
+  // Dispose the per-wall clone when it's replaced or the component unmounts.
+  useEffect(() => {
+    return () => { wallTexture?.dispose(); };
+  }, [wallTexture]);
 
   useFrame(() => {
     const material = materialRef.current;
@@ -923,10 +1038,20 @@ function WallMesh({ wall }: { wall: Wall }) {
     material.depthWrite = opacity > 0.85;
   });
 
+  // When a panorama texture is present use white base color (texture provides the color).
+  const baseColor = wallTexture ? "#ffffff" : (skinWallColor ?? "#8ea487");
+
   return (
     <mesh position={midpoint} rotation={[0, -angle, 0]}>
       <boxGeometry args={[length, wall.height, 0.12]} />
-      <meshStandardMaterial ref={materialRef} color="#8ea487" roughness={0.85} transparent opacity={1} />
+      <meshStandardMaterial
+        ref={materialRef}
+        color={baseColor}
+        map={wallTexture ?? null}
+        roughness={0.85}
+        transparent
+        opacity={1}
+      />
     </mesh>
   );
 }

@@ -3,8 +3,8 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AvatarAppearance, AvatarReactionMessage, AvatarReactionSlug, AvatarStateMessage, Role, RoomManifest, RoomObjectTemplate, RoomSessionResponse, ViewMode, WallObject } from "@3dspace/contracts";
-import { AvatarAppearanceMessageSchema, AvatarReactionMessageSchema, ParticipantAudioModeMessageSchema, parseRoomSettings } from "@3dspace/contracts";
+import type { AvatarAppearance, AvatarReactionMessage, AvatarReactionSlug, AvatarStateMessage, Role, RoomManifest, RoomObjectTemplate, RoomSessionResponse, ViewMode, WallObject, WorldSkinDayNightMode } from "@3dspace/contracts";
+import { AvatarAppearanceMessageSchema, AvatarReactionMessageSchema, ParticipantAudioModeMessageSchema, parseRoomSettings, RoomSkinMessageSchema } from "@3dspace/contracts";
 import { computeGroupMemberPosition, createAvatarState, floorYFromZ, unprojectPointFrom2D } from "@3dspace/room-engine";
 import {
   archiveRoomObjectTemplate,
@@ -28,6 +28,8 @@ import { useDisplayMedia } from "../lib/useDisplayMedia";
 import { useWallObjects } from "../lib/useWallObjects";
 import { useRoomObjects } from "../lib/useRoomObjects";
 import { useRoomObjectTemplates } from "../lib/useRoomObjectTemplates";
+import { useWorldSkin } from "../lib/useWorldSkin";
+import { SkinLayer } from "./worldSkins/SkinLayer";
 import { usePersistentIdentity } from "../lib/usePersistentIdentity";
 import { navigateToLobby } from "../lib/navigateToLobby";
 import { normalizeRoomManifest } from "../lib/manifest";
@@ -58,6 +60,7 @@ import { WallObjectContent } from "./WallObjectCard";
 import { RoomObjectsToolbar } from "./RoomObjectsToolbar";
 import { RoomObjectInspector } from "./RoomObjectInspector";
 import { buildSpawnPoseInFront } from "../lib/roomObjectInteraction";
+import { EnvironmentCard } from "./EnvironmentCard";
 
 const RoomView3D = dynamic(() => import("./RoomView3D").then((module) => module.RoomView3D), {
   ssr: false,
@@ -207,6 +210,32 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   );
   const roomObjectsSettings = parsedRoomSettings?.roomObjects;
   const roomObjectsEnabled = CLIENT_TUNING.enableRoomObjects && roomObjectsSettings?.enabled === true;
+
+  // World skin: realtime overrides layer on top of server-session values
+  const [targetSkinId, setTargetSkinId] = useState<string | null | undefined>(undefined);
+  const [targetDayNightMode, setTargetDayNightMode] = useState<WorldSkinDayNightMode | undefined>(undefined);
+  const skinId = targetSkinId !== undefined ? targetSkinId : (parsedRoomSettings?.worldSkins?.skinId ?? null);
+  const skinDayNightMode: WorldSkinDayNightMode = targetDayNightMode ?? (parsedRoomSettings?.worldSkins?.skinDayNightMode ?? "day");
+  const activeSkin = useWorldSkin({
+    identity,
+    skinId: CLIENT_TUNING.enableWorldSkins ? skinId : null,
+    dayNightMode: skinDayNightMode,
+    enabled: CLIENT_TUNING.enableWorldSkins
+  });
+  // Local ambient gain: teacher slider gives immediate audio feedback while patchRoom debounces.
+  const [localAmbientGain, setLocalAmbientGain] = useState<number | null>(null);
+  const ambientDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Environment banner: show briefly when a skin is active; dismiss on ×.
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const prevSkinBannerIdRef = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    const nextId = activeSkin.skin?.id ?? null;
+    if (nextId !== prevSkinBannerIdRef.current) {
+      prevSkinBannerIdRef.current = nextId;
+      setBannerDismissed(false);
+    }
+  }, [activeSkin.skin?.id]);
   const roomObjectCustomUploadsEnabled = roomObjectsEnabled && roomObjectsSettings?.customUploadsEnabled === true;
   const roomObjectsTeacherToolbarVisible = CLIENT_TUNING.enableRoomObjects && role === "teacher" && Boolean(manifest);
   const roomObjectsGateSyncRef = useRef<string | null>(null);
@@ -311,12 +340,15 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       refetchTemplates: roomObjectTemplates.refetch,
       actions: roomObjects.actions
     };
+    debugWindow.__debug.worldSkin = activeSkin;
     return () => {
       if (debugWindow.__debug) {
         delete debugWindow.__debug.roomObjects;
+        delete debugWindow.__debug.worldSkin;
       }
     };
   }, [
+    activeSkin,
     roomObjects.actions,
     roomObjects.grabs,
     roomObjects.myActiveGrab,
@@ -386,6 +418,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     return m > 0 ? `${m}m ${s}s` : `${s}s`;
   }
 
+  const walkSpeedMultiplier = activeSkin.skin?.overrides.walkSpeedMultiplier ?? 1;
   const movement = useAvatarMovement({
     manifest,
     participantId: session?.participantId ?? identity.userId,
@@ -398,8 +431,23 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       microphoneEnabled: media.microphoneEnabled,
       speaking: media.speaking
     },
-    lockedPosition
+    lockedPosition,
+    walkSpeedMultiplier
   });
+
+  // Walk-speed toast: shown once per skin with a non-1× multiplier, auto-dismissed after 6 s or first key press.
+  const [walkToastVisible, setWalkToastVisible] = useState(false);
+  const prevWalkMultiplierRef = useRef<number>(1);
+  useEffect(() => {
+    if (walkSpeedMultiplier === prevWalkMultiplierRef.current) return;
+    prevWalkMultiplierRef.current = walkSpeedMultiplier;
+    if (walkSpeedMultiplier === 1) { setWalkToastVisible(false); return; }
+    setWalkToastVisible(true);
+    const timer = setTimeout(() => setWalkToastVisible(false), 6000);
+    function onKey() { setWalkToastVisible(false); }
+    window.addEventListener("keydown", onKey, { once: true });
+    return () => { clearTimeout(timer); window.removeEventListener("keydown", onKey); };
+  }, [walkSpeedMultiplier]);
 
   const lookAtFocus = useCallback(
     (anchorId: string) => {
@@ -596,6 +644,15 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       if (message.type === "avatar.reaction.v1") {
         const parsed = AvatarReactionMessageSchema.safeParse(message);
         if (parsed.success) receiveReaction(parsed.data);
+        return;
+      }
+
+      if (message.type === "room.skin.v1") {
+        const parsed = RoomSkinMessageSchema.safeParse(message);
+        if (parsed.success) {
+          setTargetSkinId(parsed.data.skinId);
+          setTargetDayNightMode(parsed.data.dayNight);
+        }
         return;
       }
 
@@ -1464,10 +1521,40 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     </>
   );
 
+  // localAmbientGain takes precedence once the teacher has moved the slider.
+  const ambientGainOverride = localAmbientGain ?? parsedRoomSettings?.worldSkins?.ambientGainOverride ?? null;
+  // Mute ambient while the teacher's microphone is live (voice is primary).
+  const muteAmbient = media.microphoneEnabled && role === "teacher";
+
   return (
+    <SkinLayer
+      skin={CLIENT_TUNING.enableWorldSkins ? activeSkin.skin : null}
+      dayNightMode={skinDayNightMode}
+      ambientGainOverride={ambientGainOverride}
+      muteAmbient={muteAmbient}
+    >
     <main className="app-shell room-shell">
       {/* Stage fills the full viewport */}
       <div className="room-stage" aria-label="Shared classroom">
+        {/* Environment banner — shown when a skin is active, dismissible per session */}
+        {CLIENT_TUNING.enableWorldSkins && activeSkin.skin && !bannerDismissed ? (
+          <div className="world-skin-banner" role="status" aria-live="polite">
+            <span>Environment: {activeSkin.skin.label}</span>
+            <button
+              type="button"
+              aria-label="Dismiss environment banner"
+              onClick={() => setBannerDismissed(true)}
+            >
+              ×
+            </button>
+          </div>
+        ) : null}
+        {/* Walk-speed toast — shown once when entering a skin with non-1× walk multiplier */}
+        {CLIENT_TUNING.enableWorldSkins && walkToastVisible ? (
+          <div className="world-skin-walk-toast" role="status" aria-live="polite">
+            Lower gravity — you move slower.
+          </div>
+        ) : null}
         {leaving ? (
           <div className="fallback-view">Leaving...</div>
         ) : !manifest || !session ? (
@@ -1856,6 +1943,34 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               onModerate={moderateWallObject}
             />
           ) : null}
+          {CLIENT_TUNING.enableWorldSkins && role === "teacher" && session ? (
+            <EnvironmentCard
+              identity={identity}
+              skin={activeSkin.skin ?? null}
+              skinLocked={parsedRoomSettings?.worldSkins?.skinLocked ?? false}
+              dayNightMode={skinDayNightMode}
+              ambientGain={ambientGainOverride}
+              onRunAction={classroom.runAction}
+              onAmbientChange={(gain) => {
+                setLocalAmbientGain(gain);
+                if (ambientDebounceRef.current) clearTimeout(ambientDebounceRef.current);
+                ambientDebounceRef.current = setTimeout(() => {
+                  const activeRoomId = session.room.id;
+                  void patchRoom(identity, activeRoomId, {
+                    settings: {
+                      worldSkins: {
+                        enabled: parsedRoomSettings?.worldSkins?.enabled ?? true,
+                        skinId: parsedRoomSettings?.worldSkins?.skinId ?? null,
+                        skinDayNightMode: parsedRoomSettings?.worldSkins?.skinDayNightMode ?? "day",
+                        skinLocked: parsedRoomSettings?.worldSkins?.skinLocked ?? false,
+                        ambientGainOverride: gain
+                      }
+                    }
+                  });
+                }, 400);
+              }}
+            />
+          ) : null}
         </div>
       </aside>
       {roomObjectInspectorDockOpen && selectedRoomObject && selectedRoomObjectTemplate ? (
@@ -2021,5 +2136,6 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         );
       })()}
     </main>
+    </SkinLayer>
   );
 }

@@ -14,7 +14,8 @@ import type {
   User,
   WallAttachment,
   WallObject,
-  WallObjectStatus
+  WallObjectStatus,
+  WorldSkin
 } from "@3dspace/contracts";
 import type { AuthContext } from "../auth.js";
 import { conflict, notFound } from "../errors.js";
@@ -40,6 +41,7 @@ type Models = {
   ClassroomState: Model<any>;
   WallAttachment: Model<any>;
   WallObject: Model<any>;
+  WorldSkin: Model<any>;
   RoomObjectTemplate: Model<any>;
   RoomObject: Model<any>;
   RoomEvent: Model<any>;
@@ -178,6 +180,27 @@ export function createModels(connection: Connection): Models {
   wallObjectSchema.index({ roomId: 1, updatedAt: -1 });
   wallObjectSchema.index({ roomId: 1, type: 1, status: 1 });
 
+  const worldSkinSchema = new Schema({
+    id: { type: String, required: true, unique: true },
+    slug: { type: String, required: true, unique: true },
+    label: String,
+    description: String,
+    gradeBands: { type: [String], default: [] },
+    subjects: { type: [String], default: [] },
+    baseManifestId: String,
+    version: Number,
+    overrides: Schema.Types.Mixed,
+    thumbnailStorageKey: String,
+    standardsCrosswalkUrl: String,
+    licenseAttribution: { type: [Schema.Types.Mixed], default: [] },
+    review: Schema.Types.Mixed,
+    source: { type: String, required: true },
+    createdAt: String,
+    updatedAt: String
+  });
+  worldSkinSchema.index({ slug: 1 }, { unique: true });
+  worldSkinSchema.index({ source: 1 });
+
   const roomObjectTemplateSchema = new Schema({
     id: { type: String, required: true, unique: true },
     slug: { type: String, required: true, unique: true },
@@ -284,6 +307,7 @@ export function createModels(connection: Connection): Models {
     ClassroomState: connection.model("ClassroomState", classroomStateSchema),
     WallAttachment: connection.model("WallAttachment", attachmentSchema),
     WallObject: connection.model("WallObject", wallObjectSchema),
+    WorldSkin: connection.model("WorldSkin", worldSkinSchema),
     RoomObjectTemplate: connection.model("RoomObjectTemplate", roomObjectTemplateSchema),
     RoomObject: connection.model("RoomObject", roomObjectSchema),
     RoomEvent: connection.model("RoomEvent", eventSchema),
@@ -640,6 +664,31 @@ export class MongoRepository implements Repository {
 
   async softRemoveWallObject(roomId: string, objectId: string, input: { updatedByUserId: string; expectedVersion?: number | undefined }) {
     return this.updateWallObject(roomId, objectId, { updatedByUserId: input.updatedByUserId, expectedVersion: input.expectedVersion, status: "removed" });
+  }
+
+  async upsertBuiltinWorldSkins(skins: WorldSkin[]) {
+    const time = nowIso();
+    for (const skin of skins) {
+      const { createdAt, ...fields } = skin;
+      await this.models.WorldSkin.findOneAndUpdate(
+        { slug: skin.slug },
+        {
+          $set: { ...fields, updatedAt: time },
+          $setOnInsert: { createdAt: createdAt || time }
+        },
+        { upsert: true, new: true, lean: true }
+      );
+    }
+  }
+
+  async listWorldSkins(): Promise<WorldSkin[]> {
+    const docs = await this.models.WorldSkin.find({ source: "builtin" }).sort({ slug: 1 }).lean();
+    return entities<WorldSkin>(docs);
+  }
+
+  async getWorldSkin(slug: string): Promise<WorldSkin | undefined> {
+    const doc = await this.models.WorldSkin.findOne({ slug }).lean();
+    return entity<WorldSkin | undefined>(doc);
   }
 
   async upsertBuiltinRoomObjectTemplates(templates: RoomObjectTemplate[]) {

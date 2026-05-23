@@ -10,6 +10,7 @@ import type {
   Role,
   RoomObjectRealtimeMessageSchema,
   RoomSessionResponse,
+  RoomSkinMessage,
   WallModerationStateMessageSchema,
   WallObjectRealtimeRemoveSchema,
   WallObjectRealtimeUpsertSchema,
@@ -50,7 +51,8 @@ export type RealtimeMessage =
   | LeaveMessage
   | WallRealtimeMessage
   | ClassroomRealtimeMessage
-  | RoomObjectRealtimeMessage;
+  | RoomObjectRealtimeMessage
+  | RoomSkinMessage;
 
 const ROOM_OBJECT_UNRELIABLE_TYPES = new Set(["room.object.pose.v1"]);
 

@@ -23,6 +23,8 @@ export type AppConfig = {
     publicRead: boolean;
   };
   sentryDsn: string | undefined;
+  /** When set, enables POST/GET /v1/world-skin-uploader/* operator routes. */
+  worldSkinUploaderPassword: string | undefined;
   tuning: {
     avatarSendHz: number;
     interpolationMs: number;
@@ -51,6 +53,7 @@ export type AppConfig = {
     enableClassroomLessons: boolean;
     enableBreakoutPods: boolean;
     enableRoomObjects: boolean;
+    enableWorldSkins: boolean;
     spatialAudio: SpatialAudioConfig;
     media: {
       defaultCameraEnabled: boolean;
@@ -167,6 +170,7 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       publicRead: envBoolean(raw, "OBJECT_STORAGE_PUBLIC_READ", false)
     },
     sentryDsn: envString(raw, "SENTRY_DSN"),
+    worldSkinUploaderPassword: envString(raw, "WORLD_SKIN_UPLOADER_PASSWORD"),
     tuning: {
       avatarSendHz: envNumber(raw, "AVATAR_STATE_SEND_HZ", 12),
       interpolationMs: envNumber(raw, "AVATAR_INTERPOLATION_MS", 120),
@@ -195,6 +199,7 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       enableClassroomLessons: envBoolean(raw, "ENABLE_CLASSROOM_LESSONS", false),
       enableBreakoutPods: envBoolean(raw, "ENABLE_BREAKOUT_PODS", false),
       enableRoomObjects: envBoolean(raw, "ENABLE_ROOM_OBJECTS", false),
+      enableWorldSkins: envBoolean(raw, "ENABLE_WORLD_SKINS", false),
       spatialAudio: {
         enabled: envBoolean(raw, "SPATIAL_AUDIO_ENABLED", true),
         distanceModel,

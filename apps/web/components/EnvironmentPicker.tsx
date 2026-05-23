@@ -1,0 +1,127 @@
+"use client";
+
+/**
+ * EnvironmentPicker — modal grid for choosing a world skin.
+ *
+ * Rendered by EnvironmentCard when the teacher clicks "Change…".
+ * Fetches the catalog via useWorldSkinCatalog (cached, soft-refreshes every 30 s).
+ */
+
+import type { WorldSkin } from "@3dspace/contracts";
+import type { ApiIdentity } from "../lib/identity";
+import { useWorldSkinCatalog } from "../lib/useWorldSkinCatalog";
+
+type Props = {
+  identity: ApiIdentity;
+  currentSkinId: string | null;
+  /** Called with the selected slug, or null for "Default theater". Caller closes the modal. */
+  onSelect: (skinId: string | null) => Promise<void>;
+  onClose: () => void;
+};
+
+export function EnvironmentPicker({ identity, currentSkinId, onSelect, onClose }: Props) {
+  const { skins, loading, error } = useWorldSkinCatalog(identity);
+
+  async function pick(skinId: string | null) {
+    await onSelect(skinId);
+    onClose();
+  }
+
+  return (
+    /* Backdrop */
+    <div
+      className="environment-picker"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Choose environment"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="environment-picker__dialog">
+        <div className="environment-picker__header">
+          <span className="environment-picker__title">Choose environment</span>
+          <button
+            type="button"
+            className="environment-picker__close"
+            aria-label="Close picker"
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </div>
+
+        {loading && skins.length === 0 ? (
+          <p className="environment-picker__status">Loading…</p>
+        ) : error ? (
+          <p className="environment-picker__status environment-picker__status--error">{error}</p>
+        ) : (
+          <div className="environment-picker__grid">
+            {/* Default theater tile — always first */}
+            <SkinTile
+              label="Default theater"
+              description="The original classroom."
+              thumbnailUrl={null}
+              gradeBands={[]}
+              isActive={currentSkinId === null}
+              onClick={() => void pick(null)}
+            />
+            {skins.map((skin) => (
+              <SkinTile
+                key={skin.slug}
+                label={skin.label}
+                description={skin.description}
+                thumbnailUrl={skin.thumbnailStorageKey}
+                gradeBands={skin.gradeBands}
+                isActive={skin.slug === currentSkinId}
+                onClick={() => void pick(skin.slug)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SkinTile({
+  label,
+  description,
+  thumbnailUrl,
+  gradeBands,
+  isActive,
+  onClick,
+}: {
+  label: string;
+  description: string;
+  thumbnailUrl: string | null;
+  gradeBands: string[];
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`environment-picker__tile${isActive ? " environment-picker__tile--active" : ""}`}
+      onClick={onClick}
+      title={description}
+    >
+      {thumbnailUrl ? (
+        <img
+          src={thumbnailUrl}
+          alt={`${label} thumbnail`}
+          className="environment-picker__thumb"
+        />
+      ) : (
+        <div className="environment-picker__thumb environment-picker__thumb--default" />
+      )}
+      <div className="environment-picker__label">{label}</div>
+      {gradeBands.length > 0 ? (
+        <div className="environment-picker__chips">
+          {gradeBands.map((band) => (
+            <span key={band} className="environment-picker__chip">{band}</span>
+          ))}
+        </div>
+      ) : null}
+      <div className="environment-picker__desc">{description}</div>
+    </button>
+  );
+}

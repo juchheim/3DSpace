@@ -569,6 +569,58 @@ export const ListWorldSkinsResponseSchema = z.object({
   skins: z.array(WorldSkinSchema)
 });
 
+export const WORLD_SKIN_BUILTIN_SLUGS = [
+  "mars-surface",
+  "cell-interior",
+  "roman-forum",
+  "rainforest-canopy",
+  "art-studio"
+] as const;
+
+export const WorldSkinBuiltinSlugSchema = z.enum(WORLD_SKIN_BUILTIN_SLUGS);
+
+export const WorldSkinAssetFileNameSchema = z.enum([
+  "panorama.webp",
+  "floor.webp",
+  "map2d.webp",
+  "ambient.ogg"
+]);
+
+export const WorldSkinUploaderVerifyRequestSchema = z.object({
+  password: z.string().min(1).max(200)
+});
+
+export const WorldSkinUploaderVerifyResponseSchema = z.object({
+  ok: z.literal(true)
+});
+
+export const CreateWorldSkinUploadRequestSchema = z.object({
+  slug: WorldSkinBuiltinSlugSchema,
+  version: z.number().int().min(1).max(99).default(1),
+  fileName: WorldSkinAssetFileNameSchema,
+  contentType: z.string().min(1).max(120)
+});
+
+export const WorldSkinUploaderStatusQuerySchema = z.object({
+  slug: WorldSkinBuiltinSlugSchema,
+  version: z.coerce.number().int().min(1).max(99).default(1)
+});
+
+export const WorldSkinUploaderFileStatusSchema = z.object({
+  fileName: WorldSkinAssetFileNameSchema,
+  storageKey: z.string(),
+  required: z.boolean(),
+  uploaded: z.boolean(),
+  downloadUrl: z.string().url().optional()
+});
+
+export const WorldSkinUploaderStatusResponseSchema = z.object({
+  slug: WorldSkinBuiltinSlugSchema,
+  version: z.number().int(),
+  r2Prefix: z.string(),
+  files: z.array(WorldSkinUploaderFileStatusSchema)
+});
+
 export const RoomObjectUploadKindSchema = z.enum(["asset", "thumbnail"]);
 
 export const CreateRoomObjectUploadRequestSchema = z.object({
@@ -871,6 +923,12 @@ export const SignedDownloadTargetSchema = z.object({
   method: z.literal("GET"),
   headers: z.record(z.string()),
   expiresInSeconds: z.number().int().positive()
+});
+
+export const CreateWorldSkinUploadResponseSchema = z.object({
+  storageKey: z.string().min(1),
+  assetPath: z.string().min(1),
+  upload: SignedUploadTargetSchema
 });
 
 export const CreateWallAttachmentResponseSchema = z.object({
@@ -1945,6 +2003,9 @@ export type WorldSkinPanoramaWall = z.infer<typeof WorldSkinPanoramaWallSchema>;
 export type WorldSkinPanoramaSlice = z.infer<typeof WorldSkinPanoramaSliceSchema>;
 export type WorldSkinWallId = z.infer<typeof WorldSkinWallIdSchema>;
 export type WorldSkinDayNightMode = z.infer<typeof WorldSkinDayNightModeSchema>;
+export type WorldSkinBuiltinSlug = z.infer<typeof WorldSkinBuiltinSlugSchema>;
+export type WorldSkinAssetFileName = z.infer<typeof WorldSkinAssetFileNameSchema>;
+export type WorldSkinUploaderStatus = z.infer<typeof WorldSkinUploaderStatusResponseSchema>;
 export type ClassroomSetRoomSkinAction = z.infer<typeof ClassroomSetRoomSkinActionSchema>;
 export type ClassroomLockRoomSkinAction = z.infer<typeof ClassroomLockRoomSkinActionSchema>;
 export type ClassroomSetRoomSkinDayNightAction = z.infer<typeof ClassroomSetRoomSkinDayNightActionSchema>;
@@ -2020,7 +2081,30 @@ export const apiRoutes: ApiRoute[] = [
     response: RoomObjectRealtimeDispatchResponseSchema
   },
   { method: "get", path: "/v1/world-skins", summary: "List world skin catalog entries (flag-gated)", tags: ["world-skins"], response: ListWorldSkinsResponseSchema },
-  { method: "get", path: "/v1/world-skins/{slug}", summary: "Get a world skin by slug with absolute asset URLs (flag-gated)", tags: ["world-skins"], response: WorldSkinSchema }
+  { method: "get", path: "/v1/world-skins/{slug}", summary: "Get a world skin by slug with absolute asset URLs (flag-gated)", tags: ["world-skins"], response: WorldSkinSchema },
+  {
+    method: "post",
+    path: "/v1/world-skin-uploader/verify",
+    summary: "Verify world skin uploader password (operator tool)",
+    tags: ["world-skins"],
+    request: WorldSkinUploaderVerifyRequestSchema,
+    response: WorldSkinUploaderVerifyResponseSchema
+  },
+  {
+    method: "get",
+    path: "/v1/world-skin-uploader/status",
+    summary: "List upload status for a skin prefix in object storage",
+    tags: ["world-skins"],
+    response: WorldSkinUploaderStatusResponseSchema
+  },
+  {
+    method: "post",
+    path: "/v1/world-skin-uploader/uploads",
+    summary: "Create a signed PUT target for a world skin asset in R2",
+    tags: ["world-skins"],
+    request: CreateWorldSkinUploadRequestSchema,
+    response: CreateWorldSkinUploadResponseSchema
+  }
   // Note: GET /v1/world-skin-assets/* serves raw bytes (content-type varies); not registered as a JSON schema route.
 ];
 

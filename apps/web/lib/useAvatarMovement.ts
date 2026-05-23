@@ -25,6 +25,7 @@ export function useAvatarMovement(input: {
   cameraYawRef?: MutableRefObject<number>;
   media: { cameraEnabled: boolean; microphoneEnabled: boolean; speaking: boolean };
   lockedPosition?: Vector3 | null;
+  walkSpeedMultiplier?: number;
 }) {
   const [avatarState, setAvatarState] = useState<AvatarStateMessage | null>(null);
   const keys = useRef(new Set<string>());
@@ -34,6 +35,9 @@ export function useAvatarMovement(input: {
   mediaRef.current = input.media;
   const lockedPositionRef = useRef<Vector3 | null>(input.lockedPosition ?? null);
   lockedPositionRef.current = input.lockedPosition ?? null;
+  // Keep a mutable ref so the rAF loop always reads the latest value without restarting.
+  const walkSpeedMultiplierRef = useRef(input.walkSpeedMultiplier ?? 1);
+  walkSpeedMultiplierRef.current = input.walkSpeedMultiplier ?? 1;
 
   useEffect(() => {
     if (!input.manifest) return;
@@ -128,7 +132,9 @@ export function useAvatarMovement(input: {
         const worldDelta = transformLocalMovementToWorld(movementYaw, { x: localX, z: localZ });
         const magnitude = Math.hypot(worldDelta.x, worldDelta.z);
         const moving = magnitude > 0;
-        const speed = 3.2;
+        // walkSpeedMultiplierRef: skin-driven multiplier (e.g. 0.38 for Mars low-gravity).
+        // NOT applied to moveTo3DPoint teleports — teleporting slowly on Mars is wrong UX.
+        const speed = 3.2 * walkSpeedMultiplierRef.current;
         const nextPosition = moving
           ? clampPositionToBounds(input.manifest!, {
               x: current.position.x + (worldDelta.x / magnitude) * speed * deltaSeconds,

@@ -3,5 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "description": "World skins catalog data and asset tooling. No compiled output.",
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  }
 }

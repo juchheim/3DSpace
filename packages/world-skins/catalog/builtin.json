@@ -1,0 +1,397 @@
+[
+  {
+    "id": "skin_mars_surface",
+    "slug": "mars-surface",
+    "label": "Mars Surface",
+    "description": "Ochre regolith walls, pale dust sky, low-gravity walk speed, and wind ambient loop. Students experience space science context on the Martian surface.",
+    "gradeBands": ["5-8", "9-12"],
+    "subjects": ["earth-science", "space-science"],
+    "baseManifestId": "default-theater",
+    "version": 1,
+    "overrides": {
+      "panoramaWall": {
+        "storageKey": "world-skins/mars-surface/v1/panorama.webp",
+        "widthPx": 8192,
+        "heightPx": 1024,
+        "horizonWorldY": 5,
+        "maxWorldHeight": 8,
+        "unwrapOrder": [
+          "wall-left", "wall-back-lo", "wall-back-li", "wall-back-c",
+          "wall-back-ri", "wall-back-ro", "wall-right", "wall-front"
+        ],
+        "slices": {
+          "wall-left":    { "u0": 0.0000, "u1": 0.1990, "v1": 0.7500 },
+          "wall-back-lo": { "u0": 0.1990, "u1": 0.2509, "v1": 0.6250 },
+          "wall-back-li": { "u0": 0.2509, "u1": 0.3108, "v1": 0.6250 },
+          "wall-back-c":  { "u0": 0.3108, "u1": 0.3904, "v1": 0.6250 },
+          "wall-back-ri": { "u0": 0.3904, "u1": 0.4503, "v1": 0.6250 },
+          "wall-back-ro": { "u0": 0.4503, "u1": 0.5022, "v1": 0.6250 },
+          "wall-right":   { "u0": 0.5022, "u1": 0.7013, "v1": 0.7500 },
+          "wall-front":   { "u0": 0.7013, "u1": 1.0000, "v1": 1.0000 }
+        }
+      },
+      "walls": {
+        "wall-front":    { "colorHex": "#b06030", "roughness": 0.92 },
+        "wall-left":     { "colorHex": "#a85c2c", "roughness": 0.92 },
+        "wall-right":    { "colorHex": "#a85c2c", "roughness": 0.92 },
+        "wall-back-lo":  { "colorHex": "#c07038", "roughness": 0.90 },
+        "wall-back-li":  { "colorHex": "#c47a40", "roughness": 0.90 },
+        "wall-back-c":   { "colorHex": "#c88040", "roughness": 0.90 },
+        "wall-back-ri":  { "colorHex": "#c47a40", "roughness": 0.90 },
+        "wall-back-ro":  { "colorHex": "#c07038", "roughness": 0.90 }
+      },
+      "floor": {
+        "textureStorageKey": "world-skins/mars-surface/v1/floor.webp",
+        "colorHex": "#9a5020",
+        "roughness": 0.96
+      },
+      "tiers": { "colorHex": "#ae6030", "roughness": 0.94 },
+      "lighting": {
+        "backgroundColor": "#c8865a",
+        "ambientColor": "#d4906a",
+        "ambientIntensity": 0.6,
+        "directionalColor": "#ffb080",
+        "directionalIntensity": 1.8,
+        "directionalPosition": [6, 4, 2],
+        "fogColor": "#b87050",
+        "fogNear": 18,
+        "fogFar": 55
+      },
+      "walkSpeedMultiplier": 0.38,
+      "avatarScale": 1.0,
+      "ambient": {
+        "storageKey": "world-skins/mars-surface/v1/ambient.ogg",
+        "defaultGain": 0.15,
+        "minGrade": "5"
+      },
+      "props": []
+    },
+    "thumbnailStorageKey": "world-skins/thumbnails/mars-surface.png",
+    "licenseAttribution": [
+      {
+        "assetId": "mars-surface-panorama",
+        "notice": "Textures derived from NASA/CC0 Mars imagery (Mars Reconnaissance Orbiter HiRISE dataset, public domain)."
+      }
+    ],
+    "source": "builtin",
+    "createdAt": "2026-05-22T00:00:00.000Z",
+    "updatedAt": "2026-05-22T00:00:00.000Z"
+  },
+  {
+    "id": "skin_cell_interior",
+    "slug": "cell-interior",
+    "label": "Cell Interior",
+    "description": "Shrink to microscopic scale inside a living eukaryotic cell. Bioluminescent membrane walls, cytoplasm floor, and gentle pulse ambient. Pairs with biology and life science units.",
+    "gradeBands": ["6-8", "9-12"],
+    "subjects": ["life-science", "biology"],
+    "baseManifestId": "default-theater",
+    "version": 1,
+    "overrides": {
+      "panoramaWall": {
+        "storageKey": "world-skins/cell-interior/v1/panorama.webp",
+        "widthPx": 8192,
+        "heightPx": 1024,
+        "horizonWorldY": 5,
+        "maxWorldHeight": 8,
+        "unwrapOrder": [
+          "wall-left", "wall-back-lo", "wall-back-li", "wall-back-c",
+          "wall-back-ri", "wall-back-ro", "wall-right", "wall-front"
+        ],
+        "slices": {
+          "wall-left":    { "u0": 0.0000, "u1": 0.1990, "v1": 0.7500 },
+          "wall-back-lo": { "u0": 0.1990, "u1": 0.2509, "v1": 0.6250 },
+          "wall-back-li": { "u0": 0.2509, "u1": 0.3108, "v1": 0.6250 },
+          "wall-back-c":  { "u0": 0.3108, "u1": 0.3904, "v1": 0.6250 },
+          "wall-back-ri": { "u0": 0.3904, "u1": 0.4503, "v1": 0.6250 },
+          "wall-back-ro": { "u0": 0.4503, "u1": 0.5022, "v1": 0.6250 },
+          "wall-right":   { "u0": 0.5022, "u1": 0.7013, "v1": 0.7500 },
+          "wall-front":   { "u0": 0.7013, "u1": 1.0000, "v1": 1.0000 }
+        }
+      },
+      "walls": {
+        "wall-front":    { "colorHex": "#0d3a50", "roughness": 0.30 },
+        "wall-left":     { "colorHex": "#0a2e40", "roughness": 0.30 },
+        "wall-right":    { "colorHex": "#0a2e40", "roughness": 0.30 },
+        "wall-back-lo":  { "colorHex": "#0e3c54", "roughness": 0.28 },
+        "wall-back-li":  { "colorHex": "#104058", "roughness": 0.28 },
+        "wall-back-c":   { "colorHex": "#12445c", "roughness": 0.28 },
+        "wall-back-ri":  { "colorHex": "#104058", "roughness": 0.28 },
+        "wall-back-ro":  { "colorHex": "#0e3c54", "roughness": 0.28 }
+      },
+      "floor": {
+        "textureStorageKey": "world-skins/cell-interior/v1/floor.webp",
+        "colorHex": "#1a4030",
+        "roughness": 0.55
+      },
+      "tiers": { "colorHex": "#0d3040", "roughness": 0.40 },
+      "lighting": {
+        "backgroundColor": "#071520",
+        "ambientColor": "#4ab8d0",
+        "ambientIntensity": 0.55,
+        "directionalColor": "#80d8f0",
+        "directionalIntensity": 1.2,
+        "directionalPosition": [2, 6, 4],
+        "fogColor": "#0a2030",
+        "fogNear": 14,
+        "fogFar": 45,
+        "hemisphereSkyColor": "#2060a0",
+        "hemisphereGroundColor": "#183020",
+        "hemisphereIntensity": 0.4
+      },
+      "avatarScale": 0.6,
+      "boardDarkenOpacity": 0.25,
+      "ambient": {
+        "storageKey": "world-skins/cell-interior/v1/ambient.ogg",
+        "defaultGain": 0.12,
+        "minGrade": "6"
+      },
+      "props": []
+    },
+    "thumbnailStorageKey": "world-skins/thumbnails/cell-interior.png",
+    "licenseAttribution": [
+      {
+        "assetId": "cell-interior-art",
+        "notice": "Commissioned illustration for 3DSpace. All rights reserved."
+      }
+    ],
+    "source": "builtin",
+    "createdAt": "2026-05-22T00:00:00.000Z",
+    "updatedAt": "2026-05-22T00:00:00.000Z"
+  },
+  {
+    "id": "skin_roman_forum",
+    "slug": "roman-forum",
+    "label": "Roman Forum",
+    "description": "Step into an ancient Roman forum surrounded by stone columns and warm Mediterranean skies. Day/night mode lets teachers set a torch-lit evening scene for dramatic effect.",
+    "gradeBands": ["5-8", "9-12"],
+    "subjects": ["history", "social-studies", "world-history"],
+    "baseManifestId": "default-theater",
+    "version": 1,
+    "overrides": {
+      "panoramaWall": {
+        "storageKey": "world-skins/roman-forum/v1/panorama.webp",
+        "widthPx": 8192,
+        "heightPx": 1024,
+        "horizonWorldY": 5,
+        "maxWorldHeight": 8,
+        "unwrapOrder": [
+          "wall-left", "wall-back-lo", "wall-back-li", "wall-back-c",
+          "wall-back-ri", "wall-back-ro", "wall-right", "wall-front"
+        ],
+        "slices": {
+          "wall-left":    { "u0": 0.0000, "u1": 0.1990, "v1": 0.7500 },
+          "wall-back-lo": { "u0": 0.1990, "u1": 0.2509, "v1": 0.6250 },
+          "wall-back-li": { "u0": 0.2509, "u1": 0.3108, "v1": 0.6250 },
+          "wall-back-c":  { "u0": 0.3108, "u1": 0.3904, "v1": 0.6250 },
+          "wall-back-ri": { "u0": 0.3904, "u1": 0.4503, "v1": 0.6250 },
+          "wall-back-ro": { "u0": 0.4503, "u1": 0.5022, "v1": 0.6250 },
+          "wall-right":   { "u0": 0.5022, "u1": 0.7013, "v1": 0.7500 },
+          "wall-front":   { "u0": 0.7013, "u1": 1.0000, "v1": 1.0000 }
+        }
+      },
+      "walls": {
+        "wall-front":    { "colorHex": "#c8b090", "roughness": 0.82 },
+        "wall-left":     { "colorHex": "#c0a888", "roughness": 0.82 },
+        "wall-right":    { "colorHex": "#c0a888", "roughness": 0.82 },
+        "wall-back-lo":  { "colorHex": "#cbb898", "roughness": 0.80 },
+        "wall-back-li":  { "colorHex": "#cdbca0", "roughness": 0.80 },
+        "wall-back-c":   { "colorHex": "#d0c0a4", "roughness": 0.80 },
+        "wall-back-ri":  { "colorHex": "#cdbca0", "roughness": 0.80 },
+        "wall-back-ro":  { "colorHex": "#cbb898", "roughness": 0.80 }
+      },
+      "floor": {
+        "textureStorageKey": "world-skins/roman-forum/v1/floor.webp",
+        "colorHex": "#e0d8c8",
+        "roughness": 0.35
+      },
+      "tiers": { "colorHex": "#c8b898", "roughness": 0.75 },
+      "lighting": {
+        "backgroundColor": "#87c8f0",
+        "ambientColor": "#e8d5b0",
+        "ambientIntensity": 0.90,
+        "directionalColor": "#fff0c8",
+        "directionalIntensity": 2.0,
+        "directionalPosition": [5, 8, 2]
+      },
+      "lightingNight": {
+        "backgroundColor": "#1a1028",
+        "ambientColor": "#604090",
+        "ambientIntensity": 0.30,
+        "directionalColor": "#ff8020",
+        "directionalIntensity": 1.0,
+        "directionalPosition": [3, 4, 5],
+        "fogColor": "#100820",
+        "fogNear": 16,
+        "fogFar": 50
+      },
+      "boardDarkenOpacity": 0.15,
+      "ambient": {
+        "storageKey": "world-skins/roman-forum/v1/ambient.ogg",
+        "defaultGain": 0.10
+      },
+      "props": []
+    },
+    "thumbnailStorageKey": "world-skins/thumbnails/roman-forum.png",
+    "licenseAttribution": [
+      {
+        "assetId": "roman-forum-art",
+        "notice": "Commissioned illustration for 3DSpace. All rights reserved."
+      }
+    ],
+    "source": "builtin",
+    "createdAt": "2026-05-22T00:00:00.000Z",
+    "updatedAt": "2026-05-22T00:00:00.000Z"
+  },
+  {
+    "id": "skin_rainforest_canopy",
+    "slug": "rainforest-canopy",
+    "label": "Rainforest Canopy",
+    "description": "Emerge into a lush tropical rainforest canopy. Dappled green light filters through the foliage overhead. Bird calls and rain complete the immersive ecosystem.",
+    "gradeBands": ["3-5", "6-8", "9-12"],
+    "subjects": ["life-science", "earth-science", "ecology", "environmental-science"],
+    "baseManifestId": "default-theater",
+    "version": 1,
+    "overrides": {
+      "panoramaWall": {
+        "storageKey": "world-skins/rainforest-canopy/v1/panorama.webp",
+        "widthPx": 8192,
+        "heightPx": 1024,
+        "horizonWorldY": 5,
+        "maxWorldHeight": 8,
+        "unwrapOrder": [
+          "wall-left", "wall-back-lo", "wall-back-li", "wall-back-c",
+          "wall-back-ri", "wall-back-ro", "wall-right", "wall-front"
+        ],
+        "slices": {
+          "wall-left":    { "u0": 0.0000, "u1": 0.1990, "v1": 0.7500 },
+          "wall-back-lo": { "u0": 0.1990, "u1": 0.2509, "v1": 0.6250 },
+          "wall-back-li": { "u0": 0.2509, "u1": 0.3108, "v1": 0.6250 },
+          "wall-back-c":  { "u0": 0.3108, "u1": 0.3904, "v1": 0.6250 },
+          "wall-back-ri": { "u0": 0.3904, "u1": 0.4503, "v1": 0.6250 },
+          "wall-back-ro": { "u0": 0.4503, "u1": 0.5022, "v1": 0.6250 },
+          "wall-right":   { "u0": 0.5022, "u1": 0.7013, "v1": 0.7500 },
+          "wall-front":   { "u0": 0.7013, "u1": 1.0000, "v1": 1.0000 }
+        }
+      },
+      "walls": {
+        "wall-front":    { "colorHex": "#2a5c1e", "roughness": 0.85 },
+        "wall-left":     { "colorHex": "#245418", "roughness": 0.85 },
+        "wall-right":    { "colorHex": "#245418", "roughness": 0.85 },
+        "wall-back-lo":  { "colorHex": "#2c5e20", "roughness": 0.83 },
+        "wall-back-li":  { "colorHex": "#2e6222", "roughness": 0.83 },
+        "wall-back-c":   { "colorHex": "#306424", "roughness": 0.83 },
+        "wall-back-ri":  { "colorHex": "#2e6222", "roughness": 0.83 },
+        "wall-back-ro":  { "colorHex": "#2c5e20", "roughness": 0.83 }
+      },
+      "floor": {
+        "textureStorageKey": "world-skins/rainforest-canopy/v1/floor.webp",
+        "colorHex": "#3d2010",
+        "roughness": 0.92
+      },
+      "tiers": { "colorHex": "#2a5018", "roughness": 0.88 },
+      "lighting": {
+        "backgroundColor": "#1e4010",
+        "ambientColor": "#5cb85c",
+        "ambientIntensity": 0.65,
+        "directionalColor": "#c8f0a0",
+        "directionalIntensity": 1.3,
+        "directionalPosition": [3, 8, 4],
+        "fogColor": "#2d5a1e",
+        "fogNear": 20,
+        "fogFar": 60,
+        "hemisphereSkyColor": "#4aaa30",
+        "hemisphereGroundColor": "#3d2010",
+        "hemisphereIntensity": 0.5
+      },
+      "boardDarkenOpacity": 0.20,
+      "ambient": {
+        "storageKey": "world-skins/rainforest-canopy/v1/ambient.ogg",
+        "defaultGain": 0.18,
+        "minGrade": "3"
+      },
+      "props": []
+    },
+    "thumbnailStorageKey": "world-skins/thumbnails/rainforest-canopy.png",
+    "licenseAttribution": [
+      {
+        "assetId": "rainforest-canopy-art",
+        "notice": "Commissioned illustration for 3DSpace. All rights reserved."
+      }
+    ],
+    "source": "builtin",
+    "createdAt": "2026-05-22T00:00:00.000Z",
+    "updatedAt": "2026-05-22T00:00:00.000Z"
+  },
+  {
+    "id": "skin_art_studio",
+    "slug": "art-studio",
+    "label": "Art Studio",
+    "description": "A bright, neutral art studio with gallery-quality lighting. Clean cream walls and warm overheads keep focus on student work displayed on the boards.",
+    "gradeBands": ["K-2", "3-5", "6-8", "9-12"],
+    "subjects": ["visual-art", "art", "creative-writing", "media-arts"],
+    "baseManifestId": "default-theater",
+    "version": 1,
+    "overrides": {
+      "panoramaWall": {
+        "storageKey": "world-skins/art-studio/v1/panorama.webp",
+        "widthPx": 8192,
+        "heightPx": 1024,
+        "horizonWorldY": 5,
+        "maxWorldHeight": 8,
+        "unwrapOrder": [
+          "wall-left", "wall-back-lo", "wall-back-li", "wall-back-c",
+          "wall-back-ri", "wall-back-ro", "wall-right", "wall-front"
+        ],
+        "slices": {
+          "wall-left":    { "u0": 0.0000, "u1": 0.1990, "v1": 0.7500 },
+          "wall-back-lo": { "u0": 0.1990, "u1": 0.2509, "v1": 0.6250 },
+          "wall-back-li": { "u0": 0.2509, "u1": 0.3108, "v1": 0.6250 },
+          "wall-back-c":  { "u0": 0.3108, "u1": 0.3904, "v1": 0.6250 },
+          "wall-back-ri": { "u0": 0.3904, "u1": 0.4503, "v1": 0.6250 },
+          "wall-back-ro": { "u0": 0.4503, "u1": 0.5022, "v1": 0.6250 },
+          "wall-right":   { "u0": 0.5022, "u1": 0.7013, "v1": 0.7500 },
+          "wall-front":   { "u0": 0.7013, "u1": 1.0000, "v1": 1.0000 }
+        }
+      },
+      "walls": {
+        "wall-front":    { "colorHex": "#f2ede6", "roughness": 0.60 },
+        "wall-left":     { "colorHex": "#ede8e0", "roughness": 0.60 },
+        "wall-right":    { "colorHex": "#ede8e0", "roughness": 0.60 },
+        "wall-back-lo":  { "colorHex": "#f0ebe4", "roughness": 0.58 },
+        "wall-back-li":  { "colorHex": "#f2ede6", "roughness": 0.58 },
+        "wall-back-c":   { "colorHex": "#f4efe8", "roughness": 0.58 },
+        "wall-back-ri":  { "colorHex": "#f2ede6", "roughness": 0.58 },
+        "wall-back-ro":  { "colorHex": "#f0ebe4", "roughness": 0.58 }
+      },
+      "floor": {
+        "textureStorageKey": "world-skins/art-studio/v1/floor.webp",
+        "colorHex": "#c8a878",
+        "roughness": 0.50
+      },
+      "tiers": { "colorHex": "#e0d8cc", "roughness": 0.55 },
+      "lighting": {
+        "backgroundColor": "#f5f0ea",
+        "ambientColor": "#f0ebe0",
+        "ambientIntensity": 0.95,
+        "directionalColor": "#fff8f0",
+        "directionalIntensity": 1.6,
+        "directionalPosition": [4, 8, 3]
+      },
+      "ambient": {
+        "storageKey": "world-skins/art-studio/v1/ambient.ogg",
+        "defaultGain": 0.05
+      },
+      "props": []
+    },
+    "thumbnailStorageKey": "world-skins/thumbnails/art-studio.png",
+    "licenseAttribution": [
+      {
+        "assetId": "art-studio-art",
+        "notice": "Commissioned illustration for 3DSpace. All rights reserved."
+      }
+    ],
+    "source": "builtin",
+    "createdAt": "2026-05-22T00:00:00.000Z",
+    "updatedAt": "2026-05-22T00:00:00.000Z"
+  }
+]

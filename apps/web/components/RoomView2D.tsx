@@ -16,6 +16,7 @@ import type {
 } from "@3dspace/contracts";
 import { computeGroupMemberPosition, projectAnchorRectTo2D, projectPositionTo2D } from "@3dspace/room-engine";
 import type { ParticipantView } from "./RoomClient";
+import { useWorldSkinContext } from "./worldSkins/SkinLayer";
 import { RoomObjectIcon2D } from "./RoomObjectIcon2D";
 import { canGrabRoomObject, canTouchRoomObject, snapPosition, snapScale, snapYaw } from "../lib/roomObjectInteraction";
 import { WallObjectCard } from "./WallObjectCard";
@@ -247,6 +248,11 @@ export function RoomView2D({
     selectedTemplate
   ]);
 
+  // World skin context — floor map overlay + board darken
+  const { skin } = useWorldSkinContext();
+  const map2dUrl = skin?.overrides.map2dStorageKey ?? null;
+  const boardDarkenOpacity = skin?.overrides.boardDarkenOpacity ?? 0;
+
   function handlePointer(event: React.PointerEvent<SVGSVGElement>) {
     if ((event.target as Element).closest(".room-object-icon-2d")) return;
     const rect = event.currentTarget.getBoundingClientRect();
@@ -260,6 +266,17 @@ export function RoomView2D({
     <div className={`map2d${objectsEnabled ? " map2d--room-objects" : ""}`}>
       <svg role="img" aria-label={`${manifest.name} top-down 2D analog`} viewBox="0 0 100 100" onPointerDown={handlePointer}>
         <rect x="2" y="2" width="96" height="96" rx="5" fill="#f6edcf" stroke="#17201a" strokeOpacity="0.28" strokeWidth="1" />
+        {/* Skin floor map — rendered below walls/anchors/participants */}
+        {map2dUrl ? (
+          <image
+            href={map2dUrl}
+            x="2" y="2"
+            width="96" height="96"
+            preserveAspectRatio="xMidYMid slice"
+            opacity="0.88"
+            style={{ pointerEvents: "none" }}
+          />
+        ) : null}
         {manifest.walls.map((wall) => {
           const start = projectPositionTo2D(manifest, wall.start);
           const end = projectPositionTo2D(manifest, wall.end);
@@ -275,6 +292,20 @@ export function RoomView2D({
           const check = checks[0];
           return (
             <g key={anchor.id} aria-label={isSpotlighted ? `${anchor.label} (focused)` : anchor.label}>
+              {/* Board-darken pass: subtle dark backing so anchor labels stay legible on busy skin textures */}
+              {boardDarkenOpacity > 0 ? (
+                <rect
+                  x={rect.x - 1}
+                  y={rect.y - 3}
+                  width={rect.width + 2}
+                  height={rect.height + 3.6}
+                  rx="1"
+                  fill="#17201a"
+                  opacity={boardDarkenOpacity}
+                  pointerEvents="none"
+                  className="world-skin-board-darken"
+                />
+              ) : null}
               {isSpotlighted ? (
                 <rect
                   x={rect.x - 0.8}
@@ -398,6 +429,21 @@ export function RoomView2D({
           : null}
         {positioningMode ? (
           <rect x="2" y="2" width="96" height="96" rx="5" fill="none" stroke="#e67e22" strokeWidth="1.5" strokeDasharray="4 3" pointerEvents="none" />
+        ) : null}
+        {/* Skin environment label — bottom-right corner, beneath participant dots */}
+        {skin ? (
+          <text
+            x="97"
+            y="98.5"
+            textAnchor="end"
+            fontSize="2.1"
+            fill="#fffaf0"
+            fillOpacity="0.55"
+            pointerEvents="none"
+            style={{ userSelect: "none" }}
+          >
+            Environment: {skin.label}
+          </text>
         ) : null}
         {participants.map((participant) => {
           const point = projectPositionTo2D(manifest, participant.state.position);

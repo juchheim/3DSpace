@@ -16,7 +16,8 @@ import {
   type RoomObjectStatus,
   type RoomObjectTemplate,
   type WallObject,
-  type WallObjectStatus
+  type WallObjectStatus,
+  type WorldSkin
 } from "@3dspace/contracts";
 import type { z } from "zod";
 import type { AuthContext } from "./auth.js";
@@ -107,6 +108,9 @@ export type Repository = {
     input: Partial<Omit<WallObject, "id" | "roomId" | "createdAt" | "createdByUserId" | "version">> & { updatedByUserId: string; expectedVersion?: number | undefined }
   ): Promise<WallObject>;
   softRemoveWallObject(roomId: string, objectId: string, input: { updatedByUserId: string; expectedVersion?: number | undefined }): Promise<WallObject>;
+  upsertBuiltinWorldSkins(skins: WorldSkin[]): Promise<void>;
+  listWorldSkins(): Promise<WorldSkin[]>;
+  getWorldSkin(slug: string): Promise<WorldSkin | undefined>;
   upsertBuiltinRoomObjectTemplates(templates: RoomObjectTemplate[]): Promise<void>;
   listRoomObjectTemplatesVisibleTo(userId: string): Promise<RoomObjectTemplate[]>;
   getRoomObjectTemplate(templateId: string): Promise<RoomObjectTemplate | undefined>;
@@ -159,6 +163,7 @@ export class MemoryRepository implements Repository {
   private classroomStates = new Map<string, ClassroomState>();
   private attachments = new Map<string, WallAttachment>();
   private wallObjects = new Map<string, WallObject>();
+  private worldSkins = new Map<string, WorldSkin>();
   private roomObjectTemplates = new Map<string, RoomObjectTemplate & { archivedAt?: string }>();
   private roomObjects = new Map<string, RoomObject>();
   private roomEvents = new Map<string, RoomEventRecord>();
@@ -516,6 +521,29 @@ export class MemoryRepository implements Repository {
 
   async softRemoveWallObject(roomId: string, objectId: string, input: { updatedByUserId: string; expectedVersion?: number | undefined }) {
     return this.updateWallObject(roomId, objectId, { updatedByUserId: input.updatedByUserId, expectedVersion: input.expectedVersion, status: "removed" });
+  }
+
+  async upsertBuiltinWorldSkins(skins: WorldSkin[]) {
+    const time = nowIso();
+    for (const skin of skins) {
+      const existing = Array.from(this.worldSkins.values()).find((entry) => entry.slug === skin.slug);
+      const record: WorldSkin = {
+        ...skin,
+        createdAt: existing?.createdAt ?? skin.createdAt ?? time,
+        updatedAt: time
+      };
+      this.worldSkins.set(record.id, record);
+    }
+  }
+
+  async listWorldSkins(): Promise<WorldSkin[]> {
+    return Array.from(this.worldSkins.values())
+      .filter((skin) => skin.source === "builtin")
+      .sort((a, b) => a.slug.localeCompare(b.slug));
+  }
+
+  async getWorldSkin(slug: string): Promise<WorldSkin | undefined> {
+    return Array.from(this.worldSkins.values()).find((skin) => skin.slug === slug);
   }
 
   async upsertBuiltinRoomObjectTemplates(templates: RoomObjectTemplate[]) {

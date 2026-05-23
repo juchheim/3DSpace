@@ -45,6 +45,8 @@ export type BlockyAvatarProps = {
   audioMode?: ParticipantAudioMode;
   whisperRadiusMeters?: number;
   crossPodOutlineColor?: string;
+  /** Skin-driven uniform scale applied to the avatar root. Defaults to 1. */
+  avatarScale?: number;
 };
 
 export const DEFAULT_APPEARANCE: AvatarAppearance = {
@@ -86,6 +88,7 @@ export function BlockyAvatar({
   audioMode,
   whisperRadiusMeters = 3,
   crossPodOutlineColor,
+  avatarScale = 1,
 }: BlockyAvatarProps) {
   const position = participant.state.position;
   const movement = participant.state.movement;
@@ -248,10 +251,15 @@ export function BlockyAvatar({
     };
   }, []);
 
+  // Compensate nameplate distanceFactor so the plate stays the same on-screen size
+  // when the avatar is scaled down (e.g. Cell Interior at 0.6×).
+  const nameplateDistanceFactor = avatarScale !== 1 ? Math.round(8 / avatarScale) : 8;
+
   return (
     <group
       position={[position.x, position.y ?? 0, position.z]}
       rotation={[0, participant.state.rotation.y, 0]}
+      scale={avatarScale}
       visible={!hidden}
       {...(onClick ? { onClick } : {})}
     >
@@ -335,7 +343,7 @@ export function BlockyAvatar({
             </Billboard>
           ) : null}
           <Billboard position={[0, 1.52, 0]}>
-            <Html center style={{ pointerEvents: "none" }}>
+            <Html center distanceFactor={nameplateDistanceFactor} style={{ pointerEvents: "none" }}>
               <div
                 className={`avatar-nameplate${crossPodOutlineColor ? " avatar-nameplate--cross-pod" : ""}`}
                 data-testid={`participant-${participant.id}-nameplate`}
