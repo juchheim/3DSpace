@@ -31,14 +31,14 @@
         }
       },
       "walls": {
-        "wall-front":    { "colorHex": "#8ea487", "roughness": 0.85 },
-        "wall-left":     { "colorHex": "#8ea487", "roughness": 0.85 },
-        "wall-right":    { "colorHex": "#8ea487", "roughness": 0.85 },
-        "wall-back-lo":  { "colorHex": "#8ea487", "roughness": 0.85 },
-        "wall-back-li":  { "colorHex": "#8ea487", "roughness": 0.85 },
-        "wall-back-c":   { "colorHex": "#8ea487", "roughness": 0.85 },
-        "wall-back-ri":  { "colorHex": "#8ea487", "roughness": 0.85 },
-        "wall-back-ro":  { "colorHex": "#8ea487", "roughness": 0.85 }
+        "wall-front":    { "roughness": 0.85 },
+        "wall-left":     { "roughness": 0.85 },
+        "wall-right":    { "roughness": 0.85 },
+        "wall-back-lo":  { "roughness": 0.85 },
+        "wall-back-li":  { "roughness": 0.85 },
+        "wall-back-c":   { "roughness": 0.85 },
+        "wall-back-ri":  { "roughness": 0.85 },
+        "wall-back-ro":  { "roughness": 0.85 }
       },
       "floor": {
         "textureStorageKey": "world-skins/default-theater/v1/floor.webp",
@@ -47,12 +47,18 @@
       },
       "tiers": { "colorHex": "#8ea487", "roughness": 0.92 },
       "lighting": {
-        "backgroundColor": "#16231d",
-        "ambientColor": "#ffffff",
-        "ambientIntensity": 0.82,
+        "backgroundColor": "#b8c4b0",
+        "ambientColor": "#f0f2ee",
+        "ambientIntensity": 0.95,
         "directionalColor": "#ffffff",
-        "directionalIntensity": 1.4,
-        "directionalPosition": [4, 8, 6]
+        "directionalIntensity": 0.45,
+        "directionalPosition": [4, 10, 4],
+        "directionalFillColor": "#ffffff",
+        "directionalFillIntensity": 0.55,
+        "directionalFillPosition": [0, 10, 14],
+        "hemisphereSkyColor": "#e8ece6",
+        "hemisphereGroundColor": "#c8d0c4",
+        "hemisphereIntensity": 2.2
       },
       "ambient": {
         "storageKey": "world-skins/default-theater/v1/ambient.ogg",

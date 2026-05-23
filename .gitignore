@@ -12,3 +12,4 @@ playwright-report
 
 # World skin authoring binaries (upload via /dev/world-skin-upload or apps/web/public/world-skins/)
 docs/planning/new-features/*.webp
+docs/planning/new-features/mars-thumbnail.png
