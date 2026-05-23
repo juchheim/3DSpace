@@ -11,30 +11,30 @@ export const MARS_SKIN: SkinDescriptor = {
   description:
     "Ochre regolith walls, pale dust sky, low-gravity walk speed, and wind ambient loop.",
   wallMaterials: {
-    "wall-front":    { colorHex: "#b06030", roughness: 0.92 },
-    "wall-left":     { colorHex: "#a85c2c", roughness: 0.92 },
-    "wall-right":    { colorHex: "#a85c2c", roughness: 0.92 },
-    "wall-back-lo":  { colorHex: "#9a5028", roughness: 0.90 },
-    "wall-back-li":  { colorHex: "#a0582c", roughness: 0.90 },
-    "wall-back-c":   { colorHex: "#9e5028", roughness: 0.90 },
-    "wall-back-ri":  { colorHex: "#a0582c", roughness: 0.90 },
-    "wall-back-ro":  { colorHex: "#9a5028", roughness: 0.90 },
+    "wall-front":    { colorHex: "#d8a878", roughness: 0.92 },
+    "wall-left":     { colorHex: "#d0a070", roughness: 0.92 },
+    "wall-right":    { colorHex: "#d0a070", roughness: 0.92 },
+    "wall-back-lo":  { colorHex: "#d0a068", roughness: 0.90 },
+    "wall-back-li":  { colorHex: "#d4a870", roughness: 0.90 },
+    "wall-back-c":   { colorHex: "#cca060", roughness: 0.90 },
+    "wall-back-ri":  { colorHex: "#d4a870", roughness: 0.90 },
+    "wall-back-ro":  { colorHex: "#d0a068", roughness: 0.90 },
   },
   floor:  { colorHex: "#9a5020", roughness: 0.96 },
   tiers:  { colorHex: "#ae6030", roughness: 0.94 },
   lighting: {
-    backgroundColor:      "#a86a48",
-    ambientColor:         "#d4906a",
-    ambientIntensity:     0.75,
-    directionalColor:     "#ffd4b0",
-    directionalIntensity: 0.28,
-    directionalPosition:  [4, 9, 3],
-    fogColor: "#b87050",
-    fogNear:  18,
-    fogFar:   55,
-    hemisphereSkyColor:    "#e8b078",
-    hemisphereGroundColor: "#8a4818",
-    hemisphereIntensity:   1.0,
+    backgroundColor:      "#d8a878",
+    ambientColor:         "#f0dcc0",
+    ambientIntensity:     0.9,
+    directionalColor:     "#fff4e8",
+    directionalIntensity: 0.65,
+    directionalPosition:  [4, 10, 4],
+    fogColor: "#c89070",
+    fogNear:  22,
+    fogFar:   65,
+    hemisphereSkyColor:    "#f8e4c0",
+    hemisphereGroundColor: "#d09050",
+    hemisphereIntensity:   2.4,
   },
   ambient: {
     url: "/world-skins/mars-surface/v1/ambient.ogg",
@@ -56,13 +56,16 @@ export function MarsAtmosphere() {
         <fog attach="fog" args={[l.fogColor, l.fogNear ?? 18, l.fogFar ?? 55]} />
       )}
       {l.hemisphereSkyColor ? (
-        <hemisphereLight
-          args={[
-            l.hemisphereSkyColor,
-            l.hemisphereGroundColor ?? "#8a4818",
-            l.hemisphereIntensity ?? 1,
-          ]}
-        />
+        <>
+          <hemisphereLight
+            args={[
+              l.hemisphereSkyColor,
+              l.hemisphereGroundColor ?? "#d09050",
+              l.hemisphereIntensity ?? 1,
+            ]}
+          />
+          <ambientLight color={l.ambientColor} intensity={l.ambientIntensity} />
+        </>
       ) : (
         <ambientLight color={l.ambientColor} intensity={l.ambientIntensity} />
       )}

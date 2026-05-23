@@ -757,13 +757,16 @@ function SceneAtmosphere() {
         <fog attach="fog" args={[l.fogColor, l.fogNear ?? 20, l.fogFar ?? 60]} />
       ) : null}
       {l.hemisphereSkyColor !== undefined ? (
-        <hemisphereLight
-          args={[
-            l.hemisphereSkyColor as string,
-            (l.hemisphereGroundColor ?? "#000000") as string,
-            l.hemisphereIntensity ?? 1
-          ]}
-        />
+        <>
+          <hemisphereLight
+            args={[
+              l.hemisphereSkyColor as string,
+              (l.hemisphereGroundColor ?? "#000000") as string,
+              l.hemisphereIntensity ?? 1
+            ]}
+          />
+          <ambientLight color={l.ambientColor} intensity={l.ambientIntensity} />
+        </>
       ) : (
         <ambientLight color={l.ambientColor} intensity={l.ambientIntensity} />
       )}
