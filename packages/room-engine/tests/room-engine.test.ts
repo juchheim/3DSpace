@@ -18,7 +18,10 @@ import {
   unprojectPointFrom2D,
   WIDESCREEN_ASPECT,
   widescreenHeight,
-  applyDefaultRoomGeometry
+  applyDefaultRoomGeometry,
+  PRIMARY_BOARD_WIDTH,
+  PRIMARY_BOARD_HEIGHT,
+  PRIMARY_BOARD_CENTER_Y
 } from "../src/index";
 
 describe("room engine", () => {
@@ -47,15 +50,17 @@ describe("room engine", () => {
     expect(anchorSupportsCreateOption(media!, "screen")).toBe(false);
   });
 
-  it("uses 16:9 widescreen proportions for all wall anchor boards", () => {
+  it("uses 16:9 widescreen proportions for secondary wall anchor boards", () => {
     const manifest = createDefaultRoomManifest({ roomId: "room_1" });
     expect(widescreenHeight(16)).toBe(9);
     for (const anchor of manifest.wallAnchors) {
+      if (anchor.id === "anchor-board") continue;
       expect(anchor.width / anchor.height).toBeCloseTo(WIDESCREEN_ASPECT, 5);
     }
     const board = manifest.wallAnchors.find((anchor) => anchor.id === "anchor-board");
-    expect(board?.width).toBe(9.6);
-    expect(board?.height).toBeCloseTo(widescreenHeight(9.6), 3);
+    expect(board?.width).toBe(PRIMARY_BOARD_WIDTH);
+    expect(board?.height).toBeCloseTo(PRIMARY_BOARD_HEIGHT, 3);
+    expect(board?.position.y).toBe(PRIMARY_BOARD_CENTER_Y);
   });
 
   it("uses a square same-height room shell with raised rear tiers", () => {
@@ -99,8 +104,8 @@ describe("room engine", () => {
     };
     const updated = applyDefaultWallAnchorDimensions(stale);
     const board = updated.wallAnchors.find((anchor) => anchor.id === "anchor-board");
-    expect(board?.width).toBe(9.6);
-    expect(board?.height).toBeCloseTo(widescreenHeight(9.6), 3);
+    expect(board?.width).toBe(PRIMARY_BOARD_WIDTH);
+    expect(board?.height).toBeCloseTo(PRIMARY_BOARD_HEIGHT, 3);
   });
 
   it("applies latest default room geometry to stored manifests", () => {

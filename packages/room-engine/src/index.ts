@@ -30,8 +30,14 @@ export const DEFAULT_SPATIAL_AUDIO: SpatialAudioConfig = {
 /** Standard widescreen display aspect (16:9). */
 export const WIDESCREEN_ASPECT = 16 / 9;
 
-/** Primary front-board width in world meters (height follows 16:9). */
-export const PRIMARY_BOARD_WIDTH = 9.6;
+/** Primary front-board width in world meters. */
+export const PRIMARY_BOARD_WIDTH = 8.8;
+
+/** Primary front-board height in world meters (20% shorter than prior 16:9 at 9.6 m). */
+export const PRIMARY_BOARD_HEIGHT = widescreenHeight(9.6) * 0.8;
+
+/** Vertical center of the primary front board on the front wall. */
+export const PRIMARY_BOARD_CENTER_Y = 4.0;
 
 export function widescreenHeight(width: number): number {
   return (width * 9) / 16;
@@ -161,11 +167,11 @@ export function createDefaultRoomManifest(input: {
       {
         id: "anchor-board",
         label: "Main board",
-        // 9.6 m wide × 5.4 m tall (16:9), centered at y=3.5 on the front wall
-        position: { x: 0, y: 3.5, z: -14.92 },
+        // 8.8 m wide × 4.32 m tall, centered slightly higher on the front wall
+        position: { x: 0, y: PRIMARY_BOARD_CENTER_Y, z: -14.92 },
         normal: { x: 0, y: 0, z: 1 },
         width: PRIMARY_BOARD_WIDTH,
-        height: widescreenHeight(PRIMARY_BOARD_WIDTH),
+        height: PRIMARY_BOARD_HEIGHT,
         metadata: {
           accepts: ["image", "video", "audio", "image.file", "video.file", "audio.file", "camera.live", "microphone.live", "screen.live", "browser-tab.live", "web.link", "note", "poll", "timer"],
           capacity: 4,
