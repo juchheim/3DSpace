@@ -7,6 +7,7 @@ import {
   BufferAttribute,
   BufferGeometry,
   ClampToEdgeWrapping,
+  DoubleSide,
   Euler,
   Matrix4,
   RepeatWrapping,
@@ -1028,9 +1029,10 @@ function wallOpacityFromCameraDistance(signedDistance: number) {
 const WALL_PANEL_INSET = 0.06;
 
 /**
- * Orients a single-sided wall panel: local +X runs start→end, +Y up, +Z faces the room interior.
+ * Orients a wall panel: local +X always runs start→end and +Y points up.
  * BoxGeometry maps panorama UVs differently per face (+Z vs −Z vs ±X), which flipped or
- * stretched every wall except the front; a plane with this basis keeps slices consistent.
+ * stretched every wall except the front. The plane is rendered double-sided so we never have
+ * to reverse U just to make the front face point into the room.
  */
 function wallPanelTransform(wall: Wall, plane: WallPlane) {
   const length = Math.hypot(wall.end.x - wall.start.x, wall.end.z - wall.start.z);
@@ -1040,10 +1042,10 @@ function wallPanelTransform(wall: Wall, plane: WallPlane) {
 
   const yAxis = new Vector3(0, 1, 0);
   const inward = plane.normal.clone().normalize();
-  if (new Vector3().crossVectors(tangent, yAxis).dot(inward) < 0) tangent.negate();
+  const zAxis = new Vector3().crossVectors(tangent, yAxis).normalize();
 
   const rotation = new Euler().setFromRotationMatrix(
-    new Matrix4().makeBasis(tangent, yAxis, inward)
+    new Matrix4().makeBasis(tangent, yAxis, zAxis)
   );
   const position = plane.point.clone().add(inward.multiplyScalar(WALL_PANEL_INSET));
 
@@ -1216,6 +1218,7 @@ function WallMesh({
         color={baseColor}
         map={wallTexture ?? null}
         roughness={0.85}
+        side={DoubleSide}
         transparent
         opacity={1}
       />

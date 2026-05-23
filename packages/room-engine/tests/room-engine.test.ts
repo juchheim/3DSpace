@@ -71,6 +71,24 @@ describe("room engine", () => {
     ]);
   });
 
+  it("keeps panorama wall segments proportional to the rectangular four-wall unwrap", () => {
+    const manifest = createDefaultRoomManifest({ roomId: "room_1" });
+    const lengthsById = new Map(
+      manifest.walls.map((wall) => [
+        wall.id,
+        Math.hypot(wall.end.x - wall.start.x, wall.end.z - wall.start.z)
+      ])
+    );
+
+    expect(lengthsById.get("wall-left")).toBe(22);
+    expect(
+      ["wall-back-lo", "wall-back-li", "wall-back-c", "wall-back-ri", "wall-back-ro"]
+        .reduce((sum, id) => sum + (lengthsById.get(id) ?? 0), 0)
+    ).toBe(30);
+    expect(lengthsById.get("wall-right")).toBe(22);
+    expect(lengthsById.get("wall-front")).toBe(30);
+  });
+
   it("applies latest default anchor dimensions to stored manifests", () => {
     const manifest = createDefaultRoomManifest({ roomId: "room_1" });
     const stale = {

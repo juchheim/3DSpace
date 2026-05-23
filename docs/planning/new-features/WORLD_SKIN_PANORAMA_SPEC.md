@@ -43,18 +43,20 @@ Optional: `map2d.webp` (2048 × 2048), `ambient.ogg`, `thumbnail.png`.
 
 Paint the panorama in this order. Column widths are **exact pixel ranges** in the 8192-wide master.
 
-| Segment | `wall.id` | World width (m) | **x start** | **x end** (px) |
-| --- | --- | ---: | ---: | ---: |
-| 1 | `wall-left` | 22.0 | 0 | 1732 |
-| 2 | `wall-back-lo` | 6.0 | 1733 | 2205 |
-| 3 | `wall-back-li` | 6.0 | 2206 | 2678 |
-| 4 | `wall-back-c` | 6.0 | 2679 | 3150 |
-| 5 | `wall-back-ri` | 6.0 | 3151 | 3623 |
-| 6 | `wall-back-ro` | 6.0 | 3624 | 4095 |
-| 7 | `wall-right` | 22.0 | 4096 | 5828 |
-| 8 | `wall-front` | 30.0 | 5829 | 8191 |
+| Segment | `wall.id` | Direction in image | World width (m) | **x start** | **x end** (px) |
+| --- | --- | --- | ---: | ---: | ---: |
+| 1 | `wall-left` | front → back | 22.0 | 0 | 1732 |
+| 2 | `wall-back-lo` | left → right | 6.0 | 1733 | 2205 |
+| 3 | `wall-back-li` | left → right | 6.0 | 2206 | 2678 |
+| 4 | `wall-back-c` | left → right | 6.0 | 2679 | 3150 |
+| 5 | `wall-back-ri` | left → right | 6.0 | 3151 | 3623 |
+| 6 | `wall-back-ro` | left → right | 6.0 | 3624 | 4095 |
+| 7 | `wall-right` | front → back | 22.0 | 4096 | 5828 |
+| 8 | `wall-front` | left → right | 30.0 | 5829 | 8191 |
 
 **Back wall:** segments 2–6 are collinear panels and must blend continuously at column boundaries.
+
+**Authoring note:** The visual asset is four logical wall panels: left (22 m), back (30 m), right (22 m), front (30 m). The engine splits the back wall into five 6 m meshes only for anchors/UV compatibility; paint it as one continuous 30 m back wall across px 1733–4095.
 
 **Front wall (segment 8):** keep the board zone visually calmer/darker — main board anchor sits on `wall-front`.
 
