@@ -67,7 +67,7 @@ describe("room engine", () => {
     expect(manifest.dimensions.depth).toBe(30);
     expect(manifest.tiers).toEqual([
       { minZ: 4, maxZ: 8.5, floorY: 0.5 },
-      { minZ: 8.5, maxZ: 12, floorY: 1 }
+      { minZ: 8.5, maxZ: 15, floorY: 1 }
     ]);
   });
 
@@ -118,7 +118,7 @@ describe("room engine", () => {
     expect(updated.bounds.maxZ).toBe(13.5);
     expect(updated.tiers).toEqual([
       { minZ: 4, maxZ: 8.5, floorY: 0.5 },
-      { minZ: 8.5, maxZ: 12, floorY: 1 }
+      { minZ: 8.5, maxZ: 15, floorY: 1 }
     ]);
   });
 

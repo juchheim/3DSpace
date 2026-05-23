@@ -753,10 +753,188 @@ function FollowLocalAvatarCamera({
   return null;
 }
 
-/**
- * Renders one seating tier as a trapezoidal prism with a ~74° angled front riser
- * instead of a vertical face, giving a theater-seat look rather than a concrete block.
- */
+const TIER_WOOD_SKIRT = "#6d5340";
+const TIER_WOOD_NOSING = "#8f7048";
+const FLOOR_TILE_REPEAT_PER_M = 0.4;
+
+function floorTileRepeat(width: number, depth: number): [number, number] {
+  return [width * FLOOR_TILE_REPEAT_PER_M, depth * FLOOR_TILE_REPEAT_PER_M];
+}
+
+function configureFloorTileTexture(
+  texture: Texture,
+  width: number,
+  depth: number,
+  gl: { capabilities: { getMaxAnisotropy(): number } }
+) {
+  texture.colorSpace = SRGBColorSpace;
+  texture.wrapS = RepeatWrapping;
+  texture.wrapT = RepeatWrapping;
+  texture.repeat.set(...floorTileRepeat(width, depth));
+  texture.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
+  texture.needsUpdate = true;
+}
+
+function worldFloorUv(x: number, z: number, roomWidth: number, roomDepth: number): [number, number] {
+  return [(x + roomWidth / 2) * FLOOR_TILE_REPEAT_PER_M, (z + roomDepth / 2) * FLOOR_TILE_REPEAT_PER_M];
+}
+
+/** Theater terrace profile: gentle front riser, wood skirt, tiled deck when textured. */
+function buildTierGeometry(
+  tier: { minZ: number; maxZ: number; floorY: number },
+  prevFloorY: number,
+  roomWidth: number,
+  roomDepth: number
+) {
+  const hw = roomWidth / 2;
+  const rh = tier.floorY - prevFloorY;
+  const bevel = rh * 0.35;
+
+  const pos = new Float32Array([
+    -hw, prevFloorY, tier.minZ - bevel,
+    -hw, tier.floorY, tier.minZ,
+    -hw, tier.floorY, tier.maxZ,
+    -hw, prevFloorY, tier.maxZ,
+    hw, prevFloorY, tier.minZ - bevel,
+    hw, tier.floorY, tier.minZ,
+    hw, tier.floorY, tier.maxZ,
+    hw, prevFloorY, tier.maxZ
+  ]);
+
+  const uv = new Float32Array(8 * 2);
+  for (let i = 0; i < 8; i++) {
+    const [u, v] = worldFloorUv(pos[i * 3]!, pos[i * 3 + 2]!, roomWidth, roomDepth);
+    uv[i * 2] = u;
+    uv[i * 2 + 1] = v;
+  }
+
+  const idx = new Uint16Array([
+    1, 2, 6, 1, 6, 5,
+    0, 1, 5, 0, 5, 4,
+    2, 3, 7, 2, 7, 6,
+    0, 2, 1, 0, 3, 2,
+    4, 5, 6, 4, 6, 7,
+    0, 4, 7, 0, 7, 3
+  ]);
+
+  const geo = new BufferGeometry();
+  geo.setAttribute("position", new BufferAttribute(pos, 3));
+  geo.setAttribute("uv", new BufferAttribute(uv, 2));
+  geo.setIndex(new BufferAttribute(idx, 1));
+  geo.clearGroups();
+  geo.addGroup(0, 6, 0);
+  geo.addGroup(6, idx.length - 6, 1);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+function tierClickHandler(onMoveToPoint: (point: { x: number; z: number }) => void) {
+  return (event: { stopPropagation(): void; point: { x: number; z: number } }) => {
+    event.stopPropagation();
+    onMoveToPoint({ x: event.point.x, z: event.point.z });
+  };
+}
+
+function TierStepNosing({
+  tier,
+  roomWidth,
+  onMoveToPoint
+}: {
+  tier: { minZ: number; maxZ: number; floorY: number };
+  roomWidth: number;
+  onMoveToPoint(point: { x: number; z: number }): void;
+}) {
+  const inset = 0.35;
+  return (
+    <mesh
+      position={[0, tier.floorY + 0.018, tier.minZ + 0.07]}
+      receiveShadow
+      onClick={tierClickHandler(onMoveToPoint)}
+    >
+      <boxGeometry args={[roomWidth - inset * 2, 0.055, 0.11]} />
+      <meshStandardMaterial color={TIER_WOOD_NOSING} roughness={0.72} metalness={0.02} />
+    </mesh>
+  );
+}
+
+function TierMesh({
+  tier,
+  prevFloorY,
+  roomWidth,
+  roomDepth,
+  color,
+  roughness = 0.92,
+  onMoveToPoint
+}: {
+  tier: { minZ: number; maxZ: number; floorY: number };
+  prevFloorY: number;
+  roomWidth: number;
+  roomDepth: number;
+  color: string;
+  roughness?: number;
+  onMoveToPoint(point: { x: number; z: number }): void;
+}) {
+  const geometry = useMemo(
+    () => buildTierGeometry(tier, prevFloorY, roomWidth, roomDepth),
+    [tier, prevFloorY, roomWidth, roomDepth]
+  );
+
+  return (
+    <group>
+      <mesh geometry={geometry} receiveShadow onClick={tierClickHandler(onMoveToPoint)}>
+        <meshStandardMaterial attach="material-0" color={color} roughness={roughness} />
+        <meshStandardMaterial attach="material-1" color={TIER_WOOD_SKIRT} roughness={0.86} metalness={0.02} />
+      </mesh>
+      <TierStepNosing tier={tier} roomWidth={roomWidth} onMoveToPoint={onMoveToPoint} />
+    </group>
+  );
+}
+
+function TierMeshTextured({
+  tier,
+  prevFloorY,
+  roomWidth,
+  roomDepth,
+  textureUrl,
+  skirtColor = TIER_WOOD_SKIRT,
+  roughness = 0.92,
+  onMoveToPoint
+}: {
+  tier: { minZ: number; maxZ: number; floorY: number };
+  prevFloorY: number;
+  roomWidth: number;
+  roomDepth: number;
+  textureUrl: string;
+  skirtColor?: string;
+  roughness?: number;
+  onMoveToPoint(point: { x: number; z: number }): void;
+}) {
+  const { gl } = useThree();
+  const texture = useLoader(TextureLoader, textureUrl);
+  const geometry = useMemo(
+    () => buildTierGeometry(tier, prevFloorY, roomWidth, roomDepth),
+    [tier, prevFloorY, roomWidth, roomDepth]
+  );
+
+  const deckTexture = useMemo(() => {
+    const clone = texture.clone();
+    configureFloorTileTexture(clone, roomWidth, roomDepth, gl);
+    return clone;
+  }, [texture, roomWidth, roomDepth, gl]);
+
+  useEffect(() => () => deckTexture.dispose(), [deckTexture]);
+
+  return (
+    <group>
+      <mesh geometry={geometry} receiveShadow onClick={tierClickHandler(onMoveToPoint)}>
+        <meshStandardMaterial attach="material-0" map={deckTexture} roughness={roughness} />
+        <meshStandardMaterial attach="material-1" color={skirtColor} roughness={0.86} metalness={0.02} />
+      </mesh>
+      <TierStepNosing tier={tier} roomWidth={roomWidth} onMoveToPoint={onMoveToPoint} />
+    </group>
+  );
+}
+
 /** Renders sky color, optional fog, and lights driven by the active WorldSkin. */
 function SceneAtmosphere() {
   const { activeLighting } = useWorldSkinContext();
@@ -796,73 +974,6 @@ function SceneAtmosphere() {
         />
       ) : null}
     </>
-  );
-}
-
-function TierMesh({
-  tier,
-  prevFloorY,
-  roomWidth,
-  color,
-  roughness = 0.92,
-  onMoveToPoint
-}: {
-  tier: { minZ: number; maxZ: number; floorY: number };
-  prevFloorY: number;
-  roomWidth: number;
-  color: string;
-  roughness?: number;
-  onMoveToPoint(point: { x: number; z: number }): void;
-}) {
-  const geometry = useMemo(() => {
-    const hw = roomWidth / 2;
-    const rh = tier.floorY - prevFloorY;
-    // Bevel the front riser face at ~28% of rise height → ~74° face angle
-    const bevel = rh * 0.28;
-
-    // 8 vertices: left face (v0-v3) then right face (v4-v7)
-    //   v0/v4 = bottom-front (inset by bevel)
-    //   v1/v5 = top-front
-    //   v2/v6 = top-back
-    //   v3/v7 = bottom-back
-    const pos = new Float32Array([
-      -hw, prevFloorY, tier.minZ - bevel,  // 0
-      -hw, tier.floorY, tier.minZ,          // 1
-      -hw, tier.floorY, tier.maxZ,          // 2
-      -hw, prevFloorY, tier.maxZ,           // 3
-       hw, prevFloorY, tier.minZ - bevel,  // 4
-       hw, tier.floorY, tier.minZ,          // 5
-       hw, tier.floorY, tier.maxZ,          // 6
-       hw, prevFloorY, tier.maxZ,           // 7
-    ]);
-
-    const idx = new Uint16Array([
-      1, 2, 6,   1, 6, 5,   // top face    (+y)
-      0, 1, 5,   0, 5, 4,   // front riser (−z/+y angled)
-      2, 3, 7,   2, 7, 6,   // back face   (+z)
-      0, 2, 1,   0, 3, 2,   // left cap    (−x)
-      4, 5, 6,   4, 6, 7,   // right cap   (+x)
-      0, 4, 7,   0, 7, 3,   // bottom face (−y)
-    ]);
-
-    const geo = new BufferGeometry();
-    geo.setAttribute("position", new BufferAttribute(pos, 3));
-    geo.setIndex(new BufferAttribute(idx, 1));
-    geo.computeVertexNormals();
-    return geo;
-  }, [tier, prevFloorY, roomWidth]);
-
-  return (
-    <mesh
-      geometry={geometry}
-      receiveShadow
-      onClick={(event) => {
-        event.stopPropagation();
-        onMoveToPoint({ x: event.point.x, z: event.point.z });
-      }}
-    >
-      <meshStandardMaterial color={color} roughness={roughness} />
-    </mesh>
   );
 }
 
@@ -927,21 +1038,31 @@ function RoomGeometry({
         args={[Math.max(manifest.dimensions.width, manifest.dimensions.depth), 24, "#4c6b58", "#31473b"]}
         position={[0, 0.01, 0]}
       />
-      {/* Raised tier platforms with angled front risers for a theater-seat appearance */}
+      {/* Raised rear terraces — tiled deck, wood skirt, bullnose at each step front */}
       {manifest.tiers?.map((tier, i) => {
         const prevFloorY = i === 0 ? 0 : manifest.tiers![i - 1]!.floorY;
         const color = tierOverride?.colorHex ?? defaultTierColors[i % defaultTierColors.length]!;
-        const roughness = tierOverride?.roughness ?? 0.92;
-        return (
-          <TierMesh
+        const roughness = tierOverride?.roughness ?? floorRoughness;
+        const tierTextureUrl = tierOverride?.textureStorageKey ?? floorTextureUrl;
+        const tierProps = {
+          tier,
+          prevFloorY,
+          roomWidth: manifest.dimensions.width,
+          roomDepth: manifest.dimensions.depth,
+          roughness,
+          onMoveToPoint
+        };
+        return tierTextureUrl ? (
+          <Suspense
             key={`tier-${i}`}
-            tier={tier}
-            prevFloorY={prevFloorY}
-            roomWidth={manifest.dimensions.width}
-            color={color}
-            roughness={roughness}
-            onMoveToPoint={onMoveToPoint}
-          />
+            fallback={
+              <TierMesh {...tierProps} color={color} />
+            }
+          >
+            <TierMeshTextured {...tierProps} textureUrl={tierTextureUrl} />
+          </Suspense>
+        ) : (
+          <TierMesh key={`tier-${i}`} {...tierProps} color={color} />
         );
       })}
       {/* Walls — panorama texture loaded via Suspense/useLoader */}
@@ -1086,15 +1207,8 @@ function FloorMeshTextured({ width, depth, textureUrl, roughness, onMoveToPoint 
 }) {
   const { gl } = useThree();
   const t = useLoader(TextureLoader, textureUrl);
-  // Configure once — useMemo so we don't mutate on every render
   useMemo(() => {
-    t.colorSpace = SRGBColorSpace;
-    t.wrapS = RepeatWrapping;
-    t.wrapT = RepeatWrapping;
-    // ~0.4 repeats per world-unit ≈ one tile every 2.5 m
-    t.repeat.set(width * 0.4, depth * 0.4);
-    t.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
-    t.needsUpdate = true;
+    configureFloorTileTexture(t, width, depth, gl);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t, width, depth, gl]);
 

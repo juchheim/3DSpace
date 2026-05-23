@@ -36,7 +36,7 @@ type TierDef = { minZ: number; maxZ: number; floorY: number };
 
 const CLASSROOM_TIERS: TierDef[] = [
   { minZ: 4.0, maxZ:  8.5, floorY: 0.5 },
-  { minZ: 8.5, maxZ: 12.0, floorY: 1.0 },
+  { minZ: 8.5, maxZ: 15.0, floorY: 1.0 },
 ];
 
 const DEFAULT_LIGHTING: LightingPreset = {
@@ -86,7 +86,7 @@ function TierMesh({
   const geometry = useMemo(() => {
     const hw    = ROOM_WIDTH / 2;
     const rh    = tier.floorY - prevFloorY;
-    const bevel = rh * 0.28;  // angled front riser at ~74° — matches RoomView3D
+    const bevel = rh * 0.35;  // gentle front riser — matches RoomView3D
 
     // 8 vertices: left face (v0-v3), right face (v4-v7)
     const pos = new Float32Array([

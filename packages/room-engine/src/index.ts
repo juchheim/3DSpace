@@ -107,7 +107,8 @@ export function createDefaultRoomManifest(input: {
     },
     tiers: [
       { minZ: 4.0, maxZ: 8.5, floorY: 0.5 },
-      { minZ: 8.5, maxZ: 12.0, floorY: 1.0 }
+      // Upper terrace runs flush to the back wall (z = ±depth/2).
+      { minZ: 8.5, maxZ: 15.0, floorY: 1.0 }
     ],
     spawnPoints: [
       // Teacher — front stage
