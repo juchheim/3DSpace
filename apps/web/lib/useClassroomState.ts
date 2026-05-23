@@ -79,14 +79,19 @@ export function useClassroomState(input: {
       setError("");
       try {
         const next = await runClassroomAction(input.identity, input.roomId, action);
-        applyState(next);
-        input.publish?.({
-          type: "classroom.state.changed.v1",
-          roomId: input.roomId,
-          version: next.version,
-          sentAt: Date.now(),
-          senderId: input.identity.userId
-        });
+        // Some actions (e.g. set-room-skin) return a partial response rather than a
+        // full ClassroomState.  Guard against missing helpRequests so sortRequests
+        // doesn't crash with "e.helpRequests is not iterable".
+        if (Array.isArray((next as unknown as Record<string, unknown>).helpRequests)) {
+          applyState(next);
+          input.publish?.({
+            type: "classroom.state.changed.v1",
+            roomId: input.roomId,
+            version: next.version,
+            sentAt: Date.now(),
+            senderId: input.identity.userId
+          });
+        }
         return next;
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unable to update classroom state.";
