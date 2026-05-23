@@ -1,6 +1,6 @@
 # MVP+1 Implementation Status
 
-Last updated: 2026-05-22
+Last updated: 2026-05-23
 Branch: `mvp-plus-one`
 
 ## Objective
@@ -133,6 +133,41 @@ Rollout note:
 - Planned staging rollout date: **2026-05-22**, with `ENABLE_ROOM_OBJECTS=true` and `NEXT_PUBLIC_ENABLE_ROOM_OBJECTS=true` in staging only after merge; production flags stay off until the 60–90 s hero demo and Chromebook load check pass.
 - `settings.roomObjects.customUploadsEnabled` stays off until Phase 8 stabilizes in staging; whitelist friendly districts before enabling uploads broadly.
 
+## World Skins (Phase A)
+
+Concept: [`docs/planning/new-features/CONCEPT_WORLD_SKINS_PHASE_A.md`](../new-features/CONCEPT_WORLD_SKINS_PHASE_A.md)
+Implementation plan: [`docs/planning/new-features/IMPL_WORLD_SKINS_PHASE_A.md`](../new-features/IMPL_WORLD_SKINS_PHASE_A.md)
+Demo script: [`docs/planning/new-features/WORLD_SKIN_DEMO_SCRIPT.md`](../new-features/WORLD_SKIN_DEMO_SCRIPT.md)
+
+Status: **complete locally** behind `ENABLE_WORLD_SKINS` / `NEXT_PUBLIC_ENABLE_WORLD_SKINS` (default `false`). Five launch skins ship in the builtin catalog: `mars-surface`, `cell-interior`, `roman-forum`, `rainforest-canopy`, `art-studio`.
+
+Completed (all nine phases):
+
+- **Phase 0** — Dev harness at `/dev/world-skin-hero`; Mars Surface pilot skin; `packages/world-skins/` workspace with color-only hero draft.
+- **Phase 1** — Contracts: `WorldSkinSchema`, `WorldSkinOverridesSchema`, `WorldSkinLightingPresetSchema`, `WorldSkinPanoramaWallSchema`, `RoomSkinMessageSchema`, three classroom actions, `RoomSettingsSchema.worldSkins`, OpenAPI entries.
+- **Phase 2** — Five-skin `packages/world-skins/catalog/builtin.json`; API seed on startup; Mongoose `WorldSkin` collection + in-memory mirror.
+- **Phase 3** — API routes (`GET /v1/world-skins`, `GET /v1/world-skins/:slug`, `GET /v1/world-skin-assets/*`), classroom actions (`set-room-skin`, `lock-room-skin`, `set-room-skin-day-night`), flag-gate on all three.
+- **Phase 4** — Web API client (`listWorldSkins`, `fetchWorldSkin`), `useWorldSkinCatalog`, `useWorldSkin`, `CLIENT_TUNING.enableWorldSkins`, `RoomClient` realtime dispatcher for `room.skin.v1`, `window.__debug.worldSkin`.
+- **Phase 5** — `SkinLayer` context provider + `WorldSkinContext`; `ambientPlayer.ts`; `SceneAtmosphere` R3F component; panorama texture clone pattern; skin-driven floor/tier colors; board-darken pass.
+- **Phase 6** — `RoomView2D` themed floor map + environment label; `RoomClient` environment banner with per-session dismiss.
+- **Phase 7** — Walk-speed multiplier (`useAvatarMovement` + `walkSpeedMultiplierRef`); avatar scale + nameplate `distanceFactor` compensation (`BlockyAvatar`); day/night lighting resolved in `SkinLayer`; walk-speed toast (6 s auto-dismiss).
+- **Phase 8** — `EnvironmentCard` + `EnvironmentPicker` teacher HUD; ambient slider with 400 ms debounced `patchRoom`; `localAmbientGain` for immediate audio feedback; CSS for both components.
+- **Phase 9** — Env template additions (`ENABLE_WORLD_SKINS`, `NEXT_PUBLIC_ENABLE_WORLD_SKINS`); Playwright dev servers opt-in; `apps/web/test/world-skins.spec.ts` focused suite; `mvp.spec.ts` skin-active smoke; docs updated.
+
+Validation:
+
+- `npm run typecheck` — pass.
+- `npm run test -- apps/api/tests/api.test.ts -t "world skin"` — pass.
+- `npx playwright test apps/web/test/world-skins.spec.ts` — pass with Playwright-managed dev servers.
+- `npx playwright test apps/web/test/mvp.spec.ts` — pass (skin-active smoke included).
+
+Rollout note:
+
+- Planned staging rollout date: **2026-05-23**, with `ENABLE_WORLD_SKINS=true` and `NEXT_PUBLIC_ENABLE_WORLD_SKINS=true` in staging only.
+- Operator must upload five v1 asset packs to R2 (`world-skins/<slug>/v1/...`) before flipping the flag in production.
+- Existing rooms are unaffected on flag-on: `room.settings.worldSkins.skinId` defaults `null` (default theater).
+- `room.settings.worldSkins.enabled` defaults `true`; per-room opt-out via the setting is available if needed.
+
 ## Next Concrete Step
 
-Local MVP+1 wall media, lesson planning discovery, breakout pods, and the RoomObject library are complete. Recommended follow-up before release: manually validate live wall shares against the deployed LiveKit/browser-permission path, run the RoomObject district demo script twice on staging, complete the 3-user grab read-only inspector check, and run a 3-user breakout-pods perceptual check in staging.
+Local MVP+1 wall media, lesson planning discovery, breakout pods, RoomObject library, and World Skins Phase A are all complete. Recommended next steps before production release: upload the five v1 skin asset packs to R2, flip `ENABLE_WORLD_SKINS=true` in staging, run the 90-second demo script, complete the Chromebook and iPad Safari QA checklist from Phase 9, and record a PR clip of the default → Mars → Cell → Forum day/night → Calm flow.

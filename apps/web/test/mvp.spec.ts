@@ -284,3 +284,68 @@ test("room remains usable under a throttled browser profile", async ({ context, 
     await cdp.detach().catch(() => undefined);
   }
 });
+
+test("existing three-step lesson flow is unaffected when a non-default skin is pre-seeded on the room", async ({
+  context,
+  page,
+  request
+}) => {
+  test.setTimeout(90_000);
+  const API = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8080";
+  const { room, invite } = await createRoomWithInvite(request);
+
+  // Pre-seed the room with mars-surface via PATCH (mirrors a teacher setting it before class)
+  const patchResp = await request.patch(`${API}/v1/rooms/${room.id}`, {
+    data: {
+      settings: {
+        worldSkins: {
+          enabled: true,
+          skinId: "mars-surface",
+          skinDayNightMode: "day",
+          skinLocked: false,
+          ambientGainOverride: null
+        }
+      }
+    },
+    headers: {
+      "x-dev-user-id": TEACHER.userId,
+      "x-dev-user-name": TEACHER.displayName,
+      "x-dev-user-role": TEACHER.role
+    }
+  });
+  // If ENABLE_WORLD_SKINS is off the patch still succeeds (settings are stored, inert)
+  expect(patchResp.ok()).toBeTruthy();
+
+  // Standard three-step lesson flow (copy of the existing test, no skin-specific assertions)
+  await setIdentity(page, TEACHER);
+  await page.goto(`/rooms/${room.id}`, { waitUntil: "commit" });
+  await expect(page.getByTestId("participant-dev-teacher")).toContainText("Ms. Rivera", { timeout: 20_000 });
+
+  await page.getByTestId("lesson-run-title").fill("Forces warmup (skin smoke)");
+  await page.getByTestId("init-lesson-run").click();
+  await expect(page.getByTestId("lesson-script-dock")).toBeVisible({ timeout: 10_000 });
+
+  await page.getByTestId("add-lesson-step-instruction").click();
+  await page.getByTestId("lesson-instruction-body").fill("Read the diagram silently.");
+  await page.getByTestId("save-lesson-step").click();
+  await page.getByTestId("add-lesson-step-private-check").click();
+  await expect(page.getByTestId("lesson-step-list")).toContainText("Quick check");
+
+  await page.getByTestId("start-lesson-run").click();
+  await expect(page.getByTestId("lesson-run-current")).toContainText("Instruction", { timeout: 10_000 });
+
+  const studentPage = await context.newPage();
+  await setIdentity(studentPage, STUDENT);
+  await studentPage.goto(`/rooms/${room.id}?invite=${invite.code}`, { waitUntil: "commit" });
+  await expect(studentPage.getByTestId("participant-dev-student")).toContainText("Avery Student", {
+    timeout: 20_000
+  });
+  await expect(studentPage.getByTestId("lesson-student-callout")).toContainText("Step 1 of 2", {
+    timeout: 10_000
+  });
+
+  await page.getByTestId("advance-lesson-step").click();
+  await expect(page.getByTestId("lesson-run-current")).toContainText("Quick check", { timeout: 10_000 });
+  await page.getByTestId("advance-lesson-step").click();
+  await expect(page.getByTestId("lesson-timeline")).toContainText("Quick check", { timeout: 10_000 });
+});

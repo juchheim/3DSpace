@@ -10,7 +10,7 @@ Brainstorm + implementation docs for features not yet on a committed roadmap.
 
 | Doc | Idea | Status |
 | --- | --- | --- |
-| [`CONCEPT_WORLD_SKINS_PHASE_A.md`](./CONCEPT_WORLD_SKINS_PHASE_A.md) + [`IMPL_WORLD_SKINS_PHASE_A.md`](./IMPL_WORLD_SKINS_PHASE_A.md) + [`WORLD_SKIN_PANORAMA_SPEC.md`](./WORLD_SKIN_PANORAMA_SPEC.md) | World Skins — Phase A curated launch library (Big idea #3); **8192×1024** wall panorama + floor; no glTF props | **In progress** (Phases 0–1 done; panorama spec locked) |
+| [`CONCEPT_WORLD_SKINS_PHASE_A.md`](./CONCEPT_WORLD_SKINS_PHASE_A.md) + [`IMPL_WORLD_SKINS_PHASE_A.md`](./IMPL_WORLD_SKINS_PHASE_A.md) + [`WORLD_SKIN_PANORAMA_SPEC.md`](./WORLD_SKIN_PANORAMA_SPEC.md) + [`WORLD_SKIN_DEMO_SCRIPT.md`](./WORLD_SKIN_DEMO_SCRIPT.md) | World Skins — Phase A curated launch library (Big idea #3); **8192×1024** wall panorama + floor; no glTF props; five launch skins: mars-surface, cell-interior, roman-forum, rainforest-canopy, art-studio | **Complete** (all 9 phases; ships behind `ENABLE_WORLD_SKINS`; staging rollout 2026-05-23) |
 
 `CONCEPT_*` docs are the full product picture (why, who, skins, UX, integration, acceptance). `IMPL_*` is the phase-by-phase build plan. `PLAN_*` is reserved for file-level design when an extra step between concept and IMPL is useful.
 
