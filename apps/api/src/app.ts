@@ -2532,7 +2532,12 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   });
 
   app.get("/v1/world-skin-assets/*", async (request, reply) => {
-    await requireUser(request, config, repository);
+    // No auth required — world skin assets are read-only static content.
+    // The feature flag is still enforced so the route is a no-op when skins
+    // are disabled, and R2 keys are opaque storage paths rather than
+    // user-guessable IDs, so there is no meaningful security benefit to
+    // gating them behind a Clerk Bearer token (which TextureLoader and <img>
+    // cannot send anyway).
     if (!config.tuning.enableWorldSkins) throw worldSkinsDisabled();
     const storageKey = storageKeyFromRequest(request);
     const object = await readStoredObject(config, { storageKey });
