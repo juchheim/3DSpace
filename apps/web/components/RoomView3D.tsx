@@ -3,7 +3,7 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html } from "@react-three/drei";
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
-import { BufferAttribute, BufferGeometry, ClampToEdgeWrapping, SRGBColorSpace, Texture, TextureLoader, type MeshStandardMaterial, Vector3 } from "three";
+import { BufferAttribute, BufferGeometry, ClampToEdgeWrapping, RepeatWrapping, SRGBColorSpace, Texture, TextureLoader, type MeshStandardMaterial, Vector3 } from "three";
 import { useWorldSkinContext, DEFAULT_LIGHTING, DEFAULT_BACKGROUND } from "./worldSkins/SkinLayer";
 import type {
   AvatarAppearance,
@@ -906,6 +906,14 @@ function RoomGeometry({
       (t) => {
         if (cancelled) { t.dispose(); return; }
         t.colorSpace = SRGBColorSpace;
+        // Tile the floor texture so it looks natural at room scale.
+        // ~0.4 repeats per world-unit ≈ one tile every 2.5 m.
+        t.wrapS = RepeatWrapping;
+        t.wrapT = RepeatWrapping;
+        t.repeat.set(
+          manifest.dimensions.width  * 0.4,
+          manifest.dimensions.depth  * 0.4
+        );
         t.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
         setFloorTexture(t);
       },
