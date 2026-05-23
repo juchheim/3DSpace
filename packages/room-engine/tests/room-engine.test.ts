@@ -21,6 +21,7 @@ import {
   applyDefaultRoomGeometry,
   PRIMARY_BOARD_WIDTH,
   PRIMARY_BOARD_HEIGHT,
+  PRIMARY_BOARD_CENTER_X,
   PRIMARY_BOARD_CENTER_Y
 } from "../src/index";
 
@@ -60,6 +61,7 @@ describe("room engine", () => {
     const board = manifest.wallAnchors.find((anchor) => anchor.id === "anchor-board");
     expect(board?.width).toBe(PRIMARY_BOARD_WIDTH);
     expect(board?.height).toBeCloseTo(PRIMARY_BOARD_HEIGHT, 3);
+    expect(board?.position.x).toBe(PRIMARY_BOARD_CENTER_X);
     expect(board?.position.y).toBe(PRIMARY_BOARD_CENTER_Y);
   });
 
