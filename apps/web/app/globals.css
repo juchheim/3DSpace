@@ -2603,6 +2603,19 @@ button.hud-heading-btn:hover {
   max-height: 11rem;
 }
 
+/* In the narrow sidebar, drop "N votes ·" and show only "N%" to fit the grid */
+.wall-object-card--compact .wall-object-poll__result-count,
+.wall-object-card--compact .wall-object-poll__result-sep {
+  display: none;
+}
+
+/* Stack footer vertically so "Close poll" isn't squeezed off the right edge */
+.wall-object-card--compact .wall-object-poll__footer {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
 .wall-object-poll__choice {
   display: flex;
   align-items: center;
