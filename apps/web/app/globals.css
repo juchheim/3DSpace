@@ -2739,8 +2739,8 @@ button.hud-heading-btn:hover {
   grid-template-rows: auto minmax(0, 1fr) auto;
   height: 100%;
   min-height: 0;
-  gap: clamp(0.25rem, 1.8cqh, 0.65rem);
-  padding: clamp(0.4rem, 2.5cqh, 0.95rem);
+  gap: clamp(1rem, 7cqh, 2.5rem);
+  padding: clamp(0.85rem, 4.5cqh, 1.75rem);
   border: clamp(2px, 0.4cqw, 4px) solid rgba(20, 40, 32, 0.14);
   border-radius: clamp(8px, 1.4cqw, 18px);
   background:
@@ -2768,12 +2768,19 @@ button.hud-heading-btn:hover {
   color: #5c6470;
 }
 
+.wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__header,
+.wall-object-poll--surface .wall-object-poll__header {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.4rem, 3cqh, 1rem);
+}
+
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__question,
 .wall-object-poll--surface .wall-object-poll__question {
-  -webkit-line-clamp: 2;
-  font-size: clamp(1rem, 12cqh, var(--poll-surface-font));
-  font-weight: 700;
-  line-height: 1.1;
+  -webkit-line-clamp: 3;
+  font-size: clamp(1.75rem, 20cqh, var(--poll-surface-font));
+  font-weight: 800;
+  line-height: 1.12;
   letter-spacing: -0.02em;
   color: #0f241c;
 }
@@ -2790,8 +2797,7 @@ button.hud-heading-btn:hover {
   grid-template-rows: repeat(var(--poll-choice-count, 3), minmax(0, 1fr));
   flex: none;
   min-height: 0;
-  /* gap uses cqh which, on this element (a container itself), resolves to the card ancestor — that's intentional and consistent */
-  gap: clamp(0.25rem, 1.8cqh, 0.9rem);
+  gap: clamp(0.85rem, 6cqh, 2rem);
   overflow: hidden;
   align-content: stretch;
 }
@@ -2802,19 +2808,17 @@ button.hud-heading-btn:hover {
   height: 100%;
   min-height: 0;
   box-sizing: border-box;
-  /* --poll-surface-font is already 2× pre-scaled; no container-query unit issues */
-  font-size: clamp(0.85rem, calc(var(--poll-surface-font) * 0.36), 999px);
-  line-height: 1.15;
-  padding-block: 0;
-  padding-inline: clamp(0.35rem, 2cqw, 0.85rem);
-  gap: clamp(0.3rem, 1.5cqw, 0.7rem);
+  font-size: clamp(1.1rem, calc(var(--poll-surface-font) * 0.44), 999px);
+  line-height: 1.2;
+  padding-block: clamp(0.5rem, 3cqh, 1rem);
+  padding-inline: clamp(0.5rem, 2.5cqw, 1.1rem);
+  gap: clamp(0.55rem, 2.5cqw, 1.15rem);
 }
 
 .wall-object-poll--surface .wall-object-poll__choices .wall-object-poll__letter {
-  /* em units here reference this element's own computed font-size (set below) */
-  font-size: 0.65em;
-  width: 1.7em;
-  height: 1.7em;
+  font-size: 0.75em;
+  width: 2.15em;
+  height: 2.15em;
   color: #fffaf4;
   background: var(--poll-accent, #c07834);
   box-shadow: 0 2px 6px rgba(20, 40, 32, 0.18);
@@ -2965,59 +2969,34 @@ button.hud-heading-btn:hover {
   color: #3d4f48;
 }
 
-/* ── Per-choice-count font size overrides ── */
+/* ── Dense polls: still big question + generous row gaps (no compact shrink) ── */
 
-.wall-object-poll--surface[data-choice-count="4"] .wall-object-poll__choices > .wall-object-poll__choice,
-.wall-object-poll--surface[data-choice-count="4"] .wall-object-poll__choices > .wall-object-poll__result {
-  font-size: clamp(0.8rem, calc(var(--poll-surface-font) * 0.27), 999px);
-}
-
-/* 5 choices: compact layout, 1-line question, tighter gaps */
-.wall-object-poll--surface[data-choice-count="5"] {
-  padding: clamp(0.35rem, 2cqh, 0.8rem);
-  gap: clamp(0.15rem, 0.8cqh, 0.45rem);
-}
-
-.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__question {
-  -webkit-line-clamp: 1;
-  font-size: clamp(0.85rem, 6.5cqh, calc(var(--poll-surface-font) * 0.34));
-}
-
-.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choices {
-  gap: clamp(0.2rem, 1.5cqh, 0.65rem);
-}
-
-.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choices > .wall-object-poll__choice,
-.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choices > .wall-object-poll__result {
-  font-size: clamp(0.75rem, calc(var(--poll-surface-font) * 0.24), 999px);
-}
-
-/* 6 choices: most compact layout, 1-line question, minimal padding */
-.wall-object-poll--surface[data-choice-count="6"] {
-  padding: clamp(0.3rem, 1.5cqh, 0.7rem);
-  gap: clamp(0.15rem, 0.7cqh, 0.4rem);
+.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__question,
+.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__question {
+  -webkit-line-clamp: 2;
+  font-size: clamp(1.5rem, 16cqh, calc(var(--poll-surface-font) * 0.9));
+  line-height: 1.14;
 }
 
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__kicker {
   display: none;
 }
 
-.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__question {
-  -webkit-line-clamp: 1;
-  font-size: clamp(0.75rem, 5cqh, calc(var(--poll-surface-font) * 0.28));
-}
-
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__bar {
   display: none;
 }
 
+.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choices,
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choices {
-  gap: clamp(0.2rem, 1.5cqh, 0.65rem);
+  gap: clamp(0.7rem, 5cqh, 1.65rem);
 }
 
+.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choices > .wall-object-poll__choice,
+.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choices > .wall-object-poll__result,
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choices > .wall-object-poll__choice,
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choices > .wall-object-poll__result {
-  font-size: clamp(0.7rem, calc(var(--poll-surface-font) * 0.25), 999px);
+  font-size: clamp(1rem, calc(var(--poll-surface-font) * 0.38), 999px);
+  padding-block: clamp(0.45rem, 2.5cqh, 0.9rem);
 }
 
 /* ── Common ── */
