@@ -37,7 +37,7 @@ export const PRIMARY_BOARD_WIDTH = 9.2;
 export const PRIMARY_BOARD_HEIGHT = widescreenHeight(9.6) * 0.8;
 
 /** Center of the primary front board on the front wall. */
-export const PRIMARY_BOARD_CENTER_X = -0.3;
+export const PRIMARY_BOARD_CENTER_X = 0.1;
 export const PRIMARY_BOARD_CENTER_Y = 4.5;
 
 export function widescreenHeight(width: number): number {
