@@ -58,6 +58,10 @@ const RESOURCE_RAIL_NUDGE_UP = 0.2;
 const RESOURCE_RAIL_NUDGE_ALONG = RESOURCE_RAIL_NUDGE_UP;
 /** Additional along-wall shift toward the right when facing each side wall (m). */
 const RESOURCE_RAIL_NUDGE_RIGHT = 2;
+/** Fine along-wall shift back toward the left when facing each side wall (m). */
+const RESOURCE_RAIL_NUDGE_LEFT = 0.5;
+/** Width trim for the right resource rail only. */
+const RIGHT_RESOURCE_RAIL_WIDTH_SCALE = 0.97;
 
 /** Left resource rail — 5% smaller than baseline. */
 export const LEFT_RESOURCE_RAIL_WIDTH = SECONDARY_BOARD_BASE_WIDTH * 0.95;
@@ -65,16 +69,19 @@ export const LEFT_RESOURCE_RAIL_HEIGHT =
   widescreenHeight(LEFT_RESOURCE_RAIL_WIDTH) * SECONDARY_BOARD_HEIGHT_SCALE * RESOURCE_RAIL_HEIGHT_SCALE;
 export const LEFT_RESOURCE_RAIL_CENTER_X = -14.92;
 export const LEFT_RESOURCE_RAIL_CENTER_Y = 4.4 + RESOURCE_RAIL_NUDGE_UP;
-export const LEFT_RESOURCE_RAIL_CENTER_Z = -1 - 2 * RESOURCE_RAIL_NUDGE_ALONG + RESOURCE_RAIL_NUDGE_RIGHT;
+export const LEFT_RESOURCE_RAIL_CENTER_Z =
+  -1 - 2 * RESOURCE_RAIL_NUDGE_ALONG + RESOURCE_RAIL_NUDGE_RIGHT - RESOURCE_RAIL_NUDGE_LEFT;
 
 /** Right resource rail and back display — 10% smaller than baseline. */
 export const SECONDARY_BOARD_WIDTH = SECONDARY_BOARD_BASE_WIDTH * 0.9;
 export const SECONDARY_BOARD_HEIGHT = widescreenHeight(SECONDARY_BOARD_WIDTH) * SECONDARY_BOARD_HEIGHT_SCALE;
+export const RIGHT_RESOURCE_RAIL_WIDTH = SECONDARY_BOARD_WIDTH * RIGHT_RESOURCE_RAIL_WIDTH_SCALE;
 export const RIGHT_RESOURCE_RAIL_HEIGHT =
   SECONDARY_BOARD_HEIGHT * RESOURCE_RAIL_HEIGHT_SCALE * RIGHT_RESOURCE_RAIL_EXTRA_HEIGHT_SCALE;
 export const RIGHT_RESOURCE_RAIL_CENTER_X = 14.92;
 export const RIGHT_RESOURCE_RAIL_CENTER_Y = 4.4 + RESOURCE_RAIL_NUDGE_UP;
-export const RIGHT_RESOURCE_RAIL_CENTER_Z = 1 + 3 * RESOURCE_RAIL_NUDGE_ALONG - RESOURCE_RAIL_NUDGE_RIGHT;
+export const RIGHT_RESOURCE_RAIL_CENTER_Z =
+  1 + 3 * RESOURCE_RAIL_NUDGE_ALONG - RESOURCE_RAIL_NUDGE_RIGHT + RESOURCE_RAIL_NUDGE_LEFT;
 export const BACK_DISPLAY_CENTER_X = 0;
 export const BACK_DISPLAY_CENTER_Y = 4.3;
 export const BACK_DISPLAY_CENTER_Z = 14.92;
@@ -277,7 +284,7 @@ export function createDefaultRoomManifest(input: {
         label: "Right resource rail",
         position: { x: RIGHT_RESOURCE_RAIL_CENTER_X, y: RIGHT_RESOURCE_RAIL_CENTER_Y, z: RIGHT_RESOURCE_RAIL_CENTER_Z },
         normal: { x: -1, y: 0, z: 0 },
-        width: SECONDARY_BOARD_WIDTH,
+        width: RIGHT_RESOURCE_RAIL_WIDTH,
         height: RIGHT_RESOURCE_RAIL_HEIGHT,
         metadata: {
           accepts: ["image", "image.file", "document.file", "slides.file", "web.link", "note", "poll", "timer"],
