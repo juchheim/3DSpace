@@ -2735,12 +2735,15 @@ button.hud-heading-btn:hover {
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll,
 .wall-object-poll--surface {
   --poll-surface-font: var(--wall-surface-font-size, 48px);
-  display: flex;
-  flex-direction: column;
+  --poll-surface-pad: clamp(0.55rem, 3cqh, 1.1rem);
+  --poll-surface-header-bottom: clamp(4.25rem, 27cqh, 7rem);
+  --poll-surface-footer-h: clamp(0.9rem, 7cqh, 1.8rem);
+  position: relative;
+  display: block;
   height: 100%;
   min-height: 0;
-  gap: clamp(0.65rem, 4.5cqh, 1.35rem);
-  padding: clamp(0.55rem, 3cqh, 1.1rem);
+  padding: var(--poll-surface-pad);
+  overflow: hidden;
   border: clamp(2px, 0.4cqw, 4px) solid rgba(20, 40, 32, 0.14);
   border-radius: clamp(8px, 1.4cqw, 18px);
   background:
@@ -2770,10 +2773,14 @@ button.hud-heading-btn:hover {
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__header,
 .wall-object-poll--surface .wall-object-poll__header {
-  flex-shrink: 0;
+  position: absolute;
+  top: var(--poll-surface-pad);
+  right: var(--poll-surface-pad);
+  left: var(--poll-surface-pad);
   display: flex;
   flex-direction: column;
   gap: clamp(0.4rem, 3cqh, 1rem);
+  min-height: 0;
 }
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__question,
@@ -2793,16 +2800,21 @@ button.hud-heading-btn:hover {
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__choices,
 .wall-object-poll--surface .wall-object-poll__choices {
-  flex: 1 1 0;
+  position: absolute;
+  top: var(--poll-surface-header-bottom);
+  right: var(--poll-surface-pad);
+  bottom: var(--poll-surface-footer-h);
+  left: var(--poll-surface-pad);
   min-height: 0;
   display: grid;
   grid-template-rows: repeat(var(--poll-choice-count, 3), minmax(0, 1fr));
-  gap: clamp(0.45rem, 3.5cqh, 1rem);
+  gap: clamp(0.5rem, 4cqh, 1.15rem);
   overflow: hidden;
 }
 
 .wall-object-poll--surface .wall-object-poll__choices > .wall-object-poll__result,
 .wall-object-poll--surface .wall-object-poll__choices > .wall-object-poll__choice {
+  height: 100%;
   min-height: 0;
   box-sizing: border-box;
   overflow: hidden;
@@ -2851,6 +2863,8 @@ button.hud-heading-btn:hover {
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__result,
 .wall-object-poll--surface .wall-object-poll__result {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   border-radius: clamp(4px, 0.8cqw, 10px);
   background: rgba(255, 255, 255, 0.42);
@@ -3010,7 +3024,10 @@ button.hud-heading-btn:hover {
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__footer,
 .wall-object-poll--surface .wall-object-poll__footer {
-  flex-shrink: 0;
+  position: absolute;
+  right: var(--poll-surface-pad);
+  bottom: var(--poll-surface-pad);
+  left: var(--poll-surface-pad);
 }
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__manage,
