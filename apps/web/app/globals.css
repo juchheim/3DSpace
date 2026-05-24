@@ -2734,17 +2734,13 @@ button.hud-heading-btn:hover {
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll,
 .wall-object-poll--surface {
-  --poll-surface-font: var(--wall-surface-font-size, 40px);
-  --poll-q-max: calc(var(--poll-surface-font) * 0.58);
-  --poll-body-max: calc(var(--poll-surface-font) * 0.34);
-  --poll-hero-max: calc(var(--poll-surface-font) * 0.5);
-  --poll-letter-max: calc(var(--poll-surface-font) * 0.44);
+  --poll-surface-font: var(--wall-surface-font-size, 48px);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   height: 100%;
   min-height: 0;
-  gap: clamp(0.3rem, 2.2cqh, 0.85rem);
-  padding: clamp(0.5rem, 3cqh, 1.15rem);
+  gap: clamp(0.25rem, 1.8cqh, 0.65rem);
+  padding: clamp(0.4rem, 2.5cqh, 0.95rem);
   border: clamp(2px, 0.4cqw, 4px) solid rgba(20, 40, 32, 0.14);
   border-radius: clamp(8px, 1.4cqw, 18px);
   background:
@@ -2756,13 +2752,12 @@ button.hud-heading-btn:hover {
     inset 0 1px 0 rgba(255, 255, 255, 0.72);
   color: #142820;
   font-family: "Barlow", system-ui, sans-serif;
-  font-size: clamp(0.8rem, 6cqh, var(--poll-body-max));
 }
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__kicker,
 .wall-object-poll--surface .wall-object-poll__kicker {
   display: block;
-  font-size: clamp(0.58rem, 4.2cqh, calc(var(--poll-surface-font) * 0.22));
+  font-size: clamp(0.58rem, 4.5cqh, calc(var(--poll-surface-font) * 0.24));
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -2775,10 +2770,10 @@ button.hud-heading-btn:hover {
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__question,
 .wall-object-poll--surface .wall-object-poll__question {
-  -webkit-line-clamp: 3;
-  font-size: clamp(0.9rem, 10cqh, var(--poll-q-max));
+  -webkit-line-clamp: 2;
+  font-size: clamp(1rem, 12cqh, var(--poll-surface-font));
   font-weight: 700;
-  line-height: 1.08;
+  line-height: 1.1;
   letter-spacing: -0.02em;
   color: #0f241c;
 }
@@ -2791,11 +2786,13 @@ button.hud-heading-btn:hover {
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__choices,
 .wall-object-poll--surface .wall-object-poll__choices {
   container-type: size;
+  --poll-row-gap: 3.5cqb;
+  --poll-row-h: calc((100cqb - (var(--poll-choice-count, 3) - 1) * var(--poll-row-gap)) / var(--poll-choice-count, 3));
   display: grid;
   grid-template-rows: repeat(var(--poll-choice-count, 3), minmax(0, 1fr));
   flex: none;
   min-height: 0;
-  gap: clamp(0.22rem, 1.8cqh, 0.55rem);
+  gap: var(--poll-row-gap);
   overflow: hidden;
   align-content: stretch;
 }
@@ -2803,8 +2800,40 @@ button.hud-heading-btn:hover {
 .wall-object-poll--surface .wall-object-poll__choices > .wall-object-poll__result,
 .wall-object-poll--surface .wall-object-poll__choices > .wall-object-poll__choice {
   align-self: stretch;
+  height: 100%;
   min-height: 0;
   box-sizing: border-box;
+  font-size: calc(var(--poll-row-h) * 0.62);
+  line-height: 1.1;
+  padding-block: calc(var(--poll-row-h) * 0.06);
+  padding-inline: clamp(0.35rem, 2cqw, 0.85rem);
+  gap: clamp(0.25rem, 1.5cqw, 0.65rem);
+}
+
+.wall-object-poll--surface .wall-object-poll__choices .wall-object-poll__letter {
+  width: calc(var(--poll-row-h) * 0.88);
+  height: calc(var(--poll-row-h) * 0.88);
+  font-size: calc(var(--poll-row-h) * 0.48);
+  color: #fffaf4;
+  background: var(--poll-accent, #c07834);
+  box-shadow: 0 2px 6px rgba(20, 40, 32, 0.18);
+}
+
+.wall-object-poll--surface .wall-object-poll__choices .wall-object-poll__result-row {
+  font-size: calc(var(--poll-row-h) * 0.62);
+  line-height: 1.1;
+}
+
+.wall-object-poll--surface .wall-object-poll__choices .wall-object-poll__result-hero {
+  font-size: calc(var(--poll-row-h) * 0.58);
+  min-width: calc(var(--poll-row-h) * 0.95);
+  line-height: 1.1;
+}
+
+.wall-object-poll--surface .wall-object-poll__choices .wall-object-poll__choice-label,
+.wall-object-poll--surface .wall-object-poll__choices .wall-object-poll__result-choice {
+  font-size: inherit;
+  line-height: inherit;
 }
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__result,
@@ -2820,8 +2849,6 @@ button.hud-heading-btn:hover {
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__result,
 .wall-object-poll--surface .wall-object-poll__result {
   align-items: center;
-  gap: clamp(0.25rem, 1.8cqw, 0.65rem);
-  padding: clamp(0.2rem, 1.2cqh, 0.5rem) clamp(0.3rem, 1.8cqw, 0.65rem);
   border-radius: clamp(4px, 0.8cqw, 10px);
   background: rgba(255, 255, 255, 0.42);
   border: 1px solid rgba(20, 40, 32, 0.08);
@@ -2831,16 +2858,6 @@ button.hud-heading-btn:hover {
   background: rgba(255, 255, 255, 0.78);
   border-color: rgba(20, 40, 32, 0.2);
   box-shadow: 0 2px 10px rgba(20, 40, 32, 0.1);
-}
-
-.wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__letter,
-.wall-object-poll--surface .wall-object-poll__letter {
-  width: clamp(1.25rem, 6.5cqh, var(--poll-letter-max));
-  height: clamp(1.25rem, 6.5cqh, var(--poll-letter-max));
-  font-size: clamp(0.62rem, 4.2cqh, calc(var(--poll-surface-font) * 0.24));
-  color: #fffaf4;
-  background: var(--poll-accent, #c07834);
-  box-shadow: 0 2px 6px rgba(20, 40, 32, 0.18);
 }
 
 .wall-object-poll--surface .wall-object-poll__result[data-choice-index="0"],
@@ -2875,7 +2892,6 @@ button.hud-heading-btn:hover {
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__result-row,
 .wall-object-poll--surface .wall-object-poll__result-row {
-  font-size: clamp(0.75rem, 5.8cqh, var(--poll-body-max));
   line-height: 1.35;
 }
 
@@ -2898,8 +2914,6 @@ button.hud-heading-btn:hover {
 .wall-object-poll--surface .wall-object-poll__result-hero {
   display: block;
   flex-shrink: 0;
-  min-width: clamp(1.8rem, 11cqw, 3.5rem);
-  font-size: clamp(0.85rem, 7.5cqh, var(--poll-hero-max));
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -2922,14 +2936,11 @@ button.hud-heading-btn:hover {
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__choice,
 .wall-object-poll--surface .wall-object-poll__choice {
   align-items: center;
-  padding: clamp(0.2rem, 1.2cqh, 0.5rem) clamp(0.35rem, 2.2cqw, 0.8rem);
   border: 2px solid rgba(20, 40, 32, 0.1);
   border-radius: clamp(4px, 0.8cqw, 10px);
   background: rgba(255, 255, 255, 0.5);
   color: #142820;
-  font-size: clamp(0.75rem, 5.8cqh, var(--poll-body-max));
   font-weight: 700;
-  line-height: 1.35;
   box-shadow: 0 2px 8px rgba(20, 40, 32, 0.08);
 }
 
@@ -2947,77 +2958,15 @@ button.hud-heading-btn:hover {
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__total,
 .wall-object-poll--surface .wall-object-poll__total {
-  font-size: clamp(0.65rem, 4.5cqh, calc(var(--poll-surface-font) * 0.24));
+  font-size: clamp(0.65rem, 5cqh, calc(var(--poll-surface-font) * 0.28));
   font-weight: 600;
   opacity: 0.72;
   color: #3d4f48;
 }
 
-.wall-object-poll--surface[data-choice-count="4"] {
-  --poll-q-max: calc(var(--poll-surface-font) * 0.52);
-  --poll-body-max: calc(var(--poll-surface-font) * 0.3);
-  --poll-hero-max: calc(var(--poll-surface-font) * 0.44);
-}
-
-.wall-object-poll--surface[data-choice-count="4"] .wall-object-poll__question {
-  -webkit-line-clamp: 2;
-  font-size: clamp(0.85rem, 9cqh, var(--poll-q-max));
-}
-
-.wall-object-poll--surface[data-choice-count="5"] {
-  --poll-q-max: calc(var(--poll-surface-font) * 0.5);
-  --poll-body-max: calc(var(--poll-surface-font) * 0.32);
-  --poll-hero-max: calc(var(--poll-surface-font) * 0.44);
-  --poll-letter-max: calc(var(--poll-surface-font) * 0.4);
-  gap: clamp(0.28rem, 2cqh, 0.7rem);
-  padding: clamp(0.45rem, 2.8cqh, 1rem);
-  font-size: clamp(0.78rem, 6.5cqh, var(--poll-body-max));
-}
-
-.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choices {
-  row-gap: clamp(0.45rem, 6cqb, 1rem);
-  gap: clamp(0.45rem, 6cqb, 1rem);
-}
-
-.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__question {
-  -webkit-line-clamp: 2;
-  font-size: clamp(0.85rem, 8.5cqh, var(--poll-q-max));
-}
-
-.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__letter {
-  width: clamp(1.4rem, 10cqb, var(--poll-letter-max));
-  height: clamp(1.4rem, 10cqb, var(--poll-letter-max));
-  font-size: clamp(0.7rem, 5.5cqb, calc(var(--poll-surface-font) * 0.26));
-}
-
-.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choice,
-.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__result {
-  padding-block: clamp(0.4rem, 2.8cqb, 0.8rem);
-  font-size: clamp(0.85rem, 8cqb, var(--poll-body-max));
-  line-height: 1.2;
-}
-
-.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__result-row {
-  font-size: clamp(0.85rem, 8cqb, var(--poll-body-max));
-  line-height: 1.2;
-}
-
-.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__result-hero {
-  font-size: clamp(0.88rem, 7.5cqb, var(--poll-hero-max));
-}
-
-.wall-object-poll--surface[data-choice-count="6"] {
-  --poll-q-max: calc(var(--poll-surface-font) * 0.5);
-  --poll-body-max: calc(var(--poll-surface-font) * 0.38);
-  --poll-hero-max: calc(var(--poll-surface-font) * 0.48);
-  --poll-letter-max: calc(var(--poll-surface-font) * 0.5);
-  gap: clamp(0.2rem, 1.4cqh, 0.5rem);
-  padding: clamp(0.4rem, 2.4cqh, 0.9rem);
-  font-size: clamp(0.85rem, 6.5cqh, var(--poll-body-max));
-}
-
-.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__header {
-  flex-shrink: 0;
+.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choices,
+.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choices {
+  --poll-row-gap: 4.5cqb;
 }
 
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__kicker {
@@ -3025,49 +2974,8 @@ button.hud-heading-btn:hover {
 }
 
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__question {
-  -webkit-line-clamp: 1;
-  font-size: clamp(0.9rem, 8.5cqh, var(--poll-q-max));
-  line-height: 1.15;
-}
-
-.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choices {
-  row-gap: clamp(0.5rem, 7cqb, 1.15rem);
-  gap: clamp(0.5rem, 7cqb, 1.15rem);
-}
-
-.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choices > .wall-object-poll__choice,
-.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choices > .wall-object-poll__result,
-.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choices > .wall-object-poll__choice,
-.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choices > .wall-object-poll__result {
-  height: 100%;
-}
-
-.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__letter {
-  width: clamp(1.5rem, 11cqb, var(--poll-letter-max));
-  height: clamp(1.5rem, 11cqb, var(--poll-letter-max));
-  font-size: clamp(0.75rem, 6cqb, calc(var(--poll-surface-font) * 0.28));
-}
-
-.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choice,
-.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__result {
-  padding: clamp(0.35rem, 2.5cqb, 0.8rem) clamp(0.4rem, 2.2cqw, 0.85rem);
-  font-size: clamp(0.88rem, 7.5cqb, var(--poll-body-max));
-  line-height: 1.2;
-}
-
-.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__result-row {
-  font-size: clamp(0.88rem, 7.5cqb, var(--poll-body-max));
-  line-height: 1.2;
-}
-
-.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__result-hero {
-  min-width: clamp(2rem, 12cqb, 3.6rem);
-  font-size: clamp(0.9rem, 6.8cqb, var(--poll-hero-max));
-  line-height: 1.2;
-}
-
-.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__total {
-  font-size: clamp(0.62rem, 4cqh, calc(var(--poll-surface-font) * 0.22));
+  -webkit-line-clamp: 2;
+  font-size: clamp(1rem, 10cqh, calc(var(--poll-surface-font) * 0.72));
 }
 
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__bar {
