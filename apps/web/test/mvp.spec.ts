@@ -302,7 +302,6 @@ test("existing three-step lesson flow is unaffected when a non-default skin is p
           enabled: true,
           skinId: "mars-surface",
           skinDayNightMode: "day",
-          skinLocked: false,
           ambientGainOverride: null
         }
       }

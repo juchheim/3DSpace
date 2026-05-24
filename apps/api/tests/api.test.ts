@@ -4054,25 +4054,6 @@ describe("room object realtime grab lock", () => {
       await app.close();
     });
 
-    it("lock-room-skin persists and returns no realtime messages", async () => {
-      const { app, teacherId, roomId } = await buildSkinsAppWithRoom();
-      const res = await app.inject({
-        method: "POST",
-        url: `/v1/rooms/${roomId}/classroom/actions`,
-        headers: authHeaders(teacherId, "Ms. Rivera"),
-        payload: { type: "lock-room-skin", locked: true }
-      });
-      expect(res.statusCode).toBe(200);
-      expect(res.json().locked).toBe(true);
-      expect(res.json().realtimeMessages).toHaveLength(0);
-
-      const rooms = await app.inject({ method: "GET", url: "/v1/rooms", headers: authHeaders(teacherId, "Ms. Rivera") });
-      const room = (rooms.json() as Array<{ id: string; settings: { worldSkins: { skinLocked: boolean } } }>)
-        .find((r) => r.id === roomId);
-      expect(room?.settings.worldSkins.skinLocked).toBe(true);
-      await app.close();
-    });
-
     it("set-room-skin-day-night with non-roman-forum skin returns 422", async () => {
       const { app, teacherId, roomId } = await buildSkinsAppWithRoom();
       await app.inject({

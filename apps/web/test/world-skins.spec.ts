@@ -249,32 +249,6 @@ test("walk speed multiplier available on debug hook when mars skin is active", a
   expect(multiplier).toBeLessThan(1);
 });
 
-test("lock-room-skin persists via API; skin locked badge visible on teacher HUD", async ({
-  page,
-  request
-}) => {
-  test.setTimeout(60_000);
-  const { room } = await createSkinsRoom(request);
-
-  await setIdentity(page, TEACHER);
-  await page.goto(`/rooms/${room.id}`, { waitUntil: "commit" });
-  await waitForRoomJoined(page, room.name, TEACHER.userId);
-
-  await classroomAction(request, room.id, { type: "set-room-skin", skinId: "mars-surface" });
-
-  // Expand Environment HUD card if needed
-  const envHeading = page.getByRole("button", { name: /environment/i });
-  await expect(envHeading).toBeVisible({ timeout: 10_000 });
-  if ((await envHeading.getAttribute("aria-expanded")) !== "true") {
-    await envHeading.click();
-  }
-
-  await classroomAction(request, room.id, { type: "lock-room-skin", locked: true });
-
-  // The lock badge should appear in the environment card
-  await expect(page.locator(".environment-card__lock-badge")).toBeVisible({ timeout: 10_000 });
-});
-
 test("roman-forum day/night toggle changes state; set-room-skin-day-night error on non-forum skin", async ({
   request
 }) => {
@@ -386,7 +360,7 @@ test("three-step lesson still works when a skin is active mid-run", async ({
 
   // Pre-seed mars-surface via settings PATCH
   await patchJson(request, `/v1/rooms/${room.id}`, TEACHER, {
-    settings: { worldSkins: { enabled: true, skinId: "mars-surface", skinDayNightMode: "day", skinLocked: false, ambientGainOverride: null } }
+    settings: { worldSkins: { enabled: true, skinId: "mars-surface", skinDayNightMode: "day", ambientGainOverride: null } }
   });
 
   await setIdentity(page, TEACHER);

@@ -1754,12 +1754,6 @@ button.hud-heading-btn:hover {
   white-space: nowrap;
 }
 
-.environment-card__lock-badge {
-  font-size: 13px;
-  opacity: 0.7;
-  flex-shrink: 0;
-}
-
 /* Action buttons row */
 .environment-card__actions {
   display: flex;
@@ -1770,25 +1764,7 @@ button.hud-heading-btn:hover {
   flex: 1;
 }
 
-/* Lock-for-students checkbox row */
-.environment-card__lock-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: var(--hud-tx-m);
-  cursor: pointer;
-  user-select: none;
-}
-
-.environment-card__lock-row input[type="checkbox"] {
-  accent-color: var(--hud-accent, #5da689);
-  width: 13px;
-  height: 13px;
-  flex-shrink: 0;
-}
-
-/* Shared row for labelled controls (day/night select, ambient slider) */
+/* Shared row for labelled controls (day/night select, sound slider) */
 .environment-card__field-row {
   display: flex;
   align-items: center;

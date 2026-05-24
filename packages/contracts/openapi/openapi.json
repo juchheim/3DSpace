@@ -1,3 +1,19 @@
+
+> 3dspace@0.1.0 openapi
+> npm run build -w @3dspace/contracts && npm --workspace @3dspace/api run openapi
+
+
+> @3dspace/contracts@0.1.0 build
+> tsc -p tsconfig.json
+
+
+> @3dspace/api@0.1.0 openapi
+> npm run build && node dist/openapi.js
+
+
+> @3dspace/api@0.1.0 build
+> tsc -p tsconfig.json && node scripts/copy-builtin-catalog.mjs
+
 {
   "openapi": "3.0.3",
   "info": {
@@ -1008,10 +1024,6 @@
                                 ],
                                 "default": "day"
                               },
-                              "skinLocked": {
-                                "type": "boolean",
-                                "default": false
-                              },
                               "ambientGainOverride": {
                                 "type": "number",
                                 "minimum": 0,
@@ -1025,7 +1037,6 @@
                               "enabled": true,
                               "skinId": null,
                               "skinDayNightMode": "day",
-                              "skinLocked": false,
                               "ambientGainOverride": null
                             }
                           }
@@ -1321,10 +1332,6 @@
                                   ],
                                   "default": "day"
                                 },
-                                "skinLocked": {
-                                  "type": "boolean",
-                                  "default": false
-                                },
                                 "ambientGainOverride": {
                                   "type": "number",
                                   "minimum": 0,
@@ -1338,7 +1345,6 @@
                                 "enabled": true,
                                 "skinId": null,
                                 "skinDayNightMode": "day",
-                                "skinLocked": false,
                                 "ambientGainOverride": null
                               }
                             }
@@ -2120,10 +2126,6 @@
                             ],
                             "default": "day"
                           },
-                          "skinLocked": {
-                            "type": "boolean",
-                            "default": false
-                          },
                           "ambientGainOverride": {
                             "type": "number",
                             "minimum": 0,
@@ -2137,7 +2139,6 @@
                           "enabled": true,
                           "skinId": null,
                           "skinDayNightMode": "day",
-                          "skinLocked": false,
                           "ambientGainOverride": null
                         }
                       }
@@ -2374,10 +2375,6 @@
                               ],
                               "default": "day"
                             },
-                            "skinLocked": {
-                              "type": "boolean",
-                              "default": false
-                            },
                             "ambientGainOverride": {
                               "type": "number",
                               "minimum": 0,
@@ -2391,7 +2388,6 @@
                             "enabled": true,
                             "skinId": null,
                             "skinDayNightMode": "day",
-                            "skinLocked": false,
                             "ambientGainOverride": null
                           }
                         }
@@ -3273,10 +3269,6 @@
                                   ],
                                   "default": "day"
                                 },
-                                "skinLocked": {
-                                  "type": "boolean",
-                                  "default": false
-                                },
                                 "ambientGainOverride": {
                                   "type": "number",
                                   "minimum": 0,
@@ -3290,7 +3282,6 @@
                                 "enabled": true,
                                 "skinId": null,
                                 "skinDayNightMode": "day",
-                                "skinLocked": false,
                                 "ambientGainOverride": null
                               }
                             }
@@ -9935,30 +9926,6 @@
                       "type": {
                         "type": "string",
                         "enum": [
-                          "lock-room-skin"
-                        ]
-                      },
-                      "locked": {
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "type",
-                      "locked"
-                    ],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "expectedVersion": {
-                        "type": "integer",
-                        "exclusiveMinimum": true,
-                        "minimum": 0
-                      },
-                      "type": {
-                        "type": "string",
-                        "enum": [
                           "set-room-skin-day-night"
                         ]
                       },
@@ -16068,6 +16035,289 @@
                           "overrides": {
                             "type": "object",
                             "properties": {
+                              "panoramaWall": {
+                                "type": "object",
+                                "properties": {
+                                  "storageKey": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "widthPx": {
+                                    "type": "number",
+                                    "enum": [
+                                      8192
+                                    ]
+                                  },
+                                  "heightPx": {
+                                    "type": "number",
+                                    "enum": [
+                                      1024
+                                    ]
+                                  },
+                                  "horizonWorldY": {
+                                    "type": "number",
+                                    "exclusiveMinimum": true,
+                                    "minimum": 0,
+                                    "default": 5
+                                  },
+                                  "maxWorldHeight": {
+                                    "type": "number",
+                                    "exclusiveMinimum": true,
+                                    "minimum": 0,
+                                    "default": 8
+                                  },
+                                  "unwrapOrder": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "enum": [
+                                        "wall-front",
+                                        "wall-left",
+                                        "wall-right",
+                                        "wall-back-lo",
+                                        "wall-back-li",
+                                        "wall-back-c",
+                                        "wall-back-ri",
+                                        "wall-back-ro"
+                                      ]
+                                    },
+                                    "minItems": 8,
+                                    "maxItems": 8
+                                  },
+                                  "slices": {
+                                    "type": "object",
+                                    "required": [
+                                      "wall-front",
+                                      "wall-left",
+                                      "wall-right",
+                                      "wall-back-lo",
+                                      "wall-back-li",
+                                      "wall-back-c",
+                                      "wall-back-ri",
+                                      "wall-back-ro"
+                                    ],
+                                    "properties": {
+                                      "wall-front": {
+                                        "type": "object",
+                                        "properties": {
+                                          "u0": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                          },
+                                          "u1": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                          },
+                                          "v1": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                          }
+                                        },
+                                        "required": [
+                                          "u0",
+                                          "u1",
+                                          "v1"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "wall-left": {
+                                        "type": "object",
+                                        "properties": {
+                                          "u0": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                          },
+                                          "u1": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                          },
+                                          "v1": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                          }
+                                        },
+                                        "required": [
+                                          "u0",
+                                          "u1",
+                                          "v1"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "wall-right": {
+                                        "type": "object",
+                                        "properties": {
+                                          "u0": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                          },
+                                          "u1": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                          },
+                                          "v1": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                          }
+                                        },
+                                        "required": [
+                                          "u0",
+                                          "u1",
+                                          "v1"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "wall-back-lo": {
+                                        "type": "object",
+                                        "properties": {
+                                          "u0": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                          },
+                                          "u1": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                          },
+                                          "v1": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                          }
+                                        },
+                                        "required": [
+                                          "u0",
+                                          "u1",
+                                          "v1"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "wall-back-li": {
+                                        "type": "object",
+                                        "properties": {
+                                          "u0": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                          },
+                                          "u1": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                          },
+                                          "v1": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                          }
+                                        },
+                                        "required": [
+                                          "u0",
+                                          "u1",
+                                          "v1"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "wall-back-c": {
+                                        "type": "object",
+                                        "properties": {
+                                          "u0": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                          },
+                                          "u1": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                          },
+                                          "v1": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                          }
+                                        },
+                                        "required": [
+                                          "u0",
+                                          "u1",
+                                          "v1"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "wall-back-ri": {
+                                        "type": "object",
+                                        "properties": {
+                                          "u0": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                          },
+                                          "u1": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                          },
+                                          "v1": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                          }
+                                        },
+                                        "required": [
+                                          "u0",
+                                          "u1",
+                                          "v1"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "wall-back-ro": {
+                                        "type": "object",
+                                        "properties": {
+                                          "u0": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                          },
+                                          "u1": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                          },
+                                          "v1": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                          }
+                                        },
+                                        "required": [
+                                          "u0",
+                                          "u1",
+                                          "v1"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": [
+                                  "storageKey",
+                                  "widthPx",
+                                  "heightPx",
+                                  "unwrapOrder",
+                                  "slices"
+                                ],
+                                "additionalProperties": false
+                              },
                               "walls": {
                                 "type": "object",
                                 "additionalProperties": {
@@ -16231,6 +16481,30 @@
                                       6
                                     ]
                                   },
+                                  "directionalFillColor": {
+                                    "type": "string"
+                                  },
+                                  "directionalFillIntensity": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 4
+                                  },
+                                  "directionalFillPosition": {
+                                    "type": "array",
+                                    "minItems": 3,
+                                    "maxItems": 3,
+                                    "items": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "number"
+                                      }
+                                    ]
+                                  },
                                   "hemisphereSkyColor": {
                                     "type": "string"
                                   },
@@ -16308,6 +16582,30 @@
                                       4,
                                       8,
                                       6
+                                    ]
+                                  },
+                                  "directionalFillColor": {
+                                    "type": "string"
+                                  },
+                                  "directionalFillIntensity": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 4
+                                  },
+                                  "directionalFillPosition": {
+                                    "type": "array",
+                                    "minItems": 3,
+                                    "maxItems": 3,
+                                    "items": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "number"
+                                      }
                                     ]
                                   },
                                   "hemisphereSkyColor": {
@@ -16558,6 +16856,289 @@
                     "overrides": {
                       "type": "object",
                       "properties": {
+                        "panoramaWall": {
+                          "type": "object",
+                          "properties": {
+                            "storageKey": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "widthPx": {
+                              "type": "number",
+                              "enum": [
+                                8192
+                              ]
+                            },
+                            "heightPx": {
+                              "type": "number",
+                              "enum": [
+                                1024
+                              ]
+                            },
+                            "horizonWorldY": {
+                              "type": "number",
+                              "exclusiveMinimum": true,
+                              "minimum": 0,
+                              "default": 5
+                            },
+                            "maxWorldHeight": {
+                              "type": "number",
+                              "exclusiveMinimum": true,
+                              "minimum": 0,
+                              "default": 8
+                            },
+                            "unwrapOrder": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "wall-front",
+                                  "wall-left",
+                                  "wall-right",
+                                  "wall-back-lo",
+                                  "wall-back-li",
+                                  "wall-back-c",
+                                  "wall-back-ri",
+                                  "wall-back-ro"
+                                ]
+                              },
+                              "minItems": 8,
+                              "maxItems": 8
+                            },
+                            "slices": {
+                              "type": "object",
+                              "required": [
+                                "wall-front",
+                                "wall-left",
+                                "wall-right",
+                                "wall-back-lo",
+                                "wall-back-li",
+                                "wall-back-c",
+                                "wall-back-ri",
+                                "wall-back-ro"
+                              ],
+                              "properties": {
+                                "wall-front": {
+                                  "type": "object",
+                                  "properties": {
+                                    "u0": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "u1": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "v1": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    }
+                                  },
+                                  "required": [
+                                    "u0",
+                                    "u1",
+                                    "v1"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "wall-left": {
+                                  "type": "object",
+                                  "properties": {
+                                    "u0": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "u1": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "v1": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    }
+                                  },
+                                  "required": [
+                                    "u0",
+                                    "u1",
+                                    "v1"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "wall-right": {
+                                  "type": "object",
+                                  "properties": {
+                                    "u0": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "u1": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "v1": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    }
+                                  },
+                                  "required": [
+                                    "u0",
+                                    "u1",
+                                    "v1"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "wall-back-lo": {
+                                  "type": "object",
+                                  "properties": {
+                                    "u0": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "u1": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "v1": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    }
+                                  },
+                                  "required": [
+                                    "u0",
+                                    "u1",
+                                    "v1"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "wall-back-li": {
+                                  "type": "object",
+                                  "properties": {
+                                    "u0": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "u1": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "v1": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    }
+                                  },
+                                  "required": [
+                                    "u0",
+                                    "u1",
+                                    "v1"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "wall-back-c": {
+                                  "type": "object",
+                                  "properties": {
+                                    "u0": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "u1": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "v1": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    }
+                                  },
+                                  "required": [
+                                    "u0",
+                                    "u1",
+                                    "v1"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "wall-back-ri": {
+                                  "type": "object",
+                                  "properties": {
+                                    "u0": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "u1": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "v1": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    }
+                                  },
+                                  "required": [
+                                    "u0",
+                                    "u1",
+                                    "v1"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "wall-back-ro": {
+                                  "type": "object",
+                                  "properties": {
+                                    "u0": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "u1": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "v1": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    }
+                                  },
+                                  "required": [
+                                    "u0",
+                                    "u1",
+                                    "v1"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "storageKey",
+                            "widthPx",
+                            "heightPx",
+                            "unwrapOrder",
+                            "slices"
+                          ],
+                          "additionalProperties": false
+                        },
                         "walls": {
                           "type": "object",
                           "additionalProperties": {
@@ -16721,6 +17302,30 @@
                                 6
                               ]
                             },
+                            "directionalFillColor": {
+                              "type": "string"
+                            },
+                            "directionalFillIntensity": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 4
+                            },
+                            "directionalFillPosition": {
+                              "type": "array",
+                              "minItems": 3,
+                              "maxItems": 3,
+                              "items": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "number"
+                                }
+                              ]
+                            },
                             "hemisphereSkyColor": {
                               "type": "string"
                             },
@@ -16798,6 +17403,30 @@
                                 4,
                                 8,
                                 6
+                              ]
+                            },
+                            "directionalFillColor": {
+                              "type": "string"
+                            },
+                            "directionalFillIntensity": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 4
+                            },
+                            "directionalFillPosition": {
+                              "type": "array",
+                              "minItems": 3,
+                              "maxItems": 3,
+                              "items": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "number"
+                                }
                               ]
                             },
                             "hemisphereSkyColor": {
@@ -16976,6 +17605,255 @@
                     "thumbnailStorageKey",
                     "createdAt",
                     "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/world-skin-uploader/verify": {
+      "post": {
+        "summary": "Verify world skin uploader password (operator tool)",
+        "tags": [
+          "world-skins"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "password"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/world-skin-uploader/status": {
+      "get": {
+        "summary": "List upload status for a skin prefix in object storage",
+        "tags": [
+          "world-skins"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "slug": {
+                      "type": "string",
+                      "enum": [
+                        "default-theater",
+                        "mars-surface",
+                        "cell-interior",
+                        "roman-forum",
+                        "rainforest-canopy",
+                        "art-studio"
+                      ]
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "r2Prefix": {
+                      "type": "string"
+                    },
+                    "files": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "fileName": {
+                            "type": "string",
+                            "enum": [
+                              "thumbnail.png",
+                              "panorama.webp",
+                              "floor.webp",
+                              "map2d.webp",
+                              "ambient.ogg"
+                            ]
+                          },
+                          "storageKey": {
+                            "type": "string"
+                          },
+                          "required": {
+                            "type": "boolean"
+                          },
+                          "uploaded": {
+                            "type": "boolean"
+                          },
+                          "downloadUrl": {
+                            "type": "string",
+                            "format": "uri"
+                          }
+                        },
+                        "required": [
+                          "fileName",
+                          "storageKey",
+                          "required",
+                          "uploaded"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "slug",
+                    "version",
+                    "r2Prefix",
+                    "files"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/world-skin-uploader/uploads": {
+      "post": {
+        "summary": "Create a signed PUT target for a world skin asset in R2",
+        "tags": [
+          "world-skins"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "slug": {
+                    "type": "string",
+                    "enum": [
+                      "default-theater",
+                      "mars-surface",
+                      "cell-interior",
+                      "roman-forum",
+                      "rainforest-canopy",
+                      "art-studio"
+                    ]
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 99,
+                    "default": 1
+                  },
+                  "fileName": {
+                    "type": "string",
+                    "enum": [
+                      "thumbnail.png",
+                      "panorama.webp",
+                      "floor.webp",
+                      "map2d.webp",
+                      "ambient.ogg"
+                    ]
+                  },
+                  "contentType": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  }
+                },
+                "required": [
+                  "slug",
+                  "fileName",
+                  "contentType"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "storageKey": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "assetPath": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "upload": {
+                      "type": "object",
+                      "properties": {
+                        "url": {
+                          "type": "string"
+                        },
+                        "method": {
+                          "type": "string",
+                          "enum": [
+                            "PUT"
+                          ]
+                        },
+                        "headers": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "url",
+                        "method",
+                        "headers"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "storageKey",
+                    "assetPath",
+                    "upload"
                   ],
                   "additionalProperties": false
                 }

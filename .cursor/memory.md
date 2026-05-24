@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-24 (main board position nudge)
+Last updated: 2026-05-24 (environment panel default collapsed)
 
 ## Project Summary
 
@@ -218,6 +218,7 @@ Screen share, computer audio, teacher moderation, rich wall placement, room buil
 - **2026-05-23**: Panorama geometry mismatch fix: default classroom walls were only **22 m** deep (z ±11) while `dimensions.depth` and the floor are **24 m** (z ±12), and front/back walls are **30 m** — room is **not square** (30×24). Extended all wall segments to z ±12 / front at z=-12, updated panorama UV slices to 24+30+24+30 m (108 m perimeter, side columns **1821 px** not 2048), and documented that four equal 2048 px panels will not fit.
 - **2026-05-23**: Rear seating terraces: upper tier `maxZ` extended to **15** (flush with back wall); `RoomView3D` tiers use the same `floor.webp` tiling as the main floor (wood skirt + bullnose trim on step fronts). Validation: room-engine tests + web typecheck pass.
 - **2026-05-23**: Room dimensions branch reworked the default classroom to a **30×30 m square** so one 8192×1024 `panorama.webp` with four equal 2048 px wall bands fits directly. Walls now sit at z ±15, walkable bounds are ±13.5, tiers are z 4.0–8.5 and 8.5–12.0, and student rows moved to z 2.0 / 5.8 / 10.8 so the back row has about 4 m of clearance from the back wall. Panorama defaults are now left 0–0.25, back 0.25–0.5 split across five segments, right 0.5–0.75, front 0.75–1. Validation: focused room-engine + world-skins Vitest suites and web typecheck pass.
+- **2026-05-24**: Teacher `EnvironmentCard` HUD now defaults collapsed (`defaultCollapsed` on `HudCard`), matching Walls/Groups/Lesson panels; teachers expand via the Environment heading when needed.
 - **2026-05-24**: Panorama wall orientation fix: `RoomView3D` now builds wall panels directly as world-space `BufferGeometry` with vertex UVs assigned from `wall.start` → `wall.end` and `slice.u0` → `slice.u1`. This avoids invalid reflection matrices / per-wall texture repeat flips that made the back wall seam and the left wall invert. Validation: `npx tsc --noEmit` in `apps/web` passes.
 - **2026-05-24**: Panorama unwrap order changed to **left → front → right → back** (left-to-right in `panorama.webp`): `WORLD_SKIN_PANORAMA_SLICES_DEFAULT`, all `builtin.json` entries, `BACK_PANORAMA_U0/U1` in `RoomView3D`, and `WORLD_SKIN_PANORAMA_SPEC.md`. Existing uploaded panoramas must be re-authored or re-sliced to match.
 - **2026-05-22**: Locked wall art delivery: `docs/planning/new-features/WORLD_SKIN_PANORAMA_SPEC.md` — single **`panorama.webp` 8192×1024** (horizon 640 px from bottom), companion **`floor.webp` 2048×2048**; CONCEPT §3.5 + IMPL Phases 0/2/4/5 updated; optional `WorldSkinPanoramaWallSchema` + `WORLD_SKIN_PANORAMA_SLICES_DEFAULT` in contracts (Phase 1 work unchanged; `hero-draft.json` color-only walls still valid). World Skins Phases 0–1 reported complete in codebase.

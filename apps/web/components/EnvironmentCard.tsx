@@ -6,8 +6,7 @@
  * Shows the active skin (label + thumbnail), exposes:
  *   - "Change…" → EnvironmentPicker modal
  *   - "Calm / default" → set-room-skin null
- *   - Lock toggle → lock-room-skin
- *   - Ambient gain slider → onAmbientChange callback (debounced by RoomClient)
+ *   - Sound volume slider → onAmbientChange callback (debounced by RoomClient)
  *   - Day | Night select (Roman Forum only, or any skin with lightingNight)
  *
  * Hidden entirely when !CLIENT_TUNING.enableWorldSkins or worldSkins.enabled === false.
@@ -22,7 +21,6 @@ import { EnvironmentPicker } from "./EnvironmentPicker";
 type Props = {
   identity: ApiIdentity;
   skin: WorldSkin | null;
-  skinLocked: boolean;
   dayNightMode: WorldSkinDayNightMode;
   /** Effective ambient gain (0–1). Null when no skin / not set. */
   ambientGain: number | null;
@@ -34,7 +32,6 @@ type Props = {
 export function EnvironmentCard({
   identity,
   skin,
-  skinLocked,
   dayNightMode,
   ambientGain,
   onRunAction,
@@ -66,7 +63,7 @@ export function EnvironmentCard({
 
   return (
     <>
-      <HudCard title="Environment" ariaLabel="Environment settings" defaultCollapsed={false}>
+      <HudCard title="Environment" ariaLabel="Environment settings" defaultCollapsed>
         <div className="environment-card">
           {/* Current skin row */}
           <div className="environment-card__current">
@@ -82,9 +79,6 @@ export function EnvironmentCard({
             <span className="environment-card__label">
               {skin ? skin.label : "Default theater"}
             </span>
-            {skinLocked ? (
-              <span className="environment-card__lock-badge" title="Environment locked for students">🔒</span>
-            ) : null}
           </div>
 
           {/* Action row */}
@@ -109,19 +103,6 @@ export function EnvironmentCard({
             ) : null}
           </div>
 
-          {/* Lock toggle */}
-          <label className="environment-card__lock-row">
-            <input
-              type="checkbox"
-              checked={skinLocked}
-              disabled={busy}
-              onChange={(e) =>
-                void runSkinAction({ type: "lock-room-skin", locked: e.target.checked })
-              }
-            />
-            <span>Lock for students</span>
-          </label>
-
           {/* Day / Night toggle — only for skins that have a night preset */}
           {skin && hasNightMode ? (
             <label className="environment-card__field-row">
@@ -143,10 +124,10 @@ export function EnvironmentCard({
             </label>
           ) : null}
 
-          {/* Ambient gain slider — only when a skin with ambient is active */}
+          {/* Sound volume slider — only when a skin with ambient audio is active */}
           {skin?.overrides.ambient ? (
             <div className="environment-card__field-row">
-              <span>Ambient</span>
+              <span>Sound</span>
               <input
                 type="range"
                 min={0}

@@ -795,13 +795,11 @@ export const RoomSettingsSchema = z.object({
     enabled: z.boolean().default(true),
     skinId: z.string().nullable().default(null),
     skinDayNightMode: WorldSkinDayNightModeSchema.default("day"),
-    skinLocked: z.boolean().default(false),
     ambientGainOverride: z.number().min(0).max(1).nullable().default(null)
   }).default({
     enabled: true,
     skinId: null,
     skinDayNightMode: "day",
-    skinLocked: false,
     ambientGainOverride: null
   })
 });
@@ -1643,11 +1641,6 @@ export const ClassroomSetRoomSkinActionSchema = ClassroomActionBaseSchema.extend
   skinId: z.string().nullable()
 });
 
-export const ClassroomLockRoomSkinActionSchema = ClassroomActionBaseSchema.extend({
-  type: z.literal("lock-room-skin"),
-  locked: z.boolean()
-});
-
 export const ClassroomSetRoomSkinDayNightActionSchema = ClassroomActionBaseSchema.extend({
   type: z.literal("set-room-skin-day-night"),
   mode: WorldSkinDayNightModeSchema
@@ -1800,7 +1793,6 @@ export const ClassroomActionSchema = z.discriminatedUnion("type", [
   ClassroomAssignGroupActionSchema,
   ClassroomReleaseGroupActionSchema,
   ClassroomSetRoomSkinActionSchema,
-  ClassroomLockRoomSkinActionSchema,
   ClassroomSetRoomSkinDayNightActionSchema,
   ClassroomTogglePodsActionSchema,
   ClassroomSetStudentBroadcastActionSchema,
@@ -2016,7 +2008,6 @@ export type WorldSkinBuiltinSlug = z.infer<typeof WorldSkinBuiltinSlugSchema>;
 export type WorldSkinAssetFileName = z.infer<typeof WorldSkinAssetFileNameSchema>;
 export type WorldSkinUploaderStatus = z.infer<typeof WorldSkinUploaderStatusResponseSchema>;
 export type ClassroomSetRoomSkinAction = z.infer<typeof ClassroomSetRoomSkinActionSchema>;
-export type ClassroomLockRoomSkinAction = z.infer<typeof ClassroomLockRoomSkinActionSchema>;
 export type ClassroomSetRoomSkinDayNightAction = z.infer<typeof ClassroomSetRoomSkinDayNightActionSchema>;
 
 type ApiRoute = {

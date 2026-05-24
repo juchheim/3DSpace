@@ -260,7 +260,6 @@ function roomSettings(config: AppConfig) {
       enabled: true,
       skinId: null as string | null,
       skinDayNightMode: "day" as const,
-      skinLocked: false,
       ambientGainOverride: null as number | null
     }
   };
@@ -3341,10 +3340,10 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const actor = await resolveClassroomActor({ repository, room, membership, auth });
 
     // World-skin actions mutate room settings rather than classroom state
-    if (body.type === "set-room-skin" || body.type === "lock-room-skin" || body.type === "set-room-skin-day-night") {
+    if (body.type === "set-room-skin" || body.type === "set-room-skin-day-night") {
       if (!config.tuning.enableWorldSkins) throw worldSkinsDisabled();
       requireTeacher(actor);
-      const ws = room.settings.worldSkins ?? { enabled: true, skinId: null, skinDayNightMode: "day" as const, skinLocked: false, ambientGainOverride: null };
+      const ws = room.settings.worldSkins ?? { enabled: true, skinId: null, skinDayNightMode: "day" as const, ambientGainOverride: null };
 
       if (body.type === "set-room-skin") {
         if (body.skinId !== null) {
@@ -3354,11 +3353,6 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
         await repository.updateRoom(params.roomId, { settings: { worldSkins: { ...ws, skinId: body.skinId } } });
         const msg = RoomSkinMessageSchema.parse({ type: "room.skin.v1", skinId: body.skinId, dayNight: ws.skinDayNightMode, crossfadeMs: 1000 });
         return { skinId: body.skinId, realtimeMessages: [msg] };
-      }
-
-      if (body.type === "lock-room-skin") {
-        await repository.updateRoom(params.roomId, { settings: { worldSkins: { ...ws, skinLocked: body.locked } } });
-        return { locked: body.locked, realtimeMessages: [] };
       }
 
       if (body.type === "set-room-skin-day-night") {

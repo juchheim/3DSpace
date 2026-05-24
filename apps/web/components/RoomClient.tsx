@@ -1948,7 +1948,6 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             <EnvironmentCard
               identity={identity}
               skin={activeSkin.skin ?? null}
-              skinLocked={parsedRoomSettings?.worldSkins?.skinLocked ?? false}
               dayNightMode={skinDayNightMode}
               ambientGain={ambientGainOverride}
               onRunAction={async (action) => {
@@ -1978,7 +1977,6 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
                         enabled: parsedRoomSettings?.worldSkins?.enabled ?? true,
                         skinId: parsedRoomSettings?.worldSkins?.skinId ?? null,
                         skinDayNightMode: parsedRoomSettings?.worldSkins?.skinDayNightMode ?? "day",
-                        skinLocked: parsedRoomSettings?.worldSkins?.skinLocked ?? false,
                         ambientGainOverride: gain
                       }
                     }
