@@ -2735,14 +2735,14 @@ button.hud-heading-btn:hover {
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll,
 .wall-object-poll--surface {
   --poll-surface-font: var(--wall-surface-font-size, 48px);
-  --poll-surface-pad: clamp(0.55rem, 3cqh, 1.1rem);
-  --poll-surface-header-bottom: clamp(4.25rem, 27cqh, 7rem);
-  --poll-surface-footer-h: clamp(0.9rem, 7cqh, 1.8rem);
-  position: relative;
-  display: block;
+  --poll-row-gap: 24px;
+  --poll-section-gap: 32px;
+  display: flex;
+  flex-direction: column;
   height: 100%;
   min-height: 0;
-  padding: var(--poll-surface-pad);
+  padding: clamp(0.55rem, 3cqh, 1.1rem);
+  gap: var(--poll-section-gap);
   overflow: hidden;
   border: clamp(2px, 0.4cqw, 4px) solid rgba(20, 40, 32, 0.14);
   border-radius: clamp(8px, 1.4cqw, 18px);
@@ -2773,10 +2773,7 @@ button.hud-heading-btn:hover {
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__header,
 .wall-object-poll--surface .wall-object-poll__header {
-  position: absolute;
-  top: var(--poll-surface-pad);
-  right: var(--poll-surface-pad);
-  left: var(--poll-surface-pad);
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   gap: clamp(0.4rem, 3cqh, 1rem);
@@ -2800,27 +2797,25 @@ button.hud-heading-btn:hover {
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__choices,
 .wall-object-poll--surface .wall-object-poll__choices {
-  position: absolute;
-  top: var(--poll-surface-header-bottom);
-  right: var(--poll-surface-pad);
-  bottom: var(--poll-surface-footer-h);
-  left: var(--poll-surface-pad);
+  flex: 1 1 0;
   min-height: 0;
-  display: grid;
-  grid-template-rows: repeat(var(--poll-choice-count, 3), minmax(0, 1fr));
-  gap: clamp(0.5rem, 4cqh, 1.15rem);
+  display: flex;
+  flex-direction: column;
+  gap: var(--poll-row-gap);
   overflow: hidden;
 }
 
 .wall-object-poll--surface .wall-object-poll__choices > .wall-object-poll__result,
 .wall-object-poll--surface .wall-object-poll__choices > .wall-object-poll__choice {
-  height: 100%;
+  flex: 1 1 0;
   min-height: 0;
   box-sizing: border-box;
+  display: flex;
+  align-items: center;
   overflow: hidden;
   font-size: clamp(0.9rem, calc(var(--poll-surface-font) * 0.32), 999px);
   line-height: 1.35;
-  padding-block: 0.12em;
+  padding-block: 0.2em;
   padding-inline: clamp(0.4rem, 2cqw, 0.9rem);
   gap: clamp(0.35rem, 2cqw, 0.75rem);
 }
@@ -2863,8 +2858,6 @@ button.hud-heading-btn:hover {
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__result,
 .wall-object-poll--surface .wall-object-poll__result {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   border-radius: clamp(4px, 0.8cqw, 10px);
   background: rgba(255, 255, 255, 0.42);
@@ -2915,11 +2908,10 @@ button.hud-heading-btn:hover {
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__result-choice,
 .wall-object-poll--surface .wall-object-poll__result-choice {
   font-weight: 700;
-  white-space: normal;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  display: block;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__result-stats,
@@ -2991,11 +2983,6 @@ button.hud-heading-btn:hover {
   line-height: 1.14;
 }
 
-.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choices,
-.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choices {
-  gap: clamp(0.4rem, 3cqh, 0.9rem);
-}
-
 .wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choices > .wall-object-poll__choice,
 .wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choices > .wall-object-poll__result,
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choices > .wall-object-poll__choice,
@@ -3006,28 +2993,18 @@ button.hud-heading-btn:hover {
 /* ── Common ── */
 
 .wall-object-poll--surface .wall-object-poll__result-main {
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
-  align-content: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   gap: 0;
-}
-
-.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__result-choice,
-.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__result-choice,
-.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choice-label,
-.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choice-label {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  line-height: 1.35;
 }
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__footer,
 .wall-object-poll--surface .wall-object-poll__footer {
-  position: absolute;
-  right: var(--poll-surface-pad);
-  bottom: var(--poll-surface-pad);
-  left: var(--poll-surface-pad);
+  flex: 0 0 auto;
 }
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__manage,
@@ -3081,6 +3058,11 @@ button.hud-heading-btn:hover {
   min-height: 0;
   height: 100%;
   overflow: auto;
+}
+
+.wall-object-card--surface[data-wall-object-type="poll"] .wall-object-card__body,
+.wall-object-card--surface[data-wall-object-type="poll"].wall-object-card__body {
+  overflow: hidden;
 }
 
 .wall-object-card--surface[data-wall-object-type="timer"] {

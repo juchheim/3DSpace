@@ -235,6 +235,17 @@ function pollChoiceLetter(index: number) {
   return String.fromCharCode(65 + index);
 }
 
+/** Board-surface poll layout vars (px in pre-scaled Html DOM). */
+function pollSurfaceLayoutVars(choiceCount: number): CSSProperties {
+  const rowGapPx = choiceCount >= 6 ? 20 : choiceCount >= 5 ? 22 : choiceCount >= 4 ? 24 : 28;
+  const sectionGapPx = choiceCount >= 6 ? 24 : 32;
+  return {
+    "--poll-choice-count": choiceCount,
+    "--poll-row-gap": `${rowGapPx}px`,
+    "--poll-section-gap": `${sectionGapPx}px`
+  } as CSSProperties;
+}
+
 function WallPollDisplay({
   object,
   canManage,
@@ -263,7 +274,7 @@ function WallPollDisplay({
     void onControl?.(object.id, "vote", undefined, choice.id);
   };
 
-  const pollStyle = surface ? ({ "--poll-choice-count": choices.length } as CSSProperties) : undefined;
+  const pollStyle = surface ? pollSurfaceLayoutVars(choices.length) : undefined;
 
   return (
     <div
