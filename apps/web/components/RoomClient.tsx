@@ -227,16 +227,6 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const [localAmbientGain, setLocalAmbientGain] = useState<number | null>(null);
   const ambientDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Environment banner: show briefly when a skin is active; dismiss on ×.
-  const [bannerDismissed, setBannerDismissed] = useState(false);
-  const prevSkinBannerIdRef = useRef<string | null | undefined>(undefined);
-  useEffect(() => {
-    const nextId = activeSkin.skin?.id ?? null;
-    if (nextId !== prevSkinBannerIdRef.current) {
-      prevSkinBannerIdRef.current = nextId;
-      setBannerDismissed(false);
-    }
-  }, [activeSkin.skin?.id]);
   const roomObjectCustomUploadsEnabled = roomObjectsEnabled && roomObjectsSettings?.customUploadsEnabled === true;
   const roomObjectsTeacherToolbarVisible = CLIENT_TUNING.enableRoomObjects && role === "teacher" && Boolean(manifest);
   const roomObjectsGateSyncRef = useRef<string | null>(null);
@@ -1537,19 +1527,6 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     <main className="app-shell room-shell">
       {/* Stage fills the full viewport */}
       <div className="room-stage" aria-label="Shared classroom">
-        {/* Environment banner — shown when a skin is active, dismissible per session */}
-        {CLIENT_TUNING.enableWorldSkins && activeSkin.skin && !bannerDismissed ? (
-          <div className="world-skin-banner" role="status" aria-live="polite">
-            <span>Environment: {activeSkin.skin.label}</span>
-            <button
-              type="button"
-              aria-label="Dismiss environment banner"
-              onClick={() => setBannerDismissed(true)}
-            >
-              ×
-            </button>
-          </div>
-        ) : null}
         {/* Walk-speed toast — shown once when entering a skin with non-1× walk multiplier */}
         {CLIENT_TUNING.enableWorldSkins && walkToastVisible ? (
           <div className="world-skin-walk-toast" role="status" aria-live="polite">

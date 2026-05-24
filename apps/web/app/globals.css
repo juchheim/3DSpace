@@ -1645,52 +1645,6 @@ button.hud-heading-btn:hover {
 
 /* ── World Skin UI ──────────────────────────────────────────────────────────── */
 
-/* Environment banner: slim pill centred at the top of the stage. */
-.world-skin-banner {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 25;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px 4px 14px;
-  background: rgba(23, 32, 26, 0.72);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 250, 240, 0.18);
-  border-radius: 100px;
-  color: var(--hud-tx-m);
-  font-size: 11px;
-  font-family: 'Barlow', system-ui, sans-serif;
-  white-space: nowrap;
-  pointer-events: auto;
-}
-
-.world-skin-banner span {
-  color: var(--hud-tx-m);
-}
-
-.world-skin-banner button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  color: var(--hud-tx-m);
-  cursor: pointer;
-  font-size: 15px;
-  line-height: 1;
-  padding: 0 2px;
-  opacity: 0.7;
-  transition: opacity 0.12s;
-}
-
-.world-skin-banner button:hover {
-  opacity: 1;
-}
-
 /* Board-darken backing rect in RoomView2D — rendered via SVG inline styles. */
 .world-skin-board-darken {
   /* Purely a semantic class for QA identification; appearance set via SVG attrs. */

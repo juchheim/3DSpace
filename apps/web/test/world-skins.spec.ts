@@ -36,6 +36,18 @@ async function setIdentity(page: Page, identity: DevIdentity) {
   );
 }
 
+async function expectWorldSkinSlug(page: Page, slug: string | null) {
+  await expect.poll(
+    async () => {
+      return page.evaluate(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return (window as any).__debug?.worldSkin?.skin?.slug as string | null | undefined;
+      });
+    },
+    { timeout: 10_000 }
+  ).toBe(slug);
+}
+
 async function postJson<T>(request: APIRequestContext, path: string, identity: DevIdentity, data: unknown) {
   const response = await request.post(`${API_URL}${path}`, {
     data,
@@ -157,8 +169,8 @@ test("teacher can set room skin via classroom action; student receives realtime 
   // Teacher dispatches set-room-skin via API (mirrors HUD action)
   await classroomAction(request, room.id, { type: "set-room-skin", skinId: "mars-surface" });
 
-  // Student sees the environment banner
-  await expect(studentPage.locator(".world-skin-banner")).toContainText("Mars Surface", { timeout: 10_000 });
+  // Student receives the active skin
+  await expectWorldSkinSlug(studentPage, "mars-surface");
 
   // Teacher's __debug hook reflects the skin
   const teacherSkinSlug = await page.evaluate(() => {
@@ -168,7 +180,7 @@ test("teacher can set room skin via classroom action; student receives realtime 
   expect(teacherSkinSlug).toBe("mars-surface");
 });
 
-test("teacher sets mars skin then switches to cell-interior; student banner updates", async ({
+test("teacher sets mars skin then switches to cell-interior; student skin updates", async ({
   context,
   page,
   request
@@ -186,14 +198,14 @@ test("teacher sets mars skin then switches to cell-interior; student banner upda
   await waitForRoomJoined(studentPage, room.name, STUDENT.userId);
 
   await classroomAction(request, room.id, { type: "set-room-skin", skinId: "mars-surface" });
-  await expect(studentPage.locator(".world-skin-banner")).toContainText("Mars Surface", { timeout: 10_000 });
+  await expectWorldSkinSlug(studentPage, "mars-surface");
 
-  // Switch to cell-interior — banner resets and shows new label
+  // Switch to cell-interior — student receives the new skin
   await classroomAction(request, room.id, { type: "set-room-skin", skinId: "cell-interior" });
-  await expect(studentPage.locator(".world-skin-banner")).toContainText("Cell Interior", { timeout: 10_000 });
+  await expectWorldSkinSlug(studentPage, "cell-interior");
 });
 
-test("set-room-skin to null restores default theater; banner disappears", async ({
+test("set-room-skin to null restores default theater; active skin clears", async ({
   context,
   page,
   request
@@ -211,10 +223,10 @@ test("set-room-skin to null restores default theater; banner disappears", async 
   await waitForRoomJoined(studentPage, room.name, STUDENT.userId);
 
   await classroomAction(request, room.id, { type: "set-room-skin", skinId: "mars-surface" });
-  await expect(studentPage.locator(".world-skin-banner")).toBeVisible({ timeout: 10_000 });
+  await expectWorldSkinSlug(studentPage, "mars-surface");
 
   await classroomAction(request, room.id, { type: "set-room-skin", skinId: null });
-  await expect(studentPage.locator(".world-skin-banner")).toHaveCount(0, { timeout: 10_000 });
+  await expectWorldSkinSlug(studentPage, null);
 });
 
 test("walk speed multiplier available on debug hook when mars skin is active", async ({
@@ -367,8 +379,8 @@ test("three-step lesson still works when a skin is active mid-run", async ({
   await page.goto(`/rooms/${room.id}`, { waitUntil: "commit" });
   await waitForRoomJoined(page, room.name, TEACHER.userId);
 
-  // Skin banner visible for teacher
-  await expect(page.locator(".world-skin-banner")).toContainText("Mars Surface", { timeout: 10_000 });
+  // Active skin hydrates for teacher
+  await expectWorldSkinSlug(page, "mars-surface");
 
   // Lesson authoring
   await page.getByTestId("lesson-run-title").fill("Mars Forces");
@@ -389,12 +401,12 @@ test("three-step lesson still works when a skin is active mid-run", async ({
   await setIdentity(studentPage, STUDENT);
   await studentPage.goto(`/rooms/${room.id}?invite=${invite.code}`, { waitUntil: "commit" });
   await expect(studentPage.getByTestId(`participant-${STUDENT.userId}`)).toBeVisible({ timeout: 30_000 });
-  await expect(studentPage.locator(".world-skin-banner")).toContainText("Mars Surface", { timeout: 10_000 });
+  await expectWorldSkinSlug(studentPage, "mars-surface");
   await expect(studentPage.getByTestId("lesson-student-callout")).toContainText("Step 1 of 2", { timeout: 10_000 });
 
   // Switch skin mid-run — lesson state must not drift
   await classroomAction(request, room.id, { type: "set-room-skin", skinId: "cell-interior" });
-  await expect(studentPage.locator(".world-skin-banner")).toContainText("Cell Interior", { timeout: 10_000 });
+  await expectWorldSkinSlug(studentPage, "cell-interior");
   // Lesson callout still intact
   await expect(studentPage.getByTestId("lesson-student-callout")).toContainText("Step 1 of 2");
 
