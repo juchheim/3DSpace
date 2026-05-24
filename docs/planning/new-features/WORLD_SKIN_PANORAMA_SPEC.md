@@ -46,19 +46,19 @@ Paint the panorama in this order. Column widths are **exact pixel ranges** in th
 | Segment | `wall.id` | Direction in image | World width (m) | **x start** | **x end** (px) |
 | --- | --- | --- | ---: | ---: | ---: |
 | 1 | `wall-left` | front → back | 30.0 | 0 | 2047 |
-| 2 | `wall-back-lo` | left → right | 6.0 | 2048 | 2457 |
-| 3 | `wall-back-li` | left → right | 6.0 | 2458 | 2867 |
-| 4 | `wall-back-c` | left → right | 6.0 | 2868 | 3276 |
-| 5 | `wall-back-ri` | left → right | 6.0 | 3277 | 3686 |
-| 6 | `wall-back-ro` | left → right | 6.0 | 3687 | 4095 |
-| 7 | `wall-right` | front → back | 30.0 | 4096 | 6143 |
-| 8 | `wall-front` | left → right | 30.0 | 6144 | 8191 |
+| 2 | `wall-front` | left → right | 30.0 | 2048 | 4095 |
+| 3 | `wall-right` | front → back | 30.0 | 4096 | 6143 |
+| 4 | `wall-back-lo` | left → right | 6.0 | 6144 | 6553 |
+| 5 | `wall-back-li` | left → right | 6.0 | 6554 | 6963 |
+| 6 | `wall-back-c` | left → right | 6.0 | 6964 | 7372 |
+| 7 | `wall-back-ri` | left → right | 6.0 | 7373 | 7782 |
+| 8 | `wall-back-ro` | left → right | 6.0 | 7783 | 8191 |
 
-**Back wall:** segments 2–6 are collinear panels and must blend continuously at column boundaries.
+**Back wall:** segments 4–8 are collinear panels and must blend continuously at column boundaries.
 
-**Authoring note:** The room is a **30 m × 30 m** square. Four logical wall panels are equal-width columns: left (2048 px), back (2048 px), right (2048 px), front (2048 px). The engine splits the back wall into five 6 m meshes only for anchors/UV compatibility; paint it as one continuous 30 m back wall across px 2048–4095.
+**Authoring note:** The room is a **30 m × 30 m** square. Four logical wall panels are equal-width columns: left (2048 px), front (2048 px), right (2048 px), back (2048 px). The engine splits the back wall into five 6 m meshes only for anchors/UV compatibility; paint it as one continuous 30 m back wall across px 6144–8191.
 
-**Front wall (segment 8):** keep the board zone visually calmer/darker — main board anchor sits on `wall-front`.
+**Front wall (segment 2):** keep the board zone visually calmer/darker — main board anchor sits on `wall-front`.
 
 ---
 
@@ -69,13 +69,13 @@ Normalized UVs for `overrides.panoramaWall.slices` (v0 is always **0**):
 | `wall.id` | `u0` | `u1` | `v1` | Wall height (m) |
 | --- | ---: | ---: | ---: | ---: |
 | `wall-left` | 0.0000 | 0.2500 | 1.0000 | 8 |
-| `wall-back-lo` | 0.2500 | 0.3000 | 1.0000 | 8 |
-| `wall-back-li` | 0.3000 | 0.3500 | 1.0000 | 8 |
-| `wall-back-c` | 0.3500 | 0.4000 | 1.0000 | 8 |
-| `wall-back-ri` | 0.4000 | 0.4500 | 1.0000 | 8 |
-| `wall-back-ro` | 0.4500 | 0.5000 | 1.0000 | 8 |
+| `wall-front` | 0.2500 | 0.5000 | 1.0000 | 8 |
 | `wall-right` | 0.5000 | 0.7500 | 1.0000 | 8 |
-| `wall-front` | 0.7500 | 1.0000 | 1.0000 | 8 |
+| `wall-back-lo` | 0.7500 | 0.8000 | 1.0000 | 8 |
+| `wall-back-li` | 0.8000 | 0.8500 | 1.0000 | 8 |
+| `wall-back-c` | 0.8500 | 0.9000 | 1.0000 | 8 |
+| `wall-back-ri` | 0.9000 | 0.9500 | 1.0000 | 8 |
+| `wall-back-ro` | 0.9500 | 1.0000 | 1.0000 | 8 |
 
 R2 path: `world-skins/<slug>/v1/panorama.webp`
 
@@ -108,6 +108,6 @@ world-skins/<slug>/v1/
 
 - [ ] File is exactly **8192 × 1024** px.
 - [ ] Horizon is a straight line at **640 px** from the bottom, full width.
-- [ ] Back wall columns 1733–4095 align at ground and sky color.
-- [ ] `wall-front` zone (px 5829–8191) readable behind where a white board will sit.
+- [ ] Back wall columns 6144–8191 align at ground and sky color.
+- [ ] `wall-front` zone (px 2048–4095) readable behind where a white board will sit.
 - [ ] WebP compresses to a reasonable size (target &lt; 4 MB for panorama alone; whole skin pack budget may exceed legacy 3 MB when using this resolution).

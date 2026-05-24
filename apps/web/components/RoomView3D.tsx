@@ -1152,8 +1152,8 @@ const WALL_PANEL_INSET = 0.06;
 
 type PanoramaSlice = { u0: number; u1: number; v1: number };
 
-const BACK_PANORAMA_U0 = 0.25;
-const BACK_PANORAMA_U1 = 0.5;
+const BACK_PANORAMA_U0 = 0.75;
+const BACK_PANORAMA_U1 = 1;
 
 function mirrorUInRange(u: number, min: number, max: number) {
   return min + max - u;

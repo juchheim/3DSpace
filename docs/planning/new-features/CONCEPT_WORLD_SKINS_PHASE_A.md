@@ -134,7 +134,7 @@ Phase A ships the **full skin experience** the product promises (five environmen
 
 ### Content pipeline (Phase A)
 
-- **Authoritative wall art spec:** [`WORLD_SKIN_PANORAMA_SPEC.md`](./WORLD_SKIN_PANORAMA_SPEC.md) — **8192×1024** `panorama.webp`, horizon at **640 px** from bottom, equal-width unwrap order left → back → right → front; companion **`floor.webp` 2048×2048**.
+- **Authoritative wall art spec:** [`WORLD_SKIN_PANORAMA_SPEC.md`](./WORLD_SKIN_PANORAMA_SPEC.md) — **8192×1024** `panorama.webp`, horizon at **640 px** from bottom, equal-width unwrap order left → front → right → back; companion **`floor.webp` 2048×2048**.
 - **Source of truth:** `packages/world-skins/catalog/builtin.json` — `overrides.panoramaWall` (storage key + UV slices), floor key, sky/lighting preset, audio key, 2D map key, tuning numbers. Optional empty `props: []`. Per-wall `walls` map remains for Phase 0 color-only harnesses.
 - **Binaries:** Cloudflare R2 under `world-skins/<slug>/<version>/` — **`panorama.webp` + `floor.webp`** (+ optional sky/map2d/audio). Budget target **≤3 MB** where feasible; the 8192-wide panorama may exceed that alone — document actuals per skin in QA.
 - **Who makes art:** 2D illustrator, stock/CC textures (NASA Mars imagery, etc.), or engineer-sourced placeholders for pilot — **not** a 3D modeling contractor.
