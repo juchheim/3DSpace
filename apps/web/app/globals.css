@@ -2733,37 +2733,34 @@ button.hud-heading-btn:hover {
   opacity: 1;
 }
 
+/* cqh units below query this container's height */
 .wall-poll-board {
-  --poll-board-font: var(--wall-surface-font-size, 56px);
+  container-type: size;
   display: flex;
   flex-direction: column;
   height: 100%;
-  min-height: 0;
-  padding: 0.08em;
-  gap: 0.06em;
+  padding: 6px 8px;
+  gap: 4px;
   box-sizing: border-box;
-  font-size: var(--poll-board-font);
-  line-height: 1.2;
   font-family: "Barlow", system-ui, sans-serif;
   color: #142820;
-  border: 0.04em solid rgba(20, 40, 32, 0.14);
-  border-radius: 0.12em;
+  border: 1px solid rgba(20, 40, 32, 0.14);
+  border-radius: 4px;
   background:
     radial-gradient(120% 80% at 0% 0%, rgba(192, 120, 52, 0.14), transparent 55%),
     radial-gradient(90% 70% at 100% 100%, rgba(42, 138, 106, 0.12), transparent 50%),
     linear-gradient(158deg, #fffaf4 0%, #f3e8da 52%, #e9dfd2 100%);
   box-shadow:
-    0 0.08em 0.2em rgba(0, 0, 0, 0.28),
+    0 3px 10px rgba(0, 0, 0, 0.28),
     inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .wall-poll-board__question {
   flex: 0 0 auto;
   margin: 0;
-  padding: 0.04em 0.06em 0;
-  font-size: 0.52em;
+  font-size: clamp(12px, 6cqh, 28px);
   font-weight: 700;
-  line-height: 1.15;
+  line-height: 1.2;
   letter-spacing: -0.02em;
   color: #0f241c;
   display: -webkit-box;
@@ -2777,22 +2774,21 @@ button.hud-heading-btn:hover {
   min-height: 0;
   display: grid;
   grid-template-rows: repeat(var(--poll-n, 6), minmax(0, 1fr));
-  gap: 0.045em;
+  gap: 1cqh;
 }
 
 .wall-poll-board__row {
   display: flex;
   align-items: center;
-  gap: 0.35em;
-  min-height: 0;
-  margin: 0;
-  padding: 0 0.35em;
-  font-size: 0.34em;
+  gap: 0.5em;
+  overflow: hidden;
+  padding: 0 0.5em;
+  font-size: clamp(10px, 5cqh, 22px);
   font-weight: 700;
-  border: 0.04em solid rgba(20, 40, 32, 0.1);
-  border-radius: 0.1em;
+  border: 1px solid rgba(20, 40, 32, 0.1);
+  border-radius: 3px;
   background: rgba(255, 255, 255, 0.5);
-  box-shadow: 0 0.03em 0.08em rgba(20, 40, 32, 0.08);
+  box-shadow: 0 1px 3px rgba(20, 40, 32, 0.08);
 }
 
 .wall-poll-board__row--button {
@@ -2816,15 +2812,15 @@ button.hud-heading-btn:hover {
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  width: 1.65em;
-  height: 1.65em;
+  width: clamp(14px, 6cqh, 28px);
+  height: clamp(14px, 6cqh, 28px);
   border-radius: 999px;
-  font-size: 0.62em;
+  font-size: clamp(9px, 3.5cqh, 16px);
   font-weight: 700;
   line-height: 1;
   color: #fffaf4;
   background: var(--poll-accent, #c07834);
-  box-shadow: 0 0.03em 0.06em rgba(20, 40, 32, 0.18);
+  box-shadow: 0 1px 3px rgba(20, 40, 32, 0.18);
 }
 
 .wall-poll-board__label {
@@ -2833,53 +2829,31 @@ button.hud-heading-btn:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 1.2;
 }
 
 .wall-poll-board__pct {
   flex-shrink: 0;
-  min-width: 2.2em;
-  font-size: 0.95em;
+  font-size: 0.9em;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  line-height: 1;
   color: var(--poll-accent, #c07834);
-  text-align: right;
 }
 
 .wall-poll-board__total {
   flex: 0 0 auto;
   margin: 0;
-  padding: 0 0.06em;
-  font-size: 0.22em;
+  font-size: clamp(9px, 3cqh, 13px);
   font-weight: 600;
-  opacity: 0.72;
+  opacity: 0.7;
   color: #3d4f48;
 }
 
-.wall-poll-board__row[data-index="0"] {
-  --poll-accent: #c07834;
-}
-
-.wall-poll-board__row[data-index="1"] {
-  --poll-accent: #2a8a6a;
-}
-
-.wall-poll-board__row[data-index="2"] {
-  --poll-accent: #4a7ab8;
-}
-
-.wall-poll-board__row[data-index="3"] {
-  --poll-accent: #9b5ba8;
-}
-
-.wall-poll-board__row[data-index="4"] {
-  --poll-accent: #c45c5c;
-}
-
-.wall-poll-board__row[data-index="5"] {
-  --poll-accent: #6b8f3d;
-}
+.wall-poll-board__row[data-index="0"] { --poll-accent: #c07834; }
+.wall-poll-board__row[data-index="1"] { --poll-accent: #2a8a6a; }
+.wall-poll-board__row[data-index="2"] { --poll-accent: #4a7ab8; }
+.wall-poll-board__row[data-index="3"] { --poll-accent: #9b5ba8; }
+.wall-poll-board__row[data-index="4"] { --poll-accent: #c45c5c; }
+.wall-poll-board__row[data-index="5"] { --poll-accent: #6b8f3d; }
 
 .wall-object-card__timer {
   display: grid;
