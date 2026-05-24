@@ -601,6 +601,7 @@ const WallObjectSurface = memo(function WallObjectSurface({
     return [0, anchor.normal.z < 0 ? Math.PI : 0, 0];
   }, [anchor.normal.x, anchor.normal.z]);
   const placement = useMemo(() => constrainPlacement(object.placement), [object.placement]);
+  const hideHeader = anchor.metadata?.hideObjectHeader === true;
   const surfaceWidth = placement.width * anchor.width;
   const surfaceHeight = placement.height * anchor.height;
   const surfaceStyle = useMemo<WallObjectSurfaceStyle>(() => {
@@ -648,6 +649,7 @@ const WallObjectSurface = memo(function WallObjectSurface({
             {...(onStopShare ? { onStopShare } : {})}
             {...(onModerate ? { onModerate } : {})}
             {...(onFullscreen ? { onFullscreen } : {})}
+            hideHeader={hideHeader}
           />
         </div>
       </Html>

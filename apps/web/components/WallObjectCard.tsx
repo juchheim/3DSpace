@@ -433,7 +433,8 @@ export function WallObjectCard({
   onStopShare,
   onControl,
   onModerate,
-  onFullscreen
+  onFullscreen,
+  hideHeader = false
 }: {
   object: WallObject;
   assetUrl?: string | undefined;
@@ -448,6 +449,7 @@ export function WallObjectCard({
   onControl?: (objectId: string, action: WallObjectControlAction, positionSeconds?: number, choiceId?: string) => void;
   onModerate?: (objectId: string, action: "approve" | "reject") => void;
   onFullscreen?: (objectId: string) => void;
+  hideHeader?: boolean;
 }) {
   const live = object.type.endsWith(".live") && object.status === "active";
   const fit = object.placement.fit === "stretch" ? "fill" : object.placement.fit;
@@ -488,14 +490,16 @@ export function WallObjectCard({
           </svg>
         </button>
       ) : null}
-      <header className="wall-object-card__header">
-        <strong>{object.title}</strong>
-        <span className="wall-object-card__badges">
-          <span className="badge">{typeLabel(object.type)}</span>
-          {live ? <span className="badge">Live</span> : null}
-          {object.status === "pending_moderation" ? <span className="badge">Pending</span> : null}
-        </span>
-      </header>
+      {hideHeader ? null : (
+        <header className="wall-object-card__header">
+          <strong>{object.title}</strong>
+          <span className="wall-object-card__badges">
+            <span className="badge">{typeLabel(object.type)}</span>
+            {live ? <span className="badge">Live</span> : null}
+            {object.status === "pending_moderation" ? <span className="badge">Pending</span> : null}
+          </span>
+        </header>
+      )}
       <div className="wall-object-card__media">{body}</div>
       {canManage && !(surface && (object.type === "timer" || object.type === "poll")) ? (
         <footer className="wall-object-card__actions">
