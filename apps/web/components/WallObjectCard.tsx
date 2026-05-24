@@ -231,6 +231,10 @@ function WallTimerDisplay({
   );
 }
 
+function pollChoiceLetter(index: number) {
+  return String.fromCharCode(65 + index);
+}
+
 function WallPollDisplay({
   object,
   canManage,
@@ -252,6 +256,7 @@ function WallPollDisplay({
   const myVote = currentUserId ? pollState.votesByUserId[currentUserId] : undefined;
   const canVote = object.status === "active" && !pollState.closed && Boolean(currentUserId) && Boolean(onControl);
   const showResults = canManage || pollState.closed || Boolean(myVote);
+  const kicker = pollState.closed ? "Poll closed" : canVote ? "Tap your answer" : "Live poll";
 
   const vote = (choice: PollChoice) => {
     if (!canVote || myVote === choice.id) return;
@@ -262,39 +267,52 @@ function WallPollDisplay({
     <div
       className={`wall-object-card__body wall-object-poll${surface ? " wall-object-poll--surface" : ""}`}
       data-choice-count={choices.length}
+      data-poll-closed={pollState.closed ? "true" : "false"}
+      data-show-results={showResults ? "true" : "false"}
     >
       <div className="wall-object-poll__header">
+        <p className="wall-object-poll__kicker">{kicker}</p>
         <p className="wall-object-poll__question">{question || object.title}</p>
-        {pollState.closed ? <p className="wall-object-poll__status">Poll closed</p> : null}
+        {!surface && pollState.closed ? <p className="wall-object-poll__status">Poll closed</p> : null}
       </div>
       <div className="wall-object-poll__choices" role={canVote ? "group" : undefined} aria-label="Poll choices">
-        {choices.map((choice) => {
+        {choices.map((choice, index) => {
           const count = counts[choice.id] ?? 0;
           const percent = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
           const selected = myVote === choice.id;
+          const letter = pollChoiceLetter(index);
 
           if (showResults) {
             return (
               <div
                 key={choice.id}
                 className={`wall-object-poll__result${selected ? " wall-object-poll__result--selected" : ""}`}
+                data-choice-index={index}
               >
-                <div className="wall-object-poll__result-row">
-                  <div className="wall-object-poll__result-choice">{choice.label}</div>
-                  <div className="wall-object-poll__result-stats" aria-label={`${count} votes, ${percent} percent`}>
-                    <span className="wall-object-poll__result-count">
-                      <span className="wall-object-poll__result-count-value">{count}</span>
-                      <span className="wall-object-poll__result-count-label"> vote{count === 1 ? "" : "s"}</span>
-                    </span>
-                    <span className="wall-object-poll__result-sep" aria-hidden>
-                      ·
-                    </span>
-                    <span className="wall-object-poll__result-percent">{percent}%</span>
+                <span className="wall-object-poll__letter" aria-hidden>
+                  {letter}
+                </span>
+                <div className="wall-object-poll__result-main">
+                  <div className="wall-object-poll__result-row">
+                    <div className="wall-object-poll__result-choice">{choice.label}</div>
+                    <div className="wall-object-poll__result-stats" aria-label={`${count} votes, ${percent} percent`}>
+                      <span className="wall-object-poll__result-count">
+                        <span className="wall-object-poll__result-count-value">{count}</span>
+                        <span className="wall-object-poll__result-count-label"> vote{count === 1 ? "" : "s"}</span>
+                      </span>
+                      <span className="wall-object-poll__result-sep" aria-hidden>
+                        ·
+                      </span>
+                      <span className="wall-object-poll__result-percent">{percent}%</span>
+                    </div>
+                  </div>
+                  <div className="wall-object-poll__bar" aria-hidden>
+                    <div className="wall-object-poll__bar-fill" style={{ width: `${percent}%` }} />
                   </div>
                 </div>
-                <div className="wall-object-poll__bar" aria-hidden>
-                  <div className="wall-object-poll__bar-fill" style={{ width: `${percent}%` }} />
-                </div>
+                <span className="wall-object-poll__result-hero" aria-hidden>
+                  {percent}%
+                </span>
               </div>
             );
           }
@@ -304,10 +322,14 @@ function WallPollDisplay({
               key={choice.id}
               type="button"
               className={`wall-object-poll__choice${selected ? " wall-object-poll__choice--selected" : ""}`}
+              data-choice-index={index}
               disabled={!canVote}
               onClick={() => vote(choice)}
             >
-              {choice.label}
+              <span className="wall-object-poll__letter" aria-hidden>
+                {letter}
+              </span>
+              <span className="wall-object-poll__choice-label">{choice.label}</span>
             </button>
           );
         })}

@@ -613,12 +613,14 @@ const WallObjectSurface = memo(function WallObjectSurface({
   const htmlResolutionScale = useWallObjectHtmlResolutionScale(quality);
   const surfaceStyle = useMemo<WallObjectSurfaceStyle>(() => {
     const { widthPx, heightPx, baseHeightPx } = wallObjectSurfacePixelSize(surfaceWidth, surfaceHeight, htmlResolutionScale);
+    const fontRatio = object.type === "poll" ? 0.34 : 0.28;
+    const fontMax = object.type === "poll" ? 88 : 96;
     return {
       width: `${widthPx}px`,
       height: `${heightPx}px`,
-      "--wall-surface-font-size": `${clamp(baseHeightPx * 0.28, 20, 96) * htmlResolutionScale}px`
+      "--wall-surface-font-size": `${clamp(baseHeightPx * fontRatio, 20, fontMax) * htmlResolutionScale}px`
     };
-  }, [htmlResolutionScale, surfaceHeight, surfaceWidth]);
+  }, [htmlResolutionScale, object.type, surfaceHeight, surfaceWidth]);
   const mountStyle = useMemo<CSSProperties>(
     () => ({
       transform: `scale(${1 / htmlResolutionScale})`,
