@@ -1154,7 +1154,7 @@ const WALL_PANEL_INSET = 0.06;
 
 /**
  * Orients a wall panel: local +X runs start→end (panorama U), +Y up, +Z into the room.
- * PlaneGeometry front face must use the inward normal so texture U is not mirrored from inside.
+ * UV flips are applied per wall because some panels need an improper basis to keep U along start→end.
  */
 function wallPanelTransform(wall: Wall, plane: WallPlane) {
   const length = Math.hypot(wall.end.x - wall.start.x, wall.end.z - wall.start.z);
@@ -1164,22 +1164,55 @@ function wallPanelTransform(wall: Wall, plane: WallPlane) {
 
   const yAxis = new Vector3(0, 1, 0);
   const inward = plane.normal.clone().normalize();
-  let xAxis = new Vector3().crossVectors(yAxis, inward).normalize();
+  let xAxis = new Vector3().crossVectors(inward, yAxis).normalize();
   if (xAxis.dot(tangent) < 0) xAxis.negate();
 
   const rotation = new Euler().setFromRotationMatrix(
     new Matrix4().makeBasis(xAxis, yAxis, inward)
   );
   const position = plane.point.clone().add(inward.multiplyScalar(WALL_PANEL_INSET));
-  // When x×y ≠ inward (improper basis), panorama V is inverted on the front face.
-  const flipPanoramaV = xAxis.clone().cross(yAxis).dot(inward) < 0;
 
   return {
     length,
     position: [position.x, position.y, position.z] as const,
     rotation: [rotation.x, rotation.y, rotation.z] as const,
-    flipPanoramaV
+    ...panoramaUvFlips(wall.id)
   };
+}
+
+/** Per-wall panorama UV correction — see WORLD_SKIN_PANORAMA_SPEC.md unwrap directions. */
+function panoramaUvFlips(wallId: string): { flipU: boolean; flipV: boolean } {
+  if (wallId.startsWith("wall-back")) {
+    return { flipU: true, flipV: false };
+  }
+  if (wallId === "wall-left") {
+    return { flipU: false, flipV: true };
+  }
+  return { flipU: false, flipV: false };
+}
+
+function applyPanoramaSlice(
+  texture: Texture,
+  slice: { u0: number; u1: number },
+  verticalRepeat: number,
+  flipU: boolean,
+  flipV: boolean
+) {
+  const uSpan = slice.u1 - slice.u0;
+  let uOffset = slice.u0;
+  let uRepeat = uSpan;
+  let vOffset = 0;
+  let vRepeat = verticalRepeat;
+  if (flipU) {
+    uRepeat = -uSpan;
+    uOffset = slice.u1;
+  }
+  if (flipV) {
+    vRepeat = -verticalRepeat;
+    vOffset = verticalRepeat;
+  }
+  texture.offset.set(uOffset, vOffset);
+  texture.repeat.set(uRepeat, vRepeat);
 }
 
 function panoramaVerticalRepeat(wallHeight: number, maxWorldHeight: number) {
@@ -1305,15 +1338,9 @@ function WallMesh({
     if (!panoramaTexture || !slice) return null;
     const t = panoramaTexture.clone();
     t.needsUpdate = true;
-    if (panel.flipPanoramaV) {
-      t.offset.set(slice.u0, verticalRepeat);
-      t.repeat.set(slice.u1 - slice.u0, -verticalRepeat);
-    } else {
-      t.offset.set(slice.u0, 0);
-      t.repeat.set(slice.u1 - slice.u0, verticalRepeat);
-    }
+    applyPanoramaSlice(t, slice, verticalRepeat, panel.flipU, panel.flipV);
     return t;
-  }, [panoramaTexture, panel.flipPanoramaV, slice?.u0, slice?.u1, verticalRepeat]);
+  }, [panoramaTexture, panel.flipU, panel.flipV, slice?.u0, slice?.u1, verticalRepeat]);
 
   // Dispose the per-wall clone when it's replaced or the component unmounts.
   useEffect(() => {
