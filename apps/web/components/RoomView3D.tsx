@@ -8,8 +8,6 @@ import {
   BufferGeometry,
   ClampToEdgeWrapping,
   DoubleSide,
-  Euler,
-  Matrix4,
   RepeatWrapping,
   SRGBColorSpace,
   Texture,
@@ -1152,67 +1150,65 @@ function wallOpacityFromCameraDistance(signedDistance: number) {
 /** Inset wall panels slightly along the inward normal (matches prior box inner face). */
 const WALL_PANEL_INSET = 0.06;
 
+type PanoramaSlice = { u0: number; u1: number; v1: number };
+
 /**
- * Orients a wall panel: local +X along start→end, +Y up, +Z into the room.
- * Back/left use an improper basis (x×y ≠ inward); panoramaWall UV flips correct that without mirroring seams.
+ * Build wall geometry directly in world space.
+ * UVs always run wall.start -> wall.end, matching WORLD_SKIN_PANORAMA_SPEC.md.
  */
-function wallPanelTransform(wall: Wall, plane: WallPlane) {
-  const length = Math.hypot(wall.end.x - wall.start.x, wall.end.z - wall.start.z);
-  const tangent = new Vector3(wall.end.x - wall.start.x, 0, wall.end.z - wall.start.z);
-  if (tangent.lengthSq() > 0) tangent.normalize();
-  else tangent.set(1, 0, 0);
-
-  const yAxis = new Vector3(0, 1, 0);
-  const inward = plane.normal.clone().normalize();
-  let xAxis = new Vector3().crossVectors(inward, yAxis).normalize();
-  if (xAxis.dot(tangent) < 0) xAxis.negate();
-
-  const rotation = new Euler().setFromRotationMatrix(
-    new Matrix4().makeBasis(xAxis, yAxis, inward)
-  );
-  const position = plane.point.clone().add(inward.multiplyScalar(WALL_PANEL_INSET));
-
-  return {
-    length,
-    position: [position.x, position.y, position.z] as const,
-    rotation: [rotation.x, rotation.y, rotation.z] as const,
-    ...panoramaUvFlips(wall.id)
-  };
-}
-
-/** Per-wall panorama UV correction — see WORLD_SKIN_PANORAMA_SPEC.md unwrap directions. */
-function panoramaUvFlips(wallId: string): { flipU: boolean; flipV: boolean } {
-  if (wallId.startsWith("wall-back")) {
-    return { flipU: true, flipV: false };
-  }
-  if (wallId === "wall-left") {
-    return { flipU: false, flipV: true };
-  }
-  return { flipU: false, flipV: false };
-}
-
-function applyPanoramaSlice(
-  texture: Texture,
-  slice: { u0: number; u1: number },
-  verticalRepeat: number,
-  flipU: boolean,
-  flipV: boolean
+function createWallPanelGeometry(
+  wall: Wall,
+  plane: WallPlane,
+  slice: PanoramaSlice | null,
+  verticalRepeat: number
 ) {
-  const uSpan = slice.u1 - slice.u0;
-  let uOffset = slice.u0;
-  let uRepeat = uSpan;
-  let vOffset = 0;
-  let vRepeat = verticalRepeat;
-  if (flipU) {
-    uRepeat = -uSpan;
-    uOffset = slice.u1;
-  }
-  if (flipV) {
-    vRepeat = -verticalRepeat;
-    vOffset = verticalRepeat;
-  }
-  texture.offset.set(uOffset, vOffset);
-  texture.repeat.set(uRepeat, vRepeat);
+  const inward = plane.normal.clone().normalize();
+  const inset = inward.clone().multiplyScalar(WALL_PANEL_INSET);
+  const startBottom = new Vector3(wall.start.x, 0, wall.start.z).add(inset);
+  const endBottom = new Vector3(wall.end.x, 0, wall.end.z).add(inset);
+  const startTop = startBottom.clone().setY(wall.height);
+  const endTop = endBottom.clone().setY(wall.height);
+
+  const geometry = new BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new BufferAttribute(
+      new Float32Array([
+        startBottom.x, startBottom.y, startBottom.z,
+        endBottom.x, endBottom.y, endBottom.z,
+        endTop.x, endTop.y, endTop.z,
+        startTop.x, startTop.y, startTop.z
+      ]),
+      3
+    )
+  );
+
+  const u0 = slice?.u0 ?? 0;
+  const u1 = slice?.u1 ?? 1;
+  const v1 = slice ? verticalRepeat : 1;
+  geometry.setAttribute(
+    "uv",
+    new BufferAttribute(
+      new Float32Array([
+        u0, 0,
+        u1, 0,
+        u1, v1,
+        u0, v1
+      ]),
+      2
+    )
+  );
+
+  const span = endBottom.clone().sub(startBottom);
+  const defaultNormal = span.clone().cross(new Vector3(0, wall.height, 0)).normalize();
+  geometry.setIndex(
+    defaultNormal.dot(inward) >= 0
+      ? [0, 1, 2, 0, 2, 3]
+      : [0, 2, 1, 0, 3, 2]
+  );
+  geometry.computeVertexNormals();
+
+  return geometry;
 }
 
 function panoramaVerticalRepeat(wallHeight: number, maxWorldHeight: number) {
@@ -1325,27 +1321,21 @@ function WallMesh({
   const { camera } = useThree();
   const materialRef = useRef<MeshStandardMaterial | null>(null);
   const plane = useMemo(() => wallPlane(wall), [wall]);
-  const panel = useMemo(() => wallPanelTransform(wall, plane), [wall, plane]);
   const verticalRepeat = useMemo(
     () => panoramaVerticalRepeat(wall.height, maxWorldHeight ?? 8),
     [wall.height, maxWorldHeight]
   );
   const cameraOffset = useMemo(() => new Vector3(), []);
 
-  // Clone the shared panorama texture per wall with wall-specific UV offset/repeat.
-  // Cloning shares the same GPU resource (no extra upload) — only the UV transform differs.
-  const wallTexture = useMemo(() => {
-    if (!panoramaTexture || !slice) return null;
-    const t = panoramaTexture.clone();
-    t.needsUpdate = true;
-    applyPanoramaSlice(t, slice, verticalRepeat, panel.flipU, panel.flipV);
-    return t;
-  }, [panoramaTexture, panel.flipU, panel.flipV, slice?.u0, slice?.u1, verticalRepeat]);
+  const wallTexture = panoramaTexture && slice ? panoramaTexture : null;
+  const wallGeometry = useMemo(
+    () => createWallPanelGeometry(wall, plane, slice ?? null, verticalRepeat),
+    [plane, slice, verticalRepeat, wall]
+  );
 
-  // Dispose the per-wall clone when it's replaced or the component unmounts.
   useEffect(() => {
-    return () => { wallTexture?.dispose(); };
-  }, [wallTexture]);
+    return () => { wallGeometry.dispose(); };
+  }, [wallGeometry]);
 
   useFrame(() => {
     const material = materialRef.current;
@@ -1362,8 +1352,7 @@ function WallMesh({
   const baseColor = skinWallColor ?? (wallTexture ? "#ffffff" : "#8ea487");
 
   return (
-    <mesh position={panel.position} rotation={panel.rotation}>
-      <planeGeometry args={[panel.length, wall.height]} />
+    <mesh geometry={wallGeometry}>
       <meshStandardMaterial
         ref={materialRef}
         color={baseColor}
