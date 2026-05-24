@@ -2794,8 +2794,15 @@ button.hud-heading-btn:hover {
   grid-template-rows: repeat(var(--poll-choice-count, 3), minmax(0, 1fr));
   flex: none;
   min-height: 0;
-  gap: clamp(0.18rem, 1.5cqh, 0.5rem);
+  gap: clamp(0.22rem, 1.8cqh, 0.55rem);
   overflow: hidden;
+  align-content: stretch;
+}
+
+.wall-object-poll--surface .wall-object-poll__choices > .wall-object-poll__result,
+.wall-object-poll--surface .wall-object-poll__choices > .wall-object-poll__choice {
+  height: 100%;
+  min-height: 0;
 }
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__result,
@@ -2866,7 +2873,7 @@ button.hud-heading-btn:hover {
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__result-row,
 .wall-object-poll--surface .wall-object-poll__result-row {
   font-size: clamp(0.75rem, 5.8cqh, var(--poll-body-max));
-  line-height: 1.2;
+  line-height: 1.35;
 }
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__result-choice,
@@ -2919,6 +2926,7 @@ button.hud-heading-btn:hover {
   color: #142820;
   font-size: clamp(0.75rem, 5.8cqh, var(--poll-body-max));
   font-weight: 700;
+  line-height: 1.35;
   box-shadow: 0 2px 8px rgba(20, 40, 32, 0.08);
 }
 
@@ -2953,21 +2961,74 @@ button.hud-heading-btn:hover {
   font-size: clamp(0.85rem, 9cqh, var(--poll-q-max));
 }
 
-.wall-object-poll--surface[data-choice-count="5"],
-.wall-object-poll--surface[data-choice-count="6"] {
-  --poll-q-max: calc(var(--poll-surface-font) * 0.46);
-  --poll-body-max: calc(var(--poll-surface-font) * 0.27);
-  --poll-hero-max: calc(var(--poll-surface-font) * 0.38);
-  --poll-letter-max: calc(var(--poll-surface-font) * 0.36);
-  gap: clamp(0.2rem, 1.6cqh, 0.55rem);
-  padding: clamp(0.4rem, 2.5cqh, 0.95rem);
-  font-size: clamp(0.72rem, 5.2cqh, var(--poll-body-max));
+.wall-object-poll--surface[data-choice-count="5"] {
+  --poll-q-max: calc(var(--poll-surface-font) * 0.5);
+  --poll-body-max: calc(var(--poll-surface-font) * 0.32);
+  --poll-hero-max: calc(var(--poll-surface-font) * 0.44);
+  --poll-letter-max: calc(var(--poll-surface-font) * 0.4);
+  gap: clamp(0.28rem, 2cqh, 0.7rem);
+  padding: clamp(0.45rem, 2.8cqh, 1rem);
+  font-size: clamp(0.78rem, 6.5cqh, var(--poll-body-max));
 }
 
-.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__question,
+.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choices {
+  gap: clamp(0.26rem, 2.2cqh, 0.62rem);
+}
+
+.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__question {
+  -webkit-line-clamp: 2;
+  font-size: clamp(0.85rem, 8.5cqh, var(--poll-q-max));
+}
+
+.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choice,
+.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__result,
+.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__result-row {
+  font-size: clamp(0.8rem, 7.2cqh, var(--poll-body-max));
+}
+
+.wall-object-poll--surface[data-choice-count="6"] {
+  --poll-q-max: calc(var(--poll-surface-font) * 0.52);
+  --poll-body-max: calc(var(--poll-surface-font) * 0.34);
+  --poll-hero-max: calc(var(--poll-surface-font) * 0.46);
+  --poll-letter-max: calc(var(--poll-surface-font) * 0.4);
+  gap: clamp(0.3rem, 2.2cqh, 0.75rem);
+  padding: clamp(0.45rem, 2.6cqh, 1rem);
+  font-size: clamp(0.8rem, 6.8cqh, var(--poll-body-max));
+}
+
+.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choices {
+  gap: clamp(0.3rem, 2.4cqh, 0.7rem);
+}
+
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__question {
   -webkit-line-clamp: 2;
-  font-size: clamp(0.78rem, 7.5cqh, var(--poll-q-max));
+  font-size: clamp(0.88rem, 9cqh, var(--poll-q-max));
+  line-height: 1.12;
+}
+
+.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__kicker {
+  font-size: clamp(0.6rem, 4.8cqh, calc(var(--poll-surface-font) * 0.24));
+}
+
+.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__letter {
+  width: clamp(1.35rem, 7.5cqh, var(--poll-letter-max));
+  height: clamp(1.35rem, 7.5cqh, var(--poll-letter-max));
+  font-size: clamp(0.68rem, 5cqh, calc(var(--poll-surface-font) * 0.26));
+}
+
+.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choice,
+.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__result {
+  padding: clamp(0.28rem, 1.6cqh, 0.6rem) clamp(0.35rem, 2cqw, 0.75rem);
+  font-size: clamp(0.82rem, 7.8cqh, var(--poll-body-max));
+}
+
+.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__result-row {
+  font-size: clamp(0.82rem, 7.8cqh, var(--poll-body-max));
+}
+
+.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__result-hero {
+  min-width: clamp(2rem, 12cqw, 3.8rem);
+  font-size: clamp(0.9rem, 8.2cqh, var(--poll-hero-max));
 }
 
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__bar {
