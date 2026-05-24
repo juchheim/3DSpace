@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-24 (panorama wall geometry)
+Last updated: 2026-05-24 (main board position nudge)
 
 ## Project Summary
 
@@ -14,7 +14,7 @@ Implementation state: **MVP complete in production** (Vercel + Koyeb + Atlas + C
 
 - **Monorepo**: `apps/web`, `apps/api`, `packages/contracts`, `packages/room-engine`
 - **Planning**: `docs/planning/mvp/MVP_IMPLEMENTATION_PLAN.md`, `MVP_STATUS.md`, `DEPLOYMENT_CHECKLIST.md`; `docs/planning/mvp+1/MVP_PLUS_ONE_WALL_MEDIA_PLAN.md`, `MVP_PLUS_ONE_STATUS.md`, `MVP_PLUS_ONE_CLASSROOM_TOOLS_PLAN.md`, `MVP_PLUS_ONE_CLASSROOM_TOOLS_IMPLEMENTATION.md`, `MVP_PLUS_ONE_LESSON_PLANNING_DISCOVERY_PLAN.md`; `docs/planning/new-features/README.md`, `LEARNING_FEATURE_IDEAS.md`, `CONCEPT_WORLD_SKINS_PHASE_A.md`, `IMPL_WORLD_SKINS_PHASE_A.md`, `WORLD_SKIN_PANORAMA_SPEC.md`, `IMPL_EMOTES.md`, `IMPL_HALL_PASS.md`, `IMPL_WHISPER.md`, `IMPL_EXIT_TICKET.md`, `PLAN_BREAKOUT_PODS.md`, `IMPL_BREAKOUT_PODS.md`, `PLAN_ROOM_OBJECTS.md`
-- **Default classroom geometry**: `packages/room-engine/src/index.ts` defines the canonical 30×30 m room; it is now a same-height 8 m square shell with two raised rear tiers. The back wall remains five collinear wall IDs for panorama unwrap compatibility.
+- **Default classroom geometry**: `packages/room-engine/src/index.ts` defines the canonical 30×30 m room; it is now a same-height 8 m square shell with two raised rear tiers. The back wall remains five collinear wall IDs for panorama unwrap compatibility. Main board center X is `-0.6` (`PRIMARY_BOARD_CENTER_X`).
 - **Memory**: `.cursor/memory.md` (this file)
 - **Env templates**: `.env.example`, `apps/api/.env.example`, `apps/web/.env.example`
 - **Deploy artifacts**: `apps/api/Dockerfile`, `vercel.json`
