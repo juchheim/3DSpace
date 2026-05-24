@@ -42,7 +42,7 @@ export const PRIMARY_BOARD_CENTER_Y = 4.5;
 
 /** Front media board on the front wall (left of main board). */
 export const FRONT_MEDIA_WIDTH = 3.0;
-export const FRONT_MEDIA_CENTER_X = -8;
+export const FRONT_MEDIA_CENTER_X = -7.8;
 export const FRONT_MEDIA_CENTER_Y = 1.4;
 
 export function widescreenHeight(width: number): number {
