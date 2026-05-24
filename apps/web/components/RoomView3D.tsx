@@ -1416,7 +1416,7 @@ function AnchorMesh({ anchor, showLabel, spotlighted }: { anchor: Anchor; showLa
           </mesh>
         </>
       ) : null}
-      {showLabel && !hideSurface ? (
+      {showLabel ? (
         <Html center transform distanceFactor={8} className="wall-anchor-label-html">
           <div className={`wall-anchor-label${spotlighted ? " wall-anchor-label--spotlight" : ""}`}>{anchor.label}</div>
         </Html>

@@ -321,7 +321,11 @@ export function RoomView2D({
                   opacity="0.92"
                 />
               ) : null}
-              {hideSurface ? null : (
+              {hideSurface ? (
+                objects.length === 0 ? (
+                  <text x={point.x} y={point.y + 0.75} textAnchor="middle" fontSize="2.2" fill={isSpotlighted ? "#5a4000" : "#17201a"}>{anchor.label}</text>
+                ) : null
+              ) : (
                 <>
                   <rect x={rect.x} y={rect.y} width={rect.width} height={rect.height} rx="0.7" fill={isSpotlighted ? "#f1c40f" : hasLive ? "#005fcc" : "#eb5e28"} opacity="0.92" />
                   <text x={point.x} y={rect.y - 0.6} textAnchor="middle" fontSize="2.2" fill={isSpotlighted ? "#5a4000" : "#17201a"}>{anchor.label}</text>
