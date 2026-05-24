@@ -28,9 +28,13 @@ import {
   FRONT_MEDIA_CENTER_Y,
   LEFT_RESOURCE_RAIL_WIDTH,
   LEFT_RESOURCE_RAIL_HEIGHT,
+  LEFT_RESOURCE_RAIL_CENTER_Y,
+  LEFT_RESOURCE_RAIL_CENTER_Z,
   SECONDARY_BOARD_WIDTH,
   SECONDARY_BOARD_HEIGHT,
-  SECONDARY_BOARD_CENTER_Y
+  RIGHT_RESOURCE_RAIL_CENTER_Y,
+  RIGHT_RESOURCE_RAIL_CENTER_Z,
+  BACK_DISPLAY_CENTER_Y
 } from "../src/index";
 
 describe("room engine", () => {
@@ -59,15 +63,12 @@ describe("room engine", () => {
     expect(anchorSupportsCreateOption(media!, "screen")).toBe(false);
   });
 
-  it("uses 16:9 widescreen proportions for secondary wall anchor boards", () => {
+  it("uses 16:9 widescreen proportions for front media and primary board sizing", () => {
     const manifest = createDefaultRoomManifest({ roomId: "room_1" });
     expect(widescreenHeight(16)).toBe(9);
-    for (const anchor of manifest.wallAnchors) {
-      if (anchor.id === "anchor-board") continue;
-      expect(anchor.width / anchor.height).toBeCloseTo(WIDESCREEN_ASPECT, 5);
-    }
     const board = manifest.wallAnchors.find((anchor) => anchor.id === "anchor-board");
     const media = manifest.wallAnchors.find((anchor) => anchor.id === "anchor-media-left");
+    expect(media!.width / media!.height).toBeCloseTo(WIDESCREEN_ASPECT, 5);
     expect(board?.width).toBe(PRIMARY_BOARD_WIDTH);
     expect(board?.height).toBeCloseTo(PRIMARY_BOARD_HEIGHT, 3);
     expect(board?.position.x).toBe(PRIMARY_BOARD_CENTER_X);
@@ -85,15 +86,17 @@ describe("room engine", () => {
 
     expect(left?.width).toBe(LEFT_RESOURCE_RAIL_WIDTH);
     expect(left?.height).toBeCloseTo(LEFT_RESOURCE_RAIL_HEIGHT, 3);
-    expect(left?.position.y).toBe(SECONDARY_BOARD_CENTER_Y);
-    expect(left!.width / left!.height).toBeCloseTo(WIDESCREEN_ASPECT, 5);
+    expect(left?.position.y).toBe(LEFT_RESOURCE_RAIL_CENTER_Y);
+    expect(left?.position.z).toBe(LEFT_RESOURCE_RAIL_CENTER_Z);
 
-    for (const anchor of [right, back]) {
-      expect(anchor?.width).toBe(SECONDARY_BOARD_WIDTH);
-      expect(anchor?.height).toBeCloseTo(SECONDARY_BOARD_HEIGHT, 3);
-      expect(anchor?.position.y).toBe(SECONDARY_BOARD_CENTER_Y);
-      expect(anchor!.width / anchor!.height).toBeCloseTo(WIDESCREEN_ASPECT, 5);
-    }
+    expect(right?.width).toBe(SECONDARY_BOARD_WIDTH);
+    expect(right?.height).toBeCloseTo(SECONDARY_BOARD_HEIGHT, 3);
+    expect(right?.position.y).toBe(RIGHT_RESOURCE_RAIL_CENTER_Y);
+    expect(right?.position.z).toBe(RIGHT_RESOURCE_RAIL_CENTER_Z);
+
+    expect(back?.width).toBe(SECONDARY_BOARD_WIDTH);
+    expect(back?.height).toBeCloseTo(SECONDARY_BOARD_HEIGHT, 3);
+    expect(back?.position.y).toBe(BACK_DISPLAY_CENTER_Y);
   });
 
   it("uses a square same-height room shell with raised rear tiers", () => {
@@ -148,7 +151,8 @@ describe("room engine", () => {
     expect(board?.height).toBeCloseTo(PRIMARY_BOARD_HEIGHT, 3);
     expect(left?.width).toBe(LEFT_RESOURCE_RAIL_WIDTH);
     expect(left?.height).toBeCloseTo(LEFT_RESOURCE_RAIL_HEIGHT, 3);
-    expect(left?.position.y).toBe(SECONDARY_BOARD_CENTER_Y);
+    expect(left?.position.y).toBe(LEFT_RESOURCE_RAIL_CENTER_Y);
+    expect(left?.position.z).toBe(LEFT_RESOURCE_RAIL_CENTER_Z);
   });
 
   it("applies latest default room geometry to stored manifests", () => {

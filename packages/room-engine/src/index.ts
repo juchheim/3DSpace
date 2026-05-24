@@ -47,16 +47,25 @@ export const FRONT_MEDIA_CENTER_Y = 1.4;
 
 /** Baseline width for side/back secondary boards before per-anchor scaling. */
 const SECONDARY_BOARD_BASE_WIDTH = 10.8;
+/** Additional height trim applied after 16:9 sizing. */
+const SECONDARY_BOARD_HEIGHT_SCALE = 0.95;
 
 /** Left resource rail — 5% smaller than baseline. */
 export const LEFT_RESOURCE_RAIL_WIDTH = SECONDARY_BOARD_BASE_WIDTH * 0.95;
-export const LEFT_RESOURCE_RAIL_HEIGHT = widescreenHeight(LEFT_RESOURCE_RAIL_WIDTH);
+export const LEFT_RESOURCE_RAIL_HEIGHT = widescreenHeight(LEFT_RESOURCE_RAIL_WIDTH) * SECONDARY_BOARD_HEIGHT_SCALE;
+export const LEFT_RESOURCE_RAIL_CENTER_X = -14.92;
+export const LEFT_RESOURCE_RAIL_CENTER_Y = 4.4;
+export const LEFT_RESOURCE_RAIL_CENTER_Z = -0.5;
 
 /** Right resource rail and back display — 10% smaller than baseline. */
 export const SECONDARY_BOARD_WIDTH = SECONDARY_BOARD_BASE_WIDTH * 0.9;
-export const SECONDARY_BOARD_HEIGHT = widescreenHeight(SECONDARY_BOARD_WIDTH);
-/** Vertical center on the 8 m classroom wall shell. */
-export const SECONDARY_BOARD_CENTER_Y = 4;
+export const SECONDARY_BOARD_HEIGHT = widescreenHeight(SECONDARY_BOARD_WIDTH) * SECONDARY_BOARD_HEIGHT_SCALE;
+export const RIGHT_RESOURCE_RAIL_CENTER_X = 14.92;
+export const RIGHT_RESOURCE_RAIL_CENTER_Y = 4.4;
+export const RIGHT_RESOURCE_RAIL_CENTER_Z = 0.5;
+export const BACK_DISPLAY_CENTER_X = 0;
+export const BACK_DISPLAY_CENTER_Y = 4.3;
+export const BACK_DISPLAY_CENTER_Z = 14.92;
 
 export function widescreenHeight(width: number): number {
   return (width * 9) / 16;
@@ -222,7 +231,7 @@ export function createDefaultRoomManifest(input: {
       {
         id: "anchor-back",
         label: "Back display",
-        position: { x: 0, y: SECONDARY_BOARD_CENTER_Y, z: 14.92 },
+        position: { x: BACK_DISPLAY_CENTER_X, y: BACK_DISPLAY_CENTER_Y, z: BACK_DISPLAY_CENTER_Z },
         normal: { x: 0, y: 0, z: -1 },
         width: SECONDARY_BOARD_WIDTH,
         height: SECONDARY_BOARD_HEIGHT,
@@ -238,7 +247,7 @@ export function createDefaultRoomManifest(input: {
       {
         id: "anchor-left",
         label: "Left resource rail",
-        position: { x: -14.92, y: SECONDARY_BOARD_CENTER_Y, z: 0 },
+        position: { x: LEFT_RESOURCE_RAIL_CENTER_X, y: LEFT_RESOURCE_RAIL_CENTER_Y, z: LEFT_RESOURCE_RAIL_CENTER_Z },
         normal: { x: 1, y: 0, z: 0 },
         width: LEFT_RESOURCE_RAIL_WIDTH,
         height: LEFT_RESOURCE_RAIL_HEIGHT,
@@ -254,7 +263,7 @@ export function createDefaultRoomManifest(input: {
       {
         id: "anchor-right",
         label: "Right resource rail",
-        position: { x: 14.92, y: SECONDARY_BOARD_CENTER_Y, z: 0 },
+        position: { x: RIGHT_RESOURCE_RAIL_CENTER_X, y: RIGHT_RESOURCE_RAIL_CENTER_Y, z: RIGHT_RESOURCE_RAIL_CENTER_Z },
         normal: { x: -1, y: 0, z: 0 },
         width: SECONDARY_BOARD_WIDTH,
         height: SECONDARY_BOARD_HEIGHT,
