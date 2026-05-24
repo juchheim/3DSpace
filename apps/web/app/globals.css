@@ -2735,11 +2735,11 @@ button.hud-heading-btn:hover {
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll,
 .wall-object-poll--surface {
   --poll-surface-font: var(--wall-surface-font-size, 48px);
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  display: flex;
+  flex-direction: column;
   height: 100%;
   min-height: 0;
-  gap: clamp(0.5rem, 3.5cqh, 1.15rem);
+  gap: clamp(0.65rem, 4.5cqh, 1.35rem);
   padding: clamp(0.55rem, 3cqh, 1.1rem);
   border: clamp(2px, 0.4cqw, 4px) solid rgba(20, 40, 32, 0.14);
   border-radius: clamp(8px, 1.4cqw, 18px);
@@ -2756,7 +2756,7 @@ button.hud-heading-btn:hover {
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__kicker,
 .wall-object-poll--surface .wall-object-poll__kicker {
-  display: block;
+  display: none;
   font-size: clamp(0.58rem, 4.5cqh, calc(var(--poll-surface-font) * 0.24));
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -2770,6 +2770,7 @@ button.hud-heading-btn:hover {
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__header,
 .wall-object-poll--surface .wall-object-poll__header {
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: clamp(0.4rem, 3cqh, 1rem);
@@ -2792,24 +2793,22 @@ button.hud-heading-btn:hover {
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__choices,
 .wall-object-poll--surface .wall-object-poll__choices {
-  container-type: size;
-  display: flex;
-  flex-direction: column;
-  flex: none;
+  flex: 1 1 0;
   min-height: 0;
-  gap: clamp(0.5rem, 4cqh, 1.15rem);
+  display: grid;
+  grid-template-rows: repeat(var(--poll-choice-count, 3), minmax(0, 1fr));
+  gap: clamp(0.45rem, 3.5cqh, 1rem);
   overflow: hidden;
 }
 
 .wall-object-poll--surface .wall-object-poll__choices > .wall-object-poll__result,
 .wall-object-poll--surface .wall-object-poll__choices > .wall-object-poll__choice {
-  flex: 1 1 0;
-  min-height: 2.4em;
+  min-height: 0;
   box-sizing: border-box;
   overflow: hidden;
   font-size: clamp(0.9rem, calc(var(--poll-surface-font) * 0.32), 999px);
   line-height: 1.35;
-  padding-block: clamp(0.3rem, 1.8cqh, 0.6rem);
+  padding-block: 0.12em;
   padding-inline: clamp(0.4rem, 2cqw, 0.9rem);
   gap: clamp(0.35rem, 2cqw, 0.75rem);
 }
@@ -2927,6 +2926,7 @@ button.hud-heading-btn:hover {
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__bar,
 .wall-object-poll--surface .wall-object-poll__bar {
+  display: none;
   height: clamp(0.28rem, 1.8cqh, 0.55rem);
   border-radius: 999px;
   background: rgba(20, 40, 32, 0.1);
@@ -2977,17 +2977,9 @@ button.hud-heading-btn:hover {
   line-height: 1.14;
 }
 
-.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__kicker {
-  display: none;
-}
-
-.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__bar {
-  display: none;
-}
-
 .wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choices,
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choices {
-  gap: clamp(0.45rem, 3.5cqh, 1rem);
+  gap: clamp(0.4rem, 3cqh, 0.9rem);
 }
 
 .wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choices > .wall-object-poll__choice,
@@ -2995,8 +2987,6 @@ button.hud-heading-btn:hover {
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choices > .wall-object-poll__choice,
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choices > .wall-object-poll__result {
   font-size: clamp(0.85rem, calc(var(--poll-surface-font) * 0.28), 999px);
-  min-height: 2.2em;
-  padding-block: clamp(0.25rem, 1.5cqh, 0.5rem);
 }
 
 /* ── Common ── */
@@ -3004,6 +2994,7 @@ button.hud-heading-btn:hover {
 .wall-object-poll--surface .wall-object-poll__result-main {
   min-height: 0;
   align-content: center;
+  gap: 0;
 }
 
 .wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__result-choice,
@@ -3015,6 +3006,11 @@ button.hud-heading-btn:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
   line-height: 1.35;
+}
+
+.wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__footer,
+.wall-object-poll--surface .wall-object-poll__footer {
+  flex-shrink: 0;
 }
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__manage,
