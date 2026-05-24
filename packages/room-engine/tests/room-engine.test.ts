@@ -25,7 +25,10 @@ import {
   PRIMARY_BOARD_CENTER_Y,
   FRONT_MEDIA_WIDTH,
   FRONT_MEDIA_CENTER_X,
-  FRONT_MEDIA_CENTER_Y
+  FRONT_MEDIA_CENTER_Y,
+  SECONDARY_BOARD_WIDTH,
+  SECONDARY_BOARD_HEIGHT,
+  SECONDARY_BOARD_CENTER_Y
 } from "../src/index";
 
 describe("room engine", () => {
@@ -72,6 +75,19 @@ describe("room engine", () => {
     expect(media?.position.y).toBe(FRONT_MEDIA_CENTER_Y);
   });
 
+  it("uses shared large centered dimensions for side and back resource boards", () => {
+    const manifest = createDefaultRoomManifest({ roomId: "room_1" });
+    const secondaryIds = ["anchor-left", "anchor-right", "anchor-back"] as const;
+
+    for (const id of secondaryIds) {
+      const anchor = manifest.wallAnchors.find((candidate) => candidate.id === id);
+      expect(anchor?.width).toBe(SECONDARY_BOARD_WIDTH);
+      expect(anchor?.height).toBeCloseTo(SECONDARY_BOARD_HEIGHT, 3);
+      expect(anchor?.position.y).toBe(SECONDARY_BOARD_CENTER_Y);
+      expect(anchor!.width / anchor!.height).toBeCloseTo(WIDESCREEN_ASPECT, 5);
+    }
+  });
+
   it("uses a square same-height room shell with raised rear tiers", () => {
     const manifest = createDefaultRoomManifest({ roomId: "room_1" });
     const wallHeights = new Set(manifest.walls.map((wall) => wall.height));
@@ -107,14 +123,24 @@ describe("room engine", () => {
     const manifest = createDefaultRoomManifest({ roomId: "room_1" });
     const stale = {
       ...manifest,
-      wallAnchors: manifest.wallAnchors.map((anchor) =>
-        anchor.id === "anchor-board" ? { ...anchor, width: 6.8, height: 2.1 } : anchor
-      )
+      wallAnchors: manifest.wallAnchors.map((anchor) => {
+        if (anchor.id === "anchor-board") {
+          return { ...anchor, width: 6.8, height: 2.1 };
+        }
+        if (anchor.id === "anchor-left") {
+          return { ...anchor, width: 5, height: 2.8, position: { ...anchor.position, y: 2.5 } };
+        }
+        return anchor;
+      })
     };
     const updated = applyDefaultWallAnchorDimensions(stale);
     const board = updated.wallAnchors.find((anchor) => anchor.id === "anchor-board");
+    const left = updated.wallAnchors.find((anchor) => anchor.id === "anchor-left");
     expect(board?.width).toBe(PRIMARY_BOARD_WIDTH);
     expect(board?.height).toBeCloseTo(PRIMARY_BOARD_HEIGHT, 3);
+    expect(left?.width).toBe(SECONDARY_BOARD_WIDTH);
+    expect(left?.height).toBeCloseTo(SECONDARY_BOARD_HEIGHT, 3);
+    expect(left?.position.y).toBe(SECONDARY_BOARD_CENTER_Y);
   });
 
   it("applies latest default room geometry to stored manifests", () => {

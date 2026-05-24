@@ -45,6 +45,12 @@ export const FRONT_MEDIA_WIDTH = 3.0;
 export const FRONT_MEDIA_CENTER_X = -7.8;
 export const FRONT_MEDIA_CENTER_Y = 1.4;
 
+/** Shared 16:9 dimensions for left/right resource rails and back display. */
+export const SECONDARY_BOARD_WIDTH = 12;
+export const SECONDARY_BOARD_HEIGHT = widescreenHeight(SECONDARY_BOARD_WIDTH);
+/** Vertical center on the 8 m classroom wall shell. */
+export const SECONDARY_BOARD_CENTER_Y = 4;
+
 export function widescreenHeight(width: number): number {
   return (width * 9) / 16;
 }
@@ -209,11 +215,10 @@ export function createDefaultRoomManifest(input: {
       {
         id: "anchor-back",
         label: "Back display",
-        // Center of back wall — above tier-2 seating
-        position: { x: 0, y: 2.5, z: 14.92 },
+        position: { x: 0, y: SECONDARY_BOARD_CENTER_Y, z: 14.92 },
         normal: { x: 0, y: 0, z: -1 },
-        width: 3.0,
-        height: widescreenHeight(3.0),
+        width: SECONDARY_BOARD_WIDTH,
+        height: SECONDARY_BOARD_HEIGHT,
         metadata: {
           accepts: ["image", "video", "audio", "image.file", "video.file", "audio.file", "camera.live", "screen.live", "browser-tab.live", "web.link", "note", "poll", "timer"],
           capacity: 4,
@@ -226,10 +231,10 @@ export function createDefaultRoomManifest(input: {
       {
         id: "anchor-left",
         label: "Left resource rail",
-        position: { x: -14.92, y: 2.5, z: 0 },
+        position: { x: -14.92, y: SECONDARY_BOARD_CENTER_Y, z: 0 },
         normal: { x: 1, y: 0, z: 0 },
-        width: 5.0,
-        height: widescreenHeight(5.0),
+        width: SECONDARY_BOARD_WIDTH,
+        height: SECONDARY_BOARD_HEIGHT,
         metadata: {
           accepts: ["image", "image.file", "document.file", "slides.file", "web.link", "note", "poll", "timer"],
           capacity: 6,
@@ -242,10 +247,10 @@ export function createDefaultRoomManifest(input: {
       {
         id: "anchor-right",
         label: "Right resource rail",
-        position: { x: 14.92, y: 2.5, z: 0 },
+        position: { x: 14.92, y: SECONDARY_BOARD_CENTER_Y, z: 0 },
         normal: { x: -1, y: 0, z: 0 },
-        width: 5.0,
-        height: widescreenHeight(5.0),
+        width: SECONDARY_BOARD_WIDTH,
+        height: SECONDARY_BOARD_HEIGHT,
         metadata: {
           accepts: ["image", "image.file", "document.file", "slides.file", "web.link", "note", "poll", "timer"],
           capacity: 6,
@@ -564,13 +569,18 @@ export function applyDefaultWallAnchorDimensions(manifest: RoomManifest): RoomMa
     name: manifest.name,
     version: manifest.version
   });
-  const dimensionsById = new Map(template.wallAnchors.map((anchor) => [anchor.id, { width: anchor.width, height: anchor.height }]));
+  const defaultsById = new Map(
+    template.wallAnchors.map((anchor) => [
+      anchor.id,
+      { width: anchor.width, height: anchor.height, position: anchor.position }
+    ])
+  );
 
   return {
     ...manifest,
     wallAnchors: manifest.wallAnchors.map((anchor) => {
-      const dimensions = dimensionsById.get(anchor.id);
-      return dimensions ? { ...anchor, ...dimensions } : anchor;
+      const defaults = defaultsById.get(anchor.id);
+      return defaults ? { ...anchor, ...defaults } : anchor;
     })
   };
 }
