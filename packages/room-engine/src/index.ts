@@ -40,6 +40,11 @@ export const PRIMARY_BOARD_HEIGHT = widescreenHeight(9.6) * 0.8 * 1.1 * 1.05;
 export const PRIMARY_BOARD_CENTER_X = -0.6;
 export const PRIMARY_BOARD_CENTER_Y = 4.5;
 
+/** Front media board on the front wall (left of main board). */
+export const FRONT_MEDIA_WIDTH = 3.0;
+export const FRONT_MEDIA_CENTER_X = -10.5 + FRONT_MEDIA_WIDTH * 0.75;
+export const FRONT_MEDIA_CENTER_Y = 1.8;
+
 export function widescreenHeight(width: number): number {
   return (width * 9) / 16;
 }
@@ -188,10 +193,10 @@ export function createDefaultRoomManifest(input: {
       {
         id: "anchor-media-left",
         label: "Front media",
-        position: { x: -10.5, y: 2.2, z: -14.92 },
+        position: { x: FRONT_MEDIA_CENTER_X, y: FRONT_MEDIA_CENTER_Y, z: -14.92 },
         normal: { x: 0, y: 0, z: 1 },
-        width: 3.0,
-        height: widescreenHeight(3.0),
+        width: FRONT_MEDIA_WIDTH,
+        height: widescreenHeight(FRONT_MEDIA_WIDTH),
         metadata: {
           accepts: ["image", "audio", "image.file", "audio.file", "microphone.live", "web.link", "note", "timer"],
           capacity: 3,

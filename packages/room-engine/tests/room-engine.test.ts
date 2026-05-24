@@ -22,7 +22,10 @@ import {
   PRIMARY_BOARD_WIDTH,
   PRIMARY_BOARD_HEIGHT,
   PRIMARY_BOARD_CENTER_X,
-  PRIMARY_BOARD_CENTER_Y
+  PRIMARY_BOARD_CENTER_Y,
+  FRONT_MEDIA_WIDTH,
+  FRONT_MEDIA_CENTER_X,
+  FRONT_MEDIA_CENTER_Y
 } from "../src/index";
 
 describe("room engine", () => {
@@ -59,10 +62,14 @@ describe("room engine", () => {
       expect(anchor.width / anchor.height).toBeCloseTo(WIDESCREEN_ASPECT, 5);
     }
     const board = manifest.wallAnchors.find((anchor) => anchor.id === "anchor-board");
+    const media = manifest.wallAnchors.find((anchor) => anchor.id === "anchor-media-left");
     expect(board?.width).toBe(PRIMARY_BOARD_WIDTH);
     expect(board?.height).toBeCloseTo(PRIMARY_BOARD_HEIGHT, 3);
     expect(board?.position.x).toBe(PRIMARY_BOARD_CENTER_X);
     expect(board?.position.y).toBe(PRIMARY_BOARD_CENTER_Y);
+    expect(media?.width).toBe(FRONT_MEDIA_WIDTH);
+    expect(media?.position.x).toBe(FRONT_MEDIA_CENTER_X);
+    expect(media?.position.y).toBe(FRONT_MEDIA_CENTER_Y);
   });
 
   it("uses a square same-height room shell with raised rear tiers", () => {
