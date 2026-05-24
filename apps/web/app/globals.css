@@ -2790,6 +2790,7 @@ button.hud-heading-btn:hover {
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__choices,
 .wall-object-poll--surface .wall-object-poll__choices {
+  container-type: size;
   display: grid;
   grid-template-rows: repeat(var(--poll-choice-count, 3), minmax(0, 1fr));
   flex: none;
@@ -2803,7 +2804,6 @@ button.hud-heading-btn:hover {
 .wall-object-poll--surface .wall-object-poll__choices > .wall-object-poll__choice {
   align-self: stretch;
   min-height: 0;
-  max-height: 100%;
   box-sizing: border-box;
 }
 
@@ -2975,8 +2975,8 @@ button.hud-heading-btn:hover {
 }
 
 .wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choices {
-  row-gap: clamp(0.45rem, 3.2cqh, 0.9rem);
-  gap: clamp(0.45rem, 3.2cqh, 0.9rem);
+  row-gap: clamp(0.45rem, 6cqb, 1rem);
+  gap: clamp(0.45rem, 6cqb, 1rem);
 }
 
 .wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__question {
@@ -2984,65 +2984,90 @@ button.hud-heading-btn:hover {
   font-size: clamp(0.85rem, 8.5cqh, var(--poll-q-max));
 }
 
+.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__letter {
+  width: clamp(1.4rem, 10cqb, var(--poll-letter-max));
+  height: clamp(1.4rem, 10cqb, var(--poll-letter-max));
+  font-size: clamp(0.7rem, 5.5cqb, calc(var(--poll-surface-font) * 0.26));
+}
+
 .wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choice,
 .wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__result {
-  padding-block: clamp(0.4rem, 2cqh, 0.75rem);
-  font-size: clamp(0.78rem, 6.2cqh, var(--poll-body-max));
-  line-height: 1.25;
+  padding-block: clamp(0.4rem, 2.8cqb, 0.8rem);
+  font-size: clamp(0.85rem, 8cqb, var(--poll-body-max));
+  line-height: 1.2;
 }
 
 .wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__result-row {
-  font-size: clamp(0.78rem, 6.2cqh, var(--poll-body-max));
-  line-height: 1.25;
+  font-size: clamp(0.85rem, 8cqb, var(--poll-body-max));
+  line-height: 1.2;
+}
+
+.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__result-hero {
+  font-size: clamp(0.88rem, 7.5cqb, var(--poll-hero-max));
 }
 
 .wall-object-poll--surface[data-choice-count="6"] {
-  --poll-q-max: calc(var(--poll-surface-font) * 0.52);
-  --poll-body-max: calc(var(--poll-surface-font) * 0.34);
-  --poll-hero-max: calc(var(--poll-surface-font) * 0.46);
-  --poll-letter-max: calc(var(--poll-surface-font) * 0.4);
-  gap: clamp(0.3rem, 2.2cqh, 0.75rem);
-  padding: clamp(0.45rem, 2.6cqh, 1rem);
-  font-size: clamp(0.8rem, 6.8cqh, var(--poll-body-max));
+  --poll-q-max: calc(var(--poll-surface-font) * 0.5);
+  --poll-body-max: calc(var(--poll-surface-font) * 0.38);
+  --poll-hero-max: calc(var(--poll-surface-font) * 0.48);
+  --poll-letter-max: calc(var(--poll-surface-font) * 0.5);
+  gap: clamp(0.2rem, 1.4cqh, 0.5rem);
+  padding: clamp(0.4rem, 2.4cqh, 0.9rem);
+  font-size: clamp(0.85rem, 6.5cqh, var(--poll-body-max));
 }
 
-.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choices {
-  row-gap: clamp(0.55rem, 4.5cqh, 1.1rem);
-  gap: clamp(0.55rem, 4.5cqh, 1.1rem);
-}
-
-.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__question {
-  -webkit-line-clamp: 2;
-  font-size: clamp(0.88rem, 9cqh, var(--poll-q-max));
-  line-height: 1.12;
+.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__header {
+  flex-shrink: 0;
 }
 
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__kicker {
-  font-size: clamp(0.6rem, 4.8cqh, calc(var(--poll-surface-font) * 0.24));
+  display: none;
+}
+
+.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__question {
+  -webkit-line-clamp: 1;
+  font-size: clamp(0.9rem, 8.5cqh, var(--poll-q-max));
+  line-height: 1.15;
+}
+
+.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choices {
+  row-gap: clamp(0.5rem, 7cqb, 1.15rem);
+  gap: clamp(0.5rem, 7cqb, 1.15rem);
+}
+
+.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choices > .wall-object-poll__choice,
+.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choices > .wall-object-poll__result,
+.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choices > .wall-object-poll__choice,
+.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choices > .wall-object-poll__result {
+  height: 100%;
 }
 
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__letter {
-  width: clamp(1.2rem, 6cqh, var(--poll-letter-max));
-  height: clamp(1.2rem, 6cqh, var(--poll-letter-max));
-  font-size: clamp(0.62rem, 4.2cqh, calc(var(--poll-surface-font) * 0.24));
+  width: clamp(1.5rem, 11cqb, var(--poll-letter-max));
+  height: clamp(1.5rem, 11cqb, var(--poll-letter-max));
+  font-size: clamp(0.75rem, 6cqb, calc(var(--poll-surface-font) * 0.28));
 }
 
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choice,
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__result {
-  padding: clamp(0.4rem, 2cqh, 0.75rem) clamp(0.35rem, 2cqw, 0.75rem);
-  font-size: clamp(0.78rem, 5.8cqh, var(--poll-body-max));
-  line-height: 1.25;
+  padding: clamp(0.35rem, 2.5cqb, 0.8rem) clamp(0.4rem, 2.2cqw, 0.85rem);
+  font-size: clamp(0.88rem, 7.5cqb, var(--poll-body-max));
+  line-height: 1.2;
 }
 
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__result-row {
-  font-size: clamp(0.78rem, 5.8cqh, var(--poll-body-max));
-  line-height: 1.25;
+  font-size: clamp(0.88rem, 7.5cqb, var(--poll-body-max));
+  line-height: 1.2;
 }
 
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__result-hero {
-  min-width: clamp(1.9rem, 11cqw, 3.4rem);
-  font-size: clamp(0.82rem, 6.5cqh, var(--poll-hero-max));
-  line-height: 1.25;
+  min-width: clamp(2rem, 12cqb, 3.6rem);
+  font-size: clamp(0.9rem, 6.8cqb, var(--poll-hero-max));
+  line-height: 1.2;
+}
+
+.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__total {
+  font-size: clamp(0.62rem, 4cqh, calc(var(--poll-surface-font) * 0.22));
 }
 
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__bar {

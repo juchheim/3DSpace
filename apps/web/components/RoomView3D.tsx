@@ -613,8 +613,8 @@ const WallObjectSurface = memo(function WallObjectSurface({
   const htmlResolutionScale = useWallObjectHtmlResolutionScale(quality);
   const surfaceStyle = useMemo<WallObjectSurfaceStyle>(() => {
     const { widthPx, heightPx, baseHeightPx } = wallObjectSurfacePixelSize(surfaceWidth, surfaceHeight, htmlResolutionScale);
-    const fontRatio = object.type === "poll" ? 0.31 : 0.28;
-    const fontMax = object.type === "poll" ? 76 : 96;
+    const fontRatio = object.type === "poll" ? 0.32 : 0.28;
+    const fontMax = object.type === "poll" ? 80 : 96;
     return {
       width: `${widthPx}px`,
       height: `${heightPx}px`,
