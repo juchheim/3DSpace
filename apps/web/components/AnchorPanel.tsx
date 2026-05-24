@@ -348,7 +348,7 @@ export function AnchorPanel({
                     {pollChoices.length > 2 ? (
                       <button
                         type="button"
-                        className="secondary"
+                        className="hud-btn content-form-remove-btn"
                         aria-label={`Remove choice ${index + 1}`}
                         onClick={() => setPollChoices((current) => current.filter((_, entryIndex) => entryIndex !== index))}
                       >

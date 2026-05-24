@@ -263,12 +263,15 @@ function WallPollDisplay({
     void onControl?.(object.id, "vote", undefined, choice.id);
   };
 
+  const pollStyle = surface ? ({ "--poll-choice-count": choices.length } as CSSProperties) : undefined;
+
   return (
     <div
       className={`wall-object-card__body wall-object-poll${surface ? " wall-object-poll--surface" : ""}`}
       data-choice-count={choices.length}
       data-poll-closed={pollState.closed ? "true" : "false"}
       data-show-results={showResults ? "true" : "false"}
+      style={pollStyle}
     >
       <div className="wall-object-poll__header">
         <p className="wall-object-poll__kicker">{kicker}</p>
