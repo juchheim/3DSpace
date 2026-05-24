@@ -845,7 +845,7 @@ function buildTierGeometry(
   return geo;
 }
 
-function tierClickHandler(onMoveToPoint: (point: { x: number; z: number }) => void) {
+function floorDoubleClickHandler(onMoveToPoint: (point: { x: number; z: number }) => void) {
   return (event: { stopPropagation(): void; point: { x: number; z: number } }) => {
     event.stopPropagation();
     onMoveToPoint({ x: event.point.x, z: event.point.z });
@@ -866,7 +866,7 @@ function TierStepNosing({
     <mesh
       position={[0, tier.floorY + 0.018, tier.minZ + 0.07]}
       receiveShadow
-      onClick={tierClickHandler(onMoveToPoint)}
+      onDoubleClick={floorDoubleClickHandler(onMoveToPoint)}
     >
       <boxGeometry args={[roomWidth - inset * 2, 0.055, 0.11]} />
       <meshStandardMaterial color={TIER_WOOD_NOSING} roughness={0.72} metalness={0.02} />
@@ -898,7 +898,7 @@ function TierMesh({
 
   return (
     <group>
-      <mesh geometry={geometry} receiveShadow onClick={tierClickHandler(onMoveToPoint)}>
+      <mesh geometry={geometry} receiveShadow onDoubleClick={floorDoubleClickHandler(onMoveToPoint)}>
         <meshStandardMaterial attach="material-0" color={color} roughness={roughness} />
         <meshStandardMaterial attach="material-1" color={TIER_WOOD_SKIRT} roughness={0.86} metalness={0.02} />
       </mesh>
@@ -943,7 +943,7 @@ function TierMeshTextured({
 
   return (
     <group>
-      <mesh geometry={geometry} receiveShadow onClick={tierClickHandler(onMoveToPoint)}>
+      <mesh geometry={geometry} receiveShadow onDoubleClick={floorDoubleClickHandler(onMoveToPoint)}>
         <meshStandardMaterial attach="material-0" map={deckTexture} roughness={roughness} />
         <meshStandardMaterial attach="material-1" color={skirtColor} roughness={0.86} metalness={0.02} />
       </mesh>
@@ -1266,7 +1266,7 @@ function FloorMesh({ width, depth, color, roughness, onMoveToPoint }: {
       rotation={[-Math.PI / 2, 0, 0]}
       position={[0, -0.02, 0]}
       receiveShadow
-      onClick={(e) => { e.stopPropagation(); onMoveToPoint({ x: e.point.x, z: e.point.z }); }}
+      onDoubleClick={(e) => { e.stopPropagation(); onMoveToPoint({ x: e.point.x, z: e.point.z }); }}
     >
       <planeGeometry args={[width, depth]} />
       <meshStandardMaterial color={color} roughness={roughness} />
@@ -1291,7 +1291,7 @@ function FloorMeshTextured({ width, depth, textureUrl, roughness, onMoveToPoint 
       rotation={[-Math.PI / 2, 0, 0]}
       position={[0, -0.02, 0]}
       receiveShadow
-      onClick={(e) => { e.stopPropagation(); onMoveToPoint({ x: e.point.x, z: e.point.z }); }}
+      onDoubleClick={(e) => { e.stopPropagation(); onMoveToPoint({ x: e.point.x, z: e.point.z }); }}
     >
       <planeGeometry args={[width, depth]} />
       <meshStandardMaterial map={t} roughness={roughness} />

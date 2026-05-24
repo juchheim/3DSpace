@@ -46,7 +46,7 @@ Implementation state: **MVP complete in production** (Vercel + Koyeb + Atlas + C
 
 - Teacher lobby: class/room/invite creation; **Your rooms** and in-room top bar expose **Copy invite** (GET `/v1/rooms/:roomId/invite` returns latest valid student invite or creates one)
 - Student invite join (two-page Playwright validated)
-- 3D room: floor, walls, anchors, avatars, third-person local camera follow, camera billboards, pointer click-to-move
+- 3D room: floor, walls, anchors, avatars, third-person local camera follow, camera billboards, pointer double-click-to-move on floor/tiers
 - 2D analog: same manifest, movement, presence, media state
 - LiveKit token minting, camera/mic publish/subscribe, spatial audio panner hook
 - Session join rate limit (`SESSION_JOIN_RATE_LIMIT_PER_MINUTE`, default 20) → `429 rate_limited`
