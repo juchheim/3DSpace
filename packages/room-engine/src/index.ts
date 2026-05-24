@@ -62,6 +62,8 @@ const RESOURCE_RAIL_NUDGE_RIGHT = 2;
 const RESOURCE_RAIL_NUDGE_LEFT = 0.5;
 /** Width trim for the right resource rail only. */
 const RIGHT_RESOURCE_RAIL_WIDTH_SCALE = 0.97;
+/** Extra along-wall shift toward the right for the right resource rail only (m). */
+const RIGHT_RESOURCE_RAIL_NUDGE_RIGHT = 0.4;
 
 /** Left resource rail — 5% smaller than baseline. */
 export const LEFT_RESOURCE_RAIL_WIDTH = SECONDARY_BOARD_BASE_WIDTH * 0.95;
@@ -81,7 +83,7 @@ export const RIGHT_RESOURCE_RAIL_HEIGHT =
 export const RIGHT_RESOURCE_RAIL_CENTER_X = 14.92;
 export const RIGHT_RESOURCE_RAIL_CENTER_Y = 4.4 + RESOURCE_RAIL_NUDGE_UP;
 export const RIGHT_RESOURCE_RAIL_CENTER_Z =
-  1 + 3 * RESOURCE_RAIL_NUDGE_ALONG - RESOURCE_RAIL_NUDGE_RIGHT + RESOURCE_RAIL_NUDGE_LEFT;
+  1 + 3 * RESOURCE_RAIL_NUDGE_ALONG - RESOURCE_RAIL_NUDGE_RIGHT + RESOURCE_RAIL_NUDGE_LEFT - RIGHT_RESOURCE_RAIL_NUDGE_RIGHT;
 export const BACK_DISPLAY_CENTER_X = 0;
 export const BACK_DISPLAY_CENTER_Y = 4.3;
 export const BACK_DISPLAY_CENTER_Z = 14.92;
