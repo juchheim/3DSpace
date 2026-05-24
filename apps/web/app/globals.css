@@ -2739,8 +2739,8 @@ button.hud-heading-btn:hover {
   grid-template-rows: auto minmax(0, 1fr) auto;
   height: 100%;
   min-height: 0;
-  gap: clamp(1rem, 7cqh, 2.5rem);
-  padding: clamp(0.85rem, 4.5cqh, 1.75rem);
+  gap: clamp(0.5rem, 3.5cqh, 1.15rem);
+  padding: clamp(0.55rem, 3cqh, 1.1rem);
   border: clamp(2px, 0.4cqw, 4px) solid rgba(20, 40, 32, 0.14);
   border-radius: clamp(8px, 1.4cqw, 18px);
   background:
@@ -2777,10 +2777,10 @@ button.hud-heading-btn:hover {
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__question,
 .wall-object-poll--surface .wall-object-poll__question {
-  -webkit-line-clamp: 3;
-  font-size: clamp(1.75rem, 20cqh, var(--poll-surface-font));
-  font-weight: 800;
-  line-height: 1.12;
+  -webkit-line-clamp: 2;
+  font-size: clamp(1rem, 11cqh, calc(var(--poll-surface-font) * 0.58));
+  font-weight: 700;
+  line-height: 1.15;
   letter-spacing: -0.02em;
   color: #0f241c;
 }
@@ -2797,7 +2797,7 @@ button.hud-heading-btn:hover {
   grid-template-rows: repeat(var(--poll-choice-count, 3), minmax(0, 1fr));
   flex: none;
   min-height: 0;
-  gap: clamp(0.85rem, 6cqh, 2rem);
+  gap: clamp(0.35rem, 2.8cqh, 0.9rem);
   overflow: hidden;
   align-content: stretch;
 }
@@ -2806,19 +2806,21 @@ button.hud-heading-btn:hover {
 .wall-object-poll--surface .wall-object-poll__choices > .wall-object-poll__choice {
   align-self: stretch;
   height: 100%;
+  max-height: 100%;
   min-height: 0;
   box-sizing: border-box;
-  font-size: clamp(1.1rem, calc(var(--poll-surface-font) * 0.44), 999px);
-  line-height: 1.2;
-  padding-block: clamp(0.5rem, 3cqh, 1rem);
-  padding-inline: clamp(0.5rem, 2.5cqw, 1.1rem);
-  gap: clamp(0.55rem, 2.5cqw, 1.15rem);
+  overflow: hidden;
+  font-size: clamp(0.9rem, calc(var(--poll-surface-font) * 0.32), 999px);
+  line-height: 1.15;
+  padding-block: clamp(0.15rem, 1cqh, 0.4rem);
+  padding-inline: clamp(0.4rem, 2cqw, 0.9rem);
+  gap: clamp(0.35rem, 2cqw, 0.75rem);
 }
 
 .wall-object-poll--surface .wall-object-poll__choices .wall-object-poll__letter {
-  font-size: 0.75em;
-  width: 2.15em;
-  height: 2.15em;
+  font-size: 0.68em;
+  width: 1.85em;
+  height: 1.85em;
   color: #fffaf4;
   background: var(--poll-accent, #c07834);
   box-shadow: 0 2px 6px rgba(20, 40, 32, 0.18);
@@ -2847,7 +2849,7 @@ button.hud-heading-btn:hover {
 .wall-object-poll--surface .wall-object-poll__choice {
   flex-shrink: 1;
   min-height: 0;
-  overflow: visible;
+  overflow: hidden;
   box-sizing: border-box;
 }
 
@@ -2969,12 +2971,12 @@ button.hud-heading-btn:hover {
   color: #3d4f48;
 }
 
-/* ── Dense polls: still big question + generous row gaps (no compact shrink) ── */
+/* ── Dense polls: slightly smaller than default, still readable ── */
 
 .wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__question,
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__question {
   -webkit-line-clamp: 2;
-  font-size: clamp(1.5rem, 16cqh, calc(var(--poll-surface-font) * 0.9));
+  font-size: clamp(0.95rem, 9cqh, calc(var(--poll-surface-font) * 0.5));
   line-height: 1.14;
 }
 
@@ -2988,15 +2990,15 @@ button.hud-heading-btn:hover {
 
 .wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choices,
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choices {
-  gap: clamp(0.7rem, 5cqh, 1.65rem);
+  gap: clamp(0.3rem, 2.2cqh, 0.75rem);
 }
 
 .wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choices > .wall-object-poll__choice,
 .wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choices > .wall-object-poll__result,
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choices > .wall-object-poll__choice,
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choices > .wall-object-poll__result {
-  font-size: clamp(1rem, calc(var(--poll-surface-font) * 0.38), 999px);
-  padding-block: clamp(0.45rem, 2.5cqh, 0.9rem);
+  font-size: clamp(0.85rem, calc(var(--poll-surface-font) * 0.28), 999px);
+  padding-block: clamp(0.1rem, 0.8cqh, 0.35rem);
 }
 
 /* ── Common ── */
