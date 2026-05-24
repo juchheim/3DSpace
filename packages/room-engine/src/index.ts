@@ -56,6 +56,8 @@ const RIGHT_RESOURCE_RAIL_EXTRA_HEIGHT_SCALE = 0.97;
 /** Small reposition nudge (m) — along-wall left uses multiples of this from inside the room. */
 const RESOURCE_RAIL_NUDGE_UP = 0.2;
 const RESOURCE_RAIL_NUDGE_ALONG = RESOURCE_RAIL_NUDGE_UP;
+/** Additional along-wall shift toward the right when facing each side wall (m). */
+const RESOURCE_RAIL_NUDGE_RIGHT = 2;
 
 /** Left resource rail — 5% smaller than baseline. */
 export const LEFT_RESOURCE_RAIL_WIDTH = SECONDARY_BOARD_BASE_WIDTH * 0.95;
@@ -63,7 +65,7 @@ export const LEFT_RESOURCE_RAIL_HEIGHT =
   widescreenHeight(LEFT_RESOURCE_RAIL_WIDTH) * SECONDARY_BOARD_HEIGHT_SCALE * RESOURCE_RAIL_HEIGHT_SCALE;
 export const LEFT_RESOURCE_RAIL_CENTER_X = -14.92;
 export const LEFT_RESOURCE_RAIL_CENTER_Y = 4.4 + RESOURCE_RAIL_NUDGE_UP;
-export const LEFT_RESOURCE_RAIL_CENTER_Z = -1 - 2 * RESOURCE_RAIL_NUDGE_ALONG;
+export const LEFT_RESOURCE_RAIL_CENTER_Z = -1 - 2 * RESOURCE_RAIL_NUDGE_ALONG + RESOURCE_RAIL_NUDGE_RIGHT;
 
 /** Right resource rail and back display — 10% smaller than baseline. */
 export const SECONDARY_BOARD_WIDTH = SECONDARY_BOARD_BASE_WIDTH * 0.9;
@@ -72,7 +74,7 @@ export const RIGHT_RESOURCE_RAIL_HEIGHT =
   SECONDARY_BOARD_HEIGHT * RESOURCE_RAIL_HEIGHT_SCALE * RIGHT_RESOURCE_RAIL_EXTRA_HEIGHT_SCALE;
 export const RIGHT_RESOURCE_RAIL_CENTER_X = 14.92;
 export const RIGHT_RESOURCE_RAIL_CENTER_Y = 4.4 + RESOURCE_RAIL_NUDGE_UP;
-export const RIGHT_RESOURCE_RAIL_CENTER_Z = 1 + 3 * RESOURCE_RAIL_NUDGE_ALONG;
+export const RIGHT_RESOURCE_RAIL_CENTER_Z = 1 + 3 * RESOURCE_RAIL_NUDGE_ALONG - RESOURCE_RAIL_NUDGE_RIGHT;
 export const BACK_DISPLAY_CENTER_X = 0;
 export const BACK_DISPLAY_CENTER_Y = 4.3;
 export const BACK_DISPLAY_CENTER_Z = 14.92;
