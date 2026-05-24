@@ -2733,34 +2733,36 @@ button.hud-heading-btn:hover {
   opacity: 1;
 }
 
-/* cqh units below query this container's height */
 .wall-poll-board {
-  container-type: size;
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 6px 8px;
-  gap: 4px;
+  min-height: 0;
+  padding: 0.08em;
+  gap: 0.06em;
   box-sizing: border-box;
+  font-size: var(--wall-surface-font-size, 90px);
+  line-height: 1.2;
   font-family: "Barlow", system-ui, sans-serif;
   color: #142820;
-  border: 1px solid rgba(20, 40, 32, 0.14);
-  border-radius: 4px;
+  border: 0.04em solid rgba(20, 40, 32, 0.14);
+  border-radius: 0.12em;
   background:
     radial-gradient(120% 80% at 0% 0%, rgba(192, 120, 52, 0.14), transparent 55%),
     radial-gradient(90% 70% at 100% 100%, rgba(42, 138, 106, 0.12), transparent 50%),
     linear-gradient(158deg, #fffaf4 0%, #f3e8da 52%, #e9dfd2 100%);
   box-shadow:
-    0 3px 10px rgba(0, 0, 0, 0.28),
+    0 0.08em 0.2em rgba(0, 0, 0, 0.28),
     inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .wall-poll-board__question {
   flex: 0 0 auto;
   margin: 0;
-  font-size: clamp(12px, 6cqh, 28px);
+  padding: 0.04em 0.06em 0;
+  font-size: 0.52em;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.15;
   letter-spacing: -0.02em;
   color: #0f241c;
   display: -webkit-box;
@@ -2774,21 +2776,22 @@ button.hud-heading-btn:hover {
   min-height: 0;
   display: grid;
   grid-template-rows: repeat(var(--poll-n, 6), minmax(0, 1fr));
-  gap: 1cqh;
+  gap: 0.045em;
 }
 
 .wall-poll-board__row {
   display: flex;
   align-items: center;
-  gap: 0.5em;
+  gap: 0.35em;
+  min-height: 0;
   overflow: hidden;
-  padding: 0 0.5em;
-  font-size: clamp(10px, 5cqh, 22px);
+  padding: 0 0.35em;
+  font-size: 0.34em;
   font-weight: 700;
-  border: 1px solid rgba(20, 40, 32, 0.1);
-  border-radius: 3px;
+  border: 0.04em solid rgba(20, 40, 32, 0.1);
+  border-radius: 0.1em;
   background: rgba(255, 255, 255, 0.5);
-  box-shadow: 0 1px 3px rgba(20, 40, 32, 0.08);
+  box-shadow: 0 0.03em 0.08em rgba(20, 40, 32, 0.08);
 }
 
 .wall-poll-board__row--button {
@@ -2812,15 +2815,15 @@ button.hud-heading-btn:hover {
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  width: clamp(14px, 6cqh, 28px);
-  height: clamp(14px, 6cqh, 28px);
+  width: 1.65em;
+  height: 1.65em;
   border-radius: 999px;
-  font-size: clamp(9px, 3.5cqh, 16px);
+  font-size: 0.62em;
   font-weight: 700;
   line-height: 1;
   color: #fffaf4;
   background: var(--poll-accent, #c07834);
-  box-shadow: 0 1px 3px rgba(20, 40, 32, 0.18);
+  box-shadow: 0 0.03em 0.06em rgba(20, 40, 32, 0.18);
 }
 
 .wall-poll-board__label {
@@ -2829,6 +2832,7 @@ button.hud-heading-btn:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.2;
 }
 
 .wall-poll-board__pct {
@@ -2842,9 +2846,10 @@ button.hud-heading-btn:hover {
 .wall-poll-board__total {
   flex: 0 0 auto;
   margin: 0;
-  font-size: clamp(9px, 3cqh, 13px);
+  padding: 0 0.06em;
+  font-size: 0.22em;
   font-weight: 600;
-  opacity: 0.7;
+  opacity: 0.72;
   color: #3d4f48;
 }
 
