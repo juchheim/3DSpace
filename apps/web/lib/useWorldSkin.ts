@@ -15,9 +15,15 @@ const inflightFetch = new Map<string, Promise<WorldSkin>>();
 const CACHE_TTL_MS = 60 * 60 * 1000;
 export const CROSSFADE_MS = 1000;
 
-async function loadSkin(slug: string, identity: ApiIdentity): Promise<WorldSkin> {
+function cachedSkin(slug: string): WorldSkin | null {
   const cached = skinCache.get(slug);
-  if (cached && cached.expiresAt > Date.now()) return cached.skin;
+  if (!cached || cached.expiresAt <= Date.now()) return null;
+  return cached.skin;
+}
+
+async function loadSkin(slug: string, identity: ApiIdentity): Promise<WorldSkin> {
+  const cached = cachedSkin(slug);
+  if (cached) return cached;
 
   const existing = inflightFetch.get(slug);
   if (existing) return existing;
@@ -84,22 +90,34 @@ export type ActiveSkin = {
   error?: string;
 };
 
+function skinLoadKey(resolvedId: string, identity: ApiIdentity) {
+  return `${resolvedId}:${identity.userId}`;
+}
+
 export function useWorldSkin(input: {
   identity: ApiIdentity;
   skinId: string | null;
   dayNightMode: WorldSkinDayNightMode;
   enabled?: boolean;
+  /** Wait until auth/local identity is settled before fetching (avoids 401 + skipped retry). */
+  identityReady?: boolean;
 }): ActiveSkin {
-  const { identity, skinId, enabled = true } = input;
-  const [skin, setSkin] = useState<WorldSkin | null>(null);
-  const [ready, setReady] = useState(true);
+  const { identity, skinId, enabled = true, identityReady = true } = input;
+  const [skin, setSkin] = useState<WorldSkin | null>(() =>
+    enabled && identityReady ? cachedSkin(skinId ?? WORLD_SKIN_DEFAULT_THEATER_SLUG) : null
+  );
+  const [ready, setReady] = useState(() => Boolean(skin));
   const [error, setError] = useState<string | undefined>(undefined);
-  const prevSkinIdRef = useRef<string | null | undefined>(undefined);
+  const loadGenerationRef = useRef(0);
+  const loadedKeyRef = useRef<string | null>(null);
+  const inflightKeyRef = useRef<string | null>(null);
 
   const load = useCallback(
     async (id: string | null) => {
-      if (!enabled) {
-        prevSkinIdRef.current = null;
+      if (!enabled || !identityReady) {
+        loadGenerationRef.current += 1;
+        loadedKeyRef.current = null;
+        inflightKeyRef.current = null;
         setSkin(null);
         setReady(true);
         setError(undefined);
@@ -107,31 +125,51 @@ export function useWorldSkin(input: {
       }
 
       const resolvedId = id === null ? WORLD_SKIN_DEFAULT_THEATER_SLUG : id;
+      const loadKey = skinLoadKey(resolvedId, identity);
 
-      // Avoid redundant fetches for the same slug.
-      // NOTE: the ref must be checked *before* it is updated so the guard
-      // works correctly.  The useEffect below must NOT pre-set the ref.
-      if (resolvedId === prevSkinIdRef.current) return;
-      prevSkinIdRef.current = resolvedId;
+      if (loadKey === loadedKeyRef.current || loadKey === inflightKeyRef.current) {
+        return;
+      }
 
+      const generation = ++loadGenerationRef.current;
+      inflightKeyRef.current = loadKey;
       setReady(false);
       setError(undefined);
+
       try {
         const next = await loadSkin(resolvedId, identity);
+        if (generation !== loadGenerationRef.current) return;
+
         setSkin(next);
         await preloadSkinTextures(next);
-        setSkin(next); // update again post-preload so consumers can re-render
+        if (generation !== loadGenerationRef.current) return;
+
+        loadedKeyRef.current = loadKey;
+        setSkin(next);
         setReady(true);
       } catch (err) {
-        // Fail-open: fall back to default theater on any error
+        if (generation !== loadGenerationRef.current) return;
+
+        const fallback = cachedSkin(resolvedId);
+        if (fallback) {
+          loadedKeyRef.current = loadKey;
+          setSkin(fallback);
+          setReady(true);
+          setError(undefined);
+          return;
+        }
+
+        loadedKeyRef.current = null;
         setSkin(null);
         setReady(true);
         setError(err instanceof Error ? err.message : "Failed to load skin");
+      } finally {
+        if (inflightKeyRef.current === loadKey) {
+          inflightKeyRef.current = null;
+        }
       }
     },
-    // identity object may change reference; key off userId
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [enabled, identity.userId]
+    [enabled, identity, identityReady]
   );
 
   useEffect(() => {

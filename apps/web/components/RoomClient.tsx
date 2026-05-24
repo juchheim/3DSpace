@@ -220,7 +220,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     identity,
     skinId: CLIENT_TUNING.enableWorldSkins ? skinId : null,
     dayNightMode: skinDayNightMode,
-    enabled: CLIENT_TUNING.enableWorldSkins
+    enabled: CLIENT_TUNING.enableWorldSkins,
+    identityReady: identityLoaded && (!clerkEnabled || signedIn)
   });
   // Local ambient gain: teacher slider gives immediate audio feedback while patchRoom debounces.
   const [localAmbientGain, setLocalAmbientGain] = useState<number | null>(null);

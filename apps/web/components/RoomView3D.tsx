@@ -1081,6 +1081,7 @@ function RoomGeometry({
       >
         {panoramaUrl ? (
           <WallsWithPanorama
+            key={panoramaUrl}
             walls={manifest.walls}
             panoramaUrl={panoramaUrl}
             skin={skin}
