@@ -46,7 +46,7 @@ export const FRONT_MEDIA_CENTER_X = -7.8;
 export const FRONT_MEDIA_CENTER_Y = 1.4;
 
 /** Shared 16:9 dimensions for left/right resource rails and back display. */
-export const SECONDARY_BOARD_WIDTH = 12;
+export const SECONDARY_BOARD_WIDTH = 10.8;
 export const SECONDARY_BOARD_HEIGHT = widescreenHeight(SECONDARY_BOARD_WIDTH);
 /** Vertical center on the 8 m classroom wall shell. */
 export const SECONDARY_BOARD_CENTER_Y = 4;
