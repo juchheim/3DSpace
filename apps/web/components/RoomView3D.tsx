@@ -1153,10 +1153,8 @@ function wallOpacityFromCameraDistance(signedDistance: number) {
 const WALL_PANEL_INSET = 0.06;
 
 /**
- * Orients a wall panel: local +X always runs start→end and +Y points up.
- * BoxGeometry maps panorama UVs differently per face (+Z vs −Z vs ±X), which flipped or
- * stretched every wall except the front. The plane is rendered double-sided so we never have
- * to reverse U just to make the front face point into the room.
+ * Orients a wall panel: local +X runs start→end (panorama U), +Y up, +Z into the room.
+ * PlaneGeometry front face must use the inward normal so texture U is not mirrored from inside.
  */
 function wallPanelTransform(wall: Wall, plane: WallPlane) {
   const length = Math.hypot(wall.end.x - wall.start.x, wall.end.z - wall.start.z);
@@ -1166,10 +1164,11 @@ function wallPanelTransform(wall: Wall, plane: WallPlane) {
 
   const yAxis = new Vector3(0, 1, 0);
   const inward = plane.normal.clone().normalize();
-  const zAxis = new Vector3().crossVectors(tangent, yAxis).normalize();
+  let xAxis = new Vector3().crossVectors(yAxis, inward).normalize();
+  if (xAxis.dot(tangent) < 0) xAxis.negate();
 
   const rotation = new Euler().setFromRotationMatrix(
-    new Matrix4().makeBasis(tangent, yAxis, zAxis)
+    new Matrix4().makeBasis(xAxis, yAxis, inward)
   );
   const position = plane.point.clone().add(inward.multiplyScalar(WALL_PANEL_INSET));
 
