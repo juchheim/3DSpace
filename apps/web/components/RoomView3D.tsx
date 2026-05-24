@@ -1340,7 +1340,12 @@ function WallMesh({
   );
 }
 
+function anchorHidesSurface(anchor: Anchor) {
+  return anchor.metadata?.hideSurface === true;
+}
+
 function AnchorMesh({ anchor, showLabel, spotlighted }: { anchor: Anchor; showLabel: boolean; spotlighted?: boolean }) {
+  const hideSurface = anchorHidesSurface(anchor);
   const { camera } = useThree();
   const materialRef = useRef<MeshStandardMaterial | null>(null);
   const plane = useMemo(
@@ -1357,6 +1362,7 @@ function AnchorMesh({ anchor, showLabel, spotlighted }: { anchor: Anchor; showLa
   }, [anchor.normal.x, anchor.normal.z]);
 
   useFrame(() => {
+    if (hideSurface) return;
     const material = materialRef.current;
     if (!material) return;
     const signedDistance = cameraOffset.copy(camera.position).sub(plane.point).dot(plane.normal);
@@ -1373,18 +1379,20 @@ function AnchorMesh({ anchor, showLabel, spotlighted }: { anchor: Anchor; showLa
 
   return (
     <group position={[anchor.position.x, anchor.position.y, anchor.position.z]} rotation={rotation}>
-      <mesh>
-        <planeGeometry args={[w, h]} />
-        <meshStandardMaterial
-          ref={materialRef}
-          color="#263b31"
-          emissive="#111c17"
-          emissiveIntensity={1}
-          roughness={0.6}
-          transparent
-          opacity={1}
-        />
-      </mesh>
+      {hideSurface ? null : (
+        <mesh>
+          <planeGeometry args={[w, h]} />
+          <meshStandardMaterial
+            ref={materialRef}
+            color="#263b31"
+            emissive="#111c17"
+            emissiveIntensity={1}
+            roughness={0.6}
+            transparent
+            opacity={1}
+          />
+        </mesh>
+      )}
       {spotlighted ? (
         <>
           <mesh position={[0, h / 2 + BORDER, BZ]}>
@@ -1405,7 +1413,7 @@ function AnchorMesh({ anchor, showLabel, spotlighted }: { anchor: Anchor; showLa
           </mesh>
         </>
       ) : null}
-      {showLabel ? (
+      {showLabel && !hideSurface ? (
         <Html center transform distanceFactor={8} className="wall-anchor-label-html">
           <div className={`wall-anchor-label${spotlighted ? " wall-anchor-label--spotlight" : ""}`}>{anchor.label}</div>
         </Html>

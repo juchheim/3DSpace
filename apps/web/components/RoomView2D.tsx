@@ -290,10 +290,11 @@ export function RoomView2D({
           const hasLive = objects.some((object) => object.type.endsWith(".live") && object.status === "active");
           const isSpotlighted = spotlight?.anchorId === anchor.id;
           const check = checks[0];
+          const hideSurface = anchor.metadata?.hideSurface === true;
           return (
             <g key={anchor.id} aria-label={isSpotlighted ? `${anchor.label} (focused)` : anchor.label}>
               {/* Board-darken pass: subtle dark backing so anchor labels stay legible on busy skin textures */}
-              {boardDarkenOpacity > 0 ? (
+              {boardDarkenOpacity > 0 && !hideSurface ? (
                 <rect
                   x={rect.x - 1}
                   y={rect.y - 3}
@@ -320,9 +321,13 @@ export function RoomView2D({
                   opacity="0.92"
                 />
               ) : null}
-              <rect x={rect.x} y={rect.y} width={rect.width} height={rect.height} rx="0.7" fill={isSpotlighted ? "#f1c40f" : hasLive ? "#005fcc" : "#eb5e28"} opacity="0.92" />
-              <text x={point.x} y={rect.y - 0.6} textAnchor="middle" fontSize="2.2" fill={isSpotlighted ? "#5a4000" : "#17201a"}>{anchor.label}</text>
-              {objects.length > 0 ? <text x={point.x} y={point.y + 0.75} textAnchor="middle" fontSize="2.1" fill={isSpotlighted ? "#17201a" : "#fffaf0"}>{objects.length}</text> : null}
+              {hideSurface ? null : (
+                <>
+                  <rect x={rect.x} y={rect.y} width={rect.width} height={rect.height} rx="0.7" fill={isSpotlighted ? "#f1c40f" : hasLive ? "#005fcc" : "#eb5e28"} opacity="0.92" />
+                  <text x={point.x} y={rect.y - 0.6} textAnchor="middle" fontSize="2.2" fill={isSpotlighted ? "#5a4000" : "#17201a"}>{anchor.label}</text>
+                  {objects.length > 0 ? <text x={point.x} y={point.y + 0.75} textAnchor="middle" fontSize="2.1" fill={isSpotlighted ? "#17201a" : "#fffaf0"}>{objects.length}</text> : null}
+                </>
+              )}
               {check ? (
                 <>
                   <rect x={rect.x} y={rect.y + rect.height + 1.2} width={rect.width} height={7.8} rx="0.9" fill="#fffaf0" stroke="#17201a" strokeOpacity="0.2" strokeWidth="0.5" />

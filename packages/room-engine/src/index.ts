@@ -178,6 +178,7 @@ export function createDefaultRoomManifest(input: {
           capacity: 4,
           layout: "grid",
           defaultRole: "primary-display",
+          hideSurface: true,
           supportsInteraction: true,
           moderationPolicy: "teacher-only",
           priority: "primary"
