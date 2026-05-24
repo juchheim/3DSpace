@@ -45,8 +45,15 @@ export const FRONT_MEDIA_WIDTH = 3.0;
 export const FRONT_MEDIA_CENTER_X = -7.8;
 export const FRONT_MEDIA_CENTER_Y = 1.4;
 
-/** Shared 16:9 dimensions for left/right resource rails and back display. */
-export const SECONDARY_BOARD_WIDTH = 10.8;
+/** Baseline width for side/back secondary boards before per-anchor scaling. */
+const SECONDARY_BOARD_BASE_WIDTH = 10.8;
+
+/** Left resource rail — 5% smaller than baseline. */
+export const LEFT_RESOURCE_RAIL_WIDTH = SECONDARY_BOARD_BASE_WIDTH * 0.95;
+export const LEFT_RESOURCE_RAIL_HEIGHT = widescreenHeight(LEFT_RESOURCE_RAIL_WIDTH);
+
+/** Right resource rail and back display — 10% smaller than baseline. */
+export const SECONDARY_BOARD_WIDTH = SECONDARY_BOARD_BASE_WIDTH * 0.9;
 export const SECONDARY_BOARD_HEIGHT = widescreenHeight(SECONDARY_BOARD_WIDTH);
 /** Vertical center on the 8 m classroom wall shell. */
 export const SECONDARY_BOARD_CENTER_Y = 4;
@@ -233,8 +240,8 @@ export function createDefaultRoomManifest(input: {
         label: "Left resource rail",
         position: { x: -14.92, y: SECONDARY_BOARD_CENTER_Y, z: 0 },
         normal: { x: 1, y: 0, z: 0 },
-        width: SECONDARY_BOARD_WIDTH,
-        height: SECONDARY_BOARD_HEIGHT,
+        width: LEFT_RESOURCE_RAIL_WIDTH,
+        height: LEFT_RESOURCE_RAIL_HEIGHT,
         metadata: {
           accepts: ["image", "image.file", "document.file", "slides.file", "web.link", "note", "poll", "timer"],
           capacity: 6,

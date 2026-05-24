@@ -26,6 +26,8 @@ import {
   FRONT_MEDIA_WIDTH,
   FRONT_MEDIA_CENTER_X,
   FRONT_MEDIA_CENTER_Y,
+  LEFT_RESOURCE_RAIL_WIDTH,
+  LEFT_RESOURCE_RAIL_HEIGHT,
   SECONDARY_BOARD_WIDTH,
   SECONDARY_BOARD_HEIGHT,
   SECONDARY_BOARD_CENTER_Y
@@ -75,12 +77,18 @@ describe("room engine", () => {
     expect(media?.position.y).toBe(FRONT_MEDIA_CENTER_Y);
   });
 
-  it("uses shared large centered dimensions for side and back resource boards", () => {
+  it("uses large centered dimensions for side and back resource boards", () => {
     const manifest = createDefaultRoomManifest({ roomId: "room_1" });
-    const secondaryIds = ["anchor-left", "anchor-right", "anchor-back"] as const;
+    const left = manifest.wallAnchors.find((candidate) => candidate.id === "anchor-left");
+    const right = manifest.wallAnchors.find((candidate) => candidate.id === "anchor-right");
+    const back = manifest.wallAnchors.find((candidate) => candidate.id === "anchor-back");
 
-    for (const id of secondaryIds) {
-      const anchor = manifest.wallAnchors.find((candidate) => candidate.id === id);
+    expect(left?.width).toBe(LEFT_RESOURCE_RAIL_WIDTH);
+    expect(left?.height).toBeCloseTo(LEFT_RESOURCE_RAIL_HEIGHT, 3);
+    expect(left?.position.y).toBe(SECONDARY_BOARD_CENTER_Y);
+    expect(left!.width / left!.height).toBeCloseTo(WIDESCREEN_ASPECT, 5);
+
+    for (const anchor of [right, back]) {
       expect(anchor?.width).toBe(SECONDARY_BOARD_WIDTH);
       expect(anchor?.height).toBeCloseTo(SECONDARY_BOARD_HEIGHT, 3);
       expect(anchor?.position.y).toBe(SECONDARY_BOARD_CENTER_Y);
@@ -138,8 +146,8 @@ describe("room engine", () => {
     const left = updated.wallAnchors.find((anchor) => anchor.id === "anchor-left");
     expect(board?.width).toBe(PRIMARY_BOARD_WIDTH);
     expect(board?.height).toBeCloseTo(PRIMARY_BOARD_HEIGHT, 3);
-    expect(left?.width).toBe(SECONDARY_BOARD_WIDTH);
-    expect(left?.height).toBeCloseTo(SECONDARY_BOARD_HEIGHT, 3);
+    expect(left?.width).toBe(LEFT_RESOURCE_RAIL_WIDTH);
+    expect(left?.height).toBeCloseTo(LEFT_RESOURCE_RAIL_HEIGHT, 3);
     expect(left?.position.y).toBe(SECONDARY_BOARD_CENTER_Y);
   });
 
