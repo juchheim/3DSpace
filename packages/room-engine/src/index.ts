@@ -261,6 +261,7 @@ export function createDefaultRoomManifest(input: {
           capacity: 4,
           layout: "grid",
           defaultRole: "student-share",
+          hideSurface: true,
           supportsInteraction: true,
           moderationPolicy: "student-request"
         }
@@ -277,6 +278,7 @@ export function createDefaultRoomManifest(input: {
           capacity: 6,
           layout: "rail",
           defaultRole: "resource-rail",
+          hideSurface: true,
           supportsInteraction: true,
           moderationPolicy: "student-request"
         }
@@ -293,6 +295,7 @@ export function createDefaultRoomManifest(input: {
           capacity: 6,
           layout: "rail",
           defaultRole: "resource-rail",
+          hideSurface: true,
           supportsInteraction: true,
           moderationPolicy: "student-request"
         }
