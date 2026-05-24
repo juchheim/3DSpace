@@ -2801,8 +2801,10 @@ button.hud-heading-btn:hover {
 
 .wall-object-poll--surface .wall-object-poll__choices > .wall-object-poll__result,
 .wall-object-poll--surface .wall-object-poll__choices > .wall-object-poll__choice {
-  height: 100%;
+  align-self: stretch;
   min-height: 0;
+  max-height: 100%;
+  box-sizing: border-box;
 }
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__result,
@@ -2811,7 +2813,8 @@ button.hud-heading-btn:hover {
 .wall-object-poll--surface .wall-object-poll__choice {
   flex-shrink: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
+  box-sizing: border-box;
 }
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__result,
@@ -2972,7 +2975,8 @@ button.hud-heading-btn:hover {
 }
 
 .wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choices {
-  gap: clamp(0.26rem, 2.2cqh, 0.62rem);
+  row-gap: clamp(0.45rem, 3.2cqh, 0.9rem);
+  gap: clamp(0.45rem, 3.2cqh, 0.9rem);
 }
 
 .wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__question {
@@ -2981,9 +2985,15 @@ button.hud-heading-btn:hover {
 }
 
 .wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choice,
-.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__result,
+.wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__result {
+  padding-block: clamp(0.4rem, 2cqh, 0.75rem);
+  font-size: clamp(0.78rem, 6.2cqh, var(--poll-body-max));
+  line-height: 1.25;
+}
+
 .wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__result-row {
-  font-size: clamp(0.8rem, 7.2cqh, var(--poll-body-max));
+  font-size: clamp(0.78rem, 6.2cqh, var(--poll-body-max));
+  line-height: 1.25;
 }
 
 .wall-object-poll--surface[data-choice-count="6"] {
@@ -2997,7 +3007,8 @@ button.hud-heading-btn:hover {
 }
 
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choices {
-  gap: clamp(0.3rem, 2.4cqh, 0.7rem);
+  row-gap: clamp(0.55rem, 4.5cqh, 1.1rem);
+  gap: clamp(0.55rem, 4.5cqh, 1.1rem);
 }
 
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__question {
@@ -3011,24 +3022,27 @@ button.hud-heading-btn:hover {
 }
 
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__letter {
-  width: clamp(1.35rem, 7.5cqh, var(--poll-letter-max));
-  height: clamp(1.35rem, 7.5cqh, var(--poll-letter-max));
-  font-size: clamp(0.68rem, 5cqh, calc(var(--poll-surface-font) * 0.26));
+  width: clamp(1.2rem, 6cqh, var(--poll-letter-max));
+  height: clamp(1.2rem, 6cqh, var(--poll-letter-max));
+  font-size: clamp(0.62rem, 4.2cqh, calc(var(--poll-surface-font) * 0.24));
 }
 
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choice,
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__result {
-  padding: clamp(0.28rem, 1.6cqh, 0.6rem) clamp(0.35rem, 2cqw, 0.75rem);
-  font-size: clamp(0.82rem, 7.8cqh, var(--poll-body-max));
+  padding: clamp(0.4rem, 2cqh, 0.75rem) clamp(0.35rem, 2cqw, 0.75rem);
+  font-size: clamp(0.78rem, 5.8cqh, var(--poll-body-max));
+  line-height: 1.25;
 }
 
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__result-row {
-  font-size: clamp(0.82rem, 7.8cqh, var(--poll-body-max));
+  font-size: clamp(0.78rem, 5.8cqh, var(--poll-body-max));
+  line-height: 1.25;
 }
 
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__result-hero {
-  min-width: clamp(2rem, 12cqw, 3.8rem);
-  font-size: clamp(0.9rem, 8.2cqh, var(--poll-hero-max));
+  min-width: clamp(1.9rem, 11cqw, 3.4rem);
+  font-size: clamp(0.82rem, 6.5cqh, var(--poll-hero-max));
+  line-height: 1.25;
 }
 
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__bar {
@@ -3041,14 +3055,14 @@ button.hud-heading-btn:hover {
 }
 
 .wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__result-choice,
-.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__result-choice {
-  -webkit-line-clamp: 1;
-  white-space: nowrap;
-}
-
+.wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__result-choice,
 .wall-object-poll--surface[data-choice-count="5"] .wall-object-poll__choice-label,
 .wall-object-poll--surface[data-choice-count="6"] .wall-object-poll__choice-label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.25;
 }
 
 .wall-object-card--surface[data-wall-object-type="poll"] .wall-object-poll__manage,
