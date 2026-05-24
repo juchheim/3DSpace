@@ -49,20 +49,24 @@ export const FRONT_MEDIA_CENTER_Y = 1.4;
 const SECONDARY_BOARD_BASE_WIDTH = 10.8;
 /** Additional height trim applied after 16:9 sizing. */
 const SECONDARY_BOARD_HEIGHT_SCALE = 0.95;
+/** Extra height trim for left/right resource rails only. */
+const RESOURCE_RAIL_HEIGHT_SCALE = 0.95;
 
 /** Left resource rail — 5% smaller than baseline. */
 export const LEFT_RESOURCE_RAIL_WIDTH = SECONDARY_BOARD_BASE_WIDTH * 0.95;
-export const LEFT_RESOURCE_RAIL_HEIGHT = widescreenHeight(LEFT_RESOURCE_RAIL_WIDTH) * SECONDARY_BOARD_HEIGHT_SCALE;
+export const LEFT_RESOURCE_RAIL_HEIGHT =
+  widescreenHeight(LEFT_RESOURCE_RAIL_WIDTH) * SECONDARY_BOARD_HEIGHT_SCALE * RESOURCE_RAIL_HEIGHT_SCALE;
 export const LEFT_RESOURCE_RAIL_CENTER_X = -14.92;
 export const LEFT_RESOURCE_RAIL_CENTER_Y = 4.4;
-export const LEFT_RESOURCE_RAIL_CENTER_Z = -0.5;
+export const LEFT_RESOURCE_RAIL_CENTER_Z = -1;
 
 /** Right resource rail and back display — 10% smaller than baseline. */
 export const SECONDARY_BOARD_WIDTH = SECONDARY_BOARD_BASE_WIDTH * 0.9;
 export const SECONDARY_BOARD_HEIGHT = widescreenHeight(SECONDARY_BOARD_WIDTH) * SECONDARY_BOARD_HEIGHT_SCALE;
+export const RIGHT_RESOURCE_RAIL_HEIGHT = SECONDARY_BOARD_HEIGHT * RESOURCE_RAIL_HEIGHT_SCALE;
 export const RIGHT_RESOURCE_RAIL_CENTER_X = 14.92;
 export const RIGHT_RESOURCE_RAIL_CENTER_Y = 4.4;
-export const RIGHT_RESOURCE_RAIL_CENTER_Z = 0.5;
+export const RIGHT_RESOURCE_RAIL_CENTER_Z = 1;
 export const BACK_DISPLAY_CENTER_X = 0;
 export const BACK_DISPLAY_CENTER_Y = 4.3;
 export const BACK_DISPLAY_CENTER_Z = 14.92;
@@ -266,7 +270,7 @@ export function createDefaultRoomManifest(input: {
         position: { x: RIGHT_RESOURCE_RAIL_CENTER_X, y: RIGHT_RESOURCE_RAIL_CENTER_Y, z: RIGHT_RESOURCE_RAIL_CENTER_Z },
         normal: { x: -1, y: 0, z: 0 },
         width: SECONDARY_BOARD_WIDTH,
-        height: SECONDARY_BOARD_HEIGHT,
+        height: RIGHT_RESOURCE_RAIL_HEIGHT,
         metadata: {
           accepts: ["image", "image.file", "document.file", "slides.file", "web.link", "note", "poll", "timer"],
           capacity: 6,

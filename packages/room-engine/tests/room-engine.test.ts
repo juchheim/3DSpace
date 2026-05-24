@@ -32,6 +32,7 @@ import {
   LEFT_RESOURCE_RAIL_CENTER_Z,
   SECONDARY_BOARD_WIDTH,
   SECONDARY_BOARD_HEIGHT,
+  RIGHT_RESOURCE_RAIL_HEIGHT,
   RIGHT_RESOURCE_RAIL_CENTER_Y,
   RIGHT_RESOURCE_RAIL_CENTER_Z,
   BACK_DISPLAY_CENTER_Y
@@ -90,7 +91,7 @@ describe("room engine", () => {
     expect(left?.position.z).toBe(LEFT_RESOURCE_RAIL_CENTER_Z);
 
     expect(right?.width).toBe(SECONDARY_BOARD_WIDTH);
-    expect(right?.height).toBeCloseTo(SECONDARY_BOARD_HEIGHT, 3);
+    expect(right?.height).toBeCloseTo(RIGHT_RESOURCE_RAIL_HEIGHT, 3);
     expect(right?.position.y).toBe(RIGHT_RESOURCE_RAIL_CENTER_Y);
     expect(right?.position.z).toBe(RIGHT_RESOURCE_RAIL_CENTER_Z);
 
