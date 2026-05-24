@@ -2620,6 +2620,10 @@ button.hud-heading-btn:hover {
 .wall-object-poll__manage button {
   padding: 0.28rem 0.5rem;
   font-size: 0.68rem;
+  color: #fffaf0;
+  border: 1px solid rgba(255, 250, 240, 0.22);
+  background: rgba(255, 250, 240, 0.08);
+  box-shadow: none;
 }
 
 .wall-object-card--surface .wall-object-poll__choice,

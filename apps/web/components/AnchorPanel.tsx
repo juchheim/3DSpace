@@ -205,7 +205,7 @@ export function AnchorPanel({
   }
 
   return (
-    <HudCard title="Walls" badge={loading ? "…" : `${wallObjects.length} obj`} ariaLabel="Wall objects" defaultCollapsed>
+    <HudCard title="Boards" badge={loading ? "…" : `${wallObjects.length} obj`} ariaLabel="Boards" defaultCollapsed>
 
       {canCreate ? (
         <>
@@ -358,7 +358,7 @@ export function AnchorPanel({
                   </div>
                 ))}
                 {pollChoices.length < 6 ? (
-                  <button type="button" className="secondary" onClick={() => setPollChoices((current) => [...current, ""])}>
+                  <button type="button" className="hud-btn" onClick={() => setPollChoices((current) => [...current, ""])}>
                     Add choice
                   </button>
                 ) : null}
