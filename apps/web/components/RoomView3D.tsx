@@ -1187,7 +1187,8 @@ function wallPanelTransform(wall: Wall, plane: WallPlane) {
 }
 
 function flipPlaneGeometryU(geometry: PlaneGeometry) {
-  const uv = geometry.attributes.uv;
+  const uv = geometry.getAttribute("uv");
+  if (!uv) return;
   for (let i = 0; i < uv.count; i++) {
     uv.setX(i, 1 - uv.getX(i));
   }
