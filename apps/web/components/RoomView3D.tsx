@@ -1152,9 +1152,33 @@ const WALL_PANEL_INSET = 0.06;
 
 type PanoramaSlice = { u0: number; u1: number; v1: number };
 
+const BACK_PANORAMA_U0 = 0.25;
+const BACK_PANORAMA_U1 = 0.5;
+
+function mirrorUInRange(u: number, min: number, max: number) {
+  return min + max - u;
+}
+
+function wallPanoramaUEndpoints(wall: Wall, slice: PanoramaSlice | null) {
+  if (!slice) return { uStart: 0, uEnd: 1 };
+
+  if (wall.id.startsWith("wall-back")) {
+    return {
+      uStart: mirrorUInRange(slice.u0, BACK_PANORAMA_U0, BACK_PANORAMA_U1),
+      uEnd: mirrorUInRange(slice.u1, BACK_PANORAMA_U0, BACK_PANORAMA_U1)
+    };
+  }
+
+  if (wall.id === "wall-left") {
+    return { uStart: slice.u1, uEnd: slice.u0 };
+  }
+
+  return { uStart: slice.u0, uEnd: slice.u1 };
+}
+
 /**
  * Build wall geometry directly in world space.
- * UVs always run wall.start -> wall.end, matching WORLD_SKIN_PANORAMA_SPEC.md.
+ * UVs are assigned in world space; back wall mirroring is applied across the whole band.
  */
 function createWallPanelGeometry(
   wall: Wall,
@@ -1183,17 +1207,16 @@ function createWallPanelGeometry(
     )
   );
 
-  const u0 = slice?.u0 ?? 0;
-  const u1 = slice?.u1 ?? 1;
+  const { uStart, uEnd } = wallPanoramaUEndpoints(wall, slice);
   const v1 = slice ? verticalRepeat : 1;
   geometry.setAttribute(
     "uv",
     new BufferAttribute(
       new Float32Array([
-        u0, 0,
-        u1, 0,
-        u1, v1,
-        u0, v1
+        uStart, 0,
+        uEnd, 0,
+        uEnd, v1,
+        uStart, v1
       ]),
       2
     )
