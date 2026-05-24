@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { WallObject } from "@3dspace/contracts";
 import {
   normalizePollInlineData,
@@ -235,67 +235,83 @@ function pollChoiceLetter(index: number) {
   return String.fromCharCode(65 + index);
 }
 
-type PollSurfaceStyle = CSSProperties & {
-  "--poll-choice-count"?: number;
-  "--poll-row-gap"?: string;
-  "--poll-row-height"?: string;
-  "--poll-choice-font"?: string;
-  "--poll-question-font"?: string;
-  "--poll-section-gap"?: string;
-};
-
-function pollSurfaceRowGap(choiceCount: number) {
-  if (choiceCount >= 6) return 14;
-  if (choiceCount >= 4) return 16;
-  return 18;
-}
-
-function pollSurfaceLayoutFromHeight(choiceCount: number, choicesHeightPx: number): PollSurfaceStyle {
-  const gap = pollSurfaceRowGap(choiceCount);
-  const gapsTotal = gap * Math.max(0, choiceCount - 1);
-  const rowHeight = Math.max(36, Math.floor((choicesHeightPx - gapsTotal) / Math.max(1, choiceCount)));
-  const choiceFont = Math.max(18, Math.min(Math.floor(rowHeight * 0.4), 84));
-  const questionFont = Math.max(22, Math.min(Math.floor(choiceFont * 1.35), 96));
-  return {
-    "--poll-choice-count": choiceCount,
-    "--poll-row-gap": `${gap}px`,
-    "--poll-row-height": `${rowHeight}px`,
-    "--poll-choice-font": `${choiceFont}px`,
-    "--poll-question-font": `${questionFont}px`,
-    "--poll-section-gap": choiceCount >= 6 ? "20px" : "28px"
-  };
-}
-
-function usePollSurfaceLayout(surface: boolean, choiceCount: number) {
-  const [choicesEl, setChoicesEl] = useState<HTMLDivElement | null>(null);
-  const [pollStyle, setPollStyle] = useState<PollSurfaceStyle | undefined>(() =>
-    surface ? pollSurfaceLayoutFromHeight(choiceCount, 360) : undefined
+/** 3D board poll — separate from sidebar poll markup/CSS for a simple fill-the-board layout. */
+function WallPollBoard({
+  question,
+  title,
+  choices,
+  counts,
+  totalVotes,
+  showResults,
+  canVote,
+  myVote,
+  onVote
+}: {
+  question: string;
+  title: string;
+  choices: PollChoice[];
+  counts: Record<string, number>;
+  totalVotes: number;
+  showResults: boolean;
+  canVote: boolean;
+  myVote: string | undefined;
+  onVote: (choice: PollChoice) => void;
+}) {
+  const boardStyle = useMemo(
+    () => ({ "--poll-n": choices.length } as CSSProperties),
+    [choices.length]
   );
 
-  const choicesRef = useCallback((node: HTMLDivElement | null) => {
-    setChoicesEl(node);
-  }, []);
+  return (
+    <div className="wall-object-card__body wall-poll-board" style={boardStyle}>
+      <p className="wall-poll-board__question">{question || title}</p>
+      <div className="wall-poll-board__choices" role={canVote && !showResults ? "group" : undefined} aria-label="Poll choices">
+        {choices.map((choice, index) => {
+          const letter = pollChoiceLetter(index);
+          const count = counts[choice.id] ?? 0;
+          const percent = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
+          const selected = myVote === choice.id;
+          const rowClass = `wall-poll-board__row${selected ? " wall-poll-board__row--selected" : ""}`;
 
-  const measure = useCallback(() => {
-    if (!choicesEl || choiceCount < 1) return;
-    const height = choicesEl.clientHeight;
-    if (height < 1) return;
-    setPollStyle(pollSurfaceLayoutFromHeight(choiceCount, height));
-  }, [choiceCount, choicesEl]);
+          if (canVote && !showResults) {
+            return (
+              <button
+                key={choice.id}
+                type="button"
+                className={`${rowClass} wall-poll-board__row--button`}
+                data-index={index}
+                onClick={() => onVote(choice)}
+              >
+                <span className="wall-poll-board__letter" aria-hidden>
+                  {letter}
+                </span>
+                <span className="wall-poll-board__label">{choice.label}</span>
+              </button>
+            );
+          }
 
-  useEffect(() => {
-    if (!surface) {
-      setPollStyle(undefined);
-      return;
-    }
-    if (!choicesEl) return;
-    const observer = new ResizeObserver(() => measure());
-    observer.observe(choicesEl);
-    measure();
-    return () => observer.disconnect();
-  }, [surface, choicesEl, measure]);
-
-  return { choicesRef: surface ? choicesRef : undefined, pollStyle };
+          return (
+            <div key={choice.id} className={rowClass} data-index={index}>
+              <span className="wall-poll-board__letter" aria-hidden>
+                {letter}
+              </span>
+              <span className="wall-poll-board__label">{choice.label}</span>
+              {showResults ? (
+                <span className="wall-poll-board__pct" aria-label={`${percent} percent`}>
+                  {percent}%
+                </span>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+      {showResults ? (
+        <p className="wall-poll-board__total">
+          {totalVotes} vote{totalVotes === 1 ? "" : "s"}
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 function WallPollDisplay({
@@ -326,50 +342,40 @@ function WallPollDisplay({
     void onControl?.(object.id, "vote", undefined, choice.id);
   };
 
-  const { choicesRef, pollStyle } = usePollSurfaceLayout(surface, choices.length);
+  if (surface) {
+    return (
+      <WallPollBoard
+        question={question}
+        title={object.title}
+        choices={choices}
+        counts={counts}
+        totalVotes={totalVotes}
+        showResults={showResults}
+        canVote={canVote}
+        myVote={myVote}
+        onVote={vote}
+      />
+    );
+  }
 
   return (
     <div
-      className={`wall-object-card__body wall-object-poll${surface ? " wall-object-poll--surface" : ""}`}
+      className="wall-object-card__body wall-object-poll"
       data-choice-count={choices.length}
       data-poll-closed={pollState.closed ? "true" : "false"}
       data-show-results={showResults ? "true" : "false"}
-      style={pollStyle}
     >
       <div className="wall-object-poll__header">
         <p className="wall-object-poll__kicker">{kicker}</p>
         <p className="wall-object-poll__question">{question || object.title}</p>
         {!surface && pollState.closed ? <p className="wall-object-poll__status">Poll closed</p> : null}
       </div>
-      <div
-        ref={choicesRef}
-        className="wall-object-poll__choices"
-        role={canVote ? "group" : undefined}
-        aria-label="Poll choices"
-      >
+      <div className="wall-object-poll__choices" role={canVote ? "group" : undefined} aria-label="Poll choices">
         {choices.map((choice, index) => {
           const count = counts[choice.id] ?? 0;
           const percent = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
           const selected = myVote === choice.id;
           const letter = pollChoiceLetter(index);
-
-          if (showResults && surface) {
-            return (
-              <div
-                key={choice.id}
-                className={`wall-object-poll__result${selected ? " wall-object-poll__result--selected" : ""}`}
-                data-choice-index={index}
-              >
-                <span className="wall-object-poll__letter" aria-hidden>
-                  {letter}
-                </span>
-                <span className="wall-object-poll__choice-label">{choice.label}</span>
-                <span className="wall-object-poll__result-hero" aria-label={`${percent} percent`}>
-                  {percent}%
-                </span>
-              </div>
-            );
-          }
 
           if (showResults) {
             return (
