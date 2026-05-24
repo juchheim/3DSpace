@@ -375,7 +375,14 @@ export function WallObjectContent({
 
   if ((object.type === "image.file" || object.type === "video.file") && assetUrl) {
     if (object.type === "image.file") {
-      return <img src={assetUrl} alt={object.title} />;
+      return (
+        <img
+          src={assetUrl}
+          alt={object.title}
+          decoding="async"
+          className={surface ? "wall-object-board-image" : undefined}
+        />
+      );
     }
     if (surface) {
       return <video src={assetUrl} autoPlay playsInline muted loop className="wall-object-card__media-fill" />;

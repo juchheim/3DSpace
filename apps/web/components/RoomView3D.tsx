@@ -38,14 +38,16 @@ import type { ParticipantView } from "./RoomClient";
 import { BlockyAvatar } from "./BlockyAvatar";
 import { RoomObjectsLayer } from "./RoomObjectsLayer";
 import { WallObjectCard } from "./WallObjectCard";
+import {
+  useWallObjectHtmlResolutionScale,
+  WALL_OBJECT_DISTANCE_FACTOR,
+  wallObjectSurfacePixelSize
+} from "../lib/wallObjectSurface";
 
 type Wall = z.infer<typeof WallPlaneSchema>;
 type Anchor = z.infer<typeof WallAnchorSchema>;
 type ConstrainedPlacement = Pick<WallObjectPlacement, "x" | "y" | "width" | "height" | "zIndex" | "fit">;
 type WallObjectSurfaceStyle = CSSProperties & { "--wall-surface-font-size": string };
-
-// drei Html transform sizing: worldMeters = px * distanceFactor / 400
-const WALL_OBJECT_DISTANCE_FACTOR = 8;
 const WALL_OBJECT_SURFACE_OFFSET = 0.045;
 const WALL_OBJECT_LAYER_OFFSET = 0.002;
 const PRIVATE_CHECK_SURFACE_OFFSET = 0.038;
@@ -261,6 +263,7 @@ export function RoomView3D({
           wallMediaStreams={wallMediaStreams}
           canManageWallObjects={canManageWallObjects}
           currentUserId={currentUserId}
+          quality={quality}
           {...(onWallObjectControl ? { onWallObjectControl } : {})}
           {...(onWallObjectRemove ? { onWallObjectRemove } : {})}
           {...(onWallObjectStopShare ? { onWallObjectStopShare } : {})}
@@ -505,6 +508,7 @@ function WallObjectLayer({
   wallMediaStreams,
   canManageWallObjects,
   currentUserId,
+  quality,
   onWallObjectControl,
   onWallObjectRemove,
   onWallObjectStopShare,
@@ -517,6 +521,7 @@ function WallObjectLayer({
   wallMediaStreams: Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>;
   canManageWallObjects: boolean;
   currentUserId?: string | undefined;
+  quality: QualityLevel;
   onWallObjectControl?: (
     objectId: string,
     action: "play" | "pause" | "mute" | "unmute" | "seek" | "vote" | "close-poll" | "reopen-poll",
@@ -545,6 +550,7 @@ function WallObjectLayer({
               audioStream={wallMediaStreams[object.id]?.audioStream}
               canManage={canManageWallObjects}
               currentUserId={currentUserId}
+              quality={quality}
               {...(onWallObjectControl ? { onControl: onWallObjectControl } : {})}
               {...(onWallObjectRemove ? { onRemove: onWallObjectRemove } : {})}
               {...(onWallObjectStopShare ? { onStopShare: onWallObjectStopShare } : {})}
@@ -565,6 +571,7 @@ const WallObjectSurface = memo(function WallObjectSurface({
   audioStream,
   canManage,
   currentUserId,
+  quality,
   onControl,
   onRemove,
   onStopShare,
@@ -578,6 +585,7 @@ const WallObjectSurface = memo(function WallObjectSurface({
   audioStream?: MediaStream | null | undefined;
   canManage: boolean;
   currentUserId?: string | undefined;
+  quality: QualityLevel;
   onControl?: (
     objectId: string,
     action: "play" | "pause" | "mute" | "unmute" | "seek" | "vote" | "close-poll" | "reopen-poll",
@@ -602,15 +610,22 @@ const WallObjectSurface = memo(function WallObjectSurface({
   const hideHeader = anchor.metadata?.hideObjectHeader === true;
   const surfaceWidth = placement.width * anchor.width;
   const surfaceHeight = placement.height * anchor.height;
+  const htmlResolutionScale = useWallObjectHtmlResolutionScale(quality);
   const surfaceStyle = useMemo<WallObjectSurfaceStyle>(() => {
-    const widthPx = (surfaceWidth * 400) / WALL_OBJECT_DISTANCE_FACTOR;
-    const heightPx = (surfaceHeight * 400) / WALL_OBJECT_DISTANCE_FACTOR;
+    const { widthPx, heightPx, baseHeightPx } = wallObjectSurfacePixelSize(surfaceWidth, surfaceHeight, htmlResolutionScale);
     return {
       width: `${widthPx}px`,
       height: `${heightPx}px`,
-      "--wall-surface-font-size": `${clamp(heightPx * 0.28, 20, 96)}px`
+      "--wall-surface-font-size": `${clamp(baseHeightPx * 0.28, 20, 96) * htmlResolutionScale}px`
     };
-  }, [surfaceHeight, surfaceWidth]);
+  }, [htmlResolutionScale, surfaceHeight, surfaceWidth]);
+  const mountStyle = useMemo<CSSProperties>(
+    () => ({
+      transform: `scale(${1 / htmlResolutionScale})`,
+      transformOrigin: "center center"
+    }),
+    [htmlResolutionScale]
+  );
   const position = useMemo<[number, number, number]>(() => {
     const xOffset = (placement.x + placement.width / 2 - 0.5) * anchor.width;
     const yOffset = (0.5 - (placement.y + placement.height / 2)) * anchor.height;
@@ -632,7 +647,7 @@ const WallObjectSurface = memo(function WallObjectSurface({
         style={surfaceStyle}
         zIndexRange={[200, 0]}
       >
-        <div className="wall-object-surface-mount">
+        <div className="wall-object-surface-mount" style={mountStyle}>
           <WallObjectCard
             object={object}
             assetUrl={assetUrl}

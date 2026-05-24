@@ -52,7 +52,7 @@ Implementation state: **MVP complete in production** (Vercel + Koyeb + Atlas + C
 - Session join rate limit (`SESSION_JOIN_RATE_LIMIT_PER_MINUTE`, default 20) → `429 rate_limited`
 - Wall attachment records + signed upload/download URLs
 - Production strict env validation (fails fast on missing secrets)
-- MVP+1 wall objects: file-backed image/video/audio placement, live camera/mic/screen share intents, web links/allowlisted embeds, notes, polls, timers, moderation, policy defaults, realtime sync, 3D and 2D rendering.
+- MVP+1 wall objects: file-backed image/video/audio placement, live camera/mic/screen share intents, web links/allowlisted embeds, notes, polls, timers, moderation, policy defaults, realtime sync, 3D and 2D rendering. Board images in 3D use Html overlay resolution scaling (`apps/web/lib/wallObjectSurface.ts`) — DOM rasterizes at 1.75–3× device pixel ratio (quality-aware) with inverse CSS scale so world size is unchanged but images are sharper.
 
 ## Environment Variables
 

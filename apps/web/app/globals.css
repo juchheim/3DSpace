@@ -2440,6 +2440,10 @@ button.hud-heading-btn:hover {
   aspect-ratio: auto;
 }
 
+.wall-object-card--surface .wall-object-board-image {
+  image-rendering: auto;
+}
+
 .wall-object-card__media audio {
   display: block;
   width: 100%;
