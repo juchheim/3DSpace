@@ -12,7 +12,6 @@ import {
   Matrix4,
   RepeatWrapping,
   SRGBColorSpace,
-  PlaneGeometry,
   Texture,
   TextureLoader,
   type MeshStandardMaterial,
@@ -1154,9 +1153,8 @@ function wallOpacityFromCameraDistance(signedDistance: number) {
 const WALL_PANEL_INSET = 0.06;
 
 /**
- * Orients a wall panel with +Z into the room (front face visible from inside).
- * Uses a proper basis (x×y = inward). When that forces local +X opposite start→end,
- * flip mesh UVs (not texture repeat) so panorama U runs start→end without mirroring text.
+ * Orients a wall panel: local +X along start→end, +Y up, +Z into the room.
+ * Back/left use an improper basis (x×y ≠ inward); panoramaWall UV flips correct that without mirroring seams.
  */
 function wallPanelTransform(wall: Wall, plane: WallPlane) {
   const length = Math.hypot(wall.end.x - wall.start.x, wall.end.z - wall.start.z);
@@ -1167,41 +1165,54 @@ function wallPanelTransform(wall: Wall, plane: WallPlane) {
   const yAxis = new Vector3(0, 1, 0);
   const inward = plane.normal.clone().normalize();
   let xAxis = new Vector3().crossVectors(inward, yAxis).normalize();
-  // Proper rotation (x×y = inward) so the front face is not mirrored.
-  if (xAxis.clone().cross(yAxis).dot(inward) < 0) {
-    xAxis.negate();
-  }
+  if (xAxis.dot(tangent) < 0) xAxis.negate();
 
   const rotation = new Euler().setFromRotationMatrix(
     new Matrix4().makeBasis(xAxis, yAxis, inward)
   );
   const position = plane.point.clone().add(inward.multiplyScalar(WALL_PANEL_INSET));
-  const flipGeometryU = xAxis.dot(tangent) < 0;
 
   return {
     length,
     position: [position.x, position.y, position.z] as const,
     rotation: [rotation.x, rotation.y, rotation.z] as const,
-    flipGeometryU
+    ...panoramaUvFlips(wall.id)
   };
 }
 
-function flipPlaneGeometryU(geometry: PlaneGeometry) {
-  const uv = geometry.getAttribute("uv");
-  if (!uv) return;
-  for (let i = 0; i < uv.count; i++) {
-    uv.setX(i, 1 - uv.getX(i));
+/** Per-wall panorama UV correction — see WORLD_SKIN_PANORAMA_SPEC.md unwrap directions. */
+function panoramaUvFlips(wallId: string): { flipU: boolean; flipV: boolean } {
+  if (wallId.startsWith("wall-back")) {
+    return { flipU: true, flipV: false };
   }
-  uv.needsUpdate = true;
+  if (wallId === "wall-left") {
+    return { flipU: false, flipV: true };
+  }
+  return { flipU: false, flipV: false };
 }
 
 function applyPanoramaSlice(
   texture: Texture,
   slice: { u0: number; u1: number },
-  verticalRepeat: number
+  verticalRepeat: number,
+  flipU: boolean,
+  flipV: boolean
 ) {
-  texture.offset.set(slice.u0, 0);
-  texture.repeat.set(slice.u1 - slice.u0, verticalRepeat);
+  const uSpan = slice.u1 - slice.u0;
+  let uOffset = slice.u0;
+  let uRepeat = uSpan;
+  let vOffset = 0;
+  let vRepeat = verticalRepeat;
+  if (flipU) {
+    uRepeat = -uSpan;
+    uOffset = slice.u1;
+  }
+  if (flipV) {
+    vRepeat = -verticalRepeat;
+    vOffset = verticalRepeat;
+  }
+  texture.offset.set(uOffset, vOffset);
+  texture.repeat.set(uRepeat, vRepeat);
 }
 
 function panoramaVerticalRepeat(wallHeight: number, maxWorldHeight: number) {
@@ -1327,23 +1338,14 @@ function WallMesh({
     if (!panoramaTexture || !slice) return null;
     const t = panoramaTexture.clone();
     t.needsUpdate = true;
-    applyPanoramaSlice(t, slice, verticalRepeat);
+    applyPanoramaSlice(t, slice, verticalRepeat, panel.flipU, panel.flipV);
     return t;
-  }, [panoramaTexture, slice?.u0, slice?.u1, verticalRepeat]);
-
-  const wallGeometry = useMemo(() => {
-    const geometry = new PlaneGeometry(panel.length, wall.height);
-    if (panel.flipGeometryU) flipPlaneGeometryU(geometry);
-    return geometry;
-  }, [panel.length, panel.flipGeometryU, wall.height]);
+  }, [panoramaTexture, panel.flipU, panel.flipV, slice?.u0, slice?.u1, verticalRepeat]);
 
   // Dispose the per-wall clone when it's replaced or the component unmounts.
   useEffect(() => {
-    return () => {
-      wallTexture?.dispose();
-      wallGeometry.dispose();
-    };
-  }, [wallTexture, wallGeometry]);
+    return () => { wallTexture?.dispose(); };
+  }, [wallTexture]);
 
   useFrame(() => {
     const material = materialRef.current;
@@ -1360,7 +1362,8 @@ function WallMesh({
   const baseColor = skinWallColor ?? (wallTexture ? "#ffffff" : "#8ea487");
 
   return (
-    <mesh position={panel.position} rotation={panel.rotation} geometry={wallGeometry}>
+    <mesh position={panel.position} rotation={panel.rotation}>
+      <planeGeometry args={[panel.length, wall.height]} />
       <meshStandardMaterial
         ref={materialRef}
         color={baseColor}
