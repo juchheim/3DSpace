@@ -12,6 +12,7 @@ import {
   Matrix4,
   RepeatWrapping,
   SRGBColorSpace,
+  PlaneGeometry,
   Texture,
   TextureLoader,
   type MeshStandardMaterial,
@@ -1153,8 +1154,9 @@ function wallOpacityFromCameraDistance(signedDistance: number) {
 const WALL_PANEL_INSET = 0.06;
 
 /**
- * Orients a wall panel with +Z into the room and panorama U along start→end.
- * When a proper basis requires local +X to oppose tangent, flip U once (not per-wall hacks).
+ * Orients a wall panel with +Z into the room (front face visible from inside).
+ * Uses a proper basis (x×y = inward). When that forces local +X opposite start→end,
+ * flip mesh UVs (not texture repeat) so panorama U runs start→end without mirroring text.
  */
 function wallPanelTransform(wall: Wall, plane: WallPlane) {
   const length = Math.hypot(wall.end.x - wall.start.x, wall.end.z - wall.start.z);
@@ -1174,39 +1176,31 @@ function wallPanelTransform(wall: Wall, plane: WallPlane) {
     new Matrix4().makeBasis(xAxis, yAxis, inward)
   );
   const position = plane.point.clone().add(inward.multiplyScalar(WALL_PANEL_INSET));
-  const flipU = xAxis.dot(tangent) < 0;
+  const flipGeometryU = xAxis.dot(tangent) < 0;
 
   return {
     length,
     position: [position.x, position.y, position.z] as const,
     rotation: [rotation.x, rotation.y, rotation.z] as const,
-    flipU,
-    flipV: false
+    flipGeometryU
   };
+}
+
+function flipPlaneGeometryU(geometry: PlaneGeometry) {
+  const uv = geometry.attributes.uv;
+  for (let i = 0; i < uv.count; i++) {
+    uv.setX(i, 1 - uv.getX(i));
+  }
+  uv.needsUpdate = true;
 }
 
 function applyPanoramaSlice(
   texture: Texture,
   slice: { u0: number; u1: number },
-  verticalRepeat: number,
-  flipU: boolean,
-  flipV: boolean
+  verticalRepeat: number
 ) {
-  const uSpan = slice.u1 - slice.u0;
-  let uOffset = slice.u0;
-  let uRepeat = uSpan;
-  let vOffset = 0;
-  let vRepeat = verticalRepeat;
-  if (flipU) {
-    uRepeat = -uSpan;
-    uOffset = slice.u1;
-  }
-  if (flipV) {
-    vRepeat = -verticalRepeat;
-    vOffset = verticalRepeat;
-  }
-  texture.offset.set(uOffset, vOffset);
-  texture.repeat.set(uRepeat, vRepeat);
+  texture.offset.set(slice.u0, 0);
+  texture.repeat.set(slice.u1 - slice.u0, verticalRepeat);
 }
 
 function panoramaVerticalRepeat(wallHeight: number, maxWorldHeight: number) {
@@ -1332,14 +1326,23 @@ function WallMesh({
     if (!panoramaTexture || !slice) return null;
     const t = panoramaTexture.clone();
     t.needsUpdate = true;
-    applyPanoramaSlice(t, slice, verticalRepeat, panel.flipU, panel.flipV);
+    applyPanoramaSlice(t, slice, verticalRepeat);
     return t;
-  }, [panoramaTexture, panel.flipU, panel.flipV, slice?.u0, slice?.u1, verticalRepeat]);
+  }, [panoramaTexture, slice?.u0, slice?.u1, verticalRepeat]);
+
+  const wallGeometry = useMemo(() => {
+    const geometry = new PlaneGeometry(panel.length, wall.height);
+    if (panel.flipGeometryU) flipPlaneGeometryU(geometry);
+    return geometry;
+  }, [panel.length, panel.flipGeometryU, wall.height]);
 
   // Dispose the per-wall clone when it's replaced or the component unmounts.
   useEffect(() => {
-    return () => { wallTexture?.dispose(); };
-  }, [wallTexture]);
+    return () => {
+      wallTexture?.dispose();
+      wallGeometry.dispose();
+    };
+  }, [wallTexture, wallGeometry]);
 
   useFrame(() => {
     const material = materialRef.current;
@@ -1356,8 +1359,7 @@ function WallMesh({
   const baseColor = skinWallColor ?? (wallTexture ? "#ffffff" : "#8ea487");
 
   return (
-    <mesh position={panel.position} rotation={panel.rotation}>
-      <planeGeometry args={[panel.length, wall.height]} />
+    <mesh position={panel.position} rotation={panel.rotation} geometry={wallGeometry}>
       <meshStandardMaterial
         ref={materialRef}
         color={baseColor}
