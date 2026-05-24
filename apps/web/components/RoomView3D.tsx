@@ -1171,11 +1171,14 @@ function wallPanelTransform(wall: Wall, plane: WallPlane) {
     new Matrix4().makeBasis(xAxis, yAxis, inward)
   );
   const position = plane.point.clone().add(inward.multiplyScalar(WALL_PANEL_INSET));
+  // When x×y ≠ inward (improper basis), panorama V is inverted on the front face.
+  const flipPanoramaV = xAxis.clone().cross(yAxis).dot(inward) < 0;
 
   return {
     length,
     position: [position.x, position.y, position.z] as const,
-    rotation: [rotation.x, rotation.y, rotation.z] as const
+    rotation: [rotation.x, rotation.y, rotation.z] as const,
+    flipPanoramaV
   };
 }
 
@@ -1302,10 +1305,15 @@ function WallMesh({
     if (!panoramaTexture || !slice) return null;
     const t = panoramaTexture.clone();
     t.needsUpdate = true;
-    t.offset.set(slice.u0, 0);
-    t.repeat.set(slice.u1 - slice.u0, verticalRepeat);
+    if (panel.flipPanoramaV) {
+      t.offset.set(slice.u0, verticalRepeat);
+      t.repeat.set(slice.u1 - slice.u0, -verticalRepeat);
+    } else {
+      t.offset.set(slice.u0, 0);
+      t.repeat.set(slice.u1 - slice.u0, verticalRepeat);
+    }
     return t;
-  }, [panoramaTexture, slice?.u0, slice?.u1, verticalRepeat]);
+  }, [panoramaTexture, panel.flipPanoramaV, slice?.u0, slice?.u1, verticalRepeat]);
 
   // Dispose the per-wall clone when it's replaced or the component unmounts.
   useEffect(() => {
