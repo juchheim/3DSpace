@@ -2312,7 +2312,12 @@ button.hud-heading-btn:hover {
 .wall-object-card--compact {
   width: 100%;
   min-width: 0;
+  overflow: hidden;
   box-shadow: none;
+}
+
+.wall-object-card--compact > * {
+  min-width: 0;
 }
 
 .wall-object-card--surface {
