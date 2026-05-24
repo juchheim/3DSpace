@@ -45,25 +45,36 @@ export const FRONT_MEDIA_WIDTH = 3.0;
 export const FRONT_MEDIA_CENTER_X = -7.8;
 export const FRONT_MEDIA_CENTER_Y = 1.4;
 
-/** Left resource rail — aligned to default-theater `panorama.webp` wall-left board frame. */
-export const LEFT_RESOURCE_RAIL_WIDTH = 9.9;
-export const LEFT_RESOURCE_RAIL_HEIGHT = 5.55;
+/** Baseline width for side/back secondary boards before per-anchor scaling. */
+const SECONDARY_BOARD_BASE_WIDTH = 10.8;
+/** Additional height trim applied after 16:9 sizing. */
+const SECONDARY_BOARD_HEIGHT_SCALE = 0.95;
+/** Extra height trim for left/right resource rails only. */
+const RESOURCE_RAIL_HEIGHT_SCALE = 0.95;
+/** Additional height trim for the right resource rail only. */
+const RIGHT_RESOURCE_RAIL_EXTRA_HEIGHT_SCALE = 0.97;
+/** Small reposition nudge (m) — along-wall left uses multiples of this from inside the room. */
+const RESOURCE_RAIL_NUDGE_UP = 0.2;
+const RESOURCE_RAIL_NUDGE_ALONG = RESOURCE_RAIL_NUDGE_UP;
+
+/** Left resource rail — 5% smaller than baseline. */
+export const LEFT_RESOURCE_RAIL_WIDTH = SECONDARY_BOARD_BASE_WIDTH * 0.95;
+export const LEFT_RESOURCE_RAIL_HEIGHT =
+  widescreenHeight(LEFT_RESOURCE_RAIL_WIDTH) * SECONDARY_BOARD_HEIGHT_SCALE * RESOURCE_RAIL_HEIGHT_SCALE;
 export const LEFT_RESOURCE_RAIL_CENTER_X = -14.92;
-export const LEFT_RESOURCE_RAIL_CENTER_Y = 4.49;
-export const LEFT_RESOURCE_RAIL_CENTER_Z = 1.08;
+export const LEFT_RESOURCE_RAIL_CENTER_Y = 4.4 + RESOURCE_RAIL_NUDGE_UP;
+export const LEFT_RESOURCE_RAIL_CENTER_Z = -1 - 2 * RESOURCE_RAIL_NUDGE_ALONG;
 
-/** Right resource rail — aligned to default-theater `panorama.webp` wall-right board frame. */
-export const RIGHT_RESOURCE_RAIL_WIDTH = 9.18;
-export const RIGHT_RESOURCE_RAIL_HEIGHT = 4.95;
+/** Right resource rail and back display — 10% smaller than baseline. */
+export const SECONDARY_BOARD_WIDTH = SECONDARY_BOARD_BASE_WIDTH * 0.9;
+export const SECONDARY_BOARD_HEIGHT = widescreenHeight(SECONDARY_BOARD_WIDTH) * SECONDARY_BOARD_HEIGHT_SCALE;
+export const RIGHT_RESOURCE_RAIL_HEIGHT =
+  SECONDARY_BOARD_HEIGHT * RESOURCE_RAIL_HEIGHT_SCALE * RIGHT_RESOURCE_RAIL_EXTRA_HEIGHT_SCALE;
 export const RIGHT_RESOURCE_RAIL_CENTER_X = 14.92;
-export const RIGHT_RESOURCE_RAIL_CENTER_Y = 4.57;
-export const RIGHT_RESOURCE_RAIL_CENTER_Z = 5;
-
-/** Back display — aligned to default-theater `panorama.webp` back-wall board frame. */
-export const BACK_DISPLAY_WIDTH = 9.57;
-export const BACK_DISPLAY_HEIGHT = 5.22;
-export const BACK_DISPLAY_CENTER_X = -6.63;
-export const BACK_DISPLAY_CENTER_Y = 4.34;
+export const RIGHT_RESOURCE_RAIL_CENTER_Y = 4.4 + RESOURCE_RAIL_NUDGE_UP;
+export const RIGHT_RESOURCE_RAIL_CENTER_Z = 1 + 3 * RESOURCE_RAIL_NUDGE_ALONG;
+export const BACK_DISPLAY_CENTER_X = 0;
+export const BACK_DISPLAY_CENTER_Y = 4.3;
 export const BACK_DISPLAY_CENTER_Z = 14.92;
 
 export function widescreenHeight(width: number): number {
@@ -232,8 +243,8 @@ export function createDefaultRoomManifest(input: {
         label: "Back display",
         position: { x: BACK_DISPLAY_CENTER_X, y: BACK_DISPLAY_CENTER_Y, z: BACK_DISPLAY_CENTER_Z },
         normal: { x: 0, y: 0, z: -1 },
-        width: BACK_DISPLAY_WIDTH,
-        height: BACK_DISPLAY_HEIGHT,
+        width: SECONDARY_BOARD_WIDTH,
+        height: SECONDARY_BOARD_HEIGHT,
         metadata: {
           accepts: ["image", "video", "audio", "image.file", "video.file", "audio.file", "camera.live", "screen.live", "browser-tab.live", "web.link", "note", "poll", "timer"],
           capacity: 4,
@@ -264,7 +275,7 @@ export function createDefaultRoomManifest(input: {
         label: "Right resource rail",
         position: { x: RIGHT_RESOURCE_RAIL_CENTER_X, y: RIGHT_RESOURCE_RAIL_CENTER_Y, z: RIGHT_RESOURCE_RAIL_CENTER_Z },
         normal: { x: -1, y: 0, z: 0 },
-        width: RIGHT_RESOURCE_RAIL_WIDTH,
+        width: SECONDARY_BOARD_WIDTH,
         height: RIGHT_RESOURCE_RAIL_HEIGHT,
         metadata: {
           accepts: ["image", "image.file", "document.file", "slides.file", "web.link", "note", "poll", "timer"],

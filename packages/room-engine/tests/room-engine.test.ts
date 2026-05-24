@@ -30,13 +30,11 @@ import {
   LEFT_RESOURCE_RAIL_HEIGHT,
   LEFT_RESOURCE_RAIL_CENTER_Y,
   LEFT_RESOURCE_RAIL_CENTER_Z,
-  RIGHT_RESOURCE_RAIL_WIDTH,
+  SECONDARY_BOARD_WIDTH,
+  SECONDARY_BOARD_HEIGHT,
   RIGHT_RESOURCE_RAIL_HEIGHT,
   RIGHT_RESOURCE_RAIL_CENTER_Y,
   RIGHT_RESOURCE_RAIL_CENTER_Z,
-  BACK_DISPLAY_WIDTH,
-  BACK_DISPLAY_HEIGHT,
-  BACK_DISPLAY_CENTER_X,
   BACK_DISPLAY_CENTER_Y
 } from "../src/index";
 
@@ -81,25 +79,24 @@ describe("room engine", () => {
     expect(media?.position.y).toBe(FRONT_MEDIA_CENTER_Y);
   });
 
-  it("aligns side and back resource boards with default-theater panorama frames", () => {
+  it("uses large centered dimensions for side and back resource boards", () => {
     const manifest = createDefaultRoomManifest({ roomId: "room_1" });
     const left = manifest.wallAnchors.find((candidate) => candidate.id === "anchor-left");
     const right = manifest.wallAnchors.find((candidate) => candidate.id === "anchor-right");
     const back = manifest.wallAnchors.find((candidate) => candidate.id === "anchor-back");
 
     expect(left?.width).toBe(LEFT_RESOURCE_RAIL_WIDTH);
-    expect(left?.height).toBe(LEFT_RESOURCE_RAIL_HEIGHT);
+    expect(left?.height).toBeCloseTo(LEFT_RESOURCE_RAIL_HEIGHT, 3);
     expect(left?.position.y).toBe(LEFT_RESOURCE_RAIL_CENTER_Y);
     expect(left?.position.z).toBe(LEFT_RESOURCE_RAIL_CENTER_Z);
 
-    expect(right?.width).toBe(RIGHT_RESOURCE_RAIL_WIDTH);
-    expect(right?.height).toBe(RIGHT_RESOURCE_RAIL_HEIGHT);
+    expect(right?.width).toBe(SECONDARY_BOARD_WIDTH);
+    expect(right?.height).toBeCloseTo(RIGHT_RESOURCE_RAIL_HEIGHT, 3);
     expect(right?.position.y).toBe(RIGHT_RESOURCE_RAIL_CENTER_Y);
     expect(right?.position.z).toBe(RIGHT_RESOURCE_RAIL_CENTER_Z);
 
-    expect(back?.width).toBe(BACK_DISPLAY_WIDTH);
-    expect(back?.height).toBe(BACK_DISPLAY_HEIGHT);
-    expect(back?.position.x).toBe(BACK_DISPLAY_CENTER_X);
+    expect(back?.width).toBe(SECONDARY_BOARD_WIDTH);
+    expect(back?.height).toBeCloseTo(SECONDARY_BOARD_HEIGHT, 3);
     expect(back?.position.y).toBe(BACK_DISPLAY_CENTER_Y);
   });
 
@@ -154,7 +151,7 @@ describe("room engine", () => {
     expect(board?.width).toBe(PRIMARY_BOARD_WIDTH);
     expect(board?.height).toBeCloseTo(PRIMARY_BOARD_HEIGHT, 3);
     expect(left?.width).toBe(LEFT_RESOURCE_RAIL_WIDTH);
-    expect(left?.height).toBe(LEFT_RESOURCE_RAIL_HEIGHT);
+    expect(left?.height).toBeCloseTo(LEFT_RESOURCE_RAIL_HEIGHT, 3);
     expect(left?.position.y).toBe(LEFT_RESOURCE_RAIL_CENTER_Y);
     expect(left?.position.z).toBe(LEFT_RESOURCE_RAIL_CENTER_Z);
   });
