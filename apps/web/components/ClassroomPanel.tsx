@@ -206,6 +206,44 @@ export function ClassroomPanel({
             </div>
           ) : null}
         </HudCard>
+        {CLIENT_TUNING.enableStudentMediaPermissions ? (
+          <HudCard title="Student media" ariaLabel="Student media permissions" defaultCollapsed>
+            <div className="classroom-help-meta">
+              <span className="classroom-help-name">All cameras</span>
+              <div className="classroom-help-actions">
+                <span className={`tag${state?.studentMediaRuntime?.camerasEnabled !== false ? " active" : ""}`}>
+                  {state?.studentMediaRuntime?.camerasEnabled !== false ? "on" : "off"}
+                </span>
+                <button
+                  type="button"
+                  className="hud-btn"
+                  disabled={busy === "global-camera"}
+                  data-testid="media-global-camera"
+                  onClick={() => void run("global-camera", { type: "set-student-media-global", medium: "camera", enabled: state?.studentMediaRuntime?.camerasEnabled === false })}
+                >
+                  {state?.studentMediaRuntime?.camerasEnabled === false ? "Allow all" : "Mute all"}
+                </button>
+              </div>
+            </div>
+            <div className="classroom-help-meta">
+              <span className="classroom-help-name">All mics</span>
+              <div className="classroom-help-actions">
+                <span className={`tag${state?.studentMediaRuntime?.microphonesEnabled !== false ? " active" : ""}`}>
+                  {state?.studentMediaRuntime?.microphonesEnabled !== false ? "on" : "off"}
+                </span>
+                <button
+                  type="button"
+                  className="hud-btn"
+                  disabled={busy === "global-mic"}
+                  data-testid="media-global-mic"
+                  onClick={() => void run("global-mic", { type: "set-student-media-global", medium: "microphone", enabled: state?.studentMediaRuntime?.microphonesEnabled === false })}
+                >
+                  {state?.studentMediaRuntime?.microphonesEnabled === false ? "Allow all" : "Mute all"}
+                </button>
+              </div>
+            </div>
+          </HudCard>
+        ) : null}
         {CLIENT_TUNING.enableWhisper ? (
           <HudCard title="Whisper" ariaLabel="Whisper settings" defaultCollapsed>
             {error ? <p className="small" style={{ color: "var(--hud-tx-warn, #c08010)" }}>{error}</p> : null}

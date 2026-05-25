@@ -58,7 +58,6 @@ export function BoardAccessSidePanel({
     >
       <div className="student-detail-header">
         <div className="classroom-grant-header" style={{ flex: 1 }}>
-          <span>Grant board access</span>
           <span>{displayName}</span>
         </div>
         <button type="button" className="student-detail-close" aria-label="Close" onClick={onClose}>
