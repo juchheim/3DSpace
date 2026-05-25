@@ -6,11 +6,10 @@ import { memo, Suspense, useEffect, useMemo, useRef, useState, type CSSPropertie
 import {
   BufferAttribute,
   BufferGeometry,
-  BackSide,
   ClampToEdgeWrapping,
   DoubleSide,
+  PlaneGeometry,
   RepeatWrapping,
-  SphereGeometry,
   SRGBColorSpace,
   Texture,
   TextureLoader,
@@ -1269,8 +1268,26 @@ function panoramaVerticalRepeat(wallHeight: number, maxWorldHeight: number) {
   return Math.min(1, wallHeight / maxWorldHeight);
 }
 
+function createSquareDomeGeometry(segments = 72) {
+  const geometry = new PlaneGeometry(2, 2, segments, segments);
+  const positions = geometry.getAttribute("position") as BufferAttribute;
+
+  for (let i = 0; i < positions.count; i += 1) {
+    const nx = positions.getX(i);
+    const nz = positions.getY(i);
+    const edgeDistance = Math.max(Math.abs(nx), Math.abs(nz));
+    const domeT = Math.max(0, 1 - edgeDistance);
+    const bubble = domeT * domeT * (3 - 2 * domeT);
+    positions.setXYZ(i, nx, bubble, nz);
+  }
+
+  positions.needsUpdate = true;
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 function domeCeilingScale(roomWidth: number, roomDepth: number): [number, number, number] {
-  const overhang = 0.35;
+  const overhang = 0.15;
   const domeRise = Math.max(10, Math.min(roomWidth, roomDepth) * 0.42);
   return [roomWidth / 2 + overhang, domeRise, roomDepth / 2 + overhang];
 }
@@ -1290,7 +1307,7 @@ function DomeCeilingMesh({
   const [texture, setTexture] = useState<Texture | null>(null);
   const domeScale = useMemo(() => domeCeilingScale(roomWidth, roomDepth), [roomDepth, roomWidth]);
   const geometry = useMemo(
-    () => new SphereGeometry(1, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2),
+    () => createSquareDomeGeometry(),
     []
   );
 
@@ -1359,7 +1376,7 @@ function DomeCeilingMesh({
     <mesh geometry={geometry} position={[0, wallHeight, 0]} scale={domeScale}>
       <meshBasicMaterial
         map={texture}
-        side={BackSide}
+        side={DoubleSide}
         transparent={false}
         toneMapped={false}
       />
