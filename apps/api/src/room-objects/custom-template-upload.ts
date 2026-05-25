@@ -17,7 +17,7 @@ const ALLOWED_GLB_EXTENSIONS = new Set([
   "KHR_texture_transform",
   "KHR_mesh_quantization"
 ]);
-const ROOM_OBJECT_MAX_TRIANGLES = 50_000;
+const ROOM_OBJECT_MAX_TRIANGLES = 100_000;
 const ROOM_OBJECT_MAX_TEXTURE_DIMENSION = 2048;
 const GLB_MAGIC = 0x46546c67;
 const GLB_JSON_CHUNK_TYPE = 0x4e4f534a;
@@ -137,6 +137,10 @@ function countDocumentTriangles(document: Awaited<ReturnType<NodeIO["readBinary"
   }, 0);
 }
 
+function triangleBudgetLabel(maxTriangles: number) {
+  return `${Math.round(maxTriangles / 1_000)}k`;
+}
+
 function validateEmbeddedTextureSizes(document: Awaited<ReturnType<NodeIO["readBinary"]>>) {
   for (const texture of document.getRoot().listTextures()) {
     const image = texture.getImage();
@@ -178,11 +182,14 @@ export async function validateCustomRoomObjectAsset(input: {
     const document = await (await createNodeIo()).readBinary(new Uint8Array(input.bytes));
     const triangleCount = countDocumentTriangles(document);
     if (triangleCount > ROOM_OBJECT_MAX_TRIANGLES) {
-      throw roomObjectUploadRejected("Uploaded .glb exceeds the 50k triangle budget.", {
+      throw roomObjectUploadRejected(
+        `Uploaded .glb has ${triangleCount.toLocaleString()} triangles, which exceeds the ${triangleBudgetLabel(ROOM_OBJECT_MAX_TRIANGLES)} triangle budget.`,
+        {
         reason: "triangle_budget_exceeded",
         triangleCount,
         maxTriangleCount: ROOM_OBJECT_MAX_TRIANGLES
-      });
+        }
+      );
     }
     validateEmbeddedTextureSizes(document);
     return { fileSizeBytes, triangleCount };

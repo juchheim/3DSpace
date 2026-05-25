@@ -47,6 +47,18 @@ export class ApiError extends Error {
   }
 }
 
+function roomObjectUploadErrorMessage(error: ApiError) {
+  const details = error.details;
+  if (error.code === "room-object-upload-rejected" && details?.reason === "triangle_budget_exceeded") {
+    const triangleCount = Number(details.triangleCount);
+    const maxTriangleCount = Number(details.maxTriangleCount);
+    if (Number.isFinite(triangleCount) && Number.isFinite(maxTriangleCount)) {
+      return `Uploaded .glb has ${triangleCount.toLocaleString()} triangles; the current limit is ${maxTriangleCount.toLocaleString()}.`;
+    }
+  }
+  return error.message;
+}
+
 type RequestOptions = {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
@@ -385,21 +397,28 @@ export async function uploadRoomObjectGlb(
   });
   await uploadFileToTarget(thumbnailUpload.upload, input.thumbnailFile);
 
-  return createRoomObjectTemplate(identity, {
-    roomId: input.roomId,
-    assetStorageKey: assetUpload.storageKey,
-    thumbnailStorageKey: thumbnailUpload.storageKey,
-    slug: buildCustomRoomObjectSlug(input.displayName),
-    displayName: input.displayName,
-    category: input.category ?? "custom",
-    description: input.description ?? "",
-    defaultScale: 1,
-    defaultParameters: {},
-    parameterSchemaJson: "{}",
-    license: input.license,
-    attribution: input.attribution,
-    exportable: true
-  });
+  try {
+    return await createRoomObjectTemplate(identity, {
+      roomId: input.roomId,
+      assetStorageKey: assetUpload.storageKey,
+      thumbnailStorageKey: thumbnailUpload.storageKey,
+      slug: buildCustomRoomObjectSlug(input.displayName),
+      displayName: input.displayName,
+      category: input.category ?? "custom",
+      description: input.description ?? "",
+      defaultScale: 1,
+      defaultParameters: {},
+      parameterSchemaJson: "{}",
+      license: input.license,
+      attribution: input.attribution,
+      exportable: true
+    });
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw new Error(roomObjectUploadErrorMessage(error));
+    }
+    throw error;
+  }
 }
 
 export function listRoomObjects(identity: ApiIdentity, roomId: string, options?: { status?: RoomObject["status"] | undefined }) {

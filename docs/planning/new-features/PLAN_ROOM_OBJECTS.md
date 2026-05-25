@@ -117,7 +117,7 @@ Internal QA and the first district-facing demo use **only the hero** until a sec
 
 Teachers and district admins upload their own `.glb` files via the existing signed-URL R2 pipeline (mirrors `WallAttachment`):
 
-- **Limit:** ≤ 15 MB compressed; ≤ 50k triangles after Draco / meshopt decode; ≤ 8 textures; max texture 2048 × 2048.
+- **Limit:** ≤ 15 MB compressed; ≤ 100k triangles after Draco / meshopt decode; ≤ 8 textures; max texture 2048 × 2048.
 - **Validation:** server-side glTF parse on finalize (`@gltf-transform/core` or `@loaders.gl/gltf` on the Node API). Reject on extension allowlist failure, oversize, or invalid bounding box.
 - **Thumbnail:** teacher uploads a PNG (the importing UI gives a one-click "snapshot current pose" alternative in Phase C via a headless Three.js renderer; v1 requires a teacher-supplied PNG).
 - **Scope:** custom templates are visible to the uploading class only. District admins can promote a custom template to the district allowlist (Phase D).
@@ -166,7 +166,7 @@ Export is a **snapshot of appearance**, not a reusable manipulative template. Re
   ```
 
 - **Validation:** Files produced in-app should pass the same server-side glTF checks as uploaded custom templates (size, extension allowlist, triangle budget) before "Save as class template" is offered.
-- **Limits:** Same caps as upload (≤ 15 MB, ≤ 50k triangles). Composite exports (e.g. merged base-10 stack) may need a pre-export triangle count warning in the UI.
+- **Limits:** Same caps as upload (≤ 15 MB, ≤ 100k triangles). Composite exports (e.g. merged base-10 stack) may need a pre-export triangle count warning in the UI.
 - **Procedural templates:** Export captures the **current parameter state** as geometry (e.g. number line at range −10…10), not the parameter schema. Re-opening that `.glb` elsewhere loses adjustability — document clearly in the inspector.
 
 #### Two delivery modes (pick one at implementation time)
@@ -536,7 +536,7 @@ The single biggest risk is loading 8 × 15 MB `.glb` files on a Chromebook with 
 | --- | --- |
 | Per-template asset size | ≤ 15 MB compressed (Draco-encoded) |
 | Per-room concurrent active objects | ≤ 8 (configurable, hard cap 16) |
-| Per-template triangle count | ≤ 50k triangles after decode |
+| Per-template triangle count | ≤ 100k triangles after decode |
 | Per-template texture count | ≤ 8 textures |
 | Max texture dimension | 2048 × 2048 |
 | Initial load target | All 8 objects rendered ≤ 5 s on baseline Chromebook (Intel N4020 class) over 50 Mbps |

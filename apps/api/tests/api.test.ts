@@ -3331,6 +3331,29 @@ describe("room object templates", () => {
     await app.close();
   });
 
+  it("rejects glbs above the triangle budget and reports the actual count", async () => {
+    const app = await buildApp({ config: roomObjectsConfig(), repository: new MemoryRepository() });
+    const teacherId = "teacher-ro-triangle-budget";
+    const { roomWithManifest } = await createClassAndRoom(app, teacherId);
+    const roomId = roomWithManifest.room.id;
+    await enableRoomObjects(app, roomId, teacherId, { customUploadsEnabled: true });
+
+    const triangleCount = 100_001;
+    const { response } = await createCustomRoomObjectTemplate(app, {
+      roomId,
+      teacherId,
+      glb: await createTinyGlb({ triangleCount })
+    });
+    expect(response.statusCode).toBe(422);
+    expect(response.json().error).toBe("room-object-upload-rejected");
+    expect(response.json().reason).toBe("triangle_budget_exceeded");
+    expect(response.json().triangleCount).toBe(triangleCount);
+    expect(response.json().maxTriangleCount).toBe(100_000);
+    expect(response.json().message).toContain("100,001");
+    expect(response.json().message).toContain("100k triangle budget");
+    await app.close();
+  });
+
   it("rejects glbs with disallowed extensions", async () => {
     const app = await buildApp({ config: roomObjectsConfig(), repository: new MemoryRepository() });
     const teacherId = "teacher-ro-bad-ext";
