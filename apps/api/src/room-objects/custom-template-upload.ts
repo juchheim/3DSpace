@@ -17,7 +17,7 @@ const ALLOWED_GLB_EXTENSIONS = new Set([
   "KHR_texture_transform",
   "KHR_mesh_quantization"
 ]);
-const ROOM_OBJECT_MAX_TRIANGLES = 100_000;
+const ROOM_OBJECT_MAX_TRIANGLES = 200_000;
 const ROOM_OBJECT_MAX_TEXTURE_DIMENSION = 2048;
 const GLB_MAGIC = 0x46546c67;
 const GLB_JSON_CHUNK_TYPE = 0x4e4f534a;

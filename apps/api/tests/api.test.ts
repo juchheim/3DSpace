@@ -3338,7 +3338,7 @@ describe("room object templates", () => {
     const roomId = roomWithManifest.room.id;
     await enableRoomObjects(app, roomId, teacherId, { customUploadsEnabled: true });
 
-    const triangleCount = 100_001;
+    const triangleCount = 200_001;
     const { response } = await createCustomRoomObjectTemplate(app, {
       roomId,
       teacherId,
@@ -3348,9 +3348,9 @@ describe("room object templates", () => {
     expect(response.json().error).toBe("room-object-upload-rejected");
     expect(response.json().reason).toBe("triangle_budget_exceeded");
     expect(response.json().triangleCount).toBe(triangleCount);
-    expect(response.json().maxTriangleCount).toBe(100_000);
-    expect(response.json().message).toContain("100,001");
-    expect(response.json().message).toContain("100k triangle budget");
+    expect(response.json().maxTriangleCount).toBe(200_000);
+    expect(response.json().message).toContain("200,001");
+    expect(response.json().message).toContain("200k triangle budget");
     await app.close();
   });
 

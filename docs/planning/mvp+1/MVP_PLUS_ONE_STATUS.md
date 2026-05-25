@@ -119,7 +119,7 @@ Completed:
 - Contracts, API persistence, grab lock, pose/release realtime, and teacher/student authorization through Phases 1–6.
 - District-demo hero (`water-molecule` procedural) with v1 toolbar gating, inspector pedagogical parameters, 3D layer + 2D analog icons, and demo script in Phase 7.
 - Custom `.glb` upload pipeline (signed targets, GLB validation, class-scoped templates) in Phase 8.
-- Default custom RoomObject upload cap is now `15 MiB` for newly defaulted room settings; the triangle budget is now `100k` while the 2048 texture cap remains unchanged.
+- Default custom RoomObject upload cap is now `15 MiB` for newly defaulted room settings; the triangle budget is now `200k` while the 2048 texture cap remains unchanged.
 - Env templates (root, API, web) default room objects off; Playwright dev servers opt in for e2e.
 - Playwright coverage: teacher opt-in + place hero, 3D canvas + inspector params + 2D icon, and two-tab grant → student 2D grab + transform sync → teacher reset/remove.
 
