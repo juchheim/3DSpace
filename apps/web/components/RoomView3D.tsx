@@ -14,6 +14,7 @@ import {
   SRGBColorSpace,
   Texture,
   TextureLoader,
+  type MeshBasicMaterial,
   type MeshStandardMaterial,
   Vector3
 } from "three";
@@ -1022,7 +1023,6 @@ function RoomGeometry({
   const defaultTierColors = ["#cac0a2", "#bfb498"] as const;
   const domeCeiling = skin?.overrides.domeCeiling;
   const domeTextureUrl = domeCeiling?.textureStorageKey ?? null;
-  const domeRoughness = domeCeiling?.roughness ?? 0.88;
   const wallHeight = manifest.dimensions.height;
 
   return (
@@ -1128,7 +1128,6 @@ function RoomGeometry({
           roomDepth={manifest.dimensions.depth}
           wallHeight={wallHeight}
           textureUrl={domeTextureUrl}
-          roughness={domeRoughness}
         />
       ) : null}
       {manifest.wallAnchors.map((anchor) => (
@@ -1280,14 +1279,12 @@ function DomeCeilingMesh({
   roomWidth,
   roomDepth,
   wallHeight,
-  textureUrl,
-  roughness
+  textureUrl
 }: {
   roomWidth: number;
   roomDepth: number;
   wallHeight: number;
   textureUrl: string | null;
-  roughness: number;
 }) {
   const { gl } = useThree();
   const [texture, setTexture] = useState<Texture | null>(null);
@@ -1360,11 +1357,11 @@ function DomeCeilingMesh({
 
   return (
     <mesh geometry={geometry} position={[0, wallHeight, 0]}>
-      <meshStandardMaterial
+      <meshBasicMaterial
         map={texture}
-        roughness={roughness}
         side={BackSide}
         transparent={false}
+        toneMapped={false}
       />
     </mesh>
   );
@@ -1474,7 +1471,7 @@ function WallMesh({
   skinWallColor?: string | null;
 }) {
   const { camera } = useThree();
-  const materialRef = useRef<MeshStandardMaterial | null>(null);
+  const materialRef = useRef<MeshStandardMaterial | MeshBasicMaterial | null>(null);
   const plane = useMemo(() => wallPlane(wall), [wall]);
   const verticalRepeat = useMemo(
     () => panoramaVerticalRepeat(wall.height, maxWorldHeight ?? 8),
@@ -1503,20 +1500,30 @@ function WallMesh({
     material.depthWrite = opacity > 0.85;
   });
 
-  // Panorama provides albedo; optional skinWallColor multiplies (tints sky/ceiling bands on Mars, etc.).
-  const baseColor = skinWallColor ?? (wallTexture ? "#ffffff" : "#8ea487");
+  const baseColor = wallTexture ? "#ffffff" : (skinWallColor ?? "#8ea487");
 
   return (
     <mesh geometry={wallGeometry}>
-      <meshStandardMaterial
-        ref={materialRef}
-        color={baseColor}
-        map={wallTexture ?? null}
-        roughness={0.85}
-        side={DoubleSide}
-        transparent
-        opacity={1}
-      />
+      {wallTexture ? (
+        <meshBasicMaterial
+          ref={materialRef}
+          color={baseColor}
+          map={wallTexture}
+          side={DoubleSide}
+          transparent
+          opacity={1}
+          toneMapped={false}
+        />
+      ) : (
+        <meshStandardMaterial
+          ref={materialRef}
+          color={baseColor}
+          roughness={0.85}
+          side={DoubleSide}
+          transparent
+          opacity={1}
+        />
+      )}
     </mesh>
   );
 }
