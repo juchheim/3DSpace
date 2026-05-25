@@ -88,6 +88,28 @@ export const BACK_DISPLAY_CENTER_X = 0;
 export const BACK_DISPLAY_CENTER_Y = 4.3;
 export const BACK_DISPLAY_CENTER_Z = 14.92;
 
+const FULL_WALL_OBJECT_ACCEPTS = [
+  "image",
+  "video",
+  "audio",
+  "image.file",
+  "video.file",
+  "audio.file",
+  "camera.live",
+  "microphone.live",
+  "screen.live",
+  "browser-tab.live",
+  "web.embed",
+  "web.link",
+  "document.file",
+  "slides.file",
+  "whiteboard",
+  "note",
+  "poll",
+  "timer",
+  "future"
+] as const;
+
 export function widescreenHeight(width: number): number {
   return (width * 9) / 16;
 }
@@ -245,6 +267,7 @@ export function createDefaultRoomManifest(input: {
           capacity: 3,
           layout: "stack",
           defaultRole: "resource-rail",
+          hideSurface: true,
           supportsInteraction: true,
           moderationPolicy: "teacher-only"
         }
@@ -257,7 +280,7 @@ export function createDefaultRoomManifest(input: {
         width: SECONDARY_BOARD_WIDTH,
         height: SECONDARY_BOARD_HEIGHT,
         metadata: {
-          accepts: ["image", "video", "audio", "image.file", "video.file", "audio.file", "camera.live", "screen.live", "browser-tab.live", "web.link", "note", "poll", "timer"],
+          accepts: [...FULL_WALL_OBJECT_ACCEPTS],
           capacity: 4,
           layout: "grid",
           defaultRole: "student-share",
@@ -274,7 +297,7 @@ export function createDefaultRoomManifest(input: {
         width: LEFT_RESOURCE_RAIL_WIDTH,
         height: LEFT_RESOURCE_RAIL_HEIGHT,
         metadata: {
-          accepts: ["image", "image.file", "document.file", "slides.file", "web.link", "note", "poll", "timer"],
+          accepts: [...FULL_WALL_OBJECT_ACCEPTS],
           capacity: 6,
           layout: "rail",
           defaultRole: "resource-rail",
@@ -291,7 +314,7 @@ export function createDefaultRoomManifest(input: {
         width: RIGHT_RESOURCE_RAIL_WIDTH,
         height: RIGHT_RESOURCE_RAIL_HEIGHT,
         metadata: {
-          accepts: ["image", "image.file", "document.file", "slides.file", "web.link", "note", "poll", "timer"],
+          accepts: [...FULL_WALL_OBJECT_ACCEPTS],
           capacity: 6,
           layout: "rail",
           defaultRole: "resource-rail",

@@ -54,15 +54,26 @@ describe("room engine", () => {
     const manifest = createDefaultRoomManifest({ roomId: "room_1" });
     const board = manifest.wallAnchors.find((anchor) => anchor.id === "anchor-board");
     const media = manifest.wallAnchors.find((anchor) => anchor.id === "anchor-media-left");
+    const left = manifest.wallAnchors.find((anchor) => anchor.id === "anchor-left");
+    const right = manifest.wallAnchors.find((anchor) => anchor.id === "anchor-right");
+    const back = manifest.wallAnchors.find((anchor) => anchor.id === "anchor-back");
 
     expect(board).toBeDefined();
     expect(media).toBeDefined();
+    expect(left).toBeDefined();
+    expect(right).toBeDefined();
+    expect(back).toBeDefined();
     expect(anchorSupportsCreateOption(board!, "poll")).toBe(true);
     expect(anchorSupportsCreateOption(board!, "camera")).toBe(true);
     expect(anchorSupportsCreateOption(board!, "microphone")).toBe(true);
     expect(anchorSupportsCreateOption(media!, "poll")).toBe(false);
     expect(anchorSupportsCreateOption(media!, "microphone")).toBe(true);
     expect(anchorSupportsCreateOption(media!, "screen")).toBe(false);
+    expect(anchorSupportsCreateOption(left!, "camera")).toBe(true);
+    expect(anchorSupportsCreateOption(left!, "microphone")).toBe(true);
+    expect(anchorSupportsCreateOption(left!, "screen")).toBe(true);
+    expect(anchorSupportsCreateOption(right!, "camera")).toBe(true);
+    expect(anchorSupportsCreateOption(back!, "screen")).toBe(true);
   });
 
   it("uses 16:9 widescreen proportions for front media and primary board sizing", () => {
