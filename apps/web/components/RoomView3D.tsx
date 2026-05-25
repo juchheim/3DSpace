@@ -1269,10 +1269,10 @@ function panoramaVerticalRepeat(wallHeight: number, maxWorldHeight: number) {
   return Math.min(1, wallHeight / maxWorldHeight);
 }
 
-function domeCeilingRadius(roomWidth: number, roomDepth: number) {
-  const halfWidth = roomWidth / 2;
-  const halfDepth = roomDepth / 2;
-  return Math.sqrt(halfWidth * halfWidth + halfDepth * halfDepth) + 0.05;
+function domeCeilingScale(roomWidth: number, roomDepth: number): [number, number, number] {
+  const overhang = 0.35;
+  const domeRise = Math.max(10, Math.min(roomWidth, roomDepth) * 0.42);
+  return [roomWidth / 2 + overhang, domeRise, roomDepth / 2 + overhang];
 }
 
 function DomeCeilingMesh({
@@ -1288,10 +1288,10 @@ function DomeCeilingMesh({
 }) {
   const { gl } = useThree();
   const [texture, setTexture] = useState<Texture | null>(null);
-  const radius = useMemo(() => domeCeilingRadius(roomWidth, roomDepth), [roomDepth, roomWidth]);
+  const domeScale = useMemo(() => domeCeilingScale(roomWidth, roomDepth), [roomDepth, roomWidth]);
   const geometry = useMemo(
-    () => new SphereGeometry(radius, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2),
-    [radius]
+    () => new SphereGeometry(1, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2),
+    []
   );
 
   useEffect(() => {
@@ -1356,7 +1356,7 @@ function DomeCeilingMesh({
   if (!texture) return null;
 
   return (
-    <mesh geometry={geometry} position={[0, wallHeight, 0]}>
+    <mesh geometry={geometry} position={[0, wallHeight, 0]} scale={domeScale}>
       <meshBasicMaterial
         map={texture}
         side={BackSide}
