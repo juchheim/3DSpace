@@ -271,6 +271,7 @@ export function createModels(connection: Connection): Models {
       default: { podsEnabled: false, broadcastFromUserIds: [] }
     },
     whisper: { type: Schema.Types.Mixed },
+    studentMediaRuntime: { type: Schema.Types.Mixed },
     createdAt: String,
     updatedAt: String
   });
