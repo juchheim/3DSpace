@@ -235,6 +235,23 @@ function pollChoiceLetter(index: number) {
   return String.fromCharCode(65 + index);
 }
 
+/** 3D board note — parchment-styled surface that scales text to fill the board. */
+function WallNoteBoard({ text, title }: { text: string; title: string }) {
+  const displayText = text || title;
+  const len = Math.max(1, displayText.length);
+  // Continuous scale: sqrt(29.5 / len) fills ~70% of the 506×249 visual-px board at the base font.
+  // Base --wall-surface-font-size ≈ 140px CSS (= 70px visual after the 1/2× mount scale).
+  const fontScale = Math.min(1.0, Math.max(0.18, Math.sqrt(29.5 / len)));
+  return (
+    <div
+      className="wall-object-card__body wall-note-board"
+      style={{ "--note-font-scale": fontScale } as CSSProperties}
+    >
+      <p className="wall-note-board__text">{displayText}</p>
+    </div>
+  );
+}
+
 /** 3D board poll — separate from sidebar poll markup/CSS for a simple fill-the-board layout. */
 function WallPollBoard({
   question,
@@ -475,7 +492,11 @@ export function WallObjectContent({
   const data = object.source.kind === "inline" ? object.source.data : {};
 
   if (object.type === "note") {
-    return <p className="wall-object-card__body">{String(data.text ?? object.description ?? "")}</p>;
+    const text = String(data.text ?? object.description ?? "");
+    if (surface) {
+      return <WallNoteBoard text={text} title={object.title} />;
+    }
+    return <p className="wall-object-card__body wall-note-display">{text}</p>;
   }
 
   if (object.type === "poll") {

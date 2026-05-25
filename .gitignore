@@ -9,6 +9,7 @@ playwright-report
 .env.*.local
 *.tsbuildinfo
 .DS_Store
+.claude/
 
 # World skin authoring binaries (upload via /dev/world-skin-upload or apps/web/public/world-skins/)
 docs/planning/new-features/*.webp

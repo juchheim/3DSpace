@@ -2996,7 +2996,7 @@ async function enableRoomObjects(app: Awaited<ReturnType<typeof buildApp>>, room
           enabled: true,
           maxActive: 8,
           customUploadsEnabled: false,
-          maxUploadSizeBytes: 8 * 1024 * 1024,
+          maxUploadSizeBytes: 15 * 1024 * 1024,
           defaultTouchPolicy: "teacher-only",
           ...overrides
         }

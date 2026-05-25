@@ -431,7 +431,7 @@ export const RoomObjectsSettingsSchema = z.object({
   enabled: z.boolean().default(true),
   maxActive: z.number().int().positive().max(16).default(8),
   customUploadsEnabled: z.boolean().default(false),
-  maxUploadSizeBytes: z.number().int().positive().default(8 * 1024 * 1024),
+  maxUploadSizeBytes: z.number().int().positive().default(15 * 1024 * 1024),
   defaultTouchPolicy: RoomObjectTouchPolicySchema.default("teacher-only")
 });
 
@@ -788,7 +788,7 @@ export const RoomSettingsSchema = z.object({
     enabled: true,
     maxActive: 8,
     customUploadsEnabled: false,
-    maxUploadSizeBytes: 8 * 1024 * 1024,
+    maxUploadSizeBytes: 15 * 1024 * 1024,
     defaultTouchPolicy: "teacher-only"
   }),
   worldSkins: z.object({

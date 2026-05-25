@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-24 (board poll surface redesign)
+Last updated: 2026-05-25 (room object upload default raised to 15 MiB)
 
 ## Project Summary
 
@@ -225,6 +225,8 @@ Screen share, computer audio, teacher moderation, rich wall placement, room buil
 - **2026-05-24**: Resource rails shifted 2 m along-wall to the right (left z=0.6, right z=-0.4) when facing each side wall from inside the room.
 - **2026-05-25**: Front media board now also uses `hideSurface: true`, matching the main board plus left/right resource rails and back display so empty anchors show only the centered title label until content is placed.
 - **2026-05-25**: Left/right resource rails and back display now share `FULL_WALL_OBJECT_ACCEPTS`, enabling the full current wall-object type set (files, live shares, embeds/links, documents/slides, whiteboard, note, poll, timer, future) instead of the earlier narrower subsets.
+- **2026-05-25**: Verified custom RoomObject `.glb` uploads are checked against room-scoped `room.settings.roomObjects.maxUploadSizeBytes`; the default was then raised to **15 MiB** (`15,728,640` bytes). Oversize failures surface as `room-object-upload-too-large` with the message "Uploaded .glb exceeds the room upload size limit."
+- **2026-05-25**: Raising the RoomObject custom upload cap was straightforward because `maxUploadSizeBytes` is a room-scoped setting default, not a hard-coded transport limit. Source defaults (`packages/contracts/src/index.ts`, `apps/api/src/app.ts`), the helper in `apps/api/tests/api.test.ts`, the generated OpenAPI artifact, and room-object planning/authoring docs were updated from **8 MiB** to **15 MiB**. Main tradeoff remains client/network performance on school Chromebooks because the room can still host up to 8 active objects.
 - **2026-05-24**: Panorama wall orientation fix: `RoomView3D` now builds wall panels directly as world-space `BufferGeometry` with vertex UVs assigned from `wall.start` → `wall.end` and `slice.u0` → `slice.u1`. This avoids invalid reflection matrices / per-wall texture repeat flips that made the back wall seam and the left wall invert. Validation: `npx tsc --noEmit` in `apps/web` passes.
 - **2026-05-24**: Panorama unwrap order changed to **left → front → right → back** (left-to-right in `panorama.webp`): `WORLD_SKIN_PANORAMA_SLICES_DEFAULT`, all `builtin.json` entries, `BACK_PANORAMA_U0/U1` in `RoomView3D`, and `WORLD_SKIN_PANORAMA_SPEC.md`. Existing uploaded panoramas must be re-authored or re-sliced to match.
 - **2026-05-22**: Locked wall art delivery: `docs/planning/new-features/WORLD_SKIN_PANORAMA_SPEC.md` — single **`panorama.webp` 8192×1024** (horizon 640 px from bottom), companion **`floor.webp` 2048×2048**; CONCEPT §3.5 + IMPL Phases 0/2/4/5 updated; optional `WorldSkinPanoramaWallSchema` + `WORLD_SKIN_PANORAMA_SLICES_DEFAULT` in contracts (Phase 1 work unchanged; `hero-draft.json` color-only walls still valid). World Skins Phases 0–1 reported complete in codebase.

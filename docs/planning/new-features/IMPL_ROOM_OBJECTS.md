@@ -164,11 +164,11 @@ Phase 0 can run **before** Phase 1 or **in parallel** with Phases 1–2. Do not 
        enabled: z.boolean().default(false),
        maxActive: z.number().int().positive().max(16).default(8),
        customUploadsEnabled: z.boolean().default(false),
-       maxUploadSizeBytes: z.number().int().positive().default(8 * 1024 * 1024),
+       maxUploadSizeBytes: z.number().int().positive().default(15 * 1024 * 1024),
        defaultTouchPolicy: RoomObjectTouchPolicySchema.default("teacher-only")
      }).default({
        enabled: false, maxActive: 8, customUploadsEnabled: false,
-       maxUploadSizeBytes: 8 * 1024 * 1024, defaultTouchPolicy: "teacher-only"
+       maxUploadSizeBytes: 15 * 1024 * 1024, defaultTouchPolicy: "teacher-only"
      })
      ```
 

@@ -5,7 +5,7 @@ Phase 8 custom uploads accept teacher-authored `.glb` assets plus a PNG catalog 
 ## Export Checklist
 
 - Export as **glTF Binary (`.glb`)**.
-- Keep the final file at or under the room's configured upload limit.
+- Keep the final file at or under the room's configured upload limit (`15 MiB` by default).
 - Stay within the v1 geometry budget: **50k triangles max**.
 - Keep all textures at **2048 x 2048 or smaller**.
 - Use only the supported glTF extensions:

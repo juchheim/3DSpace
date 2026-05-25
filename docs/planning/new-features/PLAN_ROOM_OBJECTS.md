@@ -117,7 +117,7 @@ Internal QA and the first district-facing demo use **only the hero** until a sec
 
 Teachers and district admins upload their own `.glb` files via the existing signed-URL R2 pipeline (mirrors `WallAttachment`):
 
-- **Limit:** ≤ 8 MB compressed; ≤ 50k triangles after Draco / meshopt decode; ≤ 8 textures; max texture 2048 × 2048.
+- **Limit:** ≤ 15 MB compressed; ≤ 50k triangles after Draco / meshopt decode; ≤ 8 textures; max texture 2048 × 2048.
 - **Validation:** server-side glTF parse on finalize (`@gltf-transform/core` or `@loaders.gl/gltf` on the Node API). Reject on extension allowlist failure, oversize, or invalid bounding box.
 - **Thumbnail:** teacher uploads a PNG (the importing UI gives a one-click "snapshot current pose" alternative in Phase C via a headless Three.js renderer; v1 requires a teacher-supplied PNG).
 - **Scope:** custom templates are visible to the uploading class only. District admins can promote a custom template to the district allowlist (Phase D).
@@ -166,7 +166,7 @@ Export is a **snapshot of appearance**, not a reusable manipulative template. Re
   ```
 
 - **Validation:** Files produced in-app should pass the same server-side glTF checks as uploaded custom templates (size, extension allowlist, triangle budget) before "Save as class template" is offered.
-- **Limits:** Same caps as upload (≤ 8 MB, ≤ 50k triangles). Composite exports (e.g. merged base-10 stack) may need a pre-export triangle count warning in the UI.
+- **Limits:** Same caps as upload (≤ 15 MB, ≤ 50k triangles). Composite exports (e.g. merged base-10 stack) may need a pre-export triangle count warning in the UI.
 - **Procedural templates:** Export captures the **current parameter state** as geometry (e.g. number line at range −10…10), not the parameter schema. Re-opening that `.glb` elsewhere loses adjustability — document clearly in the inspector.
 
 #### Two delivery modes (pick one at implementation time)
@@ -345,11 +345,11 @@ roomObjects: z.object({
   enabled: z.boolean().default(false),
   maxActive: z.number().int().positive().max(16).default(8),
   customUploadsEnabled: z.boolean().default(false),
-  maxUploadSizeBytes: z.number().int().positive().default(8 * 1024 * 1024),
+  maxUploadSizeBytes: z.number().int().positive().default(15 * 1024 * 1024),
   defaultTouchPolicy: z.enum(["teacher-only", "granted", "all-class"]).default("teacher-only")
 }).default({
   enabled: false, maxActive: 8, customUploadsEnabled: false,
-  maxUploadSizeBytes: 8 * 1024 * 1024, defaultTouchPolicy: "teacher-only"
+  maxUploadSizeBytes: 15 * 1024 * 1024, defaultTouchPolicy: "teacher-only"
 })
 ```
 
@@ -530,11 +530,11 @@ This is the section the user asked us to be careful about (mirrors `PLAN_BREAKOU
 
 ## 9. Performance and asset budget
 
-The single biggest risk is loading 8 × 8 MB `.glb` files on a Chromebook with 4 GB RAM.
+The single biggest risk is loading 8 × 15 MB `.glb` files on a Chromebook with 4 GB RAM.
 
 | Lever | Budget / target |
 | --- | --- |
-| Per-template asset size | ≤ 8 MB compressed (Draco-encoded) — same as World Skins § |
+| Per-template asset size | ≤ 15 MB compressed (Draco-encoded) |
 | Per-room concurrent active objects | ≤ 8 (configurable, hard cap 16) |
 | Per-template triangle count | ≤ 50k triangles after decode |
 | Per-template texture count | ≤ 8 textures |
@@ -604,7 +604,7 @@ A shippable v1 requires all of the following:
 
 | Risk | Mitigation |
 | --- | --- |
-| `.glb` payload bloat → slow load on school Chromebooks | Per-template 8 MB cap, Draco mandatory, CDN immutable cache, lazy-load until toolbar opens |
+| `.glb` payload bloat → slow load on school Chromebooks | Per-template 15 MB cap, Draco mandatory, CDN immutable cache, lazy-load until toolbar opens |
 | Concurrent grabs cause visual jitter / desync | Server-side grab lock; clients show holder color outline and disable inspector for non-holders |
 | Malicious `.glb` with custom extensions / external refs | Server-side parse with `@gltf-transform/core`; extension allowlist; reject external buffer refs |
 | Custom uploads pollute storage / spam R2 | Per-class quota (`maxCustomTemplates: 10` v1); admin review path Phase B |

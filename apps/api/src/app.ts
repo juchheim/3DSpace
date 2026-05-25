@@ -253,7 +253,7 @@ function roomSettings(config: AppConfig) {
       enabled: true,
       maxActive: 8,
       customUploadsEnabled: config.tuning.enableRoomObjects,
-      maxUploadSizeBytes: 8 * 1024 * 1024,
+      maxUploadSizeBytes: 15 * 1024 * 1024,
       defaultTouchPolicy: "teacher-only" as const
     },
     worldSkins: {

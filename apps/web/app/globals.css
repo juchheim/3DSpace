@@ -2832,6 +2832,62 @@ button.hud-heading-btn:hover {
 .wall-poll-board__row[data-index="4"] { --poll-accent: #c45c5c; }
 .wall-poll-board__row[data-index="5"] { --poll-accent: #6b8f3d; }
 
+/* ── 3D board note (wall-note-board) ── */
+
+.wall-object-card--surface[data-wall-object-type="note"] {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.wall-object-card--surface[data-wall-object-type="note"] .wall-object-card__media {
+  background: transparent;
+}
+
+.wall-object-card--surface[data-wall-object-type="note"] .wall-object-card__body {
+  overflow: hidden;
+}
+
+.wall-note-board {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  min-height: 0;
+  padding: 0.1em;
+  box-sizing: border-box;
+  /* font-scale is set per-instance via --note-font-scale; base ≈ 140px CSS (70px visual) */
+  font-size: calc(var(--wall-surface-font-size, 140px) * var(--note-font-scale, 0.5));
+  font-family: "Barlow", system-ui, sans-serif;
+  color: #142820;
+  border: 0.04em solid rgba(20, 40, 32, 0.14);
+  border-radius: 0.12em;
+  background:
+    radial-gradient(120% 80% at 0% 0%, rgba(192, 120, 52, 0.14), transparent 55%),
+    radial-gradient(90% 70% at 100% 100%, rgba(42, 138, 106, 0.12), transparent 50%),
+    linear-gradient(158deg, #fffaf4 0%, #f3e8da 52%, #e9dfd2 100%);
+  box-shadow:
+    0 0.08em 0.2em rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.wall-note-board__text {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+  overflow: hidden;
+  max-height: 100%;
+}
+
+/* Sidebar / popup note body: ensure text wraps inside its container */
+.wall-note-display {
+  overflow-wrap: break-word;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
 .wall-object-card__timer {
   display: grid;
   gap: 0.45rem;
