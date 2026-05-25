@@ -5,6 +5,7 @@ Brainstorm + implementation docs for features not yet on a committed roadmap.
 ## Documents
 
 - [`LEARNING_FEATURE_IDEAS.md`](./LEARNING_FEATURE_IDEAS.md) — full brainstorm: 7 small ideas (2 deprioritized), 4 big ideas, 2 alternate seeds, Sequence A/B recommendations.
+- [`PLAN_CLASSROOM_MEDIA_PERMISSIONS.md`](./PLAN_CLASSROOM_MEDIA_PERMISSIONS.md) — teacher-managed student camera/microphone policy: room-wide toggles plus per-student enable overrides in the existing right-side People panel above board access. **Planned**.
 
 ### Big-idea concept docs
 
