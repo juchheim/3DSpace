@@ -13,5 +13,6 @@ export const CLIENT_TUNING = {
   enableAvatarReactions: process.env.NEXT_PUBLIC_ENABLE_AVATAR_REACTIONS !== "false",
   enableHallPass: process.env.NEXT_PUBLIC_ENABLE_HALL_PASS === "true",
   enableWhisper: process.env.NEXT_PUBLIC_ENABLE_WHISPER === "true",
-  enableWorldSkins: process.env.NEXT_PUBLIC_ENABLE_WORLD_SKINS === "true"
+  enableWorldSkins: process.env.NEXT_PUBLIC_ENABLE_WORLD_SKINS === "true",
+  enableStudentMediaPermissions: process.env.NEXT_PUBLIC_ENABLE_STUDENT_MEDIA_PERMISSIONS === "true"
 };

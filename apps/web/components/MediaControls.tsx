@@ -11,9 +11,11 @@ type MediaControlsProps = {
     setCameraEnabled(value: boolean): void;
     setMicrophoneEnabled(value: boolean): void;
   };
+  canUseCamera?: boolean;
+  canUseMicrophone?: boolean;
 };
 
-export function MediaControls({ media }: MediaControlsProps) {
+export function MediaControls({ media, canUseCamera = true, canUseMicrophone = true }: MediaControlsProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
@@ -30,6 +32,8 @@ export function MediaControls({ media }: MediaControlsProps) {
       <div className="media-btn-col">
         <button
           className={`media-toggle${media.cameraEnabled ? " on" : ""}`}
+          disabled={!canUseCamera}
+          title={canUseCamera ? undefined : "Camera disabled by teacher"}
           onClick={() => media.setCameraEnabled(!media.cameraEnabled)}
         >
           <span className={`media-dot${media.cameraEnabled ? " live" : ""}`} />
@@ -37,6 +41,8 @@ export function MediaControls({ media }: MediaControlsProps) {
         </button>
         <button
           className={`media-toggle${media.microphoneEnabled ? " on" : ""}`}
+          disabled={!canUseMicrophone}
+          title={canUseMicrophone ? undefined : "Microphone disabled by teacher"}
           onClick={() => media.setMicrophoneEnabled(!media.microphoneEnabled)}
         >
           <span className={`media-dot${media.speaking ? " speaking" : media.microphoneEnabled ? " live" : ""}`} />

@@ -261,6 +261,10 @@ function roomSettings(config: AppConfig) {
       skinId: null as string | null,
       skinDayNightMode: "day" as const,
       ambientGainOverride: null as number | null
+    },
+    studentMedia: {
+      camerasEnabled: true,
+      microphonesEnabled: true
     }
   };
 }
@@ -1707,6 +1711,7 @@ async function runClassroomAction(input: {
   action: ClassroomAction;
   lessonsEnabled: boolean;
   breakoutPodsEnabled: boolean;
+  studentMediaPermissionsEnabled: boolean;
   roomSettings?: RoomSettings;
 }) {
   if (isLessonAction(input.action) && !input.lessonsEnabled) {
@@ -1714,6 +1719,9 @@ async function runClassroomAction(input: {
   }
   if ((input.action.type === "toggle-pods" || input.action.type === "set-student-broadcast") && !input.breakoutPodsEnabled) {
     throw notFound("Breakout pods are disabled");
+  }
+  if ((input.action.type === "set-student-media-global" || input.action.type === "set-student-media-access") && !input.studentMediaPermissionsEnabled) {
+    throw forbidden("Student media permissions are not enabled");
   }
 
   const current = sanitizeClassroomState(await input.repository.getClassroomState(input.roomId));
@@ -1728,8 +1736,27 @@ async function runClassroomAction(input: {
       ? { ...current.podsRuntime, broadcastFromUserIds: [...current.podsRuntime.broadcastFromUserIds] }
       : { podsEnabled: false, broadcastFromUserIds: [] },
     whisper: current.whisper ? { ...current.whisper } : undefined,
+    studentMediaRuntime: current.studentMediaRuntime
+      ? {
+          ...current.studentMediaRuntime,
+          cameraEnabledUserIds: [...current.studentMediaRuntime.cameraEnabledUserIds],
+          microphoneEnabledUserIds: [...current.studentMediaRuntime.microphoneEnabledUserIds]
+        }
+      : undefined,
     lessonRun: cloneLessonRun(current.lessonRun)
   };
+
+  // Seed runtime from room settings on first use (existing rooms have no stored runtime).
+  if (input.studentMediaPermissionsEnabled && !state.studentMediaRuntime) {
+    const sm = input.roomSettings?.studentMedia ?? { camerasEnabled: true, microphonesEnabled: true };
+    state.studentMediaRuntime = {
+      camerasEnabled: sm.camerasEnabled,
+      microphonesEnabled: sm.microphonesEnabled,
+      cameraEnabledUserIds: [],
+      microphoneEnabledUserIds: []
+    };
+  }
+
   const now = new Date().toISOString();
 
   switch (input.action.type) {
@@ -2292,6 +2319,41 @@ async function runClassroomAction(input: {
         maxRadiusMeters: input.action.maxRadiusMeters ?? current.maxRadiusMeters,
         autoEnableInGroupWork: input.action.autoEnableInGroupWork ?? current.autoEnableInGroupWork
       };
+      break;
+    }
+    case "set-student-media-global": {
+      requireTeacher(input.actor);
+      const runtime = state.studentMediaRuntime ?? {
+        camerasEnabled: true,
+        microphonesEnabled: true,
+        cameraEnabledUserIds: [],
+        microphoneEnabledUserIds: []
+      };
+      if (input.action.medium === "camera") {
+        runtime.camerasEnabled = input.action.enabled;
+      } else {
+        runtime.microphonesEnabled = input.action.enabled;
+      }
+      state.studentMediaRuntime = runtime;
+      break;
+    }
+    case "set-student-media-access": {
+      requireTeacher(input.actor);
+      const { userId: targetUserId, medium, enabled } = input.action;
+      const runtime = state.studentMediaRuntime ?? {
+        camerasEnabled: true,
+        microphonesEnabled: true,
+        cameraEnabledUserIds: [],
+        microphoneEnabledUserIds: []
+      };
+      const listKey = medium === "camera" ? "cameraEnabledUserIds" : "microphoneEnabledUserIds";
+      const list = runtime[listKey];
+      if (enabled && !list.includes(targetUserId)) {
+        list.push(targetUserId);
+      } else if (!enabled) {
+        runtime[listKey] = list.filter((id) => id !== targetUserId);
+      }
+      state.studentMediaRuntime = runtime;
       break;
     }
   }
@@ -3345,6 +3407,18 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const { room, membership } = await requireRoomAccess(repository, params.roomId, auth);
     const actor = await resolveClassroomActor({ repository, room, membership, auth });
 
+    // Global student media toggle also persists to room settings (runtime seeded from settings on join).
+    if (body.type === "set-student-media-global") {
+      if (!config.tuning.enableStudentMediaPermissions) throw forbidden("Student media permissions are not enabled");
+      requireTeacher(actor);
+      const current = room.settings.studentMedia ?? { camerasEnabled: true, microphonesEnabled: true };
+      const next = body.medium === "camera"
+        ? { ...current, camerasEnabled: body.enabled }
+        : { ...current, microphonesEnabled: body.enabled };
+      await repository.updateRoom(params.roomId, { settings: { studentMedia: next } });
+      // fall through to runClassroomAction so studentMediaRuntime is also updated
+    }
+
     // World-skin actions mutate room settings rather than classroom state
     if (body.type === "set-room-skin" || body.type === "set-room-skin-day-night") {
       if (!config.tuning.enableWorldSkins) throw worldSkinsDisabled();
@@ -3377,6 +3451,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       action: body,
       lessonsEnabled: config.tuning.enableClassroomLessons,
       breakoutPodsEnabled: config.tuning.enableBreakoutPods,
+      studentMediaPermissionsEnabled: config.tuning.enableStudentMediaPermissions,
       roomSettings: room.settings
     });
     const hydrated = await hydrateClassroomDisplayNames(repository, room.classId, sanitizeClassroomState(state));

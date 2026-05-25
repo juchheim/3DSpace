@@ -536,17 +536,27 @@ Env / status / docs:
 
 ---
 
-## 14. Next document
+## 14. Codebase review findings
 
-If accepted, the next artifact should be:
+The following was confirmed against the current codebase before creating the IMPL doc:
+
+**A. Two `BoardAccessSidePanel` call sites.**  
+`RoomClient.tsx` renders `BoardAccessSidePanel` at two spots: the Roster-selected-student flow (`StudentDetailPanel`) and directly for the help-board-access flow (`helpBoardAccessUserId`). Both need the new media controls section. The IMPL doc addresses both.
+
+**B. `set-student-media-global` requires a two-step API write.**  
+The action must persist `room.settings.studentMedia` (via `repository.updateRoom()`) *and* update `ClassroomState.studentMediaRuntime`. This mirrors the `set-room-skin` special-case pattern already in the route handler. The action is handled as a special case before `runClassroomAction`, then falls through so classroom state is also updated.
+
+**C. Hallpass restore is a confirmed bug in `RoomClient.tsx`.**  
+Line 388–390 restores mic without checking teacher policy. Fix is in Phase 4c of the IMPL doc.
+
+**D. `MediaControls` needs new props.**  
+Currently takes only a `media` object. `canUseCamera` / `canUseMicrophone` booleans must be added to the component interface.
+
+---
+
+## 15. Next document
+
+Implementation document created:
 
 - `IMPL_CLASSROOM_MEDIA_PERMISSIONS.md`
-
-That IMPL doc should convert this plan into phased slices:
-
-1. contracts and defaults
-2. API classroom actions
-3. right-panel UI
-4. student media gating and teardown
-5. tests, env flags, rollout notes
 

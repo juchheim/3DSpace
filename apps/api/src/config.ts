@@ -54,6 +54,7 @@ export type AppConfig = {
     enableBreakoutPods: boolean;
     enableRoomObjects: boolean;
     enableWorldSkins: boolean;
+    enableStudentMediaPermissions: boolean;
     spatialAudio: SpatialAudioConfig;
     media: {
       defaultCameraEnabled: boolean;
@@ -200,6 +201,7 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       enableBreakoutPods: envBoolean(raw, "ENABLE_BREAKOUT_PODS", false),
       enableRoomObjects: envBoolean(raw, "ENABLE_ROOM_OBJECTS", false),
       enableWorldSkins: envBoolean(raw, "ENABLE_WORLD_SKINS", false),
+      enableStudentMediaPermissions: envBoolean(raw, "ENABLE_STUDENT_MEDIA_PERMISSIONS", false),
       spatialAudio: {
         enabled: envBoolean(raw, "SPATIAL_AUDIO_ENABLED", true),
         distanceModel,

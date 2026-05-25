@@ -810,6 +810,13 @@ export const RoomSettingsSchema = z.object({
     skinId: null,
     skinDayNightMode: "day",
     ambientGainOverride: null
+  }),
+  studentMedia: z.object({
+    camerasEnabled: z.boolean().default(true),
+    microphonesEnabled: z.boolean().default(true)
+  }).default({
+    camerasEnabled: true,
+    microphonesEnabled: true
   })
 });
 
@@ -1537,6 +1544,17 @@ export const ClassroomStateSchema = z.object({
     maxRadiusMeters: z.number().positive().max(20).default(3),
     autoEnableInGroupWork: z.boolean().default(true)
   }).default({ allowed: false, maxRadiusMeters: 3, autoEnableInGroupWork: true }).optional(),
+  studentMediaRuntime: z.object({
+    camerasEnabled: z.boolean().default(true),
+    microphonesEnabled: z.boolean().default(true),
+    cameraEnabledUserIds: z.array(z.string()).default([]),
+    microphoneEnabledUserIds: z.array(z.string()).default([])
+  }).default({
+    camerasEnabled: true,
+    microphonesEnabled: true,
+    cameraEnabledUserIds: [],
+    microphoneEnabledUserIds: []
+  }).optional(),
   createdAt: z.string(),
   updatedAt: z.string()
 });
@@ -1785,6 +1803,19 @@ export const ClassroomUpdateWhisperSettingsActionSchema = ClassroomActionBaseSch
   autoEnableInGroupWork: z.boolean().optional()
 });
 
+export const ClassroomSetStudentMediaGlobalActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("set-student-media-global"),
+  medium: z.enum(["camera", "microphone"]),
+  enabled: z.boolean()
+});
+
+export const ClassroomSetStudentMediaAccessActionSchema = ClassroomActionBaseSchema.extend({
+  type: z.literal("set-student-media-access"),
+  userId: z.string().min(1),
+  medium: z.enum(["camera", "microphone"]),
+  enabled: z.boolean()
+});
+
 export const ClassroomActionSchema = z.discriminatedUnion("type", [
   ClassroomRaiseHandActionSchema,
   ClassroomCancelHelpActionSchema,
@@ -1827,7 +1858,9 @@ export const ClassroomActionSchema = z.discriminatedUnion("type", [
   ClassroomApproveHallpassActionSchema,
   ClassroomDenyHallpassActionSchema,
   ClassroomReturnFromHallpassActionSchema,
-  ClassroomUpdateWhisperSettingsActionSchema
+  ClassroomUpdateWhisperSettingsActionSchema,
+  ClassroomSetStudentMediaGlobalActionSchema,
+  ClassroomSetStudentMediaAccessActionSchema
 ]);
 
 export const LessonRecapSchema = z.object({
@@ -2019,6 +2052,8 @@ export type WorldSkinAssetFileName = z.infer<typeof WorldSkinAssetFileNameSchema
 export type WorldSkinUploaderStatus = z.infer<typeof WorldSkinUploaderStatusResponseSchema>;
 export type ClassroomSetRoomSkinAction = z.infer<typeof ClassroomSetRoomSkinActionSchema>;
 export type ClassroomSetRoomSkinDayNightAction = z.infer<typeof ClassroomSetRoomSkinDayNightActionSchema>;
+export type ClassroomSetStudentMediaGlobalAction = z.infer<typeof ClassroomSetStudentMediaGlobalActionSchema>;
+export type ClassroomSetStudentMediaAccessAction = z.infer<typeof ClassroomSetStudentMediaAccessActionSchema>;
 
 type ApiRoute = {
   method: "get" | "post" | "patch" | "delete";

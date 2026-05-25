@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import type { ClassroomAction, ClassroomBoardAccessGrant, ClassroomHelpRequest, RoomManifest } from "@3dspace/contracts";
+import type { ClassroomAction, ClassroomBoardAccessGrant, ClassroomHelpRequest, ClassroomState, RoomManifest } from "@3dspace/contracts";
+import { CLIENT_TUNING } from "../lib/config";
 import { BoardAccessGrantControls } from "./BoardAccessGrantControls";
+import { StudentMediaAccessControls } from "./StudentMediaAccessControls";
 
 function statusLabel(status: ClassroomHelpRequest["status"]) {
   if (status === "raised") return "Raised";
@@ -19,6 +21,7 @@ export function BoardAccessSidePanel({
   helpRequest,
   activeGrants,
   manifest,
+  studentMediaRuntime,
   error,
   showHelpActions = false,
   dock = "right-hud",
@@ -30,6 +33,7 @@ export function BoardAccessSidePanel({
   helpRequest?: ClassroomHelpRequest | null | undefined;
   activeGrants: ClassroomBoardAccessGrant[];
   manifest: RoomManifest;
+  studentMediaRuntime?: ClassroomState["studentMediaRuntime"];
   error?: string | undefined;
   showHelpActions?: boolean | undefined;
   dock?: BoardAccessPanelDock | undefined;
@@ -96,6 +100,14 @@ export function BoardAccessSidePanel({
         <p className="small">Select a board and share types to invite this student to present work.</p>
       ) : null}
 
+      {CLIENT_TUNING.enableStudentMediaPermissions ? (
+        <StudentMediaAccessControls
+          userId={userId}
+          displayName={displayName}
+          studentMediaRuntime={studentMediaRuntime}
+          onRunAction={onRunAction}
+        />
+      ) : null}
       <BoardAccessGrantControls
         userId={userId}
         displayName={displayName}

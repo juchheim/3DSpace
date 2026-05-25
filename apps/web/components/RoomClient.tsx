@@ -379,6 +379,30 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     return computeGroupMemberPosition(group.targetPosition, memberIndex);
   }, [myActiveHallpass?.status, manifest?.hallpassHoldingZone, classroom.state?.groups, session?.participantId, identity.userId]);
 
+  const studentMediaRuntime = CLIENT_TUNING.enableStudentMediaPermissions && role === "student"
+    ? (classroom.state?.studentMediaRuntime ?? null)
+    : null;
+  const canUseCamera = !studentMediaRuntime
+    || studentMediaRuntime.camerasEnabled
+    || studentMediaRuntime.cameraEnabledUserIds.includes(identity.userId);
+  const canUseMicrophone = !studentMediaRuntime
+    || studentMediaRuntime.microphonesEnabled
+    || studentMediaRuntime.microphoneEnabledUserIds.includes(identity.userId);
+  const mediaPermissionText = (() => {
+    if (canUseCamera && canUseMicrophone) return media.permissionText;
+    if (!canUseCamera && !canUseMicrophone) return "Camera and microphone disabled by teacher.";
+    if (!canUseCamera) return "Camera disabled by teacher.";
+    return "Microphone disabled by teacher.";
+  })();
+
+  useEffect(() => {
+    if (!canUseCamera && media.cameraEnabled) media.setCameraEnabled(false);
+  }, [canUseCamera, media.cameraEnabled, media.setCameraEnabled]);
+
+  useEffect(() => {
+    if (!canUseMicrophone && media.microphoneEnabled) media.setMicrophoneEnabled(false);
+  }, [canUseMicrophone, media.microphoneEnabled, media.setMicrophoneEnabled]);
+
   useEffect(() => {
     if (myActiveHallpass?.status === "acknowledged") {
       if (priorHallpassMicRef.current === null) {
@@ -386,7 +410,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       }
       media.setMicrophoneEnabled(false);
     } else if (priorHallpassMicRef.current !== null) {
-      media.setMicrophoneEnabled(priorHallpassMicRef.current);
+      media.setMicrophoneEnabled(priorHallpassMicRef.current && canUseMicrophone);
       priorHallpassMicRef.current = null;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1433,7 +1457,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             <div className="hud-id-sub">{role} · {roomName}</div>
           </div>
         </div>
-        <MediaControls media={media} />
+        <MediaControls media={media} canUseCamera={canUseCamera} canUseMicrophone={canUseMicrophone} />
         {viewMode === "3d" ? (
           <div className="hud-person-actions">
             <div className="hud-person-actions__cam-spacer" aria-hidden="true" />
@@ -1469,7 +1493,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             </div>
           </div>
         ) : null}
-        {media.permissionText ? <p className="hud-permission" style={{ padding: "4px 9px", fontSize: "9.5px", color: "var(--hud-tx-m)" }}>{media.permissionText}</p> : null}
+        {mediaPermissionText ? <p className="hud-permission" style={{ padding: "4px 9px", fontSize: "9.5px", color: "var(--hud-tx-m)" }}>{mediaPermissionText}</p> : null}
       </div>
 
       {/* Reactions */}
@@ -2027,6 +2051,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
                 helpRequest={helpRequest}
                 activeGrants={activeGrantMap(classroom.state).get(helpStudent.id) ?? []}
                 manifest={manifest}
+                studentMediaRuntime={classroom.state.studentMediaRuntime}
                 error={classroom.error}
                 onRunAction={async (action) => {
                   await classroom.runAction(action);
@@ -2053,6 +2078,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             helpRequest={helpRequest}
             activeGrants={studentActiveGrants}
             manifest={manifest}
+            studentMediaRuntime={classroom.state?.studentMediaRuntime}
             error={classroom.error}
             onRunAction={async (action) => { await classroom.runAction(action); }}
             onClose={() => setSelectedStudentId("")}

@@ -806,6 +806,11 @@ button.hud-heading-btn:hover {
   background: rgba(56, 144, 96, 0.18);
 }
 
+.media-toggle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .media-dot {
   flex-shrink: 0;
   width: 5px;

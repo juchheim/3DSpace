@@ -149,6 +149,7 @@ export function StudentDetailPanel({
   helpRequest,
   activeGrants,
   manifest,
+  studentMediaRuntime,
   error,
   onRunAction,
   onClose
@@ -157,6 +158,7 @@ export function StudentDetailPanel({
   helpRequest: ClassroomHelpRequest | null;
   activeGrants: ClassroomBoardAccessGrant[];
   manifest: RoomManifest;
+  studentMediaRuntime?: ClassroomState["studentMediaRuntime"];
   error?: string | undefined;
   onRunAction(action: ClassroomAction): Promise<void>;
   onClose(): void;
@@ -168,6 +170,7 @@ export function StudentDetailPanel({
       helpRequest={helpRequest}
       activeGrants={activeGrants}
       manifest={manifest}
+      studentMediaRuntime={studentMediaRuntime}
       error={error}
       dock="left-people"
       showHelpActions={Boolean(helpRequest)}
