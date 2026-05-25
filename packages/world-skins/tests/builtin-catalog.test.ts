@@ -88,4 +88,12 @@ describe("world skins builtin catalog", () => {
     const skin = WorldSkinSchema.parse(mars);
     expect(skin.overrides.walkSpeedMultiplier).toBeLessThan(1);
   });
+
+  it("rainforest-canopy has optional domeCeiling with R2 storage key", () => {
+    const rainforest = catalog.find((s) => (s as Record<string, unknown>).slug === "rainforest-canopy");
+    const skin = WorldSkinSchema.parse(rainforest);
+    expect(skin.overrides.domeCeiling?.textureStorageKey).toBe(
+      "world-skins/rainforest-canopy/v1/dome.webp"
+    );
+  });
 });

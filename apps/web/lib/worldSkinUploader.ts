@@ -151,6 +151,7 @@ export const WORLD_SKIN_UPLOAD_FILE_ORDER: WorldSkinAssetFileName[] = [
   "thumbnail.png",
   "panorama.webp",
   "floor.webp",
+  "dome.webp",
   "map2d.webp",
   "ambient.ogg"
 ];
@@ -179,6 +180,11 @@ export const WORLD_SKIN_FILE_SPECS: Record<
     label: "Floor",
     required: true,
     hint: "2048 × 2048 seamless WebP"
+  },
+  "dome.webp": {
+    label: "Dome ceiling",
+    required: false,
+    hint: "Optional interior dome (rainforest canopy) — equirectangular or canopy WebP; room stays open until uploaded"
   },
   "map2d.webp": {
     label: "2D map",

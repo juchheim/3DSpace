@@ -473,6 +473,12 @@ export const WorldSkinMaterialOverrideSchema = z.object({
   repeat: z.tuple([z.number().positive(), z.number().positive()]).optional()
 });
 
+/** Optional interior dome ceiling (e.g. rainforest canopy). Renders only when texture loads. */
+export const WorldSkinDomeCeilingSchema = z.object({
+  textureStorageKey: z.string().optional(),
+  roughness: z.number().min(0).max(1).optional()
+});
+
 /** Classroom wall ids — keys for panorama unwrap slices. */
 export const WorldSkinWallIdSchema = z.enum([
   "wall-front",
@@ -524,6 +530,8 @@ export const WorldSkinOverridesSchema = z.object({
   walls: z.record(z.string(), WorldSkinMaterialOverrideSchema).default({}),
   floor: WorldSkinMaterialOverrideSchema.optional(),
   tiers: WorldSkinMaterialOverrideSchema.optional(),
+  /** When present, mounts a dome at wall height; invisible until `textureStorageKey` loads. */
+  domeCeiling: WorldSkinDomeCeilingSchema.optional(),
   lighting: WorldSkinLightingPresetSchema,
   lightingNight: WorldSkinLightingPresetSchema.optional(),
   sky: z.object({
@@ -591,6 +599,7 @@ export const WorldSkinAssetFileNameSchema = z.enum([
   "thumbnail.png",
   "panorama.webp",
   "floor.webp",
+  "dome.webp",
   "map2d.webp",
   "ambient.ogg"
 ]);
@@ -2000,6 +2009,7 @@ export type ClassroomStateRealtimeMessage = z.infer<typeof ClassroomStateRealtim
 export type WorldSkinOverrides = z.infer<typeof WorldSkinOverridesSchema>;
 export type WorldSkinLightingPreset = z.infer<typeof WorldSkinLightingPresetSchema>;
 export type WorldSkinMaterialOverride = z.infer<typeof WorldSkinMaterialOverrideSchema>;
+export type WorldSkinDomeCeiling = z.infer<typeof WorldSkinDomeCeilingSchema>;
 export type WorldSkinPanoramaWall = z.infer<typeof WorldSkinPanoramaWallSchema>;
 export type WorldSkinPanoramaSlice = z.infer<typeof WorldSkinPanoramaSliceSchema>;
 export type WorldSkinWallId = z.infer<typeof WorldSkinWallIdSchema>;

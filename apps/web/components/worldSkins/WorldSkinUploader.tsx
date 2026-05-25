@@ -119,7 +119,7 @@ export function WorldSkinUploader() {
           <h1 className={styles.title}>World skin R2 uploader</h1>
           <p className={styles.lead}>
             Upload skin assets to Cloudflare R2 — <code>panorama.webp</code>, <code>floor.webp</code>,{" "}
-            <code>thumbnail.png</code>, and optional files. See{" "}
+            optional <code>dome.webp</code>, <code>thumbnail.png</code>, and other optional files. See{" "}
             <code>docs/planning/new-features/WORLD_SKIN_PANORAMA_SPEC.md</code>.
           </p>
           <form className={styles.card} onSubmit={handleLogin}>

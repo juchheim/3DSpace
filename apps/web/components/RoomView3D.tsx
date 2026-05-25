@@ -6,9 +6,11 @@ import { memo, Suspense, useEffect, useMemo, useRef, useState, type CSSPropertie
 import {
   BufferAttribute,
   BufferGeometry,
+  BackSide,
   ClampToEdgeWrapping,
   DoubleSide,
   RepeatWrapping,
+  SphereGeometry,
   SRGBColorSpace,
   Texture,
   TextureLoader,
@@ -1018,6 +1020,10 @@ function RoomGeometry({
   const floorRoughness = skin?.overrides.floor?.roughness ?? 0.92;
   const tierOverride = skin?.overrides.tiers;
   const defaultTierColors = ["#cac0a2", "#bfb498"] as const;
+  const domeCeiling = skin?.overrides.domeCeiling;
+  const domeTextureUrl = domeCeiling?.textureStorageKey ?? null;
+  const domeRoughness = domeCeiling?.roughness ?? 0.88;
+  const wallHeight = manifest.dimensions.height;
 
   return (
     <group>
@@ -1116,6 +1122,15 @@ function RoomGeometry({
           </>
         )}
       </Suspense>
+      {domeCeiling ? (
+        <DomeCeilingMesh
+          roomWidth={manifest.dimensions.width}
+          roomDepth={manifest.dimensions.depth}
+          wallHeight={wallHeight}
+          textureUrl={domeTextureUrl}
+          roughness={domeRoughness}
+        />
+      ) : null}
       {manifest.wallAnchors.map((anchor) => (
         <AnchorMesh
           key={anchor.id}
@@ -1253,6 +1268,106 @@ function createWallPanelGeometry(
 
 function panoramaVerticalRepeat(wallHeight: number, maxWorldHeight: number) {
   return Math.min(1, wallHeight / maxWorldHeight);
+}
+
+function domeCeilingRadius(roomWidth: number, roomDepth: number) {
+  const halfWidth = roomWidth / 2;
+  const halfDepth = roomDepth / 2;
+  return Math.sqrt(halfWidth * halfWidth + halfDepth * halfDepth) + 0.05;
+}
+
+function DomeCeilingMesh({
+  roomWidth,
+  roomDepth,
+  wallHeight,
+  textureUrl,
+  roughness
+}: {
+  roomWidth: number;
+  roomDepth: number;
+  wallHeight: number;
+  textureUrl: string | null;
+  roughness: number;
+}) {
+  const { gl } = useThree();
+  const [texture, setTexture] = useState<Texture | null>(null);
+  const radius = useMemo(() => domeCeilingRadius(roomWidth, roomDepth), [roomDepth, roomWidth]);
+  const geometry = useMemo(
+    () => new SphereGeometry(radius, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2),
+    [radius]
+  );
+
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+    };
+  }, [geometry]);
+
+  useEffect(() => {
+    if (!textureUrl) {
+      setTexture((prev) => {
+        prev?.dispose();
+        return null;
+      });
+      return;
+    }
+
+    let cancelled = false;
+    const loader = new TextureLoader();
+    loader.load(
+      textureUrl,
+      (loaded) => {
+        if (cancelled) {
+          loaded.dispose();
+          return;
+        }
+        loaded.colorSpace = SRGBColorSpace;
+        loaded.wrapS = ClampToEdgeWrapping;
+        loaded.wrapT = ClampToEdgeWrapping;
+        loaded.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
+        loaded.needsUpdate = true;
+        setTexture((prev) => {
+          prev?.dispose();
+          return loaded;
+        });
+      },
+      undefined,
+      () => {
+        if (!cancelled) {
+          setTexture((prev) => {
+            prev?.dispose();
+            return null;
+          });
+        }
+      }
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [gl, textureUrl]);
+
+  useEffect(() => {
+    return () => {
+      setTexture((prev) => {
+        prev?.dispose();
+        return null;
+      });
+    };
+  }, []);
+
+  if (!texture) return null;
+
+  return (
+    <mesh geometry={geometry} position={[0, wallHeight, 0]}>
+      <meshStandardMaterial
+        map={texture}
+        roughness={roughness}
+        side={BackSide}
+        transparent={false}
+      />
+    </mesh>
+  );
 }
 
 // ── Floor helpers ─────────────────────────────────────────────────────────────

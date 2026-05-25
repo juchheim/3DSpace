@@ -383,6 +383,10 @@
         "hemisphereIntensity": 0.5
       },
       "boardDarkenOpacity": 0.20,
+      "domeCeiling": {
+        "textureStorageKey": "world-skins/rainforest-canopy/v1/dome.webp",
+        "roughness": 0.88
+      },
       "ambient": {
         "storageKey": "world-skins/rainforest-canopy/v1/ambient.ogg",
         "defaultGain": 0.18,

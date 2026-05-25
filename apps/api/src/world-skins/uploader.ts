@@ -9,6 +9,7 @@ const CONTENT_TYPE_BY_FILE: Record<WorldSkinAssetFileName, string> = {
   "thumbnail.png": "image/png",
   "panorama.webp": "image/webp",
   "floor.webp": "image/webp",
+  "dome.webp": "image/webp",
   "map2d.webp": "image/webp",
   "ambient.ogg": "audio/ogg"
 };
@@ -78,6 +79,7 @@ export const WORLD_SKIN_ASSET_FILES: WorldSkinAssetFileName[] = [
   "thumbnail.png",
   "panorama.webp",
   "floor.webp",
+  "dome.webp",
   "map2d.webp",
   "ambient.ogg"
 ];

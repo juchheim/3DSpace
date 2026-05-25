@@ -287,6 +287,12 @@ function rewriteWorldSkinAssetUrls(skin: WorldSkin, config: AppConfig): WorldSki
       tiers: o.tiers?.textureStorageKey
         ? { ...o.tiers, textureStorageKey: worldSkinAssetUrl(config, o.tiers.textureStorageKey) }
         : o.tiers,
+      domeCeiling: o.domeCeiling?.textureStorageKey
+        ? {
+            ...o.domeCeiling,
+            textureStorageKey: worldSkinAssetUrl(config, o.domeCeiling.textureStorageKey)
+          }
+        : o.domeCeiling,
       sky: o.sky?.storageKey
         ? { ...o.sky, storageKey: worldSkinAssetUrl(config, o.sky.storageKey) }
         : o.sky,
