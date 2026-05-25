@@ -18,9 +18,12 @@ export function StudentMediaAccessControls({
 }) {
   const [busy, setBusy] = useState("");
 
-  if (!studentMediaRuntime) return null;
-
-  const { camerasEnabled, microphonesEnabled, cameraEnabledUserIds, microphoneEnabledUserIds } = studentMediaRuntime;
+  const {
+    camerasEnabled = true,
+    microphonesEnabled = true,
+    cameraEnabledUserIds = [],
+    microphoneEnabledUserIds = []
+  } = studentMediaRuntime ?? {};
   const studentCameraEnabled = cameraEnabledUserIds.includes(userId);
   const studentMicEnabled = microphoneEnabledUserIds.includes(userId);
   const perStudentVisible = !camerasEnabled || !microphonesEnabled;
