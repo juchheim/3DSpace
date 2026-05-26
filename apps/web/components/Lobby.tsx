@@ -21,6 +21,14 @@ const ROOM_TYPES: { value: RoomType; label: string; description: string }[] = [
   { value: "workforce-training", label: "Workforce Training", description: "Immersive training sessions for teams and organizations." },
 ];
 
+const ROOM_TYPE_JOIN_COPY: Record<
+  RoomType,
+  { guestSingular: string; hostSingular: string; joinButtonLabel: string }
+> = {
+  classroom: { guestSingular: "student", hostSingular: "teacher", joinButtonLabel: "Join class room" },
+  "workforce-training": { guestSingular: "trainee", hostSingular: "instructor", joinButtonLabel: "Join training" },
+};
+
 export function Lobby() {
   const { identity, loaded, clerkEnabled, signedIn } = usePersistentIdentity();
   const [roomType, setRoomType] = useState<RoomType>("classroom");
@@ -162,6 +170,7 @@ export function Lobby() {
 
   const hasRoom = Boolean(createdInvite?.roomId);
   const authDisabled = clerkEnabled && !signedIn;
+  const joinCopy = ROOM_TYPE_JOIN_COPY[roomType];
 
   // ── Type-specific step panels ────────────────────────────────────────────
   // Add a new case here (and to ROOM_TYPES above) to support additional room types.
@@ -482,13 +491,13 @@ export function Lobby() {
 
           {/* ── Student join ── */}
           <div className="lb-divider">
-            <span className="lb-divider-pill">Joining as a student?</span>
+            <span className="lb-divider-pill">Joining as a {joinCopy.guestSingular}?</span>
           </div>
           <div className="lb-join-wrap">
             <div className="lb-panel">
               <div className="lb-join-body">
                 <p className="lb-join-hint">
-                  Paste the invite code your teacher shared, or open their join link directly.
+                  Paste the invite code your {joinCopy.hostSingular} shared, or open their join link directly.
                 </p>
                 <div className="lb-field">
                   <label className="lb-label lb-label-tx" htmlFor="lb-invite-code">Invite code</label>
@@ -505,7 +514,7 @@ export function Lobby() {
                   disabled={busy || !inviteCode.trim() || authDisabled}
                   onClick={() => void joinInvite()}
                 >
-                  {busy ? "Joining…" : "Join class room"}
+                  {busy ? "Joining…" : joinCopy.joinButtonLabel}
                 </button>
               </div>
             </div>
