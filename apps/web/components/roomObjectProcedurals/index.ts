@@ -6,6 +6,11 @@ import {
   CAFFEINE_MOLECULE_PROCEDURAL_ID
 } from "./caffeineMolecule";
 import {
+  EarthGlobe,
+  EARTH_GLOBE_DISPLAY_NAME,
+  EARTH_GLOBE_PROCEDURAL_ID
+} from "./earthGlobe";
+import {
   WaterMolecule,
   WATER_MOLECULE_DISPLAY_NAME,
   WATER_MOLECULE_PROCEDURAL_ID
@@ -17,6 +22,8 @@ export const ROOM_OBJECT_HERO_SLUG = "water-molecule";
 export {
   CAFFEINE_MOLECULE_DISPLAY_NAME,
   CAFFEINE_MOLECULE_PROCEDURAL_ID,
+  EARTH_GLOBE_DISPLAY_NAME,
+  EARTH_GLOBE_PROCEDURAL_ID,
   WATER_MOLECULE_DISPLAY_NAME,
   WATER_MOLECULE_PROCEDURAL_ID
 };
@@ -27,6 +34,7 @@ export {
  */
 export const ROOM_OBJECT_PROCEDURALS: Record<string, ComponentType<ProceduralProps>> = {
   [CAFFEINE_MOLECULE_PROCEDURAL_ID]: CaffeineMolecule,
+  [EARTH_GLOBE_PROCEDURAL_ID]: EarthGlobe,
   [WATER_MOLECULE_PROCEDURAL_ID]: WaterMolecule,
 };
 

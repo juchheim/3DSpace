@@ -59,5 +59,41 @@
     "fileSizeBytes": 0,
     "triangleCount": 42000,
     "createdAt": "2026-05-22T00:00:00.000Z"
+  },
+  {
+    "id": "tpl_earth_globe",
+    "slug": "earth-globe",
+    "displayName": "Rotating Earth globe",
+    "category": "geography",
+    "description": "A procedural Earth globe generated from Natural Earth 1:10m land, lake, river, bathymetry, glacier, and ice-shelf vectors, with a UTC date/time-aware solar terminator, axial tilt, graticule guides, and optional NASA Black Marble night lights for studying day, night, and seasons.",
+    "renderer": "procedural",
+    "proceduralId": "earth-globe",
+    "exportable": true,
+    "kinematic": true,
+    "source": "builtin",
+    "license": "Public domain",
+    "attribution": "Physical vectors: Natural Earth public domain; night lights: NASA Earth Observatory Black Marble",
+    "defaultPose": {
+      "position": { "x": 0, "y": 1.4, "z": 0 },
+      "rotation": { "yaw": 0, "pitch": 0, "roll": 0 }
+    },
+    "defaultScale": 2.35,
+    "recommendedTouchPolicy": "teacher-only",
+    "defaultParameters": {
+      "solarMode": "realtime",
+      "dayOfYear": 172,
+      "utcHour": 12,
+      "rotationPeriodSeconds": 90,
+      "nightLightsVisible": true,
+      "bathymetryVisible": true,
+      "iceVisible": true,
+      "graticuleVisible": true,
+      "atmosphereVisible": true
+    },
+    "parameterSchemaJson": "{\"solarMode\":{\"type\":\"enum\",\"label\":\"Solar date\",\"default\":\"realtime\",\"options\":[{\"value\":\"realtime\",\"label\":\"Live UTC date/time\"},{\"value\":\"custom-date-time\",\"label\":\"Custom day/time\"},{\"value\":\"march-equinox\",\"label\":\"March equinox\"},{\"value\":\"june-solstice\",\"label\":\"June solstice\"},{\"value\":\"december-solstice\",\"label\":\"December solstice\"}]},\"dayOfYear\":{\"type\":\"number\",\"label\":\"Day of year\",\"default\":172,\"min\":1,\"max\":366,\"step\":1},\"utcHour\":{\"type\":\"number\",\"label\":\"UTC hour\",\"default\":12,\"min\":0,\"max\":23.75,\"step\":0.25},\"rotationPeriodSeconds\":{\"type\":\"number\",\"label\":\"Rotation period\",\"default\":90,\"min\":0,\"max\":240,\"step\":5},\"nightLightsVisible\":{\"type\":\"boolean\",\"label\":\"Night lights\",\"default\":true},\"bathymetryVisible\":{\"type\":\"boolean\",\"label\":\"Ocean depth bands\",\"default\":true},\"iceVisible\":{\"type\":\"boolean\",\"label\":\"Glaciers and ice shelves\",\"default\":true},\"graticuleVisible\":{\"type\":\"boolean\",\"label\":\"Latitude/longitude grid\",\"default\":true},\"atmosphereVisible\":{\"type\":\"boolean\",\"label\":\"Atmosphere glow\",\"default\":true}}",
+    "thumbnailUrl": "/room-objects/textures/earth-blue-marble-jan-5400.jpg",
+    "fileSizeBytes": 0,
+    "triangleCount": 33000,
+    "createdAt": "2026-05-25T00:00:00.000Z"
   }
 ]

@@ -12,13 +12,14 @@ const builtin = JSON.parse(readFileSync(join(here, "../catalog/builtin.json"), "
 
 describe("room object builtin catalog", () => {
   it("ships the Phase 0 hero plus additional procedural builtins", () => {
-    expect(builtin).toHaveLength(2);
+    expect(builtin).toHaveLength(3);
     const entry = builtin[0] as Record<string, unknown>;
     expect(entry.slug).toBe("water-molecule");
     expect(entry.proceduralId).toBe("water-molecule");
     expect(entry.renderer).toBe("procedural");
 
     expect(builtin.some((template) => template.slug === "caffeine-molecule")).toBe(true);
+    expect(builtin.some((template) => template.slug === "earth-globe")).toBe(true);
   });
 
   it("matches hero-draft fields used at runtime", () => {
@@ -52,5 +53,30 @@ describe("room object builtin catalog", () => {
     });
     expect(entry.thumbnailUrl).toBe("/room-objects/thumbnails/caffeine-molecule.png");
     expect(entry.triangleCount).toBe(42000);
+  });
+
+  it("validates the procedural Earth globe teaching object", () => {
+    const entry = RoomObjectTemplateSchema.parse(
+      builtin.find((template) => template.slug === "earth-globe")
+    );
+
+    expect(entry.displayName).toBe("Rotating Earth globe");
+    expect(entry.category).toBe("geography");
+    expect(entry.proceduralId).toBe("earth-globe");
+    expect(entry.kinematic).toBe(true);
+    expect(entry.defaultParameters).toEqual({
+      solarMode: "realtime",
+      dayOfYear: 172,
+      utcHour: 12,
+      rotationPeriodSeconds: 90,
+      nightLightsVisible: true,
+      bathymetryVisible: true,
+      iceVisible: true,
+      graticuleVisible: true,
+      atmosphereVisible: true
+    });
+    expect(entry.parameterSchemaJson).toContain("Live UTC date/time");
+    expect(entry.thumbnailUrl).toBe("/room-objects/textures/earth-blue-marble-jan-5400.jpg");
+    expect(entry.triangleCount).toBe(33000);
   });
 });

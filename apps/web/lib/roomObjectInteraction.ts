@@ -123,5 +123,15 @@ export function parameterSummary(parameters: Record<string, unknown>) {
   }
   if (parameters.ringGuideVisible === true) parts.push("ring guide on");
   if (parameters.heteroAtomLabelsVisible === true) parts.push("N/O labels on");
+  if (typeof parameters.solarMode === "string") {
+    parts.push(parameters.solarMode === "realtime" ? "live sun" : parameters.solarMode);
+  }
+  if (typeof parameters.rotationPeriodSeconds === "number") {
+    parts.push(parameters.rotationPeriodSeconds === 0 ? "paused" : `${parameters.rotationPeriodSeconds}s rotation`);
+  }
+  if (parameters.nightLightsVisible === true) parts.push("night lights on");
+  if (parameters.bathymetryVisible === true) parts.push("bathymetry on");
+  if (parameters.iceVisible === true) parts.push("ice on");
+  if (parameters.graticuleVisible === true) parts.push("grid on");
   return parts.length ? parts.join(" · ") : "";
 }

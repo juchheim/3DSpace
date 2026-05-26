@@ -112,6 +112,16 @@ async function placeHero(page: Page) {
   });
 }
 
+async function placeEarthGlobe(page: Page) {
+  await expandObjectsToolbar(page);
+  const placeEarthButton = page.getByTestId("room-object-place-earth-globe");
+  await expect(placeEarthButton).toBeVisible({ timeout: 15_000 });
+  await placeEarthButton.click();
+  await expect(page.getByLabel("Room objects").getByRole("button", { name: /rotating earth globe/i })).toBeVisible({
+    timeout: 10_000
+  });
+}
+
 async function heroInspector(page: Page) {
   const dock = page.getByTestId("room-object-inspector-dock");
   if (!(await dock.isVisible())) {
@@ -152,9 +162,20 @@ test.describe("room objects", () => {
     await expect(inspector.getByText("Bond-angle readout", { exact: true })).toBeVisible();
     await expect(inspector.locator(".room-object-inspector__row").filter({ hasText: "Scale" })).toBeVisible();
 
+    await placeEarthGlobe(page);
+    const earthInspector = page.getByTestId("room-object-inspector-dock").locator(".room-object-inspector");
+    await expect(earthInspector.getByText("Solar date", { exact: true })).toBeVisible();
+    await expect(earthInspector.getByText("Day of year", { exact: true })).toBeVisible();
+    await expect(earthInspector.getByText("UTC hour", { exact: true })).toBeVisible();
+    await expect(earthInspector.getByText("Rotation period", { exact: true })).toBeVisible();
+    await expect(earthInspector.getByText("Night lights", { exact: true })).toBeVisible();
+    await expect(earthInspector.getByText("Ocean depth bands", { exact: true })).toBeVisible();
+    await expect(earthInspector.getByText("Glaciers and ice shelves", { exact: true })).toBeVisible();
+
     await page.getByRole("button", { name: "2D" }).click();
     await expect(page.getByRole("img", { name: /top-down 2d analog/i })).toBeVisible();
     await expect(page.locator('.room-object-icon-2d[aria-label="Water molecule (H₂O)"]')).toBeVisible();
+    await expect(page.locator('.room-object-icon-2d[aria-label="Rotating Earth globe"]')).toBeVisible();
   });
 
   test("granted student manipulates hero; teacher syncs, resets, and removes for both tabs", async ({
