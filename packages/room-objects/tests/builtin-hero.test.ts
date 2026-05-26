@@ -66,17 +66,30 @@ describe("room object builtin catalog", () => {
     expect(entry.kinematic).toBe(true);
     expect(entry.defaultParameters).toEqual({
       solarMode: "realtime",
+      timeFlowMode: "physical-accelerated",
+      customYear: 2026,
       dayOfYear: 172,
       utcHour: 12,
+      utcMinute: 0,
       rotationPeriodSeconds: 90,
       nightLightsVisible: true,
       bathymetryVisible: true,
       iceVisible: true,
+      cloudsVisible: true,
+      terrainReliefVisible: true,
+      solarMarkersVisible: true,
+      terminatorGuideVisible: true,
       elevationMarkersVisible: true,
       graticuleVisible: true,
       atmosphereVisible: true
     });
     expect(entry.parameterSchemaJson).toContain("Live UTC date/time");
+    expect(entry.parameterSchemaJson).toContain("Accelerated physical day");
+    expect(entry.parameterSchemaJson).toContain("Cloud layer");
+    expect(entry.parameterSchemaJson).toContain("Terrain relief");
+    expect(entry.parameterSchemaJson).toContain("Subsolar markers");
+    expect(entry.parameterSchemaJson).toContain("Terminator guide");
+    expect(entry.parameterSchemaJson).toContain("true-scale radial terrain displacement");
     expect(entry.thumbnailUrl).toBe("/room-objects/textures/earth-blue-marble-jan-5400.jpg");
     expect(entry.triangleCount).toBe(33000);
   });

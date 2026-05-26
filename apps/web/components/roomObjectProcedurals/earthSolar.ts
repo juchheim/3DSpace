@@ -1,5 +1,6 @@
 const DEG_TO_RAD = Math.PI / 180;
 const RAD_TO_DEG = 180 / Math.PI;
+const TWO_PI = Math.PI * 2;
 
 function normalizeDegrees(value: number) {
   return ((value % 360) + 360) % 360;
@@ -59,4 +60,33 @@ export function solarVectorFromSubpoint(latitudeRad: number, longitudeRad: numbe
     Math.sin(latitudeRad),
     cosLat * Math.cos(longitudeRad)
   ];
+}
+
+export function daylightDotForGeoCoordinate(
+  latitudeRad: number,
+  longitudeRad: number,
+  sunLatitudeRad: number,
+  sunLongitudeRad: number
+) {
+  const [surfaceX, surfaceY, surfaceZ] = solarVectorFromSubpoint(latitudeRad, longitudeRad);
+  const [sunX, sunY, sunZ] = solarVectorFromSubpoint(sunLatitudeRad, sunLongitudeRad);
+  return surfaceX * sunX + surfaceY * sunY + surfaceZ * sunZ;
+}
+
+export function unwrapRadiansDelta(currentRad: number, previousRad: number) {
+  let delta = currentRad - previousRad;
+  while (delta > Math.PI) delta -= TWO_PI;
+  while (delta < -Math.PI) delta += TWO_PI;
+  return delta;
+}
+
+export function spinOffsetFromUnwrappedSubsolarLongitude(unwrappedLongitudeRad: number, anchorLongitudeRad: number) {
+  return (unwrappedLongitudeRad - anchorLongitudeRad) / TWO_PI;
+}
+
+export function dateWithPhysicalElapsedDay(anchorDate: Date, elapsedSeconds: number, dayPeriodSeconds: number) {
+  if (!Number.isFinite(elapsedSeconds) || !Number.isFinite(dayPeriodSeconds) || dayPeriodSeconds <= 0) {
+    return anchorDate;
+  }
+  return new Date(anchorDate.getTime() + elapsedSeconds / dayPeriodSeconds * 86_400_000);
 }

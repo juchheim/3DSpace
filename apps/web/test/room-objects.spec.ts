@@ -165,12 +165,19 @@ test.describe("room objects", () => {
     await placeEarthGlobe(page);
     const earthInspector = page.getByTestId("room-object-inspector-dock").locator(".room-object-inspector");
     await expect(earthInspector.getByText("Solar date", { exact: true })).toBeVisible();
+    await expect(earthInspector.getByText("Time flow", { exact: true })).toBeVisible();
+    await expect(earthInspector.getByText("Custom year", { exact: true })).toBeVisible();
     await expect(earthInspector.getByText("Day of year", { exact: true })).toBeVisible();
     await expect(earthInspector.getByText("UTC hour", { exact: true })).toBeVisible();
+    await expect(earthInspector.getByText("UTC minute", { exact: true })).toBeVisible();
     await expect(earthInspector.getByText("Rotation period", { exact: true })).toBeVisible();
     await expect(earthInspector.getByText("Night lights", { exact: true })).toBeVisible();
     await expect(earthInspector.getByText("Ocean depth bands", { exact: true })).toBeVisible();
     await expect(earthInspector.getByText("Glaciers and ice shelves", { exact: true })).toBeVisible();
+    await expect(earthInspector.getByText("Cloud layer", { exact: true })).toBeVisible();
+    await expect(earthInspector.getByText("Terrain relief", { exact: true })).toBeVisible();
+    await expect(earthInspector.getByText("Subsolar markers", { exact: true })).toBeVisible();
+    await expect(earthInspector.getByText("Terminator guide", { exact: true })).toBeVisible();
     await expect(earthInspector.getByText("Major elevation markers", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "2D" }).click();

@@ -17,12 +17,18 @@ import {
   Vector3
 } from "three";
 import type { ProceduralProps } from "./types";
-import { computeSolarSubpoint, solarVectorFromSubpoint } from "./earthSolar";
+import {
+  computeSolarSubpoint,
+  dateWithPhysicalElapsedDay,
+  solarVectorFromSubpoint,
+  spinOffsetFromUnwrappedSubsolarLongitude,
+  unwrapRadiansDelta
+} from "./earthSolar";
 
 export const EARTH_GLOBE_PROCEDURAL_ID = "earth-globe";
 export const EARTH_GLOBE_DISPLAY_NAME = "Rotating Earth globe";
 export const EARTH_GLOBE_ATTRIBUTION =
-  "Physical vectors: Natural Earth public domain; night lights: NASA Earth Observatory Black Marble";
+  "Physical vectors: Natural Earth public domain; night lights, cloud composite, topography, and GEBCO bathymetry relief: NASA Earth Observatory";
 
 const LAND_GEOJSON_URL = "/room-objects/geojson/ne_10m_land.geojson";
 const LAKES_GEOJSON_URL = "/room-objects/geojson/ne_10m_lakes.geojson";
@@ -40,11 +46,20 @@ const DAY_TEXTURE_URL = "/room-objects/textures/earth-physical-base-4096.webp";
 const BATHYMETRY_TEXTURE_URL = "/room-objects/textures/earth-bathymetry-4096.webp";
 const ICE_TEXTURE_URL = "/room-objects/textures/earth-ice-4096.webp";
 const NIGHT_LIGHTS_URL = "/room-objects/textures/earth-black-marble-2016-3600.jpg";
+const CLOUD_TEXTURE_URL = "/room-objects/textures/earth-clouds-blue-marble-2048.webp";
+const TOPOGRAPHY_RELIEF_URL = "/room-objects/textures/earth-topography-relief-4096.webp";
+const BATHYMETRY_RELIEF_URL = "/room-objects/textures/earth-bathymetry-relief-4096.webp";
 const EARTH_OBLIQUITY_RAD = 23.439281 * Math.PI / 180;
+const EARTH_POLAR_RADIUS_RATIO = 6356.7523142 / 6378.137;
+const EARTH_RENDER_RADIUS = 0.42;
+const EARTH_EQUATORIAL_RADIUS_M = 6_378_137;
+const WORLD_Y_AXIS = new Vector3(0, 1, 0);
+const WORLD_Z_AXIS = new Vector3(0, 0, 1);
 const TEXTURE_WIDTH = 4096;
 const TEXTURE_HEIGHT = 2048;
 
 type SolarMode = "realtime" | "custom-date-time" | "march-equinox" | "june-solstice" | "december-solstice";
+type TimeFlowMode = "physical-accelerated" | "live-utc" | "demo-spin";
 
 export const EARTH_GLOBE_PARAMETERS = [
   {
@@ -62,6 +77,28 @@ export const EARTH_GLOBE_PARAMETERS = [
     help: "Uses date/time-aware solar position for the terminator; presets help compare seasonal daylight."
   },
   {
+    key: "timeFlowMode",
+    label: "Time flow",
+    type: "enum",
+    default: "physical-accelerated",
+    options: [
+      { value: "physical-accelerated", label: "Accelerated physical day" },
+      { value: "live-utc", label: "Live UTC clock" },
+      { value: "demo-spin", label: "Fixed-date demo spin" }
+    ],
+    help: "Physical modes couple rotation to advancing UTC solar time; demo spin rotates the globe around a fixed date."
+  },
+  {
+    key: "customYear",
+    label: "Custom year",
+    type: "number",
+    default: 2026,
+    min: 1900,
+    max: 2100,
+    step: 1,
+    help: "Used when Solar date is Custom day/time. Years matter because leap years shift day-of-year dates."
+  },
+  {
     key: "dayOfYear",
     label: "Day of year",
     type: "number",
@@ -77,9 +114,19 @@ export const EARTH_GLOBE_PARAMETERS = [
     type: "number",
     default: 12,
     min: 0,
-    max: 23.75,
-    step: 0.25,
-    help: "Used when Solar date is Custom day/time. Fractional hours support 15-minute increments."
+    max: 23,
+    step: 1,
+    help: "Used when Solar date is Custom day/time."
+  },
+  {
+    key: "utcMinute",
+    label: "UTC minute",
+    type: "number",
+    default: 0,
+    min: 0,
+    max: 59,
+    step: 1,
+    help: "Used when Solar date is Custom day/time for minute-level terminator position."
   },
   {
     key: "rotationPeriodSeconds",
@@ -113,6 +160,34 @@ export const EARTH_GLOBE_PARAMETERS = [
     help: "Adds Natural Earth glaciated areas and Antarctic ice shelves."
   },
   {
+    key: "cloudsVisible",
+    label: "Cloud layer",
+    type: "boolean",
+    default: true,
+    help: "Adds a NASA Blue Marble cloud composite as a separate transparent atmosphere shell."
+  },
+  {
+    key: "terrainReliefVisible",
+    label: "Terrain relief",
+    type: "boolean",
+    default: true,
+    help: "Adds true-scale radial terrain displacement plus NASA topography and GEBCO bathymetry relief shading."
+  },
+  {
+    key: "solarMarkersVisible",
+    label: "Subsolar markers",
+    type: "boolean",
+    default: true,
+    help: "Marks the point where the Sun is directly overhead and the opposite solar-midnight point."
+  },
+  {
+    key: "terminatorGuideVisible",
+    label: "Terminator guide",
+    type: "boolean",
+    default: true,
+    help: "Draws the sunrise/sunset great circle from the same solar vector used by the day/night shader."
+  },
+  {
     key: "elevationMarkersVisible",
     label: "Major elevation markers",
     type: "boolean",
@@ -137,12 +212,19 @@ export const EARTH_GLOBE_PARAMETERS = [
 
 export const EARTH_GLOBE_DEFAULT_PARAMETERS: Record<string, unknown> = {
   solarMode: "realtime",
+  timeFlowMode: "physical-accelerated",
+  customYear: 2026,
   dayOfYear: 172,
   utcHour: 12,
+  utcMinute: 0,
   rotationPeriodSeconds: 90,
   nightLightsVisible: true,
   bathymetryVisible: true,
   iceVisible: true,
+  cloudsVisible: true,
+  terrainReliefVisible: true,
+  solarMarkersVisible: true,
+  terminatorGuideVisible: true,
   elevationMarkersVisible: true,
   graticuleVisible: true,
   atmosphereVisible: true
@@ -202,13 +284,18 @@ function readSolarMode(value: unknown): SolarMode {
     : "realtime";
 }
 
-function dateForSolarMode(mode: SolarMode, dayOfYear: number, utcHour: number) {
+function readTimeFlowMode(value: unknown): TimeFlowMode {
+  return value === "live-utc" || value === "demo-spin" ? value : "physical-accelerated";
+}
+
+function dateForSolarMode(mode: SolarMode, customYear: number, dayOfYear: number, utcHour: number, utcMinute: number) {
   switch (mode) {
     case "custom-date-time": {
-      const year = new Date().getUTCFullYear();
+      const year = Math.round(readNumber(customYear, new Date().getUTCFullYear(), 1900, 2100));
       const clampedDay = Math.round(readNumber(dayOfYear, 172, 1, 366));
-      const clampedHour = readNumber(utcHour, 12, 0, 23.75);
-      return new Date(Date.UTC(year, 0, 1, 0, 0, 0, 0) + (clampedDay - 1) * 86_400_000 + clampedHour * 3_600_000);
+      const clampedHour = Math.floor(readNumber(utcHour, 12, 0, 23));
+      const clampedMinute = Math.round(readNumber(utcMinute, 0, 0, 59));
+      return new Date(Date.UTC(year, 0, 1, clampedHour, clampedMinute, 0, 0) + (clampedDay - 1) * 86_400_000);
     }
     case "march-equinox":
       return new Date("2026-03-20T14:46:00.000Z");
@@ -596,12 +683,19 @@ function Graticule() {
 
 export function EarthGlobe({ parameters, colorTintHex }: ProceduralProps) {
   const solarMode = readSolarMode(parameters.solarMode);
+  const timeFlowMode = readTimeFlowMode(parameters.timeFlowMode);
+  const customYear = readNumber(parameters.customYear, 2026, 1900, 2100);
   const dayOfYear = readNumber(parameters.dayOfYear, 172, 1, 366);
-  const utcHour = readNumber(parameters.utcHour, 12, 0, 23.75);
+  const utcHour = readNumber(parameters.utcHour, 12, 0, 23);
+  const utcMinute = readNumber(parameters.utcMinute, 0, 0, 59);
   const rotationPeriodSeconds = readNumber(parameters.rotationPeriodSeconds, 90, 0, 240);
   const nightLightsVisible = readBoolean(parameters.nightLightsVisible, true);
   const bathymetryVisible = readBoolean(parameters.bathymetryVisible, true);
   const iceVisible = readBoolean(parameters.iceVisible, true);
+  const cloudsVisible = readBoolean(parameters.cloudsVisible, true);
+  const terrainReliefVisible = readBoolean(parameters.terrainReliefVisible, true);
+  const solarMarkersVisible = readBoolean(parameters.solarMarkersVisible, true);
+  const terminatorGuideVisible = readBoolean(parameters.terminatorGuideVisible, true);
   const elevationMarkersVisible = readBoolean(parameters.elevationMarkersVisible, true);
   const graticuleVisible = readBoolean(parameters.graticuleVisible, true);
   const atmosphereVisible = readBoolean(parameters.atmosphereVisible, true);
@@ -610,11 +704,23 @@ export function EarthGlobe({ parameters, colorTintHex }: ProceduralProps) {
   const earthTexture = useLoadedTexture(DAY_TEXTURE_URL);
   const bathymetryTexture = useLoadedTexture(BATHYMETRY_TEXTURE_URL, true);
   const iceTexture = useLoadedTexture(ICE_TEXTURE_URL, true);
+  const cloudTexture = useLoadedTexture(CLOUD_TEXTURE_URL, true);
+  const topographyReliefTexture = useLoadedTexture(TOPOGRAPHY_RELIEF_URL, true);
+  const bathymetryReliefTexture = useLoadedTexture(BATHYMETRY_RELIEF_URL, true);
   const elevationMarkers = useElevationMarkers(elevationMarkersVisible);
   const nightTexture = useLoadedTexture(NIGHT_LIGHTS_URL);
   const materialRef = useRef<ShaderMaterial>(null);
   const elevationGroupRef = useRef<Group>(null);
+  const cloudGroupRef = useRef<Group>(null);
+  const solarMarkerGroupRef = useRef<Group>(null);
+  const subsolarMarkerRef = useRef<Group>(null);
+  const midnightMarkerRef = useRef<Group>(null);
+  const terminatorGuideRef = useRef<Group>(null);
+  const timeAnchorDateRef = useRef<Date | null>(null);
   const spinRef = useRef(0);
+  const sunAnchorLongitudeRef = useRef<number | null>(null);
+  const previousSunLongitudeRef = useRef<number | null>(null);
+  const unwrappedSunLongitudeRef = useRef<number | null>(null);
   const solarLabelRef = useRef("");
   const [solarLabel, setSolarLabel] = useState("");
 
@@ -626,16 +732,32 @@ export function EarthGlobe({ parameters, colorTintHex }: ProceduralProps) {
       bathymetryMap: { value: bathymetryTexture ?? createTransparentFallbackTexture() },
       iceMap: { value: iceTexture ?? createTransparentFallbackTexture() },
       nightMap: { value: nightTexture },
+      topographyReliefMap: { value: topographyReliefTexture ?? createTransparentFallbackTexture() },
+      bathymetryReliefMap: { value: bathymetryReliefTexture ?? createTransparentFallbackTexture() },
       sunDirection: { value: new Vector3(0, 0, 1) },
       spinOffset: { value: 0 },
       nightLightsStrength: { value: nightLightsVisible ? 1 : 0 },
       bathymetryStrength: { value: bathymetryVisible ? 1 : 0 },
       iceStrength: { value: iceVisible ? 1 : 0 },
+      terrainReliefStrength: { value: terrainReliefVisible && topographyReliefTexture && bathymetryReliefTexture ? 1 : 0 },
+      terrainDisplacementRadius: { value: EARTH_RENDER_RADIUS / EARTH_EQUATORIAL_RADIUS_M },
       twilightWidth: { value: 0.08 },
       accentColor: { value: new Color(accent) }
     }
         : null,
-    [accent, bathymetryTexture, bathymetryVisible, earthTexture, iceTexture, iceVisible, nightLightsVisible, nightTexture]
+    [
+      accent,
+      bathymetryReliefTexture,
+      bathymetryTexture,
+      bathymetryVisible,
+      earthTexture,
+      iceTexture,
+      iceVisible,
+      nightLightsVisible,
+      nightTexture,
+      terrainReliefVisible,
+      topographyReliefTexture
+    ]
   );
 
   useEffect(() => {
@@ -657,20 +779,77 @@ export function EarthGlobe({ parameters, colorTintHex }: ProceduralProps) {
   }, [iceTexture]);
 
   useEffect(() => {
+    if (materialRef.current && topographyReliefTexture) {
+      materialRef.current.uniforms.topographyReliefMap!.value = topographyReliefTexture;
+    }
+  }, [topographyReliefTexture]);
+
+  useEffect(() => {
+    if (materialRef.current && bathymetryReliefTexture) {
+      materialRef.current.uniforms.bathymetryReliefMap!.value = bathymetryReliefTexture;
+    }
+  }, [bathymetryReliefTexture]);
+
+  useEffect(() => {
     if (materialRef.current) {
       materialRef.current.uniforms.nightLightsStrength!.value = nightLightsVisible ? 1 : 0;
       materialRef.current.uniforms.bathymetryStrength!.value = bathymetryVisible ? 1 : 0;
       materialRef.current.uniforms.iceStrength!.value = iceVisible ? 1 : 0;
+      materialRef.current.uniforms.terrainReliefStrength!.value =
+        terrainReliefVisible && topographyReliefTexture && bathymetryReliefTexture ? 1 : 0;
       materialRef.current.uniforms.accentColor!.value.set(accent);
     }
-  }, [accent, bathymetryVisible, iceVisible, nightLightsVisible]);
+  }, [
+    accent,
+    bathymetryReliefTexture,
+    bathymetryVisible,
+    iceVisible,
+    nightLightsVisible,
+    terrainReliefVisible,
+    topographyReliefTexture
+  ]);
 
-  useFrame((_, delta) => {
-    if (rotationPeriodSeconds > 0) {
+  useEffect(() => {
+    timeAnchorDateRef.current = dateForSolarMode(solarMode, customYear, dayOfYear, utcHour, utcMinute);
+    spinRef.current = 0;
+    sunAnchorLongitudeRef.current = null;
+    previousSunLongitudeRef.current = null;
+    unwrappedSunLongitudeRef.current = null;
+  }, [customYear, dayOfYear, solarMode, timeFlowMode, utcHour, utcMinute]);
+
+  useFrame((state, delta) => {
+    if (timeFlowMode === "demo-spin" && rotationPeriodSeconds > 0) {
       spinRef.current = (spinRef.current + delta / rotationPeriodSeconds) % 1;
     }
-    const date = dateForSolarMode(solarMode, dayOfYear, utcHour);
+    const baseDate =
+      timeAnchorDateRef.current ?? dateForSolarMode(solarMode, customYear, dayOfYear, utcHour, utcMinute);
+    const date =
+      timeFlowMode === "live-utc"
+        ? new Date()
+        : timeFlowMode === "physical-accelerated"
+          ? dateWithPhysicalElapsedDay(baseDate, state.clock.elapsedTime, rotationPeriodSeconds)
+          : baseDate;
     const subpoint = computeSolarSubpoint(date);
+    if (timeFlowMode !== "demo-spin") {
+      if (
+        sunAnchorLongitudeRef.current === null ||
+        previousSunLongitudeRef.current === null ||
+        unwrappedSunLongitudeRef.current === null
+      ) {
+        sunAnchorLongitudeRef.current = subpoint.longitudeRad;
+        previousSunLongitudeRef.current = subpoint.longitudeRad;
+        unwrappedSunLongitudeRef.current = subpoint.longitudeRad;
+        spinRef.current = 0;
+      } else {
+        const deltaLongitude = unwrapRadiansDelta(subpoint.longitudeRad, previousSunLongitudeRef.current);
+        unwrappedSunLongitudeRef.current += deltaLongitude;
+        previousSunLongitudeRef.current = subpoint.longitudeRad;
+        spinRef.current = spinOffsetFromUnwrappedSubsolarLongitude(
+          unwrappedSunLongitudeRef.current,
+          sunAnchorLongitudeRef.current
+        );
+      }
+    }
     const [x, y, z] = solarVectorFromSubpoint(subpoint.latitudeRad, subpoint.longitudeRad);
     const material = materialRef.current;
     if (material) {
@@ -680,7 +859,29 @@ export function EarthGlobe({ parameters, colorTintHex }: ProceduralProps) {
     if (elevationGroupRef.current) {
       elevationGroupRef.current.rotation.y = -spinRef.current * Math.PI * 2;
     }
-    const nextLabel = `${solarMode === "realtime" ? "Live" : solarMode === "custom-date-time" ? "Custom" : "Preset"} subsolar ${Math.abs(subpoint.latitudeRad * 180 / Math.PI).toFixed(1)}°${subpoint.latitudeRad >= 0 ? "N" : "S"}`;
+    if (solarMarkerGroupRef.current) {
+      solarMarkerGroupRef.current.rotation.y = -spinRef.current * Math.PI * 2;
+    }
+    if (terminatorGuideRef.current) {
+      const displaySun = new Vector3(x, y, z)
+        .applyAxisAngle(WORLD_Y_AXIS, -spinRef.current * Math.PI * 2)
+        .normalize();
+      terminatorGuideRef.current.quaternion.setFromUnitVectors(WORLD_Z_AXIS, displaySun);
+    }
+    if (solarMarkersVisible && subsolarMarkerRef.current && midnightMarkerRef.current) {
+      const subsolarLongitudeDeg = subpoint.longitudeRad * 180 / Math.PI;
+      const subsolarLatitudeDeg = subpoint.latitudeRad * 180 / Math.PI;
+      const midnightLongitudeDeg = subsolarLongitudeDeg + 180;
+      const midnightLatitudeDeg = -subsolarLatitudeDeg;
+      subsolarMarkerRef.current.position.set(...globePosition(subsolarLongitudeDeg, subsolarLatitudeDeg, EARTH_RENDER_RADIUS + 0.026));
+      midnightMarkerRef.current.position.set(...globePosition(midnightLongitudeDeg, midnightLatitudeDeg, EARTH_RENDER_RADIUS + 0.024));
+    }
+    if (cloudGroupRef.current) {
+      cloudGroupRef.current.rotation.y = -spinRef.current * Math.PI * 2 - state.clock.elapsedTime * 0.006;
+    }
+    const flowLabel =
+      timeFlowMode === "physical-accelerated" ? "Accelerated physical" : timeFlowMode === "live-utc" ? "Live UTC" : "Demo spin";
+    const nextLabel = `${flowLabel} · ${solarMode === "realtime" ? "Live" : solarMode === "custom-date-time" ? "Custom" : "Preset"} subsolar ${Math.abs(subpoint.latitudeRad * 180 / Math.PI).toFixed(1)}°${subpoint.latitudeRad >= 0 ? "N" : "S"}`;
     if (solarLabelRef.current !== nextLabel) {
       solarLabelRef.current = nextLabel;
       setSolarLabel(nextLabel);
@@ -689,52 +890,96 @@ export function EarthGlobe({ parameters, colorTintHex }: ProceduralProps) {
 
   return (
     <group rotation={[0, 0, -EARTH_OBLIQUITY_RAD]}>
-      {uniforms ? (
-        <mesh>
-          <sphereGeometry args={[0.42, 160, 96]} />
-          <shaderMaterial
-            ref={materialRef}
-            uniforms={uniforms}
-            vertexShader={EARTH_VERTEX_SHADER}
-            fragmentShader={EARTH_FRAGMENT_SHADER}
-          />
-        </mesh>
-      ) : (
-        <mesh>
-          <sphereGeometry args={[0.42, 64, 32]} />
-          <meshStandardMaterial color="#164a78" roughness={0.8} />
-        </mesh>
-      )}
+      <group scale={[1, EARTH_POLAR_RADIUS_RATIO, 1]}>
+        {uniforms ? (
+          <mesh>
+            <sphereGeometry args={[EARTH_RENDER_RADIUS, 256, 128]} />
+            <shaderMaterial
+              ref={materialRef}
+              uniforms={uniforms}
+              vertexShader={EARTH_VERTEX_SHADER}
+              fragmentShader={EARTH_FRAGMENT_SHADER}
+            />
+          </mesh>
+        ) : (
+          <mesh>
+            <sphereGeometry args={[EARTH_RENDER_RADIUS, 64, 32]} />
+            <meshStandardMaterial color="#164a78" roughness={0.8} />
+          </mesh>
+        )}
 
-      {graticuleVisible ? <Graticule /> : null}
-      {elevationMarkersVisible ? (
-        <group ref={elevationGroupRef}>
-          <ElevationMarkers markers={elevationMarkers} />
-        </group>
-      ) : null}
+        {graticuleVisible ? <Graticule /> : null}
+        {terminatorGuideVisible ? (
+          <group ref={terminatorGuideRef}>
+            <mesh>
+              <torusGeometry args={[EARTH_RENDER_RADIUS + 0.018, 0.0017, 6, 256]} />
+              <meshBasicMaterial color={accent} transparent opacity={0.72} side={DoubleSide} />
+            </mesh>
+          </group>
+        ) : null}
+        {solarMarkersVisible ? (
+          <group ref={solarMarkerGroupRef}>
+            <group ref={subsolarMarkerRef} position={[0, 0, EARTH_RENDER_RADIUS + 0.026]}>
+              <mesh>
+                <sphereGeometry args={[0.011, 18, 12]} />
+                <meshStandardMaterial color="#ffd34f" emissive="#ffd34f" emissiveIntensity={0.85} roughness={0.35} />
+              </mesh>
+              <Html transform center position={[0, 0.04, 0]} scale={0.035} className="room-object-html">
+                <span className="room-object-label" style={{ borderColor: "#ffd34f" }}>
+                  Sun overhead
+                </span>
+              </Html>
+            </group>
+            <group ref={midnightMarkerRef} position={[0, 0, -(EARTH_RENDER_RADIUS + 0.024)]}>
+              <mesh>
+                <sphereGeometry args={[0.008, 16, 10]} />
+                <meshStandardMaterial color="#8eb7ff" emissive="#234a88" emissiveIntensity={0.55} roughness={0.45} />
+              </mesh>
+              <Html transform center position={[0, 0.032, 0]} scale={0.03} className="room-object-html">
+                <span className="room-object-label" style={{ borderColor: "#8eb7ff" }}>
+                  Solar midnight
+                </span>
+              </Html>
+            </group>
+          </group>
+        ) : null}
+        {cloudsVisible && cloudTexture ? (
+          <group ref={cloudGroupRef}>
+            <mesh>
+              <sphereGeometry args={[EARTH_RENDER_RADIUS + 0.012, 128, 64]} />
+              <meshBasicMaterial map={cloudTexture} transparent opacity={0.56} depthWrite={false} />
+            </mesh>
+          </group>
+        ) : null}
+        {elevationMarkersVisible ? (
+          <group ref={elevationGroupRef}>
+            <ElevationMarkers markers={elevationMarkers} />
+          </group>
+        ) : null}
+
+        {atmosphereVisible ? (
+          <mesh>
+            <sphereGeometry args={[EARTH_RENDER_RADIUS + 0.015, 96, 48]} />
+            <meshBasicMaterial
+              color="#6ec8ff"
+              transparent
+              opacity={0.16}
+              side={BackSide}
+              blending={AdditiveBlending}
+              depthWrite={false}
+            />
+          </mesh>
+        ) : null}
+      </group>
 
       <mesh rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[0.006, 0.006, 1.08, 16]} />
         <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={0.22} />
       </mesh>
 
-      {atmosphereVisible ? (
-        <mesh>
-          <sphereGeometry args={[0.435, 96, 48]} />
-          <meshBasicMaterial
-            color="#6ec8ff"
-            transparent
-            opacity={0.16}
-            side={BackSide}
-            blending={AdditiveBlending}
-            depthWrite={false}
-          />
-        </mesh>
-      ) : null}
-
       <Html transform center position={[0, -0.64, 0]} scale={0.08} className="room-object-html">
         <span className="room-object-label" style={{ borderColor: accent }}>
-          23.44° axial tilt · {solarLabel}
+          23.44° axial tilt · WGS84 oblateness · {solarLabel}
         </span>
       </Html>
     </group>
@@ -742,10 +987,23 @@ export function EarthGlobe({ parameters, colorTintHex }: ProceduralProps) {
 }
 
 const EARTH_VERTEX_SHADER = `
+  uniform sampler2D topographyReliefMap;
+  uniform sampler2D bathymetryReliefMap;
+  uniform float spinOffset;
+  uniform float terrainReliefStrength;
+  uniform float terrainDisplacementRadius;
   varying vec2 vUv;
+
   void main() {
     vUv = uv;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    vec2 spunUv = vec2(fract(uv.x + spinOffset), uv.y);
+    float topographyRelief = texture2D(topographyReliefMap, spunUv).r;
+    float bathymetryRelief = texture2D(bathymetryReliefMap, spunUv).r;
+    float landReliefMask = smoothstep(0.08, 0.2, topographyRelief);
+    float oceanReliefMask = (1.0 - landReliefMask) * smoothstep(0.02, 0.94, 1.0 - bathymetryRelief);
+    float terrainMeters = topographyRelief * 6400.0 * landReliefMask - (1.0 - bathymetryRelief) * 8000.0 * oceanReliefMask;
+    vec3 displaced = position + normalize(position) * terrainMeters * terrainDisplacementRadius * terrainReliefStrength;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(displaced, 1.0);
   }
 `;
 
@@ -754,11 +1012,14 @@ const EARTH_FRAGMENT_SHADER = `
   uniform sampler2D bathymetryMap;
   uniform sampler2D iceMap;
   uniform sampler2D nightMap;
+  uniform sampler2D topographyReliefMap;
+  uniform sampler2D bathymetryReliefMap;
   uniform vec3 sunDirection;
   uniform float spinOffset;
   uniform float nightLightsStrength;
   uniform float bathymetryStrength;
   uniform float iceStrength;
+  uniform float terrainReliefStrength;
   uniform float twilightWidth;
   uniform vec3 accentColor;
   varying vec2 vUv;
@@ -772,7 +1033,7 @@ const EARTH_FRAGMENT_SHADER = `
 
   void main() {
     vec2 spunUv = vec2(fract(vUv.x + spinOffset), vUv.y);
-    vec3 normal = sphereNormalFromUv(vUv);
+    vec3 normal = sphereNormalFromUv(spunUv);
     float daylight = dot(normal, normalize(sunDirection));
     float dayMix = smoothstep(-twilightWidth, twilightWidth, daylight);
     vec3 dayColor = texture2D(dayMap, spunUv).rgb;
@@ -780,6 +1041,14 @@ const EARTH_FRAGMENT_SHADER = `
     vec4 ice = texture2D(iceMap, spunUv);
     dayColor = mix(dayColor, bathymetry.rgb, bathymetry.a * bathymetryStrength);
     dayColor = mix(dayColor, ice.rgb, ice.a * iceStrength);
+    float topographyRelief = texture2D(topographyReliefMap, spunUv).r;
+    float bathymetryRelief = texture2D(bathymetryReliefMap, spunUv).r;
+    float landReliefMask = smoothstep(0.08, 0.2, topographyRelief);
+    float oceanReliefMask = (1.0 - landReliefMask) * smoothstep(0.02, 0.94, 1.0 - bathymetryRelief);
+    float reliefShade = 1.0;
+    reliefShade += (topographyRelief - 0.26) * 0.42 * landReliefMask * terrainReliefStrength;
+    reliefShade += (bathymetryRelief - 0.62) * 0.28 * oceanReliefMask * terrainReliefStrength;
+    dayColor *= clamp(reliefShade, 0.68, 1.24);
     vec3 nightColor = texture2D(nightMap, spunUv).rgb;
     vec3 darkEarth = dayColor * vec3(0.05, 0.075, 0.12);
     vec3 cityLights = nightColor * vec3(1.35, 1.18, 0.82) * nightLightsStrength;

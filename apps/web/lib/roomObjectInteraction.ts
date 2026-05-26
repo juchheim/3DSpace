@@ -126,12 +126,19 @@ export function parameterSummary(parameters: Record<string, unknown>) {
   if (typeof parameters.solarMode === "string") {
     parts.push(parameters.solarMode === "realtime" ? "live sun" : parameters.solarMode);
   }
+  if (typeof parameters.timeFlowMode === "string") {
+    parts.push(parameters.timeFlowMode === "physical-accelerated" ? "physical time" : parameters.timeFlowMode);
+  }
   if (typeof parameters.rotationPeriodSeconds === "number") {
     parts.push(parameters.rotationPeriodSeconds === 0 ? "paused" : `${parameters.rotationPeriodSeconds}s rotation`);
   }
   if (parameters.nightLightsVisible === true) parts.push("night lights on");
   if (parameters.bathymetryVisible === true) parts.push("bathymetry on");
   if (parameters.iceVisible === true) parts.push("ice on");
+  if (parameters.cloudsVisible === true) parts.push("cloud layer on");
+  if (parameters.terrainReliefVisible === true) parts.push("terrain relief on");
+  if (parameters.solarMarkersVisible === true) parts.push("solar markers on");
+  if (parameters.terminatorGuideVisible === true) parts.push("terminator guide on");
   if (parameters.elevationMarkersVisible === true) parts.push("elevation markers on");
   if (parameters.graticuleVisible === true) parts.push("grid on");
   return parts.length ? parts.join(" · ") : "";
