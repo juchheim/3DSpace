@@ -128,6 +128,20 @@ function wallSurfaceVisibleFromCamera(cameraPosition: Vector3, target: Vector3, 
   return !walls.some((wall) => wallBlocksOverlayLineOfSight(cameraPosition, target, anchor, wall));
 }
 
+function useOverlayVisibility(computeVisible: () => boolean) {
+  const [visible, setVisible] = useState(true);
+  const visibleRef = useRef(true);
+
+  useFrame(() => {
+    const nextVisible = computeVisible();
+    if (nextVisible === visibleRef.current) return;
+    visibleRef.current = nextVisible;
+    setVisible(nextVisible);
+  });
+
+  return visible;
+}
+
 function finiteOr(value: number, fallback: number) {
   return Number.isFinite(value) ? value : fallback;
 }
@@ -673,7 +687,6 @@ const WallObjectSurface = memo(function WallObjectSurface({
   onFullscreen?: (objectId: string) => void;
 }) {
   const { camera } = useThree();
-  const groupRef = useRef<Group | null>(null);
   const normal = useMemo(() => new Vector3(anchor.normal.x, anchor.normal.y, anchor.normal.z).normalize(), [anchor.normal.x, anchor.normal.y, anchor.normal.z]);
   const right = useMemo(() => {
     if (Math.abs(anchor.normal.z) > 0.01) return new Vector3(1, 0, 0);
@@ -715,42 +728,40 @@ const WallObjectSurface = memo(function WallObjectSurface({
       .add(normal.clone().multiplyScalar(WALL_OBJECT_SURFACE_OFFSET + layerOffset));
     return [base.x, base.y, base.z];
   }, [anchor.height, anchor.position.x, anchor.position.y, anchor.position.z, anchor.width, normal, placement, right]);
-
-  useFrame(() => {
-    const group = groupRef.current;
-    if (!group) return;
-    group.visible = wallSurfaceVisibleFromCamera(camera.position, group.position, anchor, normal, walls);
-  });
+  const targetPoint = useMemo(() => new Vector3(position[0], position[1], position[2]), [position]);
+  const visible = useOverlayVisibility(() => wallSurfaceVisibleFromCamera(camera.position, targetPoint, anchor, normal, walls));
 
   return (
-    <group ref={groupRef} position={position} rotation={rotation}>
-      <Html
-        center
-        transform
-        distanceFactor={WALL_OBJECT_DISTANCE_FACTOR}
-        className="wall-object-html wall-object-html--board"
-        style={surfaceStyle}
-        zIndexRange={[200, 0]}
-      >
-        <div className="wall-object-surface-mount" style={mountStyle}>
-          <WallObjectCard
-            object={object}
-            assetUrl={assetUrl}
-            videoStream={videoStream}
-            audioStream={audioStream}
-            compact
-            surface
-            canManage={canManage}
-            currentUserId={currentUserId}
-            {...(onControl ? { onControl } : {})}
-            {...(onRemove ? { onRemove } : {})}
-            {...(onStopShare ? { onStopShare } : {})}
-            {...(onModerate ? { onModerate } : {})}
-            {...(onFullscreen ? { onFullscreen } : {})}
-            hideHeader={hideHeader}
-          />
-        </div>
-      </Html>
+    <group position={position} rotation={rotation}>
+      {visible ? (
+        <Html
+          center
+          transform
+          distanceFactor={WALL_OBJECT_DISTANCE_FACTOR}
+          className="wall-object-html wall-object-html--board"
+          style={surfaceStyle}
+          zIndexRange={[200, 0]}
+        >
+          <div className="wall-object-surface-mount" style={mountStyle}>
+            <WallObjectCard
+              object={object}
+              assetUrl={assetUrl}
+              videoStream={videoStream}
+              audioStream={audioStream}
+              compact
+              surface
+              canManage={canManage}
+              currentUserId={currentUserId}
+              {...(onControl ? { onControl } : {})}
+              {...(onRemove ? { onRemove } : {})}
+              {...(onStopShare ? { onStopShare } : {})}
+              {...(onModerate ? { onModerate } : {})}
+              {...(onFullscreen ? { onFullscreen } : {})}
+              hideHeader={hideHeader}
+            />
+          </div>
+        </Html>
+      ) : null}
     </group>
   );
 });
@@ -765,7 +776,6 @@ const PrivateCheckSurface = memo(function PrivateCheckSurface({
   checks: ClassroomPrivateCheck[];
 }) {
   const { camera } = useThree();
-  const groupRef = useRef<Group | null>(null);
   const normal = useMemo(() => new Vector3(anchor.normal.x, anchor.normal.y, anchor.normal.z).normalize(), [anchor.normal.x, anchor.normal.y, anchor.normal.z]);
   const rotation = useMemo<[number, number, number]>(() => {
     if (Math.abs(anchor.normal.x) > 0) return [0, anchor.normal.x > 0 ? Math.PI / 2 : -Math.PI / 2, 0];
@@ -785,23 +795,21 @@ const PrivateCheckSurface = memo(function PrivateCheckSurface({
     };
   }, [anchor.height, anchor.width]);
   const check = checks[0]!;
-
-  useFrame(() => {
-    const group = groupRef.current;
-    if (!group) return;
-    group.visible = wallSurfaceVisibleFromCamera(camera.position, group.position, anchor, normal, walls);
-  });
+  const targetPoint = useMemo(() => new Vector3(position[0], position[1], position[2]), [position]);
+  const visible = useOverlayVisibility(() => wallSurfaceVisibleFromCamera(camera.position, targetPoint, anchor, normal, walls));
 
   return (
-    <group ref={groupRef} position={position} rotation={rotation}>
-      <Html center transform distanceFactor={WALL_OBJECT_DISTANCE_FACTOR} className="private-check-html" style={surfaceStyle} zIndexRange={[220, 0]}>
-        <div className="private-check-board-card">
-          <span className="private-check-board-kicker">Active check</span>
-          <strong>{check.question}</strong>
-          <span>{check.promptType === "multiple-choice" ? "Choose an answer in the checks panel." : check.promptType === "confidence" ? "Rate confidence in the checks panel." : "Respond in the checks panel."}</span>
-          {checks.length > 1 ? <em>+{checks.length - 1} more open check{checks.length === 2 ? "" : "s"}</em> : null}
-        </div>
-      </Html>
+    <group position={position} rotation={rotation}>
+      {visible ? (
+        <Html center transform distanceFactor={WALL_OBJECT_DISTANCE_FACTOR} className="private-check-html" style={surfaceStyle} zIndexRange={[220, 0]}>
+          <div className="private-check-board-card">
+            <span className="private-check-board-kicker">Active check</span>
+            <strong>{check.question}</strong>
+            <span>{check.promptType === "multiple-choice" ? "Choose an answer in the checks panel." : check.promptType === "confidence" ? "Rate confidence in the checks panel." : "Respond in the checks panel."}</span>
+            {checks.length > 1 ? <em>+{checks.length - 1} more open check{checks.length === 2 ? "" : "s"}</em> : null}
+          </div>
+        </Html>
+      ) : null}
     </group>
   );
 });
@@ -1692,7 +1700,6 @@ function anchorHidesSurface(anchor: Anchor) {
 function AnchorMesh({ anchor, walls, showLabel, spotlighted }: { anchor: Anchor; walls: Wall[]; showLabel: boolean; spotlighted?: boolean }) {
   const hideSurface = anchorHidesSurface(anchor);
   const { camera } = useThree();
-  const labelRef = useRef<Group | null>(null);
   const materialRef = useRef<MeshStandardMaterial | null>(null);
   const labelTarget = useMemo(
     () => new Vector3(anchor.position.x, anchor.position.y, anchor.position.z).add(new Vector3(anchor.normal.x, anchor.normal.y, anchor.normal.z).normalize().multiplyScalar(WALL_ANCHOR_LABEL_OFFSET)),
@@ -1722,11 +1729,7 @@ function AnchorMesh({ anchor, walls, showLabel, spotlighted }: { anchor: Anchor;
     material.depthWrite = opacity > 0.85;
   });
 
-  useFrame(() => {
-    const labelGroup = labelRef.current;
-    if (!labelGroup) return;
-    labelGroup.visible = wallSurfaceVisibleFromCamera(camera.position, labelTarget, anchor, plane.normal, walls);
-  });
+  const showLabelOverlay = useOverlayVisibility(() => wallSurfaceVisibleFromCamera(camera.position, labelTarget, anchor, plane.normal, walls));
 
   const w = anchor.width;
   const h = anchor.height;
@@ -1769,8 +1772,8 @@ function AnchorMesh({ anchor, walls, showLabel, spotlighted }: { anchor: Anchor;
           </mesh>
         </>
       ) : null}
-      {showLabel ? (
-        <group ref={labelRef} position={[0, 0, WALL_ANCHOR_LABEL_OFFSET]}>
+      {showLabel && showLabelOverlay ? (
+        <group position={[0, 0, WALL_ANCHOR_LABEL_OFFSET]}>
           <Html center transform distanceFactor={8} className="wall-anchor-label-html">
             <div className={`wall-anchor-label${spotlighted ? " wall-anchor-label--spotlight" : ""}`}>{anchor.label}</div>
           </Html>
