@@ -56,9 +56,76 @@ const WALL_OBJECT_LAYER_OFFSET = 0.002;
 const PRIVATE_CHECK_SURFACE_OFFSET = 0.038;
 const WALL_ANCHOR_LABEL_OFFSET = 0.03;
 const WALL_SURFACE_MIN_VISIBLE_DISTANCE = 0.02;
+const WALL_SURFACE_SELF_OCCLUSION_DISTANCE = 0.45;
+const WALL_INTERSECTION_EPSILON = 0.0001;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
+}
+
+function cross2D(ax: number, az: number, bx: number, bz: number) {
+  return ax * bz - az * bx;
+}
+
+function pointToWallSegmentDistanceSq(point: Vector3, wall: Wall) {
+  const sx = wall.start.x;
+  const sz = wall.start.z;
+  const ex = wall.end.x;
+  const ez = wall.end.z;
+  const dx = ex - sx;
+  const dz = ez - sz;
+  const lengthSq = dx * dx + dz * dz;
+  if (lengthSq <= WALL_INTERSECTION_EPSILON) {
+    const px = point.x - sx;
+    const pz = point.z - sz;
+    return px * px + pz * pz;
+  }
+  const t = clamp(((point.x - sx) * dx + (point.z - sz) * dz) / lengthSq, 0, 1);
+  const nearestX = sx + dx * t;
+  const nearestZ = sz + dz * t;
+  const px = point.x - nearestX;
+  const pz = point.z - nearestZ;
+  return px * px + pz * pz;
+}
+
+function wallIntersectionTOnLineOfSight(from: Vector3, to: Vector3, wall: Wall) {
+  const rx = to.x - from.x;
+  const rz = to.z - from.z;
+  const sx = wall.end.x - wall.start.x;
+  const sz = wall.end.z - wall.start.z;
+  const denominator = cross2D(rx, rz, sx, sz);
+  if (Math.abs(denominator) <= WALL_INTERSECTION_EPSILON) return null;
+
+  const qpx = wall.start.x - from.x;
+  const qpz = wall.start.z - from.z;
+  const t = cross2D(qpx, qpz, sx, sz) / denominator;
+  const u = cross2D(qpx, qpz, rx, rz) / denominator;
+  if (t <= WALL_INTERSECTION_EPSILON || t >= 1 - WALL_INTERSECTION_EPSILON || u < 0 || u > 1) return null;
+  return t;
+}
+
+function wallBlocksOverlayLineOfSight(from: Vector3, to: Vector3, anchor: Anchor, wall: Wall) {
+  if (wall.passable) return false;
+  if (wall.anchorIds.includes(anchor.id)) return false;
+
+  const selfOcclusionDistanceSq = WALL_SURFACE_SELF_OCCLUSION_DISTANCE * WALL_SURFACE_SELF_OCCLUSION_DISTANCE;
+  if (pointToWallSegmentDistanceSq(to, wall) <= selfOcclusionDistanceSq) return false;
+
+  const intersectionT = wallIntersectionTOnLineOfSight(from, to, wall);
+  if (intersectionT === null) return false;
+
+  const intersectionY = from.y + (to.y - from.y) * intersectionT;
+  const wallBottomY = Math.min(wall.start.y, wall.end.y);
+  const wallTopY = wallBottomY + wall.height;
+  return intersectionY >= wallBottomY - WALL_SURFACE_SELF_OCCLUSION_DISTANCE && intersectionY <= wallTopY + WALL_SURFACE_SELF_OCCLUSION_DISTANCE;
+}
+
+function wallSurfaceVisibleFromCamera(cameraPosition: Vector3, target: Vector3, anchor: Anchor, normal: Vector3, walls: Wall[]) {
+  const signedDistance = cameraPosition.clone().sub(
+    new Vector3(anchor.position.x, anchor.position.y, anchor.position.z)
+  ).dot(normal);
+  if (signedDistance <= WALL_SURFACE_MIN_VISIBLE_DISTANCE) return false;
+  return !walls.some((wall) => wallBlocksOverlayLineOfSight(cameraPosition, target, anchor, wall));
 }
 
 function finiteOr(value: number, fallback: number) {
@@ -389,7 +456,7 @@ function PrivateCheckLayer({
       {manifest.wallAnchors.map((anchor) => {
         const checks = checksByAnchor.get(anchor.id) ?? [];
         if (checks.length === 0) return null;
-        return <PrivateCheckSurface key={`private-check-${anchor.id}`} anchor={anchor} checks={checks} />;
+        return <PrivateCheckSurface key={`private-check-${anchor.id}`} anchor={anchor} walls={manifest.walls} checks={checks} />;
       })}
     </group>
   );
@@ -549,6 +616,7 @@ function WallObjectLayer({
             <WallObjectSurface
               key={object.id}
               anchor={anchor}
+              walls={manifest.walls}
               object={object}
               assetUrl={assetUrls[object.id]}
               videoStream={wallMediaStreams[object.id]?.videoStream}
@@ -570,6 +638,7 @@ function WallObjectLayer({
 
 const WallObjectSurface = memo(function WallObjectSurface({
   anchor,
+  walls,
   object,
   assetUrl,
   videoStream,
@@ -584,6 +653,7 @@ const WallObjectSurface = memo(function WallObjectSurface({
   onFullscreen
 }: {
   anchor: Anchor;
+  walls: Wall[];
   object: WallObject;
   assetUrl?: string | undefined;
   videoStream?: MediaStream | null | undefined;
@@ -604,8 +674,6 @@ const WallObjectSurface = memo(function WallObjectSurface({
 }) {
   const { camera } = useThree();
   const groupRef = useRef<Group | null>(null);
-  const planePoint = useMemo(() => new Vector3(anchor.position.x, anchor.position.y, anchor.position.z), [anchor.position.x, anchor.position.y, anchor.position.z]);
-  const cameraOffset = useMemo(() => new Vector3(), []);
   const normal = useMemo(() => new Vector3(anchor.normal.x, anchor.normal.y, anchor.normal.z).normalize(), [anchor.normal.x, anchor.normal.y, anchor.normal.z]);
   const right = useMemo(() => {
     if (Math.abs(anchor.normal.z) > 0.01) return new Vector3(1, 0, 0);
@@ -651,8 +719,7 @@ const WallObjectSurface = memo(function WallObjectSurface({
   useFrame(() => {
     const group = groupRef.current;
     if (!group) return;
-    const signedDistance = cameraOffset.copy(camera.position).sub(planePoint).dot(normal);
-    group.visible = signedDistance > WALL_SURFACE_MIN_VISIBLE_DISTANCE;
+    group.visible = wallSurfaceVisibleFromCamera(camera.position, group.position, anchor, normal, walls);
   });
 
   return (
@@ -690,15 +757,15 @@ const WallObjectSurface = memo(function WallObjectSurface({
 
 const PrivateCheckSurface = memo(function PrivateCheckSurface({
   anchor,
+  walls,
   checks
 }: {
   anchor: Anchor;
+  walls: Wall[];
   checks: ClassroomPrivateCheck[];
 }) {
   const { camera } = useThree();
   const groupRef = useRef<Group | null>(null);
-  const planePoint = useMemo(() => new Vector3(anchor.position.x, anchor.position.y, anchor.position.z), [anchor.position.x, anchor.position.y, anchor.position.z]);
-  const cameraOffset = useMemo(() => new Vector3(), []);
   const normal = useMemo(() => new Vector3(anchor.normal.x, anchor.normal.y, anchor.normal.z).normalize(), [anchor.normal.x, anchor.normal.y, anchor.normal.z]);
   const rotation = useMemo<[number, number, number]>(() => {
     if (Math.abs(anchor.normal.x) > 0) return [0, anchor.normal.x > 0 ? Math.PI / 2 : -Math.PI / 2, 0];
@@ -722,8 +789,7 @@ const PrivateCheckSurface = memo(function PrivateCheckSurface({
   useFrame(() => {
     const group = groupRef.current;
     if (!group) return;
-    const signedDistance = cameraOffset.copy(camera.position).sub(planePoint).dot(normal);
-    group.visible = signedDistance > WALL_SURFACE_MIN_VISIBLE_DISTANCE;
+    group.visible = wallSurfaceVisibleFromCamera(camera.position, group.position, anchor, normal, walls);
   });
 
   return (
@@ -1158,6 +1224,7 @@ function RoomGeometry({
         <AnchorMesh
           key={anchor.id}
           anchor={anchor}
+          walls={manifest.walls}
           showLabel={!anchorsWithObjects.has(anchor.id)}
           spotlighted={anchor.id === spotlightAnchorId}
         />
@@ -1622,11 +1689,15 @@ function anchorHidesSurface(anchor: Anchor) {
   return anchor.metadata?.hideSurface === true;
 }
 
-function AnchorMesh({ anchor, showLabel, spotlighted }: { anchor: Anchor; showLabel: boolean; spotlighted?: boolean }) {
+function AnchorMesh({ anchor, walls, showLabel, spotlighted }: { anchor: Anchor; walls: Wall[]; showLabel: boolean; spotlighted?: boolean }) {
   const hideSurface = anchorHidesSurface(anchor);
   const { camera } = useThree();
   const labelRef = useRef<Group | null>(null);
   const materialRef = useRef<MeshStandardMaterial | null>(null);
+  const labelTarget = useMemo(
+    () => new Vector3(anchor.position.x, anchor.position.y, anchor.position.z).add(new Vector3(anchor.normal.x, anchor.normal.y, anchor.normal.z).normalize().multiplyScalar(WALL_ANCHOR_LABEL_OFFSET)),
+    [anchor.normal.x, anchor.normal.y, anchor.normal.z, anchor.position.x, anchor.position.y, anchor.position.z]
+  );
   const plane = useMemo(
     () => ({
       point: new Vector3(anchor.position.x, anchor.position.y, anchor.position.z),
@@ -1654,8 +1725,7 @@ function AnchorMesh({ anchor, showLabel, spotlighted }: { anchor: Anchor; showLa
   useFrame(() => {
     const labelGroup = labelRef.current;
     if (!labelGroup) return;
-    const signedDistance = cameraOffset.copy(camera.position).sub(plane.point).dot(plane.normal);
-    labelGroup.visible = signedDistance > WALL_SURFACE_MIN_VISIBLE_DISTANCE;
+    labelGroup.visible = wallSurfaceVisibleFromCamera(camera.position, labelTarget, anchor, plane.normal, walls);
   });
 
   const w = anchor.width;
