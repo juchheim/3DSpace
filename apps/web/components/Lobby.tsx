@@ -14,13 +14,11 @@ import { CopyRoomInviteButton } from "./CopyRoomInviteButton";
 // ── Room type registry ──────────────────────────────────────────────────────
 // To add a new room type: (1) extend the union, (2) add an entry to ROOM_TYPES,
 // (3) add a case to renderRoomTypeSteps() below.
-type RoomType = "classroom";
-// type RoomType = "classroom" | "workforce-training" | "free-for-all";
+type RoomType = "classroom" | "workforce-training";
 
 const ROOM_TYPES: { value: RoomType; label: string; description: string }[] = [
   { value: "classroom",          label: "Classroom",          description: "Live 3D sessions with students and a shareable invite code." },
-  // { value: "workforce-training", label: "Workforce Training", description: "Flexible training sessions for teams and organizations." },
-  // { value: "free-for-all",       label: "Free for All",       description: "Open rooms with no class structure or invite required." },
+  { value: "workforce-training", label: "Workforce Training", description: "Immersive training sessions for teams and organizations." },
 ];
 
 export function Lobby() {
@@ -68,18 +66,18 @@ export function Lobby() {
     void refresh();
   }, [identity.userId, loaded, clerkEnabled, signedIn]);
 
-  async function createClassroom() {
+  async function createRoomOfType(type: RoomType) {
     setBusy(true);
     setError("");
     try {
       const classRecord = await createClass(identity, className);
-      const room = await createRoom(identity, classRecord.id, roomName);
+      const room = await createRoom(identity, classRecord.id, roomName, type);
       const invite = await createInvite(identity, classRecord.id, { role: "student", roomId: room.room.id });
       setCreatedInvite(invite);
       setCopyStatus(null);
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to create classroom.");
+      setError(err instanceof Error ? err.message : "Unable to create room.");
     } finally {
       setBusy(false);
     }
@@ -208,7 +206,7 @@ export function Lobby() {
                 <button
                   className="lb-btn lb-btn-pri"
                   disabled={busy || authDisabled}
-                  onClick={() => void createClassroom()}
+                  onClick={() => void createRoomOfType("classroom")}
                 >
                   {busy ? "Creating…" : "Create room"}
                 </button>
@@ -294,11 +292,130 @@ export function Lobby() {
           </div>
         );
 
-      // When adding a new room type, add its case here:
-      // case "workforce-training":
-      //   return <WorkforceTrainingSteps ... />;
-      // case "free-for-all":
-      //   return <FreeForAllSteps ... />;
+      case "workforce-training":
+        return (
+          <div className="lb-steps-grid">
+
+            {/* Step 1: Create */}
+            <div className="lb-step-col">
+              <div className="lb-step-hd">
+                <div className={`lb-step-badge${hasRoom ? " lb-step-badge-done" : ""}`}>
+                  {hasRoom ? "✓" : "1"}
+                </div>
+                <div>
+                  <p className="lb-step-title">Create</p>
+                  <p className="lb-step-desc">Name your team and session</p>
+                </div>
+              </div>
+              <div className="lb-step-body">
+                <div className="lb-field">
+                  <label className="lb-label" htmlFor="lb-team-name">Organization / Team name</label>
+                  <input
+                    id="lb-team-name"
+                    className="lb-inp"
+                    value={className}
+                    onChange={(e) => setClassName(e.target.value)}
+                    placeholder="e.g. Acme Field Ops"
+                  />
+                </div>
+                <div className="lb-field">
+                  <label className="lb-label" htmlFor="lb-session-name">Session name</label>
+                  <input
+                    id="lb-session-name"
+                    className="lb-inp"
+                    value={roomName}
+                    onChange={(e) => setRoomName(e.target.value)}
+                    placeholder="e.g. Compliance Refresher"
+                  />
+                </div>
+                <button
+                  className="lb-btn lb-btn-pri"
+                  disabled={busy || authDisabled}
+                  onClick={() => void createRoomOfType("workforce-training")}
+                >
+                  {busy ? "Creating…" : "Create training"}
+                </button>
+              </div>
+            </div>
+
+            <div className="lb-step-vsep" />
+
+            {/* Step 2: Share */}
+            <div className={`lb-step-col${hasRoom ? " lb-lit" : " lb-pending"}`} aria-live="polite">
+              <div className="lb-step-hd">
+                <div className={`lb-step-badge${!hasRoom ? " lb-step-badge-dim" : ""}`}>2</div>
+                <div>
+                  <p className="lb-step-title">Share</p>
+                  <p className="lb-step-desc">Send the invite to trainees</p>
+                </div>
+              </div>
+              <div className="lb-step-body">
+                {hasRoom && createdInvite ? (
+                  <>
+                    <div className="lb-invite-code" aria-label="Invite code">
+                      {createdInvite.code}
+                    </div>
+                    <div className="lb-btn-row">
+                      <button
+                        className="lb-btn lb-btn-pri lb-btn-sm"
+                        style={{ flex: 1 }}
+                        onClick={() => void copyInvite("code")}
+                      >
+                        {copyStatus === "code" ? "✓ Copied!" : "Copy code"}
+                      </button>
+                      <button
+                        className="lb-btn lb-btn-sec lb-btn-sm"
+                        style={{ flex: 1 }}
+                        onClick={() => void copyInvite("link")}
+                      >
+                        {copyStatus === "link" ? "✓ Copied!" : "Copy link"}
+                      </button>
+                    </div>
+                    <div className="lb-field">
+                      <span className="lb-label">Join link</span>
+                      <input
+                        className="lb-inp"
+                        readOnly
+                        value={inviteJoinUrl(createdInvite.roomId!, createdInvite.code)}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="lb-placeholder">Invite code appears here after step 1</div>
+                )}
+              </div>
+            </div>
+
+            <div className="lb-step-vsep" />
+
+            {/* Step 3: Enter */}
+            <div className={`lb-step-col${hasRoom ? " lb-lit" : " lb-pending"}`}>
+              <div className="lb-step-hd">
+                <div className={`lb-step-badge${!hasRoom ? " lb-step-badge-dim" : ""}`}>3</div>
+                <div>
+                  <p className="lb-step-title">Enter</p>
+                  <p className="lb-step-desc">Open your training in 3D</p>
+                </div>
+              </div>
+              <div className="lb-step-body">
+                {hasRoom ? (
+                  <>
+                    <Link
+                      className="lb-btn lb-btn-pri lb-btn-full"
+                      href={`/rooms/${createdInvite!.roomId}`}
+                    >
+                      Enter training →
+                    </Link>
+                    <p className="lb-join-hint" style={{ textAlign: "center" }}>Training is live and ready</p>
+                  </>
+                ) : (
+                  <div className="lb-placeholder">Enter training button appears here after step 1</div>
+                )}
+              </div>
+            </div>
+
+          </div>
+        );
     }
   }
 
@@ -346,9 +463,11 @@ export function Lobby() {
                   value={roomType}
                   onChange={(e) => handleRoomTypeChange(e.target.value as RoomType)}
                 >
-                  {ROOM_TYPES.map((rt) => (
-                    <option key={rt.value} value={rt.value}>{rt.label}</option>
-                  ))}
+                  {ROOM_TYPES
+                    .filter((rt) => rt.value !== "workforce-training" || CLIENT_TUNING.enableWorkforceTraining)
+                    .map((rt) => (
+                      <option key={rt.value} value={rt.value}>{rt.label}</option>
+                    ))}
                 </select>
                 <span className="lb-type-desc">
                   {ROOM_TYPES.find((rt) => rt.value === roomType)?.description}
