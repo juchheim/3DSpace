@@ -772,6 +772,60 @@ export function parameterSchemaToJson(
 export const RoomTypeSchema = z.enum(["classroom", "workforce-training"]);
 export type RoomType = z.infer<typeof RoomTypeSchema>;
 
+export type RoomTypeFeatureFlags = {
+  classroomState: boolean;
+  peoplePanelTeacherControls: boolean;
+  lessons: boolean;
+  privateChecks: boolean;
+  groups: boolean;
+  focus: boolean;
+  hallPass: boolean;
+  whisper: boolean;
+  breakoutPods: boolean;
+  studentMediaControls: boolean;
+  worldSkins: boolean;
+};
+
+const NON_CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
+  classroomState: false,
+  peoplePanelTeacherControls: false,
+  lessons: false,
+  privateChecks: false,
+  groups: false,
+  focus: false,
+  hallPass: false,
+  whisper: false,
+  breakoutPods: false,
+  studentMediaControls: false,
+  worldSkins: false
+});
+
+const CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
+  classroomState: true,
+  peoplePanelTeacherControls: true,
+  lessons: true,
+  privateChecks: true,
+  groups: true,
+  focus: true,
+  hallPass: true,
+  whisper: true,
+  breakoutPods: true,
+  studentMediaControls: true,
+  worldSkins: true
+});
+
+/**
+ * Future room types should not inherit classroom controls unless they opt in here.
+ */
+export function getRoomTypeFeatureFlags(roomType: RoomType | string | null | undefined): RoomTypeFeatureFlags {
+  switch (roomType) {
+    case "classroom":
+      return CLASSROOM_ROOM_TYPE_FEATURE_FLAGS;
+    default:
+      return NON_CLASSROOM_ROOM_TYPE_FEATURE_FLAGS;
+  }
+}
+
 export const RoomSettingsSchema = z.object({
   maxParticipants: z.number().int().positive(),
   defaultViewMode: ViewModeSchema,

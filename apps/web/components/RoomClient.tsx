@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AvatarAppearance, AvatarReactionMessage, AvatarReactionSlug, AvatarStateMessage, Role, RoomManifest, RoomObjectTemplate, RoomSessionResponse, ViewMode, WallObject, WorldSkinDayNightMode } from "@3dspace/contracts";
-import { AvatarAppearanceMessageSchema, AvatarReactionMessageSchema, ParticipantAudioModeMessageSchema, parseRoomSettings, RoomSkinMessageSchema } from "@3dspace/contracts";
+import { AvatarAppearanceMessageSchema, AvatarReactionMessageSchema, getRoomTypeFeatureFlags, ParticipantAudioModeMessageSchema, parseRoomSettings, RoomSkinMessageSchema } from "@3dspace/contracts";
 import { computeGroupMemberPosition, createAvatarState, floorYFromZ, unprojectPointFrom2D } from "@3dspace/room-engine";
 import {
   archiveRoomObjectTemplate,
@@ -190,10 +190,11 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     enabled: Boolean(session && manifest),
     publish: publishRealtime
   });
+  const roomTypeFeatures = useMemo(() => getRoomTypeFeatureFlags(session?.room.type), [session?.room.type]);
   const classroom = useClassroomState({
     identity,
     roomId: session?.room.id ?? roomId,
-    enabled: Boolean(session),
+    enabled: roomTypeFeatures.classroomState && Boolean(session),
     publish: publishRealtime
   });
   const role = session?.role ?? identity.role;
@@ -210,6 +211,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     }
     return { hostSingular: "Teacher", hostInitial: "T", guestSingular: "Student", guestPlural: "Students" };
   }, [session?.room.type]);
+  const roomRoleLabel = role === "teacher" ? roleLabels.hostSingular : roleLabels.guestSingular;
 
   const parsedRoomSettings = useMemo(
     () => (session ? parseRoomSettings(session.room.settings) : null),
@@ -397,7 +399,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     return computeGroupMemberPosition(group.targetPosition, memberIndex);
   }, [myActiveHallpass?.status, manifest?.hallpassHoldingZone, classroom.state?.groups, session?.participantId, identity.userId]);
 
-  const studentMediaRuntime = CLIENT_TUNING.enableStudentMediaPermissions && role === "student"
+  const studentMediaRuntime = roomTypeFeatures.studentMediaControls && CLIENT_TUNING.enableStudentMediaPermissions && role === "student"
     ? (classroom.state?.studentMediaRuntime ?? null)
     : null;
   const canUseCamera = !studentMediaRuntime
@@ -1027,7 +1029,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     return next;
   }, [localWallMedia, participantList, remoteWallMedia, wall.wallObjects]);
   const podsInput = useMemo(() => {
-    if (!CLIENT_TUNING.enableBreakoutPods) return undefined;
+    if (!roomTypeFeatures.breakoutPods || !CLIENT_TUNING.enableBreakoutPods) return undefined;
     const runtime = classroom.state?.podsRuntime;
     if (!runtime?.podsEnabled) return undefined;
     return {
@@ -1036,7 +1038,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       broadcastUserIds: new Set(runtime.broadcastFromUserIds),
       groupByUserId
     };
-  }, [classroom.state?.podsRuntime, groupByUserId, session]);
+  }, [classroom.state?.podsRuntime, groupByUserId, roomTypeFeatures.breakoutPods, session]);
   useSpatialAudio(
     session
       ? {
@@ -1298,6 +1300,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const podsEnabled = classroom.state?.podsRuntime?.podsEnabled === true;
   const broadcastFromUserIds = classroom.state?.podsRuntime?.broadcastFromUserIds ?? [];
   const podsVisualEnabled =
+    roomTypeFeatures.breakoutPods &&
     CLIENT_TUNING.enableBreakoutPods &&
     session?.room.settings.pods?.enabled === true &&
     podsEnabled;
@@ -1323,11 +1326,12 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     ? Boolean(classroom.activeHelpRequest)
     : false;
   const studentQuickCheckActive =
+    roomTypeFeatures.privateChecks &&
     role === "student" &&
     (lesson.run?.status === "running" || lesson.run?.status === "paused") &&
     lesson.currentStep?.kind === "private-check";
-  const helpDetailPanelOpen = Boolean(helpBoardAccessUserId);
-  const lessonScriptDockOpen = CLIENT_TUNING.enableClassroomLessons && role === "teacher" && Boolean(lesson.run);
+  const helpDetailPanelOpen = roomTypeFeatures.peoplePanelTeacherControls && Boolean(helpBoardAccessUserId);
+  const lessonScriptDockOpen = roomTypeFeatures.lessons && CLIENT_TUNING.enableClassroomLessons && role === "teacher" && Boolean(lesson.run);
   const roomObjectInspectorDockOpen =
     roomObjectsEnabled &&
     role === "teacher" &&
@@ -1365,7 +1369,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const leftHudControls = (
     <>
       {/* Teacher: spotlight active indicator */}
-      {role === "teacher" && spotlightActive ? (
+      {roomTypeFeatures.focus && role === "teacher" && spotlightActive ? (
         <div className="hud-panel hud-ctx-panel">
           <div className="hud-ctx-card">
             <span className="hud-ctx-lbl">Focus active</span>
@@ -1384,7 +1388,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       ) : null}
 
       {/* Student: group + hand status */}
-      {role === "student" ? (
+      {roomTypeFeatures.classroomState && role === "student" ? (
         <div className="hud-panel">
           {studentGroup ? (
             <div className="hud-ctx-card" style={{ borderBottom: handRaised ? "1px solid rgba(255,255,255,0.08)" : undefined }}>
@@ -1446,7 +1450,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         </div>
       ) : null}
 
-      {role === "student" && (studentPodTarget || (podsEnabled && studentHasBroadcastGrant)) ? (
+      {roomTypeFeatures.breakoutPods && role === "student" && (studentPodTarget || (podsEnabled && studentHasBroadcastGrant)) ? (
         <div className="hud-panel">
           {studentPodTarget ? (
             <button type="button" className="hud-btn" onClick={moveToMyPod}>
@@ -1472,7 +1476,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           <div className="hud-av" style={{ background: avatarColor }}>{initials}</div>
           <div className="hud-id-text">
             <div className="hud-id-name">{identity.displayName}</div>
-            <div className="hud-id-sub">{role} · {roomName}</div>
+            <div className="hud-id-sub">{roomRoleLabel} · {roomName}</div>
           </div>
         </div>
         <MediaControls media={media} canUseCamera={canUseCamera} canUseMicrophone={canUseMicrophone} />
@@ -1534,7 +1538,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       ) : null}
 
       {/* Whisper toggle (students only, when allowed) */}
-      {CLIENT_TUNING.enableWhisper && role === "student" && whisperAllowed ? (
+      {roomTypeFeatures.whisper && CLIENT_TUNING.enableWhisper && role === "student" && whisperAllowed ? (
         <div className="hud-panel">
           <button
             type="button"
@@ -1698,7 +1702,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         </button>
         <div className="room-hud-top-sep" />
         <span className="room-hud-name">{roomName}</span>
-        <span className="room-hud-meta">{role} · {status}</span>
+        <span className="room-hud-meta">{roomRoleLabel} · {status}</span>
         {role === "teacher" && session ? (
           <>
             <div className="room-hud-top-sep" />
@@ -1710,7 +1714,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             />
           </>
         ) : null}
-        {podsEnabled ? (
+        {roomTypeFeatures.breakoutPods && podsEnabled ? (
           <>
             <div className="room-hud-top-sep" />
             <div className="hud-pill--pods" data-testid="pods-indicator">
@@ -1758,6 +1762,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             classroomState={classroom.state}
             role={role}
             roleLabels={roleLabels}
+            enableTeacherControls={roomTypeFeatures.peoplePanelTeacherControls}
             selectedStudentId={selectedStudentId}
             onSelectStudent={(id) => {
               setHelpBoardAccessUserId("");
@@ -1773,7 +1778,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       {/* Right HUD: unified collapsible panel */}
       <aside className="room-hud-right" aria-label="Room details">
         <div className="hud-panel">
-          {CLIENT_TUNING.enableClassroomLessons && role === "student" ? (
+          {roomTypeFeatures.lessons && CLIENT_TUNING.enableClassroomLessons && role === "student" ? (
             <LessonStudentCallout
               run={lesson.run}
               currentStep={lesson.currentStep}
@@ -1839,27 +1844,29 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               }}
             />
           ) : null}
-          <ClassroomPanel
-            role={role}
-            state={classroom.state}
-            loading={classroom.loading}
-            error={classroom.error}
-            activeHelpRequest={classroom.activeHelpRequest}
-            manifest={manifest}
-            currentUserId={identity.userId}
-            boardAccessUserId={helpBoardAccessUserId}
-            reactionLog={log}
-            hallpassSettings={session?.room.settings.hallpass}
-            hostSingular={roleLabels.hostSingular}
-            onOpenBoardAccess={(userId) => {
-              setSelectedStudentId("");
-              setHelpBoardAccessUserId((current) => (current === userId ? "" : userId));
-            }}
-            onRunAction={async (action) => {
-              await classroom.runAction(action);
-            }}
-          />
-          {CLIENT_TUNING.enableClassroomLessons && role === "teacher" ? (
+          {roomTypeFeatures.classroomState ? (
+            <ClassroomPanel
+              role={role}
+              state={classroom.state}
+              loading={classroom.loading}
+              error={classroom.error}
+              activeHelpRequest={classroom.activeHelpRequest}
+              manifest={manifest}
+              currentUserId={identity.userId}
+              boardAccessUserId={helpBoardAccessUserId}
+              reactionLog={log}
+              hallpassSettings={session?.room.settings.hallpass}
+              hostSingular={roleLabels.hostSingular}
+              onOpenBoardAccess={(userId) => {
+                setSelectedStudentId("");
+                setHelpBoardAccessUserId((current) => (current === userId ? "" : userId));
+              }}
+              onRunAction={async (action) => {
+                await classroom.runAction(action);
+              }}
+            />
+          ) : null}
+          {roomTypeFeatures.lessons && CLIENT_TUNING.enableClassroomLessons && role === "teacher" ? (
             <>
               <LessonRunControls
                 run={lesson.run}
@@ -1896,46 +1903,52 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               <LessonTimelinePanel run={lesson.run} />
             </>
           ) : null}
-          <PrivateChecksPanel
-            role={role}
-            state={classroom.state}
-            loading={classroom.loading}
-            currentUserId={identity.userId}
-            manifest={manifest}
-            forceExpanded={studentQuickCheckActive}
-            onRunAction={async (action) => {
-              await classroom.runAction(action);
-            }}
-          />
-          <GroupsPanel
-            role={role}
-            state={classroom.state}
-            loading={classroom.loading}
-            participants={participantList}
-            currentUserId={identity.userId}
-            positioningGroupId={positioningGroupId}
-            podsEnabled={classroom.state?.podsRuntime?.podsEnabled === true}
-            broadcastUserIds={classroom.state?.podsRuntime?.broadcastFromUserIds ?? []}
-            podsAllowedInRoom={CLIENT_TUNING.enableBreakoutPods && session?.room.settings.pods?.enabled === true}
-            {...(manifest ? { manifestAnchors: manifest.wallAnchors } : {})}
-            onRunAction={async (action) => {
-              await classroom.runAction(action);
-            }}
-            onEnterPositioningMode={(groupId) => setPositioningGroupId(groupId)}
-            onCancelPositioning={() => setPositioningGroupId("")}
-          />
-          <FocusPanel
-            role={role}
-            state={classroom.state}
-            loading={classroom.loading}
-            manifest={manifest}
-            currentUserId={identity.userId}
-            hostSingular={roleLabels.hostSingular}
-            onRunAction={async (action) => {
-              await classroom.runAction(action);
-            }}
-            onLookAtFocus={lookAtFocus}
-          />
+          {roomTypeFeatures.privateChecks ? (
+            <PrivateChecksPanel
+              role={role}
+              state={classroom.state}
+              loading={classroom.loading}
+              currentUserId={identity.userId}
+              manifest={manifest}
+              forceExpanded={studentQuickCheckActive}
+              onRunAction={async (action) => {
+                await classroom.runAction(action);
+              }}
+            />
+          ) : null}
+          {roomTypeFeatures.groups ? (
+            <GroupsPanel
+              role={role}
+              state={classroom.state}
+              loading={classroom.loading}
+              participants={participantList}
+              currentUserId={identity.userId}
+              positioningGroupId={positioningGroupId}
+              podsEnabled={classroom.state?.podsRuntime?.podsEnabled === true}
+              broadcastUserIds={classroom.state?.podsRuntime?.broadcastFromUserIds ?? []}
+              podsAllowedInRoom={CLIENT_TUNING.enableBreakoutPods && session?.room.settings.pods?.enabled === true}
+              {...(manifest ? { manifestAnchors: manifest.wallAnchors } : {})}
+              onRunAction={async (action) => {
+                await classroom.runAction(action);
+              }}
+              onEnterPositioningMode={(groupId) => setPositioningGroupId(groupId)}
+              onCancelPositioning={() => setPositioningGroupId("")}
+            />
+          ) : null}
+          {roomTypeFeatures.focus ? (
+            <FocusPanel
+              role={role}
+              state={classroom.state}
+              loading={classroom.loading}
+              manifest={manifest}
+              currentUserId={identity.userId}
+              hostSingular={roleLabels.hostSingular}
+              onRunAction={async (action) => {
+                await classroom.runAction(action);
+              }}
+              onLookAtFocus={lookAtFocus}
+            />
+          ) : null}
           {manifest && session ? (
             <AnchorPanel
               identity={identity}
@@ -1967,7 +1980,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               hostSingular={roleLabels.hostSingular}
             />
           ) : null}
-          {CLIENT_TUNING.enableWorldSkins && role === "teacher" && session ? (
+          {roomTypeFeatures.worldSkins && CLIENT_TUNING.enableWorldSkins && role === "teacher" && session ? (
             <EnvironmentCard
               identity={identity}
               skin={activeSkin.skin ?? null}
@@ -2033,7 +2046,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           </div>
         </aside>
       ) : null}
-      {CLIENT_TUNING.enableClassroomLessons && role === "teacher" && lesson.run ? (
+      {roomTypeFeatures.lessons && CLIENT_TUNING.enableClassroomLessons && role === "teacher" && lesson.run ? (
         <aside
           className={`room-hud-right-secondary${helpDetailPanelOpen ? " room-hud-right-secondary--stacked" : ""}`}
           aria-label="Lesson script"
@@ -2057,7 +2070,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           </div>
         </aside>
       ) : null}
-      {(() => {
+      {roomTypeFeatures.peoplePanelTeacherControls ? (() => {
         if (helpBoardAccessUserId && manifest && classroom.state) {
           const helpStudent = participantList.find((p) => p.id === helpBoardAccessUserId) ?? null;
           const helpRequest =
@@ -2106,8 +2119,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             onClose={() => setSelectedStudentId("")}
           />
         ) : null;
-      })()}
-      {CLIENT_TUNING.enableClassroomLessons && role === "teacher" && recapOpen && recapRunId && session ? (
+      })() : null}
+      {roomTypeFeatures.lessons && CLIENT_TUNING.enableClassroomLessons && role === "teacher" && recapOpen && recapRunId && session ? (
         <LessonRecapPanel
           identity={identity}
           roomId={session.room.id}

@@ -4389,6 +4389,49 @@ describe("room object realtime grab lock", () => {
       await app.close();
     });
 
+    it("classroom state endpoint is unavailable for workforce-training rooms", async () => {
+      const { app, classId } = await setup({ ENABLE_WORKFORCE_TRAINING: "true" });
+      const createRes = await app.inject({
+        method: "POST",
+        url: "/v1/rooms",
+        headers: authHeaders("instructor-1", "Instructor Rivera"),
+        payload: { classId, name: "Compliance Refresher", type: "workforce-training" }
+      });
+      const roomId: string = createRes.json().room.id;
+
+      const classroomRes = await app.inject({
+        method: "GET",
+        url: `/v1/rooms/${roomId}/classroom`,
+        headers: authHeaders("instructor-1", "Instructor Rivera")
+      });
+
+      expect(classroomRes.statusCode).toBe(404);
+      expect(classroomRes.json().message).toMatch(/classroom features are unavailable/i);
+      await app.close();
+    });
+
+    it("classroom actions are unavailable for workforce-training rooms", async () => {
+      const { app, classId } = await setup({ ENABLE_WORKFORCE_TRAINING: "true" });
+      const createRes = await app.inject({
+        method: "POST",
+        url: "/v1/rooms",
+        headers: authHeaders("instructor-1", "Instructor Rivera"),
+        payload: { classId, name: "Compliance Refresher", type: "workforce-training" }
+      });
+      const roomId: string = createRes.json().room.id;
+
+      const actionRes = await app.inject({
+        method: "POST",
+        url: `/v1/rooms/${roomId}/classroom/actions`,
+        headers: authHeaders("instructor-1", "Instructor Rivera"),
+        payload: { type: "raise-hand" }
+      });
+
+      expect(actionRes.statusCode).toBe(404);
+      expect(actionRes.json().message).toMatch(/classroom features are unavailable/i);
+      await app.close();
+    });
+
     it("existing classroom room creation (no type) still defaults to classroom", async () => {
       const { app, classId } = await setup();
       const res = await app.inject({

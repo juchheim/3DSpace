@@ -78,7 +78,8 @@ import {
   type WallObjectType,
   type WorldSkin,
   type RoomSettings,
-  type RoomType
+  type RoomType,
+  getRoomTypeFeatureFlags
 } from "@3dspace/contracts";
 import {
   anchorHasOccupyingWallObject,
@@ -577,6 +578,12 @@ type ClassroomActor = {
 
 function requireTeacher(actor: ClassroomActor) {
   if (actor.role !== "teacher") throw forbidden("Teacher role required for this classroom action");
+}
+
+function assertRoomTypeSupportsClassroomState(room: { type?: RoomType | string | null | undefined }) {
+  if (!getRoomTypeFeatureFlags(room.type).classroomState) {
+    throw notFound("Classroom features are unavailable for this room type");
+  }
 }
 
 async function resolveClassroomActor(input: {
@@ -3404,6 +3411,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const auth = await requireUser(request, config, repository);
     const params = parseParams(ParamsWithRoomId, request);
     const { room, membership } = await requireRoomAccess(repository, params.roomId, auth);
+    assertRoomTypeSupportsClassroomState(room);
     const actor = await resolveClassroomActor({ repository, room, membership, auth });
     const state = sanitizeClassroomState(await repository.getClassroomState(params.roomId));
     const hydrated = await hydrateClassroomDisplayNames(repository, room.classId, state);
@@ -3415,6 +3423,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const params = parseParams(ParamsWithRoomId, request);
     const body = parseBody(ClassroomActionSchema, request);
     const { room, membership } = await requireRoomAccess(repository, params.roomId, auth);
+    assertRoomTypeSupportsClassroomState(room);
     const actor = await resolveClassroomActor({ repository, room, membership, auth });
 
     // Global student media toggle also persists to room settings (runtime seeded from settings on join).
@@ -3472,6 +3481,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const auth = await requireUser(request, config, repository);
     const params = parseParams(ParamsWithRoomAndRunId, request);
     const { room, membership } = await requireRoomAccess(repository, params.roomId, auth);
+    assertRoomTypeSupportsClassroomState(room);
     const actor = await resolveClassroomActor({ repository, room, membership, auth });
     requireTeacher(actor);
 

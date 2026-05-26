@@ -72,6 +72,7 @@ export function Roster({
   classroomState,
   role,
   roleLabels = CLASSROOM_ROLE_LABELS,
+  enableTeacherControls = true,
   selectedStudentId,
   onSelectStudent
 }: {
@@ -79,6 +80,7 @@ export function Roster({
   classroomState?: ClassroomState | null | undefined;
   role: Role;
   roleLabels?: RoleLabels;
+  enableTeacherControls?: boolean;
   selectedStudentId: string;
   onSelectStudent(id: string): void;
 }) {
@@ -101,7 +103,7 @@ export function Roster({
           const hasActiveGrant = activeGrantsByUserId.has(p.id);
           const participantGroup = groupsByUserId.get(p.id);
           const dotColor = participantGroup?.color ?? (p.local ? "#eb5e28" : "#2f6b4f");
-          const selectable = role === "teacher" && p.role === "student";
+          const selectable = enableTeacherControls && role === "teacher" && p.role === "student";
           const selected = selectable && p.id === selectedStudentId;
           const content = (
             <>
