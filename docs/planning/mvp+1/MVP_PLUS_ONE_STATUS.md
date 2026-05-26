@@ -169,6 +169,41 @@ Rollout note:
 - Existing rooms are unaffected on flag-on: `room.settings.worldSkins.skinId` defaults `null` (default theater).
 - `room.settings.worldSkins.enabled` defaults `true`; per-room opt-out via the setting is available if needed.
 
+## Workforce Training Room Type
+
+Plan: [`docs/planning/rooms/workforce-training/PLAN_WORKFORCE_TRAINING_ROOM.md`](../rooms/workforce-training/PLAN_WORKFORCE_TRAINING_ROOM.md)
+Implementation: [`docs/planning/rooms/workforce-training/IMPL_WORKFORCE_TRAINING_ROOM.md`](../rooms/workforce-training/IMPL_WORKFORCE_TRAINING_ROOM.md)
+Branch: `room-types`
+
+Status: **complete locally** (Phases 1–8) behind `ENABLE_WORKFORCE_TRAINING` / `NEXT_PUBLIC_ENABLE_WORKFORCE_TRAINING` (default `false`).
+
+Completed:
+
+- **Phase 1** — `RoomTypeSchema = z.enum(["classroom", "workforce-training"])`; `Room.type` with `"classroom"` default (back-compat); `CreateRoomRequest.type` optional.
+- **Phase 2** — `createWorkforceTrainingManifest()` in `packages/room-engine`: central 40×40 m room + U-shaped 4 m hallway band on left/back/right + three 10×10 m side rooms. Outer bounds x ∈ [−34, 34], z ∈ [−20, 34] (68×54 m, height 8 m). 28 wall segments with entrance gaps; 16 wall anchors (1 primary instructor board, 15 side-room boards). `applyDefaultRoomGeometry` / `applyDefaultWallAnchorDimensions` skip non-classroom types.
+- **Phase 3** — API `ENABLE_WORKFORCE_TRAINING` flag; Mongoose `Room.type` field; repository `createRoom` accepts `type`; `POST /v1/rooms` gates and dispatches manifest factory; `applyDefaultWallAnchorDimensions` call sites pass `room.type`. API tests: 403 when flag off, 200+16 anchors when on, `manifest.dimensions.width === 68` on GET.
+- **Phase 4** — Web `createRoom` forwards `type`; `normalizeRoomManifest` passes `roomType`; `RoomClient` call sites updated; `CLIENT_TUNING.enableWorkforceTraining`.
+- **Phase 5** — Lobby "Workforce Training" option behind client flag; "Organization / Team name" / "Session name" / "Create training" copy; `createRoomOfType(roomType)` generalizes `createClassroom`.
+- **Phase 6** — `roleLabels` memo in `RoomClient` switches on `room.type === "workforce-training"` → Instructor/Trainee; `Roster` accepts `roleLabels` prop; `hostInitial` tag shows "I" in workforce rooms.
+- **Phase 7** — Edge tests in `room-engine.test.ts` verify left/right side room interior positions stay in bounds and out-of-rectangle points clamp to `maxX=34`. Manual U-shape walkthrough pending.
+- **Phase 8** — Env templates updated (root, API, web); `playwright.config.ts` opts dev servers into the flag; `apps/web/test/workforce-training.spec.ts` covers instructor create + trainee join + roster "I" tag + movement bounds + lobby copy.
+
+Validation:
+
+- `npm run typecheck` — pass.
+- `npm run test` — pass, 171 tests (includes 5 new API + 8 new room-engine tests).
+- `npm run test -- packages/room-engine/tests/room-engine.test.ts -t "workforce training"` — pass.
+- `npm run test -- apps/api/tests/api.test.ts -t "workforce-training"` — pass.
+- E2E: `apps/web/test/workforce-training.spec.ts` — pending first run with Playwright-managed dev servers.
+
+Rollout note:
+
+- Land Phases 1–8 on `room-types` with both flags `false`. CI must stay green.
+- Flip `ENABLE_WORKFORCE_TRAINING=true` + `NEXT_PUBLIC_ENABLE_WORKFORCE_TRAINING=true` in staging.
+- Internal walkthrough: instructor + 2 trainees, exercise U-shape circulation and all 16 boards.
+- Production rollout: flip both flags; creation requires explicit dropdown selection by the host; existing classroom rooms are unaffected.
+- Phase 1 limitation: walkable bounds are one outer rectangle; avatar can walk through wall meshes. Per-zone occlusion is a follow-up phase.
+
 ## Next Concrete Step
 
-Local MVP+1 wall media, lesson planning discovery, breakout pods, RoomObject library, and World Skins Phase A are all complete. Recommended next steps before production release: upload the five v1 skin asset packs to R2, flip `ENABLE_WORLD_SKINS=true` in staging, run the 90-second demo script, complete the Chromebook and iPad Safari QA checklist from Phase 9, and record a PR clip of the default → Mars → Cell → Forum day/night → Calm flow.
+Local MVP+1 wall media, lesson planning discovery, breakout pods, RoomObject library, World Skins Phase A, and Workforce Training room type are all complete. Recommended next steps: (1) upload the five v1 skin asset packs to R2 and flip `ENABLE_WORLD_SKINS=true` in staging; (2) flip `ENABLE_WORKFORCE_TRAINING=true` in staging and run the U-shape walkthrough; (3) complete the Chromebook and iPad Safari QA checklist from World Skins Phase 9.

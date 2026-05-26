@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-26 (tightened the room-type selector sizing after the initial `room-types` lobby scaffold)
+Last updated: 2026-05-26 (workforce-training room type shipped on `room-types`)
 
 ## Project Summary
 
@@ -22,6 +22,7 @@ Implementation state: **MVP complete in production** (Vercel + Koyeb + Atlas + C
 - **Working branch**: `room-types` (created 2026-05-26)
 - **Lobby room types**: `apps/web/components/Lobby.tsx` now has a `RoomType` registry/selector scaffold; `apps/web/app/globals.css` adds `.lb-type-*` styles for the chooser row.
 - **Lobby selector sizing**: `.lb-select` in `apps/web/app/globals.css` now uses content width with `flex-shrink: 0` instead of a fixed minimum width so the room-type chooser fits the row more cleanly.
+- **Workforce Training room type** (branch `room-types`, 2026-05-26): `RoomTypeSchema = z.enum(["classroom", "workforce-training"])`; `Room.type` field (default `"classroom"` for back-compat). Factory `createWorkforceTrainingManifest()` in `packages/room-engine` builds a central 40×40 m room + U-shaped outer hallway (4 m wide) + three 10×10 m side rooms. Outer bounds: x ∈ [−34, 34], z ∈ [−20, 34] (68×54 m). 16 wall anchors (1 primary instructor board front-center, 15 `WT_BOARD_WIDTH=6` boards across side rooms). 28 wall segments; entrance gaps instead of door meshes. `applyDefaultRoomGeometry` / `applyDefaultWallAnchorDimensions` both skip non-classroom types. UI: "Instructor"/"Trainee" role labels (hostInitial="I") via `roleLabels` prop; Lobby "Workforce Training" option behind `NEXT_PUBLIC_ENABLE_WORKFORCE_TRAINING` flag. Phase 1 walkable bounds = one outer rectangle; wall meshes visually divide zones but do not occlude movement.
 
 ## Stack (Current)
 

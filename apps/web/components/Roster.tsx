@@ -61,16 +61,24 @@ function groupTagStyle(group: ClassroomGroup): React.CSSProperties {
   };
 }
 
+type RoleLabels = { hostSingular: string; hostInitial: string; guestSingular: string; guestPlural: string };
+
+const CLASSROOM_ROLE_LABELS: RoleLabels = {
+  hostSingular: "Teacher", hostInitial: "T", guestSingular: "Student", guestPlural: "Students"
+};
+
 export function Roster({
   participants,
   classroomState,
   role,
+  roleLabels = CLASSROOM_ROLE_LABELS,
   selectedStudentId,
   onSelectStudent
 }: {
   participants: ParticipantView[];
   classroomState?: ClassroomState | null | undefined;
   role: Role;
+  roleLabels?: RoleLabels;
   selectedStudentId: string;
   onSelectStudent(id: string): void;
 }) {
@@ -113,7 +121,7 @@ export function Roster({
                 {participantGroup ? <span className="tag" style={groupTagStyle(participantGroup)}>{participantGroup.label.slice(0, 10)}</span> : null}
                 {camOn ? <span className="tag active">cam</span> : null}
                 {micOn ? <span className={`tag${speaking ? " active" : ""}`}>mic</span> : null}
-                {p.role === "teacher" ? <span className="tag tag-teacher">T</span> : null}
+                {p.role === "teacher" ? <span className="tag tag-teacher">{roleLabels.hostInitial}</span> : null}
               </span>
             </>
           );

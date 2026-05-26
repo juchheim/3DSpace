@@ -56,6 +56,7 @@ export function ClassroomPanel({
   boardAccessUserId = "",
   reactionLog = [],
   hallpassSettings,
+  hostSingular = "Teacher",
   onOpenBoardAccess,
   onRunAction
 }: {
@@ -69,6 +70,7 @@ export function ClassroomPanel({
   boardAccessUserId?: string | undefined;
   reactionLog?: ReactionLogEntry[];
   hallpassSettings?: RoomSettings["hallpass"] | undefined;
+  hostSingular?: string;
   onOpenBoardAccess?(userId: string): void;
   onRunAction(action: ClassroomAction): Promise<void>;
 }) {
@@ -383,12 +385,12 @@ export function ClassroomPanel({
           <p className="classroom-help-note">
             {activeBoardGrant.expiresAt
               ? `Access expires ${new Date(activeBoardGrant.expiresAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}.`
-              : "Access stays active until your teacher revokes it."}
+              : `Access stays active until your ${hostSingular.toLowerCase()} revokes it.`}
           </p>
         </div>
       ) : null}
       <label className="classroom-note-field">
-        <span className="classroom-note-label">Note for your teacher</span>
+        <span className="classroom-note-label">Note for your {hostSingular.toLowerCase()}</span>
         <textarea
           className="classroom-note-input"
           rows={3}

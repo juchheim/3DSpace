@@ -16,6 +16,7 @@ export function FocusPanel({
   loading,
   manifest,
   currentUserId,
+  hostSingular = "Teacher",
   onRunAction,
   onLookAtFocus
 }: {
@@ -24,6 +25,7 @@ export function FocusPanel({
   loading: boolean;
   manifest?: RoomManifest | null | undefined;
   currentUserId?: string | undefined;
+  hostSingular?: string;
   onRunAction(action: ClassroomAction): Promise<void>;
   onLookAtFocus?(anchorId: string): void;
 }) {
@@ -176,7 +178,7 @@ export function FocusPanel({
           <p className="classroom-help-note">{spotlight.instruction}</p>
         ) : null}
         {spotlight.mode === "force" ? (
-          <p className="classroom-help-note">View locked by your teacher.</p>
+          <p className="classroom-help-note">View locked by your {hostSingular.toLowerCase()}.</p>
         ) : spotlight.mode === "guide" && spotlight.anchorId && onLookAtFocus ? (
           <button
             type="button"

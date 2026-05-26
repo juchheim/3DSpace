@@ -41,7 +41,8 @@ export function AnchorPanel({
   onRemove,
   onStopShare,
   onControl,
-  onModerate
+  onModerate,
+  hostSingular = "Teacher"
 }: {
   identity: ApiIdentity;
   roomId: string;
@@ -53,6 +54,7 @@ export function AnchorPanel({
   canManage: boolean;
   role: Role;
   activeBoardGrant?: ClassroomBoardAccessGrant | null | undefined;
+  hostSingular?: string;
   loading: boolean;
   error: string;
   onCreateFile(input: { anchorId: string; file: File; title: string; altText?: string | undefined; caption?: string | undefined }): Promise<void>;
@@ -388,7 +390,7 @@ export function AnchorPanel({
           )}
         </>
       ) : (
-        <p className="small">{role === "student" ? "Wait for your teacher to grant board access." : "Wall creation is teacher-controlled."}</p>
+        <p className="small">{role === "student" ? `Wait for your ${hostSingular.toLowerCase()} to grant board access.` : `Wall creation is ${hostSingular.toLowerCase()}-controlled.`}</p>
       )}
 
       {/* Objects grouped by anchor */}

@@ -204,6 +204,13 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     role,
     runAction: classroom.runAction
   });
+  const roleLabels = useMemo(() => {
+    if (session?.room.type === "workforce-training") {
+      return { hostSingular: "Instructor", hostInitial: "I", guestSingular: "Trainee", guestPlural: "Trainees" };
+    }
+    return { hostSingular: "Teacher", hostInitial: "T", guestSingular: "Student", guestPlural: "Students" };
+  }, [session?.room.type]);
+
   const parsedRoomSettings = useMemo(
     () => (session ? parseRoomSettings(session.room.settings) : null),
     [session?.room.settings]
@@ -1380,7 +1387,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           {handRaised ? (
             <div className="hud-ctx-card">
               <span className="hud-ctx-lbl acc">Hand raised</span>
-              <span className="hud-ctx-sub">Waiting for your teacher</span>
+              <span className="hud-ctx-sub">Waiting for your {roleLabels.hostSingular.toLowerCase()}</span>
             </div>
           ) : null}
           {CLIENT_TUNING.enableHallPass && session?.room.settings.hallpass.enabled ? (() => {
@@ -1739,6 +1746,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             participants={participantList}
             classroomState={classroom.state}
             role={role}
+            roleLabels={roleLabels}
             selectedStudentId={selectedStudentId}
             onSelectStudent={(id) => {
               setHelpBoardAccessUserId("");
@@ -1831,6 +1839,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             boardAccessUserId={helpBoardAccessUserId}
             reactionLog={log}
             hallpassSettings={session?.room.settings.hallpass}
+            hostSingular={roleLabels.hostSingular}
             onOpenBoardAccess={(userId) => {
               setSelectedStudentId("");
               setHelpBoardAccessUserId((current) => (current === userId ? "" : userId));
@@ -1910,6 +1919,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             loading={classroom.loading}
             manifest={manifest}
             currentUserId={identity.userId}
+            hostSingular={roleLabels.hostSingular}
             onRunAction={async (action) => {
               await classroom.runAction(action);
             }}
@@ -1943,6 +1953,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               onStopShare={stopShare}
               onControl={controlWallObject}
               onModerate={moderateWallObject}
+              hostSingular={roleLabels.hostSingular}
             />
           ) : null}
           {CLIENT_TUNING.enableWorldSkins && role === "teacher" && session ? (
