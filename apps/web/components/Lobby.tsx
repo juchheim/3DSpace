@@ -21,6 +21,11 @@ const ROOM_TYPES: { value: RoomType; label: string; description: string }[] = [
   { value: "workforce-training", label: "Workforce Training", description: "Immersive training sessions for teams and organizations." },
 ];
 
+const ROOM_TYPE_FORM_DEFAULTS: Record<RoomType, { className: string; roomName: string }> = {
+  classroom: { className: "Physics 101", roomName: "Wave Lab" },
+  "workforce-training": { className: "Acme Field Ops", roomName: "Compliance Refresher" },
+};
+
 const ROOM_TYPE_JOIN_COPY: Record<
   RoomType,
   { guestSingular: string; hostSingular: string; joinButtonLabel: string }
@@ -32,8 +37,8 @@ const ROOM_TYPE_JOIN_COPY: Record<
 export function Lobby() {
   const { identity, loaded, clerkEnabled, signedIn } = usePersistentIdentity();
   const [roomType, setRoomType] = useState<RoomType>("classroom");
-  const [className, setClassName] = useState("Physics 101");
-  const [roomName, setRoomName] = useState("Wave Lab");
+  const [className, setClassName] = useState(ROOM_TYPE_FORM_DEFAULTS.classroom.className);
+  const [roomName, setRoomName] = useState(ROOM_TYPE_FORM_DEFAULTS.classroom.roomName);
   const [inviteCode, setInviteCode] = useState("");
   const [createdInvite, setCreatedInvite] = useState<Invite | null>(null);
   const [classes, setClasses] = useState<ClassRecord[]>([]);
@@ -46,6 +51,16 @@ export function Lobby() {
   const [draftRoomObjects, setDraftRoomObjects] = useState<RoomObjectsSettings | null>(null);
 
   function handleRoomTypeChange(next: RoomType) {
+    const currentDefaults = ROOM_TYPE_FORM_DEFAULTS[roomType];
+    const nextDefaults = ROOM_TYPE_FORM_DEFAULTS[next];
+
+    if (className === currentDefaults.className || !className.trim()) {
+      setClassName(nextDefaults.className);
+    }
+    if (roomName === currentDefaults.roomName || !roomName.trim()) {
+      setRoomName(nextDefaults.roomName);
+    }
+
     setRoomType(next);
     setCreatedInvite(null);
     setCopyStatus(null);
