@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-26 (refined Earth globe with relief/cloud layers and physical time flow; checked in default-theater builtin skin assets)
+Last updated: 2026-05-26 (started room-type-aware lobby flow on `room-types` with a selector scaffold and type-specific rendering split)
 
 ## Project Summary
 
@@ -19,6 +19,8 @@ Implementation state: **MVP complete in production** (Vercel + Koyeb + Atlas + C
 - **Env templates**: `.env.example`, `apps/api/.env.example`, `apps/web/.env.example`
 - **Deploy artifacts**: `apps/api/Dockerfile`, `vercel.json`
 - **RoomObject catalog**: `packages/room-objects/catalog/builtin.json`; procedural renderers in `apps/web/components/roomObjectProcedurals/` currently include water molecule, caffeine molecule, and Earth globe.
+- **Working branch**: `room-types` (created 2026-05-26)
+- **Lobby room types**: `apps/web/components/Lobby.tsx` now has a `RoomType` registry/selector scaffold; `apps/web/app/globals.css` adds `.lb-type-*` styles for the chooser row.
 
 ## Stack (Current)
 
@@ -138,6 +140,8 @@ Local loading:
 - RoomObject custom uploads now flow `RoomObjectsToolbar` → `apps/web/lib/api.ts::uploadRoomObjectGlb()` → `POST /v1/rooms/:roomId/room-objects/uploads` / `POST /v1/room-objects/templates`; custom GLB meshes and catalog thumbnails resolve through `roomObjectAssetUrl()` and `GET /v1/room-object-assets/:storageKey` instead of direct object-storage URLs, which keeps rendering stable even when the bucket is not public-read.
 - Student camera/mic control is still local-first (`apps/web/components/MediaControls.tsx` → `apps/web/lib/useLocalMedia.ts`) and gets published outward by `apps/web/components/RoomClient.tsx` / `apps/web/lib/realtime.ts`; current teacher classroom-state actions cover adjacent controls but do not include remote camera/mic permission or mute toggles.
 - `PLAN_CLASSROOM_MEDIA_PERMISSIONS.md` proposes adding room-level `studentMedia` defaults plus `ClassroomState.studentMediaRuntime` and two classroom actions (`set-student-media-global`, `set-student-media-access`) so the existing right-side student panel can host room-wide student cam/mic toggles above `BoardAccessGrantControls`; live wall camera/mic share should require both device-media permission and existing board-access grant.
+- `room-types` branches from `teacher-cam-mic-controls` at commit `56996cc`, immediately after the pushed Earth globe relief/cloud/default-theater asset follow-up.
+- `Lobby.tsx` now routes the teacher host flow through `renderRoomTypeSteps()` keyed by a local `roomType` state and `ROOM_TYPES` registry, which keeps the current classroom flow intact while creating an additive extension point for future room-type-specific flows.
 
 ## Post-MVP Backlog
 
@@ -241,6 +245,8 @@ Screen share, computer audio, teacher moderation, rich wall placement, room buil
 - **2026-05-25**: Added a third builtin RoomObject, **Rotating Earth globe** (`proceduralId: "earth-globe"`), backed by Natural Earth 1:10m land/lakes/rivers/bathymetry/glacier vectors plus NASA Blue Marble / Black Marble textures. The catalog entry exposes realtime/custom solar date controls, day-of-year and UTC hour, rotation speed, and overlays for night lights, bathymetry, ice, atmosphere, and the latitude/longitude grid; web interaction summaries, builtin catalog tests, dedicated `earth-solar` unit coverage, and Playwright room-object checks were extended to cover the new globe.
 - **2026-05-25**: Refined the Earth globe to use generated 4096px physical base, bathymetry, and ice overlay textures instead of drawing those layers live from GeoJSON on every client render. Added Natural Earth elevation-point data plus a new **Major elevation markers** toggle that labels the tallest peaks, updated the catalog schema/defaults and inspector coverage, and documented the generated assets/source script in `apps/web/public/room-objects/SOURCES.md`.
 - **2026-05-26**: Earth globe follow-up: added three new teaching/debug overlays (cloud layer, subsolar + midnight markers, terminator guide), terrain relief/displacement driven by NASA topography plus GEBCO bathymetry textures, and a `timeFlowMode` split between accelerated physical solar time, live UTC, and fixed-date demo spin. The globe's axial spin is now anchored to unwrapped subsolar longitude so daylight stays physically aligned while the texture rotates. Checked in the builtin `default-theater` panorama/floor assets under `apps/web/public/world-skins/default-theater/v1/` because `packages/world-skins/catalog/builtin.json` already references them.
+- **2026-05-26**: Created local branch `room-types` from `teacher-cam-mic-controls` at `56996cc` after the Earth globe follow-up was committed and pushed, so subsequent room-type work starts from that clean published base.
+- **2026-05-26**: Began `room-types` implementation in the lobby by adding a room-type dropdown above the host flow, factoring the existing 3-step classroom create/share/enter UI into `renderRoomTypeSteps()`, and leaving commented placeholders for future `workforce-training` and `free-for-all` variants so new flows can plug in without rewriting the current classroom path.
 - **2026-05-24**: Panorama wall orientation fix: `RoomView3D` now builds wall panels directly as world-space `BufferGeometry` with vertex UVs assigned from `wall.start` → `wall.end` and `slice.u0` → `slice.u1`. This avoids invalid reflection matrices / per-wall texture repeat flips that made the back wall seam and the left wall invert. Validation: `npx tsc --noEmit` in `apps/web` passes.
 - **2026-05-24**: Panorama unwrap order changed to **left → front → right → back** (left-to-right in `panorama.webp`): `WORLD_SKIN_PANORAMA_SLICES_DEFAULT`, all `builtin.json` entries, `BACK_PANORAMA_U0/U1` in `RoomView3D`, and `WORLD_SKIN_PANORAMA_SPEC.md`. Existing uploaded panoramas must be re-authored or re-sliced to match.
 - **2026-05-22**: Locked wall art delivery: `docs/planning/new-features/WORLD_SKIN_PANORAMA_SPEC.md` — single **`panorama.webp` 8192×1024** (horizon 640 px from bottom), companion **`floor.webp` 2048×2048**; CONCEPT §3.5 + IMPL Phases 0/2/4/5 updated; optional `WorldSkinPanoramaWallSchema` + `WORLD_SKIN_PANORAMA_SLICES_DEFAULT` in contracts (Phase 1 work unchanged; `hero-draft.json` color-only walls still valid). World Skins Phases 0–1 reported complete in codebase.

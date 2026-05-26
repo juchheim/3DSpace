@@ -11,8 +11,21 @@ import { inviteJoinUrl } from "../lib/invite";
 import { usePersistentIdentity } from "../lib/usePersistentIdentity";
 import { CopyRoomInviteButton } from "./CopyRoomInviteButton";
 
+// ── Room type registry ──────────────────────────────────────────────────────
+// To add a new room type: (1) extend the union, (2) add an entry to ROOM_TYPES,
+// (3) add a case to renderRoomTypeSteps() below.
+type RoomType = "classroom";
+// type RoomType = "classroom" | "workforce-training" | "free-for-all";
+
+const ROOM_TYPES: { value: RoomType; label: string; description: string }[] = [
+  { value: "classroom",          label: "Classroom",          description: "Live 3D sessions with students and a shareable invite code." },
+  // { value: "workforce-training", label: "Workforce Training", description: "Flexible training sessions for teams and organizations." },
+  // { value: "free-for-all",       label: "Free for All",       description: "Open rooms with no class structure or invite required." },
+];
+
 export function Lobby() {
   const { identity, loaded, clerkEnabled, signedIn } = usePersistentIdentity();
+  const [roomType, setRoomType] = useState<RoomType>("classroom");
   const [className, setClassName] = useState("Physics 101");
   const [roomName, setRoomName] = useState("Wave Lab");
   const [inviteCode, setInviteCode] = useState("");
@@ -25,6 +38,13 @@ export function Lobby() {
   const [settingsOpen, setSettingsOpen] = useState<string | null>(null);
   const [draftHallpass, setDraftHallpass] = useState<RoomSettings["hallpass"] | null>(null);
   const [draftRoomObjects, setDraftRoomObjects] = useState<RoomObjectsSettings | null>(null);
+
+  function handleRoomTypeChange(next: RoomType) {
+    setRoomType(next);
+    setCreatedInvite(null);
+    setCopyStatus(null);
+    setError("");
+  }
 
   useEffect(() => {
     document.body.classList.add("lobby-dark");
@@ -145,6 +165,143 @@ export function Lobby() {
   const hasRoom = Boolean(createdInvite?.roomId);
   const authDisabled = clerkEnabled && !signedIn;
 
+  // ── Type-specific step panels ────────────────────────────────────────────
+  // Add a new case here (and to ROOM_TYPES above) to support additional room types.
+  function renderRoomTypeSteps() {
+    switch (roomType) {
+      case "classroom":
+        return (
+          <div className="lb-steps-grid">
+
+            {/* Step 1: Create */}
+            <div className="lb-step-col">
+              <div className="lb-step-hd">
+                <div className={`lb-step-badge${hasRoom ? " lb-step-badge-done" : ""}`}>
+                  {hasRoom ? "✓" : "1"}
+                </div>
+                <div>
+                  <p className="lb-step-title">Create</p>
+                  <p className="lb-step-desc">Name your class and room</p>
+                </div>
+              </div>
+              <div className="lb-step-body">
+                <div className="lb-field">
+                  <label className="lb-label" htmlFor="lb-class-name">Class name</label>
+                  <input
+                    id="lb-class-name"
+                    className="lb-inp"
+                    value={className}
+                    onChange={(e) => setClassName(e.target.value)}
+                    placeholder="e.g. Physics 101"
+                  />
+                </div>
+                <div className="lb-field">
+                  <label className="lb-label" htmlFor="lb-room-name">Room name</label>
+                  <input
+                    id="lb-room-name"
+                    className="lb-inp"
+                    value={roomName}
+                    onChange={(e) => setRoomName(e.target.value)}
+                    placeholder="e.g. Wave Lab"
+                  />
+                </div>
+                <button
+                  className="lb-btn lb-btn-pri"
+                  disabled={busy || authDisabled}
+                  onClick={() => void createClassroom()}
+                >
+                  {busy ? "Creating…" : "Create room"}
+                </button>
+              </div>
+            </div>
+
+            <div className="lb-step-vsep" />
+
+            {/* Step 2: Share */}
+            <div className={`lb-step-col${hasRoom ? " lb-lit" : " lb-pending"}`} aria-live="polite">
+              <div className="lb-step-hd">
+                <div className={`lb-step-badge${!hasRoom ? " lb-step-badge-dim" : ""}`}>2</div>
+                <div>
+                  <p className="lb-step-title">Share</p>
+                  <p className="lb-step-desc">Send the invite to students</p>
+                </div>
+              </div>
+              <div className="lb-step-body">
+                {hasRoom && createdInvite ? (
+                  <>
+                    <div className="lb-invite-code" aria-label="Invite code">
+                      {createdInvite.code}
+                    </div>
+                    <div className="lb-btn-row">
+                      <button
+                        className="lb-btn lb-btn-pri lb-btn-sm"
+                        style={{ flex: 1 }}
+                        onClick={() => void copyInvite("code")}
+                      >
+                        {copyStatus === "code" ? "✓ Copied!" : "Copy code"}
+                      </button>
+                      <button
+                        className="lb-btn lb-btn-sec lb-btn-sm"
+                        style={{ flex: 1 }}
+                        onClick={() => void copyInvite("link")}
+                      >
+                        {copyStatus === "link" ? "✓ Copied!" : "Copy link"}
+                      </button>
+                    </div>
+                    <div className="lb-field">
+                      <span className="lb-label">Join link</span>
+                      <input
+                        className="lb-inp"
+                        readOnly
+                        value={inviteJoinUrl(createdInvite.roomId!, createdInvite.code)}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="lb-placeholder">Invite code appears here after step 1</div>
+                )}
+              </div>
+            </div>
+
+            <div className="lb-step-vsep" />
+
+            {/* Step 3: Enter */}
+            <div className={`lb-step-col${hasRoom ? " lb-lit" : " lb-pending"}`}>
+              <div className="lb-step-hd">
+                <div className={`lb-step-badge${!hasRoom ? " lb-step-badge-dim" : ""}`}>3</div>
+                <div>
+                  <p className="lb-step-title">Enter</p>
+                  <p className="lb-step-desc">Open your room in 3D</p>
+                </div>
+              </div>
+              <div className="lb-step-body">
+                {hasRoom ? (
+                  <>
+                    <Link
+                      className="lb-btn lb-btn-pri lb-btn-full"
+                      href={`/rooms/${createdInvite!.roomId}`}
+                    >
+                      Enter room →
+                    </Link>
+                    <p className="lb-join-hint" style={{ textAlign: "center" }}>Room is live and ready</p>
+                  </>
+                ) : (
+                  <div className="lb-placeholder">Enter room button appears here after step 1</div>
+                )}
+              </div>
+            </div>
+
+          </div>
+        );
+
+      // When adding a new room type, add its case here:
+      // case "workforce-training":
+      //   return <WorkforceTrainingSteps ... />;
+      // case "free-for-all":
+      //   return <FreeForAllSteps ... />;
+    }
+  }
+
   return (
     <>
       {/* ── Top nav ── */}
@@ -176,129 +333,32 @@ export function Lobby() {
             </div>
           )}
 
-          {/* ── 3-step teacher flow ── */}
-          <div className="lb-panel" aria-label="Steps to host a class">
-            <div className="lb-steps-grid">
+          {/* ── Teacher flow ── */}
+          <div className="lb-panel" aria-label="Steps to host a room">
 
-              {/* Step 1: Create */}
-              <div className="lb-step-col">
-                <div className="lb-step-hd">
-                  <div className={`lb-step-badge${hasRoom ? " lb-step-badge-done" : ""}`}>
-                    {hasRoom ? "✓" : "1"}
-                  </div>
-                  <div>
-                    <p className="lb-step-title">Create</p>
-                    <p className="lb-step-desc">Name your class and room</p>
-                  </div>
-                </div>
-                <div className="lb-step-body">
-                  <div className="lb-field">
-                    <label className="lb-label" htmlFor="lb-class-name">Class name</label>
-                    <input
-                      id="lb-class-name"
-                      className="lb-inp"
-                      value={className}
-                      onChange={(e) => setClassName(e.target.value)}
-                      placeholder="e.g. Physics 101"
-                    />
-                  </div>
-                  <div className="lb-field">
-                    <label className="lb-label" htmlFor="lb-room-name">Room name</label>
-                    <input
-                      id="lb-room-name"
-                      className="lb-inp"
-                      value={roomName}
-                      onChange={(e) => setRoomName(e.target.value)}
-                      placeholder="e.g. Wave Lab"
-                    />
-                  </div>
-                  <button
-                    className="lb-btn lb-btn-pri"
-                    disabled={busy || authDisabled}
-                    onClick={() => void createClassroom()}
-                  >
-                    {busy ? "Creating…" : "Create room"}
-                  </button>
-                </div>
+            {/* Room type selector */}
+            <div className="lb-type-bar">
+              <label className="lb-label" htmlFor="lb-room-type">Room type</label>
+              <div className="lb-type-row">
+                <select
+                  id="lb-room-type"
+                  className="lb-select"
+                  value={roomType}
+                  onChange={(e) => handleRoomTypeChange(e.target.value as RoomType)}
+                >
+                  {ROOM_TYPES.map((rt) => (
+                    <option key={rt.value} value={rt.value}>{rt.label}</option>
+                  ))}
+                </select>
+                <span className="lb-type-desc">
+                  {ROOM_TYPES.find((rt) => rt.value === roomType)?.description}
+                </span>
               </div>
-
-              <div className="lb-step-vsep" />
-
-              {/* Step 2: Share */}
-              <div className={`lb-step-col${hasRoom ? " lb-lit" : " lb-pending"}`} aria-live="polite">
-                <div className="lb-step-hd">
-                  <div className={`lb-step-badge${!hasRoom ? " lb-step-badge-dim" : ""}`}>2</div>
-                  <div>
-                    <p className="lb-step-title">Share</p>
-                    <p className="lb-step-desc">Send the invite to students</p>
-                  </div>
-                </div>
-                <div className="lb-step-body">
-                  {hasRoom && createdInvite ? (
-                    <>
-                      <div className="lb-invite-code" aria-label="Invite code">
-                        {createdInvite.code}
-                      </div>
-                      <div className="lb-btn-row">
-                        <button
-                          className="lb-btn lb-btn-pri lb-btn-sm"
-                          style={{ flex: 1 }}
-                          onClick={() => void copyInvite("code")}
-                        >
-                          {copyStatus === "code" ? "✓ Copied!" : "Copy code"}
-                        </button>
-                        <button
-                          className="lb-btn lb-btn-sec lb-btn-sm"
-                          style={{ flex: 1 }}
-                          onClick={() => void copyInvite("link")}
-                        >
-                          {copyStatus === "link" ? "✓ Copied!" : "Copy link"}
-                        </button>
-                      </div>
-                      <div className="lb-field">
-                        <span className="lb-label">Join link</span>
-                        <input
-                          className="lb-inp"
-                          readOnly
-                          value={inviteJoinUrl(createdInvite.roomId!, createdInvite.code)}
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    <div className="lb-placeholder">Invite code appears here after step 1</div>
-                  )}
-                </div>
-              </div>
-
-              <div className="lb-step-vsep" />
-
-              {/* Step 3: Enter */}
-              <div className={`lb-step-col${hasRoom ? " lb-lit" : " lb-pending"}`}>
-                <div className="lb-step-hd">
-                  <div className={`lb-step-badge${!hasRoom ? " lb-step-badge-dim" : ""}`}>3</div>
-                  <div>
-                    <p className="lb-step-title">Enter</p>
-                    <p className="lb-step-desc">Open your room in 3D</p>
-                  </div>
-                </div>
-                <div className="lb-step-body">
-                  {hasRoom ? (
-                    <>
-                      <Link
-                        className="lb-btn lb-btn-pri lb-btn-full"
-                        href={`/rooms/${createdInvite!.roomId}`}
-                      >
-                        Enter room →
-                      </Link>
-                      <p className="lb-join-hint" style={{ textAlign: "center" }}>Room is live and ready</p>
-                    </>
-                  ) : (
-                    <div className="lb-placeholder">Enter room button appears here after step 1</div>
-                  )}
-                </div>
-              </div>
-
             </div>
+
+            {/* Type-specific steps */}
+            {renderRoomTypeSteps()}
+
           </div>
 
           {/* ── Student join ── */}
