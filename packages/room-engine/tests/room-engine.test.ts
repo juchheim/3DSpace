@@ -380,22 +380,51 @@ describe("workforce training manifest", () => {
   });
 
   it("blocks movement out of the back-left hallway corner", () => {
-    expect(
-      resolveWallCollisions({ x: -23.5, z: 22 }, { x: -24.5, z: 22 }, manifest.walls)
-    ).toEqual({ x: -23.5, z: 22 });
+    const leftWall = manifest.walls.find((wall) => wall.id === "h-back-corner-left-west");
+    const northWall = manifest.walls.find((wall) => wall.id === "h-back-corner-left-north");
+
+    expect(leftWall).toBeDefined();
+    expect(northWall).toBeDefined();
+
+    const leftStopX = leftWall!.start.x + (leftWall!.thickness ?? 0) / 2 + 0.4;
+    const northStopZ = northWall!.start.z - (northWall!.thickness ?? 0) / 2 - 0.4;
 
     expect(
-      resolveWallCollisions({ x: -22, z: 23.5 }, { x: -22, z: 24.5 }, manifest.walls)
-    ).toEqual({ x: -22, z: 23.5 });
+      resolveWallCollisions({ x: -23.1, z: 22 }, { x: -24.5, z: 22 }, manifest.walls)
+    ).toEqual({ x: leftStopX, z: 22 });
+
+    expect(
+      resolveWallCollisions({ x: -22, z: 23.1 }, { x: -22, z: 24.5 }, manifest.walls)
+    ).toEqual({ x: -22, z: northStopZ });
   });
 
   it("blocks movement out of the back-right hallway corner", () => {
-    expect(
-      resolveWallCollisions({ x: 23.5, z: 22 }, { x: 24.5, z: 22 }, manifest.walls)
-    ).toEqual({ x: 23.5, z: 22 });
+    const rightWall = manifest.walls.find((wall) => wall.id === "h-back-corner-right-east");
+    const northWall = manifest.walls.find((wall) => wall.id === "h-back-corner-right-north");
+
+    expect(rightWall).toBeDefined();
+    expect(northWall).toBeDefined();
+
+    const rightStopX = rightWall!.start.x - (rightWall!.thickness ?? 0) / 2 - 0.4;
+    const northStopZ = northWall!.start.z - (northWall!.thickness ?? 0) / 2 - 0.4;
 
     expect(
-      resolveWallCollisions({ x: 22, z: 23.5 }, { x: 22, z: 24.5 }, manifest.walls)
-    ).toEqual({ x: 22, z: 23.5 });
+      resolveWallCollisions({ x: 23.1, z: 22 }, { x: 24.5, z: 22 }, manifest.walls)
+    ).toEqual({ x: rightStopX, z: 22 });
+
+    expect(
+      resolveWallCollisions({ x: 22, z: 23.1 }, { x: 22, z: 24.5 }, manifest.walls)
+    ).toEqual({ x: 22, z: northStopZ });
+  });
+
+  it("stops at the near face of thick hallway walls instead of the wall centerline", () => {
+    const leftWall = manifest.walls.find((wall) => wall.id === "h-left-outer-s");
+    expect(leftWall).toBeDefined();
+
+    const stopX = leftWall!.start.x + (leftWall!.thickness ?? 0) / 2 + 0.4;
+
+    expect(
+      resolveWallCollisions({ x: -23.1, z: -10 }, { x: -24.5, z: -10 }, manifest.walls)
+    ).toEqual({ x: stopX, z: -10 });
   });
 });

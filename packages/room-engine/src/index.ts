@@ -661,7 +661,7 @@ export function clampPositionToBounds(manifest: RoomManifest, position: Vector3)
 const WALL_AVATAR_RADIUS = 0.4;
 
 /**
- * Push `newPos` back so the avatar cannot cross any wall where `passable === false`.
+ * Push `newPos` back so the avatar cannot enter any non-passable wall volume.
  * Each axis is resolved independently, giving natural wall-sliding behaviour.
  * Walls must be axis-aligned (either along X or along Z).
  */
@@ -679,29 +679,38 @@ export function resolveWallCollisions(
     const spanX = Math.abs(wall.end.x - wall.start.x);
     const spanZ = Math.abs(wall.end.z - wall.start.z);
     const isAlongX = spanX > spanZ;
+    const halfThickness = (wall.thickness ?? 0) / 2;
 
     if (isAlongX) {
-      // Horizontal wall at z = wallZ, spanning x in [minX, maxX]
+      // Horizontal wall centered at z = wallZ, spanning x in [minX, maxX]
       const wallZ = wall.start.z;
       const minX = Math.min(wall.start.x, wall.end.x) - WALL_AVATAR_RADIUS;
       const maxX = Math.max(wall.start.x, wall.end.x) + WALL_AVATAR_RADIUS;
+      const minBlockedZ = wallZ - halfThickness - WALL_AVATAR_RADIUS;
+      const maxBlockedZ = wallZ + halfThickness + WALL_AVATAR_RADIUS;
       if (x > minX && x < maxX) {
-        const oldSide = oldPos.z - wallZ;
-        const newSide = z - wallZ;
-        if (oldSide * newSide < 0) {
-          z = oldPos.z;
+        if (oldPos.z <= minBlockedZ && z > minBlockedZ) {
+          z = minBlockedZ;
+        } else if (oldPos.z >= maxBlockedZ && z < maxBlockedZ) {
+          z = maxBlockedZ;
+        } else if (oldPos.z > minBlockedZ && oldPos.z < maxBlockedZ) {
+          z = oldPos.z <= wallZ ? minBlockedZ : maxBlockedZ;
         }
       }
     } else {
-      // Vertical wall at x = wallX, spanning z in [minZ, maxZ]
+      // Vertical wall centered at x = wallX, spanning z in [minZ, maxZ]
       const wallX = wall.start.x;
       const minZ = Math.min(wall.start.z, wall.end.z) - WALL_AVATAR_RADIUS;
       const maxZ = Math.max(wall.start.z, wall.end.z) + WALL_AVATAR_RADIUS;
+      const minBlockedX = wallX - halfThickness - WALL_AVATAR_RADIUS;
+      const maxBlockedX = wallX + halfThickness + WALL_AVATAR_RADIUS;
       if (z > minZ && z < maxZ) {
-        const oldSide = oldPos.x - wallX;
-        const newSide = x - wallX;
-        if (oldSide * newSide < 0) {
-          x = oldPos.x;
+        if (oldPos.x <= minBlockedX && x > minBlockedX) {
+          x = minBlockedX;
+        } else if (oldPos.x >= maxBlockedX && x < maxBlockedX) {
+          x = maxBlockedX;
+        } else if (oldPos.x > minBlockedX && oldPos.x < maxBlockedX) {
+          x = oldPos.x <= wallX ? minBlockedX : maxBlockedX;
         }
       }
     }
