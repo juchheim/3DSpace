@@ -13,7 +13,11 @@ function authHeaders(userId: string, name: string) {
   };
 }
 
-async function createClassAndRoom(app: Awaited<ReturnType<typeof buildApp>>, teacherId = "teacher-wall") {
+async function createClassAndRoom(
+  app: Awaited<ReturnType<typeof buildApp>>,
+  teacherId = "teacher-wall",
+  roomType: "classroom" | "workforce-training" = "classroom"
+) {
   const classResponse = await app.inject({
     method: "POST",
     url: "/v1/classes",
@@ -27,7 +31,7 @@ async function createClassAndRoom(app: Awaited<ReturnType<typeof buildApp>>, tea
     method: "POST",
     url: "/v1/rooms",
     headers: authHeaders(teacherId, "Ms. Rivera"),
-    payload: { classId: classRecord.id, name: "Wall Lab" }
+    payload: { classId: classRecord.id, name: "Wall Lab", type: roomType }
   });
   expect(roomResponse.statusCode).toBe(200);
   const roomWithManifest = roomResponse.json();
@@ -3150,8 +3154,8 @@ describe("3dspace api", () => {
   });
 });
 
-function roomObjectsConfig() {
-  return loadConfig({ NODE_ENV: "test", ENABLE_ROOM_OBJECTS: "true" } as NodeJS.ProcessEnv);
+function roomObjectsConfig(env: Record<string, string> = {}) {
+  return loadConfig({ NODE_ENV: "test", ENABLE_ROOM_OBJECTS: "true", ...env } as NodeJS.ProcessEnv);
 }
 
 async function enableRoomObjects(app: Awaited<ReturnType<typeof buildApp>>, roomId: string, teacherId: string, overrides: Record<string, unknown> = {}) {
@@ -3353,9 +3357,10 @@ describe("room object templates", () => {
       config: roomObjectsConfig(),
       repository: new MemoryRepository()
     });
+    const { roomWithManifest } = await createClassAndRoom(app, "teacher-ro-templates");
     const response = await app.inject({
       method: "GET",
-      url: "/v1/room-objects/templates",
+      url: `/v1/room-objects/templates?roomId=${roomWithManifest.room.id}`,
       headers: authHeaders("teacher-ro-templates", "Ms. Rivera")
     });
     expect(response.statusCode).toBe(200);
@@ -3367,15 +3372,33 @@ describe("room object templates", () => {
 
   it("lets students list visible templates", async () => {
     const app = await buildApp({ config: roomObjectsConfig(), repository: new MemoryRepository() });
-    const { classRecord } = await createClassAndRoom(app, "teacher-ro-student-list");
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-ro-student-list");
     await addStudentMember(app, classRecord.id, "teacher-ro-student-list", "student-ro-list", "Avery");
     const response = await app.inject({
       method: "GET",
-      url: "/v1/room-objects/templates",
+      url: `/v1/room-objects/templates?roomId=${roomWithManifest.room.id}`,
       headers: authHeaders("student-ro-list", "Avery")
     });
     expect(response.statusCode).toBe(200);
     expect(response.json().templates.length).toBeGreaterThan(0);
+    await app.close();
+  });
+
+  it("hides classroom builtins from workforce-training room catalogs", async () => {
+    const app = await buildApp({
+      config: roomObjectsConfig({ ENABLE_WORKFORCE_TRAINING: "true" }),
+      repository: new MemoryRepository()
+    });
+    const { roomWithManifest } = await createClassAndRoom(app, "teacher-ro-workforce-catalog", "workforce-training");
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/v1/room-objects/templates?roomId=${roomWithManifest.room.id}`,
+      headers: authHeaders("teacher-ro-workforce-catalog", "Ms. Rivera")
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().templates).toEqual([]);
     await app.close();
   });
 
@@ -3411,6 +3434,7 @@ describe("room object templates", () => {
     const template = createResponse.json().template;
     expect(template.source).toBe("custom");
     expect(template.ownerClassId).toBe(classRecord.id);
+    expect(template.visibleRoomTypes).toEqual(["classroom"]);
     expect(template.renderer).toBe("gltf");
     expect(template.assetUrl).toContain("/v1/room-object-assets/");
 
@@ -3431,14 +3455,14 @@ describe("room object templates", () => {
 
     const teacherTemplates = await app.inject({
       method: "GET",
-      url: "/v1/room-objects/templates",
+      url: `/v1/room-objects/templates?roomId=${roomId}`,
       headers: authHeaders(teacherId, "Ms. Rivera")
     });
     expect(teacherTemplates.json().templates.some((entry: { id: string }) => entry.id === template.id)).toBe(true);
 
     const studentTemplates = await app.inject({
       method: "GET",
-      url: "/v1/room-objects/templates",
+      url: `/v1/room-objects/templates?roomId=${roomId}`,
       headers: authHeaders("student-ro-custom-view", "Avery")
     });
     expect(studentTemplates.json().templates.some((entry: { id: string }) => entry.id === template.id)).toBe(true);
@@ -3459,6 +3483,89 @@ describe("room object templates", () => {
     });
     expect(archive.statusCode).toBe(200);
 
+    await app.close();
+  });
+
+  it("keeps custom templates scoped to the room type they were created in", async () => {
+    const app = await buildApp({
+      config: roomObjectsConfig({ ENABLE_WORKFORCE_TRAINING: "true" }),
+      repository: new MemoryRepository()
+    });
+    const teacherId = "teacher-ro-room-type-scope";
+    const classResponse = await app.inject({
+      method: "POST",
+      url: "/v1/classes",
+      headers: authHeaders(teacherId, "Ms. Rivera"),
+      payload: { name: "Room Type Scope" }
+    });
+    expect(classResponse.statusCode).toBe(200);
+    const classId = classResponse.json().id as string;
+
+    const classroomRoom = await app.inject({
+      method: "POST",
+      url: "/v1/rooms",
+      headers: authHeaders(teacherId, "Ms. Rivera"),
+      payload: { classId, name: "Classroom Objects", type: "classroom" }
+    });
+    const workforceRoom = await app.inject({
+      method: "POST",
+      url: "/v1/rooms",
+      headers: authHeaders(teacherId, "Ms. Rivera"),
+      payload: { classId, name: "Training Objects", type: "workforce-training" }
+    });
+    expect(classroomRoom.statusCode).toBe(200);
+    expect(workforceRoom.statusCode).toBe(200);
+
+    const classroomRoomId = classroomRoom.json().room.id as string;
+    const workforceRoomId = workforceRoom.json().room.id as string;
+    await enableRoomObjects(app, classroomRoomId, teacherId, { customUploadsEnabled: true });
+    await enableRoomObjects(app, workforceRoomId, teacherId, { customUploadsEnabled: true });
+
+    const { response: createResponse } = await createCustomRoomObjectTemplate(app, {
+      roomId: workforceRoomId,
+      teacherId,
+      glb: await createTinyGlb()
+    });
+    expect(createResponse.statusCode).toBe(200);
+    const template = createResponse.json().template;
+    expect(template.visibleRoomTypes).toEqual(["workforce-training"]);
+
+    const workforceTemplates = await app.inject({
+      method: "GET",
+      url: `/v1/room-objects/templates?roomId=${workforceRoomId}`,
+      headers: authHeaders(teacherId, "Ms. Rivera")
+    });
+    expect(workforceTemplates.json().templates.some((entry: { id: string }) => entry.id === template.id)).toBe(true);
+
+    const classroomTemplates = await app.inject({
+      method: "GET",
+      url: `/v1/room-objects/templates?roomId=${classroomRoomId}`,
+      headers: authHeaders(teacherId, "Ms. Rivera")
+    });
+    expect(classroomTemplates.json().templates.some((entry: { id: string }) => entry.id === template.id)).toBe(false);
+
+    await app.close();
+  });
+
+  it("rejects placing classroom-only templates in workforce-training rooms", async () => {
+    const app = await buildApp({
+      config: roomObjectsConfig({ ENABLE_WORKFORCE_TRAINING: "true" }),
+      repository: new MemoryRepository()
+    });
+    const teacherId = "teacher-ro-workforce-instantiate";
+    const { roomWithManifest } = await createClassAndRoom(app, teacherId, "workforce-training");
+    const roomId = roomWithManifest.room.id;
+    await enableRoomObjects(app, roomId, teacherId);
+
+    const instantiate = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/objects`,
+      headers: authHeaders(teacherId, "Ms. Rivera"),
+      payload: { templateId: "tpl_water_molecule" }
+    });
+
+    expect(instantiate.statusCode).toBe(404);
+    expect(instantiate.json().message).toMatch(/unavailable for this room type/i);
     await app.close();
   });
 

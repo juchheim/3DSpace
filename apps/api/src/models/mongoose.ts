@@ -11,6 +11,7 @@ import type {
   RoomObjectStatus,
   RoomObjectTemplate,
   RoomRecord,
+  RoomType,
   User,
   WallAttachment,
   WallObject,
@@ -218,6 +219,7 @@ export function createModels(connection: Connection): Models {
     recommendedTouchPolicy: String,
     kinematic: Boolean,
     ownerClassId: String,
+    visibleRoomTypes: { type: [String], default: ["classroom"] },
     source: String,
     license: String,
     attribution: String,
@@ -229,7 +231,7 @@ export function createModels(connection: Connection): Models {
     createdAt: String,
     archivedAt: String
   });
-  roomObjectTemplateSchema.index({ source: 1, ownerClassId: 1 });
+  roomObjectTemplateSchema.index({ source: 1, ownerClassId: 1, visibleRoomTypes: 1 });
 
   const roomObjectSchema = new Schema({
     id: { type: String, required: true, unique: true },
@@ -710,13 +712,16 @@ export class MongoRepository implements Repository {
     }
   }
 
-  async listRoomObjectTemplatesVisibleTo(userId: string) {
+  async listRoomObjectTemplatesVisibleTo(userId: string, roomType?: RoomType | undefined) {
     const classes = await this.listClassesForUser(userId);
     const classIds = classes.map((record) => record.id);
-    const query = {
+    const query: Record<string, unknown> = {
       archivedAt: { $exists: false },
       $or: [{ source: "builtin" }, { ownerClassId: { $in: classIds } }]
     };
+    if (roomType) {
+      query.visibleRoomTypes = roomType;
+    }
     const docs = await this.models.RoomObjectTemplate.find(query).sort({ displayName: 1 }).lean();
     return entities<RoomObjectTemplate>(docs);
   }

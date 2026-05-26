@@ -8,10 +8,10 @@ import type { ApiIdentity } from "./identity";
 const templateCache = new Map<string, RoomObjectTemplate[]>();
 const inflightCache = new Map<string, Promise<RoomObjectTemplate[]>>();
 
-async function loadTemplates(cacheKey: string, identity: ApiIdentity) {
+async function loadTemplates(cacheKey: string, roomId: string, identity: ApiIdentity) {
   const existing = inflightCache.get(cacheKey);
   if (existing) return existing;
-  const request = listRoomObjectTemplates(identity)
+  const request = listRoomObjectTemplates(identity, roomId)
     .then((templates) => {
       templateCache.set(cacheKey, templates);
       return templates;
@@ -25,10 +25,11 @@ async function loadTemplates(cacheKey: string, identity: ApiIdentity) {
 
 export function useRoomObjectTemplates(input: {
   identity: ApiIdentity;
+  roomId?: string | undefined;
   classId?: string | undefined;
   enabled: boolean;
 }) {
-  const cacheKey = input.classId ? `${input.classId}:${input.identity.userId}` : undefined;
+  const cacheKey = input.roomId && input.classId ? `${input.roomId}:${input.classId}:${input.identity.userId}` : undefined;
   const [templates, setTemplates] = useState<RoomObjectTemplate[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [error, setError] = useState("");
@@ -57,7 +58,7 @@ export function useRoomObjectTemplates(input: {
       setStatus("loading");
       setError("");
       try {
-        const next = await loadTemplates(cacheKey, input.identity);
+        const next = await loadTemplates(cacheKey, input.roomId!, input.identity);
         setTemplates(next);
         setStatus("ready");
         return next;
@@ -67,7 +68,7 @@ export function useRoomObjectTemplates(input: {
         return [];
       }
     },
-    [cacheKey, input.enabled, input.identity]
+    [cacheKey, input.enabled, input.identity, input.roomId]
   );
 
   useEffect(() => {

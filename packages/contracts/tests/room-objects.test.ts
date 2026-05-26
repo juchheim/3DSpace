@@ -82,6 +82,7 @@ describe("room object contracts", () => {
       parameterSchemaJson,
       recommendedTouchPolicy: heroDraft.recommendedTouchPolicy,
       kinematic: heroDraft.kinematic,
+      visibleRoomTypes: heroDraft.visibleRoomTypes,
       source: heroDraft.source,
       license: heroDraft.license,
       attribution: heroDraft.attribution,
@@ -94,6 +95,7 @@ describe("room object contracts", () => {
     });
     expect(template.renderer).toBe("procedural");
     expect(template.proceduralId).toBe("water-molecule");
+    expect(template.visibleRoomTypes).toEqual(["classroom"]);
   });
 
   it("rejects procedural templates without proceduralId", () => {
@@ -159,6 +161,26 @@ describe("room object contracts", () => {
     });
     expect(template.roomId).toBe("room-1");
     expect(template.category).toBe("custom");
+  });
+
+  it("defaults legacy templates to classroom visibility", () => {
+    const template = RoomObjectTemplateSchema.parse({
+      id: "tpl-legacy",
+      slug: "legacy-object",
+      displayName: "Legacy object",
+      category: "science",
+      description: "",
+      thumbnailUrl: "/legacy.png",
+      defaultPose: { position: { x: 0, y: 1, z: 0 }, rotation: { yaw: 0 } },
+      parameterSchemaJson: "{}",
+      renderer: "procedural",
+      proceduralId: "water-molecule",
+      fileSizeBytes: 0,
+      triangleCount: 1,
+      createdAt: nowIso()
+    });
+
+    expect(template.visibleRoomTypes).toEqual(["classroom"]);
   });
 
   it("parses room object realtime messages", () => {

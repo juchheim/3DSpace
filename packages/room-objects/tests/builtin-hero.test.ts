@@ -34,6 +34,7 @@ describe("room object builtin catalog", () => {
     expect(entry.defaultScale).toBe(heroDraft.defaultScale);
     expect(entry.parameterSchemaJson).toBe(draftJson);
     expect(entry.defaultParameters).toEqual(heroDraft.defaultParameters);
+    expect(entry.visibleRoomTypes).toEqual(["classroom"]);
     expect(entry.thumbnailUrl).toBe("/room-objects/thumbnails/water-molecule.png");
     expect(entry.triangleCount).toBe(18600);
   });
@@ -51,6 +52,7 @@ describe("room object builtin catalog", () => {
       heteroAtomLabelsVisible: true,
       palette: "cpk"
     });
+    expect(entry.visibleRoomTypes).toEqual(["classroom"]);
     expect(entry.thumbnailUrl).toBe("/room-objects/thumbnails/caffeine-molecule.png");
     expect(entry.triangleCount).toBe(42000);
   });
@@ -90,6 +92,7 @@ describe("room object builtin catalog", () => {
     expect(entry.parameterSchemaJson).toContain("Subsolar markers");
     expect(entry.parameterSchemaJson).toContain("Terminator guide");
     expect(entry.parameterSchemaJson).toContain("true-scale radial terrain displacement");
+    expect(entry.visibleRoomTypes).toEqual(["classroom"]);
     expect(entry.thumbnailUrl).toBe("/room-objects/textures/earth-blue-marble-jan-5400.jpg");
     expect(entry.triangleCount).toBe(33000);
   });

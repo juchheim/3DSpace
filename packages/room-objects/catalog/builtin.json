@@ -10,6 +10,7 @@
     "exportable": true,
     "kinematic": false,
     "source": "builtin",
+    "visibleRoomTypes": ["classroom"],
     "license": "CC0-1.0",
     "attribution": "3DSpace — built-in procedural manipulative",
     "defaultPose": {
@@ -40,6 +41,7 @@
     "exportable": true,
     "kinematic": false,
     "source": "builtin",
+    "visibleRoomTypes": ["classroom"],
     "license": "CC0-1.0",
     "attribution": "3DSpace — built-in procedural manipulative",
     "defaultPose": {
@@ -71,6 +73,7 @@
     "exportable": true,
     "kinematic": true,
     "source": "builtin",
+    "visibleRoomTypes": ["classroom"],
     "license": "Public domain",
     "attribution": "Physical vectors: Natural Earth public domain; night lights, cloud composite, topography, and GEBCO bathymetry relief: NASA Earth Observatory",
     "defaultPose": {

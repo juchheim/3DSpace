@@ -308,8 +308,9 @@ export function createWebResource(
   });
 }
 
-export function listRoomObjectTemplates(identity: ApiIdentity) {
-  return apiFetch<{ templates: RoomObjectTemplate[] }>("/v1/room-objects/templates", { identity }).then((response) => response.templates);
+export function listRoomObjectTemplates(identity: ApiIdentity, roomId: string) {
+  const query = new URLSearchParams({ roomId });
+  return apiFetch<{ templates: RoomObjectTemplate[] }>(`/v1/room-objects/templates?${query.toString()}`, { identity }).then((response) => response.templates);
 }
 
 export function listWorldSkins(identity: ApiIdentity) {

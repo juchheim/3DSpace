@@ -9,6 +9,7 @@
   "exportable": true,
   "kinematic": false,
   "source": "builtin",
+  "visibleRoomTypes": ["classroom"],
   "license": "CC0-1.0",
   "attribution": "3DSpace — built-in procedural manipulative",
   "defaultPose": {

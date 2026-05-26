@@ -212,6 +212,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     return { hostSingular: "Teacher", hostInitial: "T", guestSingular: "Student", guestPlural: "Students" };
   }, [session?.room.type]);
   const roomRoleLabel = role === "teacher" ? roleLabels.hostSingular : roleLabels.guestSingular;
+  const roomTypeLabel = session?.room.type === "workforce-training" ? "Workforce Training" : "Classroom";
 
   const parsedRoomSettings = useMemo(
     () => (session ? parseRoomSettings(session.room.settings) : null),
@@ -301,6 +302,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   ]);
   const roomObjectTemplates = useRoomObjectTemplates({
     identity,
+    roomId: session?.room.id,
     classId: session?.room.classId,
     enabled: roomObjectsEnabled
   });
@@ -1792,6 +1794,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             <RoomObjectsToolbar
               templates={roomObjectTemplates.templates}
               objects={roomObjects.objects}
+              roomTypeLabel={roomTypeLabel}
               manifest={manifest!}
               roomObjectsReady={roomObjectsEnabled}
               gateSyncing={roomObjectsGateSyncing}

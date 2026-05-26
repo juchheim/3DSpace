@@ -30,6 +30,7 @@ import {
   HealthResponseSchema,
   JoinRoomSessionRequestSchema,
   ListWorldSkinsResponseSchema,
+  ListRoomObjectTemplatesQuerySchema,
   WorldSkinSchema,
   RoomSkinMessageSchema,
   ListRoomObjectTemplatesResponseSchema,
@@ -583,6 +584,16 @@ function requireTeacher(actor: ClassroomActor) {
 function assertRoomTypeSupportsClassroomState(room: { type?: RoomType | string | null | undefined }) {
   if (!getRoomTypeFeatureFlags(room.type).classroomState) {
     throw notFound("Classroom features are unavailable for this room type");
+  }
+}
+
+function assertRoomObjectTemplateVisibleForRoomType(
+  template: { visibleRoomTypes: RoomType[] },
+  room: { type?: RoomType | string | null | undefined }
+) {
+  const roomType = room.type === "workforce-training" ? "workforce-training" : "classroom";
+  if (!template.visibleRoomTypes.includes(roomType)) {
+    throw notFound("Room object template is unavailable for this room type");
   }
 }
 
@@ -3527,7 +3538,11 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   app.get("/v1/room-objects/templates", async (request) => {
     const auth = await requireUser(request, config, repository);
     if (!config.tuning.enableRoomObjects) throw roomObjectDisabled();
-    const templates = await repository.listRoomObjectTemplatesVisibleTo(auth.userId);
+    const query = parseQuery(ListRoomObjectTemplatesQuerySchema, request);
+    const roomType = query.roomId
+      ? (await requireRoomAccess(repository, query.roomId, auth)).room.type
+      : undefined;
+    const templates = await repository.listRoomObjectTemplatesVisibleTo(auth.userId, roomType);
     return ListRoomObjectTemplatesResponseSchema.parse({ templates });
   });
 
@@ -3613,6 +3628,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       recommendedTouchPolicy: room.settings.roomObjects.defaultTouchPolicy,
       kinematic: false,
       ownerClassId: room.classId,
+      visibleRoomTypes: [room.type],
       source: "custom",
       license: body.license,
       attribution: body.attribution,
@@ -3657,6 +3673,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     await requireRoomTeacher(repository, params.roomId, auth);
     const template = await repository.getRoomObjectTemplate(body.templateId);
     if (!template) throw notFound("Room object template not found");
+    assertRoomObjectTemplateVisibleForRoomType(template, room);
     await enforceActiveRoomObjectCap(repository, room);
     const pose = clampRoomObjectPose(manifest, body.pose ?? template.defaultPose);
     const scale = clampRoomObjectScale(body.scale ?? template.defaultScale, template);

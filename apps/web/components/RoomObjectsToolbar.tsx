@@ -14,6 +14,7 @@ const ROOM_OBJECT_UPLOAD_CATEGORIES: RoomObjectCategory[] = ["math", "science", 
 export function RoomObjectsToolbar({
   templates,
   objects,
+  roomTypeLabel,
   manifest,
   localAvatarPosition,
   localAvatarYaw,
@@ -31,6 +32,7 @@ export function RoomObjectsToolbar({
 }: {
   templates: RoomObjectTemplate[];
   objects: RoomObject[];
+  roomTypeLabel: string;
   manifest: RoomManifest;
   localAvatarPosition: { x: number; y: number; z: number };
   localAvatarYaw: number;
@@ -144,74 +146,78 @@ export function RoomObjectsToolbar({
         <>
         <div className="room-object-toolbar-card">
           <span className="room-object-toolbar__heading">Catalog</span>
-          <ul className="room-object-toolbar__catalog">
-            {catalog.map((template) => {
-              const placeable = isRoomObjectTemplatePlaceable(template);
-              const selectable = isRoomObjectTemplateSelectableInV1(template);
-              const isCustom = template.source === "custom";
-              const placedCount = objects.filter((object) => object.templateId === template.id).length;
-              return (
-                <li
-                  key={template.id}
-                  className={`room-object-toolbar__item${selectable ? "" : " room-object-coming-soon"}`}
-                  data-testid={`room-object-catalog-${template.slug}`}
-                >
-                  <div className="room-object-toolbar__thumb-wrap">
-                    {template.thumbnailUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={template.thumbnailUrl} alt="" className="room-object-toolbar__thumb" />
-                    ) : (
-                      <span className="room-object-toolbar__thumb-fallback" aria-hidden="true">
-                        {template.category.slice(0, 1).toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                  <div className="room-object-toolbar__copy">
-                    <span className="room-object-toolbar__name">{template.displayName}</span>
-                    <span className="room-object-toolbar__category">{template.category}</span>
-                    <p className="room-object-toolbar__desc">{template.description}</p>
-                  </div>
-                  {selectable ? (
-                    <div className="room-object-toolbar__catalog-actions">
-                      <button
-                        type="button"
-                        className="hud-btn"
-                        data-testid={`room-object-place-${template.slug}`}
-                        disabled={Boolean(placingId) || Boolean(deletingTemplateId) || !placeable}
-                        onClick={() => {
-                          setPlacingId(template.id);
-                          void onInstantiate(template.id).finally(() => setPlacingId(null));
-                        }}
-                      >
-                        {placingId === template.id ? "Placing…" : "Place"}
-                      </button>
-                      {isCustom ? (
+          {catalog.length === 0 ? (
+            <p className="room-object-toolbar__empty">No catalog items are available for {roomTypeLabel.toLowerCase()} rooms yet.</p>
+          ) : (
+            <ul className="room-object-toolbar__catalog">
+              {catalog.map((template) => {
+                const placeable = isRoomObjectTemplatePlaceable(template);
+                const selectable = isRoomObjectTemplateSelectableInV1(template);
+                const isCustom = template.source === "custom";
+                const placedCount = objects.filter((object) => object.templateId === template.id).length;
+                return (
+                  <li
+                    key={template.id}
+                    className={`room-object-toolbar__item${selectable ? "" : " room-object-coming-soon"}`}
+                    data-testid={`room-object-catalog-${template.slug}`}
+                  >
+                    <div className="room-object-toolbar__thumb-wrap">
+                      {template.thumbnailUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={template.thumbnailUrl} alt="" className="room-object-toolbar__thumb" />
+                      ) : (
+                        <span className="room-object-toolbar__thumb-fallback" aria-hidden="true">
+                          {template.category.slice(0, 1).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="room-object-toolbar__copy">
+                      <span className="room-object-toolbar__name">{template.displayName}</span>
+                      <span className="room-object-toolbar__category">{template.category}</span>
+                      <p className="room-object-toolbar__desc">{template.description}</p>
+                    </div>
+                    {selectable ? (
+                      <div className="room-object-toolbar__catalog-actions">
                         <button
                           type="button"
-                          className="hud-btn room-object-toolbar__delete-template"
-                          data-testid={`room-object-delete-template-${template.slug}`}
-                          disabled={Boolean(placingId) || Boolean(deletingTemplateId)}
+                          className="hud-btn"
+                          data-testid={`room-object-place-${template.slug}`}
+                          disabled={Boolean(placingId) || Boolean(deletingTemplateId) || !placeable}
                           onClick={() => {
-                            const copy =
-                              placedCount > 0
-                                ? `Remove "${template.displayName}" from your class catalog and delete ${placedCount} placed copy${placedCount === 1 ? "" : "ies"} in this room?`
-                                : `Remove "${template.displayName}" from your class catalog?`;
-                            if (!window.confirm(copy)) return;
-                            setDeletingTemplateId(template.id);
-                            void onDeleteTemplate(template.id).finally(() => setDeletingTemplateId(null));
+                            setPlacingId(template.id);
+                            void onInstantiate(template.id).finally(() => setPlacingId(null));
                           }}
                         >
-                          {deletingTemplateId === template.id ? "Deleting…" : "Delete"}
+                          {placingId === template.id ? "Placing…" : "Place"}
                         </button>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <span className="room-object-toolbar__soon">Coming soon</span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+                        {isCustom ? (
+                          <button
+                            type="button"
+                            className="hud-btn room-object-toolbar__delete-template"
+                            data-testid={`room-object-delete-template-${template.slug}`}
+                            disabled={Boolean(placingId) || Boolean(deletingTemplateId)}
+                            onClick={() => {
+                              const copy =
+                                placedCount > 0
+                                  ? `Remove "${template.displayName}" from your class catalog and delete ${placedCount} placed copy${placedCount === 1 ? "" : "ies"} in this room?`
+                                  : `Remove "${template.displayName}" from your class catalog?`;
+                              if (!window.confirm(copy)) return;
+                              setDeletingTemplateId(template.id);
+                              void onDeleteTemplate(template.id).finally(() => setDeletingTemplateId(null));
+                            }}
+                          >
+                            {deletingTemplateId === template.id ? "Deleting…" : "Delete"}
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span className="room-object-toolbar__soon">Coming soon</span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
         <div className="room-object-toolbar-card">
           <span className="room-object-toolbar__heading">Active in room</span>

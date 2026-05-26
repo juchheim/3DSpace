@@ -305,6 +305,8 @@ export const RoomObjectTouchPolicySchema = z.enum(["teacher-only", "granted", "a
 export const RoomObjectStatusSchema = z.enum(["active", "locked", "archived"]);
 export const RoomObjectSourceSchema = z.enum(["builtin", "custom", "partner"]);
 export const RoomObjectRendererSchema = z.enum(["gltf", "procedural"]);
+export const RoomTypeSchema = z.enum(["classroom", "workforce-training"]);
+export type RoomType = z.infer<typeof RoomTypeSchema>;
 export const RoomObjectCategorySchema = z.enum(["math", "science", "geography", "ela", "art", "custom"]);
 
 export const RoomObjectColorTintHexSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
@@ -368,6 +370,7 @@ export const RoomObjectTemplateSchema = z.object({
   recommendedTouchPolicy: RoomObjectTouchPolicySchema.default("teacher-only"),
   kinematic: z.boolean().default(false),
   ownerClassId: z.string().optional(),
+  visibleRoomTypes: z.array(RoomTypeSchema).min(1).default(["classroom"]),
   source: RoomObjectSourceSchema.default("builtin"),
   license: z.string().max(60).default("CC-BY"),
   attribution: z.string().max(240).default(""),
@@ -439,6 +442,10 @@ export const RoomObjectsSettingsSchema = z.object({
 
 export const ListRoomObjectTemplatesResponseSchema = z.object({
   templates: z.array(RoomObjectTemplateSchema)
+});
+
+export const ListRoomObjectTemplatesQuerySchema = z.object({
+  roomId: z.string().min(1).optional()
 });
 
 // ── World Skins ───────────────────────────────────────────────────────────────
@@ -768,9 +775,6 @@ export function parameterSchemaToJson(
 ) {
   return stringifyRoomObjectParameterSchema(schema);
 }
-
-export const RoomTypeSchema = z.enum(["classroom", "workforce-training"]);
-export type RoomType = z.infer<typeof RoomTypeSchema>;
 
 export type RoomTypeFeatureFlags = {
   classroomState: boolean;

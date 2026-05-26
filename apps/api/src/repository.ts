@@ -113,7 +113,7 @@ export type Repository = {
   listWorldSkins(): Promise<WorldSkin[]>;
   getWorldSkin(slug: string): Promise<WorldSkin | undefined>;
   upsertBuiltinRoomObjectTemplates(templates: RoomObjectTemplate[]): Promise<void>;
-  listRoomObjectTemplatesVisibleTo(userId: string): Promise<RoomObjectTemplate[]>;
+  listRoomObjectTemplatesVisibleTo(userId: string, roomType?: RoomType | undefined): Promise<RoomObjectTemplate[]>;
   getRoomObjectTemplate(templateId: string): Promise<RoomObjectTemplate | undefined>;
   createRoomObjectTemplate(input: Omit<RoomObjectTemplate, "id" | "createdAt">): Promise<RoomObjectTemplate>;
   archiveRoomObjectTemplate(templateId: string): Promise<RoomObjectTemplate>;
@@ -560,11 +560,12 @@ export class MemoryRepository implements Repository {
     }
   }
 
-  async listRoomObjectTemplatesVisibleTo(userId: string) {
+  async listRoomObjectTemplatesVisibleTo(userId: string, roomType?: RoomType | undefined) {
     const classes = await this.listClassesForUser(userId);
     const classIds = new Set(classes.map((record) => record.id));
     return Array.from(this.roomObjectTemplates.values()).filter((template) => {
       if (template.archivedAt) return false;
+      if (roomType && !template.visibleRoomTypes.includes(roomType)) return false;
       if (template.source === "builtin") return true;
       return Boolean(template.ownerClassId && classIds.has(template.ownerClassId));
     });
