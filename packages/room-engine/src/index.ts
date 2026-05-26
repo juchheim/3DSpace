@@ -636,7 +636,6 @@ export function createWorkforceTrainingManifest(input: {
     projection: { kind: "top-down-v1", scale: 1, origin: { x: 0, y: 0 } },
     capabilities: createRoomCapabilities(config),
     spatialAudio: config.spatialAudio,
-    hallpassHoldingZone: { minX: -22, maxX: -20, minZ: -2, maxZ: 2 },
     features: [
       { key: "screen-share",    enabled: false, config: { preparedTrackKind: "screen" } },
       { key: "computer-audio",  enabled: false, config: { preparedTrackKind: "system-audio" } },

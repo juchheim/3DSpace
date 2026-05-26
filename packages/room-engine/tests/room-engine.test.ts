@@ -324,6 +324,10 @@ describe("workforce training manifest", () => {
     expect(manifest.walls.length).toBeGreaterThanOrEqual(22);
   });
 
+  it("does not define a hall pass holding zone", () => {
+    expect(manifest.hallpassHoldingZone).toBeUndefined();
+  });
+
   it("offsets doorway openings so doorway-wall boards no longer overlap them", () => {
     function doorwayGap(firstWallId: string, secondWallId: string, axis: "x" | "z") {
       const firstWall = manifest.walls.find((wall) => wall.id === firstWallId);

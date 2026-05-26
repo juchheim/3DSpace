@@ -213,6 +213,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   }, [session?.room.type]);
   const roomRoleLabel = role === "teacher" ? roleLabels.hostSingular : roleLabels.guestSingular;
   const roomTypeLabel = session?.room.type === "workforce-training" ? "Workforce Training" : "Classroom";
+  const hallpassZone = roomTypeFeatures.hallPass ? manifest?.hallpassHoldingZone : undefined;
 
   const parsedRoomSettings = useMemo(
     () => (session ? parseRoomSettings(session.room.settings) : null),
@@ -388,8 +389,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   }, [classroom.state?.helpRequests, identity.userId]);
 
   const lockedPosition = useMemo(() => {
-    if (myActiveHallpass?.status === "acknowledged" && manifest?.hallpassHoldingZone) {
-      const zone = manifest.hallpassHoldingZone;
+    if (myActiveHallpass?.status === "acknowledged" && hallpassZone) {
+      const zone = hallpassZone;
       return { x: (zone.minX + zone.maxX) / 2, y: 0, z: (zone.minZ + zone.maxZ) / 2 };
     }
     const userId = session?.participantId ?? identity.userId;
@@ -399,7 +400,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     if (!group?.targetPosition) return null;
     const memberIndex = group.memberUserIds.indexOf(userId);
     return computeGroupMemberPosition(group.targetPosition, memberIndex);
-  }, [myActiveHallpass?.status, manifest?.hallpassHoldingZone, classroom.state?.groups, session?.participantId, identity.userId]);
+  }, [myActiveHallpass?.status, hallpassZone, classroom.state?.groups, session?.participantId, identity.userId]);
 
   const studentMediaRuntime = roomTypeFeatures.studentMediaControls && CLIENT_TUNING.enableStudentMediaPermissions && role === "student"
     ? (classroom.state?.studentMediaRuntime ?? null)
@@ -1602,7 +1603,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             cameraPitchRef={camera.pitchRef}
             bindCamera={camera.bind}
             firstPerson={firstPerson}
-            hallpassZone={manifest.hallpassHoldingZone}
+            hallpassZone={hallpassZone}
             onMoveToPoint={(point) => {
               if (camera.consumeClickSuppress()) return;
               if (positioningGroupId) {
@@ -1653,7 +1654,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           <RoomView2D
             manifest={manifest}
             participants={participantList}
-            hallpassZone={manifest.hallpassHoldingZone}
+            hallpassZone={hallpassZone}
             onMoveToPoint={(point) => {
               if (positioningGroupId && manifest) {
                 const worldPos = unprojectPointFrom2D(manifest, point);

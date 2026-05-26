@@ -53,6 +53,7 @@ type WallObjectSurfaceStyle = CSSProperties & { "--wall-surface-font-size": stri
 const WALL_OBJECT_SURFACE_OFFSET = 0.045;
 const WALL_OBJECT_LAYER_OFFSET = 0.002;
 const PRIVATE_CHECK_SURFACE_OFFSET = 0.038;
+const WALL_ANCHOR_LABEL_OFFSET = 0.03;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
@@ -646,6 +647,7 @@ const WallObjectSurface = memo(function WallObjectSurface({
       <Html
         center
         transform
+        occlude
         distanceFactor={WALL_OBJECT_DISTANCE_FACTOR}
         className="wall-object-html wall-object-html--board"
         style={surfaceStyle}
@@ -703,7 +705,7 @@ const PrivateCheckSurface = memo(function PrivateCheckSurface({
 
   return (
     <group position={position} rotation={rotation}>
-      <Html center transform distanceFactor={WALL_OBJECT_DISTANCE_FACTOR} className="private-check-html" style={surfaceStyle} zIndexRange={[220, 0]}>
+      <Html center transform occlude distanceFactor={WALL_OBJECT_DISTANCE_FACTOR} className="private-check-html" style={surfaceStyle} zIndexRange={[220, 0]}>
         <div className="private-check-board-card">
           <span className="private-check-board-kicker">Active check</span>
           <strong>{check.question}</strong>
@@ -1667,7 +1669,7 @@ function AnchorMesh({ anchor, showLabel, spotlighted }: { anchor: Anchor; showLa
         </>
       ) : null}
       {showLabel ? (
-        <Html center transform distanceFactor={8} className="wall-anchor-label-html">
+        <Html center transform occlude position={[0, 0, WALL_ANCHOR_LABEL_OFFSET]} distanceFactor={8} className="wall-anchor-label-html">
           <div className={`wall-anchor-label${spotlighted ? " wall-anchor-label--spotlight" : ""}`}>{anchor.label}</div>
         </Html>
       ) : null}
