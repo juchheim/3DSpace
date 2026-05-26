@@ -230,6 +230,17 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     enabled: CLIENT_TUNING.enableWorldSkins,
     identityReady: identityLoaded && (!clerkEnabled || signedIn)
   });
+
+  // When no explicit skin is chosen for a workforce-training room, the default-theater
+  // skin would bleed classroom assets (floor and panorama) into the space. Strip them
+  // until the workforce-training room gets its own skin assets.
+  const activeSkinForRoom = useMemo(() => {
+    if (session?.room.type !== "workforce-training" || skinId !== null || !activeSkin.skin) {
+      return activeSkin.skin;
+    }
+    const { floor: _floor, panoramaWall: _panorama, ...rest } = activeSkin.skin.overrides;
+    return { ...activeSkin.skin, overrides: rest };
+  }, [activeSkin.skin, session?.room.type, skinId]);
   // Local ambient gain: teacher slider gives immediate audio feedback while patchRoom debounces.
   const [localAmbientGain, setLocalAmbientGain] = useState<number | null>(null);
   const ambientDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -440,7 +451,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     return m > 0 ? `${m}m ${s}s` : `${s}s`;
   }
 
-  const walkSpeedMultiplier = activeSkin.skin?.overrides.walkSpeedMultiplier ?? 1;
+  const walkSpeedMultiplier = activeSkinForRoom?.overrides.walkSpeedMultiplier ?? 1;
   const movement = useAvatarMovement({
     manifest,
     participantId: session?.participantId ?? identity.userId,
@@ -1550,7 +1561,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
 
   return (
     <SkinLayer
-      skin={CLIENT_TUNING.enableWorldSkins ? activeSkin.skin : null}
+      skin={CLIENT_TUNING.enableWorldSkins ? activeSkinForRoom : null}
       dayNightMode={skinDayNightMode}
       ambientGainOverride={ambientGainOverride}
       muteAmbient={muteAmbient}

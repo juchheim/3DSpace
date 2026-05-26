@@ -1497,13 +1497,35 @@ function WallMesh({
   const cameraOffset = useMemo(() => new Vector3(), []);
 
   const wallTexture = panoramaTexture && slice ? panoramaTexture : null;
+  const thickness = wall.thickness ?? 0;
+  const useBox = thickness > 0 && !wallTexture;
+
+  // Box geometry dimensions and position for thick walls (no panorama).
+  const boxArgs = useMemo<[number, number, number] | null>(() => {
+    if (!useBox) return null;
+    const spanX = Math.abs(wall.end.x - wall.start.x);
+    const spanZ = Math.abs(wall.end.z - wall.start.z);
+    return spanX > spanZ
+      ? [spanX, wall.height, thickness]
+      : [thickness, wall.height, spanZ];
+  }, [useBox, wall, thickness]);
+
+  const boxPosition = useMemo<[number, number, number] | null>(() => {
+    if (!useBox) return null;
+    return [
+      (wall.start.x + wall.end.x) / 2,
+      wall.height / 2,
+      (wall.start.z + wall.end.z) / 2
+    ];
+  }, [useBox, wall]);
+
   const wallGeometry = useMemo(
-    () => createWallPanelGeometry(wall, plane, slice ?? null, verticalRepeat),
-    [plane, slice, verticalRepeat, wall]
+    () => (useBox ? null : createWallPanelGeometry(wall, plane, slice ?? null, verticalRepeat)),
+    [useBox, plane, slice, verticalRepeat, wall]
   );
 
   useEffect(() => {
-    return () => { wallGeometry.dispose(); };
+    return () => { wallGeometry?.dispose(); };
   }, [wallGeometry]);
 
   useFrame(() => {
@@ -1519,8 +1541,24 @@ function WallMesh({
 
   const baseColor = wallTexture ? "#ffffff" : (skinWallColor ?? "#8ea487");
 
+  if (useBox) {
+    return (
+      <mesh position={boxPosition!}>
+        <boxGeometry args={boxArgs!} />
+        <meshStandardMaterial
+          ref={materialRef}
+          color={baseColor}
+          roughness={0.85}
+          side={DoubleSide}
+          transparent
+          opacity={1}
+        />
+      </mesh>
+    );
+  }
+
   return (
-    <mesh geometry={wallGeometry}>
+    <mesh geometry={wallGeometry!}>
       {wallTexture ? (
         <meshBasicMaterial
           ref={materialRef}

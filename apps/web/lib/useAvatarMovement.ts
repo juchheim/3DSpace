@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import type { AvatarStateMessage, Role, RoomManifest, Vector3, ViewMode } from "@3dspace/contracts";
-import { clampPositionToBounds, createAvatarState, floorYFromZ, transformLocalMovementToWorld, unprojectPointFrom2D } from "@3dspace/room-engine";
+import { clampPositionToBounds, createAvatarState, floorYFromZ, resolveWallCollisions, transformLocalMovementToWorld, unprojectPointFrom2D } from "@3dspace/room-engine";
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -135,13 +135,17 @@ export function useAvatarMovement(input: {
         // walkSpeedMultiplierRef: skin-driven multiplier (e.g. 0.38 for Mars low-gravity).
         // NOT applied to moveTo3DPoint teleports — teleporting slowly on Mars is wrong UX.
         const speed = 3.2 * walkSpeedMultiplierRef.current;
-        const nextPosition = moving
+        const rawNext = moving
           ? clampPositionToBounds(input.manifest!, {
               x: current.position.x + (worldDelta.x / magnitude) * speed * deltaSeconds,
               y: 0,
               z: current.position.z + (worldDelta.z / magnitude) * speed * deltaSeconds
             })
           : current.position;
+        const resolved = moving
+          ? resolveWallCollisions(current.position, rawNext, input.manifest!.walls)
+          : rawNext;
+        const nextPosition = moving ? { ...rawNext, x: resolved.x, z: resolved.z } : rawNext;
         const nextRotation =
           input.viewMode === "3d" && input.cameraYawRef
             ? { y: input.cameraYawRef.current }

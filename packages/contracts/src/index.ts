@@ -93,7 +93,9 @@ export const WallPlaneSchema = z.object({
   start: Vector3Schema,
   end: Vector3Schema,
   height: z.number().positive(),
-  anchorIds: z.array(z.string()).default([])
+  anchorIds: z.array(z.string()).default([]),
+  passable: z.boolean().optional(),
+  thickness: z.number().nonnegative().optional()
 });
 
 export const RoomFeatureSchema = z.object({

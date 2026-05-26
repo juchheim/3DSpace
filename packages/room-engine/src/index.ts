@@ -381,54 +381,75 @@ const WT_SZ = WT_OZ + WT_SIDE_ROOM_SIZE;        // 34  side-room outer z edge
 const WT_SR = WT_SIDE_ROOM_SIZE / 2;            //  5  side-room half-size
 const WT_EH = WT_ENTRANCE_WIDTH / 2;            //  1.5 entrance half-width
 
+const WT_WALL_THICKNESS = 0.3;
+
+function wtWall(
+  id: string,
+  label: string,
+  start: { x: number; y: number; z: number },
+  end: { x: number; y: number; z: number },
+  h: number,
+  anchorIds: string[]
+): RoomManifest["walls"][number] {
+  return { id, label, start, end, height: h, anchorIds, passable: false, thickness: WT_WALL_THICKNESS };
+}
+
 function buildWorkforceTrainingWalls(): RoomManifest["walls"] {
   const h = WT_WALL_HEIGHT;
+  const w = (id: string, label: string, start: { x: number; y: number; z: number }, end: { x: number; y: number; z: number }, anchorIds: string[] = []) =>
+    wtWall(id, label, start, end, h, anchorIds);
+
   return [
     // ── Central room ──────────────────────────────────────────────────────
-    { id: "c-front",    label: "Central front",           start: { x: -WT_CX, y: 0, z: -WT_CZ }, end: { x:  WT_CX, y: 0, z: -WT_CZ }, height: h, anchorIds: ["wt-anchor-c-front"] },
+    w("c-front",    "Central front",           { x: -WT_CX, y: 0, z: -WT_CZ }, { x:  WT_CX, y: 0, z: -WT_CZ }, ["wt-anchor-c-front"]),
     // Left wall (x=-20): entrance at z ∈ [-1.5, 1.5]
-    { id: "c-left-a",  label: "Central left (south)",     start: { x: -WT_CX, y: 0, z: -WT_CZ }, end: { x: -WT_CX, y: 0, z: -WT_EH }, height: h, anchorIds: [] },
-    { id: "c-left-b",  label: "Central left (north)",     start: { x: -WT_CX, y: 0, z:  WT_EH }, end: { x: -WT_CX, y: 0, z:  WT_CZ }, height: h, anchorIds: ["wt-anchor-c-left"] },
+    w("c-left-a",  "Central left (south)",     { x: -WT_CX, y: 0, z: -WT_CZ }, { x: -WT_CX, y: 0, z: -WT_EH }),
+    w("c-left-b",  "Central left (north)",     { x: -WT_CX, y: 0, z:  WT_EH }, { x: -WT_CX, y: 0, z:  WT_CZ }, ["wt-anchor-c-left"]),
     // Right wall (x=20): entrance at z ∈ [-1.5, 1.5]
-    { id: "c-right-a", label: "Central right (south)",    start: { x:  WT_CX, y: 0, z: -WT_CZ }, end: { x:  WT_CX, y: 0, z: -WT_EH }, height: h, anchorIds: [] },
-    { id: "c-right-b", label: "Central right (north)",    start: { x:  WT_CX, y: 0, z:  WT_EH }, end: { x:  WT_CX, y: 0, z:  WT_CZ }, height: h, anchorIds: ["wt-anchor-c-right"] },
+    w("c-right-a", "Central right (south)",    { x:  WT_CX, y: 0, z: -WT_CZ }, { x:  WT_CX, y: 0, z: -WT_EH }),
+    w("c-right-b", "Central right (north)",    { x:  WT_CX, y: 0, z:  WT_EH }, { x:  WT_CX, y: 0, z:  WT_CZ }, ["wt-anchor-c-right"]),
     // Back wall (z=20): entrance at x ∈ [-1.5, 1.5]
-    { id: "c-back-a",  label: "Central back (west)",      start: { x: -WT_CX, y: 0, z:  WT_CZ }, end: { x: -WT_EH, y: 0, z:  WT_CZ }, height: h, anchorIds: [] },
-    { id: "c-back-b",  label: "Central back (east)",      start: { x:  WT_EH, y: 0, z:  WT_CZ }, end: { x:  WT_CX, y: 0, z:  WT_CZ }, height: h, anchorIds: ["wt-anchor-c-back"] },
+    w("c-back-a",  "Central back (west)",      { x: -WT_CX, y: 0, z:  WT_CZ }, { x: -WT_EH, y: 0, z:  WT_CZ }),
+    w("c-back-b",  "Central back (east)",      { x:  WT_EH, y: 0, z:  WT_CZ }, { x:  WT_CX, y: 0, z:  WT_CZ }, ["wt-anchor-c-back"]),
 
-    // ── Outer hallway skin ─────────────────────────────────────────────────
-    { id: "h-left-outer",      label: "Left hallway outer",         start: { x: -WT_OX, y: 0, z: -WT_CZ }, end: { x: -WT_OX, y: 0, z:  WT_CZ }, height: h, anchorIds: [] },
+    // ── Outer hallway walls ────────────────────────────────────────────────
+    // Left outer wall split into south/north sections so the side-room entrance
+    // gap (z ∈ [-5, 5]) is governed exclusively by sr-left-hall-a/b.
+    w("h-left-outer-s",    "Left hallway outer (south)",  { x: -WT_OX, y: 0, z: -WT_CZ }, { x: -WT_OX, y: 0, z: -WT_SR }),
+    w("h-left-outer-n",    "Left hallway outer (north)",  { x: -WT_OX, y: 0, z:  WT_SR }, { x: -WT_OX, y: 0, z:  WT_CZ }),
     // Back outer hallway wall (z=24): entrance at x ∈ [-1.5, 1.5] for the back side room
-    { id: "h-back-outer-a",    label: "Back hallway outer (west)",  start: { x: -WT_CX, y: 0, z:  WT_OZ }, end: { x: -WT_EH, y: 0, z:  WT_OZ }, height: h, anchorIds: [] },
-    { id: "h-back-outer-b",    label: "Back hallway outer (east)",  start: { x:  WT_EH, y: 0, z:  WT_OZ }, end: { x:  WT_CX, y: 0, z:  WT_OZ }, height: h, anchorIds: [] },
-    { id: "h-right-outer",     label: "Right hallway outer",        start: { x:  WT_OX, y: 0, z: -WT_CZ }, end: { x:  WT_OX, y: 0, z:  WT_CZ }, height: h, anchorIds: [] },
+    w("h-back-outer-a",    "Back hallway outer (west)",   { x: -WT_CX, y: 0, z:  WT_OZ }, { x: -WT_EH, y: 0, z:  WT_OZ }),
+    w("h-back-outer-b",    "Back hallway outer (east)",   { x:  WT_EH, y: 0, z:  WT_OZ }, { x:  WT_CX, y: 0, z:  WT_OZ }),
+    // Right outer wall split into south/north sections (same reason as left)
+    w("h-right-outer-s",   "Right hallway outer (south)", { x:  WT_OX, y: 0, z: -WT_CZ }, { x:  WT_OX, y: 0, z: -WT_SR }),
+    w("h-right-outer-n",   "Right hallway outer (north)", { x:  WT_OX, y: 0, z:  WT_SR }, { x:  WT_OX, y: 0, z:  WT_CZ }),
     // Front caps close the U-shape at the front corners
-    { id: "h-front-cap-left",  label: "Left hallway front cap",     start: { x: -WT_OX, y: 0, z: -WT_CZ }, end: { x: -WT_CX, y: 0, z: -WT_CZ }, height: h, anchorIds: [] },
-    { id: "h-front-cap-right", label: "Right hallway front cap",    start: { x:  WT_CX, y: 0, z: -WT_CZ }, end: { x:  WT_OX, y: 0, z: -WT_CZ }, height: h, anchorIds: [] },
+    w("h-front-cap-left",  "Left hallway front cap",      { x: -WT_OX, y: 0, z: -WT_CZ }, { x: -WT_CX, y: 0, z: -WT_CZ }),
+    w("h-front-cap-right", "Right hallway front cap",     { x:  WT_CX, y: 0, z: -WT_CZ }, { x:  WT_OX, y: 0, z: -WT_CZ }),
 
     // ── Left side room (x ∈ [-34, -24], z ∈ [-5, 5]) ─────────────────────
-    { id: "sr-left-outer",  label: "Left side room outer wall",     start: { x: -WT_SX, y: 0, z: -WT_SR }, end: { x: -WT_SX, y: 0, z:  WT_SR }, height: h, anchorIds: ["wt-anchor-sl-outer"] },
-    { id: "sr-left-top",    label: "Left side room top wall",       start: { x: -WT_SX, y: 0, z:  WT_SR }, end: { x: -WT_OX, y: 0, z:  WT_SR }, height: h, anchorIds: ["wt-anchor-sl-top"] },
-    { id: "sr-left-bot",    label: "Left side room bottom wall",    start: { x: -WT_SX, y: 0, z: -WT_SR }, end: { x: -WT_OX, y: 0, z: -WT_SR }, height: h, anchorIds: ["wt-anchor-sl-bot"] },
+    w("sr-left-outer",  "Left side room outer wall",              { x: -WT_SX, y: 0, z: -WT_SR }, { x: -WT_SX, y: 0, z:  WT_SR }, ["wt-anchor-sl-outer"]),
+    w("sr-left-top",    "Left side room top wall",                { x: -WT_SX, y: 0, z:  WT_SR }, { x: -WT_OX, y: 0, z:  WT_SR }, ["wt-anchor-sl-top"]),
+    w("sr-left-bot",    "Left side room bottom wall",             { x: -WT_SX, y: 0, z: -WT_SR }, { x: -WT_OX, y: 0, z: -WT_SR }, ["wt-anchor-sl-bot"]),
     // Hallway-facing wall (x=-24): entrance at z ∈ [-1.5, 1.5]
-    { id: "sr-left-hall-a", label: "Left side room hallway wall (north)", start: { x: -WT_OX, y: 0, z:  WT_EH }, end: { x: -WT_OX, y: 0, z:  WT_SR }, height: h, anchorIds: ["wt-anchor-sl-hall"] },
-    { id: "sr-left-hall-b", label: "Left side room hallway wall (south)", start: { x: -WT_OX, y: 0, z: -WT_SR }, end: { x: -WT_OX, y: 0, z: -WT_EH }, height: h, anchorIds: [] },
+    w("sr-left-hall-a", "Left side room hallway wall (north)",    { x: -WT_OX, y: 0, z:  WT_EH }, { x: -WT_OX, y: 0, z:  WT_SR }, ["wt-anchor-sl-hall"]),
+    w("sr-left-hall-b", "Left side room hallway wall (south)",    { x: -WT_OX, y: 0, z: -WT_SR }, { x: -WT_OX, y: 0, z: -WT_EH }),
 
     // ── Back side room (x ∈ [-5, 5], z ∈ [24, 34]) ───────────────────────
     // Hallway-facing wall (z=24): entrance at x ∈ [-1.5, 1.5]
-    { id: "sr-back-hall-a", label: "Back side room hallway wall (west)", start: { x: -WT_SR, y: 0, z:  WT_OZ }, end: { x: -WT_EH, y: 0, z:  WT_OZ }, height: h, anchorIds: ["wt-anchor-sb-hall"] },
-    { id: "sr-back-hall-b", label: "Back side room hallway wall (east)", start: { x:  WT_EH, y: 0, z:  WT_OZ }, end: { x:  WT_SR, y: 0, z:  WT_OZ }, height: h, anchorIds: [] },
-    { id: "sr-back-outer",  label: "Back side room outer wall",          start: { x: -WT_SR, y: 0, z:  WT_SZ }, end: { x:  WT_SR, y: 0, z:  WT_SZ }, height: h, anchorIds: ["wt-anchor-sb-outer"] },
-    { id: "sr-back-left",   label: "Back side room left wall",           start: { x: -WT_SR, y: 0, z:  WT_OZ }, end: { x: -WT_SR, y: 0, z:  WT_SZ }, height: h, anchorIds: ["wt-anchor-sb-left"] },
-    { id: "sr-back-right",  label: "Back side room right wall",          start: { x:  WT_SR, y: 0, z:  WT_OZ }, end: { x:  WT_SR, y: 0, z:  WT_SZ }, height: h, anchorIds: ["wt-anchor-sb-right"] },
+    w("sr-back-hall-a", "Back side room hallway wall (west)",     { x: -WT_SR, y: 0, z:  WT_OZ }, { x: -WT_EH, y: 0, z:  WT_OZ }, ["wt-anchor-sb-hall"]),
+    w("sr-back-hall-b", "Back side room hallway wall (east)",     { x:  WT_EH, y: 0, z:  WT_OZ }, { x:  WT_SR, y: 0, z:  WT_OZ }),
+    w("sr-back-outer",  "Back side room outer wall",              { x: -WT_SR, y: 0, z:  WT_SZ }, { x:  WT_SR, y: 0, z:  WT_SZ }, ["wt-anchor-sb-outer"]),
+    w("sr-back-left",   "Back side room left wall",               { x: -WT_SR, y: 0, z:  WT_OZ }, { x: -WT_SR, y: 0, z:  WT_SZ }, ["wt-anchor-sb-left"]),
+    w("sr-back-right",  "Back side room right wall",              { x:  WT_SR, y: 0, z:  WT_OZ }, { x:  WT_SR, y: 0, z:  WT_SZ }, ["wt-anchor-sb-right"]),
 
     // ── Right side room (x ∈ [24, 34], z ∈ [-5, 5]) ──────────────────────
     // Hallway-facing wall (x=24): entrance at z ∈ [-1.5, 1.5]
-    { id: "sr-right-hall-a", label: "Right side room hallway wall (north)", start: { x:  WT_OX, y: 0, z:  WT_EH }, end: { x:  WT_OX, y: 0, z:  WT_SR }, height: h, anchorIds: ["wt-anchor-sr-hall"] },
-    { id: "sr-right-hall-b", label: "Right side room hallway wall (south)", start: { x:  WT_OX, y: 0, z: -WT_SR }, end: { x:  WT_OX, y: 0, z: -WT_EH }, height: h, anchorIds: [] },
-    { id: "sr-right-outer",  label: "Right side room outer wall",           start: { x:  WT_SX, y: 0, z: -WT_SR }, end: { x:  WT_SX, y: 0, z:  WT_SR }, height: h, anchorIds: ["wt-anchor-sr-outer"] },
-    { id: "sr-right-top",    label: "Right side room top wall",             start: { x:  WT_OX, y: 0, z:  WT_SR }, end: { x:  WT_SX, y: 0, z:  WT_SR }, height: h, anchorIds: ["wt-anchor-sr-top"] },
-    { id: "sr-right-bot",    label: "Right side room bottom wall",          start: { x:  WT_OX, y: 0, z: -WT_SR }, end: { x:  WT_SX, y: 0, z: -WT_SR }, height: h, anchorIds: ["wt-anchor-sr-bot"] },
+    w("sr-right-hall-a", "Right side room hallway wall (north)",  { x:  WT_OX, y: 0, z:  WT_EH }, { x:  WT_OX, y: 0, z:  WT_SR }, ["wt-anchor-sr-hall"]),
+    w("sr-right-hall-b", "Right side room hallway wall (south)",  { x:  WT_OX, y: 0, z: -WT_SR }, { x:  WT_OX, y: 0, z: -WT_EH }),
+    w("sr-right-outer",  "Right side room outer wall",            { x:  WT_SX, y: 0, z: -WT_SR }, { x:  WT_SX, y: 0, z:  WT_SR }, ["wt-anchor-sr-outer"]),
+    w("sr-right-top",    "Right side room top wall",              { x:  WT_OX, y: 0, z:  WT_SR }, { x:  WT_SX, y: 0, z:  WT_SR }, ["wt-anchor-sr-top"]),
+    w("sr-right-bot",    "Right side room bottom wall",           { x:  WT_OX, y: 0, z: -WT_SR }, { x:  WT_SX, y: 0, z: -WT_SR }, ["wt-anchor-sr-bot"]),
   ];
 }
 
@@ -629,6 +650,58 @@ export function clampPositionToBounds(manifest: RoomManifest, position: Vector3)
     y: floorYFromZ(manifest, clampedZ),
     z: clampedZ
   };
+}
+
+const WALL_AVATAR_RADIUS = 0.4;
+
+/**
+ * Push `newPos` back so the avatar cannot cross any wall where `passable === false`.
+ * Each axis is resolved independently, giving natural wall-sliding behaviour.
+ * Walls must be axis-aligned (either along X or along Z).
+ */
+export function resolveWallCollisions(
+  oldPos: { x: number; z: number },
+  newPos: { x: number; z: number },
+  walls: RoomManifest["walls"]
+): { x: number; z: number } {
+  let x = newPos.x;
+  let z = newPos.z;
+
+  for (const wall of walls) {
+    if (wall.passable !== false) continue;
+
+    const spanX = Math.abs(wall.end.x - wall.start.x);
+    const spanZ = Math.abs(wall.end.z - wall.start.z);
+    const isAlongX = spanX > spanZ;
+
+    if (isAlongX) {
+      // Horizontal wall at z = wallZ, spanning x in [minX, maxX]
+      const wallZ = wall.start.z;
+      const minX = Math.min(wall.start.x, wall.end.x) - WALL_AVATAR_RADIUS;
+      const maxX = Math.max(wall.start.x, wall.end.x) + WALL_AVATAR_RADIUS;
+      if (x > minX && x < maxX) {
+        const oldSide = oldPos.z - wallZ;
+        const newSide = z - wallZ;
+        if (oldSide * newSide < 0) {
+          z = oldPos.z;
+        }
+      }
+    } else {
+      // Vertical wall at x = wallX, spanning z in [minZ, maxZ]
+      const wallX = wall.start.x;
+      const minZ = Math.min(wall.start.z, wall.end.z) - WALL_AVATAR_RADIUS;
+      const maxZ = Math.max(wall.start.z, wall.end.z) + WALL_AVATAR_RADIUS;
+      if (z > minZ && z < maxZ) {
+        const oldSide = oldPos.x - wallX;
+        const newSide = x - wallX;
+        if (oldSide * newSide < 0) {
+          x = oldPos.x;
+        }
+      }
+    }
+  }
+
+  return { x, z };
 }
 
 export function transformLocalMovementToWorld(rotationY: number, local: { x: number; z: number }) {
