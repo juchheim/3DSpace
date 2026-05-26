@@ -381,6 +381,24 @@ const WT_SX = WT_OX + WT_SIDE_ROOM_SIZE;        // 34  side-room outer x edge
 const WT_SZ = WT_OZ + WT_SIDE_ROOM_SIZE;        // 34  side-room outer z edge
 const WT_SR = WT_SIDE_ROOM_SIZE / 2;            //  5  side-room half-size
 const WT_EH = WT_ENTRANCE_WIDTH / 2;            //  1.5 entrance half-width
+// Doorways are intentionally off-center so the matching boards can live on the
+// longer uninterrupted wall segment instead of overlapping the opening.
+const WT_CENTRAL_SIDE_ENTRANCE_CENTER_Z = -8;
+const WT_CENTRAL_SIDE_ENTRANCE_MIN_Z = WT_CENTRAL_SIDE_ENTRANCE_CENTER_Z - WT_EH;
+const WT_CENTRAL_SIDE_ENTRANCE_MAX_Z = WT_CENTRAL_SIDE_ENTRANCE_CENTER_Z + WT_EH;
+const WT_CENTRAL_BACK_ENTRANCE_CENTER_X = -8;
+const WT_CENTRAL_BACK_ENTRANCE_MIN_X = WT_CENTRAL_BACK_ENTRANCE_CENTER_X - WT_EH;
+const WT_CENTRAL_BACK_ENTRANCE_MAX_X = WT_CENTRAL_BACK_ENTRANCE_CENTER_X + WT_EH;
+const WT_SIDE_ROOM_ENTRANCE_CENTER_Z = -3;
+const WT_SIDE_ROOM_ENTRANCE_MIN_Z = WT_SIDE_ROOM_ENTRANCE_CENTER_Z - WT_EH;
+const WT_SIDE_ROOM_ENTRANCE_MAX_Z = WT_SIDE_ROOM_ENTRANCE_CENTER_Z + WT_EH;
+const WT_BACK_SIDE_ROOM_ENTRANCE_CENTER_X = -3;
+const WT_BACK_SIDE_ROOM_ENTRANCE_MIN_X = WT_BACK_SIDE_ROOM_ENTRANCE_CENTER_X - WT_EH;
+const WT_BACK_SIDE_ROOM_ENTRANCE_MAX_X = WT_BACK_SIDE_ROOM_ENTRANCE_CENTER_X + WT_EH;
+const WT_CENTRAL_SIDE_BOARD_CENTER_Z = (WT_CENTRAL_SIDE_ENTRANCE_MAX_Z + WT_CZ) / 2;
+const WT_CENTRAL_BACK_BOARD_CENTER_X = (WT_CENTRAL_BACK_ENTRANCE_MAX_X + WT_CX) / 2;
+const WT_SIDE_ROOM_HALL_BOARD_CENTER_Z = (WT_SIDE_ROOM_ENTRANCE_MAX_Z + WT_SR) / 2;
+const WT_BACK_SIDE_ROOM_HALL_BOARD_CENTER_X = (WT_BACK_SIDE_ROOM_ENTRANCE_MAX_X + WT_SR) / 2;
 
 const WT_WALL_THICKNESS = 0.3;
 
@@ -403,24 +421,24 @@ function buildWorkforceTrainingWalls(): RoomManifest["walls"] {
   return [
     // ── Central room ──────────────────────────────────────────────────────
     w("c-front",    "Central front",           { x: -WT_CX, y: 0, z: -WT_CZ }, { x:  WT_CX, y: 0, z: -WT_CZ }, ["wt-anchor-c-front"]),
-    // Left wall (x=-20): entrance at z ∈ [-1.5, 1.5]
-    w("c-left-a",  "Central left (south)",     { x: -WT_CX, y: 0, z: -WT_CZ }, { x: -WT_CX, y: 0, z: -WT_EH }),
-    w("c-left-b",  "Central left (north)",     { x: -WT_CX, y: 0, z:  WT_EH }, { x: -WT_CX, y: 0, z:  WT_CZ }, ["wt-anchor-c-left"]),
-    // Right wall (x=20): entrance at z ∈ [-1.5, 1.5]
-    w("c-right-a", "Central right (south)",    { x:  WT_CX, y: 0, z: -WT_CZ }, { x:  WT_CX, y: 0, z: -WT_EH }),
-    w("c-right-b", "Central right (north)",    { x:  WT_CX, y: 0, z:  WT_EH }, { x:  WT_CX, y: 0, z:  WT_CZ }, ["wt-anchor-c-right"]),
-    // Back wall (z=20): entrance at x ∈ [-1.5, 1.5]
-    w("c-back-a",  "Central back (west)",      { x: -WT_CX, y: 0, z:  WT_CZ }, { x: -WT_EH, y: 0, z:  WT_CZ }),
-    w("c-back-b",  "Central back (east)",      { x:  WT_EH, y: 0, z:  WT_CZ }, { x:  WT_CX, y: 0, z:  WT_CZ }, ["wt-anchor-c-back"]),
+    // Left wall (x=-20): entrance shifted toward the front so the board can sit on the back half.
+    w("c-left-a",  "Central left (south)",     { x: -WT_CX, y: 0, z: -WT_CZ }, { x: -WT_CX, y: 0, z: WT_CENTRAL_SIDE_ENTRANCE_MIN_Z }),
+    w("c-left-b",  "Central left (north)",     { x: -WT_CX, y: 0, z: WT_CENTRAL_SIDE_ENTRANCE_MAX_Z }, { x: -WT_CX, y: 0, z:  WT_CZ }, ["wt-anchor-c-left"]),
+    // Right wall (x=20): same front-shifted doorway / back-half board treatment.
+    w("c-right-a", "Central right (south)",    { x:  WT_CX, y: 0, z: -WT_CZ }, { x:  WT_CX, y: 0, z: WT_CENTRAL_SIDE_ENTRANCE_MIN_Z }),
+    w("c-right-b", "Central right (north)",    { x:  WT_CX, y: 0, z: WT_CENTRAL_SIDE_ENTRANCE_MAX_Z }, { x:  WT_CX, y: 0, z:  WT_CZ }, ["wt-anchor-c-right"]),
+    // Back wall (z=20): entrance shifted left so the board can sit on the east segment.
+    w("c-back-a",  "Central back (west)",      { x: -WT_CX, y: 0, z:  WT_CZ }, { x: WT_CENTRAL_BACK_ENTRANCE_MIN_X, y: 0, z:  WT_CZ }),
+    w("c-back-b",  "Central back (east)",      { x: WT_CENTRAL_BACK_ENTRANCE_MAX_X, y: 0, z:  WT_CZ }, { x:  WT_CX, y: 0, z:  WT_CZ }, ["wt-anchor-c-back"]),
 
     // ── Outer hallway walls ────────────────────────────────────────────────
     // Left outer wall split into south/north sections so the side-room entrance
     // gap (z ∈ [-5, 5]) is governed exclusively by sr-left-hall-a/b.
     w("h-left-outer-s",    "Left hallway outer (south)",  { x: -WT_OX, y: 0, z: -WT_CZ }, { x: -WT_OX, y: 0, z: -WT_SR }),
     w("h-left-outer-n",    "Left hallway outer (north)",  { x: -WT_OX, y: 0, z:  WT_SR }, { x: -WT_OX, y: 0, z:  WT_CZ }),
-    // Back outer hallway wall (z=24): entrance at x ∈ [-1.5, 1.5] for the back side room
-    w("h-back-outer-a",    "Back hallway outer (west)",   { x: -WT_CX, y: 0, z:  WT_OZ }, { x: -WT_EH, y: 0, z:  WT_OZ }),
-    w("h-back-outer-b",    "Back hallway outer (east)",   { x:  WT_EH, y: 0, z:  WT_OZ }, { x:  WT_CX, y: 0, z:  WT_OZ }),
+    // Back outer hallway wall (z=24): side-room entrance shifted left to match the room door.
+    w("h-back-outer-a",    "Back hallway outer (west)",   { x: -WT_CX, y: 0, z:  WT_OZ }, { x: WT_BACK_SIDE_ROOM_ENTRANCE_MIN_X, y: 0, z:  WT_OZ }),
+    w("h-back-outer-b",    "Back hallway outer (east)",   { x: WT_BACK_SIDE_ROOM_ENTRANCE_MAX_X, y: 0, z:  WT_OZ }, { x:  WT_CX, y: 0, z:  WT_OZ }),
     // Back-corner caps keep the connector squares inside the hallway perimeter.
     w("h-back-corner-left-west",   "Back-left hallway outer wall",  { x: -WT_OX, y: 0, z: WT_CZ }, { x: -WT_OX, y: 0, z: WT_OZ }),
     w("h-back-corner-left-north",  "Back-left hallway top wall",    { x: -WT_OX, y: 0, z: WT_OZ }, { x: -WT_CX, y: 0, z: WT_OZ }),
@@ -437,22 +455,22 @@ function buildWorkforceTrainingWalls(): RoomManifest["walls"] {
     w("sr-left-outer",  "Left side room outer wall",              { x: -WT_SX, y: 0, z: -WT_SR }, { x: -WT_SX, y: 0, z:  WT_SR }, ["wt-anchor-sl-outer"]),
     w("sr-left-top",    "Left side room top wall",                { x: -WT_SX, y: 0, z:  WT_SR }, { x: -WT_OX, y: 0, z:  WT_SR }, ["wt-anchor-sl-top"]),
     w("sr-left-bot",    "Left side room bottom wall",             { x: -WT_SX, y: 0, z: -WT_SR }, { x: -WT_OX, y: 0, z: -WT_SR }, ["wt-anchor-sl-bot"]),
-    // Hallway-facing wall (x=-24): entrance at z ∈ [-1.5, 1.5]
-    w("sr-left-hall-a", "Left side room hallway wall (north)",    { x: -WT_OX, y: 0, z:  WT_EH }, { x: -WT_OX, y: 0, z:  WT_SR }, ["wt-anchor-sl-hall"]),
-    w("sr-left-hall-b", "Left side room hallway wall (south)",    { x: -WT_OX, y: 0, z: -WT_SR }, { x: -WT_OX, y: 0, z: -WT_EH }),
+    // Hallway-facing wall (x=-24): entrance shifted toward the south/front.
+    w("sr-left-hall-a", "Left side room hallway wall (north)",    { x: -WT_OX, y: 0, z: WT_SIDE_ROOM_ENTRANCE_MAX_Z }, { x: -WT_OX, y: 0, z:  WT_SR }, ["wt-anchor-sl-hall"]),
+    w("sr-left-hall-b", "Left side room hallway wall (south)",    { x: -WT_OX, y: 0, z: -WT_SR }, { x: -WT_OX, y: 0, z: WT_SIDE_ROOM_ENTRANCE_MIN_Z }),
 
     // ── Back side room (x ∈ [-5, 5], z ∈ [24, 34]) ───────────────────────
-    // Hallway-facing wall (z=24): entrance at x ∈ [-1.5, 1.5]
-    w("sr-back-hall-a", "Back side room hallway wall (west)",     { x: -WT_SR, y: 0, z:  WT_OZ }, { x: -WT_EH, y: 0, z:  WT_OZ }, ["wt-anchor-sb-hall"]),
-    w("sr-back-hall-b", "Back side room hallway wall (east)",     { x:  WT_EH, y: 0, z:  WT_OZ }, { x:  WT_SR, y: 0, z:  WT_OZ }),
+    // Hallway-facing wall (z=24): entrance shifted toward the west/left.
+    w("sr-back-hall-a", "Back side room hallway wall (west)",     { x: -WT_SR, y: 0, z:  WT_OZ }, { x: WT_BACK_SIDE_ROOM_ENTRANCE_MIN_X, y: 0, z:  WT_OZ }),
+    w("sr-back-hall-b", "Back side room hallway wall (east)",     { x: WT_BACK_SIDE_ROOM_ENTRANCE_MAX_X, y: 0, z:  WT_OZ }, { x:  WT_SR, y: 0, z:  WT_OZ }, ["wt-anchor-sb-hall"]),
     w("sr-back-outer",  "Back side room outer wall",              { x: -WT_SR, y: 0, z:  WT_SZ }, { x:  WT_SR, y: 0, z:  WT_SZ }, ["wt-anchor-sb-outer"]),
     w("sr-back-left",   "Back side room left wall",               { x: -WT_SR, y: 0, z:  WT_OZ }, { x: -WT_SR, y: 0, z:  WT_SZ }, ["wt-anchor-sb-left"]),
     w("sr-back-right",  "Back side room right wall",              { x:  WT_SR, y: 0, z:  WT_OZ }, { x:  WT_SR, y: 0, z:  WT_SZ }, ["wt-anchor-sb-right"]),
 
     // ── Right side room (x ∈ [24, 34], z ∈ [-5, 5]) ──────────────────────
-    // Hallway-facing wall (x=24): entrance at z ∈ [-1.5, 1.5]
-    w("sr-right-hall-a", "Right side room hallway wall (north)",  { x:  WT_OX, y: 0, z:  WT_EH }, { x:  WT_OX, y: 0, z:  WT_SR }, ["wt-anchor-sr-hall"]),
-    w("sr-right-hall-b", "Right side room hallway wall (south)",  { x:  WT_OX, y: 0, z: -WT_SR }, { x:  WT_OX, y: 0, z: -WT_EH }),
+    // Hallway-facing wall (x=24): entrance shifted toward the south/front.
+    w("sr-right-hall-a", "Right side room hallway wall (north)",  { x:  WT_OX, y: 0, z: WT_SIDE_ROOM_ENTRANCE_MAX_Z }, { x:  WT_OX, y: 0, z:  WT_SR }, ["wt-anchor-sr-hall"]),
+    w("sr-right-hall-b", "Right side room hallway wall (south)",  { x:  WT_OX, y: 0, z: -WT_SR }, { x:  WT_OX, y: 0, z: WT_SIDE_ROOM_ENTRANCE_MIN_Z }),
     w("sr-right-outer",  "Right side room outer wall",            { x:  WT_SX, y: 0, z: -WT_SR }, { x:  WT_SX, y: 0, z:  WT_SR }, ["wt-anchor-sr-outer"]),
     w("sr-right-top",    "Right side room top wall",              { x:  WT_OX, y: 0, z:  WT_SR }, { x:  WT_SX, y: 0, z:  WT_SR }, ["wt-anchor-sr-top"]),
     w("sr-right-bot",    "Right side room bottom wall",           { x:  WT_OX, y: 0, z: -WT_SR }, { x:  WT_SX, y: 0, z: -WT_SR }, ["wt-anchor-sr-bot"]),
@@ -485,17 +503,17 @@ function buildWorkforceTrainingAnchors(): RoomManifest["wallAnchors"] {
     },
     {
       id: "wt-anchor-c-left", label: "Central room left board",
-      position: { x: -WT_CX + d, y, z: 0 }, normal: { x: 1, y: 0, z: 0 },
+      position: { x: -WT_CX + d, y, z: WT_CENTRAL_SIDE_BOARD_CENTER_Z }, normal: { x: 1, y: 0, z: 0 },
       width: w, height: h, metadata: meta("student-request")
     },
     {
       id: "wt-anchor-c-right", label: "Central room right board",
-      position: { x: WT_CX - d, y, z: 0 }, normal: { x: -1, y: 0, z: 0 },
+      position: { x: WT_CX - d, y, z: WT_CENTRAL_SIDE_BOARD_CENTER_Z }, normal: { x: -1, y: 0, z: 0 },
       width: w, height: h, metadata: meta("student-request")
     },
     {
       id: "wt-anchor-c-back", label: "Central room back board",
-      position: { x: 0, y, z: WT_CZ - d }, normal: { x: 0, y: 0, z: -1 },
+      position: { x: WT_CENTRAL_BACK_BOARD_CENTER_X, y, z: WT_CZ - d }, normal: { x: 0, y: 0, z: -1 },
       width: w, height: h, metadata: meta("student-request")
     },
 
@@ -517,14 +535,14 @@ function buildWorkforceTrainingAnchors(): RoomManifest["wallAnchors"] {
     },
     {
       id: "wt-anchor-sl-hall", label: "Left side room hallway board",
-      position: { x: -WT_OX - d, y, z: 0 }, normal: { x: -1, y: 0, z: 0 },
+      position: { x: -WT_OX - d, y, z: WT_SIDE_ROOM_HALL_BOARD_CENTER_Z }, normal: { x: -1, y: 0, z: 0 },
       width: w, height: h, metadata: meta("student-request")
     },
 
     // ── Back side room (center: x=0, z=29) ────────────────────────────────
     {
       id: "wt-anchor-sb-hall", label: "Back side room hallway board",
-      position: { x: 0, y, z: WT_OZ + d }, normal: { x: 0, y: 0, z: 1 },
+      position: { x: WT_BACK_SIDE_ROOM_HALL_BOARD_CENTER_X, y, z: WT_OZ + d }, normal: { x: 0, y: 0, z: 1 },
       width: w, height: h, metadata: meta("student-request")
     },
     {
@@ -546,7 +564,7 @@ function buildWorkforceTrainingAnchors(): RoomManifest["wallAnchors"] {
     // ── Right side room (center: x=29, z=0) ───────────────────────────────
     {
       id: "wt-anchor-sr-hall", label: "Right side room hallway board",
-      position: { x: WT_OX + d, y, z: 0 }, normal: { x: 1, y: 0, z: 0 },
+      position: { x: WT_OX + d, y, z: WT_SIDE_ROOM_HALL_BOARD_CENTER_Z }, normal: { x: 1, y: 0, z: 0 },
       width: w, height: h, metadata: meta("student-request")
     },
     {

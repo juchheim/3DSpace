@@ -324,6 +324,66 @@ describe("workforce training manifest", () => {
     expect(manifest.walls.length).toBeGreaterThanOrEqual(22);
   });
 
+  it("offsets doorway openings so doorway-wall boards no longer overlap them", () => {
+    function doorwayGap(firstWallId: string, secondWallId: string, axis: "x" | "z") {
+      const firstWall = manifest.walls.find((wall) => wall.id === firstWallId);
+      const secondWall = manifest.walls.find((wall) => wall.id === secondWallId);
+
+      expect(firstWall).toBeDefined();
+      expect(secondWall).toBeDefined();
+
+      const gapMin = axis === "x" ? firstWall!.end.x : firstWall!.end.z;
+      const gapMax = axis === "x" ? secondWall!.start.x : secondWall!.start.z;
+
+      return {
+        center: (gapMin + gapMax) / 2,
+        width: gapMax - gapMin
+      };
+    }
+
+    const centralLeftDoor = doorwayGap("c-left-a", "c-left-b", "z");
+    const centralRightDoor = doorwayGap("c-right-a", "c-right-b", "z");
+    const centralBackDoor = doorwayGap("c-back-a", "c-back-b", "x");
+    const leftSideDoor = doorwayGap("sr-left-hall-b", "sr-left-hall-a", "z");
+    const backSideDoor = doorwayGap("sr-back-hall-a", "sr-back-hall-b", "x");
+    const rightSideDoor = doorwayGap("sr-right-hall-b", "sr-right-hall-a", "z");
+
+    const centralLeftBoard = manifest.wallAnchors.find((anchor) => anchor.id === "wt-anchor-c-left");
+    const centralRightBoard = manifest.wallAnchors.find((anchor) => anchor.id === "wt-anchor-c-right");
+    const centralBackBoard = manifest.wallAnchors.find((anchor) => anchor.id === "wt-anchor-c-back");
+    const leftSideBoard = manifest.wallAnchors.find((anchor) => anchor.id === "wt-anchor-sl-hall");
+    const backSideBoard = manifest.wallAnchors.find((anchor) => anchor.id === "wt-anchor-sb-hall");
+    const rightSideBoard = manifest.wallAnchors.find((anchor) => anchor.id === "wt-anchor-sr-hall");
+
+    expect(centralLeftBoard).toBeDefined();
+    expect(centralRightBoard).toBeDefined();
+    expect(centralBackBoard).toBeDefined();
+    expect(leftSideBoard).toBeDefined();
+    expect(backSideBoard).toBeDefined();
+    expect(rightSideBoard).toBeDefined();
+
+    expect(centralLeftDoor.center).toBeLessThan(0);
+    expect(centralRightDoor.center).toBeLessThan(0);
+    expect(centralBackDoor.center).toBeLessThan(0);
+    expect(leftSideDoor.center).toBeLessThan(0);
+    expect(backSideDoor.center).toBeLessThan(0);
+    expect(rightSideDoor.center).toBeLessThan(0);
+
+    expect(centralLeftBoard!.position.z).toBeGreaterThan(0);
+    expect(centralRightBoard!.position.z).toBeGreaterThan(0);
+    expect(centralBackBoard!.position.x).toBeGreaterThan(0);
+    expect(leftSideBoard!.position.z).toBeGreaterThan(0);
+    expect(backSideBoard!.position.x).toBeGreaterThan(0);
+    expect(rightSideBoard!.position.z).toBeGreaterThan(0);
+
+    expect(Math.abs(centralLeftBoard!.position.z - centralLeftDoor.center)).toBeGreaterThan((centralLeftBoard!.width + centralLeftDoor.width) / 2);
+    expect(Math.abs(centralRightBoard!.position.z - centralRightDoor.center)).toBeGreaterThan((centralRightBoard!.width + centralRightDoor.width) / 2);
+    expect(Math.abs(centralBackBoard!.position.x - centralBackDoor.center)).toBeGreaterThan((centralBackBoard!.width + centralBackDoor.width) / 2);
+    expect(Math.abs(leftSideBoard!.position.z - leftSideDoor.center)).toBeGreaterThan((leftSideBoard!.width + leftSideDoor.width) / 2);
+    expect(Math.abs(backSideBoard!.position.x - backSideDoor.center)).toBeGreaterThan((backSideBoard!.width + backSideDoor.width) / 2);
+    expect(Math.abs(rightSideBoard!.position.z - rightSideDoor.center)).toBeGreaterThan((rightSideBoard!.width + rightSideDoor.width) / 2);
+  });
+
   it("includes spawn-instructor and at least one spawn-trainee", () => {
     const ids = manifest.spawnPoints.map((s) => s.id);
     expect(ids).toContain("spawn-instructor");
