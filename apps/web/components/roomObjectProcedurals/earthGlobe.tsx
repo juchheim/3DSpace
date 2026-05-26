@@ -9,6 +9,7 @@ import {
   CanvasTexture,
   Color,
   DoubleSide,
+  Group,
   ShaderMaterial,
   SRGBColorSpace,
   Texture,
@@ -28,12 +29,16 @@ const LAKES_GEOJSON_URL = "/room-objects/geojson/ne_10m_lakes.geojson";
 const RIVERS_GEOJSON_URL = "/room-objects/geojson/ne_10m_rivers_lake_centerlines.geojson";
 const GLACIATED_AREAS_GEOJSON_URL = "/room-objects/geojson/ne_10m_glaciated_areas.geojson";
 const ANTARCTIC_ICE_SHELVES_GEOJSON_URL = "/room-objects/geojson/ne_10m_antarctic_ice_shelves_polys.geojson";
+const ELEVATION_POINTS_GEOJSON_URL = "/room-objects/geojson/ne_10m_geography_regions_elevation_points.geojson";
 const BATHYMETRY_GEOJSON_URLS = [
   { url: "/room-objects/geojson/ne_10m_bathymetry_K_200.geojson", color: "#0b4169" },
   { url: "/room-objects/geojson/ne_10m_bathymetry_I_2000.geojson", color: "#092f58" },
   { url: "/room-objects/geojson/ne_10m_bathymetry_G_4000.geojson", color: "#071f42" },
   { url: "/room-objects/geojson/ne_10m_bathymetry_E_6000.geojson", color: "#041631" }
 ] as const;
+const DAY_TEXTURE_URL = "/room-objects/textures/earth-physical-base-4096.webp";
+const BATHYMETRY_TEXTURE_URL = "/room-objects/textures/earth-bathymetry-4096.webp";
+const ICE_TEXTURE_URL = "/room-objects/textures/earth-ice-4096.webp";
 const NIGHT_LIGHTS_URL = "/room-objects/textures/earth-black-marble-2016-3600.jpg";
 const EARTH_OBLIQUITY_RAD = 23.439281 * Math.PI / 180;
 const TEXTURE_WIDTH = 4096;
@@ -108,6 +113,13 @@ export const EARTH_GLOBE_PARAMETERS = [
     help: "Adds Natural Earth glaciated areas and Antarctic ice shelves."
   },
   {
+    key: "elevationMarkersVisible",
+    label: "Major elevation markers",
+    type: "boolean",
+    default: true,
+    help: "Marks Natural Earth high-elevation points such as Everest and K2."
+  },
+  {
     key: "graticuleVisible",
     label: "Latitude/longitude grid",
     type: "boolean",
@@ -131,13 +143,14 @@ export const EARTH_GLOBE_DEFAULT_PARAMETERS: Record<string, unknown> = {
   nightLightsVisible: true,
   bathymetryVisible: true,
   iceVisible: true,
+  elevationMarkersVisible: true,
   graticuleVisible: true,
   atmosphereVisible: true
 };
 
 type GeoJsonGeometry = {
-  type: "Polygon" | "MultiPolygon" | "LineString" | "MultiLineString";
-  coordinates: number[][] | number[][][] | number[][][][];
+  type: "Polygon" | "MultiPolygon" | "LineString" | "MultiLineString" | "Point";
+  coordinates: number[] | number[][] | number[][][] | number[][][][];
 };
 
 type GeoJsonFeature = {
@@ -151,6 +164,13 @@ type GeoJsonFeatureCollection = {
 };
 
 type BathymetryBand = { geojson: GeoJsonFeatureCollection; color: string };
+type ElevationMarker = {
+  id: string;
+  name: string;
+  elevation: number;
+  position: [number, number, number];
+  labelVisible: boolean;
+};
 
 const geoJsonRequests = new Map<string, Promise<GeoJsonFeatureCollection>>();
 
@@ -205,6 +225,17 @@ function projectPoint(point: number[], width: number, height: number): [number, 
   const lon = point[0] ?? 0;
   const lat = point[1] ?? 0;
   return [((lon + 180) / 360) * width, ((90 - lat) / 180) * height];
+}
+
+function globePosition(longitudeDeg: number, latitudeDeg: number, radius: number): [number, number, number] {
+  const lon = longitudeDeg * Math.PI / 180;
+  const lat = latitudeDeg * Math.PI / 180;
+  const cosLat = Math.cos(lat);
+  return [
+    radius * cosLat * Math.sin(lon),
+    radius * Math.sin(lat),
+    radius * cosLat * Math.cos(lon)
+  ];
 }
 
 function drawRing(ctx: CanvasRenderingContext2D, ring: number[][], width: number, height: number) {
@@ -270,6 +301,15 @@ function createFallbackTexture() {
     ctx.fillStyle = "#143a63";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  return texture;
+}
+
+function createTransparentFallbackTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 16;
+  canvas.height = 8;
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = SRGBColorSpace;
   return texture;
@@ -409,7 +449,7 @@ function useGeneratedEarthTexture(input: { bathymetryVisible: boolean; iceVisibl
   return texture;
 }
 
-function useLoadedTexture(url: string) {
+function useLoadedTexture(url: string, transparentFallback = false) {
   const [texture, setTexture] = useState<Texture | null>(null);
 
   useEffect(() => {
@@ -431,7 +471,7 @@ function useLoadedTexture(url: string) {
       undefined,
       () => {
         if (!disposed) {
-          current = createFallbackTexture();
+          current = transparentFallback ? createTransparentFallbackTexture() : createFallbackTexture();
           setTexture(current);
         }
       }
@@ -444,6 +484,83 @@ function useLoadedTexture(url: string) {
   }, [url]);
 
   return texture;
+}
+
+function useElevationMarkers(enabled: boolean) {
+  const [markers, setMarkers] = useState<ElevationMarker[]>([]);
+
+  useEffect(() => {
+    if (!enabled) {
+      setMarkers([]);
+      return;
+    }
+
+    let disposed = false;
+    void loadGeoJson(ELEVATION_POINTS_GEOJSON_URL)
+      .then((geojson) => {
+        if (disposed) return;
+        const next = geojson.features
+          .map((feature) => {
+            const geometry = feature.geometry;
+            if (!geometry || geometry.type !== "Point") return null;
+            const coordinates = geometry.coordinates as number[];
+            const longitude = coordinates[0];
+            const latitude = coordinates[1];
+            const props = (feature as GeoJsonFeature & { properties?: Record<string, unknown> }).properties ?? {};
+            const elevation = typeof props.elevation === "number" ? props.elevation : null;
+            const name = typeof props.name === "string" ? props.name : "Elevation point";
+            if (typeof longitude !== "number" || typeof latitude !== "number" || elevation === null) return null;
+            return {
+              id: `${name}-${longitude}-${latitude}`,
+              name,
+              elevation,
+              position: globePosition(longitude, latitude, 0.435),
+              labelVisible: false
+            };
+          })
+          .filter((marker): marker is ElevationMarker => Boolean(marker))
+          .filter((marker) => marker.elevation >= 5000)
+          .sort((left, right) => right.elevation - left.elevation)
+          .map((marker, index) => ({ ...marker, labelVisible: index < 5 }));
+        setMarkers(next);
+      })
+      .catch(() => {
+        if (!disposed) setMarkers([]);
+      });
+
+    return () => {
+      disposed = true;
+    };
+  }, [enabled]);
+
+  return markers;
+}
+
+function ElevationMarkers({ markers }: { markers: ElevationMarker[] }) {
+  if (markers.length === 0) return null;
+  return (
+    <group>
+      {markers.map((marker, index) => {
+        const radius = marker.elevation >= 8000 ? 0.008 : marker.elevation >= 6500 ? 0.006 : 0.0045;
+        const color = marker.elevation >= 8000 ? "#fff2a8" : marker.elevation >= 6500 ? "#f8c66a" : "#d68b38";
+        return (
+          <group key={marker.id} position={marker.position}>
+            <mesh>
+              <sphereGeometry args={[radius, 12, 8]} />
+              <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.18} roughness={0.62} />
+            </mesh>
+            {marker.labelVisible ? (
+              <Html transform center position={[0, 0.035 + index * 0.002, 0]} scale={0.035} className="room-object-html">
+                <span className="room-object-label" style={{ borderColor: color }}>
+                  {marker.name} · {marker.elevation.toLocaleString()} m
+                </span>
+              </Html>
+            ) : null}
+          </group>
+        );
+      })}
+    </group>
+  );
 }
 
 function Graticule() {
@@ -485,13 +602,18 @@ export function EarthGlobe({ parameters, colorTintHex }: ProceduralProps) {
   const nightLightsVisible = readBoolean(parameters.nightLightsVisible, true);
   const bathymetryVisible = readBoolean(parameters.bathymetryVisible, true);
   const iceVisible = readBoolean(parameters.iceVisible, true);
+  const elevationMarkersVisible = readBoolean(parameters.elevationMarkersVisible, true);
   const graticuleVisible = readBoolean(parameters.graticuleVisible, true);
   const atmosphereVisible = readBoolean(parameters.atmosphereVisible, true);
   const accent = colorTintHex ?? "#f5c24b";
 
-  const earthTexture = useGeneratedEarthTexture({ bathymetryVisible, iceVisible });
+  const earthTexture = useLoadedTexture(DAY_TEXTURE_URL);
+  const bathymetryTexture = useLoadedTexture(BATHYMETRY_TEXTURE_URL, true);
+  const iceTexture = useLoadedTexture(ICE_TEXTURE_URL, true);
+  const elevationMarkers = useElevationMarkers(elevationMarkersVisible);
   const nightTexture = useLoadedTexture(NIGHT_LIGHTS_URL);
   const materialRef = useRef<ShaderMaterial>(null);
+  const elevationGroupRef = useRef<Group>(null);
   const spinRef = useRef(0);
   const solarLabelRef = useRef("");
   const [solarLabel, setSolarLabel] = useState("");
@@ -501,15 +623,19 @@ export function EarthGlobe({ parameters, colorTintHex }: ProceduralProps) {
       earthTexture && nightTexture
         ? {
       dayMap: { value: earthTexture },
+      bathymetryMap: { value: bathymetryTexture ?? createTransparentFallbackTexture() },
+      iceMap: { value: iceTexture ?? createTransparentFallbackTexture() },
       nightMap: { value: nightTexture },
       sunDirection: { value: new Vector3(0, 0, 1) },
       spinOffset: { value: 0 },
       nightLightsStrength: { value: nightLightsVisible ? 1 : 0 },
+      bathymetryStrength: { value: bathymetryVisible ? 1 : 0 },
+      iceStrength: { value: iceVisible ? 1 : 0 },
       twilightWidth: { value: 0.08 },
       accentColor: { value: new Color(accent) }
     }
         : null,
-    [accent, earthTexture, nightLightsVisible, nightTexture]
+    [accent, bathymetryTexture, bathymetryVisible, earthTexture, iceTexture, iceVisible, nightLightsVisible, nightTexture]
   );
 
   useEffect(() => {
@@ -519,11 +645,25 @@ export function EarthGlobe({ parameters, colorTintHex }: ProceduralProps) {
   }, [earthTexture]);
 
   useEffect(() => {
+    if (materialRef.current && bathymetryTexture) {
+      materialRef.current.uniforms.bathymetryMap!.value = bathymetryTexture;
+    }
+  }, [bathymetryTexture]);
+
+  useEffect(() => {
+    if (materialRef.current && iceTexture) {
+      materialRef.current.uniforms.iceMap!.value = iceTexture;
+    }
+  }, [iceTexture]);
+
+  useEffect(() => {
     if (materialRef.current) {
       materialRef.current.uniforms.nightLightsStrength!.value = nightLightsVisible ? 1 : 0;
+      materialRef.current.uniforms.bathymetryStrength!.value = bathymetryVisible ? 1 : 0;
+      materialRef.current.uniforms.iceStrength!.value = iceVisible ? 1 : 0;
       materialRef.current.uniforms.accentColor!.value.set(accent);
     }
-  }, [accent, nightLightsVisible]);
+  }, [accent, bathymetryVisible, iceVisible, nightLightsVisible]);
 
   useFrame((_, delta) => {
     if (rotationPeriodSeconds > 0) {
@@ -536,6 +676,9 @@ export function EarthGlobe({ parameters, colorTintHex }: ProceduralProps) {
     if (material) {
       material.uniforms.spinOffset!.value = spinRef.current;
       material.uniforms.sunDirection!.value.set(x, y, z).normalize();
+    }
+    if (elevationGroupRef.current) {
+      elevationGroupRef.current.rotation.y = -spinRef.current * Math.PI * 2;
     }
     const nextLabel = `${solarMode === "realtime" ? "Live" : solarMode === "custom-date-time" ? "Custom" : "Preset"} subsolar ${Math.abs(subpoint.latitudeRad * 180 / Math.PI).toFixed(1)}°${subpoint.latitudeRad >= 0 ? "N" : "S"}`;
     if (solarLabelRef.current !== nextLabel) {
@@ -564,6 +707,11 @@ export function EarthGlobe({ parameters, colorTintHex }: ProceduralProps) {
       )}
 
       {graticuleVisible ? <Graticule /> : null}
+      {elevationMarkersVisible ? (
+        <group ref={elevationGroupRef}>
+          <ElevationMarkers markers={elevationMarkers} />
+        </group>
+      ) : null}
 
       <mesh rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[0.006, 0.006, 1.08, 16]} />
@@ -603,10 +751,14 @@ const EARTH_VERTEX_SHADER = `
 
 const EARTH_FRAGMENT_SHADER = `
   uniform sampler2D dayMap;
+  uniform sampler2D bathymetryMap;
+  uniform sampler2D iceMap;
   uniform sampler2D nightMap;
   uniform vec3 sunDirection;
   uniform float spinOffset;
   uniform float nightLightsStrength;
+  uniform float bathymetryStrength;
+  uniform float iceStrength;
   uniform float twilightWidth;
   uniform vec3 accentColor;
   varying vec2 vUv;
@@ -624,6 +776,10 @@ const EARTH_FRAGMENT_SHADER = `
     float daylight = dot(normal, normalize(sunDirection));
     float dayMix = smoothstep(-twilightWidth, twilightWidth, daylight);
     vec3 dayColor = texture2D(dayMap, spunUv).rgb;
+    vec4 bathymetry = texture2D(bathymetryMap, spunUv);
+    vec4 ice = texture2D(iceMap, spunUv);
+    dayColor = mix(dayColor, bathymetry.rgb, bathymetry.a * bathymetryStrength);
+    dayColor = mix(dayColor, ice.rgb, ice.a * iceStrength);
     vec3 nightColor = texture2D(nightMap, spunUv).rgb;
     vec3 darkEarth = dayColor * vec3(0.05, 0.075, 0.12);
     vec3 cityLights = nightColor * vec3(1.35, 1.18, 0.82) * nightLightsStrength;

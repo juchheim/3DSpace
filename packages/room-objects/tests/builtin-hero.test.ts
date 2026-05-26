@@ -72,6 +72,7 @@ describe("room object builtin catalog", () => {
       nightLightsVisible: true,
       bathymetryVisible: true,
       iceVisible: true,
+      elevationMarkersVisible: true,
       graticuleVisible: true,
       atmosphereVisible: true
     });

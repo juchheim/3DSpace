@@ -171,6 +171,7 @@ test.describe("room objects", () => {
     await expect(earthInspector.getByText("Night lights", { exact: true })).toBeVisible();
     await expect(earthInspector.getByText("Ocean depth bands", { exact: true })).toBeVisible();
     await expect(earthInspector.getByText("Glaciers and ice shelves", { exact: true })).toBeVisible();
+    await expect(earthInspector.getByText("Major elevation markers", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "2D" }).click();
     await expect(page.getByRole("img", { name: /top-down 2d analog/i })).toBeVisible();

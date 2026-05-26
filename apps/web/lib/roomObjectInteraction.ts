@@ -132,6 +132,7 @@ export function parameterSummary(parameters: Record<string, unknown>) {
   if (parameters.nightLightsVisible === true) parts.push("night lights on");
   if (parameters.bathymetryVisible === true) parts.push("bathymetry on");
   if (parameters.iceVisible === true) parts.push("ice on");
+  if (parameters.elevationMarkersVisible === true) parts.push("elevation markers on");
   if (parameters.graticuleVisible === true) parts.push("grid on");
   return parts.length ? parts.join(" · ") : "";
 }
