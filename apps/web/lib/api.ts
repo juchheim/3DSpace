@@ -11,6 +11,7 @@ import type {
   Invite,
   LessonRecap,
   Role,
+  RoomType,
   RoomRecord,
   RoomObject,
   RoomObjectCategory,
@@ -135,8 +136,8 @@ export function listRooms(identity: ApiIdentity) {
   return apiFetch<RoomRecord[]>("/v1/rooms", { identity });
 }
 
-export function createRoom(identity: ApiIdentity, classId: string, name: string) {
-  return apiFetch<RoomWithManifest>("/v1/rooms", { method: "POST", identity, body: { classId, name } });
+export function createRoom(identity: ApiIdentity, classId: string, name: string, type: RoomType = "classroom") {
+  return apiFetch<RoomWithManifest>("/v1/rooms", { method: "POST", identity, body: { classId, name, type } });
 }
 
 export function createInvite(identity: ApiIdentity, classId: string, input: { role: Role; roomId?: string }) {

@@ -3,6 +3,7 @@ import type {
   Role,
   RoomCapabilities,
   RoomManifest,
+  RoomType,
   SpatialAudioConfig,
   Vector3,
   ViewMode
@@ -354,6 +355,264 @@ export function createDefaultRoomManifest(input: {
   return RoomManifestSchema.parse(manifest);
 }
 
+// ── Workforce Training layout ──────────────────────────────────────────────
+// Central training room (40×40 m) sits at the origin. A 4 m-wide U-shaped
+// hallway wraps the left, back, and right sides (no hallway on the front wall).
+// One 10×10 side room hangs off the outer edge of each hallway segment.
+// The three hallway segments are open at the back corners, forming one
+// continuous circulation path: left hallway ↔ back hallway ↔ right hallway.
+
+export const WT_CENTRAL_WIDTH = 40;   // x ∈ [-20, 20]
+export const WT_CENTRAL_DEPTH = 40;   // z ∈ [-20, 20]
+export const WT_WALL_HEIGHT   = 8;
+export const WT_HALLWAY_WIDTH = 4;
+export const WT_SIDE_ROOM_SIZE = 10;
+export const WT_ENTRANCE_WIDTH = 3;   // doorway opening width on each entrance wall
+export const WT_BOARD_WIDTH   = 6;
+export const WT_BOARD_HEIGHT  = widescreenHeight(WT_BOARD_WIDTH); // ≈ 3.375
+
+// Derived boundaries (not exported — computed from constants above)
+const WT_CX = WT_CENTRAL_WIDTH / 2;             // 20  central room half-width
+const WT_CZ = WT_CENTRAL_DEPTH / 2;             // 20  central room half-depth
+const WT_OX = WT_CX + WT_HALLWAY_WIDTH;         // 24  outer hallway x edge
+const WT_OZ = WT_CZ + WT_HALLWAY_WIDTH;         // 24  outer hallway z edge
+const WT_SX = WT_OX + WT_SIDE_ROOM_SIZE;        // 34  side-room outer x edge
+const WT_SZ = WT_OZ + WT_SIDE_ROOM_SIZE;        // 34  side-room outer z edge
+const WT_SR = WT_SIDE_ROOM_SIZE / 2;            //  5  side-room half-size
+const WT_EH = WT_ENTRANCE_WIDTH / 2;            //  1.5 entrance half-width
+
+function buildWorkforceTrainingWalls(): RoomManifest["walls"] {
+  const h = WT_WALL_HEIGHT;
+  return [
+    // ── Central room ──────────────────────────────────────────────────────
+    { id: "c-front",    label: "Central front",           start: { x: -WT_CX, y: 0, z: -WT_CZ }, end: { x:  WT_CX, y: 0, z: -WT_CZ }, height: h, anchorIds: ["wt-anchor-c-front"] },
+    // Left wall (x=-20): entrance at z ∈ [-1.5, 1.5]
+    { id: "c-left-a",  label: "Central left (south)",     start: { x: -WT_CX, y: 0, z: -WT_CZ }, end: { x: -WT_CX, y: 0, z: -WT_EH }, height: h, anchorIds: [] },
+    { id: "c-left-b",  label: "Central left (north)",     start: { x: -WT_CX, y: 0, z:  WT_EH }, end: { x: -WT_CX, y: 0, z:  WT_CZ }, height: h, anchorIds: ["wt-anchor-c-left"] },
+    // Right wall (x=20): entrance at z ∈ [-1.5, 1.5]
+    { id: "c-right-a", label: "Central right (south)",    start: { x:  WT_CX, y: 0, z: -WT_CZ }, end: { x:  WT_CX, y: 0, z: -WT_EH }, height: h, anchorIds: [] },
+    { id: "c-right-b", label: "Central right (north)",    start: { x:  WT_CX, y: 0, z:  WT_EH }, end: { x:  WT_CX, y: 0, z:  WT_CZ }, height: h, anchorIds: ["wt-anchor-c-right"] },
+    // Back wall (z=20): entrance at x ∈ [-1.5, 1.5]
+    { id: "c-back-a",  label: "Central back (west)",      start: { x: -WT_CX, y: 0, z:  WT_CZ }, end: { x: -WT_EH, y: 0, z:  WT_CZ }, height: h, anchorIds: [] },
+    { id: "c-back-b",  label: "Central back (east)",      start: { x:  WT_EH, y: 0, z:  WT_CZ }, end: { x:  WT_CX, y: 0, z:  WT_CZ }, height: h, anchorIds: ["wt-anchor-c-back"] },
+
+    // ── Outer hallway skin ─────────────────────────────────────────────────
+    { id: "h-left-outer",      label: "Left hallway outer",         start: { x: -WT_OX, y: 0, z: -WT_CZ }, end: { x: -WT_OX, y: 0, z:  WT_CZ }, height: h, anchorIds: [] },
+    // Back outer hallway wall (z=24): entrance at x ∈ [-1.5, 1.5] for the back side room
+    { id: "h-back-outer-a",    label: "Back hallway outer (west)",  start: { x: -WT_CX, y: 0, z:  WT_OZ }, end: { x: -WT_EH, y: 0, z:  WT_OZ }, height: h, anchorIds: [] },
+    { id: "h-back-outer-b",    label: "Back hallway outer (east)",  start: { x:  WT_EH, y: 0, z:  WT_OZ }, end: { x:  WT_CX, y: 0, z:  WT_OZ }, height: h, anchorIds: [] },
+    { id: "h-right-outer",     label: "Right hallway outer",        start: { x:  WT_OX, y: 0, z: -WT_CZ }, end: { x:  WT_OX, y: 0, z:  WT_CZ }, height: h, anchorIds: [] },
+    // Front caps close the U-shape at the front corners
+    { id: "h-front-cap-left",  label: "Left hallway front cap",     start: { x: -WT_OX, y: 0, z: -WT_CZ }, end: { x: -WT_CX, y: 0, z: -WT_CZ }, height: h, anchorIds: [] },
+    { id: "h-front-cap-right", label: "Right hallway front cap",    start: { x:  WT_CX, y: 0, z: -WT_CZ }, end: { x:  WT_OX, y: 0, z: -WT_CZ }, height: h, anchorIds: [] },
+
+    // ── Left side room (x ∈ [-34, -24], z ∈ [-5, 5]) ─────────────────────
+    { id: "sr-left-outer",  label: "Left side room outer wall",     start: { x: -WT_SX, y: 0, z: -WT_SR }, end: { x: -WT_SX, y: 0, z:  WT_SR }, height: h, anchorIds: ["wt-anchor-sl-outer"] },
+    { id: "sr-left-top",    label: "Left side room top wall",       start: { x: -WT_SX, y: 0, z:  WT_SR }, end: { x: -WT_OX, y: 0, z:  WT_SR }, height: h, anchorIds: ["wt-anchor-sl-top"] },
+    { id: "sr-left-bot",    label: "Left side room bottom wall",    start: { x: -WT_SX, y: 0, z: -WT_SR }, end: { x: -WT_OX, y: 0, z: -WT_SR }, height: h, anchorIds: ["wt-anchor-sl-bot"] },
+    // Hallway-facing wall (x=-24): entrance at z ∈ [-1.5, 1.5]
+    { id: "sr-left-hall-a", label: "Left side room hallway wall (north)", start: { x: -WT_OX, y: 0, z:  WT_EH }, end: { x: -WT_OX, y: 0, z:  WT_SR }, height: h, anchorIds: ["wt-anchor-sl-hall"] },
+    { id: "sr-left-hall-b", label: "Left side room hallway wall (south)", start: { x: -WT_OX, y: 0, z: -WT_SR }, end: { x: -WT_OX, y: 0, z: -WT_EH }, height: h, anchorIds: [] },
+
+    // ── Back side room (x ∈ [-5, 5], z ∈ [24, 34]) ───────────────────────
+    // Hallway-facing wall (z=24): entrance at x ∈ [-1.5, 1.5]
+    { id: "sr-back-hall-a", label: "Back side room hallway wall (west)", start: { x: -WT_SR, y: 0, z:  WT_OZ }, end: { x: -WT_EH, y: 0, z:  WT_OZ }, height: h, anchorIds: ["wt-anchor-sb-hall"] },
+    { id: "sr-back-hall-b", label: "Back side room hallway wall (east)", start: { x:  WT_EH, y: 0, z:  WT_OZ }, end: { x:  WT_SR, y: 0, z:  WT_OZ }, height: h, anchorIds: [] },
+    { id: "sr-back-outer",  label: "Back side room outer wall",          start: { x: -WT_SR, y: 0, z:  WT_SZ }, end: { x:  WT_SR, y: 0, z:  WT_SZ }, height: h, anchorIds: ["wt-anchor-sb-outer"] },
+    { id: "sr-back-left",   label: "Back side room left wall",           start: { x: -WT_SR, y: 0, z:  WT_OZ }, end: { x: -WT_SR, y: 0, z:  WT_SZ }, height: h, anchorIds: ["wt-anchor-sb-left"] },
+    { id: "sr-back-right",  label: "Back side room right wall",          start: { x:  WT_SR, y: 0, z:  WT_OZ }, end: { x:  WT_SR, y: 0, z:  WT_SZ }, height: h, anchorIds: ["wt-anchor-sb-right"] },
+
+    // ── Right side room (x ∈ [24, 34], z ∈ [-5, 5]) ──────────────────────
+    // Hallway-facing wall (x=24): entrance at z ∈ [-1.5, 1.5]
+    { id: "sr-right-hall-a", label: "Right side room hallway wall (north)", start: { x:  WT_OX, y: 0, z:  WT_EH }, end: { x:  WT_OX, y: 0, z:  WT_SR }, height: h, anchorIds: ["wt-anchor-sr-hall"] },
+    { id: "sr-right-hall-b", label: "Right side room hallway wall (south)", start: { x:  WT_OX, y: 0, z: -WT_SR }, end: { x:  WT_OX, y: 0, z: -WT_EH }, height: h, anchorIds: [] },
+    { id: "sr-right-outer",  label: "Right side room outer wall",           start: { x:  WT_SX, y: 0, z: -WT_SR }, end: { x:  WT_SX, y: 0, z:  WT_SR }, height: h, anchorIds: ["wt-anchor-sr-outer"] },
+    { id: "sr-right-top",    label: "Right side room top wall",             start: { x:  WT_OX, y: 0, z:  WT_SR }, end: { x:  WT_SX, y: 0, z:  WT_SR }, height: h, anchorIds: ["wt-anchor-sr-top"] },
+    { id: "sr-right-bot",    label: "Right side room bottom wall",          start: { x:  WT_OX, y: 0, z: -WT_SR }, end: { x:  WT_SX, y: 0, z: -WT_SR }, height: h, anchorIds: ["wt-anchor-sr-bot"] },
+  ];
+}
+
+function buildWorkforceTrainingAnchors(): RoomManifest["wallAnchors"] {
+  const y = 4.0;
+  const d = 0.1; // inset from wall surface
+  const w = WT_BOARD_WIDTH;
+  const h = WT_BOARD_HEIGHT;
+  const accepts = [...FULL_WALL_OBJECT_ACCEPTS];
+  const meta = (moderationPolicy: string) => ({
+    accepts,
+    capacity: 4,
+    layout: "grid",
+    defaultRole: "resource-rail",
+    hideSurface: true,
+    supportsInteraction: true,
+    moderationPolicy
+  });
+
+  return [
+    // ── Central room ──────────────────────────────────────────────────────
+    {
+      id: "wt-anchor-c-front", label: "Central room front board",
+      position: { x: 0, y, z: -WT_CZ + d }, normal: { x: 0, y: 0, z: 1 },
+      width: PRIMARY_BOARD_WIDTH, height: PRIMARY_BOARD_HEIGHT,
+      metadata: { accepts, capacity: 4, layout: "grid", defaultRole: "primary-display", hideSurface: true, hideObjectHeader: true, supportsInteraction: true, moderationPolicy: "teacher-only", priority: "primary" }
+    },
+    {
+      id: "wt-anchor-c-left", label: "Central room left board",
+      position: { x: -WT_CX + d, y, z: 0 }, normal: { x: 1, y: 0, z: 0 },
+      width: w, height: h, metadata: meta("student-request")
+    },
+    {
+      id: "wt-anchor-c-right", label: "Central room right board",
+      position: { x: WT_CX - d, y, z: 0 }, normal: { x: -1, y: 0, z: 0 },
+      width: w, height: h, metadata: meta("student-request")
+    },
+    {
+      id: "wt-anchor-c-back", label: "Central room back board",
+      position: { x: 0, y, z: WT_CZ - d }, normal: { x: 0, y: 0, z: -1 },
+      width: w, height: h, metadata: meta("student-request")
+    },
+
+    // ── Left side room (center: x=-29, z=0) ───────────────────────────────
+    {
+      id: "wt-anchor-sl-outer", label: "Left side room outer board",
+      position: { x: -WT_SX + d, y, z: 0 }, normal: { x: 1, y: 0, z: 0 },
+      width: w, height: h, metadata: meta("student-request")
+    },
+    {
+      id: "wt-anchor-sl-top", label: "Left side room top board",
+      position: { x: -(WT_OX + WT_SX) / 2, y, z: WT_SR - d }, normal: { x: 0, y: 0, z: -1 },
+      width: w, height: h, metadata: meta("student-request")
+    },
+    {
+      id: "wt-anchor-sl-bot", label: "Left side room bottom board",
+      position: { x: -(WT_OX + WT_SX) / 2, y, z: -WT_SR + d }, normal: { x: 0, y: 0, z: 1 },
+      width: w, height: h, metadata: meta("student-request")
+    },
+    {
+      id: "wt-anchor-sl-hall", label: "Left side room hallway board",
+      position: { x: -WT_OX - d, y, z: 0 }, normal: { x: -1, y: 0, z: 0 },
+      width: w, height: h, metadata: meta("student-request")
+    },
+
+    // ── Back side room (center: x=0, z=29) ────────────────────────────────
+    {
+      id: "wt-anchor-sb-hall", label: "Back side room hallway board",
+      position: { x: 0, y, z: WT_OZ + d }, normal: { x: 0, y: 0, z: 1 },
+      width: w, height: h, metadata: meta("student-request")
+    },
+    {
+      id: "wt-anchor-sb-outer", label: "Back side room outer board",
+      position: { x: 0, y, z: WT_SZ - d }, normal: { x: 0, y: 0, z: -1 },
+      width: w, height: h, metadata: meta("student-request")
+    },
+    {
+      id: "wt-anchor-sb-left", label: "Back side room left board",
+      position: { x: -WT_SR + d, y, z: (WT_OZ + WT_SZ) / 2 }, normal: { x: 1, y: 0, z: 0 },
+      width: w, height: h, metadata: meta("student-request")
+    },
+    {
+      id: "wt-anchor-sb-right", label: "Back side room right board",
+      position: { x: WT_SR - d, y, z: (WT_OZ + WT_SZ) / 2 }, normal: { x: -1, y: 0, z: 0 },
+      width: w, height: h, metadata: meta("student-request")
+    },
+
+    // ── Right side room (center: x=29, z=0) ───────────────────────────────
+    {
+      id: "wt-anchor-sr-hall", label: "Right side room hallway board",
+      position: { x: WT_OX + d, y, z: 0 }, normal: { x: 1, y: 0, z: 0 },
+      width: w, height: h, metadata: meta("student-request")
+    },
+    {
+      id: "wt-anchor-sr-outer", label: "Right side room outer board",
+      position: { x: WT_SX - d, y, z: 0 }, normal: { x: -1, y: 0, z: 0 },
+      width: w, height: h, metadata: meta("student-request")
+    },
+    {
+      id: "wt-anchor-sr-top", label: "Right side room top board",
+      position: { x: (WT_OX + WT_SX) / 2, y, z: WT_SR - d }, normal: { x: 0, y: 0, z: -1 },
+      width: w, height: h, metadata: meta("student-request")
+    },
+    {
+      id: "wt-anchor-sr-bot", label: "Right side room bottom board",
+      position: { x: (WT_OX + WT_SX) / 2, y, z: -WT_SR + d }, normal: { x: 0, y: 0, z: 1 },
+      width: w, height: h, metadata: meta("student-request")
+    },
+  ];
+}
+
+export function createWorkforceTrainingManifest(input: {
+  id?: string;
+  roomId: string;
+  name?: string;
+  version?: number;
+  createdAt?: string;
+  config?: Partial<RoomEngineConfig>;
+}): RoomManifest {
+  const config: RoomEngineConfig = {
+    ...DEFAULT_ROOM_ENGINE_CONFIG,
+    ...input.config,
+    spatialAudio: { ...DEFAULT_SPATIAL_AUDIO, ...input.config?.spatialAudio }
+  };
+
+  // Trainee spawn grid: 5×5 inside the central room, x ∈ [-9, 9], z ∈ [-3, 9].
+  const traineeSpawns: RoomManifest["spawnPoints"] = [];
+  const xPositions = [-9, -4.5, 0, 4.5, 9];
+  const zPositions = [-3, 0, 3, 6, 9];
+  let traineeIndex = 1;
+  for (const z of zPositions) {
+    for (const x of xPositions) {
+      traineeSpawns.push({
+        id: `spawn-trainee-${traineeIndex++}`,
+        label: `Trainee ${traineeIndex - 1}`,
+        position: { x, y: 0, z },
+        rotation: { y: Math.PI }
+      });
+    }
+  }
+
+  const manifest: RoomManifest = {
+    id: input.id ?? `${input.roomId}:manifest:v${input.version ?? 1}`,
+    roomId: input.roomId,
+    version: input.version ?? 1,
+    name: input.name ?? "Workforce Training",
+    dimensions: {
+      width:  68, // x ∈ [-34, 34]
+      depth:  54, // z ∈ [-20, 34]
+      height: WT_WALL_HEIGHT
+    },
+    bounds: { minX: -WT_SX, maxX: WT_SX, minZ: -WT_CZ, maxZ: WT_SZ },
+    tiers: [],
+    spawnPoints: [
+      { id: "spawn-instructor", label: "Instructor", position: { x: 0, y: 0, z: -17 }, rotation: { y: 0 } },
+      ...traineeSpawns
+    ],
+    walls: buildWorkforceTrainingWalls(),
+    wallAnchors: buildWorkforceTrainingAnchors(),
+    projection: { kind: "top-down-v1", scale: 1, origin: { x: 0, y: 0 } },
+    capabilities: createRoomCapabilities(config),
+    spatialAudio: config.spatialAudio,
+    hallpassHoldingZone: { minX: -22, maxX: -20, minZ: -2, maxZ: 2 },
+    features: [
+      { key: "screen-share",    enabled: false, config: { preparedTrackKind: "screen" } },
+      { key: "computer-audio",  enabled: false, config: { preparedTrackKind: "system-audio" } },
+      { key: "wall-attachments", enabled: config.enableWallAttachments, config: { supportedKinds: ["image", "video", "audio"] } },
+      {
+        key: "wall-objects",
+        enabled: true,
+        config: {
+          creationDefault: "teacher-only",
+          maxActivePerRoom: 20,
+          maxActiveLiveShares: 4,
+          supportedTypes: ["image.file", "video.file", "audio.file", "camera.live", "microphone.live", "screen.live", "browser-tab.live", "web.link", "note", "poll", "timer"]
+        }
+      }
+    ],
+    createdAt: input.createdAt ?? new Date().toISOString()
+  };
+
+  return RoomManifestSchema.parse(manifest);
+}
+
 /** Returns the floor elevation (y) for a given z coordinate based on the manifest's tier definitions. */
 export function floorYFromZ(manifest: RoomManifest, z: number): number {
   if (!manifest.tiers?.length) return 0;
@@ -626,7 +885,11 @@ export function calculateSpatialAudio(
 }
 
 /** Merge current default anchor dimensions into a stored manifest (geometry only). */
-export function applyDefaultWallAnchorDimensions(manifest: RoomManifest): RoomManifest {
+export function applyDefaultWallAnchorDimensions(
+  manifest: RoomManifest,
+  roomType: RoomType = "classroom"
+): RoomManifest {
+  if (roomType !== "classroom") return manifest;
   const template = createDefaultRoomManifest({
     roomId: manifest.roomId,
     name: manifest.name,
@@ -649,7 +912,11 @@ export function applyDefaultWallAnchorDimensions(manifest: RoomManifest): RoomMa
 }
 
 /** Merge the current default room geometry into a stored manifest. */
-export function applyDefaultRoomGeometry(manifest: RoomManifest): RoomManifest {
+export function applyDefaultRoomGeometry(
+  manifest: RoomManifest,
+  roomType: RoomType = "classroom"
+): RoomManifest {
+  if (roomType !== "classroom") return manifest;
   const template = createDefaultRoomManifest({
     roomId: manifest.roomId,
     name: manifest.name,

@@ -10,6 +10,7 @@ import {
   roomCenterXZ,
   rotationFacingRoomCenter,
   createDefaultRoomManifest,
+  createWorkforceTrainingManifest,
   interpolateAvatarState,
   delta2DToWorldXZ,
   projectPositionTo2D,
@@ -301,5 +302,70 @@ describe("room engine", () => {
 
     expect(near.gain).toBeGreaterThan(far.gain);
     expect(far.pan).toBeGreaterThan(0);
+  });
+});
+
+describe("workforce training manifest", () => {
+  const manifest = createWorkforceTrainingManifest({ roomId: "room-wt-1" });
+
+  it("parses against RoomManifestSchema and has correct outer dimensions", () => {
+    expect(manifest.roomId).toBe("room-wt-1");
+    expect(manifest.dimensions.width).toBe(68);
+    expect(manifest.dimensions.depth).toBe(54);
+    expect(manifest.dimensions.height).toBe(8);
+  });
+
+  it("has exactly 16 wall anchors", () => {
+    expect(manifest.wallAnchors).toHaveLength(16);
+  });
+
+  it("has at least 22 wall segments", () => {
+    expect(manifest.walls.length).toBeGreaterThanOrEqual(22);
+  });
+
+  it("includes spawn-instructor and at least one spawn-trainee", () => {
+    const ids = manifest.spawnPoints.map((s) => s.id);
+    expect(ids).toContain("spawn-instructor");
+    expect(ids.some((id) => id.startsWith("spawn-trainee-"))).toBe(true);
+  });
+
+  it("applyDefaultRoomGeometry with workforce-training returns manifest unchanged", () => {
+    const result = applyDefaultRoomGeometry(manifest, "workforce-training");
+    expect(result).toBe(manifest);
+    expect(result.dimensions.width).toBe(68);
+  });
+
+  it("applyDefaultRoomGeometry with classroom overwrites geometry", () => {
+    const result = applyDefaultRoomGeometry(manifest, "classroom");
+    expect(result.dimensions.width).toBe(30);
+    expect(result.dimensions.depth).toBe(30);
+  });
+
+  it("applyDefaultWallAnchorDimensions with workforce-training returns manifest unchanged", () => {
+    const result = applyDefaultWallAnchorDimensions(manifest, "workforce-training");
+    expect(result).toBe(manifest);
+  });
+
+  it("clampPositionToBounds: origin is within walkable bounds", () => {
+    const clamped = clampPositionToBounds(manifest, { x: 0, y: 0, z: 0 });
+    expect(clamped.x).toBe(0);
+    expect(clamped.z).toBe(0);
+  });
+
+  it("clampPositionToBounds: left side room interior point stays in bounds", () => {
+    const clamped = clampPositionToBounds(manifest, { x: -30, y: 0, z: 0 });
+    expect(clamped.x).toBe(-30);
+    expect(clamped.z).toBe(0);
+  });
+
+  it("clampPositionToBounds: right side room interior point stays in bounds", () => {
+    const clamped = clampPositionToBounds(manifest, { x: 30, y: 0, z: 0 });
+    expect(clamped.x).toBe(30);
+    expect(clamped.z).toBe(0);
+  });
+
+  it("clampPositionToBounds: point outside outer rectangle clamps to maxX", () => {
+    const clamped = clampPositionToBounds(manifest, { x: 40, y: 0, z: 0 });
+    expect(clamped.x).toBe(manifest.bounds.maxX); // 34
   });
 });

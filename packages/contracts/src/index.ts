@@ -767,6 +767,9 @@ export function parameterSchemaToJson(
   return stringifyRoomObjectParameterSchema(schema);
 }
 
+export const RoomTypeSchema = z.enum(["classroom", "workforce-training"]);
+export type RoomType = z.infer<typeof RoomTypeSchema>;
+
 export const RoomSettingsSchema = z.object({
   maxParticipants: z.number().int().positive(),
   defaultViewMode: ViewModeSchema,
@@ -829,6 +832,7 @@ export const RoomSchema = z.object({
   id: z.string(),
   classId: z.string(),
   name: z.string(),
+  type: RoomTypeSchema.default("classroom"),
   activeManifestVersion: z.number().int().positive(),
   settings: RoomSettingsSchema,
   createdAt: z.string(),
@@ -837,7 +841,8 @@ export const RoomSchema = z.object({
 
 export const CreateRoomRequestSchema = z.object({
   classId: z.string().min(1),
-  name: z.string().min(1).max(120)
+  name: z.string().min(1).max(120),
+  type: RoomTypeSchema.optional()
 });
 
 export const UpdateRoomRequestSchema = z.object({

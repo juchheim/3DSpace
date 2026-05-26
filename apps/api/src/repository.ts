@@ -10,6 +10,7 @@ import {
   type RoomManifest,
   type RoomRecord,
   type RoomSettingsSchema,
+  type RoomType,
   type User,
   type WallAttachment,
   type RoomObject,
@@ -86,7 +87,7 @@ export type Repository = {
   getInvite(code: string): Promise<Invite | undefined>;
   listInvitesForRoom(roomId: string): Promise<Invite[]>;
   markInviteUsed(code: string): Promise<Invite>;
-  createRoom(input: { classId: string; name: string; settings: RoomSettings; manifest: RoomManifest }): Promise<{ room: RoomRecord; manifest: RoomManifest }>;
+  createRoom(input: { classId: string; name: string; type?: RoomType; settings: RoomSettings; manifest: RoomManifest }): Promise<{ room: RoomRecord; manifest: RoomManifest }>;
   listRoomsForUser(userId: string): Promise<RoomRecord[]>;
   getRoom(roomId: string): Promise<RoomRecord | undefined>;
   updateRoom(roomId: string, input: { name?: string; settings?: Partial<RoomSettings> }): Promise<RoomRecord>;
@@ -327,12 +328,13 @@ export class MemoryRepository implements Repository {
     return updated;
   }
 
-  async createRoom(input: { classId: string; name: string; settings: RoomSettings; manifest: RoomManifest }) {
+  async createRoom(input: { classId: string; name: string; type?: RoomType; settings: RoomSettings; manifest: RoomManifest }) {
     const time = nowIso();
     const room: RoomRecord = {
       id: input.manifest.roomId,
       classId: input.classId,
       name: input.name,
+      type: input.type ?? "classroom",
       activeManifestVersion: input.manifest.version,
       settings: input.settings,
       createdAt: time,

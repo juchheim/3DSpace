@@ -77,13 +77,15 @@ import {
   type WallObject,
   type WallObjectType,
   type WorldSkin,
-  type RoomSettings
+  type RoomSettings,
+  type RoomType
 } from "@3dspace/contracts";
 import {
   anchorHasOccupyingWallObject,
   applyDefaultWallAnchorDimensions,
   computeGroupTargetPositionFromAnchor,
   createDefaultRoomManifest,
+  createWorkforceTrainingManifest,
   createInitialPollState,
   isValidPollChoiceId,
   normalizePollInlineData,
@@ -221,7 +223,7 @@ async function requireRoomAccess(repository: Repository, roomId: string, auth: A
   const access = await requireClassAccess(repository, room.classId, auth);
   const manifest = await repository.getActiveManifest(room.id);
   if (!manifest) throw notFound("Room manifest not found");
-  return { room, manifest: applyDefaultWallAnchorDimensions(manifest), membership: access.membership };
+  return { room, manifest: applyDefaultWallAnchorDimensions(manifest, room.type), membership: access.membership };
 }
 
 async function requireRoomTeacher(repository: Repository, roomId: string, auth: AuthContext) {
@@ -2754,24 +2756,32 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const auth = await requireUser(request, config, repository);
     const body = parseBody(CreateRoomRequestSchema, request);
     await requireClassTeacher(repository, body.classId, auth);
+
+    const roomType: RoomType = body.type ?? "classroom";
+    if (roomType === "workforce-training" && !config.tuning.enableWorkforceTraining) {
+      throw forbidden("Workforce training rooms are disabled in this environment");
+    }
+
     const roomId = newId("room");
-    const manifest = createDefaultRoomManifest({
-      roomId,
-      name: body.name,
-      config: {
-        maxParticipants: config.tuning.maxRoomParticipants,
-        avatarSendHz: config.tuning.avatarSendHz,
-        interpolationMs: config.tuning.interpolationMs,
-        defaultQuality: config.tuning.defaultQuality,
-        enable2DAnalog: config.tuning.enable2DAnalog,
-        enableWallAttachments: config.tuning.enableWallAttachments,
-        spatialAudio: config.tuning.spatialAudio
-      }
-    });
+    const manifestConfig = {
+      maxParticipants: config.tuning.maxRoomParticipants,
+      avatarSendHz: config.tuning.avatarSendHz,
+      interpolationMs: config.tuning.interpolationMs,
+      defaultQuality: config.tuning.defaultQuality,
+      enable2DAnalog: config.tuning.enable2DAnalog,
+      enableWallAttachments: config.tuning.enableWallAttachments,
+      spatialAudio: config.tuning.spatialAudio
+    };
+    const manifestFactory = roomType === "workforce-training"
+      ? createWorkforceTrainingManifest
+      : createDefaultRoomManifest;
+    const manifest = manifestFactory({ roomId, name: body.name, config: manifestConfig });
+
     return RoomWithManifestSchema.parse(
       await repository.createRoom({
         classId: body.classId,
         name: body.name,
+        type: roomType,
         settings: roomSettings(config),
         manifest
       })
@@ -2849,7 +2859,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
 
     const storedManifest = await repository.getActiveManifest(room.id);
     if (!storedManifest) throw notFound("Room manifest not found");
-    const manifest = applyDefaultWallAnchorDimensions(storedManifest);
+    const manifest = applyDefaultWallAnchorDimensions(storedManifest, room.type);
     enforceSessionJoinRateLimit(auth.userId, room.id);
     const participantIdentity = `${auth.userId}:${room.id}`;
     const activeCount = await repository.recordRoomSession({

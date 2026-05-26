@@ -120,6 +120,7 @@ export function createModels(connection: Connection): Models {
     id: { type: String, required: true, unique: true },
     classId: { type: String, required: true, index: true },
     name: { type: String, required: true },
+    type: { type: String, enum: ["classroom", "workforce-training"], default: "classroom" },
     activeManifestVersion: Number,
     settings: Schema.Types.Mixed,
     createdAt: String,
@@ -465,12 +466,13 @@ export class MongoRepository implements Repository {
     return entity<Invite>(record);
   }
 
-  async createRoom(input: { classId: string; name: string; settings: RoomSettings; manifest: RoomManifest }) {
+  async createRoom(input: { classId: string; name: string; type?: string; settings: RoomSettings; manifest: RoomManifest }) {
     const time = nowIso();
     const room: RoomRecord = {
       id: input.manifest.roomId,
       classId: input.classId,
       name: input.name,
+      type: (input.type ?? "classroom") as RoomRecord["type"],
       activeManifestVersion: input.manifest.version,
       settings: input.settings,
       createdAt: time,

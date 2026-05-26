@@ -488,8 +488,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   }, [spotlight?.anchorId, spotlight?.mode, manifest, camera.yawRef]);
 
   useEffect(() => {
-    setManifest((current) => (current ? normalizeRoomManifest(current) : current));
-    setSession((current) => (current ? { ...current, manifest: normalizeRoomManifest(current.manifest) } : current));
+    setManifest((current) => (current ? normalizeRoomManifest(current, session?.room.type ?? "classroom") : current));
+    setSession((current) => (current ? { ...current, manifest: normalizeRoomManifest(current.manifest, current.room.type) } : current));
   }, []);
 
   useEffect(() => {
@@ -530,7 +530,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     joinRoom(identity, roomId, inviteCode ? { viewMode, inviteCode } : { viewMode })
       .then((nextSession) => {
         if (cancelled) return;
-        const normalizedManifest = normalizeRoomManifest(nextSession.manifest);
+        const normalizedManifest = normalizeRoomManifest(nextSession.manifest, nextSession.room.type);
         const initialAppearance = nextSession.avatarAppearance ?? DEFAULT_APPEARANCE;
         localAppearanceRef.current = initialAppearance;
         setLocalAppearance(nextSession.participantId, initialAppearance);
