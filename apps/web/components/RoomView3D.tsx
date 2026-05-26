@@ -1171,10 +1171,17 @@ function wallPlane(wall: Wall): WallPlane {
   return { point: midpoint, normal: new Vector3(midpoint.x < 0 ? 1 : -1, 0, 0) };
 }
 
-function wallOpacityFromCameraDistance(signedDistance: number) {
-  if (signedDistance >= 2) return 1;
-  if (signedDistance >= 0) return 0.18 + (signedDistance / 2) * 0.82;
-  return Math.max(0.06, 0.16 + signedDistance * 0.55);
+function wallOpacityFromCameraDistance(
+  signedDistance: number,
+  options?: { symmetric?: boolean; halfThickness?: number }
+) {
+  const distance = options?.symmetric
+    ? Math.abs(signedDistance) - (options.halfThickness ?? 0)
+    : signedDistance;
+
+  if (distance >= 2) return 1;
+  if (distance >= 0) return 0.18 + (distance / 2) * 0.82;
+  return Math.max(0.06, 0.16 + distance * 0.55);
 }
 
 /** Inset wall panels slightly along the inward normal (matches prior box inner face). */
@@ -1533,7 +1540,10 @@ function WallMesh({
     if (!material) return;
 
     const signedDistance = cameraOffset.copy(camera.position).sub(plane.point).dot(plane.normal);
-    const opacity = wallOpacityFromCameraDistance(signedDistance);
+    const opacity = wallOpacityFromCameraDistance(signedDistance, useBox ? {
+      symmetric: true,
+      halfThickness: thickness / 2
+    } : undefined);
     material.opacity = opacity;
     material.transparent = opacity < 0.995;
     material.depthWrite = opacity > 0.85;
