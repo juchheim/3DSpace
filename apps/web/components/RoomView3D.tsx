@@ -13,6 +13,7 @@ import {
   SRGBColorSpace,
   Texture,
   TextureLoader,
+  type Group,
   type MeshBasicMaterial,
   type MeshStandardMaterial,
   Vector3
@@ -54,6 +55,7 @@ const WALL_OBJECT_SURFACE_OFFSET = 0.045;
 const WALL_OBJECT_LAYER_OFFSET = 0.002;
 const PRIVATE_CHECK_SURFACE_OFFSET = 0.038;
 const WALL_ANCHOR_LABEL_OFFSET = 0.03;
+const WALL_SURFACE_MIN_VISIBLE_DISTANCE = 0.02;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
@@ -600,6 +602,10 @@ const WallObjectSurface = memo(function WallObjectSurface({
   onModerate?: (objectId: string, action: "approve" | "reject") => void | Promise<void>;
   onFullscreen?: (objectId: string) => void;
 }) {
+  const { camera } = useThree();
+  const groupRef = useRef<Group | null>(null);
+  const planePoint = useMemo(() => new Vector3(anchor.position.x, anchor.position.y, anchor.position.z), [anchor.position.x, anchor.position.y, anchor.position.z]);
+  const cameraOffset = useMemo(() => new Vector3(), []);
   const normal = useMemo(() => new Vector3(anchor.normal.x, anchor.normal.y, anchor.normal.z).normalize(), [anchor.normal.x, anchor.normal.y, anchor.normal.z]);
   const right = useMemo(() => {
     if (Math.abs(anchor.normal.z) > 0.01) return new Vector3(1, 0, 0);
@@ -642,12 +648,18 @@ const WallObjectSurface = memo(function WallObjectSurface({
     return [base.x, base.y, base.z];
   }, [anchor.height, anchor.position.x, anchor.position.y, anchor.position.z, anchor.width, normal, placement, right]);
 
+  useFrame(() => {
+    const group = groupRef.current;
+    if (!group) return;
+    const signedDistance = cameraOffset.copy(camera.position).sub(planePoint).dot(normal);
+    group.visible = signedDistance > WALL_SURFACE_MIN_VISIBLE_DISTANCE;
+  });
+
   return (
-    <group position={position} rotation={rotation}>
+    <group ref={groupRef} position={position} rotation={rotation}>
       <Html
         center
         transform
-        occlude
         distanceFactor={WALL_OBJECT_DISTANCE_FACTOR}
         className="wall-object-html wall-object-html--board"
         style={surfaceStyle}
@@ -683,6 +695,10 @@ const PrivateCheckSurface = memo(function PrivateCheckSurface({
   anchor: Anchor;
   checks: ClassroomPrivateCheck[];
 }) {
+  const { camera } = useThree();
+  const groupRef = useRef<Group | null>(null);
+  const planePoint = useMemo(() => new Vector3(anchor.position.x, anchor.position.y, anchor.position.z), [anchor.position.x, anchor.position.y, anchor.position.z]);
+  const cameraOffset = useMemo(() => new Vector3(), []);
   const normal = useMemo(() => new Vector3(anchor.normal.x, anchor.normal.y, anchor.normal.z).normalize(), [anchor.normal.x, anchor.normal.y, anchor.normal.z]);
   const rotation = useMemo<[number, number, number]>(() => {
     if (Math.abs(anchor.normal.x) > 0) return [0, anchor.normal.x > 0 ? Math.PI / 2 : -Math.PI / 2, 0];
@@ -703,9 +719,16 @@ const PrivateCheckSurface = memo(function PrivateCheckSurface({
   }, [anchor.height, anchor.width]);
   const check = checks[0]!;
 
+  useFrame(() => {
+    const group = groupRef.current;
+    if (!group) return;
+    const signedDistance = cameraOffset.copy(camera.position).sub(planePoint).dot(normal);
+    group.visible = signedDistance > WALL_SURFACE_MIN_VISIBLE_DISTANCE;
+  });
+
   return (
-    <group position={position} rotation={rotation}>
-      <Html center transform occlude distanceFactor={WALL_OBJECT_DISTANCE_FACTOR} className="private-check-html" style={surfaceStyle} zIndexRange={[220, 0]}>
+    <group ref={groupRef} position={position} rotation={rotation}>
+      <Html center transform distanceFactor={WALL_OBJECT_DISTANCE_FACTOR} className="private-check-html" style={surfaceStyle} zIndexRange={[220, 0]}>
         <div className="private-check-board-card">
           <span className="private-check-board-kicker">Active check</span>
           <strong>{check.question}</strong>
@@ -1602,6 +1625,7 @@ function anchorHidesSurface(anchor: Anchor) {
 function AnchorMesh({ anchor, showLabel, spotlighted }: { anchor: Anchor; showLabel: boolean; spotlighted?: boolean }) {
   const hideSurface = anchorHidesSurface(anchor);
   const { camera } = useThree();
+  const labelRef = useRef<Group | null>(null);
   const materialRef = useRef<MeshStandardMaterial | null>(null);
   const plane = useMemo(
     () => ({
@@ -1625,6 +1649,13 @@ function AnchorMesh({ anchor, showLabel, spotlighted }: { anchor: Anchor; showLa
     material.opacity = opacity;
     material.transparent = opacity < 0.995;
     material.depthWrite = opacity > 0.85;
+  });
+
+  useFrame(() => {
+    const labelGroup = labelRef.current;
+    if (!labelGroup) return;
+    const signedDistance = cameraOffset.copy(camera.position).sub(plane.point).dot(plane.normal);
+    labelGroup.visible = signedDistance > WALL_SURFACE_MIN_VISIBLE_DISTANCE;
   });
 
   const w = anchor.width;
@@ -1669,9 +1700,11 @@ function AnchorMesh({ anchor, showLabel, spotlighted }: { anchor: Anchor; showLa
         </>
       ) : null}
       {showLabel ? (
-        <Html center transform occlude position={[0, 0, WALL_ANCHOR_LABEL_OFFSET]} distanceFactor={8} className="wall-anchor-label-html">
-          <div className={`wall-anchor-label${spotlighted ? " wall-anchor-label--spotlight" : ""}`}>{anchor.label}</div>
-        </Html>
+        <group ref={labelRef} position={[0, 0, WALL_ANCHOR_LABEL_OFFSET]}>
+          <Html center transform distanceFactor={8} className="wall-anchor-label-html">
+            <div className={`wall-anchor-label${spotlighted ? " wall-anchor-label--spotlight" : ""}`}>{anchor.label}</div>
+          </Html>
+        </group>
       ) : null}
     </group>
   );
