@@ -14,6 +14,7 @@ import {
   interpolateAvatarState,
   delta2DToWorldXZ,
   projectPositionTo2D,
+  resolveWallCollisions,
   selectSpawnPoint,
   transformLocalMovementToWorld,
   unprojectPointFrom2D,
@@ -367,5 +368,34 @@ describe("workforce training manifest", () => {
   it("clampPositionToBounds: point outside outer rectangle clamps to maxX", () => {
     const clamped = clampPositionToBounds(manifest, { x: 40, y: 0, z: 0 });
     expect(clamped.x).toBe(manifest.bounds.maxX); // 34
+  });
+
+  it("adds outer caps at the back hallway corners", () => {
+    const wallIds = new Set(manifest.walls.map((wall) => wall.id));
+
+    expect(wallIds).toContain("h-back-corner-left-west");
+    expect(wallIds).toContain("h-back-corner-left-north");
+    expect(wallIds).toContain("h-back-corner-right-east");
+    expect(wallIds).toContain("h-back-corner-right-north");
+  });
+
+  it("blocks movement out of the back-left hallway corner", () => {
+    expect(
+      resolveWallCollisions({ x: -23.5, z: 22 }, { x: -24.5, z: 22 }, manifest.walls)
+    ).toEqual({ x: -23.5, z: 22 });
+
+    expect(
+      resolveWallCollisions({ x: -22, z: 23.5 }, { x: -22, z: 24.5 }, manifest.walls)
+    ).toEqual({ x: -22, z: 23.5 });
+  });
+
+  it("blocks movement out of the back-right hallway corner", () => {
+    expect(
+      resolveWallCollisions({ x: 23.5, z: 22 }, { x: 24.5, z: 22 }, manifest.walls)
+    ).toEqual({ x: 23.5, z: 22 });
+
+    expect(
+      resolveWallCollisions({ x: 22, z: 23.5 }, { x: 22, z: 24.5 }, manifest.walls)
+    ).toEqual({ x: 22, z: 23.5 });
   });
 });

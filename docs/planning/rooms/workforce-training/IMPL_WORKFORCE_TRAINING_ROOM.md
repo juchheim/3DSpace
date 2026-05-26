@@ -229,7 +229,7 @@ Goal: a new manifest factory and a normalization helper, with unit-test parity t
    | Back  side room (4 walls) | 4 segments, entrance on the south wall | Faces the hallway. |
    | Right side room (4 walls) | 4 segments, entrance on the side wall | Faces the hallway. |
 
-   Hallway-corner continuity at `(±20 ± 4, 20 ± 4)` is achieved by **not** adding any internal wall segment between the left/back and right/back hallway bands. The corners are open by construction; the only outer walls there are at x = ±24 and z = 24. This matches the U-shape called out in PLAN § 4.2.
+   Hallway-corner continuity at `(±20 ± 4, 20 ± 4)` is achieved by **not** adding any internal wall segment between the left/back and right/back hallway bands. The connector squares stay open to each other, but short outer-cap segments at `x = ±24, z ∈ [20, 24]` and `z = 24, x ∈ [-24, -20] ∪ [20, 24]` keep participants inside the intended hallway-plus-rooms footprint.
 
 4. Implement `buildWorkforceTrainingAnchors()` — 16 `WallAnchor` records:
 

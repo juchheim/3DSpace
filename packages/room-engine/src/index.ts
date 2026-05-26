@@ -359,8 +359,9 @@ export function createDefaultRoomManifest(input: {
 // Central training room (40×40 m) sits at the origin. A 4 m-wide U-shaped
 // hallway wraps the left, back, and right sides (no hallway on the front wall).
 // One 10×10 side room hangs off the outer edge of each hallway segment.
-// The three hallway segments are open at the back corners, forming one
-// continuous circulation path: left hallway ↔ back hallway ↔ right hallway.
+// The three hallway segments meet at the back corners, forming one continuous
+// circulation path: left hallway ↔ back hallway ↔ right hallway. The corner
+// connector squares stay inside the controlled perimeter via short outer caps.
 
 export const WT_CENTRAL_WIDTH = 40;   // x ∈ [-20, 20]
 export const WT_CENTRAL_DEPTH = 40;   // z ∈ [-20, 20]
@@ -420,9 +421,14 @@ function buildWorkforceTrainingWalls(): RoomManifest["walls"] {
     // Back outer hallway wall (z=24): entrance at x ∈ [-1.5, 1.5] for the back side room
     w("h-back-outer-a",    "Back hallway outer (west)",   { x: -WT_CX, y: 0, z:  WT_OZ }, { x: -WT_EH, y: 0, z:  WT_OZ }),
     w("h-back-outer-b",    "Back hallway outer (east)",   { x:  WT_EH, y: 0, z:  WT_OZ }, { x:  WT_CX, y: 0, z:  WT_OZ }),
+    // Back-corner caps keep the connector squares inside the hallway perimeter.
+    w("h-back-corner-left-west",   "Back-left hallway outer wall",  { x: -WT_OX, y: 0, z: WT_CZ }, { x: -WT_OX, y: 0, z: WT_OZ }),
+    w("h-back-corner-left-north",  "Back-left hallway top wall",    { x: -WT_OX, y: 0, z: WT_OZ }, { x: -WT_CX, y: 0, z: WT_OZ }),
     // Right outer wall split into south/north sections (same reason as left)
     w("h-right-outer-s",   "Right hallway outer (south)", { x:  WT_OX, y: 0, z: -WT_CZ }, { x:  WT_OX, y: 0, z: -WT_SR }),
     w("h-right-outer-n",   "Right hallway outer (north)", { x:  WT_OX, y: 0, z:  WT_SR }, { x:  WT_OX, y: 0, z:  WT_CZ }),
+    w("h-back-corner-right-east",  "Back-right hallway outer wall", { x: WT_OX, y: 0, z: WT_CZ }, { x: WT_OX, y: 0, z: WT_OZ }),
+    w("h-back-corner-right-north", "Back-right hallway top wall",   { x: WT_CX, y: 0, z: WT_OZ }, { x: WT_OX, y: 0, z: WT_OZ }),
     // Front caps close the U-shape at the front corners
     w("h-front-cap-left",  "Left hallway front cap",      { x: -WT_OX, y: 0, z: -WT_CZ }, { x: -WT_CX, y: 0, z: -WT_CZ }),
     w("h-front-cap-right", "Right hallway front cap",     { x:  WT_CX, y: 0, z: -WT_CZ }, { x:  WT_OX, y: 0, z: -WT_CZ }),
