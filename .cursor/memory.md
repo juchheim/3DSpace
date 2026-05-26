@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-26 (started room-type-aware lobby flow on `room-types` with a selector scaffold and type-specific rendering split)
+Last updated: 2026-05-26 (tightened the room-type selector sizing after the initial `room-types` lobby scaffold)
 
 ## Project Summary
 
@@ -21,6 +21,7 @@ Implementation state: **MVP complete in production** (Vercel + Koyeb + Atlas + C
 - **RoomObject catalog**: `packages/room-objects/catalog/builtin.json`; procedural renderers in `apps/web/components/roomObjectProcedurals/` currently include water molecule, caffeine molecule, and Earth globe.
 - **Working branch**: `room-types` (created 2026-05-26)
 - **Lobby room types**: `apps/web/components/Lobby.tsx` now has a `RoomType` registry/selector scaffold; `apps/web/app/globals.css` adds `.lb-type-*` styles for the chooser row.
+- **Lobby selector sizing**: `.lb-select` in `apps/web/app/globals.css` now uses content width with `flex-shrink: 0` instead of a fixed minimum width so the room-type chooser fits the row more cleanly.
 
 ## Stack (Current)
 
@@ -142,6 +143,7 @@ Local loading:
 - `PLAN_CLASSROOM_MEDIA_PERMISSIONS.md` proposes adding room-level `studentMedia` defaults plus `ClassroomState.studentMediaRuntime` and two classroom actions (`set-student-media-global`, `set-student-media-access`) so the existing right-side student panel can host room-wide student cam/mic toggles above `BoardAccessGrantControls`; live wall camera/mic share should require both device-media permission and existing board-access grant.
 - `room-types` branches from `teacher-cam-mic-controls` at commit `56996cc`, immediately after the pushed Earth globe relief/cloud/default-theater asset follow-up.
 - `Lobby.tsx` now routes the teacher host flow through `renderRoomTypeSteps()` keyed by a local `roomType` state and `ROOM_TYPES` registry, which keeps the current classroom flow intact while creating an additive extension point for future room-type-specific flows.
+- The room-type chooser layout depends on `.lb-type-row` flex behavior plus `.lb-select` sizing rules in `globals.css`; the follow-up swap from `min-width` to `width: auto` + `flex-shrink: 0` keeps the select compact while preserving the adjacent description text.
 
 ## Post-MVP Backlog
 
@@ -247,6 +249,7 @@ Screen share, computer audio, teacher moderation, rich wall placement, room buil
 - **2026-05-26**: Earth globe follow-up: added three new teaching/debug overlays (cloud layer, subsolar + midnight markers, terminator guide), terrain relief/displacement driven by NASA topography plus GEBCO bathymetry textures, and a `timeFlowMode` split between accelerated physical solar time, live UTC, and fixed-date demo spin. The globe's axial spin is now anchored to unwrapped subsolar longitude so daylight stays physically aligned while the texture rotates. Checked in the builtin `default-theater` panorama/floor assets under `apps/web/public/world-skins/default-theater/v1/` because `packages/world-skins/catalog/builtin.json` already references them.
 - **2026-05-26**: Created local branch `room-types` from `teacher-cam-mic-controls` at `56996cc` after the Earth globe follow-up was committed and pushed, so subsequent room-type work starts from that clean published base.
 - **2026-05-26**: Began `room-types` implementation in the lobby by adding a room-type dropdown above the host flow, factoring the existing 3-step classroom create/share/enter UI into `renderRoomTypeSteps()`, and leaving commented placeholders for future `workforce-training` and `free-for-all` variants so new flows can plug in without rewriting the current classroom path.
+- **2026-05-26**: Followed up the `room-types` lobby scaffold with a small CSS polish to stop `.lb-select` from reserving a wide minimum width; the room-type picker now sizes to its label and avoids crowding the explanatory copy on the same row.
 - **2026-05-24**: Panorama wall orientation fix: `RoomView3D` now builds wall panels directly as world-space `BufferGeometry` with vertex UVs assigned from `wall.start` → `wall.end` and `slice.u0` → `slice.u1`. This avoids invalid reflection matrices / per-wall texture repeat flips that made the back wall seam and the left wall invert. Validation: `npx tsc --noEmit` in `apps/web` passes.
 - **2026-05-24**: Panorama unwrap order changed to **left → front → right → back** (left-to-right in `panorama.webp`): `WORLD_SKIN_PANORAMA_SLICES_DEFAULT`, all `builtin.json` entries, `BACK_PANORAMA_U0/U1` in `RoomView3D`, and `WORLD_SKIN_PANORAMA_SPEC.md`. Existing uploaded panoramas must be re-authored or re-sliced to match.
 - **2026-05-22**: Locked wall art delivery: `docs/planning/new-features/WORLD_SKIN_PANORAMA_SPEC.md` — single **`panorama.webp` 8192×1024** (horizon 640 px from bottom), companion **`floor.webp` 2048×2048**; CONCEPT §3.5 + IMPL Phases 0/2/4/5 updated; optional `WorldSkinPanoramaWallSchema` + `WORLD_SKIN_PANORAMA_SLICES_DEFAULT` in contracts (Phase 1 work unchanged; `hero-draft.json` color-only walls still valid). World Skins Phases 0–1 reported complete in codebase.

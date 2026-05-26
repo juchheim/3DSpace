@@ -3421,7 +3421,8 @@ body.lobby-dark::before {
   appearance: none;
   cursor: pointer;
   font-family: inherit;
-  min-width: 130px;
+  width: auto;
+  flex-shrink: 0;
 }
 .lb-select:focus { outline: none; border-color: rgba(192, 120, 52, 0.45); }
 .lb-select option { background: #1c1c1c; color: var(--hud-tx); }
