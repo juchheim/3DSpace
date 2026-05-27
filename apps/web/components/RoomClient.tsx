@@ -238,11 +238,13 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const [dynamicBoardPlacementMessage, setDynamicBoardPlacementMessage] = useState("");
   const [placementBoardWidth, setPlacementBoardWidth] = useState(DYNAMIC_BOARD_DEFAULT_WIDTH);
   const [placementBoardHeight, setPlacementBoardHeight] = useState(DYNAMIC_BOARD_DEFAULT_HEIGHT);
+  const [focusAnchorId, setFocusAnchorId] = useState<string | null>(null);
   const placeDynamicBoardIn3D = useCallback(async (body: CreateDynamicWallAnchorRequest) => {
     setDynamicBoardPlacementBusy(true);
     setDynamicBoardPlacementMessage("Placing board...");
     try {
-      await dynamicBoards.create(body);
+      const anchor = await dynamicBoards.create(body);
+      setFocusAnchorId(anchor.id);
       setDynamicBoardPlacementActive(false);
       setDynamicBoardPlacementMessage("Board placed.");
     } catch (err) {
@@ -2070,7 +2072,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               }
               onRemoveDynamicAnchor={async (anchorId) => {
                 await dynamicBoards.remove(anchorId);
+                if (focusAnchorId === anchorId) setFocusAnchorId(null);
               }}
+              focusAnchorId={focusAnchorId}
               onCreateFile={createFileObject}
               onCreateNote={createNote}
               onCreateTimer={createTimer}

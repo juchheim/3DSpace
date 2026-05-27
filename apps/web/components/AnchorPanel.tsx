@@ -58,6 +58,7 @@ export function AnchorPanel({
   onPlacementBoardWidthChange,
   onPlacementBoardHeightChange,
   onRemoveDynamicAnchor,
+  focusAnchorId,
   hostSingular = "Teacher"
 }: {
   identity: ApiIdentity;
@@ -95,6 +96,8 @@ export function AnchorPanel({
   onPlacementBoardWidthChange?(width: number): void;
   onPlacementBoardHeightChange?(height: number): void;
   onRemoveDynamicAnchor?(anchorId: string): Promise<void>;
+  /** When set (e.g. after 3D placement), selects this board in the anchor dropdown. */
+  focusAnchorId?: string | null;
 }) {
   const dynamicAnchors = dynamicWallAnchors ?? [];
   const allWallAnchors = useMemo(
@@ -175,6 +178,13 @@ export function AnchorPanel({
       setSelectedAnchor(activeBoardGrant.wallAnchorId);
     }
   }, [activeBoardGrant?.wallAnchorId, grantRestricted, selectedAnchor]);
+
+  useEffect(() => {
+    if (!focusAnchorId) return;
+    if (allWallAnchors.some((anchor) => anchor.id === focusAnchorId)) {
+      setSelectedAnchor(focusAnchorId);
+    }
+  }, [focusAnchorId, allWallAnchors]);
 
   const hasObjects = wallObjects.length > 0;
 
