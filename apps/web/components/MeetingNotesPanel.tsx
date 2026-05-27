@@ -92,7 +92,7 @@ export function MeetingNotesPanel({
       {!controller.activeSession && !controller.currentSession ? (
         <div className="meeting-notes-panel">
           <p className="meeting-notes-panel__copy">Recording is off and no transcript is being captured.</p>
-          <button type="button" className="button primary" disabled={controller.loading} onClick={() => void controller.start()}>
+          <button type="button" className="meeting-notes-panel__button meeting-notes-panel__button--primary" disabled={controller.loading} onClick={() => void controller.start()}>
             {controller.loading ? "Starting…" : "Start meeting notes"}
           </button>
           {history.length > 0 ? (
@@ -100,11 +100,11 @@ export function MeetingNotesPanel({
               <p className="meeting-notes-panel__label">Previous sessions</p>
               {history.map((session) => (
                 <div key={session.id} className="meeting-notes-panel__history-item">
-                  <button type="button" className="button secondary" onClick={() => controller.setCurrentSessionId(session.id)}>
+                  <button type="button" className="meeting-notes-panel__button meeting-notes-panel__button--ghost meeting-notes-panel__button--small" onClick={() => controller.setCurrentSessionId(session.id)}>
                     {new Date(session.startedAt).toLocaleString()}
                   </button>
                   {session.status === "ready" ? (
-                    <button type="button" className="button secondary" onClick={() => void controller.download(session.id, "md")}>
+                    <button type="button" className="meeting-notes-panel__button meeting-notes-panel__button--ghost meeting-notes-panel__button--small" onClick={() => void controller.download(session.id, "md")}>
                       Summary
                     </button>
                   ) : null}
@@ -122,10 +122,10 @@ export function MeetingNotesPanel({
             <span>Recording</span>
           </div>
           <div className="meeting-notes-panel__actions">
-            <button type="button" className="button primary" disabled={controller.loading} onClick={() => void controller.stop()}>
+            <button type="button" className="meeting-notes-panel__button meeting-notes-panel__button--primary" disabled={controller.loading} onClick={() => void controller.stop()}>
               Stop meeting notes
             </button>
-            <button type="button" className="button secondary" onClick={() => void controller.copyTranscript()}>
+            <button type="button" className="meeting-notes-panel__button meeting-notes-panel__button--ghost" onClick={() => void controller.copyTranscript()}>
               Copy transcript so far
             </button>
           </div>
@@ -165,30 +165,30 @@ export function MeetingNotesPanel({
       {controller.currentSession?.status === "ready" ? (
         <div className="meeting-notes-panel">
           <div className="meeting-notes-panel__tabs">
-            <button type="button" className={`button secondary${tab === "summary" ? " meeting-notes-panel__tab--active" : ""}`} onClick={() => setTab("summary")}>
+            <button type="button" className={`meeting-notes-panel__button meeting-notes-panel__button--tab${tab === "summary" ? " meeting-notes-panel__tab--active" : ""}`} onClick={() => setTab("summary")}>
               Summary
             </button>
-            <button type="button" className={`button secondary${tab === "transcript" ? " meeting-notes-panel__tab--active" : ""}`} onClick={() => setTab("transcript")}>
+            <button type="button" className={`meeting-notes-panel__button meeting-notes-panel__button--tab${tab === "transcript" ? " meeting-notes-panel__tab--active" : ""}`} onClick={() => setTab("transcript")}>
               Transcript
             </button>
           </div>
           <div className="meeting-notes-panel__actions">
-            <button type="button" className="button secondary" onClick={() => void controller.download(controller.currentSession!.id, "md")}>
+            <button type="button" className="meeting-notes-panel__button meeting-notes-panel__button--ghost" onClick={() => void controller.download(controller.currentSession!.id, "md")}>
               Download summary
             </button>
-            <button type="button" className="button secondary" onClick={() => void controller.download(controller.currentSession!.id, "txt")}>
+            <button type="button" className="meeting-notes-panel__button meeting-notes-panel__button--ghost meeting-notes-panel__button--small" onClick={() => void controller.download(controller.currentSession!.id, "txt")}>
               Transcript .txt
             </button>
-            <button type="button" className="button secondary" onClick={() => void controller.download(controller.currentSession!.id, "vtt")}>
+            <button type="button" className="meeting-notes-panel__button meeting-notes-panel__button--ghost meeting-notes-panel__button--small" onClick={() => void controller.download(controller.currentSession!.id, "vtt")}>
               .vtt
             </button>
-            <button type="button" className="button secondary" onClick={() => void controller.download(controller.currentSession!.id, "srt")}>
+            <button type="button" className="meeting-notes-panel__button meeting-notes-panel__button--ghost meeting-notes-panel__button--small" onClick={() => void controller.download(controller.currentSession!.id, "srt")}>
               .srt
             </button>
-            <button type="button" className="button secondary" disabled={controller.loading} onClick={() => void controller.resummarize()}>
+            <button type="button" className="meeting-notes-panel__button meeting-notes-panel__button--ghost" disabled={controller.loading} onClick={() => void controller.resummarize()}>
               Re-summarize
             </button>
-            <button type="button" className="button secondary" onClick={() => void controller.remove(controller.currentSession!.id)}>
+            <button type="button" className="meeting-notes-panel__button meeting-notes-panel__button--danger" onClick={() => void controller.remove(controller.currentSession!.id)}>
               Delete session
             </button>
           </div>
@@ -216,10 +216,10 @@ export function MeetingNotesPanel({
         <div className="meeting-notes-panel">
           <p className="meeting-notes-panel__error">{controller.currentSession.errorMessage ?? "Unable to generate meeting notes."}</p>
           <div className="meeting-notes-panel__actions">
-            <button type="button" className="button secondary" disabled={controller.loading} onClick={() => void controller.resummarize()}>
+            <button type="button" className="meeting-notes-panel__button meeting-notes-panel__button--ghost" disabled={controller.loading} onClick={() => void controller.resummarize()}>
               Retry
             </button>
-            <button type="button" className="button secondary" onClick={() => controller.setCurrentSessionId(null)}>
+            <button type="button" className="meeting-notes-panel__button meeting-notes-panel__button--ghost" onClick={() => controller.setCurrentSessionId(null)}>
               Dismiss
             </button>
           </div>

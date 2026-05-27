@@ -665,6 +665,76 @@ label {
   flex-wrap: wrap;
 }
 
+.meeting-notes-panel__tabs {
+  gap: 4px;
+}
+
+.meeting-notes-panel__actions {
+  gap: 5px;
+}
+
+.meeting-notes-panel__button {
+  appearance: none;
+  border: 1px solid var(--hud-bd);
+  background: rgba(255, 250, 240, 0.04);
+  color: var(--hud-tx);
+  border-radius: 7px;
+  padding: 0.38rem 0.58rem;
+  min-height: 30px;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease, transform 0.12s ease;
+}
+
+.meeting-notes-panel__button:hover:not(:disabled) {
+  background: rgba(255, 250, 240, 0.08);
+  border-color: var(--hud-bd-m);
+}
+
+.meeting-notes-panel__button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.meeting-notes-panel__button--primary {
+  background: rgba(192, 120, 52, 0.12);
+  border-color: rgba(192, 120, 52, 0.3);
+  color: #e6bc8d;
+}
+
+.meeting-notes-panel__button--primary:hover:not(:disabled) {
+  background: rgba(192, 120, 52, 0.18);
+  border-color: rgba(192, 120, 52, 0.42);
+}
+
+.meeting-notes-panel__button--ghost {
+  color: var(--hud-tx-m);
+}
+
+.meeting-notes-panel__button--tab {
+  flex: 1 1 0;
+  text-align: center;
+  color: var(--hud-tx-m);
+}
+
+.meeting-notes-panel__button--small {
+  padding-inline: 0.45rem;
+}
+
+.meeting-notes-panel__button--danger {
+  color: #d7a7a7;
+  border-color: rgba(176, 58, 58, 0.24);
+  background: rgba(176, 58, 58, 0.08);
+}
+
+.meeting-notes-panel__button--danger:hover:not(:disabled) {
+  background: rgba(176, 58, 58, 0.14);
+  border-color: rgba(176, 58, 58, 0.36);
+}
+
 .meeting-notes-panel__rec-dot {
   width: 8px;
   height: 8px;
@@ -711,7 +781,9 @@ label {
 }
 
 .meeting-notes-panel__tab--active {
-  border-color: rgba(255, 250, 240, 0.3);
+  background: rgba(255, 250, 240, 0.1);
+  border-color: rgba(255, 250, 240, 0.18);
+  color: var(--hud-tx);
 }
 
 .student-detail-panel {
