@@ -988,7 +988,8 @@ const WALL_AVATAR_RADIUS = 0.4;
 /**
  * Push `newPos` back so the avatar cannot enter any non-passable wall volume.
  * Each axis is resolved independently, giving natural wall-sliding behaviour.
- * Walls must be axis-aligned (either along X or along Z).
+ * Axis-aligned walls are handled directly; FFA perimeter segments also receive
+ * a radial containment pass so diagonal chords cannot be bypassed.
  */
 export function resolveWallCollisions(
   oldPos: { x: number; z: number },
@@ -1037,6 +1038,25 @@ export function resolveWallCollisions(
         } else if (oldPos.x > minBlockedX && oldPos.x < maxBlockedX) {
           x = oldPos.x <= wallX ? minBlockedX : maxBlockedX;
         }
+      }
+    }
+  }
+
+  const hasFreeForAllPerimeter = walls.some((wall) => wall.id.startsWith("ffa-perim-"));
+  if (hasFreeForAllPerimeter) {
+    const angle = Math.atan2(z, x);
+    const exitAngles = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2];
+    const withinExitArc = exitAngles.some((exitAngle) => {
+      const diff = ((angle - exitAngle + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+      return Math.abs(diff) <= FFA_EXIT_HALF_ARC;
+    });
+    if (!withinExitArc) {
+      const maxRadius = FFA_MAIN_RADIUS - WALL_AVATAR_RADIUS;
+      const radialDistance = Math.hypot(x, z);
+      if (radialDistance > maxRadius && radialDistance > 0) {
+        const scale = maxRadius / radialDistance;
+        x *= scale;
+        z *= scale;
       }
     }
   }

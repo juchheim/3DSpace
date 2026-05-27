@@ -10,6 +10,7 @@ import {
   roomCenterXZ,
   rotationFacingRoomCenter,
   createDefaultRoomManifest,
+  createFreeForAllManifest,
   createWorkforceTrainingManifest,
   interpolateAvatarState,
   delta2DToWorldXZ,
@@ -490,5 +491,30 @@ describe("workforce training manifest", () => {
     expect(
       resolveWallCollisions({ x: -23.1, z: -10 }, { x: -24.5, z: -10 }, manifest.walls)
     ).toEqual({ x: stopX, z: -10 });
+  });
+});
+
+describe("free-for-all wall collisions", () => {
+  const manifest = createFreeForAllManifest({ roomId: "room-ffa-1" });
+
+  it("clamps movement to the circular perimeter outside exit arcs", () => {
+    const result = resolveWallCollisions(
+      { x: 22.5, z: 6 },
+      { x: 23.8, z: 6 },
+      manifest.walls
+    );
+
+    expect(Math.hypot(result.x, result.z)).toBeLessThanOrEqual(22.6);
+  });
+
+  it("does not apply radial clamp when moving through an exit arc", () => {
+    const result = resolveWallCollisions(
+      { x: 22.5, z: 0.1 },
+      { x: 23.8, z: 0.1 },
+      manifest.walls
+    );
+
+    expect(result.x).toBeCloseTo(23.8);
+    expect(result.z).toBeCloseTo(0.1);
   });
 });
