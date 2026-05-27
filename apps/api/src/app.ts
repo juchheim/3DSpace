@@ -33,6 +33,7 @@ import {
   JoinFreeForAllSessionRequestSchema,
   ListWorldSkinsResponseSchema,
   ListRoomObjectTemplatesQuerySchema,
+  GetRoomObjectTemplateQuerySchema,
   WorldSkinSchema,
   RoomSkinMessageSchema,
   ListRoomObjectTemplatesResponseSchema,
@@ -213,6 +214,7 @@ import {
   ListAiObjectJobsResponseSchema,
   PatchAiObjectJobRequestSchema,
   PlaceAiObjectRequestSchema,
+  PlaceAiObjectResponseSchema,
   StartAiObjectJobRequestSchema,
   StartAiObjectJobResponseSchema,
   type AiObjectJob
@@ -782,6 +784,26 @@ function assertRoomObjectTemplateVisibleForRoomType(
     "classroom";
   if (!template.visibleRoomTypes.includes(roomType)) {
     throw notFound("Room object template is unavailable for this room type");
+  }
+}
+
+async function assertRoomObjectTemplateResolvable(
+  repository: Repository,
+  auth: AuthContext,
+  template: { id: string; source: string; visibleRoomTypes: RoomType[] },
+  room: { type?: RoomType | string | null | undefined }
+) {
+  assertRoomObjectTemplateVisibleForRoomType(template, room);
+  if (template.source === "ai-generated") {
+    return;
+  }
+  const roomType: RoomType =
+    room.type === "workforce-training" ? "workforce-training" :
+    room.type === "free-for-all" ? "free-for-all" :
+    "classroom";
+  const visible = await repository.listRoomObjectTemplatesVisibleTo(auth.userId, roomType);
+  if (!visible.some((entry) => entry.id === template.id)) {
+    throw notFound("Room object template not found");
   }
 }
 
@@ -4406,6 +4428,18 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     return CreateRoomObjectTemplateResponseSchema.parse({ template });
   });
 
+  app.get("/v1/room-objects/templates/:templateId", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    if (!config.tuning.enableRoomObjects) throw roomObjectDisabled();
+    const params = parseParams(ParamsWithTemplateId, request);
+    const query = parseQuery(GetRoomObjectTemplateQuerySchema, request);
+    const { room } = await requireRoomAccess(repository, query.roomId, auth);
+    const template = await repository.getRoomObjectTemplate(params.templateId);
+    if (!template) throw notFound("Room object template not found");
+    await assertRoomObjectTemplateResolvable(repository, auth, template, room);
+    return RoomObjectTemplateSchema.parse(template);
+  });
+
   app.delete("/v1/room-objects/templates/:templateId", async (request) => {
     const auth = await requireUser(request, config, repository);
     if (!config.tuning.enableRoomObjects) throw roomObjectDisabled();
@@ -4713,7 +4747,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       })
     );
     const realtimeMessages = [buildRoomObjectUpsertMessage({ roomId: params.roomId, object, senderId: auth.userId })];
-    return { object, realtimeMessages };
+    return PlaceAiObjectResponseSchema.parse({ object, template, realtimeMessages });
   });
 
   // ── End AI 3D Object Generator ────────────────────────────────────────────

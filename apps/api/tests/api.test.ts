@@ -4899,8 +4899,10 @@ describe("room object realtime grab lock", () => {
         payload: {}
       });
       expect(placeRes.statusCode).toBe(200);
-      const { object, realtimeMessages } = placeRes.json();
+      const { object, template, realtimeMessages } = placeRes.json();
       expect(object.templateId).toBe(finalJob.templateId);
+      expect(template.id).toBe(finalJob.templateId);
+      expect(template.source).toBe("ai-generated");
       expect(realtimeMessages[0].type).toBe("room.object.upsert.v1");
 
       await app.close();
@@ -5053,6 +5055,15 @@ describe("room object realtime grab lock", () => {
       expect(
         catalogRes.json().templates.some((entry: { id: string }) => entry.id === finalJob.templateId)
       ).toBe(false);
+
+      const resolveRes = await app.inject({
+        method: "GET",
+        url: `/v1/room-objects/templates/${finalJob.templateId}?roomId=${roomId}`,
+        headers: authHeaders("teacher-ffa", "Ms. Rivera")
+      });
+      expect(resolveRes.statusCode).toBe(200);
+      expect(resolveRes.json().id).toBe(finalJob.templateId);
+      expect(resolveRes.json().source).toBe("ai-generated");
 
       await app.close();
     });

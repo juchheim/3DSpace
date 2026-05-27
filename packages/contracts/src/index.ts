@@ -2460,6 +2460,16 @@ export const PlaceAiObjectRequestSchema = z.object({
   rotation: z.object({ yaw: z.number(), pitch: z.number(), roll: z.number() }).optional()
 });
 
+export const PlaceAiObjectResponseSchema = z.object({
+  object: RoomObjectSchema,
+  template: RoomObjectTemplateSchema,
+  realtimeMessages: z.array(z.unknown())
+});
+
+export const GetRoomObjectTemplateQuerySchema = z.object({
+  roomId: z.string()
+});
+
 export const AiObjectStartedMessageV1Schema = z.object({
   type: z.literal("room.ai-object.started.v1"),
   roomId: z.string(),
@@ -2619,6 +2629,7 @@ export const apiRoutes: ApiRoute[] = [
     response: CreateRoomObjectUploadResponseSchema
   },
   { method: "post", path: "/v1/room-objects/templates", summary: "Register a custom room object template after asset upload", tags: ["room-objects"], request: CreateRoomObjectTemplateRequestSchema, response: CreateRoomObjectTemplateResponseSchema },
+  { method: "get", path: "/v1/room-objects/templates/{templateId}", summary: "Get a room object template by id (including ai-generated for in-room rendering)", tags: ["room-objects"], response: RoomObjectTemplateSchema },
   { method: "delete", path: "/v1/room-objects/templates/{templateId}", summary: "Archive a custom room object template", tags: ["room-objects"], response: RoomObjectTemplateSchema },
   { method: "get", path: "/v1/rooms/{roomId}/objects", summary: "List room manipulatives in a room", tags: ["room-objects"], response: ListRoomObjectsResponseSchema },
   { method: "post", path: "/v1/rooms/{roomId}/objects", summary: "Instantiate a room object template into a room", tags: ["room-objects"], request: CreateRoomObjectRequestSchema, response: CreateRoomObjectResponseSchema },

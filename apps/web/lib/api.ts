@@ -342,6 +342,11 @@ export function listRoomObjectTemplates(identity: ApiIdentity, roomId: string) {
   return apiFetch<{ templates: RoomObjectTemplate[] }>(`/v1/room-objects/templates?${query.toString()}`, { identity }).then((response) => response.templates);
 }
 
+export function fetchRoomObjectTemplate(identity: ApiIdentity, templateId: string, roomId: string) {
+  const query = new URLSearchParams({ roomId });
+  return apiFetch<RoomObjectTemplate>(`/v1/room-objects/templates/${templateId}?${query.toString()}`, { identity });
+}
+
 export function listWorldSkins(identity: ApiIdentity) {
   return apiFetch<{ skins: WorldSkin[] }>("/v1/world-skins", { identity }).then((r) => r.skins);
 }
@@ -698,7 +703,7 @@ export function deleteAiObjectJob(identity: ApiIdentity, roomId: string, jobId: 
 }
 
 export function placeAiObject(identity: ApiIdentity, roomId: string, jobId: string, body: Partial<PlaceAiObjectRequest> = {}) {
-  return apiFetch<{ object: RoomObject; realtimeMessages: unknown[] }>(`/v1/rooms/${roomId}/ai-objects/jobs/${jobId}/place`, {
+  return apiFetch<{ object: RoomObject; template: RoomObjectTemplate; realtimeMessages: unknown[] }>(`/v1/rooms/${roomId}/ai-objects/jobs/${jobId}/place`, {
     method: "POST",
     body,
     identity

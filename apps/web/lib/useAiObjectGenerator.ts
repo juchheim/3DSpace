@@ -162,17 +162,19 @@ export function useAiObjectGenerator(input: {
   }, [identity, publish, roomId]);
 
   const place = useCallback(async (jobId: string, pose?: { position: { x: number; y: number; z: number }; rotation: { yaw: number; pitch: number; roll: number } }) => {
-    if (!roomId) return;
+    if (!roomId) return undefined;
     try {
       const result = await placeAiObject(identity, roomId, jobId, pose ? { position: pose.position, rotation: pose.rotation } : {});
       for (const msg of result.realtimeMessages) {
         applyLocally?.(msg as RealtimeMessage);
         publish?.(msg as RealtimeMessage);
       }
+      return result;
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
       }
+      return undefined;
     }
   }, [applyLocally, identity, publish, roomId]);
 

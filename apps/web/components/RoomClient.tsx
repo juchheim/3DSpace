@@ -1039,6 +1039,29 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     }
     return map;
   }, [roomObjectTemplates.templates]);
+
+  useEffect(() => {
+    if (!roomObjectsEnabled || !session?.room.id) return;
+    const missingTemplateIds = [
+      ...new Set(
+        roomObjects.objects
+          .map((object) => object.templateId)
+          .filter((templateId) => !roomObjectTemplatesById[templateId])
+      )
+    ];
+    if (missingTemplateIds.length === 0) return;
+    let cancelled = false;
+    void (async () => {
+      for (const templateId of missingTemplateIds) {
+        if (cancelled) return;
+        await roomObjectTemplates.resolveTemplate(templateId);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [roomObjects.objects, roomObjectTemplates.resolveTemplate, roomObjectTemplatesById, roomObjectsEnabled, session?.room.id]);
+
   const memberGroupIdsForRoomObjects = useMemo(
     () =>
       (classroom.state?.groups ?? [])
@@ -2151,8 +2174,10 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
                   },
                   rotation: { yaw: avatarYaw, pitch: 0, roll: 0 }
                 } : undefined;
-                await aiObjectGenerator.place(jobId, pose);
-                await roomObjectTemplates.refetch();
+                const result = await aiObjectGenerator.place(jobId, pose);
+                if (result?.template) {
+                  roomObjectTemplates.registerTemplate(result.template);
+                }
               }
             }} />
           ) : null}
