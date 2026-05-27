@@ -1044,6 +1044,15 @@ export function resolveWallCollisions(
 
   const hasFreeForAllPerimeter = walls.some((wall) => wall.id.startsWith("ffa-perim-"));
   if (hasFreeForAllPerimeter) {
+    const oldRadius = Math.hypot(oldPos.x, oldPos.z);
+    const newRadius = Math.hypot(x, z);
+    const shouldApplyPerimeterClamp =
+      oldRadius <= FFA_MAIN_RADIUS + WALL_AVATAR_RADIUS ||
+      newRadius <= FFA_MAIN_RADIUS + WALL_AVATAR_RADIUS;
+    if (!shouldApplyPerimeterClamp) {
+      return { x, z };
+    }
+
     const angle = Math.atan2(z, x);
     const exitAngles = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2];
     const withinExitArc = exitAngles.some((exitAngle) => {

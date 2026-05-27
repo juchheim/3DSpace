@@ -517,4 +517,15 @@ describe("free-for-all wall collisions", () => {
     expect(result.x).toBeCloseTo(23.8);
     expect(result.z).toBeCloseTo(0.1);
   });
+
+  it("does not teleport movement inside adjoining rooms", () => {
+    const result = resolveWallCollisions(
+      { x: 35, z: 0 },
+      { x: 35, z: 0.8 },
+      manifest.walls
+    );
+
+    expect(result.x).toBeCloseTo(35);
+    expect(result.z).toBeCloseTo(0.8);
+  });
 });
