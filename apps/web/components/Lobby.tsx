@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ClassRecord, FreeForAllRoomSummary, Invite, RoomObjectsSettings, RoomRecord, RoomSettings } from "@3dspace/contracts";
 import { parseRoomSettings } from "@3dspace/contracts";
 import { acceptInvite, createClass, createInvite, createRoom, deleteRoom, joinFreeForAllRoom, listClasses, listFreeForAllRooms, listRooms, patchRoom } from "../lib/api";
@@ -42,12 +42,16 @@ function FreeForAllRoomBrowser({
   identity,
   busy,
   setBusy,
-  setError
+  setError,
+  manageableClassIds,
+  onRoomDeleted
 }: {
   identity: ApiIdentity;
   busy: boolean;
   setBusy: (v: boolean) => void;
   setError: (v: string) => void;
+  manageableClassIds: Set<string>;
+  onRoomDeleted?: () => Promise<void>;
 }) {
   const [rooms, setRooms] = useState<FreeForAllRoomSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,6 +89,21 @@ function FreeForAllRoomBrowser({
     }
   }
 
+  async function remove(room: FreeForAllRoomSummary) {
+    if (!window.confirm(`Delete "${room.name}"? This cannot be undone.`)) return;
+    setBusy(true);
+    setError("");
+    try {
+      await deleteRoom(identity, room.id);
+      setRooms((previous) => previous.filter((candidate) => candidate.id !== room.id));
+      if (onRoomDeleted) await onRoomDeleted();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to delete room.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (loading) return <p className="lb-join-hint">Loading rooms…</p>;
   if (rooms.length === 0) {
     return <p className="lb-join-hint">No open rooms right now — create one above to get started!</p>;
@@ -96,6 +115,15 @@ function FreeForAllRoomBrowser({
         <div key={room.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.4rem 0", borderBottom: "1px solid var(--lb-line, rgba(255,255,255,0.07))" }}>
           <span style={{ flex: 1, fontSize: "0.85rem", color: "var(--lb-tx, #e8e0d0)" }}>{room.name}</span>
           <span style={{ fontSize: "0.75rem", color: "var(--lb-tx-m, #888)", whiteSpace: "nowrap" }}>{room.participantCount} online</span>
+          {manageableClassIds.has(room.classId) ? (
+            <button
+              className="lb-btn lb-btn-dan lb-btn-sm"
+              disabled={busy}
+              onClick={() => void remove(room)}
+            >
+              Delete
+            </button>
+          ) : null}
           <button
             className="lb-btn lb-btn-pri lb-btn-sm"
             disabled={busy}
@@ -124,6 +152,15 @@ export function Lobby() {
   const [settingsOpen, setSettingsOpen] = useState<string | null>(null);
   const [draftHallpass, setDraftHallpass] = useState<RoomSettings["hallpass"] | null>(null);
   const [draftRoomObjects, setDraftRoomObjects] = useState<RoomObjectsSettings | null>(null);
+  const manageableClassIds = useMemo(
+    () =>
+      new Set(
+        classes
+          .filter((record) => record.teacherUserId === identity.userId)
+          .map((record) => record.id)
+      ),
+    [classes, identity.userId]
+  );
 
   function handleRoomTypeChange(next: RoomType) {
     const currentDefaults = ROOM_TYPE_FORM_DEFAULTS[roomType];
@@ -658,7 +695,14 @@ export function Lobby() {
             <div className="lb-panel">
               <div className="lb-join-body">
                 {roomType === "free-for-all" ? (
-                  <FreeForAllRoomBrowser identity={identity} busy={busy} setBusy={setBusy} setError={setError} />
+                  <FreeForAllRoomBrowser
+                    identity={identity}
+                    busy={busy}
+                    setBusy={setBusy}
+                    setError={setError}
+                    manageableClassIds={manageableClassIds}
+                    onRoomDeleted={refresh}
+                  />
                 ) : (
                   <>
                     <p className="lb-join-hint">

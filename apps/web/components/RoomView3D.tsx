@@ -64,6 +64,10 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
+function anchorYaw(normal: { x: number; z: number }) {
+  return Math.atan2(normal.x, normal.z);
+}
+
 function cross2D(ax: number, az: number, bx: number, bz: number) {
   return ax * bz - az * bx;
 }
@@ -698,12 +702,12 @@ const WallObjectSurface = memo(function WallObjectSurface({
   const { camera } = useThree();
   const normal = useMemo(() => new Vector3(anchor.normal.x, anchor.normal.y, anchor.normal.z).normalize(), [anchor.normal.x, anchor.normal.y, anchor.normal.z]);
   const right = useMemo(() => {
-    if (Math.abs(anchor.normal.z) > 0.01) return new Vector3(1, 0, 0);
-    return new Vector3(0, 0, anchor.normal.x > 0 ? -1 : 1);
-  }, [anchor.normal.x, anchor.normal.z]);
+    const tangent = new Vector3(0, 1, 0).cross(normal);
+    if (tangent.lengthSq() < 1e-6) return new Vector3(1, 0, 0);
+    return tangent.normalize();
+  }, [normal]);
   const rotation = useMemo<[number, number, number]>(() => {
-    if (Math.abs(anchor.normal.x) > 0) return [0, anchor.normal.x > 0 ? Math.PI / 2 : -Math.PI / 2, 0];
-    return [0, anchor.normal.z < 0 ? Math.PI : 0, 0];
+    return [0, anchorYaw(anchor.normal), 0];
   }, [anchor.normal.x, anchor.normal.z]);
   const placement = useMemo(() => constrainPlacement(object.placement), [object.placement]);
   const hideHeader = anchor.metadata?.hideObjectHeader === true;
@@ -787,8 +791,7 @@ const PrivateCheckSurface = memo(function PrivateCheckSurface({
   const { camera } = useThree();
   const normal = useMemo(() => new Vector3(anchor.normal.x, anchor.normal.y, anchor.normal.z).normalize(), [anchor.normal.x, anchor.normal.y, anchor.normal.z]);
   const rotation = useMemo<[number, number, number]>(() => {
-    if (Math.abs(anchor.normal.x) > 0) return [0, anchor.normal.x > 0 ? Math.PI / 2 : -Math.PI / 2, 0];
-    return [0, anchor.normal.z < 0 ? Math.PI : 0, 0];
+    return [0, anchorYaw(anchor.normal), 0];
   }, [anchor.normal.x, anchor.normal.z]);
   const position = useMemo<[number, number, number]>(() => {
     const base = new Vector3(anchor.position.x, anchor.position.y, anchor.position.z).add(normal.clone().multiplyScalar(PRIVATE_CHECK_SURFACE_OFFSET));
@@ -1807,8 +1810,7 @@ function AnchorMesh({ anchor, walls, showLabel, spotlighted }: { anchor: Anchor;
   );
   const cameraOffset = useMemo(() => new Vector3(), []);
   const rotation = useMemo<[number, number, number]>(() => {
-    if (Math.abs(anchor.normal.x) > 0) return [0, anchor.normal.x > 0 ? Math.PI / 2 : -Math.PI / 2, 0];
-    return [0, anchor.normal.z < 0 ? Math.PI : 0, 0];
+    return [0, anchorYaw(anchor.normal), 0];
   }, [anchor.normal.x, anchor.normal.z]);
 
   useFrame(() => {
