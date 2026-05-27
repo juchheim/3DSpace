@@ -13,6 +13,9 @@ import type {
   Invite,
   LessonRecap,
   ListFreeForAllRoomsResponse,
+  MeetingNotesDownloadFormat,
+  MeetingNotesSessionDetail,
+  MeetingNotesSessionListResponse,
   Role,
   RoomSessionResponse,
   RoomType,
@@ -27,7 +30,9 @@ import type {
   RoomSettings,
   RoomObjectTouchRequestSchema,
   RoomWithManifest,
+  StartMeetingNotesSessionResponse,
   UpdateRoomObjectRequestSchema,
+  UploadMeetingNotesAudioChunkResponse,
   WallAttachment,
   WallAttachmentDownloadResponse,
   WallObject,
@@ -532,6 +537,90 @@ export async function downloadLessonRecapCsv(identity: ApiIdentity, roomId: stri
   }
 
   const response = await fetch(lessonRecapCsvUrl(roomId, runId), { headers });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({ message: response.statusText }));
+    throw new ApiError(
+      response.status,
+      payload.message ?? `Request failed with ${response.status}`,
+      payload.error,
+      payload
+    );
+  }
+  return response.text();
+}
+
+export function listMeetingNotesSessions(identity: ApiIdentity, roomId: string) {
+  return apiFetch<MeetingNotesSessionListResponse>(`/v1/rooms/${roomId}/meeting-notes/sessions`, { identity });
+}
+
+export function startMeetingNotesSession(identity: ApiIdentity, roomId: string) {
+  return apiFetch<StartMeetingNotesSessionResponse>(`/v1/rooms/${roomId}/meeting-notes/sessions`, {
+    method: "POST",
+    identity
+  });
+}
+
+export function fetchMeetingNotesSession(identity: ApiIdentity, roomId: string, sessionId: string) {
+  return apiFetch<MeetingNotesSessionDetail>(`/v1/rooms/${roomId}/meeting-notes/sessions/${sessionId}`, { identity });
+}
+
+export function updateMeetingNotesSession(identity: ApiIdentity, roomId: string, sessionId: string, action: "stop" | "cancel") {
+  return apiFetch<StartMeetingNotesSessionResponse>(`/v1/rooms/${roomId}/meeting-notes/sessions/${sessionId}`, {
+    method: "PATCH",
+    identity,
+    body: { action }
+  });
+}
+
+export function resummarizeMeetingNotesSession(identity: ApiIdentity, roomId: string, sessionId: string) {
+  return apiFetch<StartMeetingNotesSessionResponse>(`/v1/rooms/${roomId}/meeting-notes/sessions/${sessionId}/summary`, {
+    method: "POST",
+    identity,
+    body: { action: "resummarize" }
+  });
+}
+
+export function deleteMeetingNotesSession(identity: ApiIdentity, roomId: string, sessionId: string) {
+  return apiFetch<{ deleted: boolean }>(`/v1/rooms/${roomId}/meeting-notes/sessions/${sessionId}`, {
+    method: "DELETE",
+    identity
+  });
+}
+
+export function uploadMeetingNotesAudioChunk(
+  identity: ApiIdentity,
+  roomId: string,
+  sessionId: string,
+  body: {
+    participantId: string;
+    startedAtMs: number;
+    endedAtMs: number;
+    mimeType: string;
+    audioBase64: string;
+  }
+) {
+  return apiFetch<UploadMeetingNotesAudioChunkResponse>(`/v1/rooms/${roomId}/meeting-notes/sessions/${sessionId}/audio-chunks`, {
+    method: "POST",
+    identity,
+    body
+  });
+}
+
+export async function downloadMeetingNotesArtifact(
+  identity: ApiIdentity,
+  roomId: string,
+  sessionId: string,
+  format: MeetingNotesDownloadFormat
+) {
+  const headers: Record<string, string> = {
+    ...identityHeaders(identity)
+  };
+  const token = await identity.getAuthToken?.();
+  if (token) {
+    headers.authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_URL}/v1/rooms/${roomId}/meeting-notes/sessions/${sessionId}/download?format=${encodeURIComponent(format)}`, { headers });
   if (!response.ok) {
     const payload = await response.json().catch(() => ({ message: response.statusText }));
     throw new ApiError(

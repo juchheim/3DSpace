@@ -6,6 +6,11 @@ import type {
   AvatarStateMessage,
   ClassroomStateChangedRealtimeSchema,
   ClassroomStateRealtimeSchema,
+  MeetingNotesEndedMessageV1,
+  MeetingNotesErrorMessageV1,
+  MeetingNotesSegmentMessageV1,
+  MeetingNotesStartedMessageV1,
+  MeetingNotesSummaryReadyMessageV1,
   ParticipantAudioModeMessage,
   Role,
   RoomBoardCreatedMessageV1,
@@ -50,6 +55,13 @@ export type BoardRealtimeMessage =
   | RoomBoardUpdatedMessageV1
   | RoomBoardRemovedMessageV1;
 
+export type MeetingNotesRealtimeMessage =
+  | MeetingNotesStartedMessageV1
+  | MeetingNotesEndedMessageV1
+  | MeetingNotesSummaryReadyMessageV1
+  | MeetingNotesErrorMessageV1
+  | MeetingNotesSegmentMessageV1;
+
 export type RealtimeMessage =
   | AvatarStateMessage
   | AvatarAppearanceMessage
@@ -61,9 +73,10 @@ export type RealtimeMessage =
   | ClassroomRealtimeMessage
   | RoomObjectRealtimeMessage
   | RoomSkinMessage
-  | BoardRealtimeMessage;
+  | BoardRealtimeMessage
+  | MeetingNotesRealtimeMessage;
 
-const ROOM_OBJECT_UNRELIABLE_TYPES = new Set(["room.object.pose.v1"]);
+const ROOM_OBJECT_UNRELIABLE_TYPES = new Set(["room.object.pose.v1", "room.meeting-notes.segment.v1"]);
 
 export function isRoomObjectRealtimeUnreliable(type: string) {
   return ROOM_OBJECT_UNRELIABLE_TYPES.has(type);

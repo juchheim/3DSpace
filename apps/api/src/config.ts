@@ -23,6 +23,7 @@ export type AppConfig = {
     publicRead: boolean;
   };
   sentryDsn: string | undefined;
+  openAiApiKey: string | undefined;
   /** When set, enables POST/GET /v1/world-skin-uploader/* operator routes. */
   worldSkinUploaderPassword: string | undefined;
   /** Shared password required to create or join Free-for-All rooms (except room creators on join). */
@@ -58,6 +59,11 @@ export type AppConfig = {
     enableWorldSkins: boolean;
     enableWorkforceTraining: boolean;
     enableFreeForAll: boolean;
+    enableAiMeetingNotes: boolean;
+    openAiTranscriptionModel: string;
+    openAiSummaryModel: string;
+    aiMeetingNotesMaxDurationMinutes: number;
+    aiMeetingNotesStoragePrefix: string;
     enableStudentMediaPermissions: boolean;
     spatialAudio: SpatialAudioConfig;
     media: {
@@ -138,6 +144,10 @@ function requiredInProduction(config: AppConfig, raw: NodeJS.ProcessEnv) {
     required.push("FREE_FOR_ALL_PASSWORD");
   }
 
+  if (config.tuning.enableAiMeetingNotes) {
+    required.push("OPENAI_API_KEY");
+  }
+
   const missing = required.filter((key) => !envString(raw, key));
   if (missing.length > 0) {
     throw new Error(`Missing required production environment variables: ${missing.join(", ")}`);
@@ -179,6 +189,7 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       publicRead: envBoolean(raw, "OBJECT_STORAGE_PUBLIC_READ", false)
     },
     sentryDsn: envString(raw, "SENTRY_DSN"),
+    openAiApiKey: envString(raw, "OPENAI_API_KEY"),
     worldSkinUploaderPassword: envString(raw, "WORLD_SKIN_UPLOADER_PASSWORD"),
     freeForAllPassword: envString(raw, "FREE_FOR_ALL_PASSWORD"),
     tuning: {
@@ -212,6 +223,11 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       enableWorldSkins: envBoolean(raw, "ENABLE_WORLD_SKINS", false),
       enableWorkforceTraining: envBoolean(raw, "ENABLE_WORKFORCE_TRAINING", false),
       enableFreeForAll: envBoolean(raw, "ENABLE_FREE_FOR_ALL", false),
+      enableAiMeetingNotes: envBoolean(raw, "ENABLE_AI_MEETING_NOTES", false),
+      openAiTranscriptionModel: envString(raw, "OPENAI_TRANSCRIPTION_MODEL") ?? "gpt-4o-transcribe",
+      openAiSummaryModel: envString(raw, "OPENAI_SUMMARY_MODEL") ?? "gpt-4.1",
+      aiMeetingNotesMaxDurationMinutes: envNumber(raw, "AI_MEETING_NOTES_MAX_DURATION_MINUTES", 120),
+      aiMeetingNotesStoragePrefix: envString(raw, "AI_MEETING_NOTES_STORAGE_PREFIX") ?? "meeting-notes/",
       enableStudentMediaPermissions: envBoolean(raw, "ENABLE_STUDENT_MEDIA_PERMISSIONS", false),
       spatialAudio: {
         enabled: envBoolean(raw, "SPATIAL_AUDIO_ENABLED", true),

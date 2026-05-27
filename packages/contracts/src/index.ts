@@ -824,6 +824,7 @@ export type RoomTypeFeatureFlags = {
   worldSkins: boolean;
   dynamicBoards: boolean;
   openJoin: boolean;
+  aiMeetingNotes: boolean;
 };
 
 const NON_CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
@@ -839,7 +840,8 @@ const NON_CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freez
   studentMediaControls: false,
   worldSkins: false,
   dynamicBoards: false,
-  openJoin: false
+  openJoin: false,
+  aiMeetingNotes: false
 });
 
 const CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
@@ -855,7 +857,8 @@ const CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
   studentMediaControls: true,
   worldSkins: true,
   dynamicBoards: false,
-  openJoin: false
+  openJoin: false,
+  aiMeetingNotes: false
 });
 
 const FREE_FOR_ALL_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
@@ -871,7 +874,8 @@ const FREE_FOR_ALL_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze
   studentMediaControls: false,
   worldSkins: false,
   dynamicBoards: true,
-  openJoin: true
+  openJoin: true,
+  aiMeetingNotes: true
 });
 
 /**
@@ -938,6 +942,17 @@ export const RoomSettingsSchema = z.object({
   }).default({
     camerasEnabled: true,
     microphonesEnabled: true
+  }),
+  aiMeetingNotes: z.object({
+    enabled: z.boolean().default(true),
+    autoStartOnFirstJoin: z.boolean().default(false),
+    maxSessionDurationMinutes: z.number().int().positive().max(360).default(120),
+    retentionDays: z.number().int().positive().max(365).default(30)
+  }).default({
+    enabled: true,
+    autoStartOnFirstJoin: false,
+    maxSessionDurationMinutes: 120,
+    retentionDays: 30
   })
 });
 
@@ -967,6 +982,86 @@ export const CreateRoomRequestSchema = z.object({
 export const JoinFreeForAllSessionRequestSchema = z.object({
   freeForAllPassword: z.string().min(1).optional()
 });
+
+export const MeetingNotesSessionStatusSchema = z.enum([
+  "starting",
+  "recording",
+  "finalizing",
+  "ready",
+  "error",
+  "cancelled"
+]);
+
+export const MeetingNotesSegmentSchema = z.object({
+  id: z.string().min(1),
+  sessionId: z.string().min(1),
+  roomId: z.string().min(1),
+  speakerUserId: z.string().min(1),
+  startMs: z.number().int().nonnegative(),
+  endMs: z.number().int().nonnegative(),
+  text: z.string(),
+  isFinal: z.boolean(),
+  language: z.string().optional(),
+  createdAt: z.string().datetime()
+});
+
+export const MeetingNotesSessionSchema = z.object({
+  id: z.string().min(1),
+  roomId: z.string().min(1),
+  startedByUserId: z.string().min(1),
+  startedAt: z.string().datetime(),
+  endedAt: z.string().datetime().optional(),
+  status: MeetingNotesSessionStatusSchema,
+  transcriptStorageKeys: z.object({
+    txt: z.string().optional(),
+    vtt: z.string().optional(),
+    srt: z.string().optional()
+  }).optional(),
+  summaryStorageKey: z.string().optional(),
+  summaryGeneratedAt: z.string().datetime().optional(),
+  durationSec: z.number().int().nonnegative().optional(),
+  participantUserIds: z.array(z.string()).default([]),
+  errorMessage: z.string().optional(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime()
+});
+
+export const MeetingNotesSessionDetailSchema = MeetingNotesSessionSchema.extend({
+  segments: z.array(MeetingNotesSegmentSchema).default([])
+});
+
+export const MeetingNotesSessionListResponseSchema = z.object({
+  sessions: z.array(MeetingNotesSessionSchema).default([])
+});
+
+export const StartMeetingNotesSessionResponseSchema = z.object({
+  session: MeetingNotesSessionSchema,
+  realtimeMessages: z.array(z.unknown()).default([])
+});
+
+export const PatchMeetingNotesSessionRequestSchema = z.object({
+  action: z.enum(["stop", "cancel"])
+});
+
+export const UpdateMeetingNotesSummaryRequestSchema = z.object({
+  action: z.literal("resummarize")
+});
+
+export const UploadMeetingNotesAudioChunkRequestSchema = z.object({
+  participantId: z.string().min(1),
+  startedAtMs: z.number().int().nonnegative(),
+  endedAtMs: z.number().int().nonnegative(),
+  mimeType: z.string().min(1),
+  audioBase64: z.string().min(1)
+});
+
+export const UploadMeetingNotesAudioChunkResponseSchema = z.object({
+  accepted: z.boolean(),
+  segment: MeetingNotesSegmentSchema.optional(),
+  realtimeMessages: z.array(z.unknown()).default([])
+});
+
+export const MeetingNotesDownloadFormatSchema = z.enum(["txt", "vtt", "srt", "md"]);
 
 export const UpdateRoomRequestSchema = z.object({
   name: z.string().min(1).max(120).optional(),
@@ -1385,9 +1480,59 @@ export const RoomBoardRemovedMessageV1Schema = z.object({
   senderId: z.string()
 });
 
+export const MeetingNotesStartedMessageV1Schema = z.object({
+  type: z.literal("room.meeting-notes.started.v1"),
+  roomId: z.string(),
+  sessionId: z.string(),
+  session: MeetingNotesSessionSchema,
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const MeetingNotesEndedMessageV1Schema = z.object({
+  type: z.literal("room.meeting-notes.ended.v1"),
+  roomId: z.string(),
+  sessionId: z.string(),
+  session: MeetingNotesSessionSchema,
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const MeetingNotesSummaryReadyMessageV1Schema = z.object({
+  type: z.literal("room.meeting-notes.summary-ready.v1"),
+  roomId: z.string(),
+  sessionId: z.string(),
+  session: MeetingNotesSessionSchema,
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const MeetingNotesErrorMessageV1Schema = z.object({
+  type: z.literal("room.meeting-notes.error.v1"),
+  roomId: z.string(),
+  sessionId: z.string(),
+  errorMessage: z.string(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const MeetingNotesSegmentMessageV1Schema = z.object({
+  type: z.literal("room.meeting-notes.segment.v1"),
+  roomId: z.string(),
+  sessionId: z.string(),
+  segment: MeetingNotesSegmentSchema,
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
 export type RoomBoardCreatedMessageV1 = z.infer<typeof RoomBoardCreatedMessageV1Schema>;
 export type RoomBoardUpdatedMessageV1 = z.infer<typeof RoomBoardUpdatedMessageV1Schema>;
 export type RoomBoardRemovedMessageV1 = z.infer<typeof RoomBoardRemovedMessageV1Schema>;
+export type MeetingNotesStartedMessageV1 = z.infer<typeof MeetingNotesStartedMessageV1Schema>;
+export type MeetingNotesEndedMessageV1 = z.infer<typeof MeetingNotesEndedMessageV1Schema>;
+export type MeetingNotesSummaryReadyMessageV1 = z.infer<typeof MeetingNotesSummaryReadyMessageV1Schema>;
+export type MeetingNotesErrorMessageV1 = z.infer<typeof MeetingNotesErrorMessageV1Schema>;
+export type MeetingNotesSegmentMessageV1 = z.infer<typeof MeetingNotesSegmentMessageV1Schema>;
 
 /** Client → server realtime dispatch (roomId comes from the URL). */
 export const RoomObjectRealtimeInboundSchema = z.discriminatedUnion("type", [
@@ -2133,6 +2278,14 @@ export type RoomRecord = z.infer<typeof RoomSchema>;
 export type RoomWithManifest = z.infer<typeof RoomWithManifestSchema>;
 export type AvatarStateMessage = z.infer<typeof AvatarStateMessageSchema>;
 export type RoomSessionResponse = z.infer<typeof RoomSessionResponseSchema>;
+export type MeetingNotesSessionStatus = z.infer<typeof MeetingNotesSessionStatusSchema>;
+export type MeetingNotesSegment = z.infer<typeof MeetingNotesSegmentSchema>;
+export type MeetingNotesSession = z.infer<typeof MeetingNotesSessionSchema>;
+export type MeetingNotesSessionDetail = z.infer<typeof MeetingNotesSessionDetailSchema>;
+export type MeetingNotesSessionListResponse = z.infer<typeof MeetingNotesSessionListResponseSchema>;
+export type StartMeetingNotesSessionResponse = z.infer<typeof StartMeetingNotesSessionResponseSchema>;
+export type UploadMeetingNotesAudioChunkResponse = z.infer<typeof UploadMeetingNotesAudioChunkResponseSchema>;
+export type MeetingNotesDownloadFormat = z.infer<typeof MeetingNotesDownloadFormatSchema>;
 export type WallAttachment = z.infer<typeof WallAttachmentSchema>;
 export type WallAttachmentDownloadResponse = z.infer<typeof WallAttachmentDownloadResponseSchema>;
 export type RoomCapabilities = z.infer<typeof RoomCapabilitiesSchema>;
@@ -2265,6 +2418,13 @@ export const apiRoutes: ApiRoute[] = [
   { method: "post", path: "/v1/rooms/{roomId}/wall-shares/{objectId}/end", summary: "Mark live wall share ended", tags: ["wall-objects"], response: WallObjectSchema },
   { method: "post", path: "/v1/rooms/{roomId}/web-resources", summary: "Create safe wall web resource", tags: ["wall-objects"], request: CreateWebResourceRequestSchema, response: WallObjectSchema },
   { method: "post", path: "/v1/rooms/{roomId}/web-resources/preview", summary: "Preview safe wall web resource support", tags: ["wall-objects"], request: WebResourcePreviewRequestSchema, response: WebResourcePreviewResponseSchema },
+  { method: "get", path: "/v1/rooms/{roomId}/meeting-notes/sessions", summary: "List meeting notes sessions for a room", tags: ["meeting-notes"], response: MeetingNotesSessionListResponseSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/meeting-notes/sessions", summary: "Start a meeting notes session", tags: ["meeting-notes"], response: StartMeetingNotesSessionResponseSchema },
+  { method: "get", path: "/v1/rooms/{roomId}/meeting-notes/sessions/{sessionId}", summary: "Fetch one meeting notes session with transcript segments", tags: ["meeting-notes"], response: MeetingNotesSessionDetailSchema },
+  { method: "patch", path: "/v1/rooms/{roomId}/meeting-notes/sessions/{sessionId}", summary: "Stop or cancel a meeting notes session", tags: ["meeting-notes"], request: PatchMeetingNotesSessionRequestSchema, response: StartMeetingNotesSessionResponseSchema },
+  { method: "delete", path: "/v1/rooms/{roomId}/meeting-notes/sessions/{sessionId}", summary: "Delete a meeting notes session", tags: ["meeting-notes"], response: z.object({ deleted: z.boolean() }) },
+  { method: "post", path: "/v1/rooms/{roomId}/meeting-notes/sessions/{sessionId}/audio-chunks", summary: "Upload a recorded audio chunk for transcription", tags: ["meeting-notes"], request: UploadMeetingNotesAudioChunkRequestSchema, response: UploadMeetingNotesAudioChunkResponseSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/meeting-notes/sessions/{sessionId}/summary", summary: "Regenerate a meeting notes summary", tags: ["meeting-notes"], request: UpdateMeetingNotesSummaryRequestSchema, response: StartMeetingNotesSessionResponseSchema },
   { method: "get", path: "/v1/rooms/{roomId}/classroom", summary: "Get classroom state visible to the current user", tags: ["classroom"], response: ClassroomStateSchema },
   { method: "post", path: "/v1/rooms/{roomId}/classroom/actions", summary: "Run a classroom state action", tags: ["classroom"], request: ClassroomActionSchema, response: ClassroomStateSchema },
   { method: "post", path: "/v1/rooms/{roomId}/events", summary: "Persist optional durable room events", tags: ["rooms"], request: RoomEventRequestSchema, response: RoomEventResponseSchema },

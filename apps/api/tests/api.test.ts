@@ -16,7 +16,7 @@ function authHeaders(userId: string, name: string) {
 async function createClassAndRoom(
   app: Awaited<ReturnType<typeof buildApp>>,
   teacherId = "teacher-wall",
-  roomType: "classroom" | "workforce-training" = "classroom"
+  roomType: "classroom" | "workforce-training" | "free-for-all" = "classroom"
 ) {
   const classResponse = await app.inject({
     method: "POST",
@@ -31,7 +31,12 @@ async function createClassAndRoom(
     method: "POST",
     url: "/v1/rooms",
     headers: authHeaders(teacherId, "Ms. Rivera"),
-    payload: { classId: classRecord.id, name: "Wall Lab", type: roomType }
+    payload: {
+      classId: classRecord.id,
+      name: "Wall Lab",
+      type: roomType,
+      ...(roomType === "free-for-all" ? { freeForAllPassword: "open-sesame" } : {})
+    }
   });
   expect(roomResponse.statusCode).toBe(200);
   const roomWithManifest = roomResponse.json();
@@ -283,6 +288,7 @@ describe("3dspace api", () => {
     expect(openapiResponse.json().paths["/v1/rooms/{roomId}/attachments/{attachmentId}/download"]).toBeDefined();
     expect(openapiResponse.json().paths["/v1/rooms/{roomId}/wall-objects"]).toBeDefined();
     expect(openapiResponse.json().paths["/v1/rooms/{roomId}/attachments/{attachmentId}/finalize"]).toBeDefined();
+    expect(openapiResponse.json().paths["/v1/rooms/{roomId}/meeting-notes/sessions"]).toBeDefined();
 
     const readyResponse = await app.inject({ method: "GET", url: "/ready" });
     expect(readyResponse.statusCode).toBe(200);
@@ -4552,6 +4558,115 @@ describe("room object realtime grab lock", () => {
       expect(body.room.type).toBe("classroom");
       expect(body.manifest.dimensions.width).toBe(30);
       await app.close();
+    });
+
+    describe("free-for-all meeting notes", () => {
+      it("persists a session, finalizes artifacts, and serves transcript downloads", async () => {
+        const repository = new MemoryRepository();
+        const app = await buildApp({
+          config: loadConfig({
+            NODE_ENV: "test",
+            ENABLE_FREE_FOR_ALL: "true",
+            FREE_FOR_ALL_PASSWORD: "open-sesame",
+            ENABLE_AI_MEETING_NOTES: "true"
+          } as NodeJS.ProcessEnv),
+          repository
+        });
+
+        const { roomWithManifest } = await createClassAndRoom(app, "teacher-notes", "free-for-all");
+        const roomId = roomWithManifest.room.id;
+
+        const startResponse = await app.inject({
+          method: "POST",
+          url: `/v1/rooms/${roomId}/meeting-notes/sessions`,
+          headers: authHeaders("teacher-notes", "Ms. Rivera")
+        });
+        expect(startResponse.statusCode).toBe(200);
+        const sessionId: string = startResponse.json().session.id;
+        expect(startResponse.json().session.status).toBe("recording");
+
+        await repository.createMeetingNotesSegment({
+          id: "seg_1",
+          sessionId,
+          roomId,
+          speakerUserId: "teacher-notes",
+          startMs: 0,
+          endMs: 2200,
+          text: "Welcome to the room.",
+          isFinal: true,
+          createdAt: new Date().toISOString()
+        });
+        await repository.createMeetingNotesSegment({
+          id: "seg_2",
+          sessionId,
+          roomId,
+          speakerUserId: "teacher-notes",
+          startMs: 2400,
+          endMs: 5200,
+          text: "We decided to keep the open board layout.",
+          isFinal: true,
+          createdAt: new Date().toISOString()
+        });
+
+        const stopResponse = await app.inject({
+          method: "PATCH",
+          url: `/v1/rooms/${roomId}/meeting-notes/sessions/${sessionId}`,
+          headers: authHeaders("teacher-notes", "Ms. Rivera"),
+          payload: { action: "stop" }
+        });
+        expect(stopResponse.statusCode).toBe(200);
+        expect(stopResponse.json().session.status).toBe("ready");
+        expect(
+          stopResponse.json().realtimeMessages.some((message: { type: string }) => message.type === "room.meeting-notes.summary-ready.v1")
+        ).toBe(true);
+
+        const detailResponse = await app.inject({
+          method: "GET",
+          url: `/v1/rooms/${roomId}/meeting-notes/sessions/${sessionId}`,
+          headers: authHeaders("teacher-notes", "Ms. Rivera")
+        });
+        expect(detailResponse.statusCode).toBe(200);
+        expect(detailResponse.json().segments).toHaveLength(2);
+
+        const txtDownload = await app.inject({
+          method: "GET",
+          url: `/v1/rooms/${roomId}/meeting-notes/sessions/${sessionId}/download?format=txt`,
+          headers: authHeaders("teacher-notes", "Ms. Rivera")
+        });
+        expect(txtDownload.statusCode).toBe(200);
+        expect(txtDownload.headers["content-disposition"]).toContain(".txt");
+        expect(txtDownload.body).toContain("Welcome to the room.");
+
+        const mdDownload = await app.inject({
+          method: "GET",
+          url: `/v1/rooms/${roomId}/meeting-notes/sessions/${sessionId}/download?format=md`,
+          headers: authHeaders("teacher-notes", "Ms. Rivera")
+        });
+        expect(mdDownload.statusCode).toBe(200);
+        expect(mdDownload.body).toContain("# Meeting Notes");
+
+        await app.close();
+      });
+
+      it("is unavailable for classroom rooms", async () => {
+        const app = await buildApp({
+          config: loadConfig({
+            NODE_ENV: "test",
+            ENABLE_AI_MEETING_NOTES: "true"
+          } as NodeJS.ProcessEnv),
+          repository: new MemoryRepository()
+        });
+
+        const { roomWithManifest } = await createClassAndRoom(app, "teacher-classroom", "classroom");
+        const response = await app.inject({
+          method: "POST",
+          url: `/v1/rooms/${roomWithManifest.room.id}/meeting-notes/sessions`,
+          headers: authHeaders("teacher-classroom", "Ms. Rivera")
+        });
+        expect(response.statusCode).toBe(403);
+        expect(response.json().message).toMatch(/not available for this room type/i);
+        await app.close();
+      });
     });
   });
 });

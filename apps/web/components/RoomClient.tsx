@@ -68,6 +68,8 @@ import { RoomObjectInspector } from "./RoomObjectInspector";
 import { buildSpawnPoseInFront } from "../lib/roomObjectInteraction";
 import { EnvironmentCard } from "./EnvironmentCard";
 import { useDynamicWallAnchors } from "../lib/useDynamicWallAnchors";
+import { useMeetingNotes } from "../lib/useMeetingNotes";
+import { MeetingNotesPanel } from "./MeetingNotesPanel";
 import { DYNAMIC_BOARD_DEFAULT_HEIGHT, DYNAMIC_BOARD_DEFAULT_WIDTH } from "./RoomView3D";
 
 const RoomView3D = dynamic(() => import("./RoomView3D").then((module) => module.RoomView3D), {
@@ -233,6 +235,19 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     roomId: session?.room.id ?? roomId,
     enabled: roomTypeFeatures.dynamicBoards && Boolean(session)
   });
+  const meetingNotesEnabled = roomTypeFeatures.aiMeetingNotes && CLIENT_TUNING.enableAiMeetingNotes && Boolean(session);
+  const meetingNotes = useMeetingNotes({
+    identity,
+    roomId: session?.room.id ?? roomId,
+    roomName: session?.room.name ?? "",
+    enabled: meetingNotesEnabled,
+    participants: Object.values(participants).map((participant) => ({
+      participantId: participant.id,
+      displayName: participant.displayName,
+      microphoneStream: participant.microphoneStream
+    })),
+    publish: publishRealtime
+  });
   const [dynamicBoardPlacementActive, setDynamicBoardPlacementActive] = useState(false);
   const [dynamicBoardPlacementBusy, setDynamicBoardPlacementBusy] = useState(false);
   const [dynamicBoardPlacementMessage, setDynamicBoardPlacementMessage] = useState("");
@@ -397,6 +412,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   classroomRealtimeHandlerRef.current = classroom.handleRealtimeMessage;
   const dynamicBoardsRealtimeHandlerRef = useRef(dynamicBoards.handleRealtimeMessage);
   dynamicBoardsRealtimeHandlerRef.current = dynamicBoards.handleRealtimeMessage;
+  const meetingNotesRealtimeHandlerRef = useRef(meetingNotes.handleRealtimeMessage);
+  meetingNotesRealtimeHandlerRef.current = meetingNotes.handleRealtimeMessage;
   camera.lockedRef.current = classroom.state?.spotlight?.mode === "force";
 
   useEffect(() => {
@@ -665,9 +682,11 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       if (roomObjectsRealtimeHandlerRef.current(message)) return;
       if (classroomRealtimeHandlerRef.current(message)) return;
       if (dynamicBoardsRealtimeHandlerRef.current(message)) return;
+      if (meetingNotesRealtimeHandlerRef.current(message)) return;
       if (message.type.startsWith("wall.")) return;
       if (message.type.startsWith("room.object.")) return;
       if (message.type.startsWith("room.board.")) return;
+      if (message.type.startsWith("room.meeting-notes.")) return;
 
       if (message.type === "participant.leave.v1") {
         dropReaction(message.participantId);
@@ -1675,6 +1694,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             getAppearance={effectiveGetAppearance}
             getReaction={(id) => getReaction(id)?.reaction}
             getAudioMode={getAudioMode}
+            recordingActive={Boolean(meetingNotes.activeSession)}
             activeHelpRequestUserIds={activeHelpRequestUserIds}
             onSelfClick={() => setAvatarEditorOpen(true)}
             localWaveTriggered={waveTriggered}
@@ -1789,6 +1809,11 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         <div className="room-hud-top-sep" />
         <span className="room-hud-name">{roomName}</span>
         <span className="room-hud-meta">{roomRoleLabel} · {status}</span>
+        {meetingNotes.activeSession ? (
+          <span className="room-hud-rec-badge" data-testid="meeting-notes-rec-badge">
+            REC
+          </span>
+        ) : null}
         {role === "teacher" && session ? (
           <>
             <div className="room-hud-top-sep" />
@@ -2090,6 +2115,13 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               onControl={controlWallObject}
               onModerate={moderateWallObject}
               hostSingular={roleLabels.hostSingular}
+            />
+          ) : null}
+          {meetingNotesEnabled && session ? (
+            <MeetingNotesPanel
+              identity={identity}
+              roomId={session.room.id}
+              controller={meetingNotes}
             />
           ) : null}
           {roomTypeFeatures.worldSkins && CLIENT_TUNING.enableWorldSkins && role === "teacher" && session ? (

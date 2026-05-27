@@ -43,6 +43,7 @@ export type BlockyAvatarProps = {
   hidden?: boolean;
   reaction?: AvatarReactionSlug;
   audioMode?: ParticipantAudioMode;
+  recordingActive?: boolean;
   whisperRadiusMeters?: number;
   crossPodOutlineColor?: string;
   /** Skin-driven uniform scale applied to the avatar root. Defaults to 1. */
@@ -86,6 +87,7 @@ export function BlockyAvatar({
   hidden,
   reaction,
   audioMode,
+  recordingActive = false,
   whisperRadiusMeters = 3,
   crossPodOutlineColor,
   avatarScale = 1,
@@ -349,7 +351,11 @@ export function BlockyAvatar({
                 data-testid={`participant-${participant.id}-nameplate`}
                 style={crossPodOutlineColor ? ({ "--avatar-cross-pod-ring": crossPodOutlineColor } as CSSProperties) : undefined}
               >
-                <span className="avatar-nameplate__name">{participant.displayName}{audioMode === "whisper" ? " 🔇" : ""}</span>
+                <span className="avatar-nameplate__name">
+                  {participant.displayName}
+                  {audioMode === "whisper" ? " 🔇" : ""}
+                  {recordingActive && participant.state.media?.microphoneEnabled ? <span className="avatar-nameplate__recording-dot" aria-hidden="true" /> : null}
+                </span>
                 <span className="avatar-nameplate__status">
                   {groupColor ? <span className="avatar-nameplate__group" style={{ color: groupColor }}>● </span> : null}
                   {participant.state.media?.speaking ? "speaking" : participant.state.media?.microphoneEnabled ? "mic on" : "mic off"}

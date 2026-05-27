@@ -120,6 +120,27 @@ export function putDevStoredObject(input: { storageKey: string; body: Buffer; co
   devStorage.set(input.storageKey, { body: input.body, contentType: input.contentType });
 }
 
+export async function writeStoredObject(
+  config: AppConfig,
+  input: {
+    storageKey: string;
+    body: Buffer;
+    contentType: string;
+  }
+) {
+  if (!storageConfigured(config)) {
+    putDevStoredObject(input);
+    return;
+  }
+
+  await createStorageClient(config).send(new PutObjectCommand({
+    Bucket: config.objectStorage.bucket!,
+    Key: input.storageKey,
+    Body: input.body,
+    ContentType: input.contentType
+  }));
+}
+
 export function getDevStoredObject(storageKey: string) {
   return devStorage.get(storageKey);
 }

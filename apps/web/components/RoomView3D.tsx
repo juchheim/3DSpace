@@ -231,6 +231,7 @@ export function RoomView3D({
   getAppearance,
   getReaction,
   getAudioMode,
+  recordingActive = false,
   activeHelpRequestUserIds,
   onSelfClick,
   localWaveTriggered = false,
@@ -278,6 +279,7 @@ export function RoomView3D({
   getAppearance: (participantId: string) => AvatarAppearance;
   getReaction?: (participantId: string) => AvatarReactionSlug | undefined;
   getAudioMode?: (participantId: string) => { mode: ParticipantAudioMode; radiusMeters: number } | undefined;
+  recordingActive?: boolean;
   activeHelpRequestUserIds?: ReadonlySet<string>;
   onSelfClick?: () => void;
   localWaveTriggered?: boolean;
@@ -439,6 +441,7 @@ export function RoomView3D({
                 waveTriggered={isLocal ? localWaveTriggered : !!(participant.state.waving)}
                 onWaveComplete={isLocal && onLocalWaveComplete ? onLocalWaveComplete : () => {}}
                 avatarScale={avatarScale}
+                recordingActive={recordingActive}
                 {...(() => { const r = getReaction?.(participant.id); return r ? { reaction: r } : {}; })()}
                 {...(() => { const m = getAudioMode?.(participant.id); return m ? { audioMode: m.mode, whisperRadiusMeters: m.radiusMeters } : {}; })()}
                 {...(isLocal && onSelfClick && !firstPerson ? { onClick: onSelfClick } : {})}

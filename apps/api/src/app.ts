@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import cors from "@fastify/cors";
 import fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { z, type ZodTypeAny } from "zod";
@@ -88,9 +89,24 @@ import {
   UpdateDynamicWallAnchorRequestSchema,
   DynamicWallAnchorSchema,
   ListFreeForAllRoomsResponseSchema,
+  MeetingNotesDownloadFormatSchema,
+  MeetingNotesEndedMessageV1Schema,
+  MeetingNotesErrorMessageV1Schema,
+  MeetingNotesSegmentMessageV1Schema,
+  MeetingNotesSegmentSchema,
+  MeetingNotesSessionDetailSchema,
+  MeetingNotesSessionListResponseSchema,
+  MeetingNotesSessionSchema,
+  MeetingNotesStartedMessageV1Schema,
+  MeetingNotesSummaryReadyMessageV1Schema,
+  PatchMeetingNotesSessionRequestSchema,
   RoomBoardCreatedMessageV1Schema,
   RoomBoardUpdatedMessageV1Schema,
   RoomBoardRemovedMessageV1Schema,
+  StartMeetingNotesSessionResponseSchema,
+  UpdateMeetingNotesSummaryRequestSchema,
+  UploadMeetingNotesAudioChunkRequestSchema,
+  UploadMeetingNotesAudioChunkResponseSchema,
   getRoomTypeFeatureFlags
 } from "@3dspace/contracts";
 import {
@@ -177,6 +193,15 @@ import {
   roomObjectStorageKeyFor,
   storageKeyFor
 } from "./services/storage.js";
+import {
+  meetingNotesStorageBase,
+  summarizeMeetingNotes,
+  transcriptSrt,
+  transcriptText,
+  transcriptVtt,
+  transcribeAudioChunk,
+  writeMeetingNotesArtifacts
+} from "./meeting-notes/service.js";
 
 type BuildAppOptions = {
   config?: AppConfig;
@@ -186,6 +211,7 @@ type BuildAppOptions = {
 
 const ParamsWithClassId = z.object({ classId: z.string() });
 const ParamsWithRoomId = z.object({ roomId: z.string() });
+const ParamsWithRoomAndSessionId = z.object({ roomId: z.string(), sessionId: z.string() });
 const ParamsWithRoomAndAttachmentId = z.object({ roomId: z.string(), attachmentId: z.string() });
 const ParamsWithRoomAndObjectId = z.object({ roomId: z.string(), objectId: z.string() });
 const ParamsWithTemplateId = z.object({ templateId: z.string() });
@@ -249,6 +275,60 @@ async function requireRoomTeacher(repository: Repository, roomId: string, auth: 
   return room;
 }
 
+async function assertMeetingNotesAvailable(repository: Repository, config: AppConfig, roomId: string, auth: AuthContext) {
+  const { room } = await requireRoomAccess(repository, roomId, auth);
+  if (!config.tuning.enableAiMeetingNotes) throw forbidden("AI meeting notes are disabled");
+  if (!getRoomTypeFeatureFlags(room.type).aiMeetingNotes) throw forbidden("AI meeting notes are not available for this room type");
+  if (!room.settings.aiMeetingNotes?.enabled) throw forbidden("AI meeting notes are disabled for this room");
+  return room;
+}
+
+async function buildMeetingNotesDetail(repository: Repository, roomId: string, sessionId: string) {
+  const session = await repository.getMeetingNotesSession(roomId, sessionId);
+  if (!session) throw notFound("Meeting notes session not found");
+  const segments = await repository.listMeetingNotesSegments(sessionId);
+  return MeetingNotesSessionDetailSchema.parse({ ...session, segments });
+}
+
+async function finalizeMeetingNotesSession(
+  repository: Repository,
+  config: AppConfig,
+  room: { id: string; name: string; classId: string },
+  sessionId: string
+) {
+  const session = await repository.getMeetingNotesSession(room.id, sessionId);
+  if (!session) throw notFound("Meeting notes session not found");
+  const segments = await repository.listMeetingNotesSegments(sessionId);
+  const memberships = await repository.listMemberships(room.classId);
+  const speakerNames = Object.fromEntries(memberships.map((membership) => [membership.userId, membership.displayName]));
+  const participantNames = session.participantUserIds.map((userId) => speakerNames[userId] ?? userId);
+  const txt = transcriptText(segments, speakerNames);
+  const vtt = transcriptVtt(segments, speakerNames);
+  const srt = transcriptSrt(segments, speakerNames);
+  const summaryMd = await summarizeMeetingNotes(config, {
+    roomName: room.name,
+    startedAt: session.startedAt,
+    participants: participantNames,
+    transcriptText: txt
+  });
+  const storageBase = meetingNotesStorageBase(config, room.name, session.startedAt);
+  const stored = await writeMeetingNotesArtifacts(config, {
+    storageBase,
+    transcriptTxt: txt,
+    transcriptVtt: vtt,
+    transcriptSrt: srt,
+    summaryMd
+  });
+  return repository.updateMeetingNotesSession(room.id, sessionId, {
+    status: "ready",
+    endedAt: new Date().toISOString(),
+    durationSec: Math.max(0, Math.round((Date.now() - new Date(session.startedAt).getTime()) / 1000)),
+    transcriptStorageKeys: { txt: stored.txt, vtt: stored.vtt, srt: stored.srt },
+    summaryStorageKey: stored.md,
+    summaryGeneratedAt: new Date().toISOString()
+  });
+}
+
 function roomSettings(config: AppConfig) {
   return {
     maxParticipants: config.tuning.maxRoomParticipants,
@@ -283,6 +363,12 @@ function roomSettings(config: AppConfig) {
     studentMedia: {
       camerasEnabled: true,
       microphonesEnabled: true
+    },
+    aiMeetingNotes: {
+      enabled: true,
+      autoStartOnFirstJoin: false,
+      maxSessionDurationMinutes: config.tuning.aiMeetingNotesMaxDurationMinutes,
+      retentionDays: 30
     }
   };
 }
@@ -3460,6 +3546,202 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
         media: config.tuning.media
       }
     });
+  });
+
+  // ── AI meeting notes (Free-for-All rooms) ───────────────────────────────
+
+  app.get("/v1/rooms/:roomId/meeting-notes/sessions", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomId, request);
+    await assertMeetingNotesAvailable(repository, config, params.roomId, auth);
+    const sessions = await repository.listMeetingNotesSessions(params.roomId);
+    return MeetingNotesSessionListResponseSchema.parse({ sessions });
+  });
+
+  app.post("/v1/rooms/:roomId/meeting-notes/sessions", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomId, request);
+    const room = await assertMeetingNotesAvailable(repository, config, params.roomId, auth);
+    const active = await repository.getActiveMeetingNotesSession(params.roomId);
+    if (active) throw conflict("A meeting notes session is already active for this room");
+    const now = nowIso();
+    const session = MeetingNotesSessionSchema.parse({
+      id: newId("mnotes"),
+      roomId: params.roomId,
+      startedByUserId: auth.userId,
+      startedAt: now,
+      status: "recording",
+      participantUserIds: [auth.userId],
+      createdAt: now,
+      updatedAt: now
+    });
+    await repository.createMeetingNotesSession(session);
+    const message = MeetingNotesStartedMessageV1Schema.parse({
+      type: "room.meeting-notes.started.v1",
+      roomId: params.roomId,
+      sessionId: session.id,
+      session,
+      sentAt: Date.now(),
+      senderId: auth.userId
+    });
+    return StartMeetingNotesSessionResponseSchema.parse({ session, realtimeMessages: [message] });
+  });
+
+  app.get("/v1/rooms/:roomId/meeting-notes/sessions/:sessionId", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomAndSessionId, request);
+    await assertMeetingNotesAvailable(repository, config, params.roomId, auth);
+    return buildMeetingNotesDetail(repository, params.roomId, params.sessionId);
+  });
+
+  app.patch("/v1/rooms/:roomId/meeting-notes/sessions/:sessionId", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomAndSessionId, request);
+    const body = parseBody(PatchMeetingNotesSessionRequestSchema, request);
+    const room = await assertMeetingNotesAvailable(repository, config, params.roomId, auth);
+    const existing = await repository.getMeetingNotesSession(params.roomId, params.sessionId);
+    if (!existing) throw notFound("Meeting notes session not found");
+
+    if (body.action === "cancel") {
+      const session = await repository.updateMeetingNotesSession(params.roomId, params.sessionId, {
+        status: "cancelled",
+        endedAt: nowIso()
+      });
+      const message = MeetingNotesEndedMessageV1Schema.parse({
+        type: "room.meeting-notes.ended.v1",
+        roomId: params.roomId,
+        sessionId: session.id,
+        session,
+        sentAt: Date.now(),
+        senderId: auth.userId
+      });
+      return StartMeetingNotesSessionResponseSchema.parse({ session, realtimeMessages: [message] });
+    }
+
+    await repository.updateMeetingNotesSession(params.roomId, params.sessionId, { status: "finalizing" });
+    try {
+      const session = await finalizeMeetingNotesSession(repository, config, room, params.sessionId);
+      const ended = MeetingNotesEndedMessageV1Schema.parse({
+        type: "room.meeting-notes.ended.v1",
+        roomId: params.roomId,
+        sessionId: session.id,
+        session,
+        sentAt: Date.now(),
+        senderId: auth.userId
+      });
+      const summaryReady = MeetingNotesSummaryReadyMessageV1Schema.parse({
+        type: "room.meeting-notes.summary-ready.v1",
+        roomId: params.roomId,
+        sessionId: session.id,
+        session,
+        sentAt: Date.now(),
+        senderId: auth.userId
+      });
+      return StartMeetingNotesSessionResponseSchema.parse({ session, realtimeMessages: [ended, summaryReady] });
+    } catch (error) {
+      const failed = await repository.updateMeetingNotesSession(params.roomId, params.sessionId, {
+        status: "error",
+        errorMessage: error instanceof Error ? error.message : "Unable to finalize meeting notes"
+      });
+      const message = MeetingNotesErrorMessageV1Schema.parse({
+        type: "room.meeting-notes.error.v1",
+        roomId: params.roomId,
+        sessionId: failed.id,
+        errorMessage: failed.errorMessage ?? "Unable to finalize meeting notes",
+        sentAt: Date.now(),
+        senderId: auth.userId
+      });
+      return StartMeetingNotesSessionResponseSchema.parse({ session: failed, realtimeMessages: [message] });
+    }
+  });
+
+  app.post("/v1/rooms/:roomId/meeting-notes/sessions/:sessionId/summary", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomAndSessionId, request);
+    parseBody(UpdateMeetingNotesSummaryRequestSchema, request);
+    const room = await assertMeetingNotesAvailable(repository, config, params.roomId, auth);
+    await repository.updateMeetingNotesSession(params.roomId, params.sessionId, { status: "finalizing" });
+    const session = await finalizeMeetingNotesSession(repository, config, room, params.sessionId);
+    const message = MeetingNotesSummaryReadyMessageV1Schema.parse({
+      type: "room.meeting-notes.summary-ready.v1",
+      roomId: params.roomId,
+      sessionId: session.id,
+      session,
+      sentAt: Date.now(),
+      senderId: auth.userId
+    });
+    return StartMeetingNotesSessionResponseSchema.parse({ session, realtimeMessages: [message] });
+  });
+
+  app.delete("/v1/rooms/:roomId/meeting-notes/sessions/:sessionId", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomAndSessionId, request);
+    await assertMeetingNotesAvailable(repository, config, params.roomId, auth);
+    await repository.deleteMeetingNotesSession(params.roomId, params.sessionId);
+    return { deleted: true };
+  });
+
+  app.post("/v1/rooms/:roomId/meeting-notes/sessions/:sessionId/audio-chunks", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomAndSessionId, request);
+    const body = parseBody(UploadMeetingNotesAudioChunkRequestSchema, request);
+    await assertMeetingNotesAvailable(repository, config, params.roomId, auth);
+    const session = await repository.getMeetingNotesSession(params.roomId, params.sessionId);
+    if (!session) throw notFound("Meeting notes session not found");
+    if (session.status !== "recording") throw conflict("Meeting notes session is not recording");
+
+    const audio = Buffer.from(body.audioBase64, "base64");
+    const text = await transcribeAudioChunk(config, audio, body.mimeType);
+    const participantUserIds = Array.from(new Set([...session.participantUserIds, body.participantId]));
+    if (participantUserIds.length !== session.participantUserIds.length) {
+      await repository.updateMeetingNotesSession(params.roomId, params.sessionId, { participantUserIds });
+    }
+    if (!text) {
+      return UploadMeetingNotesAudioChunkResponseSchema.parse({ accepted: true, realtimeMessages: [] });
+    }
+
+    const segment = MeetingNotesSegmentSchema.parse({
+      id: newId("mnseg"),
+      sessionId: params.sessionId,
+      roomId: params.roomId,
+      speakerUserId: body.participantId,
+      startMs: body.startedAtMs,
+      endMs: body.endedAtMs,
+      text,
+      isFinal: true,
+      createdAt: nowIso()
+    });
+    await repository.createMeetingNotesSegment(segment);
+    const message = MeetingNotesSegmentMessageV1Schema.parse({
+      type: "room.meeting-notes.segment.v1",
+      roomId: params.roomId,
+      sessionId: params.sessionId,
+      segment,
+      sentAt: Date.now(),
+      senderId: auth.userId
+    });
+    return UploadMeetingNotesAudioChunkResponseSchema.parse({ accepted: true, segment, realtimeMessages: [message] });
+  });
+
+  app.get("/v1/rooms/:roomId/meeting-notes/sessions/:sessionId/download", async (request, reply) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomAndSessionId, request);
+    const query = parseQuery(z.object({ format: MeetingNotesDownloadFormatSchema }), request);
+    await assertMeetingNotesAvailable(repository, config, params.roomId, auth);
+    const session = await repository.getMeetingNotesSession(params.roomId, params.sessionId);
+    if (!session) throw notFound("Meeting notes session not found");
+    const storageKey =
+      query.format === "md"
+        ? session.summaryStorageKey
+        : session.transcriptStorageKeys?.[query.format];
+    if (!storageKey) throw notFound("Requested meeting notes artifact is not available");
+    const object = await readStoredObject(config, { storageKey });
+    if (!object) throw notFound("Meeting notes artifact not found");
+    const fileName = storageKey.split("/").pop() ?? `meeting-notes.${query.format}`;
+    return reply
+      .header("Content-Type", object.contentType)
+      .header("Content-Disposition", `attachment; filename="${fileName}"`)
+      .send(object.body);
   });
 
   app.post("/v1/rooms/:roomId/wall-objects/:objectId/control", async (request) => {

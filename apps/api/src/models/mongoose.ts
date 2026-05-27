@@ -6,6 +6,8 @@ import type {
   ClassRecord,
   DynamicWallAnchor,
   Invite,
+  MeetingNotesSegment,
+  MeetingNotesSession,
   Role,
   RoomManifest,
   RoomObject,
@@ -49,6 +51,8 @@ type Models = {
   RoomEvent: Model<any>;
   RoomSession: Model<any>;
   DynamicWallAnchor: Model<any>;
+  MeetingNotesSession: Model<any>;
+  MeetingNotesSegment: Model<any>;
 };
 
 function entity<T>(doc: unknown) {
@@ -323,6 +327,43 @@ export function createModels(connection: Connection): Models {
   });
   dynamicWallAnchorSchema.index({ roomId: 1 });
 
+  const meetingNotesSessionSchema = new Schema({
+    id: { type: String, required: true, unique: true },
+    roomId: { type: String, required: true, index: true },
+    startedByUserId: { type: String, required: true },
+    startedAt: { type: String, required: true },
+    endedAt: String,
+    status: { type: String, required: true, enum: ["starting", "recording", "finalizing", "ready", "error", "cancelled"] },
+    transcriptStorageKeys: {
+      txt: String,
+      vtt: String,
+      srt: String
+    },
+    summaryStorageKey: String,
+    summaryGeneratedAt: String,
+    durationSec: Number,
+    participantUserIds: { type: [String], default: [] },
+    errorMessage: String,
+    createdAt: String,
+    updatedAt: String
+  });
+  meetingNotesSessionSchema.index({ roomId: 1, status: 1 });
+  meetingNotesSessionSchema.index({ roomId: 1, startedAt: -1 });
+
+  const meetingNotesSegmentSchema = new Schema({
+    id: { type: String, required: true, unique: true },
+    sessionId: { type: String, required: true, index: true },
+    roomId: { type: String, required: true, index: true },
+    speakerUserId: { type: String, required: true },
+    startMs: { type: Number, required: true },
+    endMs: { type: Number, required: true },
+    text: { type: String, required: true },
+    isFinal: { type: Boolean, required: true },
+    language: String,
+    createdAt: String
+  });
+  meetingNotesSegmentSchema.index({ sessionId: 1, startMs: 1 });
+
   return {
     User: connection.model("User", userSchema),
     Class: connection.model("Class", classSchema),
@@ -338,7 +379,9 @@ export function createModels(connection: Connection): Models {
     RoomObject: connection.model("RoomObject", roomObjectSchema),
     RoomEvent: connection.model("RoomEvent", eventSchema),
     RoomSession: connection.model("RoomSession", sessionSchema),
-    DynamicWallAnchor: connection.model("DynamicWallAnchor", dynamicWallAnchorSchema, "dynamic_wall_anchors")
+    DynamicWallAnchor: connection.model("DynamicWallAnchor", dynamicWallAnchorSchema, "dynamic_wall_anchors"),
+    MeetingNotesSession: connection.model("MeetingNotesSession", meetingNotesSessionSchema, "meeting_notes_sessions"),
+    MeetingNotesSegment: connection.model("MeetingNotesSegment", meetingNotesSegmentSchema, "meeting_notes_segments")
   };
 }
 
@@ -377,6 +420,61 @@ function dynamicWallAnchorToDoc(a: DynamicWallAnchor): Record<string, unknown> {
     metadata: a.metadata,
     createdAt: a.createdAt,
     updatedAt: a.updatedAt
+  };
+}
+
+function docToMeetingNotesSession(doc: Record<string, unknown>): MeetingNotesSession {
+  return {
+    id: doc.id as string,
+    roomId: doc.roomId as string,
+    startedByUserId: doc.startedByUserId as string,
+    startedAt: doc.startedAt as string,
+    ...(typeof doc.endedAt === "string" ? { endedAt: doc.endedAt } : {}),
+    status: doc.status as MeetingNotesSession["status"],
+    ...((doc.transcriptStorageKeys as Record<string, string | undefined> | undefined)
+      ? { transcriptStorageKeys: doc.transcriptStorageKeys as MeetingNotesSession["transcriptStorageKeys"] }
+      : {}),
+    ...(typeof doc.summaryStorageKey === "string" ? { summaryStorageKey: doc.summaryStorageKey } : {}),
+    ...(typeof doc.summaryGeneratedAt === "string" ? { summaryGeneratedAt: doc.summaryGeneratedAt } : {}),
+    ...(typeof doc.durationSec === "number" ? { durationSec: doc.durationSec } : {}),
+    participantUserIds: ((doc.participantUserIds as string[] | undefined) ?? []).filter(Boolean),
+    ...(typeof doc.errorMessage === "string" ? { errorMessage: doc.errorMessage } : {}),
+    createdAt: doc.createdAt as string,
+    updatedAt: doc.updatedAt as string
+  };
+}
+
+function meetingNotesSessionToDoc(session: MeetingNotesSession): Record<string, unknown> {
+  return {
+    id: session.id,
+    roomId: session.roomId,
+    startedByUserId: session.startedByUserId,
+    startedAt: session.startedAt,
+    endedAt: session.endedAt,
+    status: session.status,
+    transcriptStorageKeys: session.transcriptStorageKeys,
+    summaryStorageKey: session.summaryStorageKey,
+    summaryGeneratedAt: session.summaryGeneratedAt,
+    durationSec: session.durationSec,
+    participantUserIds: session.participantUserIds,
+    errorMessage: session.errorMessage,
+    createdAt: session.createdAt,
+    updatedAt: session.updatedAt
+  };
+}
+
+function docToMeetingNotesSegment(doc: Record<string, unknown>): MeetingNotesSegment {
+  return {
+    id: doc.id as string,
+    sessionId: doc.sessionId as string,
+    roomId: doc.roomId as string,
+    speakerUserId: doc.speakerUserId as string,
+    startMs: doc.startMs as number,
+    endMs: doc.endMs as number,
+    text: doc.text as string,
+    isFinal: Boolean(doc.isFinal),
+    ...(typeof doc.language === "string" ? { language: doc.language } : {}),
+    createdAt: doc.createdAt as string
   };
 }
 
@@ -570,6 +668,8 @@ export class MongoRepository implements Repository {
       this.models.RoomObject.deleteMany({ roomId }),
       this.models.RoomEvent.deleteMany({ roomId }),
       this.models.RoomSession.deleteMany({ roomId }),
+      this.models.MeetingNotesSession.deleteMany({ roomId }),
+      this.models.MeetingNotesSegment.deleteMany({ roomId }),
       this.models.Invite.deleteMany({ roomId })
     ]);
   }
@@ -944,5 +1044,62 @@ export class MongoRepository implements Repository {
 
   async removeDynamicWallAnchor(id: string, roomId: string): Promise<void> {
     await this.models.DynamicWallAnchor.deleteOne({ id, roomId });
+  }
+
+  async createMeetingNotesSession(input: MeetingNotesSession): Promise<MeetingNotesSession> {
+    await this.models.MeetingNotesSession.create(meetingNotesSessionToDoc(input));
+    return input;
+  }
+
+  async listMeetingNotesSessions(roomId: string): Promise<MeetingNotesSession[]> {
+    const docs = await this.models.MeetingNotesSession.find({ roomId }).sort({ startedAt: -1 }).lean() as Record<string, unknown>[];
+    return docs.map(docToMeetingNotesSession);
+  }
+
+  async getMeetingNotesSession(roomId: string, sessionId: string): Promise<MeetingNotesSession | undefined> {
+    const doc = await this.models.MeetingNotesSession.findOne({ roomId, id: sessionId }).lean() as Record<string, unknown> | null;
+    return doc ? docToMeetingNotesSession(doc) : undefined;
+  }
+
+  async getActiveMeetingNotesSession(roomId: string): Promise<MeetingNotesSession | undefined> {
+    const doc = await this.models.MeetingNotesSession.findOne({
+      roomId,
+      status: { $in: ["starting", "recording", "finalizing"] }
+    }).sort({ startedAt: -1 }).lean() as Record<string, unknown> | null;
+    return doc ? docToMeetingNotesSession(doc) : undefined;
+  }
+
+  async updateMeetingNotesSession(roomId: string, sessionId: string, patch: Partial<MeetingNotesSession>): Promise<MeetingNotesSession> {
+    const existing = await this.getMeetingNotesSession(roomId, sessionId);
+    if (!existing) throw notFound("Meeting notes session not found");
+    const next = { ...existing, ...patch, roomId: existing.roomId, id: existing.id, updatedAt: nowIso() };
+    const doc = await this.models.MeetingNotesSession.findOneAndUpdate(
+      { roomId, id: sessionId },
+      { $set: meetingNotesSessionToDoc(next) },
+      { new: true, lean: true }
+    ) as Record<string, unknown> | null;
+    if (!doc) throw notFound("Meeting notes session not found");
+    return docToMeetingNotesSession(doc);
+  }
+
+  async deleteMeetingNotesSession(roomId: string, sessionId: string): Promise<void> {
+    await Promise.all([
+      this.models.MeetingNotesSession.deleteOne({ roomId, id: sessionId }),
+      this.models.MeetingNotesSegment.deleteMany({ roomId, sessionId })
+    ]);
+  }
+
+  async createMeetingNotesSegment(input: MeetingNotesSegment): Promise<MeetingNotesSegment> {
+    await this.models.MeetingNotesSegment.create(input);
+    return input;
+  }
+
+  async listMeetingNotesSegments(sessionId: string): Promise<MeetingNotesSegment[]> {
+    const docs = await this.models.MeetingNotesSegment.find({ sessionId }).sort({ startMs: 1, speakerUserId: 1 }).lean() as Record<string, unknown>[];
+    return docs.map(docToMeetingNotesSegment);
+  }
+
+  async deleteMeetingNotesSegments(sessionId: string): Promise<void> {
+    await this.models.MeetingNotesSegment.deleteMany({ sessionId });
   }
 }

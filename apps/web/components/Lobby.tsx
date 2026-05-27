@@ -40,6 +40,7 @@ const ROOM_TYPE_JOIN_COPY: Record<
 };
 
 const DEFAULT_ROOM_TYPE: RoomType = CLIENT_TUNING.enableFreeForAll ? "free-for-all" : "classroom";
+const FFA_MEETING_NOTES_CONSENT_KEY = "ffa-meeting-notes-consent-v1";
 
 function FreeForAllRoomBrowser({
   identity,
@@ -95,6 +96,7 @@ function FreeForAllRoomBrowser({
     try {
       await joinFreeForAllRoom(identity, room.id, isCreator ? undefined : password.trim());
       if (password.trim()) setStoredFreeForAllPassword(password.trim());
+      sessionStorage.setItem(FFA_MEETING_NOTES_CONSENT_KEY, "true");
       window.location.href = `/rooms/${room.id}`;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to join room.");
@@ -122,9 +124,14 @@ function FreeForAllRoomBrowser({
     return <p className="lb-join-hint">No open rooms right now — create one above to get started!</p>;
   }
   return (
-    <div className="lb-ffa-rooms">
-      <p className="lb-join-hint">Open rooms — enter the shared password to join (not required for rooms you created):</p>
-      <div className="lb-field">
+      <div className="lb-ffa-rooms">
+        <p className="lb-join-hint">Open rooms — enter the shared password to join (not required for rooms you created):</p>
+        {CLIENT_TUNING.enableAiMeetingNotes ? (
+          <p className="lb-join-hint">
+            Anyone in this room can start recording the conversation and producing an AI transcript and summary. By joining, you understand that your microphone audio may be transcribed.
+          </p>
+        ) : null}
+        <div className="lb-field">
         <label className="lb-label lb-label-tx" htmlFor="lb-ffa-join-password">Room password</label>
         <input
           id="lb-ffa-join-password"
@@ -248,7 +255,10 @@ export function Lobby() {
       const room = await createRoom(identity, classRecord.id, roomName, type, {
         ...(type === "free-for-all" ? { freeForAllPassword: ffaPassword.trim() } : {})
       });
-      if (type === "free-for-all") setStoredFreeForAllPassword(ffaPassword.trim());
+      if (type === "free-for-all") {
+        setStoredFreeForAllPassword(ffaPassword.trim());
+        sessionStorage.setItem(FFA_MEETING_NOTES_CONSENT_KEY, "true");
+      }
       const invite = await createInvite(identity, classRecord.id, { role: "student", roomId: room.room.id });
       setCreatedInvite(invite);
       setCopyStatus(null);
@@ -633,6 +643,11 @@ export function Lobby() {
                     placeholder="Shared Free-for-All password"
                   />
                 </div>
+                {CLIENT_TUNING.enableAiMeetingNotes ? (
+                  <p className="lb-join-hint">
+                    Anyone in this room can start recording the conversation and producing an AI transcript and summary. By joining, you understand that your microphone audio may be transcribed.
+                  </p>
+                ) : null}
                 <button
                   className="lb-btn lb-btn-pri"
                   disabled={busy || authDisabled || !ffaPassword.trim()}

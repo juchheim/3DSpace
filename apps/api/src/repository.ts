@@ -7,6 +7,8 @@ import {
   type ClassRecord,
   type DynamicWallAnchor,
   type Invite,
+  type MeetingNotesSegment,
+  type MeetingNotesSession,
   type Role,
   type RoomManifest,
   type RoomRecord,
@@ -136,6 +138,15 @@ export type Repository = {
   getDynamicWallAnchor(id: string): Promise<DynamicWallAnchor | undefined>;
   updateDynamicWallAnchor(id: string, patch: Partial<DynamicWallAnchor>): Promise<DynamicWallAnchor>;
   removeDynamicWallAnchor(id: string, roomId: string): Promise<void>;
+  createMeetingNotesSession(input: MeetingNotesSession): Promise<MeetingNotesSession>;
+  listMeetingNotesSessions(roomId: string): Promise<MeetingNotesSession[]>;
+  getMeetingNotesSession(roomId: string, sessionId: string): Promise<MeetingNotesSession | undefined>;
+  getActiveMeetingNotesSession(roomId: string): Promise<MeetingNotesSession | undefined>;
+  updateMeetingNotesSession(roomId: string, sessionId: string, patch: Partial<MeetingNotesSession>): Promise<MeetingNotesSession>;
+  deleteMeetingNotesSession(roomId: string, sessionId: string): Promise<void>;
+  createMeetingNotesSegment(input: MeetingNotesSegment): Promise<MeetingNotesSegment>;
+  listMeetingNotesSegments(sessionId: string): Promise<MeetingNotesSegment[]>;
+  deleteMeetingNotesSegments(sessionId: string): Promise<void>;
 };
 
 export function nowIso() {
@@ -178,6 +189,8 @@ export class MemoryRepository implements Repository {
   private roomEvents = new Map<string, RoomEventRecord>();
   private activeSessions = new Map<string, { roomId: string; participantIdentity: string; lastSeenAt: number }>();
   private dynamicWallAnchors = new Map<string, DynamicWallAnchor>();
+  private meetingNotesSessions = new Map<string, MeetingNotesSession>();
+  private meetingNotesSegments = new Map<string, MeetingNotesSegment>();
 
   async close() {
     return;
@@ -728,5 +741,59 @@ export class MemoryRepository implements Repository {
   async removeDynamicWallAnchor(id: string, roomId: string): Promise<void> {
     const existing = this.dynamicWallAnchors.get(id);
     if (existing?.roomId === roomId) this.dynamicWallAnchors.delete(id);
+  }
+
+  async createMeetingNotesSession(input: MeetingNotesSession): Promise<MeetingNotesSession> {
+    this.meetingNotesSessions.set(input.id, input);
+    return input;
+  }
+
+  async listMeetingNotesSessions(roomId: string): Promise<MeetingNotesSession[]> {
+    return Array.from(this.meetingNotesSessions.values())
+      .filter((session) => session.roomId === roomId)
+      .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+  }
+
+  async getMeetingNotesSession(roomId: string, sessionId: string): Promise<MeetingNotesSession | undefined> {
+    const session = this.meetingNotesSessions.get(sessionId);
+    return session?.roomId === roomId ? session : undefined;
+  }
+
+  async getActiveMeetingNotesSession(roomId: string): Promise<MeetingNotesSession | undefined> {
+    return Array.from(this.meetingNotesSessions.values()).find(
+      (session) => session.roomId === roomId && (session.status === "starting" || session.status === "recording" || session.status === "finalizing")
+    );
+  }
+
+  async updateMeetingNotesSession(roomId: string, sessionId: string, patch: Partial<MeetingNotesSession>): Promise<MeetingNotesSession> {
+    const existing = await this.getMeetingNotesSession(roomId, sessionId);
+    if (!existing) throw notFound("Meeting notes session not found");
+    const updated = { ...existing, ...patch, roomId: existing.roomId, id: existing.id, updatedAt: nowIso() };
+    this.meetingNotesSessions.set(sessionId, updated);
+    return updated;
+  }
+
+  async deleteMeetingNotesSession(roomId: string, sessionId: string): Promise<void> {
+    const existing = await this.getMeetingNotesSession(roomId, sessionId);
+    if (!existing) return;
+    this.meetingNotesSessions.delete(sessionId);
+    await this.deleteMeetingNotesSegments(sessionId);
+  }
+
+  async createMeetingNotesSegment(input: MeetingNotesSegment): Promise<MeetingNotesSegment> {
+    this.meetingNotesSegments.set(input.id, input);
+    return input;
+  }
+
+  async listMeetingNotesSegments(sessionId: string): Promise<MeetingNotesSegment[]> {
+    return Array.from(this.meetingNotesSegments.values())
+      .filter((segment) => segment.sessionId === sessionId)
+      .sort((a, b) => a.startMs - b.startMs || a.speakerUserId.localeCompare(b.speakerUserId));
+  }
+
+  async deleteMeetingNotesSegments(sessionId: string): Promise<void> {
+    for (const [id, segment] of this.meetingNotesSegments.entries()) {
+      if (segment.sessionId === sessionId) this.meetingNotesSegments.delete(id);
+    }
   }
 }
