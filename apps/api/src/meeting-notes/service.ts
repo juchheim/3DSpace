@@ -145,48 +145,80 @@ export async function transcribeAudioChunk(config: AppConfig, audio: Buffer, mim
 
   const baseType = (mimeType.split(";")[0] ?? mimeType).trim();
   const ext = baseType.includes("mp4") ? "m4a" : "webm";
-  const body = new FormData();
-  body.set("model", config.tuning.openAiTranscriptionModel);
-  body.set("file", new Blob([new Uint8Array(audio)], { type: baseType }), `chunk.${ext}`);
 
-  console.info("[meeting-notes] Sending audio chunk to OpenAI transcription", {
-    model: config.tuning.openAiTranscriptionModel,
-    audioBytes: audio.length,
-    mimeType
-  });
+  const MAX_RETRIES = 2;
+  let attempt = 0;
+  while (true) {
+    const formData = new FormData();
+    formData.set("model", config.tuning.openAiTranscriptionModel);
+    formData.set("file", new Blob([new Uint8Array(audio)], { type: baseType }), `chunk.${ext}`);
 
-  const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${config.openAiApiKey}`
-    },
-    body
-  });
-
-  if (!response.ok) {
-    const bodyText = await response.text().catch(() => "");
-    console.error("[meeting-notes] OpenAI transcription failed", {
-      status: response.status,
-      statusText: response.statusText,
+    console.info("[meeting-notes] Sending audio chunk to OpenAI transcription", {
       model: config.tuning.openAiTranscriptionModel,
       audioBytes: audio.length,
       mimeType,
-      body: bodyText.slice(0, 1000)
+      attempt
     });
-    throw new HttpError(502, `OpenAI transcription request failed (${response.status} ${response.statusText})`, "meeting-notes-transcription-failed", {
-      status: response.status,
-      statusText: response.statusText
+
+    const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+      method: "POST",
+      headers: { authorization: `Bearer ${config.openAiApiKey}` },
+      body: formData
     });
+
+    if (!response.ok) {
+      const bodyText = await response.text().catch(() => "");
+      const retryAfterHeader = response.headers.get("retry-after");
+      const retryAfterSecs = retryAfterHeader ? Number(retryAfterHeader) : null;
+      let openAiErrorCode: string | undefined;
+      let openAiErrorMessage: string | undefined;
+      try {
+        const parsed = JSON.parse(bodyText) as { error?: { code?: string; message?: string } };
+        openAiErrorCode = parsed.error?.code ?? undefined;
+        openAiErrorMessage = parsed.error?.message ?? undefined;
+      } catch {
+        // not JSON
+      }
+      console.error("[meeting-notes] OpenAI transcription failed", {
+        status: response.status,
+        statusText: response.statusText,
+        model: config.tuning.openAiTranscriptionModel,
+        audioBytes: audio.length,
+        mimeType,
+        attempt,
+        retryAfterSecs,
+        openAiErrorCode,
+        openAiErrorMessage,
+        body: bodyText.slice(0, 1000)
+      });
+
+      if (response.status === 429 && openAiErrorCode !== "insufficient_quota" && attempt < MAX_RETRIES) {
+        const delaySecs = Math.min(retryAfterSecs ?? Math.pow(2, attempt + 1), 16);
+        console.info("[meeting-notes] Rate limited by OpenAI, retrying after delay", { delaySecs, attempt });
+        await new Promise((resolve) => setTimeout(resolve, delaySecs * 1000));
+        attempt++;
+        continue;
+      }
+
+      const detail = openAiErrorCode ? `: ${openAiErrorCode}` : retryAfterSecs ? ` (retry after ${retryAfterSecs}s)` : "";
+      throw new HttpError(502, `OpenAI transcription request failed (${response.status}${detail})`, "meeting-notes-transcription-failed", {
+        status: response.status,
+        openAiErrorCode,
+        retryAfterSecs
+      });
+    }
+
+    const payload = await response.json() as { text?: string };
+    const text = payload.text?.trim() ?? "";
+    console.info("[meeting-notes] OpenAI transcription completed", {
+      model: config.tuning.openAiTranscriptionModel,
+      audioBytes: audio.length,
+      mimeType,
+      attempt,
+      textLength: text.length
+    });
+    return text;
   }
-  const payload = await response.json() as { text?: string };
-  const text = payload.text?.trim() ?? "";
-  console.info("[meeting-notes] OpenAI transcription completed", {
-    model: config.tuning.openAiTranscriptionModel,
-    audioBytes: audio.length,
-    mimeType,
-    textLength: text.length
-  });
-  return text;
 }
 
 export function meetingNotesStorageBase(config: AppConfig, roomName: string, startedAt: string) {

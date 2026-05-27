@@ -1,5 +1,6 @@
 import type {
   AcceptInviteResponseSchema,
+  AiObjectJob,
   AvatarAppearance,
   ClassroomActionSchema,
   ClassroomState,
@@ -13,18 +14,22 @@ import type {
   Invite,
   LessonRecap,
   ListFreeForAllRoomsResponse,
+  ListAiObjectJobsResponse,
   MeetingNotesDownloadFormat,
   MeetingNotesSessionDetail,
   MeetingNotesSessionListResponse,
+  PlaceAiObjectRequest,
   Role,
+  RoomObject,
   RoomSessionResponse,
   RoomType,
   RoomRecord,
-  RoomObject,
   RoomObjectCategory,
   RoomObjectRealtimeInbound,
   RoomObjectRealtimeMessage,
   RoomObjectTemplate,
+  StartAiObjectJobRequest,
+  StartAiObjectJobResponse,
   UpdateDynamicWallAnchorRequest,
   WorldSkin,
   RoomSettings,
@@ -663,4 +668,57 @@ export function updateDynamicWallAnchor(identity: ApiIdentity, roomId: string, a
 
 export function removeDynamicWallAnchor(identity: ApiIdentity, roomId: string, anchorId: string) {
   return apiFetch<{ realtimeMessages: unknown[] }>(`/v1/rooms/${roomId}/dynamic-wall-anchors/${anchorId}`, { method: "DELETE", identity });
+}
+
+export function startAiObjectJob(identity: ApiIdentity, roomId: string, body: Pick<StartAiObjectJobRequest, "prompt" | "stylePreset" | "complexity">) {
+  return apiFetch<StartAiObjectJobResponse>(`/v1/rooms/${roomId}/ai-objects/jobs`, { method: "POST", body, identity });
+}
+
+export function listAiObjectJobs(identity: ApiIdentity, roomId: string) {
+  return apiFetch<ListAiObjectJobsResponse>(`/v1/rooms/${roomId}/ai-objects/jobs`, { identity });
+}
+
+export function getAiObjectJob(identity: ApiIdentity, roomId: string, jobId: string) {
+  return apiFetch<AiObjectJob>(`/v1/rooms/${roomId}/ai-objects/jobs/${jobId}`, { identity });
+}
+
+export function cancelAiObjectJob(identity: ApiIdentity, roomId: string, jobId: string) {
+  return apiFetch<{ job: AiObjectJob; realtimeMessages: unknown[] }>(`/v1/rooms/${roomId}/ai-objects/jobs/${jobId}`, {
+    method: "PATCH",
+    body: { action: "cancel" },
+    identity
+  });
+}
+
+export function deleteAiObjectJob(identity: ApiIdentity, roomId: string, jobId: string) {
+  return apiFetch<{ deleted: boolean; realtimeMessages: unknown[] }>(`/v1/rooms/${roomId}/ai-objects/jobs/${jobId}`, {
+    method: "DELETE",
+    identity
+  });
+}
+
+export function placeAiObject(identity: ApiIdentity, roomId: string, jobId: string, body: Partial<PlaceAiObjectRequest> = {}) {
+  return apiFetch<{ object: RoomObject; realtimeMessages: unknown[] }>(`/v1/rooms/${roomId}/ai-objects/jobs/${jobId}/place`, {
+    method: "POST",
+    body,
+    identity
+  });
+}
+
+export async function downloadAiObjectGlb(identity: ApiIdentity, roomId: string, jobId: string, filename: string) {
+  const url = `${API_URL}/v1/rooms/${roomId}/ai-objects/jobs/${jobId}/object.glb`;
+  const headers: Record<string, string> = { ...identityHeaders(identity) };
+  if (identity.getAuthToken) {
+    const token = await identity.getAuthToken();
+    if (token) headers["authorization"] = `Bearer ${token}`;
+  }
+  const response = await fetch(url, { headers });
+  if (!response.ok) throw new ApiError(response.status, "Download failed");
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(objectUrl);
 }

@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import {
   parseRoomSettings,
+  type AiObjectJob,
   type AvatarAppearance,
   type ClassroomState,
   type ClassMembership,
@@ -147,6 +148,15 @@ export type Repository = {
   createMeetingNotesSegment(input: MeetingNotesSegment): Promise<MeetingNotesSegment>;
   listMeetingNotesSegments(sessionId: string): Promise<MeetingNotesSegment[]>;
   deleteMeetingNotesSegments(sessionId: string): Promise<void>;
+  listAiObjectJobsForRoom(roomId: string, opts?: { limit?: number }): Promise<AiObjectJob[]>;
+  countActiveAiObjectJobsForRoom(roomId: string): Promise<number>;
+  countActiveAiObjectJobsForUser(roomId: string, userId: string): Promise<number>;
+  countAiObjectJobsForUserSince(userId: string, sinceIso: string): Promise<number>;
+  getAiObjectJob(id: string): Promise<AiObjectJob | undefined>;
+  createAiObjectJob(input: AiObjectJob): Promise<AiObjectJob>;
+  updateAiObjectJob(id: string, patch: Partial<AiObjectJob>): Promise<AiObjectJob>;
+  deleteAiObjectJob(id: string, roomId: string): Promise<void>;
+  listExpiredAiObjectJobs(beforeIso: string, limit: number): Promise<AiObjectJob[]>;
 };
 
 export function nowIso() {
@@ -191,6 +201,7 @@ export class MemoryRepository implements Repository {
   private dynamicWallAnchors = new Map<string, DynamicWallAnchor>();
   private meetingNotesSessions = new Map<string, MeetingNotesSession>();
   private meetingNotesSegments = new Map<string, MeetingNotesSegment>();
+  private aiObjectJobs = new Map<string, AiObjectJob>();
 
   async close() {
     return;
@@ -795,5 +806,60 @@ export class MemoryRepository implements Repository {
     for (const [id, segment] of this.meetingNotesSegments.entries()) {
       if (segment.sessionId === sessionId) this.meetingNotesSegments.delete(id);
     }
+  }
+
+  async listAiObjectJobsForRoom(roomId: string, opts?: { limit?: number }): Promise<AiObjectJob[]> {
+    const jobs = Array.from(this.aiObjectJobs.values())
+      .filter((j) => j.roomId === roomId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return opts?.limit ? jobs.slice(0, opts.limit) : jobs;
+  }
+
+  async countActiveAiObjectJobsForRoom(roomId: string): Promise<number> {
+    const active = new Set(["queued", "refining", "composing", "validating"]);
+    return Array.from(this.aiObjectJobs.values()).filter((j) => j.roomId === roomId && active.has(j.status)).length;
+  }
+
+  async countActiveAiObjectJobsForUser(roomId: string, userId: string): Promise<number> {
+    const active = new Set(["queued", "refining", "composing", "validating"]);
+    return Array.from(this.aiObjectJobs.values()).filter(
+      (j) => j.roomId === roomId && j.requestedByUserId === userId && active.has(j.status)
+    ).length;
+  }
+
+  async countAiObjectJobsForUserSince(userId: string, sinceIso: string): Promise<number> {
+    return Array.from(this.aiObjectJobs.values()).filter(
+      (j) => j.requestedByUserId === userId && j.createdAt >= sinceIso
+    ).length;
+  }
+
+  async getAiObjectJob(id: string): Promise<AiObjectJob | undefined> {
+    return this.aiObjectJobs.get(id);
+  }
+
+  async createAiObjectJob(input: AiObjectJob): Promise<AiObjectJob> {
+    this.aiObjectJobs.set(input.id, input);
+    return input;
+  }
+
+  async updateAiObjectJob(id: string, patch: Partial<AiObjectJob>): Promise<AiObjectJob> {
+    const existing = this.aiObjectJobs.get(id);
+    if (!existing) throw notFound("AI object job not found");
+    const updated = { ...existing, ...patch, id: existing.id, roomId: existing.roomId, updatedAt: nowIso() };
+    this.aiObjectJobs.set(id, updated);
+    return updated;
+  }
+
+  async deleteAiObjectJob(id: string, roomId: string): Promise<void> {
+    const job = this.aiObjectJobs.get(id);
+    if (job && job.roomId === roomId) this.aiObjectJobs.delete(id);
+  }
+
+  async listExpiredAiObjectJobs(beforeIso: string, limit: number): Promise<AiObjectJob[]> {
+    const terminal = new Set(["ready", "error", "cancelled", "rejected"]);
+    return Array.from(this.aiObjectJobs.values())
+      .filter((j) => terminal.has(j.status) && j.finishedAt && j.finishedAt <= beforeIso)
+      .sort((a, b) => (a.finishedAt ?? "").localeCompare(b.finishedAt ?? ""))
+      .slice(0, limit);
   }
 }

@@ -1,0 +1,21 @@
+{
+  "displayName": "Unit Cube",
+  "style": "stylized-low-poly",
+  "parts": [
+    {
+      "op": "box",
+      "size": [1.0, 1.0, 1.0],
+      "position": [0, 0.5, 0],
+      "material": "grey"
+    }
+  ],
+  "materials": {
+    "grey": {
+      "colorHex": "#888888",
+      "roughness": 0.8,
+      "metalness": 0.0
+    }
+  },
+  "rejected": false,
+  "rejectedReason": null
+}

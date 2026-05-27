@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { AppConfig } from "../config.js";
 import { storageConfigured } from "../config.js";
@@ -200,4 +200,15 @@ export async function readStoredObject(
 
 export function roomObjectAssetUrl(config: AppConfig, storageKey: string) {
   return `${config.apiPublicUrl}/v1/room-object-assets/${roomObjectAssetPath(storageKey)}`;
+}
+
+export async function deleteStoredObject(config: AppConfig, input: { storageKey: string }) {
+  if (!storageConfigured(config)) {
+    devStorage.delete(input.storageKey);
+    return;
+  }
+  await createStorageClient(config).send(new DeleteObjectCommand({
+    Bucket: config.objectStorage.bucket!,
+    Key: input.storageKey
+  }));
 }

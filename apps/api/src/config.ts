@@ -64,6 +64,17 @@ export type AppConfig = {
     openAiSummaryModel: string;
     aiMeetingNotesMaxDurationMinutes: number;
     aiMeetingNotesStoragePrefix: string;
+    enableAiObjectGeneration: boolean;
+    aiObjectProvider: "procedural" | "meshy";
+    meshyApiKey: string | undefined;
+    openAiAiObjectComposerModel: string;
+    aiObjectMeshyRefineTextures: boolean;
+    aiObjectStoragePrefix: string;
+    aiObjectMaxPromptChars: number;
+    aiObjectMeshyTimeoutSec: number;
+    aiObjectMaxJobsPerUserPerDay: number;
+    aiObjectRetentionDays: number;
+    aiObjectUseTestFixture: boolean;
     enableStudentMediaPermissions: boolean;
     spatialAudio: SpatialAudioConfig;
     media: {
@@ -163,6 +174,14 @@ function requiredInProduction(config: AppConfig, raw: NodeJS.ProcessEnv) {
     required.push("OPENAI_API_KEY");
   }
 
+  if (config.tuning.enableAiObjectGeneration) {
+    required.push("OPENAI_API_KEY");
+  }
+
+  if (config.tuning.enableAiObjectGeneration && config.tuning.aiObjectProvider === "meshy") {
+    required.push("MESHY_API_KEY");
+  }
+
   const missing = required.filter((key) => !envString(raw, key));
   if (missing.length > 0) {
     throw new Error(`Missing required production environment variables: ${missing.join(", ")}`);
@@ -239,10 +258,25 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       enableWorkforceTraining: envBoolean(raw, "ENABLE_WORKFORCE_TRAINING", false),
       enableFreeForAll: envBoolean(raw, "ENABLE_FREE_FOR_ALL", false),
       enableAiMeetingNotes: envBoolean(raw, "ENABLE_AI_MEETING_NOTES", false),
-      openAiTranscriptionModel: envString(raw, "OPENAI_TRANSCRIPTION_MODEL") ?? "whisper-1",
+      openAiTranscriptionModel: envString(raw, "OPENAI_TRANSCRIPTION_MODEL") ?? "gpt-4o-transcribe",
       openAiSummaryModel: envString(raw, "OPENAI_SUMMARY_MODEL") ?? "gpt-4.1",
       aiMeetingNotesMaxDurationMinutes: envNumber(raw, "AI_MEETING_NOTES_MAX_DURATION_MINUTES", 120),
       aiMeetingNotesStoragePrefix: envString(raw, "AI_MEETING_NOTES_STORAGE_PREFIX") ?? "meeting-notes/",
+      enableAiObjectGeneration: envBoolean(raw, "ENABLE_AI_OBJECT_GENERATION", false),
+      aiObjectProvider: (() => {
+        const val = envString(raw, "AI_OBJECT_PROVIDER") ?? "procedural";
+        if (val !== "procedural" && val !== "meshy") throw new Error("AI_OBJECT_PROVIDER must be procedural or meshy");
+        return val as "procedural" | "meshy";
+      })(),
+      meshyApiKey: envString(raw, "MESHY_API_KEY"),
+      openAiAiObjectComposerModel: envString(raw, "OPENAI_AI_OBJECT_COMPOSER_MODEL") ?? "gpt-4.1",
+      aiObjectMeshyRefineTextures: envBoolean(raw, "AI_OBJECT_MESHY_REFINE_TEXTURES", true),
+      aiObjectStoragePrefix: envString(raw, "AI_OBJECT_STORAGE_PREFIX") ?? "ai-objects/",
+      aiObjectMaxPromptChars: envNumber(raw, "AI_OBJECT_MAX_PROMPT_CHARS", 500),
+      aiObjectMeshyTimeoutSec: envNumber(raw, "AI_OBJECT_MESHY_TIMEOUT_SEC", 300),
+      aiObjectMaxJobsPerUserPerDay: envNumber(raw, "AI_OBJECT_MAX_JOBS_PER_USER_PER_DAY", 20),
+      aiObjectRetentionDays: envNumber(raw, "AI_OBJECT_RETENTION_DAYS", 30),
+      aiObjectUseTestFixture: envBoolean(raw, "AI_OBJECT_USE_TEST_FIXTURE", false),
       enableStudentMediaPermissions: envBoolean(raw, "ENABLE_STUDENT_MEDIA_PERMISSIONS", false),
       spatialAudio: {
         enabled: envBoolean(raw, "SPATIAL_AUDIO_ENABLED", true),

@@ -70,6 +70,8 @@ import { EnvironmentCard } from "./EnvironmentCard";
 import { useDynamicWallAnchors } from "../lib/useDynamicWallAnchors";
 import { useMeetingNotes } from "../lib/useMeetingNotes";
 import { MeetingNotesPanel } from "./MeetingNotesPanel";
+import { useAiObjectGenerator } from "../lib/useAiObjectGenerator";
+import { AiObjectPanel } from "./AiObjectPanel";
 import { DYNAMIC_BOARD_DEFAULT_HEIGHT, DYNAMIC_BOARD_DEFAULT_WIDTH } from "./RoomView3D";
 
 const RoomView3D = dynamic(() => import("./RoomView3D").then((module) => module.RoomView3D), {
@@ -248,6 +250,13 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     })),
     publish: publishRealtime
   });
+  const aiObjectsEnabled = roomTypeFeatures.aiObjects && CLIENT_TUNING.enableAiObjectGeneration && Boolean(session);
+  const aiObjectGenerator = useAiObjectGenerator({
+    identity,
+    roomId: session?.room.id ?? roomId,
+    enabled: aiObjectsEnabled,
+    publish: publishRealtime
+  });
   const [dynamicBoardPlacementActive, setDynamicBoardPlacementActive] = useState(false);
   const [dynamicBoardPlacementBusy, setDynamicBoardPlacementBusy] = useState(false);
   const [dynamicBoardPlacementMessage, setDynamicBoardPlacementMessage] = useState("");
@@ -414,6 +423,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   dynamicBoardsRealtimeHandlerRef.current = dynamicBoards.handleRealtimeMessage;
   const meetingNotesRealtimeHandlerRef = useRef(meetingNotes.handleRealtimeMessage);
   meetingNotesRealtimeHandlerRef.current = meetingNotes.handleRealtimeMessage;
+  const aiObjectsRealtimeHandlerRef = useRef(aiObjectGenerator.handleRealtimeMessage);
+  aiObjectsRealtimeHandlerRef.current = aiObjectGenerator.handleRealtimeMessage;
   camera.lockedRef.current = classroom.state?.spotlight?.mode === "force";
 
   useEffect(() => {
@@ -683,6 +694,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       if (classroomRealtimeHandlerRef.current(message)) return;
       if (dynamicBoardsRealtimeHandlerRef.current(message)) return;
       if (meetingNotesRealtimeHandlerRef.current(message)) return;
+      if (aiObjectsRealtimeHandlerRef.current(message)) return;
       if (message.type.startsWith("wall.")) return;
       if (message.type.startsWith("room.object.")) return;
       if (message.type.startsWith("room.board.")) return;
@@ -2123,6 +2135,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               roomId={session.room.id}
               controller={meetingNotes}
             />
+          ) : null}
+          {aiObjectsEnabled && session ? (
+            <AiObjectPanel controller={aiObjectGenerator} />
           ) : null}
           {roomTypeFeatures.worldSkins && CLIENT_TUNING.enableWorldSkins && role === "teacher" && session ? (
             <EnvironmentCard

@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+  AiObjectRealtimeMessage,
   AvatarAppearanceMessage,
   AvatarReactionMessage,
   AvatarStateMessage,
@@ -74,7 +75,8 @@ export type RealtimeMessage =
   | RoomObjectRealtimeMessage
   | RoomSkinMessage
   | BoardRealtimeMessage
-  | MeetingNotesRealtimeMessage;
+  | MeetingNotesRealtimeMessage
+  | AiObjectRealtimeMessage;
 
 const ROOM_OBJECT_UNRELIABLE_TYPES = new Set(["room.object.pose.v1", "room.meeting-notes.segment.v1"]);
 

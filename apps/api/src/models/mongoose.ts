@@ -1,5 +1,6 @@
 import mongoose, { type Connection, Schema, type Model } from "mongoose";
 import type {
+  AiObjectJob,
   AvatarAppearance,
   ClassroomState,
   ClassMembership,
@@ -53,6 +54,7 @@ type Models = {
   DynamicWallAnchor: Model<any>;
   MeetingNotesSession: Model<any>;
   MeetingNotesSegment: Model<any>;
+  AiObjectJob: Model<any>;
 };
 
 function entity<T>(doc: unknown) {
@@ -364,6 +366,39 @@ export function createModels(connection: Connection): Models {
   });
   meetingNotesSegmentSchema.index({ sessionId: 1, startMs: 1 });
 
+  const aiObjectJobSchema = new Schema({
+    id: { type: String, required: true, unique: true },
+    roomId: { type: String, required: true },
+    requestedByUserId: { type: String, required: true },
+    prompt: { type: String, required: true },
+    proceduralSpecJson: String,
+    refinedPrompt: String,
+    negativePrompt: String,
+    stylePreset: String,
+    complexity: String,
+    polycountTarget: Number,
+    status: { type: String, required: true },
+    providerName: { type: String, required: true },
+    providerJobId: String,
+    providerProgressPercent: Number,
+    errorCode: String,
+    errorMessage: String,
+    templateId: String,
+    glbStorageKey: String,
+    thumbnailStorageKey: String,
+    fileSizeBytes: Number,
+    triangleCount: Number,
+    textureMaxDim: Number,
+    startedAt: { type: String, required: true },
+    finishedAt: String,
+    durationMs: Number,
+    createdAt: { type: String, required: true },
+    updatedAt: { type: String, required: true }
+  });
+  aiObjectJobSchema.index({ roomId: 1, createdAt: -1 });
+  aiObjectJobSchema.index({ requestedByUserId: 1, createdAt: -1 });
+  aiObjectJobSchema.index({ status: 1, updatedAt: 1 });
+
   return {
     User: connection.model("User", userSchema),
     Class: connection.model("Class", classSchema),
@@ -381,7 +416,8 @@ export function createModels(connection: Connection): Models {
     RoomSession: connection.model("RoomSession", sessionSchema),
     DynamicWallAnchor: connection.model("DynamicWallAnchor", dynamicWallAnchorSchema, "dynamic_wall_anchors"),
     MeetingNotesSession: connection.model("MeetingNotesSession", meetingNotesSessionSchema, "meeting_notes_sessions"),
-    MeetingNotesSegment: connection.model("MeetingNotesSegment", meetingNotesSegmentSchema, "meeting_notes_segments")
+    MeetingNotesSegment: connection.model("MeetingNotesSegment", meetingNotesSegmentSchema, "meeting_notes_segments"),
+    AiObjectJob: connection.model("AiObjectJob", aiObjectJobSchema, "ai_object_jobs")
   };
 }
 
@@ -1101,5 +1137,67 @@ export class MongoRepository implements Repository {
 
   async deleteMeetingNotesSegments(sessionId: string): Promise<void> {
     await this.models.MeetingNotesSegment.deleteMany({ sessionId });
+  }
+
+  async listAiObjectJobsForRoom(roomId: string, opts?: { limit?: number }): Promise<AiObjectJob[]> {
+    const query = this.models.AiObjectJob.find({ roomId }).sort({ createdAt: -1 });
+    if (opts?.limit) query.limit(opts.limit);
+    return entities<AiObjectJob>(await query.lean());
+  }
+
+  async countActiveAiObjectJobsForRoom(roomId: string): Promise<number> {
+    return this.models.AiObjectJob.countDocuments({
+      roomId,
+      status: { $in: ["queued", "refining", "composing", "validating"] }
+    });
+  }
+
+  async countActiveAiObjectJobsForUser(roomId: string, userId: string): Promise<number> {
+    return this.models.AiObjectJob.countDocuments({
+      roomId,
+      requestedByUserId: userId,
+      status: { $in: ["queued", "refining", "composing", "validating"] }
+    });
+  }
+
+  async countAiObjectJobsForUserSince(userId: string, sinceIso: string): Promise<number> {
+    return this.models.AiObjectJob.countDocuments({
+      requestedByUserId: userId,
+      createdAt: { $gte: sinceIso }
+    });
+  }
+
+  async getAiObjectJob(id: string): Promise<AiObjectJob | undefined> {
+    const doc = await this.models.AiObjectJob.findOne({ id }).lean();
+    return doc ? entity<AiObjectJob>(doc) : undefined;
+  }
+
+  async createAiObjectJob(input: AiObjectJob): Promise<AiObjectJob> {
+    await this.models.AiObjectJob.create(input);
+    return input;
+  }
+
+  async updateAiObjectJob(id: string, patch: Partial<AiObjectJob>): Promise<AiObjectJob> {
+    const existing = await this.getAiObjectJob(id);
+    if (!existing) throw notFound("AI object job not found");
+    const doc = await this.models.AiObjectJob.findOneAndUpdate(
+      { id },
+      { $set: { ...patch, updatedAt: nowIso() } },
+      { new: true, lean: true }
+    );
+    if (!doc) throw notFound("AI object job not found");
+    return entity<AiObjectJob>(doc);
+  }
+
+  async deleteAiObjectJob(id: string, roomId: string): Promise<void> {
+    await this.models.AiObjectJob.deleteOne({ id, roomId });
+  }
+
+  async listExpiredAiObjectJobs(beforeIso: string, limit: number): Promise<AiObjectJob[]> {
+    const docs = await this.models.AiObjectJob.find({
+      status: { $in: ["ready", "error", "cancelled", "rejected"] },
+      finishedAt: { $lte: beforeIso }
+    }).sort({ finishedAt: 1 }).limit(limit).lean();
+    return entities<AiObjectJob>(docs);
   }
 }

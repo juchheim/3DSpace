@@ -5825,3 +5825,181 @@ body.lobby-dark::before {
   font-size: 10px;
   padding: 4px 8px;
 }
+
+/* ─── AI 3D Object Generator panel ─────────────────────────────────────── */
+
+.ai-object-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ai-object-panel__copy,
+.ai-object-panel__label,
+.ai-object-panel__error {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--hud-tx-m);
+}
+
+.ai-object-panel__error {
+  color: #ff9f9f;
+}
+
+.ai-object-panel__form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ai-object-panel__textarea {
+  appearance: none;
+  border: 1px solid var(--hud-bd);
+  border-radius: 7px;
+  background: rgba(255, 250, 240, 0.04);
+  color: var(--hud-tx);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 6px 8px;
+  resize: vertical;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ai-object-panel__textarea::placeholder {
+  color: var(--hud-tx-d);
+}
+
+.ai-object-panel__textarea:focus {
+  outline: none;
+  border-color: var(--hud-bd-m);
+}
+
+.ai-object-panel__button {
+  appearance: none;
+  border: 1px solid var(--hud-bd);
+  background: rgba(255, 250, 240, 0.04);
+  color: var(--hud-tx);
+  border-radius: 7px;
+  padding: 0.38rem 0.58rem;
+  min-height: 30px;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.ai-object-panel__button:hover:not(:disabled) {
+  background: rgba(255, 250, 240, 0.08);
+  border-color: var(--hud-bd-m);
+}
+
+.ai-object-panel__button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.ai-object-panel__button--primary {
+  background: rgba(80, 140, 220, 0.12);
+  border-color: rgba(80, 140, 220, 0.3);
+  color: #9ec4f5;
+}
+
+.ai-object-panel__button--primary:hover:not(:disabled) {
+  background: rgba(80, 140, 220, 0.18);
+  border-color: rgba(80, 140, 220, 0.44);
+}
+
+.ai-object-panel__button--ghost {
+  color: var(--hud-tx-m);
+}
+
+.ai-object-panel__button--small {
+  padding: 2px 6px;
+  min-height: 22px;
+  font-size: 10px;
+}
+
+.ai-object-panel__jobs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ai-object-panel__job {
+  border: 1px solid var(--hud-bd);
+  border-radius: 8px;
+  padding: 8px;
+  background: rgba(255, 250, 240, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ai-object-panel__job--ready {
+  border-color: rgba(80, 200, 120, 0.28);
+  background: rgba(80, 200, 120, 0.05);
+}
+
+.ai-object-panel__job--error,
+.ai-object-panel__job--rejected {
+  border-color: rgba(200, 80, 80, 0.28);
+}
+
+.ai-object-panel__job-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.ai-object-panel__job-prompt {
+  font-size: 11px;
+  color: var(--hud-tx);
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-object-panel__job-status {
+  font-size: 10px;
+  color: var(--hud-tx-d);
+  flex-shrink: 0;
+}
+
+.ai-object-panel__job-error {
+  font-size: 10px;
+  color: #ff9f9f;
+  line-height: 1.4;
+}
+
+.ai-object-panel__job-progress {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-object-panel__job-actions {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+@keyframes ai-object-spin {
+  to { transform: rotate(360deg); }
+}
+
+.ai-object-panel__spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+  border-top-color: var(--hud-tx-m);
+  animation: ai-object-spin 0.8s linear infinite;
+}
