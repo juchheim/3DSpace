@@ -11,6 +11,7 @@ import {
   rotationFacingRoomCenter,
   createDefaultRoomManifest,
   createFreeForAllManifest,
+  validateDynamicBoardPlacement,
   createWorkforceTrainingManifest,
   interpolateAvatarState,
   delta2DToWorldXZ,
@@ -546,5 +547,59 @@ describe("free-for-all wall collisions", () => {
 
     expect(result.x).toBeCloseTo(35);
     expect(result.z).toBeCloseTo(0.8);
+  });
+});
+
+describe("validateDynamicBoardPlacement", () => {
+  const manifest = createFreeForAllManifest({ roomId: "room_ffa_test" });
+  const westWall = manifest.walls.find((wall) => wall.id === "ffa-central-west");
+  expect(westWall).toBeDefined();
+
+  it("allows placement on the same wall when boards are side by side along the wall", () => {
+    const result = validateDynamicBoardPlacement(
+      manifest,
+      [
+        {
+          wallId: "ffa-central-west",
+          position: { x: -6, z: 4 },
+          width: 4
+        }
+      ],
+      { wallId: "ffa-central-west", center: { x: -6, z: -4 }, width: 4 }
+    );
+
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("does not treat perpendicular wall anchors at a corner as overlapping", () => {
+    const result = validateDynamicBoardPlacement(
+      manifest,
+      [
+        {
+          wallId: "ffa-central-north",
+          position: { x: 0, z: -6 },
+          width: 4
+        }
+      ],
+      { wallId: "ffa-central-west", center: { x: -6, z: 0 }, width: 4 }
+    );
+
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("rejects placement when board spans overlap along the same wall", () => {
+    const result = validateDynamicBoardPlacement(
+      manifest,
+      [
+        {
+          wallId: "ffa-central-west",
+          position: { x: -6, z: 2 },
+          width: 4
+        }
+      ],
+      { wallId: "ffa-central-west", center: { x: -6, z: 0.5 }, width: 4 }
+    );
+
+    expect(result).toEqual({ ok: false, reason: "overlaps-anchor" });
   });
 });

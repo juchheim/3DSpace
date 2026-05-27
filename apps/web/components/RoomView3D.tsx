@@ -61,8 +61,8 @@ const WALL_ANCHOR_SURFACE_OFFSET = 0.04;
 const WALL_SURFACE_MIN_VISIBLE_DISTANCE = 0.02;
 const WALL_SURFACE_SELF_OCCLUSION_DISTANCE = 0.45;
 const WALL_INTERSECTION_EPSILON = 0.0001;
-const DYNAMIC_BOARD_WIDTH = 4.0;
-const DYNAMIC_BOARD_HEIGHT = 2.5;
+export const DYNAMIC_BOARD_DEFAULT_WIDTH = 4.0;
+export const DYNAMIC_BOARD_DEFAULT_HEIGHT = 2.5;
 const DYNAMIC_BOARD_WALL_INSET = 0.1;
 const DYNAMIC_BOARD_ACCEPTS: CreateDynamicWallAnchorRequest["accepts"] = [
   "image",
@@ -84,6 +84,7 @@ const DYNAMIC_BOARD_ACCEPTS: CreateDynamicWallAnchorRequest["accepts"] = [
 type DynamicBoardPlacementConfig = {
   active: boolean;
   busy?: boolean;
+  boardSize: { width: number; height: number };
   onPlace(body: CreateDynamicWallAnchorRequest): void | Promise<void>;
 };
 
@@ -1750,7 +1751,8 @@ function normalFacingReference(wall: Wall, reference: Vector3) {
 function dynamicBoardRequestFromWallClick(
   wall: Wall,
   point: Vector3,
-  normal: Vector3
+  normal: Vector3,
+  boardSize: { width: number; height: number }
 ): CreateDynamicWallAnchorRequest {
   const span = wallSpan(wall);
   const wallLengthSq = span.length * span.length;
@@ -1762,7 +1764,7 @@ function dynamicBoardRequestFromWallClick(
   const wallX = wall.start.x + projectedT * span.dx;
   const wallZ = wall.start.z + projectedT * span.dz;
   const offset = (wall.thickness ?? 0) / 2 + DYNAMIC_BOARD_WALL_INSET;
-  const centerY = clamp(point.y, DYNAMIC_BOARD_HEIGHT / 2, wall.height - DYNAMIC_BOARD_HEIGHT / 2);
+  const centerY = clamp(point.y, boardSize.height / 2, wall.height - boardSize.height / 2);
   const title = `Board on ${wall.label}`.slice(0, 80);
 
   return {
@@ -1773,8 +1775,8 @@ function dynamicBoardRequestFromWallClick(
       z: snapBoardPlacement(wallZ + normal.z * offset)
     },
     normal: { x: normal.x, y: 0, z: normal.z },
-    width: DYNAMIC_BOARD_WIDTH,
-    height: DYNAMIC_BOARD_HEIGHT,
+    width: boardSize.width,
+    height: boardSize.height,
     title,
     accepts: DYNAMIC_BOARD_ACCEPTS
   };
@@ -1790,7 +1792,7 @@ function DynamicBoardPlacementTargets({
   return (
     <group>
       {walls
-        .filter((wall) => wall.passable !== true && wall.height >= DYNAMIC_BOARD_HEIGHT)
+        .filter((wall) => wall.passable !== true && wall.height >= placement.boardSize.height)
         .map((wall) => (
           <DynamicBoardPlacementTarget key={wall.id} wall={wall} placement={placement} />
         ))}
@@ -1818,7 +1820,7 @@ function DynamicBoardPlacementTarget({
 
   function placementRequest(event: ThreeEvent<PointerEvent>) {
     const normal = normalFacingReference(wall, camera.position);
-    return dynamicBoardRequestFromWallClick(wall, event.point, normal);
+    return dynamicBoardRequestFromWallClick(wall, event.point, normal, placement.boardSize);
   }
 
   function updatePreview(event: ThreeEvent<PointerEvent>) {

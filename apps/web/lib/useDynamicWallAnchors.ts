@@ -71,7 +71,7 @@ export function useDynamicWallAnchors(input: {
       id: optimisticId,
       roomId: input.roomId,
       wallId: body.wallId,
-      createdByUserId: "",
+      createdByUserId: input.identity.userId,
       label: body.title,
       position: body.center,
       normal: body.normal,

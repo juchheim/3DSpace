@@ -102,7 +102,8 @@ import {
   createInitialPollState,
   isValidPollChoiceId,
   normalizePollInlineData,
-  readPollState
+  readPollState,
+  validateDynamicBoardPlacement
 } from "@3dspace/room-engine";
 import { authenticate, type AuthContext } from "./auth.js";
 import { loadConfig, livekitConfigured, storageConfigured, type AppConfig } from "./config.js";
@@ -3196,24 +3197,6 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
 
   const MAX_DYNAMIC_ANCHORS_PER_ROOM = 32;
 
-  function validateDynamicAnchorPlacement(
-    manifest: { walls: { id: string; start: { x: number; z: number }; end: { x: number; z: number } }[] },
-    existingAnchors: { id: string; position: { x: number; z: number }; width: number }[],
-    proposed: { wallId: string; center: { x: number; y: number; z: number }; width: number; height: number }
-  ): { ok: true } | { ok: false; reason: "wall-not-found" | "overlaps-anchor" } {
-    const wall = manifest.walls.find((w) => w.id === proposed.wallId);
-    if (!wall) return { ok: false, reason: "wall-not-found" };
-    const MIN_SPACING = 0.25;
-    for (const anchor of existingAnchors) {
-      const dx = anchor.position.x - proposed.center.x;
-      const dz = anchor.position.z - proposed.center.z;
-      const dist = Math.sqrt(dx * dx + dz * dz);
-      const minDist = (anchor.width + proposed.width) / 2 + MIN_SPACING;
-      if (dist < minDist) return { ok: false, reason: "overlaps-anchor" };
-    }
-    return { ok: true };
-  }
-
   app.get("/v1/rooms/:roomId/dynamic-wall-anchors", async (request) => {
     const auth = await requireUser(request, config, repository);
     const params = parseParams(ParamsWithRoomId, request);
@@ -3236,10 +3219,21 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     }
 
     const existingAnchors = [
-      ...manifest.wallAnchors,
-      ...(await repository.listDynamicWallAnchorsForRoom(params.roomId))
+      ...manifest.wallAnchors.map((anchor) => ({
+        position: anchor.position,
+        width: anchor.width
+      })),
+      ...(await repository.listDynamicWallAnchorsForRoom(params.roomId)).map((anchor) => ({
+        position: anchor.position,
+        width: anchor.width,
+        wallId: anchor.wallId
+      }))
     ];
-    const validation = validateDynamicAnchorPlacement(manifest, existingAnchors, { wallId: body.wallId, center: body.center, width: body.width, height: body.height });
+    const validation = validateDynamicBoardPlacement(manifest, existingAnchors, {
+      wallId: body.wallId,
+      center: body.center,
+      width: body.width
+    });
     if (!validation.ok) {
       throw unprocessableEntity(validation.reason === "wall-not-found" ? "Wall not found in room manifest" : "Board placement overlaps an existing board");
     }
@@ -3301,10 +3295,23 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       const proposedCenter = body.center ?? existing.position;
       const proposedWallId = body.wallId ?? existing.wallId;
       const otherAnchors = [
-        ...manifest.wallAnchors,
-        ...(await repository.listDynamicWallAnchorsForRoom(params.roomId)).filter((a) => a.id !== params.anchorId)
+        ...manifest.wallAnchors.map((anchor) => ({
+          position: anchor.position,
+          width: anchor.width
+        })),
+        ...(await repository.listDynamicWallAnchorsForRoom(params.roomId))
+          .filter((anchor) => anchor.id !== params.anchorId)
+          .map((anchor) => ({
+            position: anchor.position,
+            width: anchor.width,
+            wallId: anchor.wallId
+          }))
       ];
-      const validation = validateDynamicAnchorPlacement(manifest, otherAnchors, { wallId: proposedWallId, center: proposedCenter, width: proposedWidth, height: body.height ?? existing.height });
+      const validation = validateDynamicBoardPlacement(manifest, otherAnchors, {
+        wallId: proposedWallId,
+        center: proposedCenter,
+        width: proposedWidth
+      });
       if (!validation.ok) {
         throw unprocessableEntity(validation.reason === "wall-not-found" ? "Wall not found in room manifest" : "Board placement overlaps an existing board");
       }

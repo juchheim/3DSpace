@@ -2,7 +2,7 @@
 
 import { anchorHasOccupyingWallObject, anchorSupportsCreateOption, fileInputAcceptForAnchor, isOccupyingWallObjectStatus } from "@3dspace/room-engine";
 import { useEffect, useMemo, useState } from "react";
-import type { ClassroomBoardAccessGrant, Role, RoomManifest, WallObject, WallObjectType } from "@3dspace/contracts";
+import type { ClassroomBoardAccessGrant, DynamicWallAnchor, Role, RoomManifest, WallObject, WallObjectType } from "@3dspace/contracts";
 import type { ApiIdentity } from "../lib/identity";
 import { WallObjectCard, type WallObjectControlAction } from "./WallObjectCard";
 import { HudCard } from "./HudCard";
@@ -47,12 +47,17 @@ export function AnchorPanel({
   dynamicAnchorPlacementActive = false,
   onStartDynamicAnchorPlacement,
   onCancelDynamicAnchorPlacement,
+  placementBoardWidth = 4,
+  placementBoardHeight = 2.5,
+  onPlacementBoardWidthChange,
+  onPlacementBoardHeightChange,
+  onRemoveDynamicAnchor,
   hostSingular = "Teacher"
 }: {
   identity: ApiIdentity;
   roomId: string;
   manifest: RoomManifest;
-  dynamicWallAnchors?: RoomManifest["wallAnchors"];
+  dynamicWallAnchors?: DynamicWallAnchor[];
   wallObjects: WallObject[];
   assetUrls: Record<string, string>;
   wallMediaStreams: Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>;
@@ -79,11 +84,21 @@ export function AnchorPanel({
   dynamicAnchorPlacementActive?: boolean;
   onStartDynamicAnchorPlacement?(): void;
   onCancelDynamicAnchorPlacement?(): void;
+  placementBoardWidth?: number;
+  placementBoardHeight?: number;
+  onPlacementBoardWidthChange?(width: number): void;
+  onPlacementBoardHeightChange?(height: number): void;
+  onRemoveDynamicAnchor?(anchorId: string): Promise<void>;
 }) {
+  const dynamicAnchors = dynamicWallAnchors ?? [];
   const allWallAnchors = useMemo(
-    () => dynamicWallAnchors?.length ? [...manifest.wallAnchors, ...dynamicWallAnchors] : manifest.wallAnchors,
-    [manifest.wallAnchors, dynamicWallAnchors]
+    () => (dynamicAnchors.length ? [...manifest.wallAnchors, ...dynamicAnchors] : manifest.wallAnchors),
+    [manifest.wallAnchors, dynamicAnchors]
   );
+
+  function canDeleteDynamicAnchor(anchor: DynamicWallAnchor) {
+    return canManage || anchor.createdByUserId === identity.userId;
+  }
   const [selectedAnchor, setSelectedAnchor] = useState(activeBoardGrant?.wallAnchorId ?? manifest.wallAnchors[0]?.id ?? "");
   const [selectedType, setSelectedType] = useState<CreateType | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -225,27 +240,86 @@ export function AnchorPanel({
 
       {canCreateDynamicAnchor && onStartDynamicAnchorPlacement ? (
         <div style={{ marginBottom: "0.5rem" }}>
-          {dynamicAnchorPlacementActive ? (
-            <div className="content-form">
-              <p className="small">Click a wall in the 3D room to place the new board.</p>
+          <div className="content-form">
+            <div className="content-form-row">
+              <label>
+                Board width (m)
+                <input
+                  type="number"
+                  min={1}
+                  max={8}
+                  step={0.25}
+                  value={placementBoardWidth}
+                  disabled={dynamicAnchorPlacementActive || Boolean(busy)}
+                  onChange={(event) => onPlacementBoardWidthChange?.(Number(event.target.value))}
+                />
+              </label>
+              <label>
+                Board height (m)
+                <input
+                  type="number"
+                  min={0.75}
+                  max={5}
+                  step={0.25}
+                  value={placementBoardHeight}
+                  disabled={dynamicAnchorPlacementActive || Boolean(busy)}
+                  onChange={(event) => onPlacementBoardHeightChange?.(Number(event.target.value))}
+                />
+              </label>
+            </div>
+            {dynamicAnchorPlacementActive ? (
+              <>
+                <p className="small">Click a wall in the 3D room to place the new board.</p>
+                <button
+                  type="button"
+                  className="hud-btn"
+                  onClick={onCancelDynamicAnchorPlacement}
+                >
+                  Cancel placement
+                </button>
+              </>
+            ) : (
               <button
                 type="button"
                 className="hud-btn"
-                onClick={onCancelDynamicAnchorPlacement}
+                disabled={Boolean(busy)}
+                onClick={onStartDynamicAnchorPlacement}
               >
-                Cancel placement
+                + Place board in 3D
               </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              className="hud-btn"
-              disabled={Boolean(busy)}
-              onClick={onStartDynamicAnchorPlacement}
-            >
-              + Place board in 3D
-            </button>
-          )}
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {dynamicAnchors.length > 0 && onRemoveDynamicAnchor ? (
+        <div className="hud-dynamic-boards" style={{ marginBottom: "0.5rem" }}>
+          <div className="hud-anchor-label">Placed boards</div>
+          {dynamicAnchors.map((anchor) => {
+            const occupied = anchorHasOccupyingWallObject(wallObjects, anchor.id);
+            const deletable = canDeleteDynamicAnchor(anchor);
+            return (
+              <div key={anchor.id} className="hud-dynamic-board-row">
+                <div>
+                  <div>{anchor.label}</div>
+                  <div className="small">
+                    {anchor.width.toFixed(1)} × {anchor.height.toFixed(1)} m
+                    {occupied ? " · remove content first" : ""}
+                  </div>
+                </div>
+                {deletable ? (
+                  <button
+                    type="button"
+                    className="hud-btn"
+                    disabled={occupied || Boolean(busy)}
+                    onClick={() => void run(`delete-board-${anchor.id}`, () => onRemoveDynamicAnchor(anchor.id))}
+                  >
+                    {busy === `delete-board-${anchor.id}` ? "…" : "Delete board"}
+                  </button>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
       ) : null}
 

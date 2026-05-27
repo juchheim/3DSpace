@@ -1013,6 +1013,85 @@ export function createFreeForAllManifest(input: {
   return RoomManifestSchema.parse(manifest);
 }
 
+/** Minimum along-wall gap between dynamic board centers (meters). */
+export const DYNAMIC_BOARD_PLACEMENT_MIN_GAP_M = 0.1;
+
+export type DynamicBoardPlacementAnchor = {
+  position: { x: number; z: number };
+  width: number;
+  wallId?: string;
+};
+
+function projectPointAlongWall(
+  wall: { start: { x: number; z: number }; end: { x: number; z: number } },
+  point: { x: number; z: number }
+) {
+  const dx = wall.end.x - wall.start.x;
+  const dz = wall.end.z - wall.start.z;
+  const length = Math.hypot(dx, dz) || 1;
+  const ux = dx / length;
+  const uz = dz / length;
+  const relX = point.x - wall.start.x;
+  const relZ = point.z - wall.start.z;
+  return {
+    along: relX * ux + relZ * uz,
+    perpendicular: Math.abs(relX * uz - relZ * ux)
+  };
+}
+
+function wallSpanIntervalsOverlap(
+  aAlong: number,
+  aWidth: number,
+  bAlong: number,
+  bWidth: number,
+  minGapMeters: number
+) {
+  const a0 = aAlong - aWidth / 2;
+  const a1 = aAlong + aWidth / 2;
+  const b0 = bAlong - bWidth / 2;
+  const b1 = bAlong + bWidth / 2;
+  return a1 + minGapMeters > b0 && b1 + minGapMeters > a0;
+}
+
+/**
+ * Rejects dynamic board placement only when spans overlap along the same wall segment.
+ * Anchors on other walls are ignored (including corner false positives from xz distance).
+ */
+export function validateDynamicBoardPlacement(
+  manifest: { walls: RoomManifest["walls"] },
+  existingAnchors: DynamicBoardPlacementAnchor[],
+  proposed: { wallId: string; center: { x: number; z: number }; width: number },
+  options?: { minGapMeters?: number; offWallToleranceMeters?: number }
+): { ok: true } | { ok: false; reason: "wall-not-found" | "overlaps-anchor" } {
+  const wall = manifest.walls.find((candidate) => candidate.id === proposed.wallId);
+  if (!wall) return { ok: false, reason: "wall-not-found" };
+
+  const minGap = options?.minGapMeters ?? DYNAMIC_BOARD_PLACEMENT_MIN_GAP_M;
+  const offWallTolerance = options?.offWallToleranceMeters ?? 1.25;
+  const proposedProjection = projectPointAlongWall(wall, proposed.center);
+
+  for (const anchor of existingAnchors) {
+    if (anchor.wallId && anchor.wallId !== proposed.wallId) continue;
+
+    const anchorProjection = projectPointAlongWall(wall, anchor.position);
+    if (!anchor.wallId && anchorProjection.perpendicular > offWallTolerance) continue;
+
+    if (
+      wallSpanIntervalsOverlap(
+        proposedProjection.along,
+        proposed.width,
+        anchorProjection.along,
+        anchor.width,
+        minGap
+      )
+    ) {
+      return { ok: false, reason: "overlaps-anchor" };
+    }
+  }
+
+  return { ok: true };
+}
+
 /** Returns the floor elevation (y) for a given z coordinate based on the manifest's tier definitions. */
 export function floorYFromZ(manifest: RoomManifest, z: number): number {
   if (!manifest.tiers?.length) return 0;

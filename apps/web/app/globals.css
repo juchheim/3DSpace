@@ -1441,6 +1441,19 @@ button.hud-heading-btn:hover {
   flex: 1;
 }
 
+.hud-dynamic-board-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.hud-dynamic-board-row:last-child {
+  border-bottom: none;
+}
+
 .hud-btn {
   flex-shrink: 0;
   padding: 0.36rem 0.8rem;

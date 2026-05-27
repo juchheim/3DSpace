@@ -62,6 +62,7 @@ import { RoomObjectInspector } from "./RoomObjectInspector";
 import { buildSpawnPoseInFront } from "../lib/roomObjectInteraction";
 import { EnvironmentCard } from "./EnvironmentCard";
 import { useDynamicWallAnchors } from "../lib/useDynamicWallAnchors";
+import { DYNAMIC_BOARD_DEFAULT_HEIGHT, DYNAMIC_BOARD_DEFAULT_WIDTH } from "./RoomView3D";
 
 const RoomView3D = dynamic(() => import("./RoomView3D").then((module) => module.RoomView3D), {
   ssr: false,
@@ -229,6 +230,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const [dynamicBoardPlacementActive, setDynamicBoardPlacementActive] = useState(false);
   const [dynamicBoardPlacementBusy, setDynamicBoardPlacementBusy] = useState(false);
   const [dynamicBoardPlacementMessage, setDynamicBoardPlacementMessage] = useState("");
+  const [placementBoardWidth, setPlacementBoardWidth] = useState(DYNAMIC_BOARD_DEFAULT_WIDTH);
+  const [placementBoardHeight, setPlacementBoardHeight] = useState(DYNAMIC_BOARD_DEFAULT_HEIGHT);
   const placeDynamicBoardIn3D = useCallback(async (body: CreateDynamicWallAnchorRequest) => {
     setDynamicBoardPlacementBusy(true);
     setDynamicBoardPlacementMessage("Placing board...");
@@ -247,10 +250,11 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       ? {
           active: true,
           busy: dynamicBoardPlacementBusy,
+          boardSize: { width: placementBoardWidth, height: placementBoardHeight },
           onPlace: placeDynamicBoardIn3D
         }
       : null,
-    [dynamicBoardPlacementActive, dynamicBoardPlacementBusy, placeDynamicBoardIn3D]
+    [dynamicBoardPlacementActive, dynamicBoardPlacementBusy, placeDynamicBoardIn3D, placementBoardWidth, placementBoardHeight]
   );
   const allWallAnchors = useMemo(
     () => [...(manifest?.wallAnchors ?? []), ...dynamicBoards.anchors],
@@ -2049,6 +2053,13 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               onCancelDynamicAnchorPlacement={() => {
                 setDynamicBoardPlacementActive(false);
                 setDynamicBoardPlacementMessage("");
+              }}
+              placementBoardWidth={placementBoardWidth}
+              placementBoardHeight={placementBoardHeight}
+              onPlacementBoardWidthChange={(width) => setPlacementBoardWidth(Math.min(8, Math.max(1, width)))}
+              onPlacementBoardHeightChange={(height) => setPlacementBoardHeight(Math.min(5, Math.max(0.75, height)))}
+              onRemoveDynamicAnchor={async (anchorId) => {
+                await dynamicBoards.remove(anchorId);
               }}
               onCreateFile={createFileObject}
               onCreateNote={createNote}
