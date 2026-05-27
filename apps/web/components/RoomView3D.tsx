@@ -1104,19 +1104,26 @@ function SceneAtmosphere() {
   );
 }
 
-// Renders 4 arc pairs (outer + inner surface) forming the circular FFA main hub
-// perimeter with visual thickness and gaps at the 4 cardinal exits.
+// Renders 4 solid arc sections forming the circular FFA main hub perimeter wall,
+// with gaps at the 4 cardinal exits. Each section is a closed prism: outer + inner
+// cylindrical surfaces, top + bottom ring caps, and end caps at each exit edge.
 //
 // Angle convention — Three.js CylinderGeometry u-space (CCW from +Z when viewed
 // from above):  South(+Z)=0, East(+X)=π/2, North(-Z)=π, West(-X)=3π/2
 //
-// Gap size matches the collision fix in circleWallSegments: each exit removes 2
-// segments (the ones straddling the exit angle), so the visual gap uses
-// FFA_EXIT_HALF_ARC + step/2 on each side.
+// FFA_EXIT_HALF_ARC = hall_width / (2 * radius), so the visual gap exactly aligns
+// with the hall side walls.
+//
+// RingGeometry (XY plane) is rotated -π/2 around X to lay flat in XZ.
+// Under that rotation, ring thetaStart = cylinderThetaStart − π/2.
+//
+// PlaneGeometry end caps use rotation.y = theta − π/2 so local-X spans radially
+// (inner→outer) and local-Y spans vertically (floor→ceiling).
 function PerimeterCylinder({ color }: { color: string }) {
-  const step = (2 * Math.PI) / FFA_PERIMETER_SEGMENTS;
-  // Gap must match what circleWallSegments actually removes (halfWidthRad + step/2).
-  const halfGap = FFA_EXIT_HALF_ARC + step / 2;
+  const halfT = FFA_WALL_THICKNESS / 2;
+  const outerR = FFA_MAIN_RADIUS + halfT;
+  const innerR = FFA_MAIN_RADIUS - halfT;
+  const halfGap = FFA_EXIT_HALF_ARC; // aligns cylinder gap with hall side walls
   const arcLength = Math.PI / 2 - 2 * halfGap;
   const arcStarts = [
     halfGap,
@@ -1124,23 +1131,53 @@ function PerimeterCylinder({ color }: { color: string }) {
     Math.PI + halfGap,
     (3 * Math.PI) / 2 + halfGap
   ];
-  const halfT = FFA_WALL_THICKNESS / 2;
-  const outerR = FFA_MAIN_RADIUS + halfT;
-  const innerR = FFA_MAIN_RADIUS - halfT;
+
   return (
     <>
-      {arcStarts.map((start, i) => (
-        <group key={i} position={[0, FFA_WALL_HEIGHT / 2, 0]}>
-          <mesh>
-            <cylinderGeometry args={[outerR, outerR, FFA_WALL_HEIGHT, 48, 1, true, start, arcLength]} />
-            <meshStandardMaterial color={color} side={DoubleSide} roughness={0.85} />
-          </mesh>
-          <mesh>
-            <cylinderGeometry args={[innerR, innerR, FFA_WALL_HEIGHT, 48, 1, true, start, arcLength]} />
-            <meshStandardMaterial color={color} side={DoubleSide} roughness={0.85} />
-          </mesh>
-        </group>
-      ))}
+      {arcStarts.map((start, i) => {
+        const arcEnd = start + arcLength;
+        const ringStart = start - Math.PI / 2;
+        return (
+          <group key={i} position={[0, FFA_WALL_HEIGHT / 2, 0]}>
+            {/* Outer cylindrical surface */}
+            <mesh>
+              <cylinderGeometry args={[outerR, outerR, FFA_WALL_HEIGHT, 48, 1, true, start, arcLength]} />
+              <meshStandardMaterial color={color} side={DoubleSide} roughness={0.85} />
+            </mesh>
+            {/* Inner cylindrical surface */}
+            <mesh>
+              <cylinderGeometry args={[innerR, innerR, FFA_WALL_HEIGHT, 48, 1, true, start, arcLength]} />
+              <meshStandardMaterial color={color} side={DoubleSide} roughness={0.85} />
+            </mesh>
+            {/* Top edge ring cap */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, FFA_WALL_HEIGHT / 2, 0]}>
+              <ringGeometry args={[innerR, outerR, 48, 1, ringStart, arcLength]} />
+              <meshStandardMaterial color={color} side={DoubleSide} roughness={0.85} />
+            </mesh>
+            {/* Bottom edge ring cap */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -FFA_WALL_HEIGHT / 2, 0]}>
+              <ringGeometry args={[innerR, outerR, 48, 1, ringStart, arcLength]} />
+              <meshStandardMaterial color={color} side={DoubleSide} roughness={0.85} />
+            </mesh>
+            {/* Start end cap (exit-facing edge at arc start) */}
+            <mesh
+              position={[FFA_MAIN_RADIUS * Math.sin(start), 0, FFA_MAIN_RADIUS * Math.cos(start)]}
+              rotation={[0, start - Math.PI / 2, 0]}
+            >
+              <planeGeometry args={[FFA_WALL_THICKNESS, FFA_WALL_HEIGHT]} />
+              <meshStandardMaterial color={color} side={DoubleSide} roughness={0.85} />
+            </mesh>
+            {/* End end cap (exit-facing edge at arc end) */}
+            <mesh
+              position={[FFA_MAIN_RADIUS * Math.sin(arcEnd), 0, FFA_MAIN_RADIUS * Math.cos(arcEnd)]}
+              rotation={[0, arcEnd - Math.PI / 2, 0]}
+            >
+              <planeGeometry args={[FFA_WALL_THICKNESS, FFA_WALL_HEIGHT]} />
+              <meshStandardMaterial color={color} side={DoubleSide} roughness={0.85} />
+            </mesh>
+          </group>
+        );
+      })}
     </>
   );
 }
