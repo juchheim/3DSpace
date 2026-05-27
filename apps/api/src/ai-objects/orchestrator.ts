@@ -238,7 +238,7 @@ async function runGeneration(
     const shortPrompt = input.prompt.slice(0, 40);
 
     const template = await repository.createRoomObjectTemplate({
-      slug: buildRoomObjectTemplateSlug(`ai-${shortPrompt}`),
+      slug: buildRoomObjectTemplateSlug(`ai-${shortPrompt}-${job.id.slice(-8)}`),
       displayName: shortPrompt,
       category: "custom",
       description: (job.proceduralSpecJson ?? job.refinedPrompt ?? job.prompt).slice(0, 500),
