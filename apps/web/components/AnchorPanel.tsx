@@ -3,6 +3,12 @@
 import { anchorHasOccupyingWallObject, anchorSupportsCreateOption, fileInputAcceptForAnchor, isOccupyingWallObjectStatus } from "@3dspace/room-engine";
 import { useEffect, useMemo, useState } from "react";
 import type { ClassroomBoardAccessGrant, DynamicWallAnchor, Role, RoomManifest, WallObject, WallObjectType } from "@3dspace/contracts";
+import {
+  DYNAMIC_WALL_ANCHOR_MAX_HEIGHT_M,
+  DYNAMIC_WALL_ANCHOR_MAX_WIDTH_M,
+  DYNAMIC_WALL_ANCHOR_MIN_HEIGHT_M,
+  DYNAMIC_WALL_ANCHOR_MIN_WIDTH_M
+} from "@3dspace/contracts";
 import type { ApiIdentity } from "../lib/identity";
 import { WallObjectCard, type WallObjectControlAction } from "./WallObjectCard";
 import { HudCard } from "./HudCard";
@@ -246,8 +252,8 @@ export function AnchorPanel({
                 Board width (m)
                 <input
                   type="number"
-                  min={1}
-                  max={8}
+                  min={DYNAMIC_WALL_ANCHOR_MIN_WIDTH_M}
+                  max={DYNAMIC_WALL_ANCHOR_MAX_WIDTH_M}
                   step={0.25}
                   value={placementBoardWidth}
                   disabled={dynamicAnchorPlacementActive || Boolean(busy)}
@@ -258,8 +264,8 @@ export function AnchorPanel({
                 Board height (m)
                 <input
                   type="number"
-                  min={0.75}
-                  max={5}
+                  min={DYNAMIC_WALL_ANCHOR_MIN_HEIGHT_M}
+                  max={DYNAMIC_WALL_ANCHOR_MAX_HEIGHT_M}
                   step={0.25}
                   value={placementBoardHeight}
                   disabled={dynamicAnchorPlacementActive || Boolean(busy)}

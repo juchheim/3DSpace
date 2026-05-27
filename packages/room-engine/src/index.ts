@@ -675,6 +675,8 @@ export const FFA_ADJOINING_SIZE = 14;
 export const FFA_PERIMETER_SEGMENTS = 32;
 export const FFA_EXIT_HALF_ARC = FFA_HALL_WIDTH / FFA_MAIN_RADIUS / 2;
 export const FFA_CENTRAL_SQUARE_SIZE = 12;
+/** Taller hub walls so 12 m boards can use the full central square faces. */
+export const FFA_CENTRAL_SQUARE_WALL_HEIGHT = 12;
 export const FFA_STATIC_BOARD_WIDTH = 6;
 export const FFA_STATIC_BOARD_HEIGHT = widescreenHeight(FFA_STATIC_BOARD_WIDTH);
 export const FFA_BOARD_WALL_INSET = 0.1;
@@ -734,7 +736,7 @@ function buildFreeForAllWalls(): WallPlane[] {
       label: "Central square north",
       start: { x: -centralHalf, y: 0, z: -centralHalf },
       end: { x: centralHalf, y: 0, z: -centralHalf },
-      height: FFA_WALL_HEIGHT,
+      height: FFA_CENTRAL_SQUARE_WALL_HEIGHT,
       anchorIds: [],
       passable: false,
       thickness: FFA_WALL_THICKNESS
@@ -744,7 +746,7 @@ function buildFreeForAllWalls(): WallPlane[] {
       label: "Central square east",
       start: { x: centralHalf, y: 0, z: -centralHalf },
       end: { x: centralHalf, y: 0, z: centralHalf },
-      height: FFA_WALL_HEIGHT,
+      height: FFA_CENTRAL_SQUARE_WALL_HEIGHT,
       anchorIds: [],
       passable: false,
       thickness: FFA_WALL_THICKNESS
@@ -754,7 +756,7 @@ function buildFreeForAllWalls(): WallPlane[] {
       label: "Central square south",
       start: { x: centralHalf, y: 0, z: centralHalf },
       end: { x: -centralHalf, y: 0, z: centralHalf },
-      height: FFA_WALL_HEIGHT,
+      height: FFA_CENTRAL_SQUARE_WALL_HEIGHT,
       anchorIds: [],
       passable: false,
       thickness: FFA_WALL_THICKNESS
@@ -764,7 +766,7 @@ function buildFreeForAllWalls(): WallPlane[] {
       label: "Central square west",
       start: { x: -centralHalf, y: 0, z: centralHalf },
       end: { x: -centralHalf, y: 0, z: -centralHalf },
-      height: FFA_WALL_HEIGHT,
+      height: FFA_CENTRAL_SQUARE_WALL_HEIGHT,
       anchorIds: [],
       passable: false,
       thickness: FFA_WALL_THICKNESS
@@ -980,7 +982,7 @@ export function createFreeForAllManifest(input: {
       // Outer extents: radius + hall + room = 23 + 6 + 14 = 43 m to each side → 86 m square
       width: 86,
       depth: 86,
-      height: FFA_WALL_HEIGHT
+      height: FFA_CENTRAL_SQUARE_WALL_HEIGHT
     },
     bounds: {
       minX: -43, maxX: 43,

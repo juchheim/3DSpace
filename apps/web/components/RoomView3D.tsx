@@ -19,6 +19,7 @@ import {
   Vector3
 } from "three";
 import { useWorldSkinContext, DEFAULT_LIGHTING, DEFAULT_BACKGROUND } from "./worldSkins/SkinLayer";
+import { DYNAMIC_WALL_ANCHOR_MIN_HEIGHT_M } from "@3dspace/contracts";
 import type {
   AvatarAppearance,
   AvatarReactionSlug,
@@ -1764,7 +1765,9 @@ function dynamicBoardRequestFromWallClick(
   const wallX = wall.start.x + projectedT * span.dx;
   const wallZ = wall.start.z + projectedT * span.dz;
   const offset = (wall.thickness ?? 0) / 2 + DYNAMIC_BOARD_WALL_INSET;
-  const centerY = clamp(point.y, boardSize.height / 2, wall.height - boardSize.height / 2);
+  const width = Math.min(boardSize.width, span.length);
+  const height = Math.min(boardSize.height, wall.height);
+  const centerY = clamp(point.y, height / 2, wall.height - height / 2);
   const title = `Board on ${wall.label}`.slice(0, 80);
 
   return {
@@ -1775,8 +1778,8 @@ function dynamicBoardRequestFromWallClick(
       z: snapBoardPlacement(wallZ + normal.z * offset)
     },
     normal: { x: normal.x, y: 0, z: normal.z },
-    width: boardSize.width,
-    height: boardSize.height,
+    width,
+    height,
     title,
     accepts: DYNAMIC_BOARD_ACCEPTS
   };
@@ -1792,7 +1795,7 @@ function DynamicBoardPlacementTargets({
   return (
     <group>
       {walls
-        .filter((wall) => wall.passable !== true && wall.height >= placement.boardSize.height)
+        .filter((wall) => wall.passable !== true && wall.height >= DYNAMIC_WALL_ANCHOR_MIN_HEIGHT_M)
         .map((wall) => (
           <DynamicBoardPlacementTarget key={wall.id} wall={wall} placement={placement} />
         ))}

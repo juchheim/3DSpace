@@ -96,12 +96,17 @@ export const DynamicWallAnchorSchema = WallAnchorSchema.extend({
 });
 export type DynamicWallAnchor = z.infer<typeof DynamicWallAnchorSchema>;
 
+export const DYNAMIC_WALL_ANCHOR_MIN_WIDTH_M = 1;
+export const DYNAMIC_WALL_ANCHOR_MAX_WIDTH_M = 12;
+export const DYNAMIC_WALL_ANCHOR_MIN_HEIGHT_M = 0.75;
+export const DYNAMIC_WALL_ANCHOR_MAX_HEIGHT_M = 12;
+
 export const CreateDynamicWallAnchorRequestSchema = z.object({
   wallId: z.string().min(1),
   center: Vector3Schema,
   normal: Vector3Schema,
-  width: z.number().min(1.0).max(8.0),
-  height: z.number().min(0.75).max(5.0),
+  width: z.number().min(DYNAMIC_WALL_ANCHOR_MIN_WIDTH_M).max(DYNAMIC_WALL_ANCHOR_MAX_WIDTH_M),
+  height: z.number().min(DYNAMIC_WALL_ANCHOR_MIN_HEIGHT_M).max(DYNAMIC_WALL_ANCHOR_MAX_HEIGHT_M),
   title: z.string().min(1).max(80),
   accepts: z.array(z.string()).default([
     "image", "video", "audio",

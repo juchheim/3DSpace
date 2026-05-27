@@ -4,6 +4,12 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AvatarAppearance, AvatarReactionMessage, AvatarReactionSlug, AvatarStateMessage, CreateDynamicWallAnchorRequest, Role, RoomManifest, RoomObjectTemplate, RoomSessionResponse, ViewMode, WallObject, WorldSkinDayNightMode } from "@3dspace/contracts";
+import {
+  DYNAMIC_WALL_ANCHOR_MAX_HEIGHT_M,
+  DYNAMIC_WALL_ANCHOR_MAX_WIDTH_M,
+  DYNAMIC_WALL_ANCHOR_MIN_HEIGHT_M,
+  DYNAMIC_WALL_ANCHOR_MIN_WIDTH_M
+} from "@3dspace/contracts";
 import { AvatarAppearanceMessageSchema, AvatarReactionMessageSchema, getRoomTypeFeatureFlags, ParticipantAudioModeMessageSchema, parseRoomSettings, RoomSkinMessageSchema } from "@3dspace/contracts";
 import { computeGroupMemberPosition, createAvatarState, floorYFromZ, unprojectPointFrom2D } from "@3dspace/room-engine";
 import {
@@ -2056,8 +2062,12 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               }}
               placementBoardWidth={placementBoardWidth}
               placementBoardHeight={placementBoardHeight}
-              onPlacementBoardWidthChange={(width) => setPlacementBoardWidth(Math.min(8, Math.max(1, width)))}
-              onPlacementBoardHeightChange={(height) => setPlacementBoardHeight(Math.min(5, Math.max(0.75, height)))}
+              onPlacementBoardWidthChange={(width) =>
+                setPlacementBoardWidth(Math.min(DYNAMIC_WALL_ANCHOR_MAX_WIDTH_M, Math.max(DYNAMIC_WALL_ANCHOR_MIN_WIDTH_M, width)))
+              }
+              onPlacementBoardHeightChange={(height) =>
+                setPlacementBoardHeight(Math.min(DYNAMIC_WALL_ANCHOR_MAX_HEIGHT_M, Math.max(DYNAMIC_WALL_ANCHOR_MIN_HEIGHT_M, height)))
+              }
               onRemoveDynamicAnchor={async (anchorId) => {
                 await dynamicBoards.remove(anchorId);
               }}

@@ -510,6 +510,19 @@ describe("free-for-all wall collisions", () => {
     );
   });
 
+  it("uses 12 m tall central square walls for large board placement", () => {
+    const centralHeights = manifest.walls
+      .filter((wall) => wall.id.startsWith("ffa-central-"))
+      .map((wall) => wall.height);
+    const perimeterHeights = manifest.walls
+      .filter((wall) => wall.id.startsWith("ffa-perim-"))
+      .map((wall) => wall.height);
+
+    expect(new Set(centralHeights)).toEqual(new Set([12]));
+    expect(new Set(perimeterHeights)).toEqual(new Set([8]));
+    expect(manifest.dimensions.height).toBe(12);
+  });
+
   it("uses hideSurface static boards inset from adjoining-room walls", () => {
     const northBoard = manifest.wallAnchors.find((anchor) => anchor.id === "ffa-adj-north-anchor");
     expect(northBoard).toBeDefined();
