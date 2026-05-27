@@ -33,7 +33,7 @@ const ProceduralPartSchema: z.ZodType<ProceduralPartInput> = z.lazy(() =>
     ConePartSchema,
     TorusPartSchema,
     ExtrudePartSchema,
-    z.object({ op: z.literal("union"), children: z.array(ProceduralPartSchema).min(1).max(8) })
+    z.object({ op: z.literal("union"), children: z.array(ProceduralPartSchema).min(1).max(40) })
   ])
 );
 
