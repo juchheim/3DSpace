@@ -46,7 +46,7 @@ import {
   WALL_OBJECT_DISTANCE_FACTOR,
   wallObjectSurfacePixelSize
 } from "../lib/wallObjectSurface";
-import { FFA_MAIN_RADIUS, FFA_WALL_HEIGHT, FFA_EXIT_HALF_ARC } from "@3dspace/room-engine";
+import { FFA_MAIN_RADIUS, FFA_WALL_HEIGHT, FFA_WALL_THICKNESS, FFA_EXIT_HALF_ARC, FFA_PERIMETER_SEGMENTS } from "@3dspace/room-engine";
 
 type Wall = z.infer<typeof WallPlaneSchema>;
 type Anchor = z.infer<typeof WallAnchorSchema>;
@@ -1104,25 +1104,42 @@ function SceneAtmosphere() {
   );
 }
 
-// Renders 4 cylinder arc segments that form the circular FFA main hub perimeter,
-// with gaps at the 4 cardinal exits. Arc angles are computed in Three.js cylinder
-// u-space (CCW from +Z when viewed from above), where exit centers map as:
-//   South(+Z)=0, East(+X)=π/2, North(-Z)=π, West(-X)=3π/2
+// Renders 4 arc pairs (outer + inner surface) forming the circular FFA main hub
+// perimeter with visual thickness and gaps at the 4 cardinal exits.
+//
+// Angle convention — Three.js CylinderGeometry u-space (CCW from +Z when viewed
+// from above):  South(+Z)=0, East(+X)=π/2, North(-Z)=π, West(-X)=3π/2
+//
+// Gap size matches the collision fix in circleWallSegments: each exit removes 2
+// segments (the ones straddling the exit angle), so the visual gap uses
+// FFA_EXIT_HALF_ARC + step/2 on each side.
 function PerimeterCylinder({ color }: { color: string }) {
-  const arcLength = Math.PI / 2 - 2 * FFA_EXIT_HALF_ARC;
+  const step = (2 * Math.PI) / FFA_PERIMETER_SEGMENTS;
+  // Gap must match what circleWallSegments actually removes (halfWidthRad + step/2).
+  const halfGap = FFA_EXIT_HALF_ARC + step / 2;
+  const arcLength = Math.PI / 2 - 2 * halfGap;
   const arcStarts = [
-    FFA_EXIT_HALF_ARC,
-    Math.PI / 2 + FFA_EXIT_HALF_ARC,
-    Math.PI + FFA_EXIT_HALF_ARC,
-    (3 * Math.PI) / 2 + FFA_EXIT_HALF_ARC
+    halfGap,
+    Math.PI / 2 + halfGap,
+    Math.PI + halfGap,
+    (3 * Math.PI) / 2 + halfGap
   ];
+  const halfT = FFA_WALL_THICKNESS / 2;
+  const outerR = FFA_MAIN_RADIUS + halfT;
+  const innerR = FFA_MAIN_RADIUS - halfT;
   return (
     <>
       {arcStarts.map((start, i) => (
-        <mesh key={i} position={[0, FFA_WALL_HEIGHT / 2, 0]}>
-          <cylinderGeometry args={[FFA_MAIN_RADIUS, FFA_MAIN_RADIUS, FFA_WALL_HEIGHT, 48, 1, true, start, arcLength]} />
-          <meshStandardMaterial color={color} side={DoubleSide} />
-        </mesh>
+        <group key={i} position={[0, FFA_WALL_HEIGHT / 2, 0]}>
+          <mesh>
+            <cylinderGeometry args={[outerR, outerR, FFA_WALL_HEIGHT, 48, 1, true, start, arcLength]} />
+            <meshStandardMaterial color={color} side={DoubleSide} roughness={0.85} />
+          </mesh>
+          <mesh>
+            <cylinderGeometry args={[innerR, innerR, FFA_WALL_HEIGHT, 48, 1, true, start, arcLength]} />
+            <meshStandardMaterial color={color} side={DoubleSide} roughness={0.85} />
+          </mesh>
+        </group>
       ))}
     </>
   );

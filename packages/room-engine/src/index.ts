@@ -694,9 +694,11 @@ function circleWallSegments(args: {
     const startAngle = i * step;
     const endAngle = startAngle + step;
     const midAngle = (startAngle + endAngle) / 2;
+    // Use halfWidthRad + step/2 so segments that straddle a gap edge are also removed.
+    // Without the step/2 buffer, a gap narrower than step/2 removes no segments at all.
     const inGap = args.gaps.some((g) => {
       const diff = ((midAngle - g.angleRad + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-      return Math.abs(diff) < g.halfWidthRad;
+      return Math.abs(diff) < g.halfWidthRad + step / 2;
     });
     if (inGap) continue;
     segments.push({
