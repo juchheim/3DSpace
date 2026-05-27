@@ -42,6 +42,15 @@ export function useRoomObjectTemplates(input: {
     });
   }, []);
 
+  const unregisterTemplate = useCallback((templateId: string) => {
+    setSupplementalById((current) => {
+      if (!(templateId in current)) return current;
+      const next = { ...current };
+      delete next[templateId];
+      return next;
+    });
+  }, []);
+
   const templates = useMemo(() => {
     const byId = new Map<string, RoomObjectTemplate>();
     for (const template of catalogTemplates) {
@@ -114,10 +123,12 @@ export function useRoomObjectTemplates(input: {
 
   return {
     templates,
+    catalogTemplates,
     status,
     error,
     refetch: () => refresh({ force: true }),
     registerTemplate,
+    unregisterTemplate,
     resolveTemplate
   };
 }

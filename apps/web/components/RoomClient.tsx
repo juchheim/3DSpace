@@ -251,13 +251,6 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     publish: publishRealtime
   });
   const aiObjectsEnabled = CLIENT_TUNING.enableAiObjectGeneration && roomTypeFeatures.aiObjects && Boolean(session);
-  const aiObjectGenerator = useAiObjectGenerator({
-    identity,
-    roomId: session?.room.id ?? roomId,
-    enabled: aiObjectsEnabled,
-    publish: publishRealtime,
-    applyLocally: (msg) => roomObjectsRealtimeHandlerRef.current(msg)
-  });
   const [dynamicBoardPlacementActive, setDynamicBoardPlacementActive] = useState(false);
   const [dynamicBoardPlacementBusy, setDynamicBoardPlacementBusy] = useState(false);
   const [dynamicBoardPlacementMessage, setDynamicBoardPlacementMessage] = useState("");
@@ -396,6 +389,22 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     roomId: session?.room.id ?? roomId,
     enabled: roomObjectsEnabled,
     publish: publishRealtime
+  });
+  const handleAiObjectJobDeleted = useCallback(
+    (payload: { jobId: string; templateId?: string | undefined }) => {
+      if (payload.templateId) {
+        roomObjectTemplates.unregisterTemplate(payload.templateId);
+      }
+    },
+    [roomObjectTemplates.unregisterTemplate]
+  );
+  const aiObjectGenerator = useAiObjectGenerator({
+    identity,
+    roomId: session?.room.id ?? roomId,
+    enabled: aiObjectsEnabled,
+    publish: publishRealtime,
+    applyLocally: (msg) => roomObjectsRealtimeHandlerRef.current(msg),
+    onJobDeleted: handleAiObjectJobDeleted
   });
   const [selectedRoomObjectId, setSelectedRoomObjectId] = useState<string | null>(null);
 
@@ -1937,7 +1946,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           ) : null}
           {roomObjectsTeacherToolbarVisible ? (
             <RoomObjectsToolbar
-              templates={roomObjectTemplates.templates}
+              templates={roomObjectTemplates.catalogTemplates}
               objects={roomObjects.objects}
               roomTypeLabel={roomTypeLabel}
               manifest={manifest!}

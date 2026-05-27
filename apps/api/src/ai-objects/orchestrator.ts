@@ -15,6 +15,7 @@ import type {
 import { AiObjectJobSchema } from "@3dspace/contracts";
 import type { AppConfig } from "../config.js";
 import { buildRoomObjectTemplateSlug } from "../room-objects/custom-template-upload.js";
+import { buildRoomObjectRemoveMessage } from "../room-objects/realtime-outbox.js";
 import type { Repository } from "../repository.js";
 import { newId, nowIso } from "../repository.js";
 import { roomObjectAssetUrl, writeStoredObject } from "../services/storage.js";
@@ -326,11 +327,15 @@ export async function deleteJob(
 
   // Cascade: remove placed RoomObject instances
   const { deleteStoredObject } = await import("../services/storage.js");
+  const realtimeMessages: unknown[] = [];
   if (existing.templateId) {
     const objects = await repository.listRoomObjectsForRoom(roomId);
     const placed = objects.filter((o) => o.templateId === existing.templateId && o.status !== "archived");
     for (const obj of placed) {
       await repository.removeRoomObject(roomId, obj.id).catch(() => {});
+      realtimeMessages.push(
+        buildRoomObjectRemoveMessage({ roomId, objectId: obj.id, senderId: userId })
+      );
     }
     await repository.archiveRoomObjectTemplate(existing.templateId).catch(() => {});
   }
@@ -348,5 +353,6 @@ export async function deleteJob(
     sentAt: Date.now(),
     senderId: userId
   };
-  return { realtimeMessages: [msg] };
+  realtimeMessages.push(msg);
+  return { realtimeMessages };
 }

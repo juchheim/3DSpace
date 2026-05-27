@@ -4981,7 +4981,22 @@ describe("room object realtime grab lock", () => {
       expect(delRes.statusCode).toBe(200);
       const { deleted, realtimeMessages } = delRes.json();
       expect(deleted).toBe(true);
-      expect(realtimeMessages[0].type).toBe("room.ai-object.deleted.v1");
+      expect(realtimeMessages.some((message: { type: string }) => message.type === "room.object.remove.v1")).toBe(true);
+      expect(realtimeMessages.some((message: { type: string }) => message.type === "room.ai-object.deleted.v1")).toBe(true);
+
+      const objectsRes = await app.inject({
+        method: "GET",
+        url: `/v1/rooms/${roomId}/objects`,
+        headers: authHeaders("teacher-ffa", "Ms. Rivera")
+      });
+      expect(objectsRes.json().objects).toHaveLength(0);
+
+      const templateRes = await app.inject({
+        method: "GET",
+        url: `/v1/room-objects/templates/${finalJob.templateId}?roomId=${roomId}`,
+        headers: authHeaders("teacher-ffa", "Ms. Rivera")
+      });
+      expect(templateRes.statusCode).toBe(404);
 
       // Job should be gone
       const getRes = await app.inject({

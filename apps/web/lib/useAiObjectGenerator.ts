@@ -33,12 +33,13 @@ export function useAiObjectGenerator(input: {
   enabled: boolean;
   publish?: PublishMessage;
   applyLocally?: ApplyLocalMessage;
+  onJobDeleted?: (payload: { jobId: string; templateId?: string | undefined }) => void;
 }) {
   const [jobs, setJobs] = useState<AiObjectJob[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { identity, roomId, enabled, publish, applyLocally } = input;
+  const { identity, roomId, enabled, publish, applyLocally, onJobDeleted } = input;
 
   const hasActiveJob = jobs.some((j) => ACTIVE_STATUSES.has(j.status));
 
@@ -99,15 +100,20 @@ export function useAiObjectGenerator(input: {
       clearPoll();
       return true;
     }
-    if (msg.type === "room.ai-object.cancelled.v1" || msg.type === "room.ai-object.deleted.v1") {
+    if (msg.type === "room.ai-object.cancelled.v1") {
       setJobs((prev) => prev.filter((j) => j.id !== msg.jobId));
+      return true;
+    }
+    if (msg.type === "room.ai-object.deleted.v1") {
+      setJobs((prev) => prev.filter((j) => j.id !== msg.jobId));
+      onJobDeleted?.({ jobId: msg.jobId, templateId: msg.templateId });
       return true;
     }
     if (msg.type === "room.ai-object.progress.v1") {
       return true;
     }
     return false;
-  }, [clearPoll, enabled, identity, roomId, schedulePoll]);
+  }, [clearPoll, enabled, identity, onJobDeleted, roomId, schedulePoll]);
 
   const generate = useCallback(async (prompt: string, stylePreset?: AiObjectJob["stylePreset"], complexity?: AiObjectJob["complexity"]) => {
     if (!roomId) return;
@@ -150,16 +156,19 @@ export function useAiObjectGenerator(input: {
 
   const remove = useCallback(async (jobId: string) => {
     if (!roomId) return;
+    const existing = jobs.find((job) => job.id === jobId);
     try {
       const result = await deleteAiObjectJob(identity, roomId, jobId);
       setJobs((prev) => prev.filter((j) => j.id !== jobId));
       for (const msg of result.realtimeMessages) {
+        applyLocally?.(msg as RealtimeMessage);
         publish?.(msg as RealtimeMessage);
       }
+      onJobDeleted?.({ jobId, templateId: existing?.templateId });
     } catch {
       // silently ignore
     }
-  }, [identity, publish, roomId]);
+  }, [applyLocally, identity, jobs, onJobDeleted, publish, roomId]);
 
   const place = useCallback(async (jobId: string, pose?: { position: { x: number; y: number; z: number }; rotation: { yaw: number; pitch: number; roll: number } }) => {
     if (!roomId) return undefined;
