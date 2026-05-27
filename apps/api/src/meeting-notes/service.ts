@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 import type { MeetingNotesSegment } from "@3dspace/contracts";
 import type { AppConfig } from "../config.js";
+import { HttpError } from "../errors.js";
 import { writeStoredObject } from "../services/storage.js";
 
 type SummaryInput = {
@@ -133,11 +134,24 @@ export async function summarizeMeetingNotes(config: AppConfig, input: SummaryInp
 }
 
 export async function transcribeAudioChunk(config: AppConfig, audio: Buffer, mimeType: string) {
-  if (!config.openAiApiKey) return "";
+  if (!config.openAiApiKey) {
+    console.error("[meeting-notes] OpenAI transcription requested without OPENAI_API_KEY", {
+      model: config.tuning.openAiTranscriptionModel,
+      audioBytes: audio.length,
+      mimeType
+    });
+    throw new HttpError(503, "OpenAI transcription is not configured", "meeting-notes-transcription-unavailable");
+  }
 
   const body = new FormData();
   body.set("model", config.tuning.openAiTranscriptionModel);
   body.set("file", new Blob([new Uint8Array(audio)], { type: mimeType }), `chunk.${mimeType.includes("mp4") ? "m4a" : "webm"}`);
+
+  console.info("[meeting-notes] Sending audio chunk to OpenAI transcription", {
+    model: config.tuning.openAiTranscriptionModel,
+    audioBytes: audio.length,
+    mimeType
+  });
 
   const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
     method: "POST",
@@ -147,9 +161,30 @@ export async function transcribeAudioChunk(config: AppConfig, audio: Buffer, mim
     body
   });
 
-  if (!response.ok) return "";
+  if (!response.ok) {
+    const bodyText = await response.text().catch(() => "");
+    console.error("[meeting-notes] OpenAI transcription failed", {
+      status: response.status,
+      statusText: response.statusText,
+      model: config.tuning.openAiTranscriptionModel,
+      audioBytes: audio.length,
+      mimeType,
+      body: bodyText.slice(0, 1000)
+    });
+    throw new HttpError(502, "OpenAI transcription request failed", "meeting-notes-transcription-failed", {
+      status: response.status,
+      statusText: response.statusText
+    });
+  }
   const payload = await response.json() as { text?: string };
-  return payload.text?.trim() ?? "";
+  const text = payload.text?.trim() ?? "";
+  console.info("[meeting-notes] OpenAI transcription completed", {
+    model: config.tuning.openAiTranscriptionModel,
+    audioBytes: audio.length,
+    mimeType,
+    textLength: text.length
+  });
+  return text;
 }
 
 export function meetingNotesStorageBase(config: AppConfig, roomName: string, startedAt: string) {

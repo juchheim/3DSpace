@@ -3691,12 +3691,30 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     if (session.status !== "recording") throw conflict("Meeting notes session is not recording");
 
     const audio = Buffer.from(body.audioBase64, "base64");
+    console.info("[meeting-notes] Audio chunk received", {
+      roomId: params.roomId,
+      sessionId: params.sessionId,
+      participantId: body.participantId,
+      startedAtMs: body.startedAtMs,
+      endedAtMs: body.endedAtMs,
+      durationMs: Math.max(0, body.endedAtMs - body.startedAtMs),
+      mimeType: body.mimeType,
+      audioBytes: audio.length,
+      base64Length: body.audioBase64.length
+    });
     const text = await transcribeAudioChunk(config, audio, body.mimeType);
     const participantUserIds = Array.from(new Set([...session.participantUserIds, body.participantId]));
     if (participantUserIds.length !== session.participantUserIds.length) {
       await repository.updateMeetingNotesSession(params.roomId, params.sessionId, { participantUserIds });
     }
     if (!text) {
+      console.info("[meeting-notes] Audio chunk produced no transcript text", {
+        roomId: params.roomId,
+        sessionId: params.sessionId,
+        participantId: body.participantId,
+        audioBytes: audio.length,
+        mimeType: body.mimeType
+      });
       return UploadMeetingNotesAudioChunkResponseSchema.parse({ accepted: true, realtimeMessages: [] });
     }
 
@@ -3712,6 +3730,15 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       createdAt: nowIso()
     });
     await repository.createMeetingNotesSegment(segment);
+    console.info("[meeting-notes] Transcript segment persisted", {
+      roomId: params.roomId,
+      sessionId: params.sessionId,
+      segmentId: segment.id,
+      participantId: body.participantId,
+      textLength: segment.text.length,
+      startMs: segment.startMs,
+      endMs: segment.endMs
+    });
     const message = MeetingNotesSegmentMessageV1Schema.parse({
       type: "room.meeting-notes.segment.v1",
       roomId: params.roomId,

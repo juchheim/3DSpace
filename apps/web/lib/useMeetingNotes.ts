@@ -35,6 +35,16 @@ type RecorderState = {
   lastAbsoluteAt: number;
 };
 
+function describeAudioStream(stream: MediaStream) {
+  return stream.getAudioTracks().map((track) => ({
+    id: track.id,
+    label: track.label,
+    enabled: track.enabled,
+    muted: track.muted,
+    readyState: track.readyState
+  }));
+}
+
 function supportedRecorderMimeType() {
   if (typeof MediaRecorder === "undefined") return undefined;
   const candidates = [
@@ -182,6 +192,11 @@ export function useMeetingNotes(input: {
     stoppingRef.current = false;
     try {
       const result = await startMeetingNotesSession(input.identity, input.roomId);
+      console.info("[meeting-notes] Session started", {
+        roomId: input.roomId,
+        sessionId: result.session.id,
+        startedByUserId: result.session.startedByUserId
+      });
       setSessions((existing) => mergeSession(existing, result.session));
       setCurrentSessionId(result.session.id);
       setCurrentSession({ ...result.session, segments: [] });
@@ -196,6 +211,10 @@ export function useMeetingNotes(input: {
 
   const stopAndFlushRecorders = useCallback(async () => {
     const states = Array.from(recordersRef.current.values());
+    console.info("[meeting-notes] Stopping recorders before finalizing", {
+      recorderCount: states.length,
+      pendingUploads: pendingUploadsRef.current.size
+    });
     recordersRef.current.clear();
     if (states.length === 0) {
       if (pendingUploadsRef.current.size > 0) {
@@ -216,6 +235,9 @@ export function useMeetingNotes(input: {
     if (pendingUploadsRef.current.size > 0) {
       await Promise.allSettled(Array.from(pendingUploadsRef.current));
     }
+    console.info("[meeting-notes] Recorder flush complete", {
+      pendingUploads: pendingUploadsRef.current.size
+    });
   }, []);
 
   const stop = useCallback(async () => {
@@ -302,6 +324,11 @@ export function useMeetingNotes(input: {
     for (const [participantId, state] of recordersRef.current.entries()) {
       const nextParticipant = desired.get(participantId);
       if (!nextParticipant || nextParticipant.microphoneStream !== state.stream) {
+        console.info("[meeting-notes] Stopping recorder for participant", {
+          participantId,
+          reason: nextParticipant ? "stream-changed" : "stream-missing",
+          recorderState: state.recorder.state
+        });
         if (state.recorder.state !== "inactive") state.recorder.stop();
         recordersRef.current.delete(participantId);
       }
@@ -318,6 +345,13 @@ export function useMeetingNotes(input: {
       if (existing && existing.stream === stream) continue;
       if (typeof MediaRecorder === "undefined") continue;
       const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      console.info("[meeting-notes] Starting recorder for participant", {
+        roomId: input.roomId,
+        sessionId: activeSession.id,
+        participantId,
+        mimeType: mimeType ?? recorder.mimeType,
+        tracks: describeAudioStream(stream)
+      });
       const recorderState: RecorderState = {
         recorder,
         stream,
@@ -328,6 +362,15 @@ export function useMeetingNotes(input: {
         const chunkStartedAt = recorderState.lastAbsoluteAt;
         const chunkEndedAt = Date.now();
         recorderState.lastAbsoluteAt = chunkEndedAt;
+        console.info("[meeting-notes] Uploading audio chunk", {
+          roomId: input.roomId,
+          sessionId: activeSession.id,
+          participantId,
+          bytes: event.data.size,
+          mimeType: event.data.type || mimeType || "audio/webm",
+          durationMs: Math.max(0, chunkEndedAt - chunkStartedAt),
+          recorderState: recorder.state
+        });
         const uploadPromise = event.data.arrayBuffer()
           .then((buffer) => uploadMeetingNotesAudioChunk(input.identity, input.roomId!, activeSession.id, {
             participantId,
@@ -338,6 +381,13 @@ export function useMeetingNotes(input: {
           }))
           .then((result) => {
             const segment = result.segment;
+            console.info("[meeting-notes] Audio chunk upload accepted", {
+              roomId: input.roomId,
+              sessionId: activeSession.id,
+              participantId,
+              hasSegment: Boolean(segment),
+              textLength: segment?.text.length ?? 0
+            });
             if (segment) {
               setCurrentSession((existingSession) => {
                 if (!existingSession || existingSession.id !== activeSession.id) return existingSession;
@@ -351,8 +401,22 @@ export function useMeetingNotes(input: {
           })
           .catch((err) => {
             if (err instanceof ApiError && err.statusCode === 409 && stoppingRef.current) {
+              console.info("[meeting-notes] Ignored audio upload race during stop", {
+                roomId: input.roomId,
+                sessionId: activeSession.id,
+                participantId,
+                statusCode: err.statusCode
+              });
               return;
             }
+            console.error("[meeting-notes] Audio chunk upload failed", {
+              roomId: input.roomId,
+              sessionId: activeSession.id,
+              participantId,
+              error: err instanceof Error ? err.message : String(err),
+              statusCode: err instanceof ApiError ? err.statusCode : undefined,
+              code: err instanceof ApiError ? err.code : undefined
+            });
             setError(err instanceof Error ? err.message : "Unable to upload meeting notes audio.");
           })
           .finally(() => {

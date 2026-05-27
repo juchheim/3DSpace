@@ -789,6 +789,8 @@ export const ApiErrorCodeSchema = z.enum([
   "room-object-template-invalid",
   "room-object-upload-too-large",
   "room-object-upload-rejected",
+  "meeting-notes-transcription-unavailable",
+  "meeting-notes-transcription-failed",
   "world-skins-disabled"
 ]);
 
