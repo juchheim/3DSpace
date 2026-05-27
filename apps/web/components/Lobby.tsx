@@ -93,9 +93,9 @@ function FreeForAllRoomBrowser({
     <div className="lb-ffa-rooms">
       <p className="lb-join-hint">Open rooms — no invite code required:</p>
       {rooms.map((room) => (
-        <div key={room.id} className="lb-ffa-room-row">
-          <span className="lb-ffa-room-name">{room.name}</span>
-          <span className="lb-ffa-room-count">{room.participantCount} online</span>
+        <div key={room.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.4rem 0", borderBottom: "1px solid var(--lb-line, rgba(255,255,255,0.07))" }}>
+          <span style={{ flex: 1, fontSize: "0.85rem", color: "var(--lb-tx, #e8e0d0)" }}>{room.name}</span>
+          <span style={{ fontSize: "0.75rem", color: "var(--lb-tx-m, #888)", whiteSpace: "nowrap" }}>{room.participantCount} online</span>
           <button
             className="lb-btn lb-btn-pri lb-btn-sm"
             disabled={busy}
@@ -554,50 +554,10 @@ export function Lobby() {
 
             <div className="lb-step-vsep" />
 
-            {/* Step 2: Share (optional) */}
-            <div className={`lb-step-col${hasRoom ? " lb-lit" : " lb-pending"}`} aria-live="polite">
-              <div className="lb-step-hd">
-                <div className={`lb-step-badge${!hasRoom ? " lb-step-badge-dim" : ""}`}>2</div>
-                <div>
-                  <p className="lb-step-title">Share</p>
-                  <p className="lb-step-desc">Invite link (optional — room is also publicly browseable)</p>
-                </div>
-              </div>
-              <div className="lb-step-body">
-                {hasRoom && createdInvite ? (
-                  <>
-                    <div className="lb-invite-code" aria-label="Invite code">
-                      {createdInvite.code}
-                    </div>
-                    <div className="lb-btn-row">
-                      <button
-                        className="lb-btn lb-btn-pri lb-btn-sm"
-                        style={{ flex: 1 }}
-                        onClick={() => void copyInvite("code")}
-                      >
-                        {copyStatus === "code" ? "✓ Copied!" : "Copy code"}
-                      </button>
-                      <button
-                        className="lb-btn lb-btn-sec lb-btn-sm"
-                        style={{ flex: 1 }}
-                        onClick={() => void copyInvite("link")}
-                      >
-                        {copyStatus === "link" ? "✓ Copied!" : "Copy link"}
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="lb-placeholder">Invite code appears here after step 1</div>
-                )}
-              </div>
-            </div>
-
-            <div className="lb-step-vsep" />
-
-            {/* Step 3: Enter */}
+            {/* Step 2: Enter */}
             <div className={`lb-step-col${hasRoom ? " lb-lit" : " lb-pending"}`}>
               <div className="lb-step-hd">
-                <div className={`lb-step-badge${!hasRoom ? " lb-step-badge-dim" : ""}`}>3</div>
+                <div className={`lb-step-badge${!hasRoom ? " lb-step-badge-dim" : ""}`}>2</div>
                 <div>
                   <p className="lb-step-title">Enter</p>
                   <p className="lb-step-desc">Open your room</p>
