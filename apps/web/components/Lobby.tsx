@@ -38,6 +38,8 @@ const ROOM_TYPE_JOIN_COPY: Record<
   "free-for-all": { guestSingular: "participant", hostSingular: "host", joinButtonLabel: "Browse rooms" },
 };
 
+const DEFAULT_ROOM_TYPE: RoomType = CLIENT_TUNING.enableFreeForAll ? "free-for-all" : "classroom";
+
 function FreeForAllRoomBrowser({
   identity,
   busy,
@@ -112,25 +114,28 @@ function FreeForAllRoomBrowser({
     <div className="lb-ffa-rooms">
       <p className="lb-join-hint">Open rooms — no invite code required:</p>
       {rooms.map((room) => (
-        <div key={room.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.4rem 0", borderBottom: "1px solid var(--lb-line, rgba(255,255,255,0.07))" }}>
-          <span style={{ flex: 1, fontSize: "0.85rem", color: "var(--lb-tx, #e8e0d0)" }}>{room.name}</span>
-          <span style={{ fontSize: "0.75rem", color: "var(--lb-tx-m, #888)", whiteSpace: "nowrap" }}>{room.participantCount} online</span>
-          {manageableClassIds.has(room.classId) ? (
+        <div key={room.id} className="lb-room-item">
+          <div className="lb-room-pulse" />
+          <span className="lb-room-name">{room.name}</span>
+          <span className="lb-room-class">{room.participantCount} online</span>
+          <div className="lb-room-acts">
             <button
-              className="lb-btn lb-btn-dan lb-btn-sm"
+              className="lb-btn lb-btn-sec lb-btn-sm"
               disabled={busy}
-              onClick={() => void remove(room)}
+              onClick={() => void join(room.id)}
             >
-              Delete
+              Join
             </button>
-          ) : null}
-          <button
-            className="lb-btn lb-btn-pri lb-btn-sm"
-            disabled={busy}
-            onClick={() => void join(room.id)}
-          >
-            Join
-          </button>
+            {manageableClassIds.has(room.classId) ? (
+              <button
+                className="lb-btn lb-btn-dan lb-btn-sm"
+                disabled={busy}
+                onClick={() => void remove(room)}
+              >
+                Delete
+              </button>
+            ) : null}
+          </div>
         </div>
       ))}
     </div>
@@ -139,9 +144,9 @@ function FreeForAllRoomBrowser({
 
 export function Lobby() {
   const { identity, loaded, clerkEnabled, signedIn } = usePersistentIdentity();
-  const [roomType, setRoomType] = useState<RoomType>("classroom");
-  const [className, setClassName] = useState(ROOM_TYPE_FORM_DEFAULTS.classroom.className);
-  const [roomName, setRoomName] = useState(ROOM_TYPE_FORM_DEFAULTS.classroom.roomName);
+  const [roomType, setRoomType] = useState<RoomType>(DEFAULT_ROOM_TYPE);
+  const [className, setClassName] = useState(ROOM_TYPE_FORM_DEFAULTS[DEFAULT_ROOM_TYPE].className);
+  const [roomName, setRoomName] = useState(ROOM_TYPE_FORM_DEFAULTS[DEFAULT_ROOM_TYPE].roomName);
   const [inviteCode, setInviteCode] = useState("");
   const [createdInvite, setCreatedInvite] = useState<Invite | null>(null);
   const [classes, setClasses] = useState<ClassRecord[]>([]);
