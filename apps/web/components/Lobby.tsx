@@ -741,6 +741,8 @@ export function Lobby() {
 
           </div>
 
+          {error ? <div className="lb-alert">{error}</div> : null}
+
           {/* ── Student join ── */}
           <div className="lb-divider">
             <span className="lb-divider-pill">Joining as a {joinCopy.guestSingular}?</span>
@@ -919,9 +921,6 @@ export function Lobby() {
               ))}
             </div>
           )}
-
-          {/* ── Error ── */}
-          {error && <div className="lb-alert">{error}</div>}
 
         </div>
       </div>
