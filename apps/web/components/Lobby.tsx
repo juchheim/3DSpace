@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import type { ClassRecord, Invite, RoomObjectsSettings, RoomRecord, RoomSettings } from "@3dspace/contracts";
+import { useEffect, useRef, useState } from "react";
+import type { ClassRecord, FreeForAllRoomSummary, Invite, RoomObjectsSettings, RoomRecord, RoomSettings } from "@3dspace/contracts";
 import { parseRoomSettings } from "@3dspace/contracts";
-import { acceptInvite, createClass, createInvite, createRoom, deleteRoom, listClasses, listRooms, patchRoom } from "../lib/api";
+import { acceptInvite, createClass, createInvite, createRoom, deleteRoom, joinFreeForAllRoom, listClasses, listFreeForAllRooms, listRooms, patchRoom } from "../lib/api";
+import type { ApiIdentity } from "../lib/identity";
 import { AuthGate } from "../lib/auth";
 import { CLIENT_TUNING } from "../lib/config";
 import { inviteJoinUrl } from "../lib/invite";
@@ -14,16 +15,18 @@ import { CopyRoomInviteButton } from "./CopyRoomInviteButton";
 // ── Room type registry ──────────────────────────────────────────────────────
 // To add a new room type: (1) extend the union, (2) add an entry to ROOM_TYPES,
 // (3) add a case to renderRoomTypeSteps() below.
-type RoomType = "classroom" | "workforce-training";
+type RoomType = "classroom" | "workforce-training" | "free-for-all";
 
 const ROOM_TYPES: { value: RoomType; label: string; description: string }[] = [
   { value: "classroom",          label: "Classroom",          description: "Live 3D sessions with students and a shareable invite code." },
   { value: "workforce-training", label: "Workforce Training", description: "Immersive training sessions for teams and organizations." },
+  { value: "free-for-all",       label: "Free-for-All",       description: "Open, social rooms. No invite code; place your own boards." },
 ];
 
 const ROOM_TYPE_FORM_DEFAULTS: Record<RoomType, { className: string; roomName: string }> = {
   classroom: { className: "Physics 101", roomName: "Wave Lab" },
   "workforce-training": { className: "Acme Field Ops", roomName: "Compliance Refresher" },
+  "free-for-all": { className: "Open Space", roomName: "Hangout" },
 };
 
 const ROOM_TYPE_JOIN_COPY: Record<
@@ -32,7 +35,79 @@ const ROOM_TYPE_JOIN_COPY: Record<
 > = {
   classroom: { guestSingular: "student", hostSingular: "teacher", joinButtonLabel: "Join class room" },
   "workforce-training": { guestSingular: "trainee", hostSingular: "instructor", joinButtonLabel: "Join training" },
+  "free-for-all": { guestSingular: "participant", hostSingular: "host", joinButtonLabel: "Browse rooms" },
 };
+
+function FreeForAllRoomBrowser({
+  identity,
+  busy,
+  setBusy,
+  setError
+}: {
+  identity: ApiIdentity;
+  busy: boolean;
+  setBusy: (v: boolean) => void;
+  setError: (v: string) => void;
+}) {
+  const [rooms, setRooms] = useState<FreeForAllRoomSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const result = await listFreeForAllRooms(identity);
+        if (!cancelled) setRooms(result.rooms);
+      } catch {
+        // silently ignore poll errors
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void load();
+    pollRef.current = setInterval(() => void load(), 30_000);
+    return () => {
+      cancelled = true;
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [identity.userId]);
+
+  async function join(roomId: string) {
+    setBusy(true);
+    setError("");
+    try {
+      await joinFreeForAllRoom(identity, roomId);
+      window.location.href = `/rooms/${roomId}`;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to join room.");
+      setBusy(false);
+    }
+  }
+
+  if (loading) return <p className="lb-join-hint">Loading rooms…</p>;
+  if (rooms.length === 0) {
+    return <p className="lb-join-hint">No open rooms right now — create one above to get started!</p>;
+  }
+  return (
+    <div className="lb-ffa-rooms">
+      <p className="lb-join-hint">Open rooms — no invite code required:</p>
+      {rooms.map((room) => (
+        <div key={room.id} className="lb-ffa-room-row">
+          <span className="lb-ffa-room-name">{room.name}</span>
+          <span className="lb-ffa-room-count">{room.participantCount} online</span>
+          <button
+            className="lb-btn lb-btn-pri lb-btn-sm"
+            disabled={busy}
+            onClick={() => void join(room.id)}
+          >
+            Join
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function Lobby() {
   const { identity, loaded, clerkEnabled, signedIn } = usePersistentIdentity();
@@ -440,6 +515,113 @@ export function Lobby() {
 
           </div>
         );
+
+      case "free-for-all":
+        return (
+          <div className="lb-steps-grid">
+
+            {/* Step 1: Create */}
+            <div className="lb-step-col">
+              <div className="lb-step-hd">
+                <div className={`lb-step-badge${hasRoom ? " lb-step-badge-done" : ""}`}>
+                  {hasRoom ? "✓" : "1"}
+                </div>
+                <div>
+                  <p className="lb-step-title">Create</p>
+                  <p className="lb-step-desc">Name your room</p>
+                </div>
+              </div>
+              <div className="lb-step-body">
+                <div className="lb-field">
+                  <label className="lb-label" htmlFor="lb-ffa-room-name">Room name</label>
+                  <input
+                    id="lb-ffa-room-name"
+                    className="lb-inp"
+                    value={roomName}
+                    onChange={(e) => setRoomName(e.target.value)}
+                    placeholder="e.g. Hangout"
+                  />
+                </div>
+                <button
+                  className="lb-btn lb-btn-pri"
+                  disabled={busy || authDisabled}
+                  onClick={() => void createRoomOfType("free-for-all")}
+                >
+                  {busy ? "Creating…" : "Create room"}
+                </button>
+              </div>
+            </div>
+
+            <div className="lb-step-vsep" />
+
+            {/* Step 2: Share (optional) */}
+            <div className={`lb-step-col${hasRoom ? " lb-lit" : " lb-pending"}`} aria-live="polite">
+              <div className="lb-step-hd">
+                <div className={`lb-step-badge${!hasRoom ? " lb-step-badge-dim" : ""}`}>2</div>
+                <div>
+                  <p className="lb-step-title">Share</p>
+                  <p className="lb-step-desc">Invite link (optional — room is also publicly browseable)</p>
+                </div>
+              </div>
+              <div className="lb-step-body">
+                {hasRoom && createdInvite ? (
+                  <>
+                    <div className="lb-invite-code" aria-label="Invite code">
+                      {createdInvite.code}
+                    </div>
+                    <div className="lb-btn-row">
+                      <button
+                        className="lb-btn lb-btn-pri lb-btn-sm"
+                        style={{ flex: 1 }}
+                        onClick={() => void copyInvite("code")}
+                      >
+                        {copyStatus === "code" ? "✓ Copied!" : "Copy code"}
+                      </button>
+                      <button
+                        className="lb-btn lb-btn-sec lb-btn-sm"
+                        style={{ flex: 1 }}
+                        onClick={() => void copyInvite("link")}
+                      >
+                        {copyStatus === "link" ? "✓ Copied!" : "Copy link"}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="lb-placeholder">Invite code appears here after step 1</div>
+                )}
+              </div>
+            </div>
+
+            <div className="lb-step-vsep" />
+
+            {/* Step 3: Enter */}
+            <div className={`lb-step-col${hasRoom ? " lb-lit" : " lb-pending"}`}>
+              <div className="lb-step-hd">
+                <div className={`lb-step-badge${!hasRoom ? " lb-step-badge-dim" : ""}`}>3</div>
+                <div>
+                  <p className="lb-step-title">Enter</p>
+                  <p className="lb-step-desc">Open your room</p>
+                </div>
+              </div>
+              <div className="lb-step-body">
+                {hasRoom ? (
+                  <>
+                    <Link
+                      className="lb-btn lb-btn-pri lb-btn-full"
+                      href={`/rooms/${createdInvite!.roomId}`}
+                    >
+                      Enter room →
+                    </Link>
+                    <p className="lb-join-hint" style={{ textAlign: "center" }}>Room is live and ready</p>
+                  </>
+                ) : (
+                  <div className="lb-placeholder">Enter room button appears here after step 1</div>
+                )}
+              </div>
+            </div>
+
+          </div>
+        );
     }
   }
 
@@ -488,7 +670,11 @@ export function Lobby() {
                   onChange={(e) => handleRoomTypeChange(e.target.value as RoomType)}
                 >
                   {ROOM_TYPES
-                    .filter((rt) => rt.value !== "workforce-training" || CLIENT_TUNING.enableWorkforceTraining)
+                    .filter((rt) => {
+                      if (rt.value === "workforce-training") return CLIENT_TUNING.enableWorkforceTraining;
+                      if (rt.value === "free-for-all") return CLIENT_TUNING.enableFreeForAll;
+                      return true;
+                    })
                     .map((rt) => (
                       <option key={rt.value} value={rt.value}>{rt.label}</option>
                     ))}
@@ -511,26 +697,32 @@ export function Lobby() {
           <div className="lb-join-wrap">
             <div className="lb-panel">
               <div className="lb-join-body">
-                <p className="lb-join-hint">
-                  Paste the invite code your {joinCopy.hostSingular} shared, or open their join link directly.
-                </p>
-                <div className="lb-field">
-                  <label className="lb-label lb-label-tx" htmlFor="lb-invite-code">Invite code</label>
-                  <input
-                    id="lb-invite-code"
-                    className="lb-inp"
-                    value={inviteCode}
-                    onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                    placeholder="Paste code here"
-                  />
-                </div>
-                <button
-                  className="lb-btn lb-btn-pri"
-                  disabled={busy || !inviteCode.trim() || authDisabled}
-                  onClick={() => void joinInvite()}
-                >
-                  {busy ? "Joining…" : joinCopy.joinButtonLabel}
-                </button>
+                {roomType === "free-for-all" ? (
+                  <FreeForAllRoomBrowser identity={identity} busy={busy} setBusy={setBusy} setError={setError} />
+                ) : (
+                  <>
+                    <p className="lb-join-hint">
+                      Paste the invite code your {joinCopy.hostSingular} shared, or open their join link directly.
+                    </p>
+                    <div className="lb-field">
+                      <label className="lb-label lb-label-tx" htmlFor="lb-invite-code">Invite code</label>
+                      <input
+                        id="lb-invite-code"
+                        className="lb-inp"
+                        value={inviteCode}
+                        onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                        placeholder="Paste code here"
+                      />
+                    </div>
+                    <button
+                      className="lb-btn lb-btn-pri"
+                      disabled={busy || !inviteCode.trim() || authDisabled}
+                      onClick={() => void joinInvite()}
+                    >
+                      {busy ? "Joining…" : joinCopy.joinButtonLabel}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>

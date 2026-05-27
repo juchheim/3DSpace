@@ -4,6 +4,7 @@ import type {
   ClassroomState,
   ClassMembership,
   ClassRecord,
+  DynamicWallAnchor,
   Invite,
   Role,
   RoomManifest,
@@ -47,6 +48,7 @@ type Models = {
   RoomObject: Model<any>;
   RoomEvent: Model<any>;
   RoomSession: Model<any>;
+  DynamicWallAnchor: Model<any>;
 };
 
 function entity<T>(doc: unknown) {
@@ -121,7 +123,7 @@ export function createModels(connection: Connection): Models {
     id: { type: String, required: true, unique: true },
     classId: { type: String, required: true, index: true },
     name: { type: String, required: true },
-    type: { type: String, enum: ["classroom", "workforce-training"], default: "classroom" },
+    type: { type: String, enum: ["classroom", "workforce-training", "free-for-all"], default: "classroom" },
     activeManifestVersion: Number,
     settings: Schema.Types.Mixed,
     createdAt: String,
@@ -301,6 +303,26 @@ export function createModels(connection: Connection): Models {
   sessionSchema.index({ roomId: 1, participantIdentity: 1 }, { unique: true });
   sessionSchema.index({ roomId: 1, lastSeenAt: 1 });
 
+  const dynamicWallAnchorSchema = new Schema({
+    id: { type: String, required: true, unique: true },
+    roomId: { type: String, required: true },
+    wallId: { type: String, required: true },
+    createdByUserId: { type: String, required: true },
+    label: { type: String, required: true },
+    positionX: { type: Number, required: true },
+    positionY: { type: Number, required: true },
+    positionZ: { type: Number, required: true },
+    normalX: { type: Number, required: true },
+    normalY: { type: Number, required: true },
+    normalZ: { type: Number, required: true },
+    width: { type: Number, required: true },
+    height: { type: Number, required: true },
+    metadata: { type: Schema.Types.Mixed, default: {} },
+    createdAt: String,
+    updatedAt: String
+  });
+  dynamicWallAnchorSchema.index({ roomId: 1 });
+
   return {
     User: connection.model("User", userSchema),
     Class: connection.model("Class", classSchema),
@@ -315,7 +337,46 @@ export function createModels(connection: Connection): Models {
     RoomObjectTemplate: connection.model("RoomObjectTemplate", roomObjectTemplateSchema),
     RoomObject: connection.model("RoomObject", roomObjectSchema),
     RoomEvent: connection.model("RoomEvent", eventSchema),
-    RoomSession: connection.model("RoomSession", sessionSchema)
+    RoomSession: connection.model("RoomSession", sessionSchema),
+    DynamicWallAnchor: connection.model("DynamicWallAnchor", dynamicWallAnchorSchema, "dynamic_wall_anchors")
+  };
+}
+
+function docToDynamicWallAnchor(doc: Record<string, unknown>): DynamicWallAnchor {
+  return {
+    id: doc.id as string,
+    roomId: doc.roomId as string,
+    wallId: doc.wallId as string,
+    createdByUserId: doc.createdByUserId as string,
+    label: doc.label as string,
+    position: { x: doc.positionX as number, y: doc.positionY as number, z: doc.positionZ as number },
+    normal: { x: doc.normalX as number, y: doc.normalY as number, z: doc.normalZ as number },
+    width: doc.width as number,
+    height: doc.height as number,
+    metadata: (doc.metadata as Record<string, unknown>) ?? {},
+    createdAt: doc.createdAt as string,
+    updatedAt: doc.updatedAt as string
+  };
+}
+
+function dynamicWallAnchorToDoc(a: DynamicWallAnchor): Record<string, unknown> {
+  return {
+    id: a.id,
+    roomId: a.roomId,
+    wallId: a.wallId,
+    createdByUserId: a.createdByUserId,
+    label: a.label,
+    positionX: a.position.x,
+    positionY: a.position.y,
+    positionZ: a.position.z,
+    normalX: a.normal.x,
+    normalY: a.normal.y,
+    normalZ: a.normal.z,
+    width: a.width,
+    height: a.height,
+    metadata: a.metadata,
+    createdAt: a.createdAt,
+    updatedAt: a.updatedAt
   };
 }
 
@@ -831,5 +892,57 @@ export class MongoRepository implements Repository {
       { upsert: true }
     );
     return this.models.RoomSession.countDocuments({ roomId: input.roomId, lastSeenAt: { $gte: cutoff } });
+  }
+
+  async listFreeForAllRooms(args: { classId?: string }): Promise<RoomRecord[]> {
+    const query: Record<string, unknown> = { type: "free-for-all" };
+    if (args.classId) query.classId = args.classId;
+    const docs = await this.models.Room.find(query).lean();
+    return entities<RoomRecord>(docs).map(normalizeRoomRecord);
+  }
+
+  async listDynamicWallAnchorsForRoom(roomId: string): Promise<DynamicWallAnchor[]> {
+    const docs = await this.models.DynamicWallAnchor.find({ roomId }).lean() as Record<string, unknown>[];
+    return docs.map(docToDynamicWallAnchor);
+  }
+
+  async countDynamicWallAnchorsForRoom(roomId: string): Promise<number> {
+    return this.models.DynamicWallAnchor.countDocuments({ roomId });
+  }
+
+  async createDynamicWallAnchor(input: DynamicWallAnchor): Promise<DynamicWallAnchor> {
+    const doc = dynamicWallAnchorToDoc(input);
+    await this.models.DynamicWallAnchor.create(doc);
+    return input;
+  }
+
+  async getDynamicWallAnchor(id: string): Promise<DynamicWallAnchor | undefined> {
+    const doc = await this.models.DynamicWallAnchor.findOne({ id }).lean() as Record<string, unknown> | null;
+    return doc ? docToDynamicWallAnchor(doc) : undefined;
+  }
+
+  async updateDynamicWallAnchor(id: string, patch: Partial<DynamicWallAnchor>): Promise<DynamicWallAnchor> {
+    const setPatch: Record<string, unknown> = { updatedAt: nowIso() };
+    if (patch.label !== undefined) setPatch.label = patch.label;
+    if (patch.position !== undefined) {
+      setPatch.positionX = patch.position.x;
+      setPatch.positionY = patch.position.y;
+      setPatch.positionZ = patch.position.z;
+    }
+    if (patch.normal !== undefined) {
+      setPatch.normalX = patch.normal.x;
+      setPatch.normalY = patch.normal.y;
+      setPatch.normalZ = patch.normal.z;
+    }
+    if (patch.width !== undefined) setPatch.width = patch.width;
+    if (patch.height !== undefined) setPatch.height = patch.height;
+    if (patch.metadata !== undefined) setPatch.metadata = patch.metadata;
+    const doc = await this.models.DynamicWallAnchor.findOneAndUpdate({ id }, { $set: setPatch }, { new: true }).lean() as Record<string, unknown> | null;
+    if (!doc) throw new Error("DynamicWallAnchor not found: " + id);
+    return docToDynamicWallAnchor(doc);
+  }
+
+  async removeDynamicWallAnchor(id: string, roomId: string): Promise<void> {
+    await this.models.DynamicWallAnchor.deleteOne({ id, roomId });
   }
 }

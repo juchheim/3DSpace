@@ -5,6 +5,7 @@ import {
   type ClassroomState,
   type ClassMembership,
   type ClassRecord,
+  type DynamicWallAnchor,
   type Invite,
   type Role,
   type RoomManifest,
@@ -128,6 +129,13 @@ export type Repository = {
   removeRoomObject(roomId: string, objectId: string): Promise<RoomObject>;
   recordRoomEvent(input: { roomId: string; type: string; payload: Record<string, unknown>; createdByUserId: string }): Promise<RoomEventRecord>;
   recordRoomSession(input: { roomId: string; participantIdentity: string; userId: string; role: Role; maxParticipants: number }): Promise<number>;
+  listFreeForAllRooms(args: { classId?: string }): Promise<RoomRecord[]>;
+  listDynamicWallAnchorsForRoom(roomId: string): Promise<DynamicWallAnchor[]>;
+  countDynamicWallAnchorsForRoom(roomId: string): Promise<number>;
+  createDynamicWallAnchor(input: DynamicWallAnchor): Promise<DynamicWallAnchor>;
+  getDynamicWallAnchor(id: string): Promise<DynamicWallAnchor | undefined>;
+  updateDynamicWallAnchor(id: string, patch: Partial<DynamicWallAnchor>): Promise<DynamicWallAnchor>;
+  removeDynamicWallAnchor(id: string, roomId: string): Promise<void>;
 };
 
 export function nowIso() {
@@ -169,6 +177,7 @@ export class MemoryRepository implements Repository {
   private roomObjects = new Map<string, RoomObject>();
   private roomEvents = new Map<string, RoomEventRecord>();
   private activeSessions = new Map<string, { roomId: string; participantIdentity: string; lastSeenAt: number }>();
+  private dynamicWallAnchors = new Map<string, DynamicWallAnchor>();
 
   async close() {
     return;
@@ -683,5 +692,41 @@ export class MemoryRepository implements Repository {
       lastSeenAt: Date.now()
     });
     return Array.from(this.activeSessions.values()).filter((session) => session.roomId === input.roomId).length;
+  }
+
+  async listFreeForAllRooms(args: { classId?: string }): Promise<RoomRecord[]> {
+    return Array.from(this.rooms.values()).filter(
+      (r) => r.type === "free-for-all" && (!args.classId || r.classId === args.classId)
+    );
+  }
+
+  async listDynamicWallAnchorsForRoom(roomId: string): Promise<DynamicWallAnchor[]> {
+    return Array.from(this.dynamicWallAnchors.values()).filter((a) => a.roomId === roomId);
+  }
+
+  async countDynamicWallAnchorsForRoom(roomId: string): Promise<number> {
+    return Array.from(this.dynamicWallAnchors.values()).filter((a) => a.roomId === roomId).length;
+  }
+
+  async createDynamicWallAnchor(input: DynamicWallAnchor): Promise<DynamicWallAnchor> {
+    this.dynamicWallAnchors.set(input.id, input);
+    return input;
+  }
+
+  async getDynamicWallAnchor(id: string): Promise<DynamicWallAnchor | undefined> {
+    return this.dynamicWallAnchors.get(id);
+  }
+
+  async updateDynamicWallAnchor(id: string, patch: Partial<DynamicWallAnchor>): Promise<DynamicWallAnchor> {
+    const existing = this.dynamicWallAnchors.get(id);
+    if (!existing) throw new Error("DynamicWallAnchor not found: " + id);
+    const updated = { ...existing, ...patch, updatedAt: nowIso() };
+    this.dynamicWallAnchors.set(id, updated);
+    return updated;
+  }
+
+  async removeDynamicWallAnchor(id: string, roomId: string): Promise<void> {
+    const existing = this.dynamicWallAnchors.get(id);
+    if (existing?.roomId === roomId) this.dynamicWallAnchors.delete(id);
   }
 }

@@ -5,12 +5,16 @@ import type {
   ClassroomState,
   ClassMembership,
   ClassRecord,
+  CreateDynamicWallAnchorRequest,
   CreateRoomObjectRequestSchema,
   CreateRoomObjectTemplateRequestSchema,
   CreateRoomObjectUploadRequestSchema,
+  DynamicWallAnchor,
   Invite,
   LessonRecap,
+  ListFreeForAllRoomsResponse,
   Role,
+  RoomSessionResponse,
   RoomType,
   RoomRecord,
   RoomObject,
@@ -18,7 +22,7 @@ import type {
   RoomObjectRealtimeInbound,
   RoomObjectRealtimeMessage,
   RoomObjectTemplate,
-  RoomSessionResponse,
+  UpdateDynamicWallAnchorRequest,
   WorldSkin,
   RoomSettings,
   RoomObjectTouchRequestSchema,
@@ -523,4 +527,32 @@ export async function downloadLessonRecapCsv(identity: ApiIdentity, roomId: stri
     );
   }
   return response.text();
+}
+
+export function listFreeForAllRooms(identity: ApiIdentity, opts?: { classId?: string; limit?: number }) {
+  const params = new URLSearchParams();
+  if (opts?.classId) params.set("classId", opts.classId);
+  if (opts?.limit) params.set("limit", String(opts.limit));
+  const qs = params.toString();
+  return apiFetch<ListFreeForAllRoomsResponse>(`/v1/rooms/free-for-all${qs ? "?" + qs : ""}`, { identity });
+}
+
+export function joinFreeForAllRoom(identity: ApiIdentity, roomId: string) {
+  return apiFetch<RoomSessionResponse>(`/v1/rooms/${roomId}/free-for-all-sessions`, { method: "POST", identity });
+}
+
+export function listDynamicWallAnchors(identity: ApiIdentity, roomId: string) {
+  return apiFetch<DynamicWallAnchor[]>(`/v1/rooms/${roomId}/dynamic-wall-anchors`, { identity });
+}
+
+export function createDynamicWallAnchor(identity: ApiIdentity, roomId: string, body: CreateDynamicWallAnchorRequest) {
+  return apiFetch<{ anchor: DynamicWallAnchor; realtimeMessages: unknown[] }>(`/v1/rooms/${roomId}/dynamic-wall-anchors`, { method: "POST", body, identity });
+}
+
+export function updateDynamicWallAnchor(identity: ApiIdentity, roomId: string, anchorId: string, patch: UpdateDynamicWallAnchorRequest) {
+  return apiFetch<{ anchor: DynamicWallAnchor; realtimeMessages: unknown[] }>(`/v1/rooms/${roomId}/dynamic-wall-anchors/${anchorId}`, { method: "PATCH", body: patch, identity });
+}
+
+export function removeDynamicWallAnchor(identity: ApiIdentity, roomId: string, anchorId: string) {
+  return apiFetch<{ realtimeMessages: unknown[] }>(`/v1/rooms/${roomId}/dynamic-wall-anchors/${anchorId}`, { method: "DELETE", identity });
 }

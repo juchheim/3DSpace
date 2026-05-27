@@ -77,9 +77,11 @@ export function RoomView2D({
   selectedRoomObjectId = null,
   onSelectRoomObject,
   roomObjectActions,
-  getAppearance
+  getAppearance,
+  dynamicWallAnchors
 }: {
   manifest: RoomManifest;
+  dynamicWallAnchors?: RoomManifest["wallAnchors"];
   participants: ParticipantView[];
   onMoveToPoint(point: { x: number; y: number }): void;
   wallObjects?: WallObject[];
@@ -248,6 +250,11 @@ export function RoomView2D({
     selectedTemplate
   ]);
 
+  const allWallAnchors = useMemo(
+    () => dynamicWallAnchors?.length ? [...manifest.wallAnchors, ...dynamicWallAnchors] : manifest.wallAnchors,
+    [manifest.wallAnchors, dynamicWallAnchors]
+  );
+
   // World skin context — floor map overlay + board darken
   const { skin } = useWorldSkinContext();
   const map2dUrl = skin?.overrides.map2dStorageKey ?? null;
@@ -282,7 +289,7 @@ export function RoomView2D({
           const end = projectPositionTo2D(manifest, wall.end);
           return <line key={wall.id} x1={start.x} y1={start.y} x2={end.x} y2={end.y} stroke="#17201a" strokeWidth="1.6" />;
         })}
-        {manifest.wallAnchors.map((anchor) => {
+        {allWallAnchors.map((anchor) => {
           const point = projectPositionTo2D(manifest, anchor.position);
           const rect = projectAnchorRectTo2D(manifest, anchor);
           const objects = wallObjects.filter((object) => object.wallAnchorId === anchor.id && object.status !== "removed");
@@ -354,7 +361,7 @@ export function RoomView2D({
           });
           const projectedPodRadius = Math.max(5.5, Math.abs(radiusPoint.x - center.x));
           const boardLabel = group.targetWallAnchorId
-            ? manifest.wallAnchors.find((anchor) => anchor.id === group.targetWallAnchorId)?.label ?? group.targetWallAnchorId
+            ? allWallAnchors.find((anchor) => anchor.id === group.targetWallAnchorId)?.label ?? group.targetWallAnchorId
             : "";
           return (
             <g key={`zone-${group.id}`}>

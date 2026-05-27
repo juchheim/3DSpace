@@ -87,6 +87,35 @@ export const WallAnchorSchema = z.object({
   metadata: z.record(z.unknown()).default({})
 });
 
+export const DynamicWallAnchorSchema = WallAnchorSchema.extend({
+  roomId: z.string().min(1),
+  wallId: z.string().min(1),
+  createdByUserId: z.string().min(1),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime()
+});
+export type DynamicWallAnchor = z.infer<typeof DynamicWallAnchorSchema>;
+
+export const CreateDynamicWallAnchorRequestSchema = z.object({
+  wallId: z.string().min(1),
+  center: Vector3Schema,
+  normal: Vector3Schema,
+  width: z.number().min(1.0).max(8.0),
+  height: z.number().min(0.75).max(5.0),
+  title: z.string().min(1).max(80),
+  accepts: z.array(z.string()).default([
+    "image", "video", "audio",
+    "image.file", "video.file", "audio.file",
+    "camera.live", "microphone.live", "screen.live", "browser-tab.live",
+    "web.embed", "web.link", "document.file", "slides.file",
+    "whiteboard", "note", "poll", "timer", "future"
+  ])
+});
+export type CreateDynamicWallAnchorRequest = z.infer<typeof CreateDynamicWallAnchorRequestSchema>;
+
+export const UpdateDynamicWallAnchorRequestSchema = CreateDynamicWallAnchorRequestSchema.partial();
+export type UpdateDynamicWallAnchorRequest = z.infer<typeof UpdateDynamicWallAnchorRequestSchema>;
+
 export const WallPlaneSchema = z.object({
   id: z.string(),
   label: z.string(),
@@ -305,7 +334,7 @@ export const RoomObjectTouchPolicySchema = z.enum(["teacher-only", "granted", "a
 export const RoomObjectStatusSchema = z.enum(["active", "locked", "archived"]);
 export const RoomObjectSourceSchema = z.enum(["builtin", "custom", "partner"]);
 export const RoomObjectRendererSchema = z.enum(["gltf", "procedural"]);
-export const RoomTypeSchema = z.enum(["classroom", "workforce-training"]);
+export const RoomTypeSchema = z.enum(["classroom", "workforce-training", "free-for-all"]);
 export type RoomType = z.infer<typeof RoomTypeSchema>;
 export const RoomObjectCategorySchema = z.enum(["math", "science", "geography", "ela", "art", "custom"]);
 
@@ -788,6 +817,8 @@ export type RoomTypeFeatureFlags = {
   breakoutPods: boolean;
   studentMediaControls: boolean;
   worldSkins: boolean;
+  dynamicBoards: boolean;
+  openJoin: boolean;
 };
 
 const NON_CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
@@ -801,7 +832,9 @@ const NON_CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freez
   whisper: false,
   breakoutPods: false,
   studentMediaControls: false,
-  worldSkins: false
+  worldSkins: false,
+  dynamicBoards: false,
+  openJoin: false
 });
 
 const CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
@@ -815,7 +848,25 @@ const CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
   whisper: true,
   breakoutPods: true,
   studentMediaControls: true,
-  worldSkins: true
+  worldSkins: true,
+  dynamicBoards: false,
+  openJoin: false
+});
+
+const FREE_FOR_ALL_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
+  classroomState: false,
+  peoplePanelTeacherControls: false,
+  lessons: false,
+  privateChecks: false,
+  groups: false,
+  focus: false,
+  hallPass: false,
+  whisper: false,
+  breakoutPods: false,
+  studentMediaControls: false,
+  worldSkins: false,
+  dynamicBoards: true,
+  openJoin: true
 });
 
 /**
@@ -825,6 +876,8 @@ export function getRoomTypeFeatureFlags(roomType: RoomType | string | null | und
   switch (roomType) {
     case "classroom":
       return CLASSROOM_ROOM_TYPE_FEATURE_FLAGS;
+    case "free-for-all":
+      return FREE_FOR_ALL_ROOM_TYPE_FEATURE_FLAGS;
     default:
       return NON_CLASSROOM_ROOM_TYPE_FEATURE_FLAGS;
   }
@@ -1297,6 +1350,34 @@ export const RoomObjectRealtimeMessageSchema = z.discriminatedUnion("type", [
   RoomObjectRealtimeReleaseMessageSchema,
   RoomObjectRealtimeParameterMessageSchema
 ]);
+
+export const RoomBoardCreatedMessageV1Schema = z.object({
+  type: z.literal("room.board.created.v1"),
+  roomId: z.string(),
+  anchor: DynamicWallAnchorSchema,
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const RoomBoardUpdatedMessageV1Schema = z.object({
+  type: z.literal("room.board.updated.v1"),
+  roomId: z.string(),
+  anchor: DynamicWallAnchorSchema,
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const RoomBoardRemovedMessageV1Schema = z.object({
+  type: z.literal("room.board.removed.v1"),
+  roomId: z.string(),
+  anchorId: z.string(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export type RoomBoardCreatedMessageV1 = z.infer<typeof RoomBoardCreatedMessageV1Schema>;
+export type RoomBoardUpdatedMessageV1 = z.infer<typeof RoomBoardUpdatedMessageV1Schema>;
+export type RoomBoardRemovedMessageV1 = z.infer<typeof RoomBoardRemovedMessageV1Schema>;
 
 /** Client → server realtime dispatch (roomId comes from the URL). */
 export const RoomObjectRealtimeInboundSchema = z.discriminatedUnion("type", [
@@ -2119,6 +2200,19 @@ export type ClassroomSetRoomSkinAction = z.infer<typeof ClassroomSetRoomSkinActi
 export type ClassroomSetRoomSkinDayNightAction = z.infer<typeof ClassroomSetRoomSkinDayNightActionSchema>;
 export type ClassroomSetStudentMediaGlobalAction = z.infer<typeof ClassroomSetStudentMediaGlobalActionSchema>;
 export type ClassroomSetStudentMediaAccessAction = z.infer<typeof ClassroomSetStudentMediaAccessActionSchema>;
+
+export const FreeForAllRoomSummarySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  classId: z.string(),
+  createdAt: z.string(),
+  participantCount: z.number().int().nonnegative()
+});
+export const ListFreeForAllRoomsResponseSchema = z.object({
+  rooms: z.array(FreeForAllRoomSummarySchema)
+});
+export type FreeForAllRoomSummary = z.infer<typeof FreeForAllRoomSummarySchema>;
+export type ListFreeForAllRoomsResponse = z.infer<typeof ListFreeForAllRoomsResponseSchema>;
 
 type ApiRoute = {
   method: "get" | "post" | "patch" | "delete";

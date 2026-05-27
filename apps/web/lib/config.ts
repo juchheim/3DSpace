@@ -15,5 +15,6 @@ export const CLIENT_TUNING = {
   enableWhisper: process.env.NEXT_PUBLIC_ENABLE_WHISPER === "true",
   enableWorldSkins: process.env.NEXT_PUBLIC_ENABLE_WORLD_SKINS === "true",
   enableStudentMediaPermissions: process.env.NEXT_PUBLIC_ENABLE_STUDENT_MEDIA_PERMISSIONS === "true",
-  enableWorkforceTraining: process.env.NEXT_PUBLIC_ENABLE_WORKFORCE_TRAINING === "true"
+  enableWorkforceTraining: process.env.NEXT_PUBLIC_ENABLE_WORKFORCE_TRAINING === "true",
+  enableFreeForAll: process.env.NEXT_PUBLIC_ENABLE_FREE_FOR_ALL === "true"
 };

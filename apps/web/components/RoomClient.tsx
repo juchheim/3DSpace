@@ -61,6 +61,7 @@ import { RoomObjectsToolbar } from "./RoomObjectsToolbar";
 import { RoomObjectInspector } from "./RoomObjectInspector";
 import { buildSpawnPoseInFront } from "../lib/roomObjectInteraction";
 import { EnvironmentCard } from "./EnvironmentCard";
+import { useDynamicWallAnchors } from "../lib/useDynamicWallAnchors";
 
 const RoomView3D = dynamic(() => import("./RoomView3D").then((module) => module.RoomView3D), {
   ssr: false,
@@ -206,13 +207,29 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     runAction: classroom.runAction
   });
   const roleLabels = useMemo(() => {
-    if (session?.room.type === "workforce-training") {
-      return { hostSingular: "Instructor", hostInitial: "I", guestSingular: "Trainee", guestPlural: "Trainees" };
+    switch (session?.room.type) {
+      case "workforce-training":
+        return { hostSingular: "Instructor", hostInitial: "I", guestSingular: "Trainee", guestPlural: "Trainees" };
+      case "free-for-all":
+        return { hostSingular: "Participant", hostInitial: "P", guestSingular: "Participant", guestPlural: "Participants" };
+      default:
+        return { hostSingular: "Teacher", hostInitial: "T", guestSingular: "Student", guestPlural: "Students" };
     }
-    return { hostSingular: "Teacher", hostInitial: "T", guestSingular: "Student", guestPlural: "Students" };
   }, [session?.room.type]);
   const roomRoleLabel = role === "teacher" ? roleLabels.hostSingular : roleLabels.guestSingular;
-  const roomTypeLabel = session?.room.type === "workforce-training" ? "Workforce Training" : "Classroom";
+  const roomTypeLabel =
+    session?.room.type === "workforce-training" ? "Workforce Training" :
+    session?.room.type === "free-for-all" ? "Free-for-All" :
+    "Classroom";
+  const dynamicBoards = useDynamicWallAnchors({
+    identity,
+    roomId: session?.room.id ?? roomId,
+    enabled: roomTypeFeatures.dynamicBoards && Boolean(session)
+  });
+  const allWallAnchors = useMemo(
+    () => [...(manifest?.wallAnchors ?? []), ...dynamicBoards.anchors],
+    [manifest?.wallAnchors, dynamicBoards.anchors]
+  );
   const hallpassZone = roomTypeFeatures.hallPass ? manifest?.hallpassHoldingZone : undefined;
 
   const parsedRoomSettings = useMemo(
@@ -336,6 +353,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   roomObjectsRealtimeHandlerRef.current = roomObjects.handleRealtimeMessage;
   const classroomRealtimeHandlerRef = useRef(classroom.handleRealtimeMessage);
   classroomRealtimeHandlerRef.current = classroom.handleRealtimeMessage;
+  const dynamicBoardsRealtimeHandlerRef = useRef(dynamicBoards.handleRealtimeMessage);
+  dynamicBoardsRealtimeHandlerRef.current = dynamicBoards.handleRealtimeMessage;
   camera.lockedRef.current = classroom.state?.spotlight?.mode === "force";
 
   useEffect(() => {
@@ -603,8 +622,10 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       if (wallRealtimeHandlerRef.current(message)) return;
       if (roomObjectsRealtimeHandlerRef.current(message)) return;
       if (classroomRealtimeHandlerRef.current(message)) return;
+      if (dynamicBoardsRealtimeHandlerRef.current(message)) return;
       if (message.type.startsWith("wall.")) return;
       if (message.type.startsWith("room.object.")) return;
+      if (message.type.startsWith("room.board.")) return;
 
       if (message.type === "participant.leave.v1") {
         dropReaction(message.participantId);
@@ -1589,6 +1610,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         ) : viewMode === "3d" ? (
           <RoomView3D
             manifest={manifest}
+            dynamicWallAnchors={dynamicBoards.anchors}
             participants={participantList}
             localParticipantId={session.participantId}
             getAppearance={effectiveGetAppearance}
@@ -1653,6 +1675,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         ) : (
           <RoomView2D
             manifest={manifest}
+            dynamicWallAnchors={dynamicBoards.anchors}
             participants={participantList}
             hallpassZone={hallpassZone}
             onMoveToPoint={(point) => {
@@ -1958,15 +1981,18 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               identity={identity}
               roomId={session.room.id}
               manifest={manifest}
+              dynamicWallAnchors={dynamicBoards.anchors}
               wallObjects={wall.wallObjects}
               assetUrls={wall.assetUrls}
               wallMediaStreams={wallMediaStreams}
               canCreate={session.role === "teacher" || session.room.settings.wallObjectCreation !== "teacher-only" || Boolean(activeBoardGrant)}
               canManage={session.role === "teacher"}
+              canCreateDynamicAnchor={roomTypeFeatures.dynamicBoards}
               role={session.role}
               activeBoardGrant={activeBoardGrant}
               loading={wall.loading}
               error={wall.error || displayMedia.error}
+              onCreateDynamicAnchor={async (body) => { await dynamicBoards.create(body); }}
               onCreateFile={createFileObject}
               onCreateNote={createNote}
               onCreateTimer={createTimer}

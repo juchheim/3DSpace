@@ -207,6 +207,7 @@ export function RoomView3D({
   onWallObjectModerate,
   onWallObjectFullscreen,
   hallpassZone,
+  dynamicWallAnchors,
   roomObjects,
   roomObjectTemplatesById,
   roomObjectGrabs,
@@ -219,6 +220,7 @@ export function RoomView3D({
   roomObjectActions
 }: {
   manifest: RoomManifest;
+  dynamicWallAnchors?: Anchor[];
   participants: ParticipantView[];
   localParticipantId: string;
   quality: QualityLevel;
@@ -304,6 +306,12 @@ export function RoomView3D({
   }, [classroomGroups]);
   const localParticipantPosition = participants.find((participant) => participant.id === localParticipantId)?.state.position;
   const localPodGroup = podsEnabled ? (podGroupByParticipantId.get(localParticipantId) ?? null) : null;
+  const mergedManifest = useMemo(
+    () => dynamicWallAnchors?.length
+      ? { ...manifest, wallAnchors: [...manifest.wallAnchors, ...dynamicWallAnchors] }
+      : manifest,
+    [manifest, dynamicWallAnchors]
+  );
 
   useEffect(() => bindCamera(canvasElement), [bindCamera, canvasElement]);
 
@@ -316,7 +324,7 @@ export function RoomView3D({
         onCreated={({ gl }) => setCanvasElement(gl.domElement)}
       >
         <SceneAtmosphere />
-        <RoomGeometry manifest={manifest} onMoveToPoint={onMoveToPoint} wallObjects={wallObjects} spotlightAnchorId={spotlight?.anchorId} />
+        <RoomGeometry manifest={mergedManifest} onMoveToPoint={onMoveToPoint} wallObjects={wallObjects} spotlightAnchorId={spotlight?.anchorId} />
         {roomObjects &&
         roomObjectTemplatesById &&
         roomObjectGrabs &&
@@ -326,7 +334,7 @@ export function RoomView3D({
         onSelectRoomObject &&
         roomObjectActions ? (
           <RoomObjectsLayer
-            manifest={manifest}
+            manifest={mergedManifest}
             objects={roomObjects}
             templatesById={roomObjectTemplatesById}
             grabs={roomObjectGrabs}
@@ -343,7 +351,7 @@ export function RoomView3D({
           />
         ) : null}
         <WallObjectLayer
-          manifest={manifest}
+          manifest={mergedManifest}
           wallObjects={wallObjects}
           assetUrls={assetUrls}
           wallMediaStreams={wallMediaStreams}
@@ -357,7 +365,7 @@ export function RoomView3D({
           {...(onWallObjectFullscreen ? { onWallObjectFullscreen } : {})}
         />
         <GroupTargetLayer
-          manifest={manifest}
+          manifest={mergedManifest}
           groups={classroomGroups}
           podsEnabled={podsEnabled}
           podRadiusMeters={podRadiusMeters}
@@ -366,7 +374,7 @@ export function RoomView3D({
           {...(getAudioMode ? { getAudioMode } : {})}
         />
         {hallpassZone ? <HallpassZoneMarker zone={hallpassZone} /> : null}
-        <PrivateCheckLayer manifest={manifest} privateChecks={privateChecks} />
+        <PrivateCheckLayer manifest={mergedManifest} privateChecks={privateChecks} />
         {(() => {
           const { skin } = useWorldSkinContext();
           const avatarScale = skin?.overrides.avatarScale ?? 1;

@@ -80,6 +80,16 @@ import {
   type WorldSkin,
   type RoomSettings,
   type RoomType,
+  type DynamicWallAnchor,
+  type CreateDynamicWallAnchorRequest,
+  type UpdateDynamicWallAnchorRequest,
+  CreateDynamicWallAnchorRequestSchema,
+  UpdateDynamicWallAnchorRequestSchema,
+  DynamicWallAnchorSchema,
+  ListFreeForAllRoomsResponseSchema,
+  RoomBoardCreatedMessageV1Schema,
+  RoomBoardUpdatedMessageV1Schema,
+  RoomBoardRemovedMessageV1Schema,
   getRoomTypeFeatureFlags
 } from "@3dspace/contracts";
 import {
@@ -87,6 +97,7 @@ import {
   applyDefaultWallAnchorDimensions,
   computeGroupTargetPositionFromAnchor,
   createDefaultRoomManifest,
+  createFreeForAllManifest,
   createWorkforceTrainingManifest,
   createInitialPollState,
   isValidPollChoiceId,
@@ -150,7 +161,7 @@ import {
   WORLD_SKIN_ASSET_FILES
 } from "./world-skins/uploader.js";
 import { connectMongo, MongoRepository } from "./models/mongoose.js";
-import { MemoryRepository, newId, type Repository } from "./repository.js";
+import { MemoryRepository, newId, nowIso, type Repository } from "./repository.js";
 import { mintLiveKitToken } from "./services/livekit.js";
 import {
   createDownloadTarget,
@@ -591,7 +602,10 @@ function assertRoomObjectTemplateVisibleForRoomType(
   template: { visibleRoomTypes: RoomType[] },
   room: { type?: RoomType | string | null | undefined }
 ) {
-  const roomType = room.type === "workforce-training" ? "workforce-training" : "classroom";
+  const roomType: RoomType =
+    room.type === "workforce-training" ? "workforce-training" :
+    room.type === "free-for-all" ? "free-for-all" :
+    "classroom";
   if (!template.visibleRoomTypes.includes(roomType)) {
     throw notFound("Room object template is unavailable for this room type");
   }
@@ -2779,6 +2793,9 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     if (roomType === "workforce-training" && !config.tuning.enableWorkforceTraining) {
       throw forbidden("Workforce training rooms are disabled in this environment");
     }
+    if (roomType === "free-for-all" && !config.tuning.enableFreeForAll) {
+      throw forbidden("Free-for-All rooms are disabled in this environment");
+    }
 
     const roomId = newId("room");
     const manifestConfig = {
@@ -2790,9 +2807,10 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       enableWallAttachments: config.tuning.enableWallAttachments,
       spatialAudio: config.tuning.spatialAudio
     };
-    const manifestFactory = roomType === "workforce-training"
-      ? createWorkforceTrainingManifest
-      : createDefaultRoomManifest;
+    const manifestFactory =
+      roomType === "workforce-training" ? createWorkforceTrainingManifest :
+      roomType === "free-for-all"       ? createFreeForAllManifest :
+      createDefaultRoomManifest;
     const manifest = manifestFactory({ roomId, name: body.name, config: manifestConfig });
 
     return RoomWithManifestSchema.parse(
@@ -3144,6 +3162,257 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       createdByUserId: auth.userId
     });
     return updated;
+  });
+
+  // ── Dynamic wall anchors (Free-for-All rooms) ────────────────────────────
+
+  const MAX_DYNAMIC_ANCHORS_PER_ROOM = 32;
+
+  function validateDynamicAnchorPlacement(
+    manifest: { walls: { id: string; start: { x: number; z: number }; end: { x: number; z: number } }[] },
+    existingAnchors: { id: string; position: { x: number; z: number }; width: number }[],
+    proposed: { wallId: string; center: { x: number; y: number; z: number }; width: number; height: number }
+  ): { ok: true } | { ok: false; reason: "wall-not-found" | "overlaps-anchor" } {
+    const wall = manifest.walls.find((w) => w.id === proposed.wallId);
+    if (!wall) return { ok: false, reason: "wall-not-found" };
+    const MIN_SPACING = 0.25;
+    for (const anchor of existingAnchors) {
+      const dx = anchor.position.x - proposed.center.x;
+      const dz = anchor.position.z - proposed.center.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      const minDist = (anchor.width + proposed.width) / 2 + MIN_SPACING;
+      if (dist < minDist) return { ok: false, reason: "overlaps-anchor" };
+    }
+    return { ok: true };
+  }
+
+  app.get("/v1/rooms/:roomId/dynamic-wall-anchors", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomId, request);
+    const { room } = await requireRoomAccess(repository, params.roomId, auth);
+    if (room.type !== "free-for-all") throw notFound("Dynamic wall anchors are only available in Free-for-All rooms");
+    const anchors = await repository.listDynamicWallAnchorsForRoom(params.roomId);
+    return anchors;
+  });
+
+  app.post("/v1/rooms/:roomId/dynamic-wall-anchors", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomId, request);
+    const body = parseBody(CreateDynamicWallAnchorRequestSchema, request);
+    const { room, manifest } = await requireRoomAccess(repository, params.roomId, auth);
+    if (room.type !== "free-for-all") throw notFound("Dynamic wall anchors are only available in Free-for-All rooms");
+
+    const count = await repository.countDynamicWallAnchorsForRoom(params.roomId);
+    if (count >= MAX_DYNAMIC_ANCHORS_PER_ROOM) {
+      throw conflict(`Room is at the board limit (${MAX_DYNAMIC_ANCHORS_PER_ROOM})`);
+    }
+
+    const existingAnchors = [
+      ...manifest.wallAnchors,
+      ...(await repository.listDynamicWallAnchorsForRoom(params.roomId))
+    ];
+    const validation = validateDynamicAnchorPlacement(manifest, existingAnchors, { wallId: body.wallId, center: body.center, width: body.width, height: body.height });
+    if (!validation.ok) {
+      throw unprocessableEntity(validation.reason === "wall-not-found" ? "Wall not found in room manifest" : "Board placement overlaps an existing board");
+    }
+
+    const now = nowIso();
+    const anchor: DynamicWallAnchor = DynamicWallAnchorSchema.parse({
+      id: newId("dwa"),
+      roomId: params.roomId,
+      wallId: body.wallId,
+      createdByUserId: auth.userId,
+      label: body.title,
+      position: body.center,
+      normal: body.normal,
+      width: body.width,
+      height: body.height,
+      metadata: { accepts: body.accepts },
+      createdAt: now,
+      updatedAt: now
+    });
+
+    await repository.createDynamicWallAnchor(anchor);
+    await repository.recordRoomEvent({ roomId: params.roomId, type: "room.board.created.v1", payload: { anchorId: anchor.id }, createdByUserId: auth.userId });
+
+    const message = RoomBoardCreatedMessageV1Schema.parse({
+      type: "room.board.created.v1",
+      roomId: params.roomId,
+      anchor,
+      sentAt: Date.now(),
+      senderId: auth.userId
+    });
+    return { anchor, realtimeMessages: [message] };
+  });
+
+  app.patch("/v1/rooms/:roomId/dynamic-wall-anchors/:anchorId", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(z.object({ roomId: z.string(), anchorId: z.string() }), request);
+    const body = parseBody(UpdateDynamicWallAnchorRequestSchema, request);
+    const { room, manifest } = await requireRoomAccess(repository, params.roomId, auth);
+    if (room.type !== "free-for-all") throw notFound("Dynamic wall anchors are only available in Free-for-All rooms");
+
+    const existing = await repository.getDynamicWallAnchor(params.anchorId);
+    if (!existing || existing.roomId !== params.roomId) throw notFound("Dynamic wall anchor not found");
+
+    const { teacher } = await actorIsRoomTeacher(repository, params.roomId, auth);
+    if (!teacher && existing.createdByUserId !== auth.userId) {
+      throw forbidden("Only the creator or room owner can update this board");
+    }
+
+    const patch: Partial<DynamicWallAnchor> = {};
+    if (body.title !== undefined) patch.label = body.title;
+    if (body.center !== undefined) patch.position = body.center;
+    if (body.normal !== undefined) patch.normal = body.normal;
+    if (body.width !== undefined) patch.width = body.width;
+    if (body.height !== undefined) patch.height = body.height;
+    if (body.accepts !== undefined) patch.metadata = { ...existing.metadata, accepts: body.accepts };
+
+    if (body.center !== undefined || body.width !== undefined) {
+      const proposedWidth = body.width ?? existing.width;
+      const proposedCenter = body.center ?? existing.position;
+      const proposedWallId = body.wallId ?? existing.wallId;
+      const otherAnchors = [
+        ...manifest.wallAnchors,
+        ...(await repository.listDynamicWallAnchorsForRoom(params.roomId)).filter((a) => a.id !== params.anchorId)
+      ];
+      const validation = validateDynamicAnchorPlacement(manifest, otherAnchors, { wallId: proposedWallId, center: proposedCenter, width: proposedWidth, height: body.height ?? existing.height });
+      if (!validation.ok) {
+        throw unprocessableEntity(validation.reason === "wall-not-found" ? "Wall not found in room manifest" : "Board placement overlaps an existing board");
+      }
+    }
+
+    const updated = await repository.updateDynamicWallAnchor(params.anchorId, patch);
+    const message = RoomBoardUpdatedMessageV1Schema.parse({
+      type: "room.board.updated.v1",
+      roomId: params.roomId,
+      anchor: updated,
+      sentAt: Date.now(),
+      senderId: auth.userId
+    });
+    return { anchor: updated, realtimeMessages: [message] };
+  });
+
+  app.delete("/v1/rooms/:roomId/dynamic-wall-anchors/:anchorId", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(z.object({ roomId: z.string(), anchorId: z.string() }), request);
+    const { room } = await requireRoomAccess(repository, params.roomId, auth);
+    if (room.type !== "free-for-all") throw notFound("Dynamic wall anchors are only available in Free-for-All rooms");
+
+    const existing = await repository.getDynamicWallAnchor(params.anchorId);
+    if (!existing || existing.roomId !== params.roomId) throw notFound("Dynamic wall anchor not found");
+
+    const { teacher } = await actorIsRoomTeacher(repository, params.roomId, auth);
+    if (!teacher && existing.createdByUserId !== auth.userId) {
+      throw forbidden("Only the creator or room owner can delete this board");
+    }
+
+    const wallObjects = await repository.listWallObjects(params.roomId, { anchorId: params.anchorId, status: "active" });
+    if (wallObjects.some((wo) => wo.status === "active")) {
+      throw conflict("Board has active content. Remove wall objects from the board before deleting it.");
+    }
+
+    await repository.removeDynamicWallAnchor(params.anchorId, params.roomId);
+    await repository.recordRoomEvent({ roomId: params.roomId, type: "room.board.removed.v1", payload: { anchorId: params.anchorId }, createdByUserId: auth.userId });
+
+    const message = RoomBoardRemovedMessageV1Schema.parse({
+      type: "room.board.removed.v1",
+      roomId: params.roomId,
+      anchorId: params.anchorId,
+      sentAt: Date.now(),
+      senderId: auth.userId
+    });
+    return { realtimeMessages: [message] };
+  });
+
+  // ── Free-for-All open join ────────────────────────────────────────────────
+
+  app.get("/v1/rooms/free-for-all", async (request) => {
+    await requireUser(request, config, repository);
+    const query = (request.query as Record<string, string | undefined>);
+    const classId = typeof query.classId === "string" ? query.classId : undefined;
+    const limit = Math.min(Number(query.limit ?? "20") || 20, 100);
+    const rooms = await repository.listFreeForAllRooms(classId ? { classId } : {});
+    return ListFreeForAllRoomsResponseSchema.parse({
+      rooms: rooms.slice(0, limit).map((r) => ({
+        id: r.id,
+        name: r.name,
+        classId: r.classId,
+        createdAt: r.createdAt,
+        participantCount: 0
+      }))
+    });
+  });
+
+  app.post("/v1/rooms/:roomId/free-for-all-sessions", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomId, request);
+
+    const room = await repository.getRoom(params.roomId);
+    if (!room) throw notFound("Room not found");
+    if (room.type !== "free-for-all") throw forbidden("This endpoint is only available for Free-for-All rooms");
+
+    let membership = await repository.getMembership(room.classId, auth.userId);
+    if (!membership || membership.status !== "active") {
+      membership = await repository.upsertMembership({
+        classId: room.classId,
+        userId: auth.userId,
+        displayName: auth.displayName,
+        role: "student",
+        status: "active"
+      });
+    }
+
+    membership = await repository.upsertMembership({
+      classId: room.classId,
+      userId: auth.userId,
+      displayName: auth.displayName,
+      role: membership.role,
+      status: "active"
+    });
+
+    const storedManifest = await repository.getActiveManifest(room.id);
+    if (!storedManifest) throw notFound("Room manifest not found");
+    const manifest = applyDefaultWallAnchorDimensions(storedManifest, room.type);
+
+    enforceSessionJoinRateLimit(auth.userId, room.id);
+    const participantIdentity = `${auth.userId}:${room.id}`;
+    const activeCount = await repository.recordRoomSession({
+      roomId: room.id,
+      participantIdentity,
+      userId: auth.userId,
+      role: membership.role,
+      maxParticipants: room.settings.maxParticipants
+    });
+    if (activeCount > room.settings.maxParticipants) {
+      throw conflict("Room is at participant capacity");
+    }
+
+    const token = await mintLiveKitToken(config, {
+      roomId: room.id,
+      participantIdentity,
+      displayName: auth.displayName,
+      role: membership.role
+    });
+
+    const sessionUser = await repository.getUser(auth.userId);
+    return RoomSessionResponseSchema.parse({
+      token,
+      livekitUrl: config.livekitUrl,
+      participantIdentity,
+      participantId: auth.userId,
+      role: membership.role,
+      room,
+      manifest,
+      capabilities: manifest.capabilities,
+      avatarAppearance: sessionUser?.avatar?.appearance ?? null,
+      tuning: {
+        avatarSendHz: config.tuning.avatarSendHz,
+        interpolationMs: config.tuning.interpolationMs,
+        spatialAudio: config.tuning.spatialAudio,
+        media: config.tuning.media
+      }
+    });
   });
 
   app.post("/v1/rooms/:roomId/wall-objects/:objectId/control", async (request) => {

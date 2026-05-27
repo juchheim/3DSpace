@@ -8,6 +8,9 @@ import type {
   ClassroomStateRealtimeSchema,
   ParticipantAudioModeMessage,
   Role,
+  RoomBoardCreatedMessageV1,
+  RoomBoardUpdatedMessageV1,
+  RoomBoardRemovedMessageV1,
   RoomObjectRealtimeMessageSchema,
   RoomSessionResponse,
   RoomSkinMessage,
@@ -42,6 +45,11 @@ export type ClassroomRealtimeMessage = z.infer<typeof ClassroomStateChangedRealt
 
 export type RoomObjectRealtimeMessage = z.infer<typeof RoomObjectRealtimeMessageSchema>;
 
+export type BoardRealtimeMessage =
+  | RoomBoardCreatedMessageV1
+  | RoomBoardUpdatedMessageV1
+  | RoomBoardRemovedMessageV1;
+
 export type RealtimeMessage =
   | AvatarStateMessage
   | AvatarAppearanceMessage
@@ -52,7 +60,8 @@ export type RealtimeMessage =
   | WallRealtimeMessage
   | ClassroomRealtimeMessage
   | RoomObjectRealtimeMessage
-  | RoomSkinMessage;
+  | RoomSkinMessage
+  | BoardRealtimeMessage;
 
 const ROOM_OBJECT_UNRELIABLE_TYPES = new Set(["room.object.pose.v1"]);
 

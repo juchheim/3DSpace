@@ -55,6 +55,7 @@ export type AppConfig = {
     enableRoomObjects: boolean;
     enableWorldSkins: boolean;
     enableWorkforceTraining: boolean;
+    enableFreeForAll: boolean;
     enableStudentMediaPermissions: boolean;
     spatialAudio: SpatialAudioConfig;
     media: {
@@ -203,6 +204,7 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       enableRoomObjects: envBoolean(raw, "ENABLE_ROOM_OBJECTS", false),
       enableWorldSkins: envBoolean(raw, "ENABLE_WORLD_SKINS", false),
       enableWorkforceTraining: envBoolean(raw, "ENABLE_WORKFORCE_TRAINING", false),
+      enableFreeForAll: envBoolean(raw, "ENABLE_FREE_FOR_ALL", false),
       enableStudentMediaPermissions: envBoolean(raw, "ENABLE_STUDENT_MEDIA_PERMISSIONS", false),
       spatialAudio: {
         enabled: envBoolean(raw, "SPATIAL_AUDIO_ENABLED", true),

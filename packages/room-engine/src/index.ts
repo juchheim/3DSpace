@@ -10,6 +10,10 @@ import type {
 } from "@3dspace/contracts";
 import { RoomManifestSchema } from "@3dspace/contracts";
 
+type WallPlane = RoomManifest["walls"][number];
+type WallAnchor = RoomManifest["wallAnchors"][number];
+type SpawnPoint = RoomManifest["spawnPoints"][number];
+
 export type RoomEngineConfig = {
   maxParticipants: number;
   avatarSendHz: number;
@@ -645,6 +649,308 @@ export function createWorkforceTrainingManifest(input: {
         enabled: true,
         config: {
           creationDefault: "teacher-only",
+          maxActivePerRoom: 20,
+          maxActiveLiveShares: 4,
+          supportedTypes: ["image.file", "video.file", "audio.file", "camera.live", "microphone.live", "screen.live", "browser-tab.live", "web.link", "note", "poll", "timer"]
+        }
+      }
+    ],
+    createdAt: input.createdAt ?? new Date().toISOString()
+  };
+
+  return RoomManifestSchema.parse(manifest);
+}
+
+// ── Free-for-All layout ──────────────────────────────────────────────────────
+// Circular main room (Ø ~46 m) centered on origin. Four cardinal exits open
+// into short 6 m halls leading to four 14×14 m medium adjoining rooms. All
+// walls are thick + impassable (matches workforce-training collision style).
+
+export const FFA_MAIN_RADIUS = 23;
+export const FFA_WALL_HEIGHT = 8;
+export const FFA_WALL_THICKNESS = 0.3;
+export const FFA_HALL_LENGTH = 6;
+export const FFA_HALL_WIDTH = 4;
+export const FFA_ADJOINING_SIZE = 14;
+export const FFA_PERIMETER_SEGMENTS = 32;
+export const FFA_EXIT_HALF_ARC = FFA_HALL_WIDTH / FFA_MAIN_RADIUS / 2;
+export const FFA_CENTRAL_SQUARE_SIZE = 12;
+export const FFA_STATIC_BOARD_WIDTH = 6;
+export const FFA_STATIC_BOARD_HEIGHT = widescreenHeight(FFA_STATIC_BOARD_WIDTH);
+
+function circleWallSegments(args: {
+  centerX: number;
+  centerZ: number;
+  radius: number;
+  segmentCount: number;
+  thickness: number;
+  height: number;
+  gaps: { angleRad: number; halfWidthRad: number }[];
+  idPrefix: string;
+}): WallPlane[] {
+  const segments: WallPlane[] = [];
+  const step = (2 * Math.PI) / args.segmentCount;
+  for (let i = 0; i < args.segmentCount; i++) {
+    const startAngle = i * step;
+    const endAngle = startAngle + step;
+    const midAngle = (startAngle + endAngle) / 2;
+    const inGap = args.gaps.some((g) => {
+      const diff = ((midAngle - g.angleRad + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+      return Math.abs(diff) < g.halfWidthRad;
+    });
+    if (inGap) continue;
+    segments.push({
+      id: `${args.idPrefix}-${i}`,
+      label: `Perimeter ${i}`,
+      start: {
+        x: args.centerX + args.radius * Math.cos(startAngle),
+        y: 0,
+        z: args.centerZ + args.radius * Math.sin(startAngle)
+      },
+      end: {
+        x: args.centerX + args.radius * Math.cos(endAngle),
+        y: 0,
+        z: args.centerZ + args.radius * Math.sin(endAngle)
+      },
+      height: args.height,
+      anchorIds: [],
+      passable: false,
+      thickness: args.thickness
+    });
+  }
+  return segments;
+}
+
+function buildFreeForAllWalls(): WallPlane[] {
+  const walls: WallPlane[] = [];
+  // Cardinal exit angles: east = 0, south = π/2, west = π, north = 3π/2
+  const exits = [
+    { angle: 0, label: "east" },
+    { angle: Math.PI / 2, label: "south" },
+    { angle: Math.PI, label: "west" },
+    { angle: (3 * Math.PI) / 2, label: "north" }
+  ];
+
+  // Circular perimeter with 4 gaps
+  walls.push(
+    ...circleWallSegments({
+      centerX: 0,
+      centerZ: 0,
+      radius: FFA_MAIN_RADIUS,
+      segmentCount: FFA_PERIMETER_SEGMENTS,
+      thickness: FFA_WALL_THICKNESS,
+      height: FFA_WALL_HEIGHT,
+      gaps: exits.map((e) => ({ angleRad: e.angle, halfWidthRad: FFA_EXIT_HALF_ARC })),
+      idPrefix: "ffa-perim"
+    })
+  );
+
+  // For each cardinal direction: hall side walls + adjoining room perimeter
+  for (const exit of exits) {
+    const cos = Math.cos(exit.angle);
+    const sin = Math.sin(exit.angle);
+    // Perpendicular direction (for hall width)
+    const perpCos = -sin;
+    const perpSin = cos;
+    const hw = FFA_HALL_WIDTH / 2;
+
+    const hallStart = FFA_MAIN_RADIUS;
+    const hallEnd = FFA_MAIN_RADIUS + FFA_HALL_LENGTH;
+
+    // Hall side walls (two parallel walls along the exit direction)
+    for (const side of [-1, 1]) {
+      const offX = side * hw * perpCos;
+      const offZ = side * hw * perpSin;
+      walls.push({
+        id: `ffa-hall-${exit.label}-side-${side > 0 ? "a" : "b"}`,
+        label: `${exit.label} hall side`,
+        start: { x: hallStart * cos + offX, y: 0, z: hallStart * sin + offZ },
+        end: { x: hallEnd * cos + offX, y: 0, z: hallEnd * sin + offZ },
+        height: FFA_WALL_HEIGHT,
+        anchorIds: [],
+        passable: false,
+        thickness: FFA_WALL_THICKNESS
+      });
+    }
+
+    // Adjoining room center
+    const roomCenterX = (hallEnd + FFA_ADJOINING_SIZE / 2) * cos;
+    const roomCenterZ = (hallEnd + FFA_ADJOINING_SIZE / 2) * sin;
+    const half = FFA_ADJOINING_SIZE / 2;
+    const doorHalfWidth = FFA_HALL_WIDTH / 2;
+
+    // Entrance wall (the face toward the hall) – split into two segments around the doorway
+    const entranceDist = hallEnd;
+    const eX = entranceDist * cos;
+    const eZ = entranceDist * sin;
+    // Left segment: from left corner to left door edge
+    walls.push({
+      id: `ffa-adj-${exit.label}-entrance-l`,
+      label: `${exit.label} adj entrance left`,
+      start: { x: eX + half * perpCos, y: 0, z: eZ + half * perpSin },
+      end: { x: eX + doorHalfWidth * perpCos, y: 0, z: eZ + doorHalfWidth * perpSin },
+      height: FFA_WALL_HEIGHT,
+      anchorIds: [],
+      passable: false,
+      thickness: FFA_WALL_THICKNESS
+    });
+    // Right segment: from right door edge to right corner
+    walls.push({
+      id: `ffa-adj-${exit.label}-entrance-r`,
+      label: `${exit.label} adj entrance right`,
+      start: { x: eX - doorHalfWidth * perpCos, y: 0, z: eZ - doorHalfWidth * perpSin },
+      end: { x: eX - half * perpCos, y: 0, z: eZ - half * perpSin },
+      height: FFA_WALL_HEIGHT,
+      anchorIds: [],
+      passable: false,
+      thickness: FFA_WALL_THICKNESS
+    });
+
+    // Back wall (opposite the entrance)
+    const backDist = hallEnd + FFA_ADJOINING_SIZE;
+    const bX = backDist * cos;
+    const bZ = backDist * sin;
+    walls.push({
+      id: `ffa-adj-${exit.label}-back`,
+      label: `${exit.label} adj back`,
+      start: { x: bX + half * perpCos, y: 0, z: bZ + half * perpSin },
+      end: { x: bX - half * perpCos, y: 0, z: bZ - half * perpSin },
+      height: FFA_WALL_HEIGHT,
+      anchorIds: [`ffa-adj-${exit.label}-anchor`],
+      passable: false,
+      thickness: FFA_WALL_THICKNESS
+    });
+
+    // Two side walls of the adjoining room
+    for (const side of [-1, 1]) {
+      const sX = eX + side * half * perpCos;
+      const sZ = eZ + side * half * perpSin;
+      walls.push({
+        id: `ffa-adj-${exit.label}-side-${side > 0 ? "a" : "b"}`,
+        label: `${exit.label} adj side`,
+        start: { x: sX, y: 0, z: sZ },
+        end: { x: sX + FFA_ADJOINING_SIZE * cos, y: 0, z: sZ + FFA_ADJOINING_SIZE * sin },
+        height: FFA_WALL_HEIGHT,
+        anchorIds: [],
+        passable: false,
+        thickness: FFA_WALL_THICKNESS
+      });
+    }
+
+    // Suppress unused roomCenterX/Z — used conceptually for layout documentation
+    void roomCenterX;
+    void roomCenterZ;
+  }
+
+  return walls;
+}
+
+function buildFreeForAllStaticAnchors(): WallAnchor[] {
+  const anchors: WallAnchor[] = [];
+  const exits = [
+    { angle: 0, label: "east" },
+    { angle: Math.PI / 2, label: "south" },
+    { angle: Math.PI, label: "west" },
+    { angle: (3 * Math.PI) / 2, label: "north" }
+  ];
+
+  const FULL_ACCEPTS = [
+    "image", "video", "audio",
+    "image.file", "video.file", "audio.file",
+    "camera.live", "microphone.live", "screen.live", "browser-tab.live",
+    "web.embed", "web.link", "document.file", "slides.file",
+    "whiteboard", "note", "poll", "timer", "future"
+  ];
+
+  for (const exit of exits) {
+    const cos = Math.cos(exit.angle);
+    const sin = Math.sin(exit.angle);
+    const backDist = FFA_MAIN_RADIUS + FFA_HALL_LENGTH + FFA_ADJOINING_SIZE - FFA_WALL_THICKNESS / 2;
+    // Normal points inward (toward room center, i.e. opposite of exit direction)
+    anchors.push({
+      id: `ffa-adj-${exit.label}-anchor`,
+      label: `${exit.label.charAt(0).toUpperCase() + exit.label.slice(1)} Board`,
+      position: { x: backDist * cos, y: 4.0, z: backDist * sin },
+      normal: { x: -cos, y: 0, z: -sin },
+      width: FFA_STATIC_BOARD_WIDTH,
+      height: FFA_STATIC_BOARD_HEIGHT,
+      metadata: {
+        accepts: FULL_ACCEPTS,
+        capacity: 4,
+        layout: "grid",
+        supportsInteraction: true,
+        moderationPolicy: "student-request"
+      }
+    });
+  }
+
+  return anchors;
+}
+
+function buildFreeForAllSpawnPoints(): SpawnPoint[] {
+  const spawns: SpawnPoint[] = [];
+  const innerRadius = 10;
+  const count = 8;
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * 2 * Math.PI;
+    const x = innerRadius * Math.cos(angle);
+    const z = innerRadius * Math.sin(angle);
+    // Face toward center
+    const facingY = Math.atan2(-x, -z);
+    spawns.push({
+      id: `spawn-ffa-${i + 1}`,
+      label: `Participant ${i + 1}`,
+      position: { x, y: 0, z },
+      rotation: { y: facingY }
+    });
+  }
+  return spawns;
+}
+
+export function createFreeForAllManifest(input: {
+  id?: string;
+  roomId: string;
+  name?: string;
+  version?: number;
+  createdAt?: string;
+  config?: Partial<RoomEngineConfig>;
+}): RoomManifest {
+  const config: RoomEngineConfig = {
+    ...DEFAULT_ROOM_ENGINE_CONFIG,
+    ...input.config,
+    spatialAudio: { ...DEFAULT_SPATIAL_AUDIO, ...input.config?.spatialAudio }
+  };
+
+  const manifest: RoomManifest = {
+    id: input.id ?? `${input.roomId}:manifest:v${input.version ?? 1}`,
+    roomId: input.roomId,
+    version: input.version ?? 1,
+    name: input.name ?? "Free-for-All",
+    dimensions: {
+      // Outer extents: radius + hall + room = 23 + 6 + 14 = 43 m to each side → 86 m square
+      width: 86,
+      depth: 86,
+      height: FFA_WALL_HEIGHT
+    },
+    bounds: {
+      minX: -43, maxX: 43,
+      minZ: -43, maxZ: 43
+    },
+    tiers: [],
+    spawnPoints: buildFreeForAllSpawnPoints(),
+    walls: buildFreeForAllWalls(),
+    wallAnchors: buildFreeForAllStaticAnchors(),
+    projection: { kind: "top-down-v1", scale: 1, origin: { x: 0, y: 0 } },
+    capabilities: createRoomCapabilities(config),
+    spatialAudio: config.spatialAudio,
+    features: [
+      { key: "screen-share", enabled: false, config: { preparedTrackKind: "screen" } },
+      { key: "computer-audio", enabled: false, config: { preparedTrackKind: "system-audio" } },
+      {
+        key: "wall-objects",
+        enabled: true,
+        config: {
+          creationDefault: "student-direct",
           maxActivePerRoom: 20,
           maxActiveLiveShares: 4,
           supportedTypes: ["image.file", "video.file", "audio.file", "camera.live", "microphone.live", "screen.live", "browser-tab.live", "web.link", "note", "poll", "timer"]
