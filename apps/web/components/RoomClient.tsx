@@ -256,7 +256,11 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   // skin would bleed classroom assets (floor and panorama) into the space. Strip them
   // until the workforce-training room gets its own skin assets.
   const activeSkinForRoom = useMemo(() => {
-    if (session?.room.type !== "workforce-training" || skinId !== null || !activeSkin.skin) {
+    if (
+      (session?.room.type !== "workforce-training" && session?.room.type !== "free-for-all") ||
+      skinId !== null ||
+      !activeSkin.skin
+    ) {
       return activeSkin.skin;
     }
     const { floor: _floor, panoramaWall: _panorama, ...rest } = activeSkin.skin.overrides;

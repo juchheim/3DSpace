@@ -46,6 +46,7 @@ import {
   WALL_OBJECT_DISTANCE_FACTOR,
   wallObjectSurfacePixelSize
 } from "../lib/wallObjectSurface";
+import { FFA_MAIN_RADIUS, FFA_WALL_HEIGHT, FFA_EXIT_HALF_ARC } from "@3dspace/room-engine";
 
 type Wall = z.infer<typeof WallPlaneSchema>;
 type Anchor = z.infer<typeof WallAnchorSchema>;
@@ -1103,6 +1104,30 @@ function SceneAtmosphere() {
   );
 }
 
+// Renders 4 cylinder arc segments that form the circular FFA main hub perimeter,
+// with gaps at the 4 cardinal exits. Arc angles are computed in Three.js cylinder
+// u-space (CCW from +Z when viewed from above), where exit centers map as:
+//   South(+Z)=0, East(+X)=π/2, North(-Z)=π, West(-X)=3π/2
+function PerimeterCylinder({ color }: { color: string }) {
+  const arcLength = Math.PI / 2 - 2 * FFA_EXIT_HALF_ARC;
+  const arcStarts = [
+    FFA_EXIT_HALF_ARC,
+    Math.PI / 2 + FFA_EXIT_HALF_ARC,
+    Math.PI + FFA_EXIT_HALF_ARC,
+    (3 * Math.PI) / 2 + FFA_EXIT_HALF_ARC
+  ];
+  return (
+    <>
+      {arcStarts.map((start, i) => (
+        <mesh key={i} position={[0, FFA_WALL_HEIGHT / 2, 0]}>
+          <cylinderGeometry args={[FFA_MAIN_RADIUS, FFA_MAIN_RADIUS, FFA_WALL_HEIGHT, 48, 1, true, start, arcLength]} />
+          <meshStandardMaterial color={color} side={DoubleSide} />
+        </mesh>
+      ))}
+    </>
+  );
+}
+
 function RoomGeometry({
   manifest,
   onMoveToPoint,
@@ -1130,6 +1155,11 @@ function RoomGeometry({
   const domeCeiling = skin?.overrides.domeCeiling;
   const domeTextureUrl = domeCeiling?.textureStorageKey ?? null;
   const wallHeight = manifest.dimensions.height;
+  const visibleWalls = useMemo(
+    () => manifest.walls.filter((w) => !w.id.startsWith("ffa-perim")),
+    [manifest.walls]
+  );
+  const hasFFAPerim = visibleWalls.length < manifest.walls.length;
 
   return (
     <group>
@@ -1198,7 +1228,7 @@ function RoomGeometry({
       <Suspense
         fallback={
           <>
-            {manifest.walls.map((wall) => (
+            {visibleWalls.map((wall) => (
               <WallMesh
                 key={wall.id}
                 wall={wall}
@@ -1211,14 +1241,14 @@ function RoomGeometry({
         {panoramaUrl ? (
           <WallsWithPanorama
             key={panoramaUrl}
-            walls={manifest.walls}
+            walls={visibleWalls}
             panoramaUrl={panoramaUrl}
             skin={skin}
             maxWorldHeight={skin?.overrides.panoramaWall?.maxWorldHeight ?? manifest.dimensions.height}
           />
         ) : (
           <>
-            {manifest.walls.map((wall) => (
+            {visibleWalls.map((wall) => (
               <WallMesh
                 key={wall.id}
                 wall={wall}
@@ -1228,6 +1258,7 @@ function RoomGeometry({
           </>
         )}
       </Suspense>
+      {hasFFAPerim && <PerimeterCylinder color="#8ea487" />}
       {domeCeiling ? (
         <DomeCeilingMesh
           roomWidth={manifest.dimensions.width}
