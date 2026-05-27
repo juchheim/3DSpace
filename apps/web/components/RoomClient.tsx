@@ -2138,7 +2138,23 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             />
           ) : null}
           {aiObjectsEnabled && session ? (
-            <AiObjectPanel controller={aiObjectGenerator} />
+            <AiObjectPanel controller={{
+              ...aiObjectGenerator,
+              place: async (jobId) => {
+                const avatarPos = localParticipantForRoomObjects?.state.position;
+                const avatarYaw = localParticipantForRoomObjects?.state.rotation.y ?? 0;
+                const pose = avatarPos && manifest ? {
+                  position: {
+                    x: avatarPos.x + Math.sin(avatarYaw) * 1.5,
+                    y: 1.1,
+                    z: avatarPos.z + Math.cos(avatarYaw) * 1.5
+                  },
+                  rotation: { yaw: avatarYaw, pitch: 0, roll: 0 }
+                } : undefined;
+                await aiObjectGenerator.place(jobId, pose);
+                await roomObjectTemplates.refetch();
+              }
+            }} />
           ) : null}
           {roomTypeFeatures.worldSkins && CLIENT_TUNING.enableWorldSkins && role === "teacher" && session ? (
             <EnvironmentCard

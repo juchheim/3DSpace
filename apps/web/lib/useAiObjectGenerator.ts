@@ -161,10 +161,10 @@ export function useAiObjectGenerator(input: {
     }
   }, [identity, publish, roomId]);
 
-  const place = useCallback(async (jobId: string) => {
+  const place = useCallback(async (jobId: string, pose?: { position: { x: number; y: number; z: number }; rotation: { yaw: number; pitch: number; roll: number } }) => {
     if (!roomId) return;
     try {
-      const result = await placeAiObject(identity, roomId, jobId);
+      const result = await placeAiObject(identity, roomId, jobId, pose ? { position: pose.position, rotation: pose.rotation } : {});
       for (const msg of result.realtimeMessages) {
         applyLocally?.(msg as RealtimeMessage);
         publish?.(msg as RealtimeMessage);
