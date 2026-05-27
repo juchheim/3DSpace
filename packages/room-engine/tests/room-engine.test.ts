@@ -497,6 +497,18 @@ describe("workforce training manifest", () => {
 describe("free-for-all wall collisions", () => {
   const manifest = createFreeForAllManifest({ roomId: "room-ffa-1" });
 
+  it("includes a central cubed wall ring inside the cylindrical hub", () => {
+    const centralWallIds = new Set(
+      manifest.walls
+        .filter((wall) => wall.id.startsWith("ffa-central-"))
+        .map((wall) => wall.id)
+    );
+
+    expect(centralWallIds).toEqual(
+      new Set(["ffa-central-north", "ffa-central-east", "ffa-central-south", "ffa-central-west"])
+    );
+  });
+
   it("uses hideSurface static boards inset from adjoining-room walls", () => {
     const northBoard = manifest.wallAnchors.find((anchor) => anchor.id === "ffa-adj-north-anchor");
     expect(northBoard).toBeDefined();

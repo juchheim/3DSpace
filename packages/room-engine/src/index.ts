@@ -726,6 +726,50 @@ function circleWallSegments(args: {
 
 function buildFreeForAllWalls(): WallPlane[] {
   const walls: WallPlane[] = [];
+  const centralHalf = FFA_CENTRAL_SQUARE_SIZE / 2;
+  // Central cubed wall ring (plan-required square zone boundary in the cylindrical hub).
+  walls.push(
+    {
+      id: "ffa-central-north",
+      label: "Central square north",
+      start: { x: -centralHalf, y: 0, z: -centralHalf },
+      end: { x: centralHalf, y: 0, z: -centralHalf },
+      height: FFA_WALL_HEIGHT,
+      anchorIds: [],
+      passable: false,
+      thickness: FFA_WALL_THICKNESS
+    },
+    {
+      id: "ffa-central-east",
+      label: "Central square east",
+      start: { x: centralHalf, y: 0, z: -centralHalf },
+      end: { x: centralHalf, y: 0, z: centralHalf },
+      height: FFA_WALL_HEIGHT,
+      anchorIds: [],
+      passable: false,
+      thickness: FFA_WALL_THICKNESS
+    },
+    {
+      id: "ffa-central-south",
+      label: "Central square south",
+      start: { x: centralHalf, y: 0, z: centralHalf },
+      end: { x: -centralHalf, y: 0, z: centralHalf },
+      height: FFA_WALL_HEIGHT,
+      anchorIds: [],
+      passable: false,
+      thickness: FFA_WALL_THICKNESS
+    },
+    {
+      id: "ffa-central-west",
+      label: "Central square west",
+      start: { x: -centralHalf, y: 0, z: centralHalf },
+      end: { x: -centralHalf, y: 0, z: -centralHalf },
+      height: FFA_WALL_HEIGHT,
+      anchorIds: [],
+      passable: false,
+      thickness: FFA_WALL_THICKNESS
+    }
+  );
   // Cardinal exit angles: east = 0, south = π/2, west = π, north = 3π/2
   const exits = [
     { angle: 0, label: "east" },
