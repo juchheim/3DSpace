@@ -255,7 +255,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     identity,
     roomId: session?.room.id ?? roomId,
     enabled: aiObjectsEnabled,
-    publish: publishRealtime
+    publish: publishRealtime,
+    applyLocally: (msg) => roomObjectsRealtimeHandlerRef.current(msg)
   });
   const [dynamicBoardPlacementActive, setDynamicBoardPlacementActive] = useState(false);
   const [dynamicBoardPlacementBusy, setDynamicBoardPlacementBusy] = useState(false);

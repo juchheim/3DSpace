@@ -15,6 +15,7 @@ import type { ApiIdentity } from "./identity";
 import type { RealtimeMessage } from "./realtime";
 
 type PublishMessage = (message: RealtimeMessage) => void;
+type ApplyLocalMessage = (message: RealtimeMessage) => void;
 
 const ACTIVE_STATUSES = new Set(["queued", "refining", "composing", "validating"]);
 const POLL_INTERVAL_MS = 2500;
@@ -31,12 +32,13 @@ export function useAiObjectGenerator(input: {
   roomId?: string | null;
   enabled: boolean;
   publish?: PublishMessage;
+  applyLocally?: ApplyLocalMessage;
 }) {
   const [jobs, setJobs] = useState<AiObjectJob[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { identity, roomId, enabled, publish } = input;
+  const { identity, roomId, enabled, publish, applyLocally } = input;
 
   const hasActiveJob = jobs.some((j) => ACTIVE_STATUSES.has(j.status));
 
@@ -164,6 +166,7 @@ export function useAiObjectGenerator(input: {
     try {
       const result = await placeAiObject(identity, roomId, jobId);
       for (const msg of result.realtimeMessages) {
+        applyLocally?.(msg as RealtimeMessage);
         publish?.(msg as RealtimeMessage);
       }
     } catch (err) {
@@ -171,7 +174,7 @@ export function useAiObjectGenerator(input: {
         setError(err.message);
       }
     }
-  }, [identity, publish, roomId]);
+  }, [applyLocally, identity, publish, roomId]);
 
   const download = useCallback(async (job: AiObjectJob) => {
     if (!roomId) return;
