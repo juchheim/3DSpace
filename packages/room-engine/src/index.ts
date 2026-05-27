@@ -677,6 +677,7 @@ export const FFA_EXIT_HALF_ARC = FFA_HALL_WIDTH / FFA_MAIN_RADIUS / 2;
 export const FFA_CENTRAL_SQUARE_SIZE = 12;
 export const FFA_STATIC_BOARD_WIDTH = 6;
 export const FFA_STATIC_BOARD_HEIGHT = widescreenHeight(FFA_STATIC_BOARD_WIDTH);
+export const FFA_BOARD_WALL_INSET = 0.1;
 
 function circleWallSegments(args: {
   centerX: number;
@@ -867,7 +868,8 @@ function buildFreeForAllStaticAnchors(): WallAnchor[] {
   for (const exit of exits) {
     const cos = Math.cos(exit.angle);
     const sin = Math.sin(exit.angle);
-    const backDist = FFA_MAIN_RADIUS + FFA_HALL_LENGTH + FFA_ADJOINING_SIZE - FFA_WALL_THICKNESS / 2;
+    const backDist =
+      FFA_MAIN_RADIUS + FFA_HALL_LENGTH + FFA_ADJOINING_SIZE - FFA_WALL_THICKNESS / 2 - FFA_BOARD_WALL_INSET;
     // Normal points inward (toward room center, i.e. opposite of exit direction)
     anchors.push({
       id: `ffa-adj-${exit.label}-anchor`,
@@ -881,7 +883,9 @@ function buildFreeForAllStaticAnchors(): WallAnchor[] {
         capacity: 4,
         layout: "grid",
         supportsInteraction: true,
-        moderationPolicy: "student-request"
+        moderationPolicy: "student-request",
+        hideSurface: true,
+        hideObjectHeader: true
       }
     });
   }

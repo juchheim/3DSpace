@@ -3227,7 +3227,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       normal: body.normal,
       width: body.width,
       height: body.height,
-      metadata: { accepts: body.accepts },
+      metadata: { accepts: body.accepts, hideSurface: true, hideObjectHeader: true },
       createdAt: now,
       updatedAt: now
     });

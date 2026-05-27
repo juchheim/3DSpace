@@ -56,6 +56,7 @@ const WALL_OBJECT_SURFACE_OFFSET = 0.045;
 const WALL_OBJECT_LAYER_OFFSET = 0.002;
 const PRIVATE_CHECK_SURFACE_OFFSET = 0.038;
 const WALL_ANCHOR_LABEL_OFFSET = 0.03;
+const WALL_ANCHOR_SURFACE_OFFSET = 0.04;
 const WALL_SURFACE_MIN_VISIBLE_DISTANCE = 0.02;
 const WALL_SURFACE_SELF_OCCLUSION_DISTANCE = 0.45;
 const WALL_INTERSECTION_EPSILON = 0.0001;
@@ -1834,7 +1835,7 @@ function AnchorMesh({ anchor, walls, showLabel, spotlighted }: { anchor: Anchor;
   return (
     <group position={[anchor.position.x, anchor.position.y, anchor.position.z]} rotation={rotation}>
       {hideSurface ? null : (
-        <mesh>
+        <mesh position={[0, 0, WALL_ANCHOR_SURFACE_OFFSET]}>
           <planeGeometry args={[w, h]} />
           <meshStandardMaterial
             ref={materialRef}
@@ -1849,26 +1850,26 @@ function AnchorMesh({ anchor, walls, showLabel, spotlighted }: { anchor: Anchor;
       )}
       {spotlighted ? (
         <>
-          <mesh position={[0, h / 2 + BORDER, BZ]}>
+          <mesh position={[0, h / 2 + BORDER, BZ + WALL_ANCHOR_SURFACE_OFFSET]}>
             <boxGeometry args={[w + BORDER * 4, BORDER * 2, 0.008]} />
             <meshBasicMaterial color="#f1c40f" />
           </mesh>
-          <mesh position={[0, -(h / 2 + BORDER), BZ]}>
+          <mesh position={[0, -(h / 2 + BORDER), BZ + WALL_ANCHOR_SURFACE_OFFSET]}>
             <boxGeometry args={[w + BORDER * 4, BORDER * 2, 0.008]} />
             <meshBasicMaterial color="#f1c40f" />
           </mesh>
-          <mesh position={[-(w / 2 + BORDER), 0, BZ]}>
+          <mesh position={[-(w / 2 + BORDER), 0, BZ + WALL_ANCHOR_SURFACE_OFFSET]}>
             <boxGeometry args={[BORDER * 2, h, 0.008]} />
             <meshBasicMaterial color="#f1c40f" />
           </mesh>
-          <mesh position={[w / 2 + BORDER, 0, BZ]}>
+          <mesh position={[w / 2 + BORDER, 0, BZ + WALL_ANCHOR_SURFACE_OFFSET]}>
             <boxGeometry args={[BORDER * 2, h, 0.008]} />
             <meshBasicMaterial color="#f1c40f" />
           </mesh>
         </>
       ) : null}
       {showLabel && showLabelOverlay ? (
-        <group position={[0, 0, WALL_ANCHOR_LABEL_OFFSET]}>
+        <group position={[0, 0, WALL_ANCHOR_LABEL_OFFSET + WALL_ANCHOR_SURFACE_OFFSET]}>
           <Html center transform distanceFactor={8} className="wall-anchor-label-html">
             <div className={`wall-anchor-label${spotlighted ? " wall-anchor-label--spotlight" : ""}`}>{anchor.label}</div>
           </Html>
