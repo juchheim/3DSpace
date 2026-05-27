@@ -8,6 +8,7 @@ import type {
   MeetingNotesSessionDetail
 } from "@3dspace/contracts";
 import {
+  ApiError,
   deleteMeetingNotesSession,
   downloadMeetingNotesArtifact,
   fetchMeetingNotesSession,
@@ -92,6 +93,8 @@ export function useMeetingNotes(input: {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const recordersRef = useRef(new Map<string, RecorderState>());
+  const pendingUploadsRef = useRef(new Set<Promise<void>>());
+  const stoppingRef = useRef(false);
 
   const refreshSessions = useCallback(async () => {
     if (!input.enabled || !input.roomId) return;
@@ -176,6 +179,7 @@ export function useMeetingNotes(input: {
     if (!input.roomId) throw new Error("Room is not ready.");
     setLoading(true);
     setError("");
+    stoppingRef.current = false;
     try {
       const result = await startMeetingNotesSession(input.identity, input.roomId);
       setSessions((existing) => mergeSession(existing, result.session));
@@ -190,11 +194,37 @@ export function useMeetingNotes(input: {
     }
   }, [input.identity, input.roomId, publishRealtimeMessages]);
 
+  const stopAndFlushRecorders = useCallback(async () => {
+    const states = Array.from(recordersRef.current.values());
+    recordersRef.current.clear();
+    if (states.length === 0) {
+      if (pendingUploadsRef.current.size > 0) {
+        await Promise.allSettled(Array.from(pendingUploadsRef.current));
+      }
+      return;
+    }
+
+    const stopPromises = states.map((state) => {
+      if (state.recorder.state === "inactive") return Promise.resolve();
+      return new Promise<void>((resolve) => {
+        state.recorder.addEventListener("stop", () => resolve(), { once: true });
+        state.recorder.stop();
+      });
+    });
+
+    await Promise.all(stopPromises);
+    if (pendingUploadsRef.current.size > 0) {
+      await Promise.allSettled(Array.from(pendingUploadsRef.current));
+    }
+  }, []);
+
   const stop = useCallback(async () => {
     if (!input.roomId || !currentSessionId) throw new Error("Meeting notes are not active.");
     setLoading(true);
     setError("");
+    stoppingRef.current = true;
     try {
+      await stopAndFlushRecorders();
       const result = await updateMeetingNotesSession(input.identity, input.roomId, currentSessionId, "stop");
       setSessions((existing) => mergeSession(existing, result.session));
       await refreshCurrentSession(currentSessionId);
@@ -203,9 +233,10 @@ export function useMeetingNotes(input: {
       setError(err instanceof Error ? err.message : "Unable to stop meeting notes.");
       throw err;
     } finally {
+      stoppingRef.current = false;
       setLoading(false);
     }
-  }, [currentSessionId, input.identity, input.roomId, publishRealtimeMessages, refreshCurrentSession]);
+  }, [currentSessionId, input.identity, input.roomId, publishRealtimeMessages, refreshCurrentSession, stopAndFlushRecorders]);
 
   const resummarize = useCallback(async () => {
     if (!input.roomId || !currentSessionId) throw new Error("Meeting notes are not ready.");
@@ -271,7 +302,7 @@ export function useMeetingNotes(input: {
     for (const [participantId, state] of recordersRef.current.entries()) {
       const nextParticipant = desired.get(participantId);
       if (!nextParticipant || nextParticipant.microphoneStream !== state.stream) {
-        state.recorder.stop();
+        if (state.recorder.state !== "inactive") state.recorder.stop();
         recordersRef.current.delete(participantId);
       }
     }
@@ -297,7 +328,7 @@ export function useMeetingNotes(input: {
         const chunkStartedAt = recorderState.lastAbsoluteAt;
         const chunkEndedAt = Date.now();
         recorderState.lastAbsoluteAt = chunkEndedAt;
-        void event.data.arrayBuffer()
+        const uploadPromise = event.data.arrayBuffer()
           .then((buffer) => uploadMeetingNotesAudioChunk(input.identity, input.roomId!, activeSession.id, {
             participantId,
             startedAtMs: Math.max(0, chunkStartedAt - sessionStartMs),
@@ -318,7 +349,16 @@ export function useMeetingNotes(input: {
             }
             publishRealtimeMessages(result.realtimeMessages as RealtimeMessage[]);
           })
-          .catch(() => undefined);
+          .catch((err) => {
+            if (err instanceof ApiError && err.statusCode === 409 && stoppingRef.current) {
+              return;
+            }
+            setError(err instanceof Error ? err.message : "Unable to upload meeting notes audio.");
+          })
+          .finally(() => {
+            pendingUploadsRef.current.delete(uploadPromise);
+          });
+        pendingUploadsRef.current.add(uploadPromise);
       };
       recorder.start(4_000);
       recordersRef.current.set(participantId, recorderState);
@@ -328,7 +368,7 @@ export function useMeetingNotes(input: {
   useEffect(() => {
     return () => {
       for (const state of recordersRef.current.values()) {
-        state.recorder.stop();
+        if (state.recorder.state !== "inactive") state.recorder.stop();
       }
       recordersRef.current.clear();
     };
