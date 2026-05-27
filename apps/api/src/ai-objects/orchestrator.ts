@@ -241,7 +241,7 @@ async function runGeneration(
       slug: buildRoomObjectTemplateSlug(`ai-${shortPrompt}-${job.id.slice(-8)}`),
       displayName: shortPrompt,
       category: "custom",
-      description: (job.proceduralSpecJson ?? job.refinedPrompt ?? job.prompt).slice(0, 500),
+      description: job.prompt.slice(0, 500),
       assetUrl,
       thumbnailUrl,
       defaultPose: { position: { x: 0, y: 1.1, z: 0 }, rotation: { yaw: 0, pitch: 0, roll: 0 } },

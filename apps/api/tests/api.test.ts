@@ -5009,5 +5009,52 @@ describe("room object realtime grab lock", () => {
 
       await app.close();
     });
+
+    it("excludes ai-generated templates from the room object catalog", async () => {
+      const repository = new MemoryRepository();
+      const app = await buildApp({ config: aiObjectConfig(), repository });
+      const { roomWithManifest } = await createFfaRoom(app);
+      const roomId = roomWithManifest.room.id;
+      const prompt = "fire hydrant";
+
+      const startRes = await app.inject({
+        method: "POST",
+        url: `/v1/rooms/${roomId}/ai-objects/jobs`,
+        headers: authHeaders("teacher-ffa", "Ms. Rivera"),
+        payload: { prompt }
+      });
+      expect(startRes.statusCode).toBe(200);
+      const { job } = startRes.json();
+
+      let finalJob = job;
+      for (let i = 0; i < 20; i++) {
+        await new Promise((r) => setTimeout(r, 150));
+        const pollRes = await app.inject({
+          method: "GET",
+          url: `/v1/rooms/${roomId}/ai-objects/jobs/${job.id}`,
+          headers: authHeaders("teacher-ffa", "Ms. Rivera")
+        });
+        finalJob = pollRes.json();
+        if (finalJob.status === "ready" || finalJob.status === "error") break;
+      }
+      expect(finalJob.status).toBe("ready");
+
+      const template = await repository.getRoomObjectTemplate(finalJob.templateId);
+      expect(template?.source).toBe("ai-generated");
+      expect(template?.description).toBe(prompt);
+      expect(template?.description).not.toMatch(/^\{/);
+
+      const catalogRes = await app.inject({
+        method: "GET",
+        url: `/v1/room-objects/templates?roomId=${roomId}`,
+        headers: authHeaders("teacher-ffa", "Ms. Rivera")
+      });
+      expect(catalogRes.statusCode).toBe(200);
+      expect(
+        catalogRes.json().templates.some((entry: { id: string }) => entry.id === finalJob.templateId)
+      ).toBe(false);
+
+      await app.close();
+    });
   });
 });

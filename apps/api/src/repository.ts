@@ -598,6 +598,7 @@ export class MemoryRepository implements Repository {
     const classIds = new Set(classes.map((record) => record.id));
     return Array.from(this.roomObjectTemplates.values()).filter((template) => {
       if (template.archivedAt) return false;
+      if (template.source === "ai-generated") return false;
       if (roomType && !template.visibleRoomTypes.includes(roomType)) return false;
       if (template.source === "builtin") return true;
       return Boolean(template.ownerClassId && classIds.has(template.ownerClassId));

@@ -914,6 +914,7 @@ export class MongoRepository implements Repository {
     const classIds = classes.map((record) => record.id);
     const query: Record<string, unknown> = {
       archivedAt: { $exists: false },
+      source: { $ne: "ai-generated" },
       $or: [{ source: "builtin" }, { ownerClassId: { $in: classIds } }]
     };
     if (roomType) {
