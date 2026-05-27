@@ -250,7 +250,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     })),
     publish: publishRealtime
   });
-  const aiObjectsEnabled = roomTypeFeatures.aiObjects && CLIENT_TUNING.enableAiObjectGeneration && Boolean(session);
+  const aiObjectsEnabled = CLIENT_TUNING.enableAiObjectGeneration && roomTypeFeatures.aiObjects && Boolean(session);
   const aiObjectGenerator = useAiObjectGenerator({
     identity,
     roomId: session?.room.id ?? roomId,
@@ -299,7 +299,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     [session?.room.settings]
   );
   const roomObjectsSettings = parsedRoomSettings?.roomObjects;
-  const roomObjectsEnabled = CLIENT_TUNING.enableRoomObjects && roomObjectsSettings?.enabled === true;
+  const roomObjectsEnabled = (CLIENT_TUNING.enableRoomObjects || aiObjectsEnabled) && roomObjectsSettings?.enabled === true;
 
   // World skin: realtime overrides layer on top of server-session values
   const [targetSkinId, setTargetSkinId] = useState<string | null | undefined>(undefined);
