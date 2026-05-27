@@ -268,9 +268,10 @@ export async function buildGlbFromProceduralSpec(spec: ProceduralObjectSpec): Pr
     return mat;
   }
 
+  const buffer = document.createBuffer();
+
   for (let i = 0; i < primitives.length; i++) {
     const prim = primitives[i]!;
-    const buffer = document.createBuffer();
     const posAccessor = document.createAccessor()
       .setType("VEC3").setArray(prim.positions as unknown as Float32Array<ArrayBuffer>).setBuffer(buffer);
     const normAccessor = document.createAccessor()
