@@ -408,8 +408,38 @@ function assertWallObjectsEnabled(room: { settings: RoomSettings }, config: AppC
   }
 }
 
-function assertAnchorAcceptsType(manifest: Awaited<ReturnType<Repository["getActiveManifest"]>>, wallAnchorId: string, type: WallObjectType) {
-  const anchor = manifest?.wallAnchors.find((candidate) => candidate.id === wallAnchorId);
+async function listRoomWallAnchors(
+  repository: Repository,
+  room: { id: string; type: RoomType },
+  manifest: Awaited<ReturnType<Repository["getActiveManifest"]>>
+) {
+  if (!manifest) return [];
+  if (room.type !== "free-for-all") return manifest.wallAnchors;
+  const dynamicAnchors = await repository.listDynamicWallAnchorsForRoom(room.id);
+  return [...manifest.wallAnchors, ...dynamicAnchors];
+}
+
+async function assertAnchorExists(
+  repository: Repository,
+  room: { id: string; type: RoomType },
+  manifest: Awaited<ReturnType<Repository["getActiveManifest"]>>,
+  wallAnchorId: string
+) {
+  const anchors = await listRoomWallAnchors(repository, room, manifest);
+  if (!anchors.some((candidate) => candidate.id === wallAnchorId)) {
+    throw badRequest("wallAnchorId does not exist in room manifest");
+  }
+}
+
+async function assertAnchorAcceptsType(
+  repository: Repository,
+  room: { id: string; type: RoomType },
+  manifest: Awaited<ReturnType<Repository["getActiveManifest"]>>,
+  wallAnchorId: string,
+  type: WallObjectType
+) {
+  const anchors = await listRoomWallAnchors(repository, room, manifest);
+  const anchor = anchors.find((candidate) => candidate.id === wallAnchorId);
   if (!anchor) throw badRequest("wallAnchorId does not exist in room manifest");
 
   const accepts = Array.isArray(anchor.metadata.accepts) ? anchor.metadata.accepts.map(String) : [];
@@ -2950,9 +2980,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const body = parseBody(CreateWallAttachmentRequestSchema, request);
     const { room, manifest } = await requireRoomAccess(repository, params.roomId, auth);
     assertWallObjectsEnabled({ settings: room.settings }, config);
-    if (!manifest.wallAnchors.some((anchor) => anchor.id === body.wallAnchorId)) {
-      throw badRequest("wallAnchorId does not exist in room manifest");
-    }
+    await assertAnchorExists(repository, room, manifest, body.wallAnchorId);
     validateAttachmentPolicy(config, body);
     const { teacher } = await actorIsRoomTeacher(repository, params.roomId, auth);
     const uploadType = wallObjectTypeForAttachmentKind(body.kind);
@@ -3061,7 +3089,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const body = parseBody(CreateWallObjectRequestSchema, request);
     const { room, manifest } = await requireRoomAccess(repository, params.roomId, auth);
     assertWallObjectsEnabled({ settings: room.settings }, config);
-    assertAnchorAcceptsType(manifest, body.wallAnchorId, body.type);
+    await assertAnchorAcceptsType(repository, room, manifest, body.wallAnchorId, body.type);
     await assertAnchorAvailableForNewObject(repository, params.roomId, body.wallAnchorId);
     const { teacher, granted } = await assertWallObjectCreatePolicy({
       repository,
@@ -3123,7 +3151,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const existing = await repository.getWallObject(params.roomId, params.objectId);
     if (!existing) throw notFound("Wall object not found");
     await assertWallObjectManagePolicy(repository, params.roomId, auth, existing);
-    if (body.placement) assertAnchorAcceptsType(manifest, existing.wallAnchorId, existing.type);
+    if (body.placement) await assertAnchorAcceptsType(repository, room, manifest, existing.wallAnchorId, existing.type);
     if (body.status === "active") {
       await validateWallObjectSource({ repository, roomId: params.roomId, type: existing.type, source: existing.source, requestedStatus: "active" });
       if (existing.status !== "active") await enforceWallObjectLimits(repository, room, existing.type);
@@ -3543,7 +3571,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     if ((body.type === "screen.live" || body.type === "browser-tab.live") && !config.tuning.enableWallScreenShare) {
       throw forbidden("Wall screen sharing is disabled");
     }
-    assertAnchorAcceptsType(manifest, body.wallAnchorId, body.type);
+    await assertAnchorAcceptsType(repository, room, manifest, body.wallAnchorId, body.type);
     await assertAnchorAvailableForNewObject(repository, params.roomId, body.wallAnchorId);
     const { teacher, granted } = await assertWallObjectCreatePolicy({
       repository,
@@ -3651,7 +3679,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const url = assertHttpsUrl(body.url);
     const embeddable = body.embedMode === "iframe" && room.settings.allowEmbeds && config.tuning.enableWallWebEmbeds && isAllowedEmbedHost(config, url.host);
     const type = embeddable ? "web.embed" : "web.link";
-    assertAnchorAcceptsType(manifest, body.wallAnchorId, type);
+    await assertAnchorAcceptsType(repository, room, manifest, body.wallAnchorId, type);
     await assertAnchorAvailableForNewObject(repository, params.roomId, body.wallAnchorId);
     const { teacher, granted } = await assertWallObjectCreatePolicy({
       repository,
