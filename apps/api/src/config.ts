@@ -239,7 +239,7 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       enableWorkforceTraining: envBoolean(raw, "ENABLE_WORKFORCE_TRAINING", false),
       enableFreeForAll: envBoolean(raw, "ENABLE_FREE_FOR_ALL", false),
       enableAiMeetingNotes: envBoolean(raw, "ENABLE_AI_MEETING_NOTES", false),
-      openAiTranscriptionModel: envString(raw, "OPENAI_TRANSCRIPTION_MODEL") ?? "gpt-4o-transcribe",
+      openAiTranscriptionModel: envString(raw, "OPENAI_TRANSCRIPTION_MODEL") ?? "whisper-1",
       openAiSummaryModel: envString(raw, "OPENAI_SUMMARY_MODEL") ?? "gpt-4.1",
       aiMeetingNotesMaxDurationMinutes: envNumber(raw, "AI_MEETING_NOTES_MAX_DURATION_MINUTES", 120),
       aiMeetingNotesStoragePrefix: envString(raw, "AI_MEETING_NOTES_STORAGE_PREFIX") ?? "meeting-notes/",

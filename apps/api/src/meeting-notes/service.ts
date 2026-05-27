@@ -143,9 +143,11 @@ export async function transcribeAudioChunk(config: AppConfig, audio: Buffer, mim
     throw new HttpError(503, "OpenAI transcription is not configured", "meeting-notes-transcription-unavailable");
   }
 
+  const baseType = mimeType.split(";")[0].trim();
+  const ext = baseType.includes("mp4") ? "m4a" : "webm";
   const body = new FormData();
   body.set("model", config.tuning.openAiTranscriptionModel);
-  body.set("file", new Blob([new Uint8Array(audio)], { type: mimeType }), `chunk.${mimeType.includes("mp4") ? "m4a" : "webm"}`);
+  body.set("file", new Blob([new Uint8Array(audio)], { type: baseType }), `chunk.${ext}`);
 
   console.info("[meeting-notes] Sending audio chunk to OpenAI transcription", {
     model: config.tuning.openAiTranscriptionModel,
@@ -171,7 +173,7 @@ export async function transcribeAudioChunk(config: AppConfig, audio: Buffer, mim
       mimeType,
       body: bodyText.slice(0, 1000)
     });
-    throw new HttpError(502, "OpenAI transcription request failed", "meeting-notes-transcription-failed", {
+    throw new HttpError(502, `OpenAI transcription request failed (${response.status} ${response.statusText})`, "meeting-notes-transcription-failed", {
       status: response.status,
       statusText: response.statusText
     });
