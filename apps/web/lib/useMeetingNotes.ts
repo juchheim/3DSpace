@@ -313,8 +313,13 @@ export function useMeetingNotes(input: {
   }, [input.participants]);
 
   useEffect(() => {
-    const shouldCapture =
-      Boolean(input.enabled && input.roomId && activeSession?.status === "recording" && activeSession.startedByUserId === input.identity.userId);
+    const shouldCapture = Boolean(
+      input.enabled &&
+      input.roomId &&
+      activeSession?.status === "recording" &&
+      activeSession.startedByUserId === input.identity.userId &&
+      !stoppingRef.current
+    );
     const desired = new Map(
       (shouldCapture ? input.participants : [])
         .filter((participant) => participant.microphoneStream && participant.microphoneStream.getAudioTracks().length > 0)
@@ -369,7 +374,8 @@ export function useMeetingNotes(input: {
           bytes: event.data.size,
           mimeType: event.data.type || mimeType || "audio/webm",
           durationMs: Math.max(0, chunkEndedAt - chunkStartedAt),
-          recorderState: recorder.state
+          recorderState: recorder.state,
+          pendingUploads: pendingUploadsRef.current.size
         });
         const uploadPromise = event.data.arrayBuffer()
           .then((buffer) => uploadMeetingNotesAudioChunk(input.identity, input.roomId!, activeSession.id, {
@@ -386,7 +392,8 @@ export function useMeetingNotes(input: {
               sessionId: activeSession.id,
               participantId,
               hasSegment: Boolean(segment),
-              textLength: segment?.text.length ?? 0
+              textLength: segment?.text.length ?? 0,
+              pendingUploads: pendingUploadsRef.current.size
             });
             if (segment) {
               setCurrentSession((existingSession) => {
@@ -415,7 +422,8 @@ export function useMeetingNotes(input: {
               participantId,
               error: err instanceof Error ? err.message : String(err),
               statusCode: err instanceof ApiError ? err.statusCode : undefined,
-              code: err instanceof ApiError ? err.code : undefined
+              code: err instanceof ApiError ? err.code : undefined,
+              pendingUploads: pendingUploadsRef.current.size
             });
             setError(err instanceof Error ? err.message : "Unable to upload meeting notes audio.");
           })
@@ -424,7 +432,7 @@ export function useMeetingNotes(input: {
           });
         pendingUploadsRef.current.add(uploadPromise);
       };
-      recorder.start(4_000);
+      recorder.start(2_000);
       recordersRef.current.set(participantId, recorderState);
     }
   }, [activeSession, input.enabled, input.identity, input.participants, input.roomId, publishRealtimeMessages]);

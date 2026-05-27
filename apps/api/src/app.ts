@@ -209,6 +209,19 @@ type BuildAppOptions = {
   roomObjectGrabLock?: RoomObjectGrabLock;
 };
 
+function normalizeRequestOrigin(origin: string) {
+  return origin.trim().replace(/\/+$/, "");
+}
+
+function originAllowed(origin: string, allowedOrigins: AppConfig["corsAllowedOrigins"]) {
+  const normalizedOrigin = normalizeRequestOrigin(origin);
+  return allowedOrigins.some((allowedOrigin) =>
+    typeof allowedOrigin === "string"
+      ? normalizeRequestOrigin(allowedOrigin) === normalizedOrigin
+      : allowedOrigin.test(normalizedOrigin)
+  );
+}
+
 const ParamsWithClassId = z.object({ classId: z.string() });
 const ParamsWithRoomId = z.object({ roomId: z.string() });
 const ParamsWithRoomAndSessionId = z.object({ roomId: z.string(), sessionId: z.string() });
@@ -2529,7 +2542,10 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     roomObjectGrabLock.startReaper();
   }
   const sessionJoinAttempts = new Map<string, { count: number; resetAt: number }>();
-  const app = fastify({ logger: config.nodeEnv !== "test" });
+  const app = fastify({
+    logger: config.nodeEnv !== "test",
+    bodyLimit: 10 * 1024 * 1024
+  });
 
   app.addContentTypeParser(
     /^(image|video|audio|model)\//,
@@ -2558,10 +2574,18 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
 
   await app.register(cors, {
     origin(origin, callback) {
-      if (!origin || config.corsAllowedOrigins.includes(origin)) {
+      if (!origin) {
         callback(null, true);
         return;
       }
+      if (originAllowed(origin, config.corsAllowedOrigins)) {
+        callback(null, true);
+        return;
+      }
+      app.log.warn({
+        origin,
+        allowedOrigins: config.corsAllowedOrigins.map((value) => typeof value === "string" ? value : value.source)
+      }, "Rejected request origin");
       callback(new Error(`Origin not allowed: ${origin}`), false);
     },
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
@@ -2576,6 +2600,16 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   });
 
   app.setErrorHandler((error, _request, reply) => {
+    const fastifyError = error as { code?: string; message?: string };
+    if (fastifyError.code === "FST_ERR_CTP_BODY_TOO_LARGE") {
+      app.log.warn({
+        errorCode: fastifyError.code,
+        message: fastifyError.message
+      }, "Request body exceeded Fastify limit");
+      void reply.status(413).send({ error: "payload_too_large", message: "Request payload is too large" });
+      return;
+    }
+
     if (error instanceof HttpError) {
       void reply.status(error.statusCode).send({ error: error.code, message: error.message, ...error.details });
       return;
@@ -3695,6 +3729,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       roomId: params.roomId,
       sessionId: params.sessionId,
       participantId: body.participantId,
+      origin: request.headers.origin,
+      contentLength: request.headers["content-length"],
       startedAtMs: body.startedAtMs,
       endedAtMs: body.endedAtMs,
       durationMs: Math.max(0, body.endedAtMs - body.startedAtMs),

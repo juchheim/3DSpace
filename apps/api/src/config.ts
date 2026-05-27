@@ -5,7 +5,7 @@ export type AppConfig = {
   host: string;
   port: number;
   apiPublicUrl: string;
-  corsAllowedOrigins: string[];
+  corsAllowedOrigins: Array<string | RegExp>;
   clerkSecretKey: string | undefined;
   clerkWebhookSecret: string | undefined;
   mongoUri: string | undefined;
@@ -79,6 +79,21 @@ export type AppConfig = {
 function envString(raw: NodeJS.ProcessEnv, key: string) {
   const value = raw[key]?.trim();
   return value ? value : undefined;
+}
+
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function canonicalizeOrigin(origin: string) {
+  return origin.trim().replace(/\/+$/, "");
+}
+
+function compileOriginPattern(pattern: string) {
+  const canonical = canonicalizeOrigin(pattern);
+  if (!canonical.includes("*")) return canonical;
+  const source = `^${canonical.split("*").map(escapeRegex).join(".*")}$`;
+  return new RegExp(source);
 }
 
 function normalizeLiveKitUrl(url: string) {
@@ -162,7 +177,7 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
   const apiPublicUrl = envString(raw, "API_PUBLIC_URL") ?? "http://127.0.0.1:8080";
   const corsAllowedOrigins = (envString(raw, "CORS_ALLOWED_ORIGINS") ?? "http://127.0.0.1:3000,http://localhost:3000")
     .split(",")
-    .map((origin) => origin.trim())
+    .map((origin) => compileOriginPattern(origin))
     .filter(Boolean);
 
   const config: AppConfig = {
