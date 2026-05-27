@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AvatarAppearance, AvatarReactionMessage, AvatarReactionSlug, AvatarStateMessage, Role, RoomManifest, RoomObjectTemplate, RoomSessionResponse, ViewMode, WallObject, WorldSkinDayNightMode } from "@3dspace/contracts";
+import type { AvatarAppearance, AvatarReactionMessage, AvatarReactionSlug, AvatarStateMessage, CreateDynamicWallAnchorRequest, Role, RoomManifest, RoomObjectTemplate, RoomSessionResponse, ViewMode, WallObject, WorldSkinDayNightMode } from "@3dspace/contracts";
 import { AvatarAppearanceMessageSchema, AvatarReactionMessageSchema, getRoomTypeFeatureFlags, ParticipantAudioModeMessageSchema, parseRoomSettings, RoomSkinMessageSchema } from "@3dspace/contracts";
 import { computeGroupMemberPosition, createAvatarState, floorYFromZ, unprojectPointFrom2D } from "@3dspace/room-engine";
 import {
@@ -226,6 +226,32 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     roomId: session?.room.id ?? roomId,
     enabled: roomTypeFeatures.dynamicBoards && Boolean(session)
   });
+  const [dynamicBoardPlacementActive, setDynamicBoardPlacementActive] = useState(false);
+  const [dynamicBoardPlacementBusy, setDynamicBoardPlacementBusy] = useState(false);
+  const [dynamicBoardPlacementMessage, setDynamicBoardPlacementMessage] = useState("");
+  const placeDynamicBoardIn3D = useCallback(async (body: CreateDynamicWallAnchorRequest) => {
+    setDynamicBoardPlacementBusy(true);
+    setDynamicBoardPlacementMessage("Placing board...");
+    try {
+      await dynamicBoards.create(body);
+      setDynamicBoardPlacementActive(false);
+      setDynamicBoardPlacementMessage("Board placed.");
+    } catch (err) {
+      setDynamicBoardPlacementMessage(err instanceof Error ? err.message : "Unable to place board.");
+    } finally {
+      setDynamicBoardPlacementBusy(false);
+    }
+  }, [dynamicBoards.create]);
+  const dynamicBoardPlacement = useMemo(
+    () => dynamicBoardPlacementActive
+      ? {
+          active: true,
+          busy: dynamicBoardPlacementBusy,
+          onPlace: placeDynamicBoardIn3D
+        }
+      : null,
+    [dynamicBoardPlacementActive, dynamicBoardPlacementBusy, placeDynamicBoardIn3D]
+  );
   const allWallAnchors = useMemo(
     () => [...(manifest?.wallAnchors ?? []), ...dynamicBoards.anchors],
     [manifest?.wallAnchors, dynamicBoards.anchors]
@@ -1607,6 +1633,23 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             Lower gravity — you move slower.
           </div>
         ) : null}
+        {dynamicBoardPlacementActive ? (
+          <div className="dynamic-board-placement-toast" role="status" aria-live="polite">
+            <strong>Place board</strong>
+            <span>{dynamicBoardPlacementMessage || "Click a wall in the 3D room."}</span>
+            <button
+              type="button"
+              className="dynamic-board-placement-toast__cancel"
+              disabled={dynamicBoardPlacementBusy}
+              onClick={() => {
+                setDynamicBoardPlacementActive(false);
+                setDynamicBoardPlacementMessage("");
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : null}
         {leaving ? (
           <div className="fallback-view">Leaving...</div>
         ) : !manifest || !session ? (
@@ -1661,6 +1704,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             onWallObjectStopShare={stopShare}
             onWallObjectModerate={moderateWallObject}
             onWallObjectFullscreen={setFullscreenObjectId}
+            dynamicBoardPlacement={dynamicBoardPlacement}
             {...(roomObjectsEnabled && manifest
               ? {
                   roomObjects: roomObjects.objects,
@@ -1992,11 +2036,20 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               canCreate={session.role === "teacher" || session.room.settings.wallObjectCreation !== "teacher-only" || Boolean(activeBoardGrant)}
               canManage={session.role === "teacher"}
               canCreateDynamicAnchor={roomTypeFeatures.dynamicBoards}
+              dynamicAnchorPlacementActive={dynamicBoardPlacementActive}
               role={session.role}
               activeBoardGrant={activeBoardGrant}
               loading={wall.loading}
               error={wall.error || displayMedia.error}
-              onCreateDynamicAnchor={async (body) => { await dynamicBoards.create(body); }}
+              onStartDynamicAnchorPlacement={() => {
+                setViewMode("3d");
+                setDynamicBoardPlacementActive(true);
+                setDynamicBoardPlacementMessage("Click a wall in the 3D room.");
+              }}
+              onCancelDynamicAnchorPlacement={() => {
+                setDynamicBoardPlacementActive(false);
+                setDynamicBoardPlacementMessage("");
+              }}
               onCreateFile={createFileObject}
               onCreateNote={createNote}
               onCreateTimer={createTimer}

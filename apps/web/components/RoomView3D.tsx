@@ -1,6 +1,6 @@
 "use client";
 
-import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useLoader, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Billboard, Html } from "@react-three/drei";
 import { memo, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
 import {
@@ -25,6 +25,7 @@ import type {
   ClassroomGroup,
   ClassroomPrivateCheck,
   ClassroomSpotlight,
+  CreateDynamicWallAnchorRequest,
   ParticipantAudioMode,
   QualityLevel,
   Role,
@@ -60,6 +61,31 @@ const WALL_ANCHOR_SURFACE_OFFSET = 0.04;
 const WALL_SURFACE_MIN_VISIBLE_DISTANCE = 0.02;
 const WALL_SURFACE_SELF_OCCLUSION_DISTANCE = 0.45;
 const WALL_INTERSECTION_EPSILON = 0.0001;
+const DYNAMIC_BOARD_WIDTH = 4.0;
+const DYNAMIC_BOARD_HEIGHT = 2.5;
+const DYNAMIC_BOARD_WALL_INSET = 0.1;
+const DYNAMIC_BOARD_ACCEPTS: CreateDynamicWallAnchorRequest["accepts"] = [
+  "image",
+  "video",
+  "audio",
+  "image.file",
+  "video.file",
+  "audio.file",
+  "camera.live",
+  "microphone.live",
+  "browser-tab.live",
+  "web.embed",
+  "web.link",
+  "note",
+  "poll",
+  "timer"
+];
+
+type DynamicBoardPlacementConfig = {
+  active: boolean;
+  busy?: boolean;
+  onPlace(body: CreateDynamicWallAnchorRequest): void | Promise<void>;
+};
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
@@ -212,6 +238,7 @@ export function RoomView3D({
   onWallObjectStopShare,
   onWallObjectModerate,
   onWallObjectFullscreen,
+  dynamicBoardPlacement,
   hallpassZone,
   dynamicWallAnchors,
   roomObjects,
@@ -263,6 +290,7 @@ export function RoomView3D({
   onWallObjectStopShare?: (objectId: string) => void | Promise<void>;
   onWallObjectModerate?: (objectId: string, action: "approve" | "reject") => void | Promise<void>;
   onWallObjectFullscreen?: (objectId: string) => void;
+  dynamicBoardPlacement?: DynamicBoardPlacementConfig | null | undefined;
   hallpassZone?: RoomManifest["hallpassHoldingZone"];
   roomObjects?: RoomObject[];
   roomObjectTemplatesById?: Record<string, RoomObjectTemplate>;
@@ -330,7 +358,13 @@ export function RoomView3D({
         onCreated={({ gl }) => setCanvasElement(gl.domElement)}
       >
         <SceneAtmosphere />
-        <RoomGeometry manifest={mergedManifest} onMoveToPoint={onMoveToPoint} wallObjects={wallObjects} spotlightAnchorId={spotlight?.anchorId} />
+        <RoomGeometry
+          manifest={mergedManifest}
+          onMoveToPoint={onMoveToPoint}
+          wallObjects={wallObjects}
+          spotlightAnchorId={spotlight?.anchorId}
+          dynamicBoardPlacement={dynamicBoardPlacement}
+        />
         {roomObjects &&
         roomObjectTemplatesById &&
         roomObjectGrabs &&
@@ -1190,12 +1224,14 @@ function RoomGeometry({
   manifest,
   onMoveToPoint,
   wallObjects,
-  spotlightAnchorId
+  spotlightAnchorId,
+  dynamicBoardPlacement
 }: {
   manifest: RoomManifest;
   onMoveToPoint(point: { x: number; z: number }): void;
   wallObjects: WallObject[];
   spotlightAnchorId?: string | undefined;
+  dynamicBoardPlacement?: DynamicBoardPlacementConfig | null | undefined;
 }) {
   const anchorsWithObjects = useMemo(
     () => new Set(wallObjects.filter((object) => object.status !== "removed").map((object) => object.wallAnchorId)),
@@ -1317,6 +1353,12 @@ function RoomGeometry({
         )}
       </Suspense>
       {hasFFAPerim && <PerimeterCylinder color="#8ea487" />}
+      {dynamicBoardPlacement?.active ? (
+        <DynamicBoardPlacementTargets
+          walls={manifest.walls}
+          placement={dynamicBoardPlacement}
+        />
+      ) : null}
       {domeCeiling ? (
         <DomeCeilingMesh
           roomWidth={manifest.dimensions.width}
@@ -1673,6 +1715,156 @@ function WallsWithPanorama({
         );
       })}
     </>
+  );
+}
+
+// ── Dynamic board placement helpers ───────────────────────────────────────────
+
+function snapBoardPlacement(value: number) {
+  return Math.round(value / 0.25) * 0.25;
+}
+
+function wallSpan(wall: Wall) {
+  const dx = wall.end.x - wall.start.x;
+  const dz = wall.end.z - wall.start.z;
+  const length = Math.hypot(dx, dz) || 1;
+  return {
+    dx,
+    dz,
+    length,
+    ux: dx / length,
+    uz: dz / length
+  };
+}
+
+function normalFacingReference(wall: Wall, reference: Vector3) {
+  const span = wallSpan(wall);
+  const wallMidX = (wall.start.x + wall.end.x) / 2;
+  const wallMidZ = (wall.start.z + wall.end.z) / 2;
+  const n1 = new Vector3(-span.uz, 0, span.ux);
+  const n2 = new Vector3(span.uz, 0, -span.ux);
+  const toReference = new Vector3(reference.x - wallMidX, 0, reference.z - wallMidZ);
+  return n1.dot(toReference) >= n2.dot(toReference) ? n1 : n2;
+}
+
+function dynamicBoardRequestFromWallClick(
+  wall: Wall,
+  point: Vector3,
+  normal: Vector3
+): CreateDynamicWallAnchorRequest {
+  const span = wallSpan(wall);
+  const wallLengthSq = span.length * span.length;
+  const projectedT = clamp(
+    ((point.x - wall.start.x) * span.dx + (point.z - wall.start.z) * span.dz) / wallLengthSq,
+    0,
+    1
+  );
+  const wallX = wall.start.x + projectedT * span.dx;
+  const wallZ = wall.start.z + projectedT * span.dz;
+  const offset = (wall.thickness ?? 0) / 2 + DYNAMIC_BOARD_WALL_INSET;
+  const centerY = clamp(point.y, DYNAMIC_BOARD_HEIGHT / 2, wall.height - DYNAMIC_BOARD_HEIGHT / 2);
+  const title = `Board on ${wall.label}`.slice(0, 80);
+
+  return {
+    wallId: wall.id,
+    center: {
+      x: snapBoardPlacement(wallX + normal.x * offset),
+      y: snapBoardPlacement(centerY),
+      z: snapBoardPlacement(wallZ + normal.z * offset)
+    },
+    normal: { x: normal.x, y: 0, z: normal.z },
+    width: DYNAMIC_BOARD_WIDTH,
+    height: DYNAMIC_BOARD_HEIGHT,
+    title,
+    accepts: DYNAMIC_BOARD_ACCEPTS
+  };
+}
+
+function DynamicBoardPlacementTargets({
+  walls,
+  placement
+}: {
+  walls: Wall[];
+  placement: DynamicBoardPlacementConfig;
+}) {
+  return (
+    <group>
+      {walls
+        .filter((wall) => wall.passable !== true && wall.height >= DYNAMIC_BOARD_HEIGHT)
+        .map((wall) => (
+          <DynamicBoardPlacementTarget key={wall.id} wall={wall} placement={placement} />
+        ))}
+    </group>
+  );
+}
+
+function DynamicBoardPlacementTarget({
+  wall,
+  placement
+}: {
+  wall: Wall;
+  placement: DynamicBoardPlacementConfig;
+}) {
+  const { camera } = useThree();
+  const [preview, setPreview] = useState<CreateDynamicWallAnchorRequest | null>(null);
+  const span = useMemo(() => wallSpan(wall), [wall]);
+  const yaw = useMemo(() => Math.atan2(-span.dz, span.dx), [span.dx, span.dz]);
+  const targetThickness = Math.max(wall.thickness ?? 0.08, 0.45);
+  const position = useMemo<[number, number, number]>(() => [
+    (wall.start.x + wall.end.x) / 2,
+    wall.height / 2,
+    (wall.start.z + wall.end.z) / 2
+  ], [wall]);
+
+  function placementRequest(event: ThreeEvent<PointerEvent>) {
+    const normal = normalFacingReference(wall, camera.position);
+    return dynamicBoardRequestFromWallClick(wall, event.point, normal);
+  }
+
+  function updatePreview(event: ThreeEvent<PointerEvent>) {
+    event.stopPropagation();
+    setPreview(placementRequest(event));
+  }
+
+  function placeBoard(event: ThreeEvent<MouseEvent>) {
+    event.stopPropagation();
+    if (placement.busy) return;
+    void placement.onPlace(placementRequest(event as unknown as ThreeEvent<PointerEvent>));
+  }
+
+  return (
+    <group>
+      <mesh
+        position={position}
+        rotation={[0, yaw, 0]}
+        onPointerMove={updatePreview}
+        onPointerOver={updatePreview}
+        onPointerOut={(event) => {
+          event.stopPropagation();
+          setPreview(null);
+        }}
+        onClick={placeBoard}
+      >
+        <boxGeometry args={[span.length, wall.height, targetThickness]} />
+        <meshBasicMaterial
+          color="#f1c40f"
+          transparent
+          opacity={preview ? 0.18 : 0.045}
+          depthWrite={false}
+        />
+      </mesh>
+      {preview ? (
+        <group
+          position={[preview.center.x, preview.center.y, preview.center.z]}
+          rotation={[0, anchorYaw(preview.normal), 0]}
+        >
+          <mesh>
+            <planeGeometry args={[preview.width, preview.height]} />
+            <meshBasicMaterial color="#f6c85f" transparent opacity={0.48} side={DoubleSide} depthWrite={false} />
+          </mesh>
+        </group>
+      ) : null}
+    </group>
   );
 }
 

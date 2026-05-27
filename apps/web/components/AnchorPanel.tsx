@@ -2,7 +2,7 @@
 
 import { anchorHasOccupyingWallObject, anchorSupportsCreateOption, fileInputAcceptForAnchor, isOccupyingWallObjectStatus } from "@3dspace/room-engine";
 import { useEffect, useMemo, useState } from "react";
-import type { ClassroomBoardAccessGrant, CreateDynamicWallAnchorRequest, Role, RoomManifest, WallObject, WallObjectType } from "@3dspace/contracts";
+import type { ClassroomBoardAccessGrant, Role, RoomManifest, WallObject, WallObjectType } from "@3dspace/contracts";
 import type { ApiIdentity } from "../lib/identity";
 import { WallObjectCard, type WallObjectControlAction } from "./WallObjectCard";
 import { HudCard } from "./HudCard";
@@ -44,7 +44,9 @@ export function AnchorPanel({
   onStopShare,
   onControl,
   onModerate,
-  onCreateDynamicAnchor,
+  dynamicAnchorPlacementActive = false,
+  onStartDynamicAnchorPlacement,
+  onCancelDynamicAnchorPlacement,
   hostSingular = "Teacher"
 }: {
   identity: ApiIdentity;
@@ -74,7 +76,9 @@ export function AnchorPanel({
   onStopShare(objectId: string): Promise<void>;
   onControl(objectId: string, action: WallObjectControlAction, positionSeconds?: number, choiceId?: string): Promise<void>;
   onModerate(objectId: string, action: "approve" | "reject"): Promise<void>;
-  onCreateDynamicAnchor?(body: CreateDynamicWallAnchorRequest): Promise<void>;
+  dynamicAnchorPlacementActive?: boolean;
+  onStartDynamicAnchorPlacement?(): void;
+  onCancelDynamicAnchorPlacement?(): void;
 }) {
   const allWallAnchors = useMemo(
     () => dynamicWallAnchors?.length ? [...manifest.wallAnchors, ...dynamicWallAnchors] : manifest.wallAnchors,
@@ -90,9 +94,6 @@ export function AnchorPanel({
   const [pollChoices, setPollChoices] = useState(["", ""]);
   const [timerMinutes, setTimerMinutes] = useState(5);
   const [busy, setBusy] = useState("");
-  const [newBoardOpen, setNewBoardOpen] = useState(false);
-  const [newBoardTitle, setNewBoardTitle] = useState("");
-  const [newBoardWallId, setNewBoardWallId] = useState(manifest.walls[0]?.id ?? "");
 
   const objectsByAnchor = useMemo(() => {
     const groups = new Map<string, WallObject[]>();
@@ -219,90 +220,30 @@ export function AnchorPanel({
     });
   }
 
-  async function submitNewBoard() {
-    const title = newBoardTitle.trim();
-    if (!title || !newBoardWallId || !onCreateDynamicAnchor) return;
-    const wall = manifest.walls.find((w) => w.id === newBoardWallId);
-    if (!wall) return;
-    const center = {
-      x: (wall.start.x + wall.end.x) / 2,
-      y: wall.height / 2,
-      z: (wall.start.z + wall.end.z) / 2
-    };
-    const dx = wall.end.x - wall.start.x;
-    const dz = wall.end.z - wall.start.z;
-    const len = Math.hypot(dx, dz) || 1;
-    const n1 = { x: -dz / len, y: 0, z: dx / len };
-    const n2 = { x: dz / len, y: 0, z: -dx / len };
-    const normal = (n1.x * center.x + n1.z * center.z) < 0 ? n1 : n2;
-    setBusy("new-board");
-    try {
-      await onCreateDynamicAnchor({
-        wallId: wall.id,
-        center,
-        normal,
-        width: 4.0,
-        height: 2.5,
-        title,
-        accepts: ["image", "video", "audio", "image.file", "video.file", "audio.file", "camera.live", "microphone.live", "browser-tab.live", "web.embed", "web.link", "note", "poll", "timer"]
-      });
-      setNewBoardOpen(false);
-      setNewBoardTitle("");
-    } finally {
-      setBusy("");
-    }
-  }
-
   return (
     <HudCard title="Boards" badge={loading ? "…" : `${wallObjects.length} obj`} ariaLabel="Boards" defaultCollapsed>
 
-      {canCreateDynamicAnchor && onCreateDynamicAnchor ? (
+      {canCreateDynamicAnchor && onStartDynamicAnchorPlacement ? (
         <div style={{ marginBottom: "0.5rem" }}>
-          {newBoardOpen ? (
+          {dynamicAnchorPlacementActive ? (
             <div className="content-form">
-              <label>
-                Board title
-                <input
-                  value={newBoardTitle}
-                  onChange={(e) => setNewBoardTitle(e.target.value)}
-                  placeholder="e.g. My board"
-                  autoFocus
-                />
-              </label>
-              <label>
-                Wall
-                <select value={newBoardWallId} onChange={(e) => setNewBoardWallId(e.target.value)}>
-                  {manifest.walls.map((w) => (
-                    <option key={w.id} value={w.id}>{w.label}</option>
-                  ))}
-                </select>
-              </label>
-              <div className="content-form-row">
-                <button
-                  type="button"
-                  className="hud-btn"
-                  disabled={!newBoardTitle.trim() || Boolean(busy)}
-                  onClick={() => void submitNewBoard()}
-                >
-                  {busy === "new-board" ? "Placing…" : "Place board"}
-                </button>
-                <button
-                  type="button"
-                  className="hud-btn"
-                  onClick={() => { setNewBoardOpen(false); setNewBoardTitle(""); }}
-                >
-                  Cancel
-                </button>
-              </div>
+              <p className="small">Click a wall in the 3D room to place the new board.</p>
+              <button
+                type="button"
+                className="hud-btn"
+                onClick={onCancelDynamicAnchorPlacement}
+              >
+                Cancel placement
+              </button>
             </div>
           ) : (
             <button
               type="button"
               className="hud-btn"
               disabled={Boolean(busy)}
-              onClick={() => setNewBoardOpen(true)}
+              onClick={onStartDynamicAnchorPlacement}
             >
-              + New board
+              + Place board in 3D
             </button>
           )}
         </div>
