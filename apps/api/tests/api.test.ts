@@ -1,5 +1,5 @@
 import { Accessor, Document, NodeIO } from "@gltf-transform/core";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildApp } from "../src/app";
 import { loadConfig } from "../src/config";
 import { RoomObjectGrabLock } from "../src/room-objects/grab-lock.js";
@@ -4646,6 +4646,90 @@ describe("room object realtime grab lock", () => {
         expect(mdDownload.body).toContain("# Meeting Notes");
 
         await app.close();
+      });
+
+      it("buffers uploaded audio and transcribes it when the session stops", async () => {
+        const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+          const url = String(input);
+          if (url.includes("/v1/audio/transcriptions")) {
+            return new Response(JSON.stringify({ text: "Buffered transcript from the whole recording." }), {
+              status: 200,
+              headers: { "content-type": "application/json" }
+            });
+          }
+          if (url.includes("/v1/chat/completions")) {
+            return new Response(JSON.stringify({ choices: [{ message: { content: "# Summary\n\nBuffered transcript from the whole recording." } }] }), {
+              status: 200,
+              headers: { "content-type": "application/json" }
+            });
+          }
+          return new Response("not found", { status: 404 });
+        });
+        const app = await buildApp({
+          config: loadConfig({
+            NODE_ENV: "test",
+            ENABLE_FREE_FOR_ALL: "true",
+            FREE_FOR_ALL_PASSWORD: "open-sesame",
+            ENABLE_AI_MEETING_NOTES: "true",
+            OPENAI_API_KEY: "sk-test"
+          } as NodeJS.ProcessEnv),
+          repository: new MemoryRepository()
+        });
+
+        const { roomWithManifest } = await createClassAndRoom(app, "teacher-buffered-notes", "free-for-all");
+        const roomId = roomWithManifest.room.id;
+
+        const startResponse = await app.inject({
+          method: "POST",
+          url: `/v1/rooms/${roomId}/meeting-notes/sessions`,
+          headers: authHeaders("teacher-buffered-notes", "Ms. Rivera")
+        });
+        expect(startResponse.statusCode).toBe(200);
+        const sessionId: string = startResponse.json().session.id;
+
+        const uploadResponse = await app.inject({
+          method: "POST",
+          url: `/v1/rooms/${roomId}/meeting-notes/sessions/${sessionId}/audio-chunks`,
+          headers: authHeaders("teacher-buffered-notes", "Ms. Rivera"),
+          payload: {
+            participantId: "teacher-buffered-notes",
+            startedAtMs: 0,
+            endedAtMs: 2200,
+            mimeType: "audio/webm;codecs=opus",
+            audioBase64: Buffer.from("webm-chunk").toString("base64")
+          }
+        });
+        expect(uploadResponse.statusCode).toBe(202);
+        expect(uploadResponse.json().accepted).toBe(true);
+
+        const beforeStopDetail = await app.inject({
+          method: "GET",
+          url: `/v1/rooms/${roomId}/meeting-notes/sessions/${sessionId}`,
+          headers: authHeaders("teacher-buffered-notes", "Ms. Rivera")
+        });
+        expect(beforeStopDetail.statusCode).toBe(200);
+        expect(beforeStopDetail.json().segments).toHaveLength(0);
+
+        const stopResponse = await app.inject({
+          method: "PATCH",
+          url: `/v1/rooms/${roomId}/meeting-notes/sessions/${sessionId}`,
+          headers: authHeaders("teacher-buffered-notes", "Ms. Rivera"),
+          payload: { action: "stop" }
+        });
+        expect(stopResponse.statusCode).toBe(200);
+        expect(stopResponse.json().session.status).toBe("ready");
+
+        const afterStopDetail = await app.inject({
+          method: "GET",
+          url: `/v1/rooms/${roomId}/meeting-notes/sessions/${sessionId}`,
+          headers: authHeaders("teacher-buffered-notes", "Ms. Rivera")
+        });
+        expect(afterStopDetail.statusCode).toBe(200);
+        expect(afterStopDetail.json().segments).toHaveLength(1);
+        expect(afterStopDetail.json().segments[0].text).toBe("Buffered transcript from the whole recording.");
+
+        await app.close();
+        fetchMock.mockRestore();
       });
 
       it("is unavailable for classroom rooms", async () => {
