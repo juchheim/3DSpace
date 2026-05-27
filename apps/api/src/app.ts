@@ -92,7 +92,6 @@ import {
   MeetingNotesDownloadFormatSchema,
   MeetingNotesEndedMessageV1Schema,
   MeetingNotesErrorMessageV1Schema,
-  MeetingNotesSegmentMessageV1Schema,
   MeetingNotesSegmentSchema,
   MeetingNotesSessionDetailSchema,
   MeetingNotesSessionListResponseSchema,
@@ -220,6 +219,10 @@ function originAllowed(origin: string, allowedOrigins: AppConfig["corsAllowedOri
       ? normalizeRequestOrigin(allowedOrigin) === normalizedOrigin
       : allowedOrigin.test(normalizedOrigin)
   );
+}
+
+function meetingNotesTaskKey(roomId: string, sessionId: string) {
+  return `${roomId}:${sessionId}`;
 }
 
 const ParamsWithClassId = z.object({ classId: z.string() });
@@ -2542,10 +2545,34 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     roomObjectGrabLock.startReaper();
   }
   const sessionJoinAttempts = new Map<string, { count: number; resetAt: number }>();
+  const pendingMeetingNotesTasks = new Map<string, Set<Promise<void>>>();
   const app = fastify({
     logger: config.nodeEnv !== "test",
     bodyLimit: 10 * 1024 * 1024
   });
+
+  function trackMeetingNotesTask(roomId: string, sessionId: string, task: Promise<void>) {
+    const key = meetingNotesTaskKey(roomId, sessionId);
+    const tasks = pendingMeetingNotesTasks.get(key) ?? new Set<Promise<void>>();
+    tasks.add(task);
+    pendingMeetingNotesTasks.set(key, tasks);
+    task.finally(() => {
+      const current = pendingMeetingNotesTasks.get(key);
+      if (!current) return;
+      current.delete(task);
+      if (current.size === 0) pendingMeetingNotesTasks.delete(key);
+    });
+  }
+
+  async function waitForMeetingNotesTasks(roomId: string, sessionId: string) {
+    const key = meetingNotesTaskKey(roomId, sessionId);
+    while (true) {
+      const tasks = pendingMeetingNotesTasks.get(key);
+      if (!tasks || tasks.size === 0) return;
+      app.log.info({ roomId, sessionId, pendingTasks: tasks.size }, "Waiting for pending meeting notes transcription tasks");
+      await Promise.allSettled(Array.from(tasks));
+    }
+  }
 
   app.addContentTypeParser(
     /^(image|video|audio|model)\//,
@@ -2570,6 +2597,65 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       throw tooManyRequests("Too many room join attempts. Wait before requesting another session token.");
     }
     existing.count += 1;
+  }
+
+  async function processMeetingNotesChunk(input: {
+    roomId: string;
+    sessionId: string;
+    participantId: string;
+    startedAtMs: number;
+    endedAtMs: number;
+    mimeType: string;
+    audio: Buffer;
+  }) {
+    const session = await repository.getMeetingNotesSession(input.roomId, input.sessionId);
+    if (!session) {
+      app.log.warn({ roomId: input.roomId, sessionId: input.sessionId }, "Dropping meeting notes chunk because session no longer exists");
+      return;
+    }
+    if (session.status === "cancelled") {
+      app.log.info({ roomId: input.roomId, sessionId: input.sessionId }, "Dropping meeting notes chunk for cancelled session");
+      return;
+    }
+
+    const participantUserIds = Array.from(new Set([...session.participantUserIds, input.participantId]));
+    if (participantUserIds.length !== session.participantUserIds.length) {
+      await repository.updateMeetingNotesSession(input.roomId, input.sessionId, { participantUserIds });
+    }
+
+    const text = await transcribeAudioChunk(config, input.audio, input.mimeType);
+    if (!text) {
+      app.log.info({
+        roomId: input.roomId,
+        sessionId: input.sessionId,
+        participantId: input.participantId,
+        audioBytes: input.audio.length,
+        mimeType: input.mimeType
+      }, "Audio chunk produced no transcript text");
+      return;
+    }
+
+    const segment = MeetingNotesSegmentSchema.parse({
+      id: newId("mnseg"),
+      sessionId: input.sessionId,
+      roomId: input.roomId,
+      speakerUserId: input.participantId,
+      startMs: input.startedAtMs,
+      endMs: input.endedAtMs,
+      text,
+      isFinal: true,
+      createdAt: nowIso()
+    });
+    await repository.createMeetingNotesSegment(segment);
+    app.log.info({
+      roomId: input.roomId,
+      sessionId: input.sessionId,
+      segmentId: segment.id,
+      participantId: input.participantId,
+      textLength: segment.text.length,
+      startMs: segment.startMs,
+      endMs: segment.endMs
+    }, "Transcript segment persisted");
   }
 
   await app.register(cors, {
@@ -3654,6 +3740,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
 
     await repository.updateMeetingNotesSession(params.roomId, params.sessionId, { status: "finalizing" });
     try {
+      await waitForMeetingNotesTasks(params.roomId, params.sessionId);
       const session = await finalizeMeetingNotesSession(repository, config, room, params.sessionId);
       const ended = MeetingNotesEndedMessageV1Schema.parse({
         type: "room.meeting-notes.ended.v1",
@@ -3695,6 +3782,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     parseBody(UpdateMeetingNotesSummaryRequestSchema, request);
     const room = await assertMeetingNotesAvailable(repository, config, params.roomId, auth);
     await repository.updateMeetingNotesSession(params.roomId, params.sessionId, { status: "finalizing" });
+    await waitForMeetingNotesTasks(params.roomId, params.sessionId);
     const session = await finalizeMeetingNotesSession(repository, config, room, params.sessionId);
     const message = MeetingNotesSummaryReadyMessageV1Schema.parse({
       type: "room.meeting-notes.summary-ready.v1",
@@ -3715,7 +3803,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     return { deleted: true };
   });
 
-  app.post("/v1/rooms/:roomId/meeting-notes/sessions/:sessionId/audio-chunks", async (request) => {
+  app.post("/v1/rooms/:roomId/meeting-notes/sessions/:sessionId/audio-chunks", async (request, reply) => {
     const auth = await requireUser(request, config, repository);
     const params = parseParams(ParamsWithRoomAndSessionId, request);
     const body = parseBody(UploadMeetingNotesAudioChunkRequestSchema, request);
@@ -3738,52 +3826,24 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       audioBytes: audio.length,
       base64Length: body.audioBase64.length
     });
-    const text = await transcribeAudioChunk(config, audio, body.mimeType);
-    const participantUserIds = Array.from(new Set([...session.participantUserIds, body.participantId]));
-    if (participantUserIds.length !== session.participantUserIds.length) {
-      await repository.updateMeetingNotesSession(params.roomId, params.sessionId, { participantUserIds });
-    }
-    if (!text) {
-      console.info("[meeting-notes] Audio chunk produced no transcript text", {
+    const task = processMeetingNotesChunk({
+      roomId: params.roomId,
+      sessionId: params.sessionId,
+      participantId: body.participantId,
+      startedAtMs: body.startedAtMs,
+      endedAtMs: body.endedAtMs,
+      mimeType: body.mimeType,
+      audio
+    }).catch((error) => {
+      app.log.error({
         roomId: params.roomId,
         sessionId: params.sessionId,
         participantId: body.participantId,
-        audioBytes: audio.length,
-        mimeType: body.mimeType
-      });
-      return UploadMeetingNotesAudioChunkResponseSchema.parse({ accepted: true, realtimeMessages: [] });
-    }
-
-    const segment = MeetingNotesSegmentSchema.parse({
-      id: newId("mnseg"),
-      sessionId: params.sessionId,
-      roomId: params.roomId,
-      speakerUserId: body.participantId,
-      startMs: body.startedAtMs,
-      endMs: body.endedAtMs,
-      text,
-      isFinal: true,
-      createdAt: nowIso()
+        error: error instanceof Error ? error.message : String(error)
+      }, "Background meeting notes transcription failed");
     });
-    await repository.createMeetingNotesSegment(segment);
-    console.info("[meeting-notes] Transcript segment persisted", {
-      roomId: params.roomId,
-      sessionId: params.sessionId,
-      segmentId: segment.id,
-      participantId: body.participantId,
-      textLength: segment.text.length,
-      startMs: segment.startMs,
-      endMs: segment.endMs
-    });
-    const message = MeetingNotesSegmentMessageV1Schema.parse({
-      type: "room.meeting-notes.segment.v1",
-      roomId: params.roomId,
-      sessionId: params.sessionId,
-      segment,
-      sentAt: Date.now(),
-      senderId: auth.userId
-    });
-    return UploadMeetingNotesAudioChunkResponseSchema.parse({ accepted: true, segment, realtimeMessages: [message] });
+    trackMeetingNotesTask(params.roomId, params.sessionId, task);
+    return reply.status(202).send(UploadMeetingNotesAudioChunkResponseSchema.parse({ accepted: true, realtimeMessages: [] }));
   });
 
   app.get("/v1/rooms/:roomId/meeting-notes/sessions/:sessionId/download", async (request, reply) => {
