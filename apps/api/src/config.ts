@@ -25,6 +25,8 @@ export type AppConfig = {
   sentryDsn: string | undefined;
   /** When set, enables POST/GET /v1/world-skin-uploader/* operator routes. */
   worldSkinUploaderPassword: string | undefined;
+  /** Shared password required to create or join Free-for-All rooms (except room creators on join). */
+  freeForAllPassword: string | undefined;
   tuning: {
     avatarSendHz: number;
     interpolationMs: number;
@@ -132,6 +134,10 @@ function requiredInProduction(config: AppConfig, raw: NodeJS.ProcessEnv) {
     );
   }
 
+  if (config.tuning.enableFreeForAll) {
+    required.push("FREE_FOR_ALL_PASSWORD");
+  }
+
   const missing = required.filter((key) => !envString(raw, key));
   if (missing.length > 0) {
     throw new Error(`Missing required production environment variables: ${missing.join(", ")}`);
@@ -174,6 +180,7 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
     },
     sentryDsn: envString(raw, "SENTRY_DSN"),
     worldSkinUploaderPassword: envString(raw, "WORLD_SKIN_UPLOADER_PASSWORD"),
+    freeForAllPassword: envString(raw, "FREE_FOR_ALL_PASSWORD"),
     tuning: {
       avatarSendHz: envNumber(raw, "AVATAR_STATE_SEND_HZ", 12),
       interpolationMs: envNumber(raw, "AVATAR_INTERPOLATION_MS", 120),

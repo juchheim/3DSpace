@@ -140,8 +140,23 @@ export function listRooms(identity: ApiIdentity) {
   return apiFetch<RoomRecord[]>("/v1/rooms", { identity });
 }
 
-export function createRoom(identity: ApiIdentity, classId: string, name: string, type: RoomType = "classroom") {
-  return apiFetch<RoomWithManifest>("/v1/rooms", { method: "POST", identity, body: { classId, name, type } });
+export function createRoom(
+  identity: ApiIdentity,
+  classId: string,
+  name: string,
+  type: RoomType = "classroom",
+  opts?: { freeForAllPassword?: string }
+) {
+  return apiFetch<RoomWithManifest>("/v1/rooms", {
+    method: "POST",
+    identity,
+    body: {
+      classId,
+      name,
+      type,
+      ...(opts?.freeForAllPassword ? { freeForAllPassword: opts.freeForAllPassword } : {})
+    }
+  });
 }
 
 export function createInvite(identity: ApiIdentity, classId: string, input: { role: Role; roomId?: string }) {
@@ -537,8 +552,12 @@ export function listFreeForAllRooms(identity: ApiIdentity, opts?: { classId?: st
   return apiFetch<ListFreeForAllRoomsResponse>(`/v1/rooms/free-for-all${qs ? "?" + qs : ""}`, { identity });
 }
 
-export function joinFreeForAllRoom(identity: ApiIdentity, roomId: string) {
-  return apiFetch<RoomSessionResponse>(`/v1/rooms/${roomId}/free-for-all-sessions`, { method: "POST", identity });
+export function joinFreeForAllRoom(identity: ApiIdentity, roomId: string, freeForAllPassword?: string) {
+  return apiFetch<RoomSessionResponse>(`/v1/rooms/${roomId}/free-for-all-sessions`, {
+    method: "POST",
+    identity,
+    body: freeForAllPassword ? { freeForAllPassword } : {}
+  });
 }
 
 export function listDynamicWallAnchors(identity: ApiIdentity, roomId: string) {

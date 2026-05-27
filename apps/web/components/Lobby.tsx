@@ -9,6 +9,7 @@ import type { ApiIdentity } from "../lib/identity";
 import { AuthGate } from "../lib/auth";
 import { CLIENT_TUNING } from "../lib/config";
 import { inviteJoinUrl } from "../lib/invite";
+import { getStoredFreeForAllPassword, setStoredFreeForAllPassword } from "../lib/freeForAllPassword";
 import { usePersistentIdentity } from "../lib/usePersistentIdentity";
 import { CopyRoomInviteButton } from "./CopyRoomInviteButton";
 
@@ -20,7 +21,7 @@ type RoomType = "classroom" | "workforce-training" | "free-for-all";
 const ROOM_TYPES: { value: RoomType; label: string; description: string }[] = [
   { value: "classroom",          label: "Classroom",          description: "Live 3D sessions with students and a shareable invite code." },
   { value: "workforce-training", label: "Workforce Training", description: "Immersive training sessions for teams and organizations." },
-  { value: "free-for-all",       label: "Free-for-All",       description: "Open, social rooms. No invite code; place your own boards." },
+  { value: "free-for-all",       label: "Free-for-All",       description: "Open, social rooms. Shared password to create or join." },
 ];
 
 const ROOM_TYPE_FORM_DEFAULTS: Record<RoomType, { className: string; roomName: string }> = {
@@ -46,6 +47,8 @@ function FreeForAllRoomBrowser({
   setBusy,
   setError,
   manageableClassIds,
+  password,
+  onPasswordChange,
   onRoomDeleted
 }: {
   identity: ApiIdentity;
@@ -53,6 +56,8 @@ function FreeForAllRoomBrowser({
   setBusy: (v: boolean) => void;
   setError: (v: string) => void;
   manageableClassIds: Set<string>;
+  password: string;
+  onPasswordChange: (value: string) => void;
   onRoomDeleted?: () => Promise<void>;
 }) {
   const [rooms, setRooms] = useState<FreeForAllRoomSummary[]>([]);
@@ -79,12 +84,18 @@ function FreeForAllRoomBrowser({
     };
   }, [identity.userId]);
 
-  async function join(roomId: string) {
+  async function join(room: FreeForAllRoomSummary) {
+    const isCreator = manageableClassIds.has(room.classId);
+    if (!isCreator && !password.trim()) {
+      setError("Enter the Free-for-All password to join.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
-      await joinFreeForAllRoom(identity, roomId);
-      window.location.href = `/rooms/${roomId}`;
+      await joinFreeForAllRoom(identity, room.id, isCreator ? undefined : password.trim());
+      if (password.trim()) setStoredFreeForAllPassword(password.trim());
+      window.location.href = `/rooms/${room.id}`;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to join room.");
       setBusy(false);
@@ -112,7 +123,19 @@ function FreeForAllRoomBrowser({
   }
   return (
     <div className="lb-ffa-rooms">
-      <p className="lb-join-hint">Open rooms — no invite code required:</p>
+      <p className="lb-join-hint">Open rooms — enter the shared password to join (not required for rooms you created):</p>
+      <div className="lb-field">
+        <label className="lb-label lb-label-tx" htmlFor="lb-ffa-join-password">Room password</label>
+        <input
+          id="lb-ffa-join-password"
+          className="lb-inp"
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => onPasswordChange(e.target.value)}
+          placeholder="Shared Free-for-All password"
+        />
+      </div>
       {rooms.map((room) => (
         <div key={room.id} className="lb-room-item">
           <div className="lb-room-pulse" />
@@ -122,7 +145,7 @@ function FreeForAllRoomBrowser({
             <button
               className="lb-btn lb-btn-sec lb-btn-sm"
               disabled={busy}
-              onClick={() => void join(room.id)}
+              onClick={() => void join(room)}
             >
               Join
             </button>
@@ -147,6 +170,7 @@ export function Lobby() {
   const [roomType, setRoomType] = useState<RoomType>(DEFAULT_ROOM_TYPE);
   const [className, setClassName] = useState(ROOM_TYPE_FORM_DEFAULTS[DEFAULT_ROOM_TYPE].className);
   const [roomName, setRoomName] = useState(ROOM_TYPE_FORM_DEFAULTS[DEFAULT_ROOM_TYPE].roomName);
+  const [ffaPassword, setFfaPassword] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [createdInvite, setCreatedInvite] = useState<Invite | null>(null);
   const [classes, setClasses] = useState<ClassRecord[]>([]);
@@ -189,6 +213,12 @@ export function Lobby() {
     return () => { document.body.classList.remove("lobby-dark"); };
   }, []);
 
+  useEffect(() => {
+    if (roomType !== "free-for-all") return;
+    const stored = getStoredFreeForAllPassword();
+    if (stored) setFfaPassword(stored);
+  }, [roomType]);
+
   async function refresh() {
     try {
       const [nextClasses, nextRooms] = await Promise.all([listClasses(identity), listRooms(identity)]);
@@ -207,11 +237,18 @@ export function Lobby() {
   }, [identity.userId, loaded, clerkEnabled, signedIn]);
 
   async function createRoomOfType(type: RoomType) {
+    if (type === "free-for-all" && !ffaPassword.trim()) {
+      setError("Enter the Free-for-All password to create a room.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
       const classRecord = await createClass(identity, className);
-      const room = await createRoom(identity, classRecord.id, roomName, type);
+      const room = await createRoom(identity, classRecord.id, roomName, type, {
+        ...(type === "free-for-all" ? { freeForAllPassword: ffaPassword.trim() } : {})
+      });
+      if (type === "free-for-all") setStoredFreeForAllPassword(ffaPassword.trim());
       const invite = await createInvite(identity, classRecord.id, { role: "student", roomId: room.room.id });
       setCreatedInvite(invite);
       setCopyStatus(null);
@@ -584,9 +621,21 @@ export function Lobby() {
                     placeholder="e.g. Hangout"
                   />
                 </div>
+                <div className="lb-field">
+                  <label className="lb-label" htmlFor="lb-ffa-create-password">Room password</label>
+                  <input
+                    id="lb-ffa-create-password"
+                    className="lb-inp"
+                    type="password"
+                    autoComplete="current-password"
+                    value={ffaPassword}
+                    onChange={(e) => setFfaPassword(e.target.value)}
+                    placeholder="Shared Free-for-All password"
+                  />
+                </div>
                 <button
                   className="lb-btn lb-btn-pri"
-                  disabled={busy || authDisabled}
+                  disabled={busy || authDisabled || !ffaPassword.trim()}
                   onClick={() => void createRoomOfType("free-for-all")}
                 >
                   {busy ? "Creating…" : "Create room"}
@@ -706,6 +755,8 @@ export function Lobby() {
                     setBusy={setBusy}
                     setError={setError}
                     manageableClassIds={manageableClassIds}
+                    password={ffaPassword}
+                    onPasswordChange={setFfaPassword}
                     onRoomDeleted={refresh}
                   />
                 ) : (

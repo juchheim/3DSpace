@@ -960,7 +960,12 @@ export const RoomSchema = z.object({
 export const CreateRoomRequestSchema = z.object({
   classId: z.string().min(1),
   name: z.string().min(1).max(120),
-  type: RoomTypeSchema.optional()
+  type: RoomTypeSchema.optional(),
+  freeForAllPassword: z.string().min(1).optional()
+});
+
+export const JoinFreeForAllSessionRequestSchema = z.object({
+  freeForAllPassword: z.string().min(1).optional()
 });
 
 export const UpdateRoomRequestSchema = z.object({

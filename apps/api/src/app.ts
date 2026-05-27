@@ -29,6 +29,7 @@ import {
   FinalizeWallAttachmentRequestSchema,
   HealthResponseSchema,
   JoinRoomSessionRequestSchema,
+  JoinFreeForAllSessionRequestSchema,
   ListWorldSkinsResponseSchema,
   ListRoomObjectTemplatesQuerySchema,
   WorldSkinSchema,
@@ -161,6 +162,7 @@ import {
   worldSkinUploaderEnabled,
   WORLD_SKIN_ASSET_FILES
 } from "./world-skins/uploader.js";
+import { assertFreeForAllPassword } from "./free-for-all/password.js";
 import { connectMongo, MongoRepository } from "./models/mongoose.js";
 import { MemoryRepository, newId, nowIso, type Repository } from "./repository.js";
 import { mintLiveKitToken } from "./services/livekit.js";
@@ -2827,6 +2829,9 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     if (roomType === "free-for-all" && !config.tuning.enableFreeForAll) {
       throw forbidden("Free-for-All rooms are disabled in this environment");
     }
+    if (roomType === "free-for-all") {
+      assertFreeForAllPassword(config, body.freeForAllPassword);
+    }
 
     const roomId = newId("room");
     const manifestConfig = {
@@ -3382,10 +3387,17 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   app.post("/v1/rooms/:roomId/free-for-all-sessions", async (request) => {
     const auth = await requireUser(request, config, repository);
     const params = parseParams(ParamsWithRoomId, request);
+    const body = parseBody(JoinFreeForAllSessionRequestSchema, request);
 
     const room = await repository.getRoom(params.roomId);
     if (!room) throw notFound("Room not found");
     if (room.type !== "free-for-all") throw forbidden("This endpoint is only available for Free-for-All rooms");
+
+    const classRecord = await repository.getClass(room.classId);
+    const isCreator = classRecord?.teacherUserId === auth.userId;
+    if (!isCreator) {
+      assertFreeForAllPassword(config, body.freeForAllPassword);
+    }
 
     let membership = await repository.getMembership(room.classId, auth.userId);
     if (!membership || membership.status !== "active") {
