@@ -143,7 +143,7 @@ export async function transcribeAudioChunk(config: AppConfig, audio: Buffer, mim
     throw new HttpError(503, "OpenAI transcription is not configured", "meeting-notes-transcription-unavailable");
   }
 
-  const baseType = mimeType.split(";")[0].trim();
+  const baseType = (mimeType.split(";")[0] ?? mimeType).trim();
   const ext = baseType.includes("mp4") ? "m4a" : "webm";
   const body = new FormData();
   body.set("model", config.tuning.openAiTranscriptionModel);
