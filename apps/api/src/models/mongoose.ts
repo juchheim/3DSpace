@@ -20,6 +20,8 @@ import type {
   WallAttachment,
   WallObject,
   WallObjectStatus,
+  WhiteboardSnapshot,
+  WhiteboardStroke,
   WorldSkin
 } from "@3dspace/contracts";
 import type { AuthContext } from "../auth.js";
@@ -46,6 +48,8 @@ type Models = {
   ClassroomState: Model<any>;
   WallAttachment: Model<any>;
   WallObject: Model<any>;
+  WhiteboardStroke: Model<any>;
+  WhiteboardSnapshot: Model<any>;
   WorldSkin: Model<any>;
   RoomObjectTemplate: Model<any>;
   RoomObject: Model<any>;
@@ -189,6 +193,33 @@ export function createModels(connection: Connection): Models {
   wallObjectSchema.index({ roomId: 1, wallAnchorId: 1 });
   wallObjectSchema.index({ roomId: 1, updatedAt: -1 });
   wallObjectSchema.index({ roomId: 1, type: 1, status: 1 });
+
+  const whiteboardStrokeSchema = new Schema({
+    id: { type: String, required: true, unique: true },
+    wallObjectId: { type: String, required: true, index: true },
+    roomId: { type: String, required: true, index: true },
+    authorUserId: { type: String, required: true },
+    tool: { type: String, required: true },
+    color: { type: String, required: true },
+    thickness: { type: Number, required: true },
+    points: { type: [Schema.Types.Mixed], default: [] },
+    text: { type: Schema.Types.Mixed },
+    z: { type: Number, required: true },
+    clearVersion: { type: Number, required: true },
+    createdAt: { type: String, required: true }
+  });
+  whiteboardStrokeSchema.index({ roomId: 1, wallObjectId: 1, z: 1 });
+  whiteboardStrokeSchema.index({ roomId: 1, wallObjectId: 1, createdAt: 1 });
+
+  const whiteboardSnapshotSchema = new Schema({
+    wallObjectId: { type: String, required: true, index: true },
+    roomId: { type: String, required: true, index: true },
+    snapshotZ: { type: Number, required: true },
+    storageKey: { type: String, required: true },
+    byteSize: { type: Number, required: true },
+    createdAt: { type: String, required: true }
+  });
+  whiteboardSnapshotSchema.index({ roomId: 1, wallObjectId: 1 }, { unique: true });
 
   const worldSkinSchema = new Schema({
     id: { type: String, required: true, unique: true },
@@ -409,6 +440,8 @@ export function createModels(connection: Connection): Models {
     ClassroomState: connection.model("ClassroomState", classroomStateSchema),
     WallAttachment: connection.model("WallAttachment", attachmentSchema),
     WallObject: connection.model("WallObject", wallObjectSchema),
+    WhiteboardStroke: connection.model("WhiteboardStroke", whiteboardStrokeSchema, "whiteboard_strokes"),
+    WhiteboardSnapshot: connection.model("WhiteboardSnapshot", whiteboardSnapshotSchema, "whiteboard_snapshots"),
     WorldSkin: connection.model("WorldSkin", worldSkinSchema),
     RoomObjectTemplate: connection.model("RoomObjectTemplate", roomObjectTemplateSchema),
     RoomObject: connection.model("RoomObject", roomObjectSchema),
@@ -701,6 +734,8 @@ export class MongoRepository implements Repository {
       this.models.ClassroomState.deleteMany({ roomId }),
       this.models.WallAttachment.deleteMany({ roomId }),
       this.models.WallObject.deleteMany({ roomId }),
+      this.models.WhiteboardStroke.deleteMany({ roomId }),
+      this.models.WhiteboardSnapshot.deleteMany({ roomId }),
       this.models.RoomObject.deleteMany({ roomId }),
       this.models.RoomEvent.deleteMany({ roomId }),
       this.models.RoomSession.deleteMany({ roomId }),
@@ -866,6 +901,53 @@ export class MongoRepository implements Repository {
 
   async softRemoveWallObject(roomId: string, objectId: string, input: { updatedByUserId: string; expectedVersion?: number | undefined }) {
     return this.updateWallObject(roomId, objectId, { updatedByUserId: input.updatedByUserId, expectedVersion: input.expectedVersion, status: "removed" });
+  }
+
+  async appendWhiteboardStroke(input: WhiteboardStroke): Promise<WhiteboardStroke> {
+    await this.models.WhiteboardStroke.create(input);
+    return input;
+  }
+
+  async listWhiteboardStrokes(roomId: string, wallObjectId: string, filter: { sinceZ?: number | undefined } = {}): Promise<WhiteboardStroke[]> {
+    const query: Record<string, unknown> = { roomId, wallObjectId };
+    if (filter.sinceZ !== undefined) {
+      query.z = { $gt: filter.sinceZ };
+    }
+    const docs = await this.models.WhiteboardStroke.find(query).sort({ z: 1, createdAt: 1 }).lean();
+    return entities<WhiteboardStroke>(docs);
+  }
+
+  async eraseWhiteboardStrokes(roomId: string, wallObjectId: string, strokeIds: string[]): Promise<string[]> {
+    const docs = await this.models.WhiteboardStroke.find({
+      roomId,
+      wallObjectId,
+      id: { $in: strokeIds }
+    }).lean();
+    if (docs.length === 0) return [];
+    const erasedIds = docs.map((doc) => String((doc as Record<string, unknown>).id));
+    await this.models.WhiteboardStroke.deleteMany({ roomId, wallObjectId, id: { $in: erasedIds } });
+    return erasedIds;
+  }
+
+  async clearWhiteboard(roomId: string, wallObjectId: string): Promise<void> {
+    await Promise.all([
+      this.models.WhiteboardStroke.deleteMany({ roomId, wallObjectId }),
+      this.models.WhiteboardSnapshot.deleteMany({ roomId, wallObjectId })
+    ]);
+  }
+
+  async upsertWhiteboardSnapshot(input: WhiteboardSnapshot): Promise<WhiteboardSnapshot> {
+    await this.models.WhiteboardSnapshot.findOneAndUpdate(
+      { roomId: input.roomId, wallObjectId: input.wallObjectId },
+      { $set: input },
+      { upsert: true, new: true, lean: true }
+    );
+    return input;
+  }
+
+  async latestWhiteboardSnapshot(roomId: string, wallObjectId: string): Promise<WhiteboardSnapshot | undefined> {
+    const doc = await this.models.WhiteboardSnapshot.findOne({ roomId, wallObjectId }).lean();
+    return doc ? entity<WhiteboardSnapshot>(doc) : undefined;
   }
 
   async upsertBuiltinWorldSkins(skins: WorldSkin[]) {

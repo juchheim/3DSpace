@@ -6,6 +6,7 @@ type WallAnchorLike = {
 
 export type WallAnchorCreateOption =
   | "file"
+  | "whiteboard"
   | "note"
   | "timer"
   | "poll"
@@ -47,6 +48,8 @@ export function anchorSupportsCreateOption(anchor: WallAnchorLike, option: WallA
       );
     case "note":
       return anchorAcceptsWallObjectType(anchor, "note");
+    case "whiteboard":
+      return anchorAcceptsWallObjectType(anchor, "whiteboard");
     case "timer":
       return anchorAcceptsWallObjectType(anchor, "timer");
     case "poll":

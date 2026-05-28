@@ -43,8 +43,14 @@ import type {
   WallObject,
   WallObjectControlRequestSchema,
   CreateWallObjectRequestSchema,
+  CommitWhiteboardStrokeRequestSchema,
+  CommitWhiteboardStrokeResponse,
   UpdateWallObjectRequestSchema,
-  CreateWallShareResponseSchema
+  CreateWallShareResponseSchema,
+  ListWhiteboardStrokesResponse,
+  EraseWhiteboardStrokesResponse,
+  RequestWhiteboardSnapshotResponse,
+  ClearWhiteboardResponse
 } from "@3dspace/contracts";
 import type { z } from "zod";
 import { API_URL } from "./config";
@@ -277,6 +283,46 @@ export function updateWallObject(identity: ApiIdentity, roomId: string, objectId
     method: "PATCH",
     identity,
     body: input
+  });
+}
+
+export function listWhiteboardStrokes(identity: ApiIdentity, roomId: string, objectId: string, sinceZ?: number) {
+  const query = sinceZ !== undefined ? `?sinceZ=${encodeURIComponent(String(sinceZ))}` : "";
+  return apiFetch<ListWhiteboardStrokesResponse>(`/v1/rooms/${roomId}/wall-objects/${objectId}/whiteboard/strokes${query}`, { identity });
+}
+
+export function commitWhiteboardStroke(
+  identity: ApiIdentity,
+  roomId: string,
+  objectId: string,
+  input: z.infer<typeof CommitWhiteboardStrokeRequestSchema>
+) {
+  return apiFetch<CommitWhiteboardStrokeResponse>(`/v1/rooms/${roomId}/wall-objects/${objectId}/whiteboard/strokes`, {
+    method: "POST",
+    identity,
+    body: input
+  });
+}
+
+export function eraseWhiteboardStrokes(identity: ApiIdentity, roomId: string, objectId: string, strokeIds: string[]) {
+  return apiFetch<EraseWhiteboardStrokesResponse>(`/v1/rooms/${roomId}/wall-objects/${objectId}/whiteboard/strokes`, {
+    method: "DELETE",
+    identity,
+    body: { strokeIds }
+  });
+}
+
+export function clearWhiteboard(identity: ApiIdentity, roomId: string, objectId: string) {
+  return apiFetch<ClearWhiteboardResponse>(`/v1/rooms/${roomId}/wall-objects/${objectId}/whiteboard/clear`, {
+    method: "POST",
+    identity
+  });
+}
+
+export function requestWhiteboardSnapshot(identity: ApiIdentity, roomId: string, objectId: string) {
+  return apiFetch<RequestWhiteboardSnapshotResponse>(`/v1/rooms/${roomId}/wall-objects/${objectId}/whiteboard/snapshots`, {
+    method: "POST",
+    identity
   });
 }
 

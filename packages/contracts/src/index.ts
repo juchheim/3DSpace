@@ -828,6 +828,7 @@ export type RoomTypeFeatureFlags = {
   openJoin: boolean;
   aiMeetingNotes: boolean;
   aiObjects: boolean;
+  whiteboards: boolean;
 };
 
 const NON_CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
@@ -845,7 +846,8 @@ const NON_CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freez
   dynamicBoards: false,
   openJoin: false,
   aiMeetingNotes: false,
-  aiObjects: false
+  aiObjects: false,
+  whiteboards: true
 });
 
 const CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
@@ -863,7 +865,8 @@ const CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
   dynamicBoards: false,
   openJoin: false,
   aiMeetingNotes: false,
-  aiObjects: false
+  aiObjects: false,
+  whiteboards: true
 });
 
 const FREE_FOR_ALL_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
@@ -881,7 +884,8 @@ const FREE_FOR_ALL_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze
   dynamicBoards: true,
   openJoin: true,
   aiMeetingNotes: true,
-  aiObjects: true
+  aiObjects: true,
+  whiteboards: true
 });
 
 /**
@@ -959,6 +963,25 @@ export const RoomSettingsSchema = z.object({
     autoStartOnFirstJoin: false,
     maxSessionDurationMinutes: 120,
     retentionDays: 30
+  }),
+  whiteboards: z.object({
+    enabled: z.boolean().default(true),
+    maxActivePerRoom: z.number().int().min(0).max(16).default(4),
+    maxStrokesPerBoard: z.number().int().min(100).max(50_000).default(10_000),
+    maxPointsPerStroke: z.number().int().min(50).max(5_000).default(2_000),
+    showRemoteCursors: z.boolean().default(true),
+    cursorBroadcastHz: z.number().int().min(5).max(30).default(20),
+    allowStudentDraw: z.boolean().default(true),
+    snapshotEvery: z.number().int().min(50).max(2_000).default(500)
+  }).default({
+    enabled: true,
+    maxActivePerRoom: 4,
+    maxStrokesPerBoard: 10_000,
+    maxPointsPerStroke: 2_000,
+    showRemoteCursors: true,
+    cursorBroadcastHz: 20,
+    allowStudentDraw: true,
+    snapshotEvery: 500
   }),
   aiObjects: z.object({
     enabled: z.boolean().default(true),
@@ -1316,6 +1339,182 @@ export const WallObjectControlRequestSchema = z.object({
   rate: z.number().positive().max(4).optional(),
   muted: z.boolean().optional(),
   choiceId: z.string().min(1).optional()
+});
+
+export const WhiteboardToolSchema = z.enum([
+  "pen",
+  "highlighter",
+  "eraser",
+  "line",
+  "rectangle",
+  "ellipse",
+  "arrow",
+  "text"
+]);
+
+export const WhiteboardPointSchema = z.object({
+  x: z.number().min(0).max(1),
+  y: z.number().min(0).max(1),
+  pressure: z.number().min(0).max(1).optional()
+});
+
+export const WhiteboardTextPayloadSchema = z.object({
+  value: z.string().max(1024),
+  fontSize: z.number().int().positive().max(256)
+});
+
+export const WhiteboardStrokeSchema = z.object({
+  id: z.string().min(1),
+  wallObjectId: z.string().min(1),
+  roomId: z.string().min(1),
+  authorUserId: z.string().min(1),
+  tool: WhiteboardToolSchema,
+  color: z.string().regex(/^#[0-9a-fA-F]{6,8}$/),
+  thickness: z.number().positive().max(64),
+  points: z.array(WhiteboardPointSchema).min(1),
+  text: WhiteboardTextPayloadSchema.optional(),
+  z: z.number().int().nonnegative(),
+  clearVersion: z.number().int().nonnegative(),
+  createdAt: z.string().datetime()
+});
+
+export const WhiteboardSnapshotSchema = z.object({
+  wallObjectId: z.string().min(1),
+  roomId: z.string().min(1),
+  snapshotZ: z.number().int().nonnegative(),
+  storageKey: z.string().min(1),
+  byteSize: z.number().int().nonnegative(),
+  createdAt: z.string().datetime()
+});
+
+export const WhiteboardWallObjectStateSchema = z.object({
+  strokeCount: z.number().int().nonnegative().default(0),
+  lastUpdatedAt: z.string().datetime().optional(),
+  snapshotKey: z.string().optional(),
+  snapshotZ: z.number().int().nonnegative().optional(),
+  clearVersion: z.number().int().nonnegative().default(0)
+});
+
+export const ListWhiteboardStrokesQuerySchema = z.object({
+  sinceZ: z.coerce.number().int().nonnegative().optional()
+});
+
+export const ListWhiteboardStrokesResponseSchema = z.object({
+  snapshot: WhiteboardSnapshotSchema.nullable(),
+  snapshotDownloadUrl: z.string().url().nullable(),
+  strokes: z.array(WhiteboardStrokeSchema).default([]),
+  clearVersion: z.number().int().nonnegative(),
+  strokeCount: z.number().int().nonnegative()
+});
+
+export const CommitWhiteboardStrokeRequestSchema = z.object({
+  id: z.string().min(1),
+  tool: WhiteboardToolSchema,
+  color: z.string().regex(/^#[0-9a-fA-F]{6,8}$/),
+  thickness: z.number().positive().max(64),
+  points: z.array(WhiteboardPointSchema).min(1),
+  text: WhiteboardTextPayloadSchema.optional(),
+  clearVersion: z.number().int().nonnegative()
+});
+
+export const WhiteboardCursorMessageV1Schema = z.object({
+  type: z.literal("room.whiteboard.cursor.v1"),
+  roomId: z.string(),
+  wallObjectId: z.string(),
+  authorUserId: z.string(),
+  x: z.number().min(0).max(1),
+  y: z.number().min(0).max(1),
+  visible: z.boolean(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const WhiteboardStrokeDeltaMessageV1Schema = z.object({
+  type: z.literal("room.whiteboard.stroke-delta.v1"),
+  roomId: z.string(),
+  wallObjectId: z.string(),
+  strokeId: z.string(),
+  authorUserId: z.string(),
+  tool: WhiteboardToolSchema,
+  color: z.string().regex(/^#[0-9a-fA-F]{6,8}$/),
+  thickness: z.number().positive().max(64),
+  deltaPoints: z.array(WhiteboardPointSchema).min(1),
+  text: WhiteboardTextPayloadSchema.optional(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const WhiteboardStrokeCommitMessageV1Schema = z.object({
+  type: z.literal("room.whiteboard.stroke-commit.v1"),
+  roomId: z.string(),
+  wallObjectId: z.string(),
+  stroke: WhiteboardStrokeSchema,
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const WhiteboardStrokeEraseMessageV1Schema = z.object({
+  type: z.literal("room.whiteboard.stroke-erase.v1"),
+  roomId: z.string(),
+  wallObjectId: z.string(),
+  strokeIds: z.array(z.string().min(1)).min(1),
+  erasedByUserId: z.string(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const WhiteboardClearedMessageV1Schema = z.object({
+  type: z.literal("room.whiteboard.cleared.v1"),
+  roomId: z.string(),
+  wallObjectId: z.string(),
+  clearedByUserId: z.string(),
+  clearedAt: z.string().datetime(),
+  clearVersion: z.number().int().nonnegative(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const WhiteboardSnapshotReadyMessageV1Schema = z.object({
+  type: z.literal("room.whiteboard.snapshot-ready.v1"),
+  roomId: z.string(),
+  wallObjectId: z.string(),
+  snapshotKey: z.string(),
+  snapshotZ: z.number().int().nonnegative(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const WhiteboardRealtimeMessageSchema = z.discriminatedUnion("type", [
+  WhiteboardCursorMessageV1Schema,
+  WhiteboardStrokeDeltaMessageV1Schema,
+  WhiteboardStrokeCommitMessageV1Schema,
+  WhiteboardStrokeEraseMessageV1Schema,
+  WhiteboardClearedMessageV1Schema,
+  WhiteboardSnapshotReadyMessageV1Schema
+]);
+
+export const CommitWhiteboardStrokeResponseSchema = z.object({
+  stroke: WhiteboardStrokeSchema,
+  realtimeMessages: z.array(WhiteboardRealtimeMessageSchema).default([])
+});
+
+export const EraseWhiteboardStrokesRequestSchema = z.object({
+  strokeIds: z.array(z.string().min(1)).min(1).max(500)
+});
+
+export const EraseWhiteboardStrokesResponseSchema = z.object({
+  erasedIds: z.array(z.string()),
+  realtimeMessages: z.array(WhiteboardRealtimeMessageSchema).default([])
+});
+
+export const ClearWhiteboardResponseSchema = z.object({
+  clearVersion: z.number().int().nonnegative(),
+  realtimeMessages: z.array(WhiteboardRealtimeMessageSchema).default([])
+});
+
+export const RequestWhiteboardSnapshotResponseSchema = z.object({
+  snapshot: WhiteboardSnapshotSchema.nullable(),
+  realtimeMessages: z.array(WhiteboardRealtimeMessageSchema).default([])
 });
 
 export const CreateWallShareRequestSchema = z.object({
@@ -2319,6 +2518,17 @@ export type WallObjectStatus = z.infer<typeof WallObjectStatusSchema>;
 export type WallObjectSource = z.infer<typeof WallObjectSourceSchema>;
 export type WallObjectPlacement = z.infer<typeof WallObjectPlacementSchema>;
 export type WallObject = z.infer<typeof WallObjectSchema>;
+export type WhiteboardTool = z.infer<typeof WhiteboardToolSchema>;
+export type WhiteboardPoint = z.infer<typeof WhiteboardPointSchema>;
+export type WhiteboardTextPayload = z.infer<typeof WhiteboardTextPayloadSchema>;
+export type WhiteboardStroke = z.infer<typeof WhiteboardStrokeSchema>;
+export type WhiteboardSnapshot = z.infer<typeof WhiteboardSnapshotSchema>;
+export type WhiteboardWallObjectState = z.infer<typeof WhiteboardWallObjectStateSchema>;
+export type ListWhiteboardStrokesResponse = z.infer<typeof ListWhiteboardStrokesResponseSchema>;
+export type CommitWhiteboardStrokeResponse = z.infer<typeof CommitWhiteboardStrokeResponseSchema>;
+export type EraseWhiteboardStrokesResponse = z.infer<typeof EraseWhiteboardStrokesResponseSchema>;
+export type ClearWhiteboardResponse = z.infer<typeof ClearWhiteboardResponseSchema>;
+export type RequestWhiteboardSnapshotResponse = z.infer<typeof RequestWhiteboardSnapshotResponseSchema>;
 export type Pose = z.infer<typeof PoseSchema>;
 export type RoomObjectTouchPolicy = z.infer<typeof RoomObjectTouchPolicySchema>;
 export type RoomObjectStatus = z.infer<typeof RoomObjectStatusSchema>;
@@ -2344,6 +2554,13 @@ export type RoomObjectRealtimePoseMessage = z.infer<typeof RoomObjectRealtimePos
 export type RoomObjectRealtimeReleaseMessage = z.infer<typeof RoomObjectRealtimeReleaseMessageSchema>;
 export type RoomObjectRealtimeParameterMessage = z.infer<typeof RoomObjectRealtimeParameterMessageSchema>;
 export type WallPlaybackStateMessage = z.infer<typeof WallPlaybackStateMessageSchema>;
+export type WhiteboardCursorMessageV1 = z.infer<typeof WhiteboardCursorMessageV1Schema>;
+export type WhiteboardStrokeDeltaMessageV1 = z.infer<typeof WhiteboardStrokeDeltaMessageV1Schema>;
+export type WhiteboardStrokeCommitMessageV1 = z.infer<typeof WhiteboardStrokeCommitMessageV1Schema>;
+export type WhiteboardStrokeEraseMessageV1 = z.infer<typeof WhiteboardStrokeEraseMessageV1Schema>;
+export type WhiteboardClearedMessageV1 = z.infer<typeof WhiteboardClearedMessageV1Schema>;
+export type WhiteboardSnapshotReadyMessageV1 = z.infer<typeof WhiteboardSnapshotReadyMessageV1Schema>;
+export type WhiteboardRealtimeMessage = z.infer<typeof WhiteboardRealtimeMessageSchema>;
 export type ClassroomHelpRequest = z.infer<typeof ClassroomHelpRequestSchema>;
 export type ClassroomBoardAccessGrant = z.infer<typeof ClassroomBoardAccessGrantSchema>;
 export type ClassroomGroupHold = z.infer<typeof ClassroomGroupHoldSchema>;
@@ -2604,6 +2821,11 @@ export const apiRoutes: ApiRoute[] = [
   { method: "patch", path: "/v1/rooms/{roomId}/wall-objects/{objectId}", summary: "Update a wall object", tags: ["wall-objects"], request: UpdateWallObjectRequestSchema, response: WallObjectSchema },
   { method: "delete", path: "/v1/rooms/{roomId}/wall-objects/{objectId}", summary: "Soft-remove a wall object", tags: ["wall-objects"], response: WallObjectSchema },
   { method: "post", path: "/v1/rooms/{roomId}/wall-objects/{objectId}/control", summary: "Control playback or live source state for a wall object", tags: ["wall-objects"], request: WallObjectControlRequestSchema, response: WallObjectSchema },
+  { method: "get", path: "/v1/rooms/{roomId}/wall-objects/{objectId}/whiteboard/strokes", summary: "Hydrate whiteboard strokes and latest snapshot", tags: ["whiteboards"], response: ListWhiteboardStrokesResponseSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/wall-objects/{objectId}/whiteboard/strokes", summary: "Commit a finalized whiteboard stroke", tags: ["whiteboards"], request: CommitWhiteboardStrokeRequestSchema, response: CommitWhiteboardStrokeResponseSchema },
+  { method: "delete", path: "/v1/rooms/{roomId}/wall-objects/{objectId}/whiteboard/strokes", summary: "Erase whiteboard strokes by id", tags: ["whiteboards"], request: EraseWhiteboardStrokesRequestSchema, response: EraseWhiteboardStrokesResponseSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/wall-objects/{objectId}/whiteboard/clear", summary: "Clear all strokes from a whiteboard", tags: ["whiteboards"], response: ClearWhiteboardResponseSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/wall-objects/{objectId}/whiteboard/snapshots", summary: "Request whiteboard snapshot compaction", tags: ["whiteboards"], response: RequestWhiteboardSnapshotResponseSchema },
   { method: "post", path: "/v1/rooms/{roomId}/wall-shares", summary: "Create live wall share intent", tags: ["wall-objects"], request: CreateWallShareRequestSchema, response: CreateWallShareResponseSchema },
   { method: "post", path: "/v1/rooms/{roomId}/wall-shares/{objectId}/end", summary: "Mark live wall share ended", tags: ["wall-objects"], response: WallObjectSchema },
   { method: "post", path: "/v1/rooms/{roomId}/web-resources", summary: "Create safe wall web resource", tags: ["wall-objects"], request: CreateWebResourceRequestSchema, response: WallObjectSchema },

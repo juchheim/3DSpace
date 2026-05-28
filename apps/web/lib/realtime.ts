@@ -24,7 +24,8 @@ import type {
   WallObjectRealtimeRemoveSchema,
   WallObjectRealtimeUpsertSchema,
   WallPlaybackStateMessageSchema,
-  WallShareEndedMessageSchema
+  WallShareEndedMessageSchema,
+  WhiteboardRealtimeMessage
 } from "@3dspace/contracts";
 import type { z } from "zod";
 
@@ -63,6 +64,8 @@ export type MeetingNotesRealtimeMessage =
   | MeetingNotesErrorMessageV1
   | MeetingNotesSegmentMessageV1;
 
+export type WhiteboardRealtime = WhiteboardRealtimeMessage;
+
 export type RealtimeMessage =
   | AvatarStateMessage
   | AvatarAppearanceMessage
@@ -76,9 +79,15 @@ export type RealtimeMessage =
   | RoomSkinMessage
   | BoardRealtimeMessage
   | MeetingNotesRealtimeMessage
+  | WhiteboardRealtime
   | AiObjectRealtimeMessage;
 
-const ROOM_OBJECT_UNRELIABLE_TYPES = new Set(["room.object.pose.v1", "room.meeting-notes.segment.v1"]);
+const ROOM_OBJECT_UNRELIABLE_TYPES = new Set([
+  "room.object.pose.v1",
+  "room.meeting-notes.segment.v1",
+  "room.whiteboard.stroke-delta.v1",
+  "room.whiteboard.cursor.v1"
+]);
 
 export function isRoomObjectRealtimeUnreliable(type: string) {
   return ROOM_OBJECT_UNRELIABLE_TYPES.has(type);

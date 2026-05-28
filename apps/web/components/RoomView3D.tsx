@@ -43,6 +43,7 @@ import type { ParticipantView } from "./RoomClient";
 import { BlockyAvatar } from "./BlockyAvatar";
 import { RoomObjectsLayer } from "./RoomObjectsLayer";
 import { WallObjectCard } from "./WallObjectCard";
+import type { WhiteboardController } from "../lib/useWhiteboards";
 import {
   useWallObjectHtmlResolutionScale,
   WALL_OBJECT_DISTANCE_FACTOR,
@@ -77,6 +78,7 @@ const DYNAMIC_BOARD_ACCEPTS: CreateDynamicWallAnchorRequest["accepts"] = [
   "browser-tab.live",
   "web.embed",
   "web.link",
+  "whiteboard",
   "note",
   "poll",
   "timer"
@@ -241,6 +243,9 @@ export function RoomView3D({
   onWallObjectStopShare,
   onWallObjectModerate,
   onWallObjectFullscreen,
+  whiteboardController,
+  whiteboardParticipantNames,
+  canWriteWhiteboard,
   dynamicBoardPlacement,
   hallpassZone,
   dynamicWallAnchors,
@@ -294,6 +299,9 @@ export function RoomView3D({
   onWallObjectStopShare?: (objectId: string) => void | Promise<void>;
   onWallObjectModerate?: (objectId: string, action: "approve" | "reject") => void | Promise<void>;
   onWallObjectFullscreen?: (objectId: string) => void;
+  whiteboardController?: WhiteboardController;
+  whiteboardParticipantNames?: Record<string, string>;
+  canWriteWhiteboard?: (object: WallObject) => boolean;
   dynamicBoardPlacement?: DynamicBoardPlacementConfig | null | undefined;
   hallpassZone?: RoomManifest["hallpassHoldingZone"];
   roomObjects?: RoomObject[];
@@ -407,6 +415,9 @@ export function RoomView3D({
           {...(onWallObjectStopShare ? { onWallObjectStopShare } : {})}
           {...(onWallObjectModerate ? { onWallObjectModerate } : {})}
           {...(onWallObjectFullscreen ? { onWallObjectFullscreen } : {})}
+          {...(whiteboardController ? { whiteboardController } : {})}
+          {...(whiteboardParticipantNames ? { whiteboardParticipantNames } : {})}
+          {...(canWriteWhiteboard ? { canWriteWhiteboard } : {})}
         />
         <GroupTargetLayer
           manifest={mergedManifest}
@@ -652,7 +663,10 @@ function WallObjectLayer({
   onWallObjectRemove,
   onWallObjectStopShare,
   onWallObjectModerate,
-  onWallObjectFullscreen
+  onWallObjectFullscreen,
+  whiteboardController,
+  whiteboardParticipantNames,
+  canWriteWhiteboard
 }: {
   manifest: RoomManifest;
   wallObjects: WallObject[];
@@ -671,6 +685,9 @@ function WallObjectLayer({
   onWallObjectStopShare?: (objectId: string) => void | Promise<void>;
   onWallObjectModerate?: (objectId: string, action: "approve" | "reject") => void | Promise<void>;
   onWallObjectFullscreen?: (objectId: string) => void;
+  whiteboardController?: WhiteboardController;
+  whiteboardParticipantNames?: Record<string, string>;
+  canWriteWhiteboard?: (object: WallObject) => boolean;
 }) {
   return (
     <group>
@@ -696,6 +713,9 @@ function WallObjectLayer({
               {...(onWallObjectStopShare ? { onStopShare: onWallObjectStopShare } : {})}
               {...(onWallObjectModerate ? { onModerate: onWallObjectModerate } : {})}
               {...(onWallObjectFullscreen ? { onFullscreen: onWallObjectFullscreen } : {})}
+              {...(whiteboardController ? { whiteboardController } : {})}
+              {...(whiteboardParticipantNames ? { whiteboardParticipantNames } : {})}
+              {...(canWriteWhiteboard ? { canWriteWhiteboard } : {})}
             />
           );
         })}
@@ -717,7 +737,10 @@ const WallObjectSurface = memo(function WallObjectSurface({
   onRemove,
   onStopShare,
   onModerate,
-  onFullscreen
+  onFullscreen,
+  whiteboardController,
+  whiteboardParticipantNames,
+  canWriteWhiteboard
 }: {
   anchor: Anchor;
   walls: Wall[];
@@ -738,6 +761,9 @@ const WallObjectSurface = memo(function WallObjectSurface({
   onStopShare?: (objectId: string) => void | Promise<void>;
   onModerate?: (objectId: string, action: "approve" | "reject") => void | Promise<void>;
   onFullscreen?: (objectId: string) => void;
+  whiteboardController?: WhiteboardController;
+  whiteboardParticipantNames?: Record<string, string>;
+  canWriteWhiteboard?: (object: WallObject) => boolean;
 }) {
   const { camera } = useThree();
   const normal = useMemo(() => new Vector3(anchor.normal.x, anchor.normal.y, anchor.normal.z).normalize(), [anchor.normal.x, anchor.normal.y, anchor.normal.z]);
@@ -810,6 +836,9 @@ const WallObjectSurface = memo(function WallObjectSurface({
               {...(onStopShare ? { onStopShare } : {})}
               {...(onModerate ? { onModerate } : {})}
               {...(onFullscreen ? { onFullscreen } : {})}
+              {...(whiteboardController ? { whiteboardController } : {})}
+              {...(whiteboardParticipantNames ? { whiteboardParticipantNames } : {})}
+              {...(canWriteWhiteboard ? { canWriteWhiteboard } : {})}
               hideHeader={hideHeader}
             />
           </div>

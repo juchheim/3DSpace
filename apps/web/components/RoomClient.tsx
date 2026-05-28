@@ -32,6 +32,7 @@ import { useThirdPersonCamera } from "../lib/useThirdPersonCamera";
 import { useLocalMedia } from "../lib/useLocalMedia";
 import { useDisplayMedia } from "../lib/useDisplayMedia";
 import { useWallObjects } from "../lib/useWallObjects";
+import { useWhiteboards } from "../lib/useWhiteboards";
 import { useRoomObjects } from "../lib/useRoomObjects";
 import { useRoomObjectTemplates } from "../lib/useRoomObjectTemplates";
 import { useWorldSkin } from "../lib/useWorldSkin";
@@ -200,6 +201,14 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     roomId: session?.room.id ?? roomId,
     manifest,
     enabled: Boolean(session && manifest),
+    publish: publishRealtime
+  });
+  const whiteboards = useWhiteboards({
+    identity,
+    roomId: session?.room.id ?? roomId,
+    session,
+    wallObjects: wall.wallObjects,
+    enabled: CLIENT_TUNING.enableWhiteboards && Boolean(session && manifest),
     publish: publishRealtime
   });
   const roomTypeFeatures = useMemo(() => getRoomTypeFeatureFlags(session?.room.type), [session?.room.type]);
@@ -425,6 +434,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   }, [classroom.state?.lessonRun?.status, classroom.state?.lessonRun?.id, openLessonRecap, role]);
   const wallRealtimeHandlerRef = useRef(wall.handleRealtimeMessage);
   wallRealtimeHandlerRef.current = wall.handleRealtimeMessage;
+  const whiteboardRealtimeHandlerRef = useRef(whiteboards.handleRealtimeMessage);
+  whiteboardRealtimeHandlerRef.current = whiteboards.handleRealtimeMessage;
   const roomObjectsRealtimeHandlerRef = useRef(roomObjects.handleRealtimeMessage);
   roomObjectsRealtimeHandlerRef.current = roomObjects.handleRealtimeMessage;
   const classroomRealtimeHandlerRef = useRef(classroom.handleRealtimeMessage);
@@ -700,12 +711,14 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
 
     function handleMessage(message: RealtimeMessage) {
       if (wallRealtimeHandlerRef.current(message)) return;
+      if (whiteboardRealtimeHandlerRef.current(message)) return;
       if (roomObjectsRealtimeHandlerRef.current(message)) return;
       if (classroomRealtimeHandlerRef.current(message)) return;
       if (dynamicBoardsRealtimeHandlerRef.current(message)) return;
       if (meetingNotesRealtimeHandlerRef.current(message)) return;
       if (aiObjectsRealtimeHandlerRef.current(message)) return;
       if (message.type.startsWith("wall.")) return;
+      if (message.type.startsWith("room.whiteboard.")) return;
       if (message.type.startsWith("room.object.")) return;
       if (message.type.startsWith("room.board.")) return;
       if (message.type.startsWith("room.meeting-notes.")) return;
@@ -1041,6 +1054,10 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   }, [media.cameraStream, session?.participantId, wall.wallObjects]);
 
   const participantList = useMemo(() => Object.values(participants), [participants]);
+  const participantNameMap = useMemo(
+    () => Object.fromEntries(participantList.map((participant) => [participant.id, participant.displayName])),
+    [participantList]
+  );
   const roomObjectTemplatesById = useMemo(() => {
     const map: Record<string, RoomObjectTemplate> = {};
     for (const template of roomObjectTemplates.templates) {
@@ -1158,6 +1175,17 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     }
     return next;
   }, [localWallMedia, participantList, remoteWallMedia, wall.wallObjects]);
+  const canWriteWhiteboard = useCallback((object: WallObject) => {
+    if (!session || object.type !== "whiteboard") return false;
+    if (session.role === "teacher") return true;
+    if (session.room.type !== "classroom") return true;
+    if (!parsedRoomSettings?.whiteboards.allowStudentDraw) return false;
+    return Boolean(
+      activeBoardGrant &&
+      activeBoardGrant.wallAnchorId === object.wallAnchorId &&
+      activeBoardGrant.allowedObjectTypes.includes("whiteboard")
+    );
+  }, [activeBoardGrant, parsedRoomSettings?.whiteboards.allowStudentDraw, session]);
   const podsInput = useMemo(() => {
     if (!roomTypeFeatures.breakoutPods || !CLIENT_TUNING.enableBreakoutPods) return undefined;
     const runtime = classroom.state?.podsRuntime;
@@ -1196,6 +1224,13 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const createNote = useCallback(
     async (input: { anchorId: string; title: string; text: string }) => {
       await wall.createInlineObject({ anchorId: input.anchorId, type: "note", title: input.title, data: { text: input.text } });
+    },
+    [wall.createInlineObject]
+  );
+
+  const createWhiteboard = useCallback(
+    async (input: { anchorId: string; title: string }) => {
+      await wall.createInlineObject({ anchorId: input.anchorId, type: "whiteboard", title: input.title, data: {} });
     },
     [wall.createInlineObject]
   );
@@ -1781,6 +1816,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             onWallObjectStopShare={stopShare}
             onWallObjectModerate={moderateWallObject}
             onWallObjectFullscreen={setFullscreenObjectId}
+            whiteboardController={whiteboards}
+            whiteboardParticipantNames={participantNameMap}
+            canWriteWhiteboard={canWriteWhiteboard}
             dynamicBoardPlacement={dynamicBoardPlacement}
             {...(roomObjectsEnabled && manifest
               ? {
@@ -1819,6 +1857,10 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             wallObjects={wall.wallObjects}
             assetUrls={wall.assetUrls}
             wallMediaStreams={wallMediaStreams}
+            currentUserId={identity.userId}
+            whiteboardController={whiteboards}
+            whiteboardParticipantNames={participantNameMap}
+            canWriteWhiteboard={canWriteWhiteboard}
             classroomGroups={classroom.state?.groups ?? []}
             podsEnabled={podsVisualEnabled}
             podRadiusMeters={podRadiusMeters}
@@ -2146,6 +2188,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               }}
               focusAnchorId={focusAnchorId}
               onCreateFile={createFileObject}
+              onCreateWhiteboard={createWhiteboard}
               onCreateNote={createNote}
               onCreateTimer={createTimer}
               onCreatePoll={createPoll}
@@ -2159,6 +2202,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               onStopShare={stopShare}
               onControl={controlWallObject}
               onModerate={moderateWallObject}
+              whiteboardController={whiteboards}
+              whiteboardParticipantNames={participantNameMap}
+              canWriteWhiteboard={canWriteWhiteboard}
               hostSingular={roleLabels.hostSingular}
             />
           ) : null}
@@ -2391,6 +2437,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
                 assetUrl={wall.assetUrls[fullscreenObjectId]}
                 videoStream={fsStreams.videoStream}
                 audioStream={fsStreams.audioStream}
+                whiteboardController={whiteboards}
+                whiteboardParticipantNames={participantNameMap}
+                canWriteWhiteboard={canWriteWhiteboard}
                 onControl={controlWallObject}
               />
             </div>

@@ -10,13 +10,15 @@ import {
   DYNAMIC_WALL_ANCHOR_MIN_WIDTH_M
 } from "@3dspace/contracts";
 import type { ApiIdentity } from "../lib/identity";
+import type { WhiteboardController } from "../lib/useWhiteboards";
 import { WallObjectCard, type WallObjectControlAction } from "./WallObjectCard";
 import { HudCard } from "./HudCard";
 
-type CreateType = "file" | "note" | "timer" | "poll" | "link";
+type CreateType = "file" | "whiteboard" | "note" | "timer" | "poll" | "link";
 
 const FORM_TYPES: { id: CreateType; label: string }[] = [
   { id: "file",  label: "File"  },
+  { id: "whiteboard", label: "Whiteboard" },
   { id: "note",  label: "Note"  },
   { id: "timer", label: "Timer" },
   { id: "poll",  label: "Poll"  },
@@ -39,6 +41,7 @@ export function AnchorPanel({
   loading,
   error,
   onCreateFile,
+  onCreateWhiteboard,
   onCreateNote,
   onCreateTimer,
   onCreatePoll,
@@ -50,6 +53,9 @@ export function AnchorPanel({
   onStopShare,
   onControl,
   onModerate,
+  whiteboardController,
+  whiteboardParticipantNames,
+  canWriteWhiteboard,
   dynamicAnchorPlacementActive = false,
   onStartDynamicAnchorPlacement,
   onCancelDynamicAnchorPlacement,
@@ -77,6 +83,7 @@ export function AnchorPanel({
   loading: boolean;
   error: string;
   onCreateFile(input: { anchorId: string; file: File; title: string; altText?: string | undefined; caption?: string | undefined }): Promise<void>;
+  onCreateWhiteboard(input: { anchorId: string; title: string }): Promise<void>;
   onCreateNote(input: { anchorId: string; title: string; text: string }): Promise<void>;
   onCreateTimer(input: { anchorId: string; title: string; seconds: number }): Promise<void>;
   onCreatePoll(input: { anchorId: string; title: string; question: string; choices: string[] }): Promise<void>;
@@ -88,6 +95,9 @@ export function AnchorPanel({
   onStopShare(objectId: string): Promise<void>;
   onControl(objectId: string, action: WallObjectControlAction, positionSeconds?: number, choiceId?: string): Promise<void>;
   onModerate(objectId: string, action: "approve" | "reject"): Promise<void>;
+  whiteboardController?: WhiteboardController;
+  whiteboardParticipantNames?: Record<string, string>;
+  canWriteWhiteboard?: (object: WallObject) => boolean;
   dynamicAnchorPlacementActive?: boolean;
   onStartDynamicAnchorPlacement?(): void;
   onCancelDynamicAnchorPlacement?(): void;
@@ -112,6 +122,7 @@ export function AnchorPanel({
   const [selectedType, setSelectedType] = useState<CreateType | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [fileTitle, setFileTitle] = useState("");
+  const [whiteboardTitle, setWhiteboardTitle] = useState("Whiteboard");
   const [noteText, setNoteText] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [pollQuestion, setPollQuestion] = useState("");
@@ -148,6 +159,7 @@ export function AnchorPanel({
     if (option === "file") {
       return ["image.file", "video.file", "audio.file"].some((type) => grantAllowedTypes.has(type as WallObjectType));
     }
+    if (option === "whiteboard") return grantAllowedTypes.has("whiteboard");
     if (option === "note") return grantAllowedTypes.has("note");
     if (option === "timer") return grantAllowedTypes.has("timer");
     if (option === "poll") return grantAllowedTypes.has("poll");
@@ -218,6 +230,14 @@ export function AnchorPanel({
     await run("note", async () => {
       await onCreateNote({ anchorId: selectedAnchor, title: text.slice(0, 60), text });
       setNoteText("");
+    });
+  }
+
+  async function submitWhiteboard() {
+    const title = whiteboardTitle.trim() || "Whiteboard";
+    await run("whiteboard", async () => {
+      await onCreateWhiteboard({ anchorId: selectedAnchor, title });
+      setWhiteboardTitle("Whiteboard");
     });
   }
 
@@ -432,6 +452,19 @@ export function AnchorPanel({
           )}
 
           {/* Note form */}
+          {selectedType === "whiteboard" && (
+            <div className="content-form">
+              <label>
+                Title
+                <input value={whiteboardTitle} onChange={(e) => setWhiteboardTitle(e.target.value)} placeholder="Whiteboard" />
+              </label>
+              <button type="button" className="hud-btn" disabled={selectedAnchorOccupied || Boolean(busy)} onClick={() => void submitWhiteboard()}>
+                {busy === "whiteboard" ? "Adding…" : "Add whiteboard"}
+              </button>
+            </div>
+          )}
+
+          {/* Note form */}
           {selectedType === "note" && (
             <div className="content-form">
               <label>
@@ -542,6 +575,9 @@ export function AnchorPanel({
                     assetUrl={assetUrls[object.id]}
                     videoStream={wallMediaStreams[object.id]?.videoStream}
                     audioStream={wallMediaStreams[object.id]?.audioStream}
+                    whiteboardController={whiteboardController}
+                    whiteboardParticipantNames={whiteboardParticipantNames}
+                    {...(canWriteWhiteboard ? { canWriteWhiteboard } : {})}
                     onRemove={(objectId) => void onRemove(objectId)}
                     onStopShare={(objectId) => void onStopShare(objectId)}
                     onControl={(objectId, action, positionSeconds, choiceId) => void onControl(objectId, action, positionSeconds, choiceId)}

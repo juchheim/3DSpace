@@ -20,6 +20,7 @@ import { useWorldSkinContext } from "./worldSkins/SkinLayer";
 import { RoomObjectIcon2D } from "./RoomObjectIcon2D";
 import { canGrabRoomObject, canTouchRoomObject, snapPosition, snapScale, snapYaw } from "../lib/roomObjectInteraction";
 import { WallObjectCard } from "./WallObjectCard";
+import type { WhiteboardController } from "../lib/useWhiteboards";
 
 function anchorPrivateChecks(privateChecks: ClassroomPrivateCheck[], anchorId: string) {
   return privateChecks.filter((check) => check.status === "open" && check.wallAnchorId === anchorId);
@@ -58,6 +59,7 @@ export function RoomView2D({
   wallObjects = [],
   assetUrls = {},
   wallMediaStreams = {},
+  currentUserId,
   classroomGroups = [],
   podsEnabled = false,
   podRadiusMeters = 3,
@@ -78,7 +80,10 @@ export function RoomView2D({
   onSelectRoomObject,
   roomObjectActions,
   getAppearance,
-  dynamicWallAnchors
+  dynamicWallAnchors,
+  whiteboardController,
+  whiteboardParticipantNames,
+  canWriteWhiteboard
 }: {
   manifest: RoomManifest;
   dynamicWallAnchors?: RoomManifest["wallAnchors"];
@@ -87,6 +92,7 @@ export function RoomView2D({
   wallObjects?: WallObject[];
   assetUrls?: Record<string, string>;
   wallMediaStreams?: Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>;
+  currentUserId?: string | undefined;
   classroomGroups?: ClassroomGroup[];
   podsEnabled?: boolean;
   podRadiusMeters?: number;
@@ -107,6 +113,9 @@ export function RoomView2D({
   onSelectRoomObject?: (objectId: string | null) => void;
   roomObjectActions?: RoomObjectActions;
   getAppearance?: (participantId: string) => AvatarAppearance;
+  whiteboardController?: WhiteboardController;
+  whiteboardParticipantNames?: Record<string, string>;
+  canWriteWhiteboard?: (object: WallObject) => boolean;
 }) {
   const [liveAnnouncement, setLiveAnnouncement] = useState("");
   const objectsEnabled = Boolean(
@@ -511,6 +520,40 @@ export function RoomView2D({
         {liveAnnouncement}
       </div>
 
+      {whiteboardController ? (
+        <div className="map2d-whiteboards" aria-hidden={false}>
+          {allWallAnchors.map((anchor) => {
+            const object = wallObjects.find((candidate) => candidate.wallAnchorId === anchor.id && candidate.type === "whiteboard" && candidate.status !== "removed");
+            if (!object) return null;
+            const rect = projectAnchorRectTo2D(manifest, anchor);
+            return (
+              <div
+                key={`whiteboard-${object.id}`}
+                className="map2d-whiteboard"
+                style={{
+                  left: `${rect.x}%`,
+                  top: `${rect.y}%`,
+                  width: `${rect.width}%`,
+                  height: `${rect.height}%`
+                }}
+              >
+                <WallObjectCard
+                  object={object}
+                  compact
+                  surface
+                  canManage={false}
+                  currentUserId={currentUserId}
+                  whiteboardController={whiteboardController}
+                  whiteboardParticipantNames={whiteboardParticipantNames}
+                  {...(canWriteWhiteboard ? { canWriteWhiteboard } : {})}
+                  hideHeader={anchor.metadata?.hideObjectHeader === true}
+                />
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
       {wallObjects.length > 0 ? (
         <div className="wall-object-list" aria-label="Wall objects list">
           {wallObjects.map((object) => (
@@ -518,9 +561,13 @@ export function RoomView2D({
               key={object.id}
               object={object}
               compact
+              currentUserId={currentUserId}
               assetUrl={assetUrls[object.id]}
               videoStream={wallMediaStreams[object.id]?.videoStream}
               audioStream={wallMediaStreams[object.id]?.audioStream}
+              whiteboardController={whiteboardController}
+              whiteboardParticipantNames={whiteboardParticipantNames}
+              {...(canWriteWhiteboard ? { canWriteWhiteboard } : {})}
             />
           ))}
         </div>

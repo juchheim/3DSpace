@@ -801,6 +801,15 @@
                       "name": {
                         "type": "string"
                       },
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "classroom",
+                          "workforce-training",
+                          "free-for-all"
+                        ],
+                        "default": "classroom"
+                      },
                       "activeManifestVersion": {
                         "type": "integer",
                         "exclusiveMinimum": true,
@@ -1023,6 +1032,171 @@
                               "skinDayNightMode": "day",
                               "ambientGainOverride": null
                             }
+                          },
+                          "studentMedia": {
+                            "type": "object",
+                            "properties": {
+                              "camerasEnabled": {
+                                "type": "boolean",
+                                "default": true
+                              },
+                              "microphonesEnabled": {
+                                "type": "boolean",
+                                "default": true
+                              }
+                            },
+                            "additionalProperties": false,
+                            "default": {
+                              "camerasEnabled": true,
+                              "microphonesEnabled": true
+                            }
+                          },
+                          "aiMeetingNotes": {
+                            "type": "object",
+                            "properties": {
+                              "enabled": {
+                                "type": "boolean",
+                                "default": true
+                              },
+                              "autoStartOnFirstJoin": {
+                                "type": "boolean",
+                                "default": false
+                              },
+                              "maxSessionDurationMinutes": {
+                                "type": "integer",
+                                "exclusiveMinimum": true,
+                                "minimum": 0,
+                                "maximum": 360,
+                                "default": 120
+                              },
+                              "retentionDays": {
+                                "type": "integer",
+                                "exclusiveMinimum": true,
+                                "minimum": 0,
+                                "maximum": 365,
+                                "default": 30
+                              }
+                            },
+                            "additionalProperties": false,
+                            "default": {
+                              "enabled": true,
+                              "autoStartOnFirstJoin": false,
+                              "maxSessionDurationMinutes": 120,
+                              "retentionDays": 30
+                            }
+                          },
+                          "whiteboards": {
+                            "type": "object",
+                            "properties": {
+                              "enabled": {
+                                "type": "boolean",
+                                "default": true
+                              },
+                              "maxActivePerRoom": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 16,
+                                "default": 4
+                              },
+                              "maxStrokesPerBoard": {
+                                "type": "integer",
+                                "minimum": 100,
+                                "maximum": 50000,
+                                "default": 10000
+                              },
+                              "maxPointsPerStroke": {
+                                "type": "integer",
+                                "minimum": 50,
+                                "maximum": 5000,
+                                "default": 2000
+                              },
+                              "showRemoteCursors": {
+                                "type": "boolean",
+                                "default": true
+                              },
+                              "cursorBroadcastHz": {
+                                "type": "integer",
+                                "minimum": 5,
+                                "maximum": 30,
+                                "default": 20
+                              },
+                              "allowStudentDraw": {
+                                "type": "boolean",
+                                "default": true
+                              },
+                              "snapshotEvery": {
+                                "type": "integer",
+                                "minimum": 50,
+                                "maximum": 2000,
+                                "default": 500
+                              }
+                            },
+                            "additionalProperties": false,
+                            "default": {
+                              "enabled": true,
+                              "maxActivePerRoom": 4,
+                              "maxStrokesPerBoard": 10000,
+                              "maxPointsPerStroke": 2000,
+                              "showRemoteCursors": true,
+                              "cursorBroadcastHz": 20,
+                              "allowStudentDraw": true,
+                              "snapshotEvery": 500
+                            }
+                          },
+                          "aiObjects": {
+                            "type": "object",
+                            "properties": {
+                              "enabled": {
+                                "type": "boolean",
+                                "default": true
+                              },
+                              "maxConcurrentJobsPerRoom": {
+                                "type": "integer",
+                                "exclusiveMinimum": true,
+                                "minimum": 0,
+                                "maximum": 8,
+                                "default": 3
+                              },
+                              "maxConcurrentJobsPerUser": {
+                                "type": "integer",
+                                "exclusiveMinimum": true,
+                                "minimum": 0,
+                                "maximum": 4,
+                                "default": 1
+                              },
+                              "maxJobsPerUserPerDay": {
+                                "type": "integer",
+                                "exclusiveMinimum": true,
+                                "minimum": 0,
+                                "maximum": 200,
+                                "default": 20
+                              },
+                              "allowMeshy": {
+                                "type": "boolean",
+                                "default": false
+                              },
+                              "meshyRefineTextures": {
+                                "type": "boolean",
+                                "default": true
+                              },
+                              "defaultPolycountTarget": {
+                                "type": "integer",
+                                "exclusiveMinimum": true,
+                                "minimum": 0,
+                                "maximum": 200000,
+                                "default": 15000
+                              }
+                            },
+                            "additionalProperties": false,
+                            "default": {
+                              "enabled": true,
+                              "maxConcurrentJobsPerRoom": 3,
+                              "maxConcurrentJobsPerUser": 1,
+                              "maxJobsPerUserPerDay": 20,
+                              "allowMeshy": false,
+                              "meshyRefineTextures": true,
+                              "defaultPolycountTarget": 15000
+                            }
                           }
                         },
                         "required": [
@@ -1078,6 +1252,18 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 120
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "classroom",
+                      "workforce-training",
+                      "free-for-all"
+                    ]
+                  },
+                  "freeForAllPassword": {
+                    "type": "string",
+                    "minLength": 1
                   }
                 },
                 "required": [
@@ -1108,6 +1294,15 @@
                         },
                         "name": {
                           "type": "string"
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "classroom",
+                            "workforce-training",
+                            "free-for-all"
+                          ],
+                          "default": "classroom"
                         },
                         "activeManifestVersion": {
                           "type": "integer",
@@ -1331,6 +1526,171 @@
                                 "skinDayNightMode": "day",
                                 "ambientGainOverride": null
                               }
+                            },
+                            "studentMedia": {
+                              "type": "object",
+                              "properties": {
+                                "camerasEnabled": {
+                                  "type": "boolean",
+                                  "default": true
+                                },
+                                "microphonesEnabled": {
+                                  "type": "boolean",
+                                  "default": true
+                                }
+                              },
+                              "additionalProperties": false,
+                              "default": {
+                                "camerasEnabled": true,
+                                "microphonesEnabled": true
+                              }
+                            },
+                            "aiMeetingNotes": {
+                              "type": "object",
+                              "properties": {
+                                "enabled": {
+                                  "type": "boolean",
+                                  "default": true
+                                },
+                                "autoStartOnFirstJoin": {
+                                  "type": "boolean",
+                                  "default": false
+                                },
+                                "maxSessionDurationMinutes": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 360,
+                                  "default": 120
+                                },
+                                "retentionDays": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 365,
+                                  "default": 30
+                                }
+                              },
+                              "additionalProperties": false,
+                              "default": {
+                                "enabled": true,
+                                "autoStartOnFirstJoin": false,
+                                "maxSessionDurationMinutes": 120,
+                                "retentionDays": 30
+                              }
+                            },
+                            "whiteboards": {
+                              "type": "object",
+                              "properties": {
+                                "enabled": {
+                                  "type": "boolean",
+                                  "default": true
+                                },
+                                "maxActivePerRoom": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 16,
+                                  "default": 4
+                                },
+                                "maxStrokesPerBoard": {
+                                  "type": "integer",
+                                  "minimum": 100,
+                                  "maximum": 50000,
+                                  "default": 10000
+                                },
+                                "maxPointsPerStroke": {
+                                  "type": "integer",
+                                  "minimum": 50,
+                                  "maximum": 5000,
+                                  "default": 2000
+                                },
+                                "showRemoteCursors": {
+                                  "type": "boolean",
+                                  "default": true
+                                },
+                                "cursorBroadcastHz": {
+                                  "type": "integer",
+                                  "minimum": 5,
+                                  "maximum": 30,
+                                  "default": 20
+                                },
+                                "allowStudentDraw": {
+                                  "type": "boolean",
+                                  "default": true
+                                },
+                                "snapshotEvery": {
+                                  "type": "integer",
+                                  "minimum": 50,
+                                  "maximum": 2000,
+                                  "default": 500
+                                }
+                              },
+                              "additionalProperties": false,
+                              "default": {
+                                "enabled": true,
+                                "maxActivePerRoom": 4,
+                                "maxStrokesPerBoard": 10000,
+                                "maxPointsPerStroke": 2000,
+                                "showRemoteCursors": true,
+                                "cursorBroadcastHz": 20,
+                                "allowStudentDraw": true,
+                                "snapshotEvery": 500
+                              }
+                            },
+                            "aiObjects": {
+                              "type": "object",
+                              "properties": {
+                                "enabled": {
+                                  "type": "boolean",
+                                  "default": true
+                                },
+                                "maxConcurrentJobsPerRoom": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 8,
+                                  "default": 3
+                                },
+                                "maxConcurrentJobsPerUser": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 4,
+                                  "default": 1
+                                },
+                                "maxJobsPerUserPerDay": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 200,
+                                  "default": 20
+                                },
+                                "allowMeshy": {
+                                  "type": "boolean",
+                                  "default": false
+                                },
+                                "meshyRefineTextures": {
+                                  "type": "boolean",
+                                  "default": true
+                                },
+                                "defaultPolycountTarget": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 200000,
+                                  "default": 15000
+                                }
+                              },
+                              "additionalProperties": false,
+                              "default": {
+                                "enabled": true,
+                                "maxConcurrentJobsPerRoom": 3,
+                                "maxConcurrentJobsPerUser": 1,
+                                "maxJobsPerUserPerDay": 20,
+                                "allowMeshy": false,
+                                "meshyRefineTextures": true,
+                                "defaultPolycountTarget": 15000
+                              }
                             }
                           },
                           "required": [
@@ -1543,6 +1903,13 @@
                                   "type": "string"
                                 },
                                 "default": []
+                              },
+                              "passable": {
+                                "type": "boolean"
+                              },
+                              "thickness": {
+                                "type": "number",
+                                "minimum": 0
                               }
                             },
                             "required": [
@@ -2125,6 +2492,171 @@
                           "skinDayNightMode": "day",
                           "ambientGainOverride": null
                         }
+                      },
+                      "studentMedia": {
+                        "type": "object",
+                        "properties": {
+                          "camerasEnabled": {
+                            "type": "boolean",
+                            "default": true
+                          },
+                          "microphonesEnabled": {
+                            "type": "boolean",
+                            "default": true
+                          }
+                        },
+                        "additionalProperties": false,
+                        "default": {
+                          "camerasEnabled": true,
+                          "microphonesEnabled": true
+                        }
+                      },
+                      "aiMeetingNotes": {
+                        "type": "object",
+                        "properties": {
+                          "enabled": {
+                            "type": "boolean",
+                            "default": true
+                          },
+                          "autoStartOnFirstJoin": {
+                            "type": "boolean",
+                            "default": false
+                          },
+                          "maxSessionDurationMinutes": {
+                            "type": "integer",
+                            "exclusiveMinimum": true,
+                            "minimum": 0,
+                            "maximum": 360,
+                            "default": 120
+                          },
+                          "retentionDays": {
+                            "type": "integer",
+                            "exclusiveMinimum": true,
+                            "minimum": 0,
+                            "maximum": 365,
+                            "default": 30
+                          }
+                        },
+                        "additionalProperties": false,
+                        "default": {
+                          "enabled": true,
+                          "autoStartOnFirstJoin": false,
+                          "maxSessionDurationMinutes": 120,
+                          "retentionDays": 30
+                        }
+                      },
+                      "whiteboards": {
+                        "type": "object",
+                        "properties": {
+                          "enabled": {
+                            "type": "boolean",
+                            "default": true
+                          },
+                          "maxActivePerRoom": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 16,
+                            "default": 4
+                          },
+                          "maxStrokesPerBoard": {
+                            "type": "integer",
+                            "minimum": 100,
+                            "maximum": 50000,
+                            "default": 10000
+                          },
+                          "maxPointsPerStroke": {
+                            "type": "integer",
+                            "minimum": 50,
+                            "maximum": 5000,
+                            "default": 2000
+                          },
+                          "showRemoteCursors": {
+                            "type": "boolean",
+                            "default": true
+                          },
+                          "cursorBroadcastHz": {
+                            "type": "integer",
+                            "minimum": 5,
+                            "maximum": 30,
+                            "default": 20
+                          },
+                          "allowStudentDraw": {
+                            "type": "boolean",
+                            "default": true
+                          },
+                          "snapshotEvery": {
+                            "type": "integer",
+                            "minimum": 50,
+                            "maximum": 2000,
+                            "default": 500
+                          }
+                        },
+                        "additionalProperties": false,
+                        "default": {
+                          "enabled": true,
+                          "maxActivePerRoom": 4,
+                          "maxStrokesPerBoard": 10000,
+                          "maxPointsPerStroke": 2000,
+                          "showRemoteCursors": true,
+                          "cursorBroadcastHz": 20,
+                          "allowStudentDraw": true,
+                          "snapshotEvery": 500
+                        }
+                      },
+                      "aiObjects": {
+                        "type": "object",
+                        "properties": {
+                          "enabled": {
+                            "type": "boolean",
+                            "default": true
+                          },
+                          "maxConcurrentJobsPerRoom": {
+                            "type": "integer",
+                            "exclusiveMinimum": true,
+                            "minimum": 0,
+                            "maximum": 8,
+                            "default": 3
+                          },
+                          "maxConcurrentJobsPerUser": {
+                            "type": "integer",
+                            "exclusiveMinimum": true,
+                            "minimum": 0,
+                            "maximum": 4,
+                            "default": 1
+                          },
+                          "maxJobsPerUserPerDay": {
+                            "type": "integer",
+                            "exclusiveMinimum": true,
+                            "minimum": 0,
+                            "maximum": 200,
+                            "default": 20
+                          },
+                          "allowMeshy": {
+                            "type": "boolean",
+                            "default": false
+                          },
+                          "meshyRefineTextures": {
+                            "type": "boolean",
+                            "default": true
+                          },
+                          "defaultPolycountTarget": {
+                            "type": "integer",
+                            "exclusiveMinimum": true,
+                            "minimum": 0,
+                            "maximum": 200000,
+                            "default": 15000
+                          }
+                        },
+                        "additionalProperties": false,
+                        "default": {
+                          "enabled": true,
+                          "maxConcurrentJobsPerRoom": 3,
+                          "maxConcurrentJobsPerUser": 1,
+                          "maxJobsPerUserPerDay": 20,
+                          "allowMeshy": false,
+                          "meshyRefineTextures": true,
+                          "defaultPolycountTarget": 15000
+                        }
                       }
                     },
                     "additionalProperties": false
@@ -2151,6 +2683,15 @@
                     },
                     "name": {
                       "type": "string"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "classroom",
+                        "workforce-training",
+                        "free-for-all"
+                      ],
+                      "default": "classroom"
                     },
                     "activeManifestVersion": {
                       "type": "integer",
@@ -2373,6 +2914,171 @@
                             "skinId": null,
                             "skinDayNightMode": "day",
                             "ambientGainOverride": null
+                          }
+                        },
+                        "studentMedia": {
+                          "type": "object",
+                          "properties": {
+                            "camerasEnabled": {
+                              "type": "boolean",
+                              "default": true
+                            },
+                            "microphonesEnabled": {
+                              "type": "boolean",
+                              "default": true
+                            }
+                          },
+                          "additionalProperties": false,
+                          "default": {
+                            "camerasEnabled": true,
+                            "microphonesEnabled": true
+                          }
+                        },
+                        "aiMeetingNotes": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean",
+                              "default": true
+                            },
+                            "autoStartOnFirstJoin": {
+                              "type": "boolean",
+                              "default": false
+                            },
+                            "maxSessionDurationMinutes": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0,
+                              "maximum": 360,
+                              "default": 120
+                            },
+                            "retentionDays": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0,
+                              "maximum": 365,
+                              "default": 30
+                            }
+                          },
+                          "additionalProperties": false,
+                          "default": {
+                            "enabled": true,
+                            "autoStartOnFirstJoin": false,
+                            "maxSessionDurationMinutes": 120,
+                            "retentionDays": 30
+                          }
+                        },
+                        "whiteboards": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean",
+                              "default": true
+                            },
+                            "maxActivePerRoom": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 16,
+                              "default": 4
+                            },
+                            "maxStrokesPerBoard": {
+                              "type": "integer",
+                              "minimum": 100,
+                              "maximum": 50000,
+                              "default": 10000
+                            },
+                            "maxPointsPerStroke": {
+                              "type": "integer",
+                              "minimum": 50,
+                              "maximum": 5000,
+                              "default": 2000
+                            },
+                            "showRemoteCursors": {
+                              "type": "boolean",
+                              "default": true
+                            },
+                            "cursorBroadcastHz": {
+                              "type": "integer",
+                              "minimum": 5,
+                              "maximum": 30,
+                              "default": 20
+                            },
+                            "allowStudentDraw": {
+                              "type": "boolean",
+                              "default": true
+                            },
+                            "snapshotEvery": {
+                              "type": "integer",
+                              "minimum": 50,
+                              "maximum": 2000,
+                              "default": 500
+                            }
+                          },
+                          "additionalProperties": false,
+                          "default": {
+                            "enabled": true,
+                            "maxActivePerRoom": 4,
+                            "maxStrokesPerBoard": 10000,
+                            "maxPointsPerStroke": 2000,
+                            "showRemoteCursors": true,
+                            "cursorBroadcastHz": 20,
+                            "allowStudentDraw": true,
+                            "snapshotEvery": 500
+                          }
+                        },
+                        "aiObjects": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean",
+                              "default": true
+                            },
+                            "maxConcurrentJobsPerRoom": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0,
+                              "maximum": 8,
+                              "default": 3
+                            },
+                            "maxConcurrentJobsPerUser": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0,
+                              "maximum": 4,
+                              "default": 1
+                            },
+                            "maxJobsPerUserPerDay": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0,
+                              "maximum": 200,
+                              "default": 20
+                            },
+                            "allowMeshy": {
+                              "type": "boolean",
+                              "default": false
+                            },
+                            "meshyRefineTextures": {
+                              "type": "boolean",
+                              "default": true
+                            },
+                            "defaultPolycountTarget": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0,
+                              "maximum": 200000,
+                              "default": 15000
+                            }
+                          },
+                          "additionalProperties": false,
+                          "default": {
+                            "enabled": true,
+                            "maxConcurrentJobsPerRoom": 3,
+                            "maxConcurrentJobsPerUser": 1,
+                            "maxJobsPerUserPerDay": 20,
+                            "allowMeshy": false,
+                            "meshyRefineTextures": true,
+                            "defaultPolycountTarget": 15000
                           }
                         }
                       },
@@ -2637,6 +3343,13 @@
                               "type": "string"
                             },
                             "default": []
+                          },
+                          "passable": {
+                            "type": "boolean"
+                          },
+                          "thickness": {
+                            "type": "number",
+                            "minimum": 0
                           }
                         },
                         "required": [
@@ -3046,6 +3759,15 @@
                         "name": {
                           "type": "string"
                         },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "classroom",
+                            "workforce-training",
+                            "free-for-all"
+                          ],
+                          "default": "classroom"
+                        },
                         "activeManifestVersion": {
                           "type": "integer",
                           "exclusiveMinimum": true,
@@ -3268,6 +3990,171 @@
                                 "skinDayNightMode": "day",
                                 "ambientGainOverride": null
                               }
+                            },
+                            "studentMedia": {
+                              "type": "object",
+                              "properties": {
+                                "camerasEnabled": {
+                                  "type": "boolean",
+                                  "default": true
+                                },
+                                "microphonesEnabled": {
+                                  "type": "boolean",
+                                  "default": true
+                                }
+                              },
+                              "additionalProperties": false,
+                              "default": {
+                                "camerasEnabled": true,
+                                "microphonesEnabled": true
+                              }
+                            },
+                            "aiMeetingNotes": {
+                              "type": "object",
+                              "properties": {
+                                "enabled": {
+                                  "type": "boolean",
+                                  "default": true
+                                },
+                                "autoStartOnFirstJoin": {
+                                  "type": "boolean",
+                                  "default": false
+                                },
+                                "maxSessionDurationMinutes": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 360,
+                                  "default": 120
+                                },
+                                "retentionDays": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 365,
+                                  "default": 30
+                                }
+                              },
+                              "additionalProperties": false,
+                              "default": {
+                                "enabled": true,
+                                "autoStartOnFirstJoin": false,
+                                "maxSessionDurationMinutes": 120,
+                                "retentionDays": 30
+                              }
+                            },
+                            "whiteboards": {
+                              "type": "object",
+                              "properties": {
+                                "enabled": {
+                                  "type": "boolean",
+                                  "default": true
+                                },
+                                "maxActivePerRoom": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 16,
+                                  "default": 4
+                                },
+                                "maxStrokesPerBoard": {
+                                  "type": "integer",
+                                  "minimum": 100,
+                                  "maximum": 50000,
+                                  "default": 10000
+                                },
+                                "maxPointsPerStroke": {
+                                  "type": "integer",
+                                  "minimum": 50,
+                                  "maximum": 5000,
+                                  "default": 2000
+                                },
+                                "showRemoteCursors": {
+                                  "type": "boolean",
+                                  "default": true
+                                },
+                                "cursorBroadcastHz": {
+                                  "type": "integer",
+                                  "minimum": 5,
+                                  "maximum": 30,
+                                  "default": 20
+                                },
+                                "allowStudentDraw": {
+                                  "type": "boolean",
+                                  "default": true
+                                },
+                                "snapshotEvery": {
+                                  "type": "integer",
+                                  "minimum": 50,
+                                  "maximum": 2000,
+                                  "default": 500
+                                }
+                              },
+                              "additionalProperties": false,
+                              "default": {
+                                "enabled": true,
+                                "maxActivePerRoom": 4,
+                                "maxStrokesPerBoard": 10000,
+                                "maxPointsPerStroke": 2000,
+                                "showRemoteCursors": true,
+                                "cursorBroadcastHz": 20,
+                                "allowStudentDraw": true,
+                                "snapshotEvery": 500
+                              }
+                            },
+                            "aiObjects": {
+                              "type": "object",
+                              "properties": {
+                                "enabled": {
+                                  "type": "boolean",
+                                  "default": true
+                                },
+                                "maxConcurrentJobsPerRoom": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 8,
+                                  "default": 3
+                                },
+                                "maxConcurrentJobsPerUser": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 4,
+                                  "default": 1
+                                },
+                                "maxJobsPerUserPerDay": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 200,
+                                  "default": 20
+                                },
+                                "allowMeshy": {
+                                  "type": "boolean",
+                                  "default": false
+                                },
+                                "meshyRefineTextures": {
+                                  "type": "boolean",
+                                  "default": true
+                                },
+                                "defaultPolycountTarget": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 200000,
+                                  "default": 15000
+                                }
+                              },
+                              "additionalProperties": false,
+                              "default": {
+                                "enabled": true,
+                                "maxConcurrentJobsPerRoom": 3,
+                                "maxConcurrentJobsPerUser": 1,
+                                "maxJobsPerUserPerDay": 20,
+                                "allowMeshy": false,
+                                "meshyRefineTextures": true,
+                                "defaultPolycountTarget": 15000
+                              }
                             }
                           },
                           "required": [
@@ -3480,6 +4367,13 @@
                                   "type": "string"
                                 },
                                 "default": []
+                              },
+                              "passable": {
+                                "type": "boolean"
+                              },
+                              "thickness": {
+                                "type": "number",
+                                "minimum": 0
                               }
                             },
                             "required": [
@@ -6802,6 +7696,2420 @@
         }
       }
     },
+    "/v1/rooms/{roomId}/wall-objects/{objectId}/whiteboard/strokes": {
+      "get": {
+        "summary": "Hydrate whiteboard strokes and latest snapshot",
+        "tags": [
+          "whiteboards"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "snapshot": {
+                      "type": "object",
+                      "properties": {
+                        "wallObjectId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "roomId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "snapshotZ": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "storageKey": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "byteSize": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "wallObjectId",
+                        "roomId",
+                        "snapshotZ",
+                        "storageKey",
+                        "byteSize",
+                        "createdAt"
+                      ],
+                      "additionalProperties": false,
+                      "nullable": true
+                    },
+                    "snapshotDownloadUrl": {
+                      "type": "string",
+                      "format": "uri",
+                      "nullable": true
+                    },
+                    "strokes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "wallObjectId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "roomId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "authorUserId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "tool": {
+                            "type": "string",
+                            "enum": [
+                              "pen",
+                              "highlighter",
+                              "eraser",
+                              "line",
+                              "rectangle",
+                              "ellipse",
+                              "arrow",
+                              "text"
+                            ]
+                          },
+                          "color": {
+                            "type": "string",
+                            "pattern": "^#[0-9a-fA-F]{6,8}$"
+                          },
+                          "thickness": {
+                            "type": "number",
+                            "exclusiveMinimum": true,
+                            "minimum": 0,
+                            "maximum": 64
+                          },
+                          "points": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "x": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 1
+                                },
+                                "y": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 1
+                                },
+                                "pressure": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 1
+                                }
+                              },
+                              "required": [
+                                "x",
+                                "y"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "minItems": 1
+                          },
+                          "text": {
+                            "type": "object",
+                            "properties": {
+                              "value": {
+                                "type": "string",
+                                "maxLength": 1024
+                              },
+                              "fontSize": {
+                                "type": "integer",
+                                "exclusiveMinimum": true,
+                                "minimum": 0,
+                                "maximum": 256
+                              }
+                            },
+                            "required": [
+                              "value",
+                              "fontSize"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "z": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "clearVersion": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "wallObjectId",
+                          "roomId",
+                          "authorUserId",
+                          "tool",
+                          "color",
+                          "thickness",
+                          "points",
+                          "z",
+                          "clearVersion",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "default": []
+                    },
+                    "clearVersion": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "strokeCount": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "snapshot",
+                    "snapshotDownloadUrl",
+                    "clearVersion",
+                    "strokeCount"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Commit a finalized whiteboard stroke",
+        "tags": [
+          "whiteboards"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "tool": {
+                    "type": "string",
+                    "enum": [
+                      "pen",
+                      "highlighter",
+                      "eraser",
+                      "line",
+                      "rectangle",
+                      "ellipse",
+                      "arrow",
+                      "text"
+                    ]
+                  },
+                  "color": {
+                    "type": "string",
+                    "pattern": "^#[0-9a-fA-F]{6,8}$"
+                  },
+                  "thickness": {
+                    "type": "number",
+                    "exclusiveMinimum": true,
+                    "minimum": 0,
+                    "maximum": 64
+                  },
+                  "points": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "x": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "y": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "pressure": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        }
+                      },
+                      "required": [
+                        "x",
+                        "y"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "minItems": 1
+                  },
+                  "text": {
+                    "type": "object",
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "maxLength": 1024
+                      },
+                      "fontSize": {
+                        "type": "integer",
+                        "exclusiveMinimum": true,
+                        "minimum": 0,
+                        "maximum": 256
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "fontSize"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "clearVersion": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "id",
+                  "tool",
+                  "color",
+                  "thickness",
+                  "points",
+                  "clearVersion"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stroke": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "wallObjectId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "roomId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "authorUserId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "tool": {
+                          "type": "string",
+                          "enum": [
+                            "pen",
+                            "highlighter",
+                            "eraser",
+                            "line",
+                            "rectangle",
+                            "ellipse",
+                            "arrow",
+                            "text"
+                          ]
+                        },
+                        "color": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6,8}$"
+                        },
+                        "thickness": {
+                          "type": "number",
+                          "exclusiveMinimum": true,
+                          "minimum": 0,
+                          "maximum": 64
+                        },
+                        "points": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "x": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "y": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "pressure": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              }
+                            },
+                            "required": [
+                              "x",
+                              "y"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "minItems": 1
+                        },
+                        "text": {
+                          "type": "object",
+                          "properties": {
+                            "value": {
+                              "type": "string",
+                              "maxLength": 1024
+                            },
+                            "fontSize": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0,
+                              "maximum": 256
+                            }
+                          },
+                          "required": [
+                            "value",
+                            "fontSize"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "z": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "clearVersion": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "wallObjectId",
+                        "roomId",
+                        "authorUserId",
+                        "tool",
+                        "color",
+                        "thickness",
+                        "points",
+                        "z",
+                        "clearVersion",
+                        "createdAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "realtimeMessages": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.whiteboard.cursor.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "authorUserId": {
+                                "type": "string"
+                              },
+                              "x": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "y": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "visible": {
+                                "type": "boolean"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "authorUserId",
+                              "x",
+                              "y",
+                              "visible",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.whiteboard.stroke-delta.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "strokeId": {
+                                "type": "string"
+                              },
+                              "authorUserId": {
+                                "type": "string"
+                              },
+                              "tool": {
+                                "type": "string",
+                                "enum": [
+                                  "pen",
+                                  "highlighter",
+                                  "eraser",
+                                  "line",
+                                  "rectangle",
+                                  "ellipse",
+                                  "arrow",
+                                  "text"
+                                ]
+                              },
+                              "color": {
+                                "type": "string",
+                                "pattern": "^#[0-9a-fA-F]{6,8}$"
+                              },
+                              "thickness": {
+                                "type": "number",
+                                "exclusiveMinimum": true,
+                                "minimum": 0,
+                                "maximum": 64
+                              },
+                              "deltaPoints": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "x": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "y": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "pressure": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    }
+                                  },
+                                  "required": [
+                                    "x",
+                                    "y"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "minItems": 1
+                              },
+                              "text": {
+                                "type": "object",
+                                "properties": {
+                                  "value": {
+                                    "type": "string",
+                                    "maxLength": 1024
+                                  },
+                                  "fontSize": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": true,
+                                    "minimum": 0,
+                                    "maximum": 256
+                                  }
+                                },
+                                "required": [
+                                  "value",
+                                  "fontSize"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "strokeId",
+                              "authorUserId",
+                              "tool",
+                              "color",
+                              "thickness",
+                              "deltaPoints",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.whiteboard.stroke-commit.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "stroke": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "wallObjectId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "roomId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "authorUserId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "tool": {
+                                    "type": "string",
+                                    "enum": [
+                                      "pen",
+                                      "highlighter",
+                                      "eraser",
+                                      "line",
+                                      "rectangle",
+                                      "ellipse",
+                                      "arrow",
+                                      "text"
+                                    ]
+                                  },
+                                  "color": {
+                                    "type": "string",
+                                    "pattern": "^#[0-9a-fA-F]{6,8}$"
+                                  },
+                                  "thickness": {
+                                    "type": "number",
+                                    "exclusiveMinimum": true,
+                                    "minimum": 0,
+                                    "maximum": 64
+                                  },
+                                  "points": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "x": {
+                                          "type": "number",
+                                          "minimum": 0,
+                                          "maximum": 1
+                                        },
+                                        "y": {
+                                          "type": "number",
+                                          "minimum": 0,
+                                          "maximum": 1
+                                        },
+                                        "pressure": {
+                                          "type": "number",
+                                          "minimum": 0,
+                                          "maximum": 1
+                                        }
+                                      },
+                                      "required": [
+                                        "x",
+                                        "y"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "minItems": 1
+                                  },
+                                  "text": {
+                                    "type": "object",
+                                    "properties": {
+                                      "value": {
+                                        "type": "string",
+                                        "maxLength": 1024
+                                      },
+                                      "fontSize": {
+                                        "type": "integer",
+                                        "exclusiveMinimum": true,
+                                        "minimum": 0,
+                                        "maximum": 256
+                                      }
+                                    },
+                                    "required": [
+                                      "value",
+                                      "fontSize"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "z": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "clearVersion": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "wallObjectId",
+                                  "roomId",
+                                  "authorUserId",
+                                  "tool",
+                                  "color",
+                                  "thickness",
+                                  "points",
+                                  "z",
+                                  "clearVersion",
+                                  "createdAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "stroke",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.whiteboard.stroke-erase.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "strokeIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "minItems": 1
+                              },
+                              "erasedByUserId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "strokeIds",
+                              "erasedByUserId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.whiteboard.cleared.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "clearedByUserId": {
+                                "type": "string"
+                              },
+                              "clearedAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "clearVersion": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "clearedByUserId",
+                              "clearedAt",
+                              "clearVersion",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.whiteboard.snapshot-ready.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "snapshotKey": {
+                                "type": "string"
+                              },
+                              "snapshotZ": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "snapshotKey",
+                              "snapshotZ",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "default": []
+                    }
+                  },
+                  "required": [
+                    "stroke"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Erase whiteboard strokes by id",
+        "tags": [
+          "whiteboards"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "strokeIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "minItems": 1,
+                    "maxItems": 500
+                  }
+                },
+                "required": [
+                  "strokeIds"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "erasedIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "realtimeMessages": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.whiteboard.cursor.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "authorUserId": {
+                                "type": "string"
+                              },
+                              "x": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "y": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "visible": {
+                                "type": "boolean"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "authorUserId",
+                              "x",
+                              "y",
+                              "visible",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.whiteboard.stroke-delta.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "strokeId": {
+                                "type": "string"
+                              },
+                              "authorUserId": {
+                                "type": "string"
+                              },
+                              "tool": {
+                                "type": "string",
+                                "enum": [
+                                  "pen",
+                                  "highlighter",
+                                  "eraser",
+                                  "line",
+                                  "rectangle",
+                                  "ellipse",
+                                  "arrow",
+                                  "text"
+                                ]
+                              },
+                              "color": {
+                                "type": "string",
+                                "pattern": "^#[0-9a-fA-F]{6,8}$"
+                              },
+                              "thickness": {
+                                "type": "number",
+                                "exclusiveMinimum": true,
+                                "minimum": 0,
+                                "maximum": 64
+                              },
+                              "deltaPoints": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "x": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "y": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "pressure": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    }
+                                  },
+                                  "required": [
+                                    "x",
+                                    "y"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "minItems": 1
+                              },
+                              "text": {
+                                "type": "object",
+                                "properties": {
+                                  "value": {
+                                    "type": "string",
+                                    "maxLength": 1024
+                                  },
+                                  "fontSize": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": true,
+                                    "minimum": 0,
+                                    "maximum": 256
+                                  }
+                                },
+                                "required": [
+                                  "value",
+                                  "fontSize"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "strokeId",
+                              "authorUserId",
+                              "tool",
+                              "color",
+                              "thickness",
+                              "deltaPoints",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.whiteboard.stroke-commit.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "stroke": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "wallObjectId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "roomId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "authorUserId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "tool": {
+                                    "type": "string",
+                                    "enum": [
+                                      "pen",
+                                      "highlighter",
+                                      "eraser",
+                                      "line",
+                                      "rectangle",
+                                      "ellipse",
+                                      "arrow",
+                                      "text"
+                                    ]
+                                  },
+                                  "color": {
+                                    "type": "string",
+                                    "pattern": "^#[0-9a-fA-F]{6,8}$"
+                                  },
+                                  "thickness": {
+                                    "type": "number",
+                                    "exclusiveMinimum": true,
+                                    "minimum": 0,
+                                    "maximum": 64
+                                  },
+                                  "points": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "x": {
+                                          "type": "number",
+                                          "minimum": 0,
+                                          "maximum": 1
+                                        },
+                                        "y": {
+                                          "type": "number",
+                                          "minimum": 0,
+                                          "maximum": 1
+                                        },
+                                        "pressure": {
+                                          "type": "number",
+                                          "minimum": 0,
+                                          "maximum": 1
+                                        }
+                                      },
+                                      "required": [
+                                        "x",
+                                        "y"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "minItems": 1
+                                  },
+                                  "text": {
+                                    "type": "object",
+                                    "properties": {
+                                      "value": {
+                                        "type": "string",
+                                        "maxLength": 1024
+                                      },
+                                      "fontSize": {
+                                        "type": "integer",
+                                        "exclusiveMinimum": true,
+                                        "minimum": 0,
+                                        "maximum": 256
+                                      }
+                                    },
+                                    "required": [
+                                      "value",
+                                      "fontSize"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "z": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "clearVersion": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "wallObjectId",
+                                  "roomId",
+                                  "authorUserId",
+                                  "tool",
+                                  "color",
+                                  "thickness",
+                                  "points",
+                                  "z",
+                                  "clearVersion",
+                                  "createdAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "stroke",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.whiteboard.stroke-erase.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "strokeIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "minItems": 1
+                              },
+                              "erasedByUserId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "strokeIds",
+                              "erasedByUserId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.whiteboard.cleared.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "clearedByUserId": {
+                                "type": "string"
+                              },
+                              "clearedAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "clearVersion": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "clearedByUserId",
+                              "clearedAt",
+                              "clearVersion",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.whiteboard.snapshot-ready.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "snapshotKey": {
+                                "type": "string"
+                              },
+                              "snapshotZ": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "snapshotKey",
+                              "snapshotZ",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "default": []
+                    }
+                  },
+                  "required": [
+                    "erasedIds"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{roomId}/wall-objects/{objectId}/whiteboard/clear": {
+      "post": {
+        "summary": "Clear all strokes from a whiteboard",
+        "tags": [
+          "whiteboards"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "clearVersion": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "realtimeMessages": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.whiteboard.cursor.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "authorUserId": {
+                                "type": "string"
+                              },
+                              "x": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "y": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "visible": {
+                                "type": "boolean"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "authorUserId",
+                              "x",
+                              "y",
+                              "visible",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.whiteboard.stroke-delta.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "strokeId": {
+                                "type": "string"
+                              },
+                              "authorUserId": {
+                                "type": "string"
+                              },
+                              "tool": {
+                                "type": "string",
+                                "enum": [
+                                  "pen",
+                                  "highlighter",
+                                  "eraser",
+                                  "line",
+                                  "rectangle",
+                                  "ellipse",
+                                  "arrow",
+                                  "text"
+                                ]
+                              },
+                              "color": {
+                                "type": "string",
+                                "pattern": "^#[0-9a-fA-F]{6,8}$"
+                              },
+                              "thickness": {
+                                "type": "number",
+                                "exclusiveMinimum": true,
+                                "minimum": 0,
+                                "maximum": 64
+                              },
+                              "deltaPoints": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "x": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "y": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "pressure": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    }
+                                  },
+                                  "required": [
+                                    "x",
+                                    "y"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "minItems": 1
+                              },
+                              "text": {
+                                "type": "object",
+                                "properties": {
+                                  "value": {
+                                    "type": "string",
+                                    "maxLength": 1024
+                                  },
+                                  "fontSize": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": true,
+                                    "minimum": 0,
+                                    "maximum": 256
+                                  }
+                                },
+                                "required": [
+                                  "value",
+                                  "fontSize"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "strokeId",
+                              "authorUserId",
+                              "tool",
+                              "color",
+                              "thickness",
+                              "deltaPoints",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.whiteboard.stroke-commit.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "stroke": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "wallObjectId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "roomId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "authorUserId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "tool": {
+                                    "type": "string",
+                                    "enum": [
+                                      "pen",
+                                      "highlighter",
+                                      "eraser",
+                                      "line",
+                                      "rectangle",
+                                      "ellipse",
+                                      "arrow",
+                                      "text"
+                                    ]
+                                  },
+                                  "color": {
+                                    "type": "string",
+                                    "pattern": "^#[0-9a-fA-F]{6,8}$"
+                                  },
+                                  "thickness": {
+                                    "type": "number",
+                                    "exclusiveMinimum": true,
+                                    "minimum": 0,
+                                    "maximum": 64
+                                  },
+                                  "points": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "x": {
+                                          "type": "number",
+                                          "minimum": 0,
+                                          "maximum": 1
+                                        },
+                                        "y": {
+                                          "type": "number",
+                                          "minimum": 0,
+                                          "maximum": 1
+                                        },
+                                        "pressure": {
+                                          "type": "number",
+                                          "minimum": 0,
+                                          "maximum": 1
+                                        }
+                                      },
+                                      "required": [
+                                        "x",
+                                        "y"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "minItems": 1
+                                  },
+                                  "text": {
+                                    "type": "object",
+                                    "properties": {
+                                      "value": {
+                                        "type": "string",
+                                        "maxLength": 1024
+                                      },
+                                      "fontSize": {
+                                        "type": "integer",
+                                        "exclusiveMinimum": true,
+                                        "minimum": 0,
+                                        "maximum": 256
+                                      }
+                                    },
+                                    "required": [
+                                      "value",
+                                      "fontSize"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "z": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "clearVersion": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "wallObjectId",
+                                  "roomId",
+                                  "authorUserId",
+                                  "tool",
+                                  "color",
+                                  "thickness",
+                                  "points",
+                                  "z",
+                                  "clearVersion",
+                                  "createdAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "stroke",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.whiteboard.stroke-erase.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "strokeIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "minItems": 1
+                              },
+                              "erasedByUserId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "strokeIds",
+                              "erasedByUserId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.whiteboard.cleared.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "clearedByUserId": {
+                                "type": "string"
+                              },
+                              "clearedAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "clearVersion": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "clearedByUserId",
+                              "clearedAt",
+                              "clearVersion",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.whiteboard.snapshot-ready.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "snapshotKey": {
+                                "type": "string"
+                              },
+                              "snapshotZ": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "snapshotKey",
+                              "snapshotZ",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "default": []
+                    }
+                  },
+                  "required": [
+                    "clearVersion"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{roomId}/wall-objects/{objectId}/whiteboard/snapshots": {
+      "post": {
+        "summary": "Request whiteboard snapshot compaction",
+        "tags": [
+          "whiteboards"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "snapshot": {
+                      "type": "object",
+                      "properties": {
+                        "wallObjectId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "roomId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "snapshotZ": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "storageKey": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "byteSize": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "wallObjectId",
+                        "roomId",
+                        "snapshotZ",
+                        "storageKey",
+                        "byteSize",
+                        "createdAt"
+                      ],
+                      "additionalProperties": false,
+                      "nullable": true
+                    },
+                    "realtimeMessages": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.whiteboard.cursor.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "authorUserId": {
+                                "type": "string"
+                              },
+                              "x": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "y": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                              },
+                              "visible": {
+                                "type": "boolean"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "authorUserId",
+                              "x",
+                              "y",
+                              "visible",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.whiteboard.stroke-delta.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "strokeId": {
+                                "type": "string"
+                              },
+                              "authorUserId": {
+                                "type": "string"
+                              },
+                              "tool": {
+                                "type": "string",
+                                "enum": [
+                                  "pen",
+                                  "highlighter",
+                                  "eraser",
+                                  "line",
+                                  "rectangle",
+                                  "ellipse",
+                                  "arrow",
+                                  "text"
+                                ]
+                              },
+                              "color": {
+                                "type": "string",
+                                "pattern": "^#[0-9a-fA-F]{6,8}$"
+                              },
+                              "thickness": {
+                                "type": "number",
+                                "exclusiveMinimum": true,
+                                "minimum": 0,
+                                "maximum": 64
+                              },
+                              "deltaPoints": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "x": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "y": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "pressure": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    }
+                                  },
+                                  "required": [
+                                    "x",
+                                    "y"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "minItems": 1
+                              },
+                              "text": {
+                                "type": "object",
+                                "properties": {
+                                  "value": {
+                                    "type": "string",
+                                    "maxLength": 1024
+                                  },
+                                  "fontSize": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": true,
+                                    "minimum": 0,
+                                    "maximum": 256
+                                  }
+                                },
+                                "required": [
+                                  "value",
+                                  "fontSize"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "strokeId",
+                              "authorUserId",
+                              "tool",
+                              "color",
+                              "thickness",
+                              "deltaPoints",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.whiteboard.stroke-commit.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "stroke": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "wallObjectId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "roomId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "authorUserId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "tool": {
+                                    "type": "string",
+                                    "enum": [
+                                      "pen",
+                                      "highlighter",
+                                      "eraser",
+                                      "line",
+                                      "rectangle",
+                                      "ellipse",
+                                      "arrow",
+                                      "text"
+                                    ]
+                                  },
+                                  "color": {
+                                    "type": "string",
+                                    "pattern": "^#[0-9a-fA-F]{6,8}$"
+                                  },
+                                  "thickness": {
+                                    "type": "number",
+                                    "exclusiveMinimum": true,
+                                    "minimum": 0,
+                                    "maximum": 64
+                                  },
+                                  "points": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "x": {
+                                          "type": "number",
+                                          "minimum": 0,
+                                          "maximum": 1
+                                        },
+                                        "y": {
+                                          "type": "number",
+                                          "minimum": 0,
+                                          "maximum": 1
+                                        },
+                                        "pressure": {
+                                          "type": "number",
+                                          "minimum": 0,
+                                          "maximum": 1
+                                        }
+                                      },
+                                      "required": [
+                                        "x",
+                                        "y"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "minItems": 1
+                                  },
+                                  "text": {
+                                    "type": "object",
+                                    "properties": {
+                                      "value": {
+                                        "type": "string",
+                                        "maxLength": 1024
+                                      },
+                                      "fontSize": {
+                                        "type": "integer",
+                                        "exclusiveMinimum": true,
+                                        "minimum": 0,
+                                        "maximum": 256
+                                      }
+                                    },
+                                    "required": [
+                                      "value",
+                                      "fontSize"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "z": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "clearVersion": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "wallObjectId",
+                                  "roomId",
+                                  "authorUserId",
+                                  "tool",
+                                  "color",
+                                  "thickness",
+                                  "points",
+                                  "z",
+                                  "clearVersion",
+                                  "createdAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "stroke",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.whiteboard.stroke-erase.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "strokeIds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "minItems": 1
+                              },
+                              "erasedByUserId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "strokeIds",
+                              "erasedByUserId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.whiteboard.cleared.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "clearedByUserId": {
+                                "type": "string"
+                              },
+                              "clearedAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "clearVersion": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "clearedByUserId",
+                              "clearedAt",
+                              "clearVersion",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.whiteboard.snapshot-ready.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "snapshotKey": {
+                                "type": "string"
+                              },
+                              "snapshotZ": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "snapshotKey",
+                              "snapshotZ",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "default": []
+                    }
+                  },
+                  "required": [
+                    "snapshot"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/rooms/{roomId}/wall-shares": {
       "post": {
         "summary": "Create live wall share intent",
@@ -7928,6 +11236,847 @@
                     "title",
                     "embedMode",
                     "embeddable"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{roomId}/meeting-notes/sessions": {
+      "get": {
+        "summary": "List meeting notes sessions for a room",
+        "tags": [
+          "meeting-notes"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sessions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "roomId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "startedByUserId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "startedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "endedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "starting",
+                              "recording",
+                              "finalizing",
+                              "ready",
+                              "error",
+                              "cancelled"
+                            ]
+                          },
+                          "transcriptStorageKeys": {
+                            "type": "object",
+                            "properties": {
+                              "txt": {
+                                "type": "string"
+                              },
+                              "vtt": {
+                                "type": "string"
+                              },
+                              "srt": {
+                                "type": "string"
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "summaryStorageKey": {
+                            "type": "string"
+                          },
+                          "summaryGeneratedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "durationSec": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "participantUserIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "default": []
+                          },
+                          "errorMessage": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "roomId",
+                          "startedByUserId",
+                          "startedAt",
+                          "status",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "default": []
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Start a meeting notes session",
+        "tags": [
+          "meeting-notes"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "session": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "roomId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "startedByUserId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "startedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "endedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "starting",
+                            "recording",
+                            "finalizing",
+                            "ready",
+                            "error",
+                            "cancelled"
+                          ]
+                        },
+                        "transcriptStorageKeys": {
+                          "type": "object",
+                          "properties": {
+                            "txt": {
+                              "type": "string"
+                            },
+                            "vtt": {
+                              "type": "string"
+                            },
+                            "srt": {
+                              "type": "string"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "summaryStorageKey": {
+                          "type": "string"
+                        },
+                        "summaryGeneratedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "durationSec": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "participantUserIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "default": []
+                        },
+                        "errorMessage": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "roomId",
+                        "startedByUserId",
+                        "startedAt",
+                        "status",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "realtimeMessages": {
+                      "type": "array",
+                      "items": {},
+                      "default": []
+                    }
+                  },
+                  "required": [
+                    "session"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{roomId}/meeting-notes/sessions/{sessionId}": {
+      "get": {
+        "summary": "Fetch one meeting notes session with transcript segments",
+        "tags": [
+          "meeting-notes"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "roomId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "startedByUserId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "startedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "endedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "starting",
+                        "recording",
+                        "finalizing",
+                        "ready",
+                        "error",
+                        "cancelled"
+                      ]
+                    },
+                    "transcriptStorageKeys": {
+                      "type": "object",
+                      "properties": {
+                        "txt": {
+                          "type": "string"
+                        },
+                        "vtt": {
+                          "type": "string"
+                        },
+                        "srt": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "summaryStorageKey": {
+                      "type": "string"
+                    },
+                    "summaryGeneratedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "durationSec": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "participantUserIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "default": []
+                    },
+                    "errorMessage": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "segments": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "sessionId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "roomId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "speakerUserId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "startMs": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "endMs": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "isFinal": {
+                            "type": "boolean"
+                          },
+                          "language": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "sessionId",
+                          "roomId",
+                          "speakerUserId",
+                          "startMs",
+                          "endMs",
+                          "text",
+                          "isFinal",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "default": []
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "roomId",
+                    "startedByUserId",
+                    "startedAt",
+                    "status",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Stop or cancel a meeting notes session",
+        "tags": [
+          "meeting-notes"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "stop",
+                      "cancel"
+                    ]
+                  }
+                },
+                "required": [
+                  "action"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "session": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "roomId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "startedByUserId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "startedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "endedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "starting",
+                            "recording",
+                            "finalizing",
+                            "ready",
+                            "error",
+                            "cancelled"
+                          ]
+                        },
+                        "transcriptStorageKeys": {
+                          "type": "object",
+                          "properties": {
+                            "txt": {
+                              "type": "string"
+                            },
+                            "vtt": {
+                              "type": "string"
+                            },
+                            "srt": {
+                              "type": "string"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "summaryStorageKey": {
+                          "type": "string"
+                        },
+                        "summaryGeneratedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "durationSec": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "participantUserIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "default": []
+                        },
+                        "errorMessage": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "roomId",
+                        "startedByUserId",
+                        "startedAt",
+                        "status",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "realtimeMessages": {
+                      "type": "array",
+                      "items": {},
+                      "default": []
+                    }
+                  },
+                  "required": [
+                    "session"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a meeting notes session",
+        "tags": [
+          "meeting-notes"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "deleted"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{roomId}/meeting-notes/sessions/{sessionId}/audio-chunks": {
+      "post": {
+        "summary": "Upload a recorded audio chunk for transcription",
+        "tags": [
+          "meeting-notes"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "participantId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "startedAtMs": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "endedAtMs": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "mimeType": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "audioBase64": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "participantId",
+                  "startedAtMs",
+                  "endedAtMs",
+                  "mimeType",
+                  "audioBase64"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accepted": {
+                      "type": "boolean"
+                    },
+                    "segment": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "sessionId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "roomId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "speakerUserId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "startMs": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "endMs": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "text": {
+                          "type": "string"
+                        },
+                        "isFinal": {
+                          "type": "boolean"
+                        },
+                        "language": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "sessionId",
+                        "roomId",
+                        "speakerUserId",
+                        "startMs",
+                        "endMs",
+                        "text",
+                        "isFinal",
+                        "createdAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "realtimeMessages": {
+                      "type": "array",
+                      "items": {},
+                      "default": []
+                    }
+                  },
+                  "required": [
+                    "accepted"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{roomId}/meeting-notes/sessions/{sessionId}/summary": {
+      "post": {
+        "summary": "Regenerate a meeting notes summary",
+        "tags": [
+          "meeting-notes"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "resummarize"
+                    ]
+                  }
+                },
+                "required": [
+                  "action"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "session": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "roomId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "startedByUserId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "startedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "endedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "starting",
+                            "recording",
+                            "finalizing",
+                            "ready",
+                            "error",
+                            "cancelled"
+                          ]
+                        },
+                        "transcriptStorageKeys": {
+                          "type": "object",
+                          "properties": {
+                            "txt": {
+                              "type": "string"
+                            },
+                            "vtt": {
+                              "type": "string"
+                            },
+                            "srt": {
+                              "type": "string"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "summaryStorageKey": {
+                          "type": "string"
+                        },
+                        "summaryGeneratedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "durationSec": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "participantUserIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "default": []
+                        },
+                        "errorMessage": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "roomId",
+                        "startedByUserId",
+                        "startedAt",
+                        "status",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "realtimeMessages": {
+                      "type": "array",
+                      "items": {},
+                      "default": []
+                    }
+                  },
+                  "required": [
+                    "session"
                   ],
                   "additionalProperties": false
                 }
@@ -9191,6 +13340,40 @@
                         "allowed": false,
                         "maxRadiusMeters": 3,
                         "autoEnableInGroupWork": true
+                      }
+                    },
+                    "studentMediaRuntime": {
+                      "type": "object",
+                      "properties": {
+                        "camerasEnabled": {
+                          "type": "boolean",
+                          "default": true
+                        },
+                        "microphonesEnabled": {
+                          "type": "boolean",
+                          "default": true
+                        },
+                        "cameraEnabledUserIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "default": []
+                        },
+                        "microphoneEnabledUserIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "default": []
+                        }
+                      },
+                      "additionalProperties": false,
+                      "default": {
+                        "camerasEnabled": true,
+                        "microphonesEnabled": true,
+                        "cameraEnabledUserIds": [],
+                        "microphoneEnabledUserIds": []
                       }
                     },
                     "createdAt": {
@@ -11597,6 +15780,75 @@
                       "type"
                     ],
                     "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "expectedVersion": {
+                        "type": "integer",
+                        "exclusiveMinimum": true,
+                        "minimum": 0
+                      },
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "set-student-media-global"
+                        ]
+                      },
+                      "medium": {
+                        "type": "string",
+                        "enum": [
+                          "camera",
+                          "microphone"
+                        ]
+                      },
+                      "enabled": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "medium",
+                      "enabled"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "expectedVersion": {
+                        "type": "integer",
+                        "exclusiveMinimum": true,
+                        "minimum": 0
+                      },
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "set-student-media-access"
+                        ]
+                      },
+                      "userId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "medium": {
+                        "type": "string",
+                        "enum": [
+                          "camera",
+                          "microphone"
+                        ]
+                      },
+                      "enabled": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "userId",
+                      "medium",
+                      "enabled"
+                    ],
+                    "additionalProperties": false
                   }
                 ]
               }
@@ -12853,6 +17105,40 @@
                         "autoEnableInGroupWork": true
                       }
                     },
+                    "studentMediaRuntime": {
+                      "type": "object",
+                      "properties": {
+                        "camerasEnabled": {
+                          "type": "boolean",
+                          "default": true
+                        },
+                        "microphonesEnabled": {
+                          "type": "boolean",
+                          "default": true
+                        },
+                        "cameraEnabledUserIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "default": []
+                        },
+                        "microphoneEnabledUserIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "default": []
+                        }
+                      },
+                      "additionalProperties": false,
+                      "default": {
+                        "camerasEnabled": true,
+                        "microphonesEnabled": true,
+                        "cameraEnabledUserIds": [],
+                        "microphoneEnabledUserIds": []
+                      }
+                    },
                     "createdAt": {
                       "type": "string"
                     },
@@ -13313,12 +17599,28 @@
                           "ownerClassId": {
                             "type": "string"
                           },
+                          "visibleRoomTypes": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "classroom",
+                                "workforce-training",
+                                "free-for-all"
+                              ]
+                            },
+                            "minItems": 1,
+                            "default": [
+                              "classroom"
+                            ]
+                          },
                           "source": {
                             "type": "string",
                             "enum": [
                               "builtin",
                               "custom",
-                              "partner"
+                              "partner",
+                              "ai-generated"
                             ],
                             "default": "builtin"
                           },
@@ -13664,12 +17966,28 @@
                         "ownerClassId": {
                           "type": "string"
                         },
+                        "visibleRoomTypes": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "classroom",
+                              "workforce-training",
+                              "free-for-all"
+                            ]
+                          },
+                          "minItems": 1,
+                          "default": [
+                            "classroom"
+                          ]
+                        },
                         "source": {
                           "type": "string",
                           "enum": [
                             "builtin",
                             "custom",
-                            "partner"
+                            "partner",
+                            "ai-generated"
                           ],
                           "default": "builtin"
                         },
@@ -13835,6 +18153,222 @@
       }
     },
     "/v1/room-objects/templates/{templateId}": {
+      "get": {
+        "summary": "Get a room object template by id (including ai-generated for in-room rendering)",
+        "tags": [
+          "room-objects"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "slug": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 64
+                    },
+                    "displayName": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    "category": {
+                      "type": "string",
+                      "enum": [
+                        "math",
+                        "science",
+                        "geography",
+                        "ela",
+                        "art",
+                        "custom"
+                      ]
+                    },
+                    "description": {
+                      "type": "string",
+                      "maxLength": 500
+                    },
+                    "assetUrl": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "thumbnailUrl": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "defaultPose": {
+                      "type": "object",
+                      "properties": {
+                        "position": {
+                          "type": "object",
+                          "properties": {
+                            "x": {
+                              "type": "number"
+                            },
+                            "y": {
+                              "type": "number"
+                            },
+                            "z": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "x",
+                            "y",
+                            "z"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "rotation": {
+                          "type": "object",
+                          "properties": {
+                            "yaw": {
+                              "type": "number"
+                            },
+                            "pitch": {
+                              "type": "number",
+                              "default": 0
+                            },
+                            "roll": {
+                              "type": "number",
+                              "default": 0
+                            }
+                          },
+                          "required": [
+                            "yaw"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "position",
+                        "rotation"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "defaultScale": {
+                      "type": "number",
+                      "exclusiveMinimum": true,
+                      "minimum": 0,
+                      "default": 1
+                    },
+                    "defaultColorTintHex": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "defaultParameters": {
+                      "type": "object",
+                      "additionalProperties": {},
+                      "default": {}
+                    },
+                    "parameterSchemaJson": {
+                      "type": "string",
+                      "default": "{}"
+                    },
+                    "recommendedTouchPolicy": {
+                      "type": "string",
+                      "enum": [
+                        "teacher-only",
+                        "granted",
+                        "all-class"
+                      ],
+                      "default": "teacher-only"
+                    },
+                    "kinematic": {
+                      "type": "boolean",
+                      "default": false
+                    },
+                    "ownerClassId": {
+                      "type": "string"
+                    },
+                    "visibleRoomTypes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "classroom",
+                          "workforce-training",
+                          "free-for-all"
+                        ]
+                      },
+                      "minItems": 1,
+                      "default": [
+                        "classroom"
+                      ]
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "builtin",
+                        "custom",
+                        "partner",
+                        "ai-generated"
+                      ],
+                      "default": "builtin"
+                    },
+                    "license": {
+                      "type": "string",
+                      "maxLength": 60,
+                      "default": "CC-BY"
+                    },
+                    "attribution": {
+                      "type": "string",
+                      "maxLength": 240,
+                      "default": ""
+                    },
+                    "renderer": {
+                      "type": "string",
+                      "enum": [
+                        "gltf",
+                        "procedural"
+                      ],
+                      "default": "gltf"
+                    },
+                    "proceduralId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "exportable": {
+                      "type": "boolean",
+                      "default": true
+                    },
+                    "fileSizeBytes": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "triangleCount": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "slug",
+                    "displayName",
+                    "category",
+                    "description",
+                    "thumbnailUrl",
+                    "defaultPose",
+                    "fileSizeBytes",
+                    "triangleCount",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "summary": "Archive a custom room object template",
         "tags": [
@@ -13969,12 +18503,28 @@
                     "ownerClassId": {
                       "type": "string"
                     },
+                    "visibleRoomTypes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "classroom",
+                          "workforce-training",
+                          "free-for-all"
+                        ]
+                      },
+                      "minItems": 1,
+                      "default": [
+                        "classroom"
+                      ]
+                    },
                     "source": {
                       "type": "string",
                       "enum": [
                         "builtin",
                         "custom",
-                        "partner"
+                        "partner",
+                        "ai-generated"
                       ],
                       "default": "builtin"
                     },
@@ -16423,6 +20973,20 @@
                                 },
                                 "additionalProperties": false
                               },
+                              "domeCeiling": {
+                                "type": "object",
+                                "properties": {
+                                  "textureStorageKey": {
+                                    "type": "string"
+                                  },
+                                  "roughness": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
                               "lighting": {
                                 "type": "object",
                                 "properties": {
@@ -17244,6 +21808,20 @@
                           },
                           "additionalProperties": false
                         },
+                        "domeCeiling": {
+                          "type": "object",
+                          "properties": {
+                            "textureStorageKey": {
+                              "type": "string"
+                            },
+                            "roughness": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1
+                            }
+                          },
+                          "additionalProperties": false
+                        },
                         "lighting": {
                           "type": "object",
                           "properties": {
@@ -17693,6 +22271,7 @@
                               "thumbnail.png",
                               "panorama.webp",
                               "floor.webp",
+                              "dome.webp",
                               "map2d.webp",
                               "ambient.ogg"
                             ]
@@ -17771,6 +22350,7 @@
                       "thumbnail.png",
                       "panorama.webp",
                       "floor.webp",
+                      "dome.webp",
                       "map2d.webp",
                       "ambient.ogg"
                     ]

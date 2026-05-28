@@ -1523,6 +1523,276 @@ describe("3dspace api", () => {
     await app.close();
   });
 
+  it("commits, hydrates, erases, and clears whiteboard strokes", async () => {
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { roomWithManifest } = await createClassAndRoom(app, "teacher-whiteboard-flow");
+    const roomId = roomWithManifest.room.id;
+    const anchorId = roomWithManifest.manifest.wallAnchors[0].id;
+
+    const createWhiteboard = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/wall-objects`,
+      headers: authHeaders("teacher-whiteboard-flow", "Ms. Rivera"),
+      payload: {
+        wallAnchorId: anchorId,
+        type: "whiteboard",
+        title: "Problem Solving Board",
+        source: { kind: "inline", data: {} }
+      }
+    });
+    expect(createWhiteboard.statusCode).toBe(200);
+    const whiteboard = createWhiteboard.json();
+
+    const firstCommit = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/wall-objects/${whiteboard.id}/whiteboard/strokes`,
+      headers: authHeaders("teacher-whiteboard-flow", "Ms. Rivera"),
+      payload: {
+        id: "stroke-one",
+        tool: "pen",
+        color: "#1f2937",
+        thickness: 4,
+        points: [{ x: 0.1, y: 0.15 }, { x: 0.35, y: 0.42 }],
+        clearVersion: 0
+      }
+    });
+    expect(firstCommit.statusCode).toBe(200);
+    expect(firstCommit.json().stroke.id).toBe("stroke-one");
+    expect(firstCommit.json().realtimeMessages).toContainEqual(
+      expect.objectContaining({ type: "room.whiteboard.stroke-commit.v1", wallObjectId: whiteboard.id })
+    );
+
+    const hydrated = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomId}/wall-objects/${whiteboard.id}/whiteboard/strokes`,
+      headers: authHeaders("teacher-whiteboard-flow", "Ms. Rivera")
+    });
+    expect(hydrated.statusCode).toBe(200);
+    expect(hydrated.json()).toMatchObject({
+      clearVersion: 0,
+      strokeCount: 1,
+      strokes: [expect.objectContaining({ id: "stroke-one", wallObjectId: whiteboard.id })]
+    });
+
+    const erased = await app.inject({
+      method: "DELETE",
+      url: `/v1/rooms/${roomId}/wall-objects/${whiteboard.id}/whiteboard/strokes`,
+      headers: authHeaders("teacher-whiteboard-flow", "Ms. Rivera"),
+      payload: { strokeIds: ["stroke-one"] }
+    });
+    expect(erased.statusCode).toBe(200);
+    expect(erased.json().erasedIds).toEqual(["stroke-one"]);
+    expect(erased.json().realtimeMessages).toContainEqual(
+      expect.objectContaining({ type: "room.whiteboard.stroke-erase.v1", wallObjectId: whiteboard.id })
+    );
+
+    const secondCommit = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/wall-objects/${whiteboard.id}/whiteboard/strokes`,
+      headers: authHeaders("teacher-whiteboard-flow", "Ms. Rivera"),
+      payload: {
+        id: "stroke-two",
+        tool: "rectangle",
+        color: "#0f766e",
+        thickness: 6,
+        points: [{ x: 0.2, y: 0.2 }, { x: 0.7, y: 0.75 }],
+        clearVersion: 0
+      }
+    });
+    expect(secondCommit.statusCode).toBe(200);
+
+    const cleared = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/wall-objects/${whiteboard.id}/whiteboard/clear`,
+      headers: authHeaders("teacher-whiteboard-flow", "Ms. Rivera")
+    });
+    expect(cleared.statusCode).toBe(200);
+    expect(cleared.json().clearVersion).toBe(1);
+    expect(cleared.json().realtimeMessages).toContainEqual(
+      expect.objectContaining({ type: "room.whiteboard.cleared.v1", wallObjectId: whiteboard.id })
+    );
+
+    const afterClear = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomId}/wall-objects/${whiteboard.id}/whiteboard/strokes`,
+      headers: authHeaders("teacher-whiteboard-flow", "Ms. Rivera")
+    });
+    expect(afterClear.statusCode).toBe(200);
+    expect(afterClear.json()).toMatchObject({
+      clearVersion: 1,
+      strokeCount: 0,
+      strokes: []
+    });
+
+    await app.close();
+  });
+
+  it("requires a matching classroom whiteboard grant before a student can draw", async () => {
+    const app = await buildApp({
+      config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-whiteboard-grant");
+    await addStudentMember(app, classRecord.id, "teacher-whiteboard-grant", "student-whiteboard-grant", "Avery");
+    const roomId = roomWithManifest.room.id;
+    const anchorId = roomWithManifest.manifest.wallAnchors[0].id;
+
+    const createWhiteboard = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/wall-objects`,
+      headers: authHeaders("teacher-whiteboard-grant", "Ms. Rivera"),
+      payload: {
+        wallAnchorId: anchorId,
+        type: "whiteboard",
+        title: "Shared Work",
+        source: { kind: "inline", data: {} }
+      }
+    });
+    expect(createWhiteboard.statusCode).toBe(200);
+    const whiteboardId = createWhiteboard.json().id as string;
+
+    const blockedStudentCommit = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/wall-objects/${whiteboardId}/whiteboard/strokes`,
+      headers: authHeaders("student-whiteboard-grant", "Avery"),
+      payload: {
+        id: "student-stroke-1",
+        tool: "pen",
+        color: "#7c3aed",
+        thickness: 4,
+        points: [{ x: 0.1, y: 0.1 }, { x: 0.3, y: 0.3 }],
+        clearVersion: 0
+      }
+    });
+    expect(blockedStudentCommit.statusCode).toBe(403);
+
+    const grant = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/classroom/actions`,
+      headers: authHeaders("teacher-whiteboard-grant", "Ms. Rivera"),
+      payload: {
+        type: "grant-board-access",
+        userId: "student-whiteboard-grant",
+        wallAnchorId: anchorId,
+        allowedObjectTypes: ["whiteboard"]
+      }
+    });
+    expect(grant.statusCode).toBe(200);
+
+    const allowedStudentCommit = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/wall-objects/${whiteboardId}/whiteboard/strokes`,
+      headers: authHeaders("student-whiteboard-grant", "Avery"),
+      payload: {
+        id: "student-stroke-2",
+        tool: "pen",
+        color: "#7c3aed",
+        thickness: 4,
+        points: [{ x: 0.12, y: 0.14 }, { x: 0.32, y: 0.36 }],
+        clearVersion: 0
+      }
+    });
+    expect(allowedStudentCommit.statusCode).toBe(200);
+    expect(allowedStudentCommit.json().stroke.authorUserId).toBe("student-whiteboard-grant");
+
+    await app.close();
+  });
+
+  it("rejects oversized whiteboard strokes and serves snapshot hydration blobs", async () => {
+    const app = await buildApp({
+      config: loadConfig({
+        NODE_ENV: "test",
+        WHITEBOARD_MAX_POINTS_PER_STROKE: "50"
+      } as NodeJS.ProcessEnv),
+      repository: new MemoryRepository()
+    });
+    const { roomWithManifest } = await createClassAndRoom(app, "teacher-whiteboard-snapshot");
+    const roomId = roomWithManifest.room.id;
+    const anchorId = roomWithManifest.manifest.wallAnchors[0].id;
+
+    const createWhiteboard = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/wall-objects`,
+      headers: authHeaders("teacher-whiteboard-snapshot", "Ms. Rivera"),
+      payload: {
+        wallAnchorId: anchorId,
+        type: "whiteboard",
+        title: "Snapshot Board",
+        source: { kind: "inline", data: {} }
+      }
+    });
+    expect(createWhiteboard.statusCode).toBe(200);
+    const whiteboardId = createWhiteboard.json().id as string;
+
+    const oversized = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/wall-objects/${whiteboardId}/whiteboard/strokes`,
+      headers: authHeaders("teacher-whiteboard-snapshot", "Ms. Rivera"),
+      payload: {
+        id: "too-many-points",
+        tool: "pen",
+        color: "#111827",
+        thickness: 3,
+        points: Array.from({ length: 51 }, (_, index) => ({
+          x: Math.min(0.95, 0.02 + index * 0.01),
+          y: Math.min(0.95, 0.02 + index * 0.01)
+        })),
+        clearVersion: 0
+      }
+    });
+    expect(oversized.statusCode).toBe(400);
+    expect(oversized.json().message).toMatch(/exceeds 50 points/i);
+
+    const committed = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/wall-objects/${whiteboardId}/whiteboard/strokes`,
+      headers: authHeaders("teacher-whiteboard-snapshot", "Ms. Rivera"),
+      payload: {
+        id: "snapshot-stroke",
+        tool: "line",
+        color: "#111827",
+        thickness: 3,
+        points: [{ x: 0.05, y: 0.05 }, { x: 0.2, y: 0.2 }],
+        clearVersion: 0
+      }
+    });
+    expect(committed.statusCode).toBe(200);
+
+    const compacted = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/wall-objects/${whiteboardId}/whiteboard/snapshots`,
+      headers: authHeaders("teacher-whiteboard-snapshot", "Ms. Rivera")
+    });
+    expect(compacted.statusCode).toBe(200);
+    expect(compacted.json().realtimeMessages).toContainEqual(
+      expect.objectContaining({ type: "room.whiteboard.snapshot-ready.v1", wallObjectId: whiteboardId })
+    );
+
+    const hydrated = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomId}/wall-objects/${whiteboardId}/whiteboard/strokes`,
+      headers: authHeaders("teacher-whiteboard-snapshot", "Ms. Rivera")
+    });
+    expect(hydrated.statusCode).toBe(200);
+    expect(hydrated.json().snapshot).toMatchObject({ wallObjectId: whiteboardId, snapshotZ: 0 });
+    expect(hydrated.json().snapshotDownloadUrl).toContain("/dev-download/");
+
+    const snapshotPath = new URL(hydrated.json().snapshotDownloadUrl).pathname;
+    const snapshotResponse = await app.inject({
+      method: "GET",
+      url: snapshotPath
+    });
+    expect(snapshotResponse.statusCode).toBe(200);
+    expect(snapshotResponse.json().strokes).toEqual([
+      expect.objectContaining({ id: "snapshot-stroke", wallObjectId: whiteboardId })
+    ]);
+
+    await app.close();
+  });
+
   it("replaces a student's prior active board grant when the teacher grants a new one", async () => {
     const app = await buildApp({
       config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),

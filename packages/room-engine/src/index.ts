@@ -249,7 +249,7 @@ export function createDefaultRoomManifest(input: {
         width: PRIMARY_BOARD_WIDTH,
         height: PRIMARY_BOARD_HEIGHT,
         metadata: {
-          accepts: ["image", "video", "audio", "image.file", "video.file", "audio.file", "camera.live", "microphone.live", "screen.live", "browser-tab.live", "web.link", "note", "poll", "timer"],
+          accepts: ["image", "video", "audio", "image.file", "video.file", "audio.file", "camera.live", "microphone.live", "screen.live", "browser-tab.live", "web.link", "whiteboard", "note", "poll", "timer"],
           capacity: 4,
           layout: "grid",
           defaultRole: "primary-display",
@@ -268,7 +268,7 @@ export function createDefaultRoomManifest(input: {
         width: FRONT_MEDIA_WIDTH,
         height: widescreenHeight(FRONT_MEDIA_WIDTH),
         metadata: {
-          accepts: ["image", "audio", "image.file", "audio.file", "microphone.live", "web.link", "note", "timer"],
+          accepts: ["image", "audio", "image.file", "audio.file", "microphone.live", "web.link", "whiteboard", "note", "timer"],
           capacity: 3,
           layout: "stack",
           defaultRole: "resource-rail",

@@ -13,6 +13,8 @@ import {
   type Role,
   type RoomManifest,
   type RoomRecord,
+  type WhiteboardSnapshot,
+  type WhiteboardStroke,
   type RoomSettingsSchema,
   type RoomType,
   type User,
@@ -113,6 +115,12 @@ export type Repository = {
     input: Partial<Omit<WallObject, "id" | "roomId" | "createdAt" | "createdByUserId" | "version">> & { updatedByUserId: string; expectedVersion?: number | undefined }
   ): Promise<WallObject>;
   softRemoveWallObject(roomId: string, objectId: string, input: { updatedByUserId: string; expectedVersion?: number | undefined }): Promise<WallObject>;
+  appendWhiteboardStroke(input: WhiteboardStroke): Promise<WhiteboardStroke>;
+  listWhiteboardStrokes(roomId: string, wallObjectId: string, filter?: { sinceZ?: number | undefined }): Promise<WhiteboardStroke[]>;
+  eraseWhiteboardStrokes(roomId: string, wallObjectId: string, strokeIds: string[]): Promise<string[]>;
+  clearWhiteboard(roomId: string, wallObjectId: string): Promise<void>;
+  upsertWhiteboardSnapshot(input: WhiteboardSnapshot): Promise<WhiteboardSnapshot>;
+  latestWhiteboardSnapshot(roomId: string, wallObjectId: string): Promise<WhiteboardSnapshot | undefined>;
   upsertBuiltinWorldSkins(skins: WorldSkin[]): Promise<void>;
   listWorldSkins(): Promise<WorldSkin[]>;
   getWorldSkin(slug: string): Promise<WorldSkin | undefined>;
@@ -193,6 +201,8 @@ export class MemoryRepository implements Repository {
   private classroomStates = new Map<string, ClassroomState>();
   private attachments = new Map<string, WallAttachment>();
   private wallObjects = new Map<string, WallObject>();
+  private whiteboardStrokes = new Map<string, WhiteboardStroke>();
+  private whiteboardSnapshots = new Map<string, WhiteboardSnapshot>();
   private worldSkins = new Map<string, WorldSkin>();
   private roomObjectTemplates = new Map<string, RoomObjectTemplate & { archivedAt?: string }>();
   private roomObjects = new Map<string, RoomObject>();
@@ -416,6 +426,12 @@ export class MemoryRepository implements Repository {
     for (const [id, object] of this.wallObjects.entries()) {
       if (object.roomId === roomId) this.wallObjects.delete(id);
     }
+    for (const [id, stroke] of this.whiteboardStrokes.entries()) {
+      if (stroke.roomId === roomId) this.whiteboardStrokes.delete(id);
+    }
+    for (const [key, snapshot] of this.whiteboardSnapshots.entries()) {
+      if (snapshot.roomId === roomId) this.whiteboardSnapshots.delete(key);
+    }
     for (const [id, object] of this.roomObjects.entries()) {
       if (object.roomId === roomId) this.roomObjects.delete(id);
     }
@@ -556,6 +572,46 @@ export class MemoryRepository implements Repository {
 
   async softRemoveWallObject(roomId: string, objectId: string, input: { updatedByUserId: string; expectedVersion?: number | undefined }) {
     return this.updateWallObject(roomId, objectId, { updatedByUserId: input.updatedByUserId, expectedVersion: input.expectedVersion, status: "removed" });
+  }
+
+  async appendWhiteboardStroke(input: WhiteboardStroke) {
+    this.whiteboardStrokes.set(input.id, input);
+    return input;
+  }
+
+  async listWhiteboardStrokes(roomId: string, wallObjectId: string, filter: { sinceZ?: number | undefined } = {}) {
+    return Array.from(this.whiteboardStrokes.values())
+      .filter((stroke) => stroke.roomId === roomId && stroke.wallObjectId === wallObjectId && (filter.sinceZ === undefined || stroke.z > filter.sinceZ))
+      .sort((a, b) => a.z - b.z || a.createdAt.localeCompare(b.createdAt));
+  }
+
+  async eraseWhiteboardStrokes(roomId: string, wallObjectId: string, strokeIds: string[]) {
+    const erased: string[] = [];
+    for (const strokeId of strokeIds) {
+      const existing = this.whiteboardStrokes.get(strokeId);
+      if (!existing || existing.roomId !== roomId || existing.wallObjectId !== wallObjectId) continue;
+      this.whiteboardStrokes.delete(strokeId);
+      erased.push(strokeId);
+    }
+    return erased;
+  }
+
+  async clearWhiteboard(roomId: string, wallObjectId: string) {
+    for (const [id, stroke] of this.whiteboardStrokes.entries()) {
+      if (stroke.roomId === roomId && stroke.wallObjectId === wallObjectId) {
+        this.whiteboardStrokes.delete(id);
+      }
+    }
+    this.whiteboardSnapshots.delete(`${roomId}:${wallObjectId}`);
+  }
+
+  async upsertWhiteboardSnapshot(input: WhiteboardSnapshot) {
+    this.whiteboardSnapshots.set(`${input.roomId}:${input.wallObjectId}`, input);
+    return input;
+  }
+
+  async latestWhiteboardSnapshot(roomId: string, wallObjectId: string) {
+    return this.whiteboardSnapshots.get(`${roomId}:${wallObjectId}`);
   }
 
   async upsertBuiltinWorldSkins(skins: WorldSkin[]) {

@@ -34,6 +34,8 @@ import {
   ListWorldSkinsResponseSchema,
   ListRoomObjectTemplatesQuerySchema,
   GetRoomObjectTemplateQuerySchema,
+  ListWhiteboardStrokesQuerySchema,
+  ListWhiteboardStrokesResponseSchema,
   WorldSkinSchema,
   RoomSkinMessageSchema,
   ListRoomObjectTemplatesResponseSchema,
@@ -80,6 +82,7 @@ import {
   type RoomObjectRealtimeMessage,
   type WallObject,
   type WallObjectType,
+  type WhiteboardRealtimeMessage,
   type WorldSkin,
   type RoomSettings,
   type RoomType,
@@ -104,9 +107,19 @@ import {
   RoomBoardUpdatedMessageV1Schema,
   RoomBoardRemovedMessageV1Schema,
   StartMeetingNotesSessionResponseSchema,
+  CommitWhiteboardStrokeRequestSchema,
+  CommitWhiteboardStrokeResponseSchema,
+  EraseWhiteboardStrokesRequestSchema,
+  EraseWhiteboardStrokesResponseSchema,
+  ClearWhiteboardResponseSchema,
+  RequestWhiteboardSnapshotResponseSchema,
   UpdateMeetingNotesSummaryRequestSchema,
   UploadMeetingNotesAudioChunkRequestSchema,
   UploadMeetingNotesAudioChunkResponseSchema,
+  WhiteboardStrokeCommitMessageV1Schema,
+  WhiteboardStrokeEraseMessageV1Schema,
+  WhiteboardClearedMessageV1Schema,
+  WhiteboardSnapshotReadyMessageV1Schema,
   getRoomTypeFeatureFlags
 } from "@3dspace/contracts";
 import {
@@ -193,6 +206,13 @@ import {
   roomObjectStorageKeyFor,
   storageKeyFor
 } from "./services/storage.js";
+import { maybeCompactWhiteboard } from "./whiteboards/snapshots.js";
+import {
+  normalizedWhiteboardStateUpdate,
+  readWhiteboardState,
+  stampedWhiteboardStroke,
+  validateWhiteboardStrokeInput
+} from "./whiteboards/validation.js";
 import {
   meetingNotesStorageBase,
   summarizeMeetingNotes,
@@ -418,6 +438,16 @@ function roomSettings(config: AppConfig) {
       maxSessionDurationMinutes: config.tuning.aiMeetingNotesMaxDurationMinutes,
       retentionDays: 30
     },
+    whiteboards: {
+      enabled: config.tuning.enableWhiteboards,
+      maxActivePerRoom: config.tuning.whiteboardMaxActivePerRoom,
+      maxStrokesPerBoard: 10_000,
+      maxPointsPerStroke: config.tuning.whiteboardMaxPointsPerStroke,
+      showRemoteCursors: true,
+      cursorBroadcastHz: 20,
+      allowStudentDraw: true,
+      snapshotEvery: config.tuning.whiteboardSnapshotAtStrokes
+    },
     aiObjects: {
       enabled: config.tuning.enableAiObjectGeneration,
       maxConcurrentJobsPerRoom: 3,
@@ -554,6 +584,12 @@ function assertWallObjectsEnabled(room: { settings: RoomSettings }, config: AppC
   }
 }
 
+function assertWhiteboardsEnabled(room: { type?: RoomType | string | null | undefined; settings: RoomSettings }, config: AppConfig) {
+  if (!config.tuning.enableWhiteboards || !room.settings.whiteboards.enabled || !getRoomTypeFeatureFlags(room.type).whiteboards) {
+    throw notFound("Whiteboards are unavailable for this room");
+  }
+}
+
 async function listRoomWallAnchors(
   repository: Repository,
   room: { id: string; type: RoomType },
@@ -685,6 +721,37 @@ async function assertWallObjectManagePolicy(repository: Repository, roomId: stri
   throw forbidden("Teacher role required to manage this wall object");
 }
 
+async function assertWhiteboardWritePolicy(input: {
+  repository: Repository;
+  room: { id: string; type?: RoomType | string | null | undefined; settings: RoomSettings };
+  auth: AuthContext;
+  wallAnchorId: string;
+}) {
+  const { teacher } = await actorIsRoomTeacher(input.repository, input.room.id, input.auth);
+  if (teacher) return { teacher, granted: false };
+  if (input.room.type !== "classroom") return { teacher: false, granted: false };
+  if (!input.room.settings.whiteboards.allowStudentDraw) {
+    throw forbidden("Student whiteboard drawing is disabled");
+  }
+
+  const grant = await getApplicableBoardGrant({
+    repository: input.repository,
+    roomId: input.room.id,
+    userId: input.auth.userId,
+    wallAnchorId: input.wallAnchorId,
+    type: "whiteboard"
+  });
+  if (!grant) throw forbidden("You do not have draw access to this whiteboard");
+  return { teacher: false, granted: true };
+}
+
+async function requireWhiteboardObject(repository: Repository, roomId: string, objectId: string) {
+  const object = await repository.getWallObject(roomId, objectId);
+  if (!object) throw notFound("Wall object not found");
+  if (object.type !== "whiteboard") throw badRequest("Wall object is not a whiteboard");
+  return object;
+}
+
 async function validateWallObjectSource(input: {
   repository: Repository;
   roomId: string;
@@ -722,6 +789,16 @@ async function validateWallObjectSource(input: {
 }
 
 function preparePollWallObjectInput(body: z.infer<typeof CreateWallObjectRequestSchema>) {
+  if (body.type === "whiteboard") {
+    return {
+      source: { kind: "inline" as const, data: body.source.kind === "inline" ? body.source.data : {} },
+      state: {
+        ...(body.state ?? {}),
+        ...readWhiteboardState({ state: body.state })
+      }
+    };
+  }
+
   if (body.type !== "poll" || body.source.kind !== "inline") {
     return { source: body.source, state: body.state ?? {} };
   }
@@ -749,6 +826,12 @@ async function enforceWallObjectLimits(repository: Repository, room: { id: strin
   const active = await repository.listWallObjects(room.id, { status: "active" });
   if (active.length >= room.settings.maxActiveWallObjects) {
     throw conflict("Room has reached the active wall object limit");
+  }
+  if (type === "whiteboard") {
+    const activeWhiteboards = active.filter((object) => object.type === "whiteboard");
+    if (activeWhiteboards.length >= room.settings.whiteboards.maxActivePerRoom) {
+      throw conflict("Room has reached the active whiteboard limit");
+    }
   }
   if (isLiveWallObjectType(type)) {
     const activeLive = active.filter((object) => isLiveWallObjectType(object.type));
@@ -3375,6 +3458,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const body = parseBody(CreateWallObjectRequestSchema, request);
     const { room, manifest } = await requireRoomAccess(repository, params.roomId, auth);
     assertWallObjectsEnabled({ settings: room.settings }, config);
+    if (body.type === "whiteboard") assertWhiteboardsEnabled(room, config);
     await assertAnchorAcceptsType(repository, room, manifest, body.wallAnchorId, body.type);
     await assertAnchorAvailableForNewObject(repository, params.roomId, body.wallAnchorId);
     const { teacher, granted } = await assertWallObjectCreatePolicy({
@@ -4051,6 +4135,245 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       createdByUserId: auth.userId
     });
     return updated;
+  });
+
+  app.get("/v1/rooms/:roomId/wall-objects/:objectId/whiteboard/strokes", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomAndObjectId, request);
+    const query = parseQuery(ListWhiteboardStrokesQuerySchema, request);
+    const { room } = await requireRoomAccess(repository, params.roomId, auth);
+    assertWhiteboardsEnabled(room, config);
+    const object = await requireWhiteboardObject(repository, params.roomId, params.objectId);
+    const state = readWhiteboardState(object);
+    const snapshot = await repository.latestWhiteboardSnapshot(params.roomId, params.objectId);
+    const snapshotDownloadUrl = snapshot ? (await createDownloadTarget(config, { storageKey: snapshot.storageKey })).url : null;
+    const strokes = await repository.listWhiteboardStrokes(params.roomId, params.objectId, {
+      sinceZ: query.sinceZ ?? snapshot?.snapshotZ
+    });
+    return ListWhiteboardStrokesResponseSchema.parse({
+      snapshot: snapshot ?? null,
+      snapshotDownloadUrl,
+      strokes,
+      clearVersion: state.clearVersion,
+      strokeCount: state.strokeCount
+    });
+  });
+
+  app.post("/v1/rooms/:roomId/wall-objects/:objectId/whiteboard/strokes", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomAndObjectId, request);
+    const body = parseBody(CommitWhiteboardStrokeRequestSchema, request);
+    const { room } = await requireRoomAccess(repository, params.roomId, auth);
+    assertWhiteboardsEnabled(room, config);
+    const object = await requireWhiteboardObject(repository, params.roomId, params.objectId);
+    if (object.status !== "active") throw conflict("Whiteboard is not active");
+    await assertWhiteboardWritePolicy({
+      repository,
+      room,
+      auth,
+      wallAnchorId: object.wallAnchorId
+    });
+
+    const state = readWhiteboardState(object);
+    if (body.clearVersion !== state.clearVersion) {
+      throw conflict("Whiteboard changed while this stroke was being drawn");
+    }
+    if (state.strokeCount >= room.settings.whiteboards.maxStrokesPerBoard) {
+      throw conflict("Whiteboard has reached the maximum stroke count");
+    }
+    validateWhiteboardStrokeInput(body, {
+      maxPointsPerStroke: Math.min(room.settings.whiteboards.maxPointsPerStroke, config.tuning.whiteboardMaxPointsPerStroke)
+    });
+
+    const existingStrokes = await repository.listWhiteboardStrokes(params.roomId, params.objectId);
+    const nextZ = (existingStrokes.at(-1)?.z ?? -1) + 1;
+    const createdAt = nowIso();
+    const stroke = stampedWhiteboardStroke({
+      roomId: params.roomId,
+      wallObjectId: params.objectId,
+      authorUserId: auth.userId,
+      z: nextZ,
+      createdAt,
+      clearVersion: state.clearVersion,
+      stroke: body
+    });
+    await repository.appendWhiteboardStroke(stroke);
+    const updatedObject = await repository.updateWallObject(params.roomId, params.objectId, {
+      updatedByUserId: auth.userId,
+      state: normalizedWhiteboardStateUpdate({
+        object,
+        strokeCount: state.strokeCount + 1,
+        clearVersion: state.clearVersion,
+        now: createdAt
+      })
+    });
+    const realtimeMessages: WhiteboardRealtimeMessage[] = [
+      WhiteboardStrokeCommitMessageV1Schema.parse({
+        type: "room.whiteboard.stroke-commit.v1",
+        roomId: params.roomId,
+        wallObjectId: params.objectId,
+        stroke,
+        sentAt: Date.now(),
+        senderId: auth.userId
+      })
+    ];
+    const compacted = await maybeCompactWhiteboard({
+      config,
+      repository,
+      room,
+      object: updatedObject,
+      updatedByUserId: auth.userId
+    });
+    if (compacted) {
+      realtimeMessages.push(
+        WhiteboardSnapshotReadyMessageV1Schema.parse({
+          type: "room.whiteboard.snapshot-ready.v1",
+          roomId: params.roomId,
+          wallObjectId: params.objectId,
+          snapshotKey: compacted.snapshot.storageKey,
+          snapshotZ: compacted.snapshot.snapshotZ,
+          sentAt: Date.now(),
+          senderId: auth.userId
+        })
+      );
+    }
+    await repository.recordRoomEvent({
+      roomId: params.roomId,
+      type: "room.whiteboard.stroke-commit.v1",
+      payload: { objectId: params.objectId, strokeId: stroke.id, z: stroke.z, tool: stroke.tool },
+      createdByUserId: auth.userId
+    });
+    return CommitWhiteboardStrokeResponseSchema.parse({ stroke, realtimeMessages });
+  });
+
+  app.delete("/v1/rooms/:roomId/wall-objects/:objectId/whiteboard/strokes", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomAndObjectId, request);
+    const body = parseBody(EraseWhiteboardStrokesRequestSchema, request);
+    const { room } = await requireRoomAccess(repository, params.roomId, auth);
+    assertWhiteboardsEnabled(room, config);
+    const object = await requireWhiteboardObject(repository, params.roomId, params.objectId);
+    if (object.status !== "active") throw conflict("Whiteboard is not active");
+    await assertWhiteboardWritePolicy({
+      repository,
+      room,
+      auth,
+      wallAnchorId: object.wallAnchorId
+    });
+
+    const erasedIds = await repository.eraseWhiteboardStrokes(params.roomId, params.objectId, body.strokeIds);
+    const remaining = await repository.listWhiteboardStrokes(params.roomId, params.objectId);
+    await repository.updateWallObject(params.roomId, params.objectId, {
+      updatedByUserId: auth.userId,
+      state: normalizedWhiteboardStateUpdate({
+        object,
+        strokeCount: remaining.length,
+        clearVersion: readWhiteboardState(object).clearVersion,
+        resetSnapshot: true,
+        now: nowIso()
+      })
+    });
+    await repository.recordRoomEvent({
+      roomId: params.roomId,
+      type: "room.whiteboard.stroke-erase.v1",
+      payload: { objectId: params.objectId, strokeIds: erasedIds },
+      createdByUserId: auth.userId
+    });
+    return EraseWhiteboardStrokesResponseSchema.parse({
+      erasedIds,
+      realtimeMessages: erasedIds.length > 0 ? [
+        WhiteboardStrokeEraseMessageV1Schema.parse({
+          type: "room.whiteboard.stroke-erase.v1",
+          roomId: params.roomId,
+          wallObjectId: params.objectId,
+          strokeIds: erasedIds,
+          erasedByUserId: auth.userId,
+          sentAt: Date.now(),
+          senderId: auth.userId
+        })
+      ] : []
+    });
+  });
+
+  app.post("/v1/rooms/:roomId/wall-objects/:objectId/whiteboard/clear", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomAndObjectId, request);
+    const { room } = await requireRoomAccess(repository, params.roomId, auth);
+    assertWhiteboardsEnabled(room, config);
+    const object = await requireWhiteboardObject(repository, params.roomId, params.objectId);
+    await assertWallObjectManagePolicy(repository, params.roomId, auth, object);
+    const state = readWhiteboardState(object);
+    const clearVersion = state.clearVersion + 1;
+    await repository.clearWhiteboard(params.roomId, params.objectId);
+    const clearedAt = nowIso();
+    await repository.updateWallObject(params.roomId, params.objectId, {
+      updatedByUserId: auth.userId,
+      state: normalizedWhiteboardStateUpdate({
+        object,
+        strokeCount: 0,
+        clearVersion,
+        resetSnapshot: true,
+        now: clearedAt
+      })
+    });
+    await repository.recordRoomEvent({
+      roomId: params.roomId,
+      type: "room.whiteboard.cleared.v1",
+      payload: { objectId: params.objectId, clearVersion },
+      createdByUserId: auth.userId
+    });
+    return ClearWhiteboardResponseSchema.parse({
+      clearVersion,
+      realtimeMessages: [
+        WhiteboardClearedMessageV1Schema.parse({
+          type: "room.whiteboard.cleared.v1",
+          roomId: params.roomId,
+          wallObjectId: params.objectId,
+          clearedByUserId: auth.userId,
+          clearedAt,
+          clearVersion,
+          sentAt: Date.now(),
+          senderId: auth.userId
+        })
+      ]
+    });
+  });
+
+  app.post("/v1/rooms/:roomId/wall-objects/:objectId/whiteboard/snapshots", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomAndObjectId, request);
+    const { room } = await requireRoomAccess(repository, params.roomId, auth);
+    assertWhiteboardsEnabled(room, config);
+    const object = await requireWhiteboardObject(repository, params.roomId, params.objectId);
+    await assertWhiteboardWritePolicy({
+      repository,
+      room,
+      auth,
+      wallAnchorId: object.wallAnchorId
+    });
+    const compacted = await maybeCompactWhiteboard({
+      config,
+      repository,
+      room,
+      object,
+      updatedByUserId: auth.userId,
+      force: true
+    });
+    const snapshot = compacted?.snapshot ?? await repository.latestWhiteboardSnapshot(params.roomId, params.objectId) ?? null;
+    return RequestWhiteboardSnapshotResponseSchema.parse({
+      snapshot,
+      realtimeMessages: compacted ? [
+        WhiteboardSnapshotReadyMessageV1Schema.parse({
+          type: "room.whiteboard.snapshot-ready.v1",
+          roomId: params.roomId,
+          wallObjectId: params.objectId,
+          snapshotKey: compacted.snapshot.storageKey,
+          snapshotZ: compacted.snapshot.snapshotZ,
+          sentAt: Date.now(),
+          senderId: auth.userId
+        })
+      ] : []
+    });
   });
 
   app.post("/v1/rooms/:roomId/wall-shares", async (request) => {

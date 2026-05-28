@@ -64,6 +64,12 @@ export type AppConfig = {
     openAiSummaryModel: string;
     aiMeetingNotesMaxDurationMinutes: number;
     aiMeetingNotesStoragePrefix: string;
+    enableWhiteboards: boolean;
+    whiteboardCompactionTickSeconds: number;
+    whiteboardSnapshotAtStrokes: number;
+    whiteboardMaxPointsPerStroke: number;
+    whiteboardMaxActivePerRoom: number;
+    whiteboardStoragePrefix: string;
     enableAiObjectGeneration: boolean;
     aiObjectProvider: "procedural" | "meshy";
     meshyApiKey: string | undefined;
@@ -158,6 +164,15 @@ function requiredInProduction(config: AppConfig, raw: NodeJS.ProcessEnv) {
   ];
 
   if (config.tuning.enableWallAttachments) {
+    required.push(
+      "OBJECT_STORAGE_ENDPOINT",
+      "OBJECT_STORAGE_BUCKET",
+      "OBJECT_STORAGE_ACCESS_KEY_ID",
+      "OBJECT_STORAGE_SECRET_ACCESS_KEY"
+    );
+  }
+
+  if (config.tuning.enableWhiteboards) {
     required.push(
       "OBJECT_STORAGE_ENDPOINT",
       "OBJECT_STORAGE_BUCKET",
@@ -262,6 +277,12 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       openAiSummaryModel: envString(raw, "OPENAI_SUMMARY_MODEL") ?? "gpt-4.1",
       aiMeetingNotesMaxDurationMinutes: envNumber(raw, "AI_MEETING_NOTES_MAX_DURATION_MINUTES", 120),
       aiMeetingNotesStoragePrefix: envString(raw, "AI_MEETING_NOTES_STORAGE_PREFIX") ?? "meeting-notes/",
+      enableWhiteboards: envBoolean(raw, "ENABLE_WHITEBOARDS", true),
+      whiteboardCompactionTickSeconds: envNumber(raw, "WHITEBOARD_COMPACTION_TICK_SECONDS", 30),
+      whiteboardSnapshotAtStrokes: envNumber(raw, "WHITEBOARD_SNAPSHOT_AT_STROKES", 500),
+      whiteboardMaxPointsPerStroke: envNumber(raw, "WHITEBOARD_MAX_POINTS_PER_STROKE", 2000),
+      whiteboardMaxActivePerRoom: envNumber(raw, "WHITEBOARD_MAX_ACTIVE_PER_ROOM", 4),
+      whiteboardStoragePrefix: envString(raw, "WHITEBOARD_STORAGE_PREFIX") ?? "whiteboards/",
       enableAiObjectGeneration: envBoolean(raw, "ENABLE_AI_OBJECT_GENERATION", false),
       aiObjectProvider: (() => {
         const val = envString(raw, "AI_OBJECT_PROVIDER") ?? "procedural";

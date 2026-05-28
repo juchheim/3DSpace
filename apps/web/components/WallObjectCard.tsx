@@ -16,6 +16,8 @@ import {
   timerElapsedForResume
 } from "../lib/timerRuntime";
 import { useTimerRuntime } from "../lib/useTimerRuntime";
+import type { WhiteboardController } from "../lib/useWhiteboards";
+import { WhiteboardSurface } from "./Whiteboard/WhiteboardSurface";
 
 type WallObjectCardStyle = CSSProperties & { "--wall-object-fit": string };
 export type WallObjectControlAction =
@@ -474,7 +476,10 @@ export function WallObjectContent({
   assetUrl,
   videoStream,
   audioStream,
-  onControl
+  onControl,
+  whiteboardController,
+  whiteboardParticipantNames,
+  canWriteWhiteboard
 }: {
   object: WallObject;
   canManage: boolean;
@@ -484,7 +489,26 @@ export function WallObjectContent({
   videoStream?: MediaStream | null | undefined;
   audioStream?: MediaStream | null | undefined;
   onControl?: (objectId: string, action: WallObjectControlAction, positionSeconds?: number, choiceId?: string) => void;
+  whiteboardController?: WhiteboardController | undefined;
+  whiteboardParticipantNames?: Record<string, string> | undefined;
+  canWriteWhiteboard?: ((object: WallObject) => boolean) | undefined;
 }) {
+  if (object.type === "whiteboard" && whiteboardController && currentUserId) {
+    return (
+      <WhiteboardSurface
+        object={object}
+        board={whiteboardController.getBoard(object.id)}
+        controller={whiteboardController}
+        currentUserId={currentUserId}
+        canManage={canManage}
+        canWrite={canWriteWhiteboard ? canWriteWhiteboard(object) : canManage}
+        interactive={surface}
+        showToolbar
+        {...(whiteboardParticipantNames ? { participantNames: whiteboardParticipantNames } : {})}
+      />
+    );
+  }
+
   if (object.type === "timer") {
     return <WallTimerDisplay object={object} canManage={canManage} surface={surface} {...(onControl ? { onControl } : {})} />;
   }
@@ -577,6 +601,9 @@ export function WallObjectCard({
   onRemove,
   onStopShare,
   onControl,
+  whiteboardController,
+  whiteboardParticipantNames,
+  canWriteWhiteboard,
   onModerate,
   onFullscreen,
   hideHeader = false
@@ -592,6 +619,9 @@ export function WallObjectCard({
   onRemove?: (objectId: string) => void;
   onStopShare?: (objectId: string) => void;
   onControl?: (objectId: string, action: WallObjectControlAction, positionSeconds?: number, choiceId?: string) => void;
+  whiteboardController?: WhiteboardController | undefined;
+  whiteboardParticipantNames?: Record<string, string> | undefined;
+  canWriteWhiteboard?: ((object: WallObject) => boolean) | undefined;
   onModerate?: (objectId: string, action: "approve" | "reject") => void;
   onFullscreen?: (objectId: string) => void;
   hideHeader?: boolean;
@@ -609,10 +639,13 @@ export function WallObjectCard({
         assetUrl={assetUrl}
         videoStream={videoStream}
         audioStream={audioStream}
+        whiteboardController={whiteboardController}
+        whiteboardParticipantNames={whiteboardParticipantNames}
+        canWriteWhiteboard={canWriteWhiteboard}
         {...(onControl ? { onControl } : {})}
       />
     ),
-    [assetUrl, audioStream, canManage, currentUserId, object, onControl, surface, videoStream]
+    [assetUrl, audioStream, canManage, canWriteWhiteboard, currentUserId, object, onControl, surface, videoStream, whiteboardController, whiteboardParticipantNames]
   );
 
   return (
@@ -646,7 +679,7 @@ export function WallObjectCard({
         </header>
       )}
       <div className="wall-object-card__media">{body}</div>
-      {canManage && !(surface && (object.type === "timer" || object.type === "poll")) ? (
+      {canManage && !(surface && (object.type === "timer" || object.type === "poll" || object.type === "whiteboard")) ? (
         <footer className="wall-object-card__actions">
           {object.type.endsWith(".live") && live ? (
             <button type="button" className="secondary" onClick={() => onStopShare?.(object.id)}>
