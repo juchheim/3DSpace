@@ -14,16 +14,130 @@ import {
 
 type Tool = "select" | WhiteboardStroke["tool"];
 
-const TOOL_OPTIONS: Array<{ id: Tool; label: string; token: string }> = [
-  { id: "select", label: "Select", token: "S" },
-  { id: "pen", label: "Pen", token: "P" },
-  { id: "highlighter", label: "Highlighter", token: "H" },
-  { id: "eraser", label: "Eraser", token: "E" },
-  { id: "line", label: "Line", token: "/" },
-  { id: "rectangle", label: "Rectangle", token: "[]" },
-  { id: "ellipse", label: "Ellipse", token: "O" },
-  { id: "arrow", label: "Arrow", token: "->" },
-  { id: "text", label: "Text", token: "T" }
+function IconCursor() {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4 2L4 12L7 9.5L8.5 13.5L10.5 12.5L9 8.5H13L4 2Z"/>
+    </svg>
+  );
+}
+function IconPen() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 2L14 5L5 14H2V11L11 2Z"/>
+      <path d="M8.5 4.5L11.5 7.5"/>
+    </svg>
+  );
+}
+function IconHighlighter() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9.5 2L13 5.5L7 12L4 12V9L9.5 2Z" strokeWidth="2.2"/>
+      <line x1="2.5" y1="14" x2="8.5" y2="14" strokeWidth="1.5"/>
+    </svg>
+  );
+}
+function IconEraser() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 10.5L7.5 4L13 8.5L8.5 14H4.5L3 10.5Z"/>
+      <line x1="2.5" y1="14" x2="13.5" y2="14"/>
+      <line x1="7.5" y1="4" x2="13" y2="8.5"/>
+    </svg>
+  );
+}
+function IconLine() {
+  return (
+    <svg viewBox="0 0 16 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <line x1="3" y1="13" x2="13" y2="3"/>
+    </svg>
+  );
+}
+function IconRect() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
+      <rect x="2.5" y="4" width="11" height="8" rx="0.5"/>
+    </svg>
+  );
+}
+function IconEllipse() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <ellipse cx="8" cy="8" rx="5.5" ry="4"/>
+    </svg>
+  );
+}
+function IconArrow() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="3" y1="13" x2="13" y2="3"/>
+      <polyline points="6,3 13,3 13,10"/>
+    </svg>
+  );
+}
+function IconText() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <line x1="3" y1="3" x2="13" y2="3"/>
+      <line x1="8" y1="3" x2="8" y2="13"/>
+      <line x1="5" y1="13" x2="11" y2="13"/>
+    </svg>
+  );
+}
+function IconUndo() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 6H9C12 6 14 8 14 10.5C14 13 12 14 9 14H7"/>
+      <polyline points="6,3 3,6 6,9"/>
+    </svg>
+  );
+}
+function IconRedo() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M13 6H7C4 6 2 8 2 10.5C2 13 4 14 7 14H9"/>
+      <polyline points="10,3 13,6 10,9"/>
+    </svg>
+  );
+}
+function IconDownload() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="8" y1="2" x2="8" y2="11"/>
+      <polyline points="4,8 8,12 12,8"/>
+      <line x1="2" y1="14" x2="14" y2="14"/>
+    </svg>
+  );
+}
+function IconTrash() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="2" y1="4" x2="14" y2="4"/>
+      <path d="M5 4V3H11V4M5.5 4L6 13H10L10.5 4"/>
+      <line x1="7" y1="7" x2="7" y2="10.5"/>
+      <line x1="9" y1="7" x2="9" y2="10.5"/>
+    </svg>
+  );
+}
+function IconWeight({ px }: { px: number }) {
+  const h = Math.min(px * 1.2, 7);
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor">
+      <rect x="2" y={8 - h / 2} width="12" height={Math.max(1.5, h)} rx={h / 2}/>
+    </svg>
+  );
+}
+
+const TOOL_OPTIONS: Array<{ id: Tool; label: string; icon: React.ReactNode }> = [
+  { id: "select", label: "Select", icon: <IconCursor /> },
+  { id: "pen", label: "Pen", icon: <IconPen /> },
+  { id: "highlighter", label: "Highlighter", icon: <IconHighlighter /> },
+  { id: "eraser", label: "Eraser", icon: <IconEraser /> },
+  { id: "line", label: "Line", icon: <IconLine /> },
+  { id: "rectangle", label: "Rectangle", icon: <IconRect /> },
+  { id: "ellipse", label: "Ellipse", icon: <IconEllipse /> },
+  { id: "arrow", label: "Arrow", icon: <IconArrow /> },
+  { id: "text", label: "Text", icon: <IconText /> }
 ];
 
 const MAX_COMMIT_POINTS = 50;
@@ -326,6 +440,7 @@ export function WhiteboardSurface({
       data-read-only={!canWrite}
       style={whiteboardUiStyle}
     >
+      <div className="whiteboard-surface__canvas-wrap">
       {showToolbar ? (
         <div className="whiteboard-toolbar">
           <div className="whiteboard-toolbar__group whiteboard-toolbar__group--tools" role="group" aria-label="Whiteboard tools">
@@ -339,10 +454,11 @@ export function WhiteboardSurface({
                 title={entry.label}
                 aria-label={entry.label}
               >
-                {entry.token}
+                {entry.icon}
               </button>
             ))}
           </div>
+          <div className="whiteboard-toolbar__sep" aria-hidden="true"/>
           <div className="whiteboard-toolbar__group whiteboard-toolbar__swatches" role="group" aria-label="Ink color">
             {WHITEBOARD_PRESET_COLORS.map((entry) => (
               <button
@@ -356,6 +472,7 @@ export function WhiteboardSurface({
               />
             ))}
           </div>
+          <div className="whiteboard-toolbar__sep" aria-hidden="true"/>
           <div className="whiteboard-toolbar__group whiteboard-toolbar__weights" role="group" aria-label="Stroke weight">
             {WHITEBOARD_THICKNESSES.map((entry) => (
               <button
@@ -367,10 +484,11 @@ export function WhiteboardSurface({
                 title={`${entry}px`}
                 aria-label={`${entry}px stroke`}
               >
-                {entry}
+                <IconWeight px={entry} />
               </button>
             ))}
           </div>
+          <div className="whiteboard-toolbar__sep" aria-hidden="true"/>
           <div className="whiteboard-toolbar__group whiteboard-toolbar__actions" role="group" aria-label="Whiteboard actions">
             <button
               type="button"
@@ -380,7 +498,7 @@ export function WhiteboardSurface({
               title="Undo"
               aria-label="Undo"
             >
-              U
+              <IconUndo />
             </button>
             <button
               type="button"
@@ -390,14 +508,14 @@ export function WhiteboardSurface({
               title="Redo"
               aria-label="Redo"
             >
-              R
+              <IconRedo />
             </button>
             <button type="button" className="whiteboard-toolbar__action" onClick={() => void handleExport()} title="Export PNG" aria-label="Export PNG">
-              DL
+              <IconDownload />
             </button>
             <button
               type="button"
-              className="whiteboard-toolbar__action"
+              className="whiteboard-toolbar__action whiteboard-toolbar__action--danger"
               disabled={!interactive || !canManage}
               onClick={() => {
                 if (!canManage) return;
@@ -406,16 +524,15 @@ export function WhiteboardSurface({
                 setUndoStack([]);
                 setRedoStack([]);
               }}
-              title="Clear"
+              title="Clear whiteboard"
               aria-label="Clear whiteboard"
             >
-              X
+              <IconTrash />
             </button>
           </div>
           {!canWrite ? <span className="whiteboard-toolbar__status">Read-only</span> : null}
         </div>
       ) : null}
-      <div className="whiteboard-surface__canvas-wrap">
         <canvas
           ref={canvasRef}
           className="whiteboard-surface__canvas"
