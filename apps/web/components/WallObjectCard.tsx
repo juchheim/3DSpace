@@ -118,6 +118,25 @@ function StreamAudio({ stream }: { stream: MediaStream }) {
   return <audio ref={audioRef} autoPlay controls />;
 }
 
+function WhiteboardSummary({ object, canWrite }: { object: WallObject; canWrite: boolean }) {
+  const strokeCount = Number(object.state?.strokeCount ?? 0);
+  const lastUpdatedAt = typeof object.state?.lastUpdatedAt === "string" ? object.state.lastUpdatedAt : null;
+
+  return (
+    <div className="wall-object-whiteboard-summary">
+      <p className="wall-object-card__body">
+        Collaborative whiteboard on this board.
+        <br />
+        {strokeCount} stroke{strokeCount === 1 ? "" : "s"}.
+      </p>
+      <p className="wall-object-whiteboard-summary__meta">
+        {canWrite ? "Draw on the wall surface to edit." : "Read-only."}
+        {lastUpdatedAt ? ` Updated ${new Date(lastUpdatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}.` : ""}
+      </p>
+    </div>
+  );
+}
+
 function WallTimerDisplay({
   object,
   canManage,
@@ -494,6 +513,9 @@ export function WallObjectContent({
   canWriteWhiteboard?: ((object: WallObject) => boolean) | undefined;
 }) {
   if (object.type === "whiteboard" && whiteboardController && currentUserId) {
+    if (!surface) {
+      return <WhiteboardSummary object={object} canWrite={canWriteWhiteboard ? canWriteWhiteboard(object) : canManage} />;
+    }
     return (
       <WhiteboardSurface
         object={object}

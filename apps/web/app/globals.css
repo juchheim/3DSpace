@@ -2671,6 +2671,26 @@ button.hud-heading-btn:hover {
   padding: 0.75rem;
 }
 
+.wall-object-whiteboard-summary {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 4.5rem;
+  background: linear-gradient(180deg, rgba(248, 246, 239, 0.12), rgba(248, 246, 239, 0.04));
+}
+
+.wall-object-whiteboard-summary .wall-object-card__body {
+  opacity: 0.92;
+}
+
+.wall-object-whiteboard-summary__meta {
+  margin: 0;
+  padding: 0 0.75rem 0.75rem;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: rgba(255, 250, 240, 0.74);
+}
+
 .wall-object-card__body ul {
   margin: 0.45rem 0 0;
   padding-left: 1rem;
@@ -6005,6 +6025,9 @@ body.lobby-dark::before {
 }
 
 .whiteboard-surface {
+  --whiteboard-ui-font-size: 12px;
+  --whiteboard-ui-gap: 4px;
+  --whiteboard-ui-swatch-size: 18px;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -6017,11 +6040,13 @@ body.lobby-dark::before {
 .whiteboard-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.3rem;
+  gap: var(--whiteboard-ui-gap);
   align-items: center;
-  padding: 0.45rem;
+  align-content: flex-start;
+  padding: calc(var(--whiteboard-ui-gap) + 1px);
   border-bottom: 1px solid rgba(23, 32, 26, 0.14);
   background: rgba(255, 250, 240, 0.92);
+  overflow: hidden;
 }
 
 .whiteboard-toolbar__tool,
@@ -6031,8 +6056,10 @@ body.lobby-dark::before {
   background: #fffaf0;
   color: #17201a;
   border-radius: 999px;
-  padding: 0.28rem 0.55rem;
-  font: inherit;
+  padding: calc(var(--whiteboard-ui-gap) * 0.85) calc(var(--whiteboard-ui-gap) * 1.75);
+  font-size: var(--whiteboard-ui-font-size);
+  line-height: 1.1;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -6045,13 +6072,14 @@ body.lobby-dark::before {
 .whiteboard-toolbar__swatches,
 .whiteboard-toolbar__weights {
   display: flex;
-  gap: 0.25rem;
+  flex-wrap: wrap;
+  gap: var(--whiteboard-ui-gap);
   align-items: center;
 }
 
 .whiteboard-toolbar__swatch {
-  width: 1rem;
-  height: 1rem;
+  width: var(--whiteboard-ui-swatch-size);
+  height: var(--whiteboard-ui-swatch-size);
   border-radius: 999px;
   border: 2px solid rgba(23, 32, 26, 0.16);
   cursor: pointer;
@@ -6064,7 +6092,10 @@ body.lobby-dark::before {
 
 .whiteboard-toolbar__status {
   margin-left: auto;
-  font-size: 0.78rem;
+  flex: 1 0 auto;
+  min-width: max-content;
+  text-align: right;
+  font-size: calc(var(--whiteboard-ui-font-size) - 1px);
   color: rgba(23, 32, 26, 0.72);
 }
 
@@ -6134,15 +6165,16 @@ body.lobby-dark::before {
 
 .whiteboard-surface__text-input {
   position: absolute;
-  min-width: 10rem;
-  min-height: 3rem;
+  min-width: 8rem;
+  min-height: 2.5rem;
   transform: translate(-8%, -8%);
   resize: both;
   border: 1px solid rgba(23, 32, 26, 0.18);
   border-radius: 0.5rem;
-  padding: 0.45rem;
+  padding: 0.4rem;
   background: #fffaf0;
   color: #17201a;
+  font-size: var(--whiteboard-ui-font-size);
 }
 
 .map2d-whiteboards {

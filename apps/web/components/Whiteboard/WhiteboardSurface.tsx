@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { WallObject, WhiteboardPoint, WhiteboardStroke } from "@3dspace/contracts";
 import type { WhiteboardBoardState, WhiteboardController } from "../../lib/useWhiteboards";
 import {
@@ -87,8 +87,10 @@ export function WhiteboardSurface({
   const [color, setColor] = useState<string>("#111827");
   const [thickness, setThickness] = useState<number>(2);
   const [draft, setDraft] = useState<DraftStrokeState | null>(null);
+  const draftRef = useRef<DraftStrokeState | null>(null);
   const [selectedStrokeId, setSelectedStrokeId] = useState<string | null>(null);
   const [dragOrigin, setDragOrigin] = useState<{ stroke: WhiteboardStroke; point: WhiteboardPoint } | null>(null);
+  const dragOriginRef = useRef<{ stroke: WhiteboardStroke; point: WhiteboardPoint } | null>(null);
   const [textDraft, setTextDraft] = useState<{ point: WhiteboardPoint; value: string; fontSize: number } | null>(null);
   const [undoStack, setUndoStack] = useState<WhiteboardStroke[]>([]);
   const [redoStack, setRedoStack] = useState<WhiteboardStroke[]>([]);
@@ -132,6 +134,14 @@ export function WhiteboardSurface({
     observer.observe(root);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
+
+  useEffect(() => {
+    dragOriginRef.current = dragOrigin;
+  }, [dragOrigin]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -199,9 +209,21 @@ export function WhiteboardSurface({
       start: point,
       points: [point]
     };
+    draftRef.current = nextDraft;
     setDraft(nextDraft);
     return nextDraft;
   }
+
+  const whiteboardUiStyle = useMemo<CSSProperties>(() => {
+    const fontSize = Math.max(10, Math.min(13, surfaceSize.width / 52));
+    const gap = Math.max(3, Math.min(5, surfaceSize.width / 220));
+    const swatchSize = Math.max(14, Math.min(20, surfaceSize.width / 30));
+    return {
+      "--whiteboard-ui-font-size": `${fontSize}px`,
+      "--whiteboard-ui-gap": `${gap}px`,
+      "--whiteboard-ui-swatch-size": `${swatchSize}px`
+    } as CSSProperties;
+  }, [surfaceSize.width]);
 
   async function handleExport() {
     const blob = await exportWhiteboardPng({
@@ -221,29 +243,42 @@ export function WhiteboardSurface({
   async function handleUndo() {
     const stroke = undoStack.at(-1);
     if (!stroke) return;
-    await controller.eraseStrokes(object.id, [stroke.id]);
-    setUndoStack((current) => current.slice(0, -1));
-    setRedoStack((current) => [...current, stroke]);
+    try {
+      await controller.eraseStrokes(object.id, [stroke.id]);
+      setUndoStack((current) => current.slice(0, -1));
+      setRedoStack((current) => [...current, stroke]);
+    } catch {
+      return;
+    }
   }
 
   async function handleRedo() {
     const stroke = redoStack.at(-1);
     if (!stroke) return;
-    const recommitted = await controller.commitStroke(object.id, {
-      id: stroke.id,
-      tool: stroke.tool,
-      color: stroke.color,
-      thickness: stroke.thickness,
-      points: stroke.points,
-      ...(stroke.text ? { text: stroke.text } : {}),
-      clearVersion: board.clearVersion
-    });
-    setRedoStack((current) => current.slice(0, -1));
-    setUndoStack((current) => [...current, recommitted]);
+    try {
+      const recommitted = await controller.commitStroke(object.id, {
+        id: stroke.id,
+        tool: stroke.tool,
+        color: stroke.color,
+        thickness: stroke.thickness,
+        points: stroke.points,
+        ...(stroke.text ? { text: stroke.text } : {}),
+        clearVersion: board.clearVersion
+      });
+      setRedoStack((current) => current.slice(0, -1));
+      setUndoStack((current) => [...current, recommitted]);
+    } catch {
+      return;
+    }
   }
 
   return (
-    <div ref={rootRef} className={`whiteboard-surface${interactive ? " whiteboard-surface--interactive" : ""}`} data-read-only={!canWrite}>
+    <div
+      ref={rootRef}
+      className={`whiteboard-surface${interactive ? " whiteboard-surface--interactive" : ""}`}
+      data-read-only={!canWrite}
+      style={whiteboardUiStyle}
+    >
       {showToolbar ? (
         <div className="whiteboard-toolbar">
           {(["select", "pen", "highlighter", "eraser", "line", "rectangle", "ellipse", "arrow", "text"] as Tool[]).map((entry) => (
@@ -337,7 +372,9 @@ export function WhiteboardSurface({
               const selected = [...board.strokes].reverse().find((stroke) => strokeHitTest(stroke, point)) ?? null;
               setSelectedStrokeId(selected?.id ?? null);
               if (selected) {
-                setDragOrigin({ stroke: selected, point });
+                const nextDragOrigin = { stroke: selected, point };
+                dragOriginRef.current = nextDragOrigin;
+                setDragOrigin(nextDragOrigin);
               }
               return;
             }
@@ -372,12 +409,13 @@ export function WhiteboardSurface({
               senderId: currentUserId
             });
             if (!interactive || !canWrite) return;
-            if (dragOrigin) return;
-            if (!draft) return;
+            if (dragOriginRef.current) return;
+            if (!draftRef.current) return;
             setDraft((current) => {
               if (!current) return current;
               if (current.tool === "pen" || current.tool === "highlighter" || current.tool === "eraser") {
                 const next = { ...current, points: [...current.points, point] };
+                draftRef.current = next;
                 controller.publishStrokeDelta(object.id, {
                   type: "room.whiteboard.stroke-delta.v1",
                   wallObjectId: object.id,
@@ -392,7 +430,9 @@ export function WhiteboardSurface({
                 });
                 return next;
               }
-              return { ...current, points: [current.start, point] };
+              const next = { ...current, points: [current.start, point] };
+              draftRef.current = next;
+              return next;
             });
           }}
           onPointerUp={(event) => {
@@ -410,32 +450,40 @@ export function WhiteboardSurface({
               senderId: currentUserId
             });
             if (!interactive || !canWrite) return;
-            if (dragOrigin) {
-              const dx = point.x - dragOrigin.point.x;
-              const dy = point.y - dragOrigin.point.y;
+            const activeDragOrigin = dragOriginRef.current;
+            if (activeDragOrigin) {
+              const dx = point.x - activeDragOrigin.point.x;
+              const dy = point.y - activeDragOrigin.point.y;
               if (Math.abs(dx) > 0.001 || Math.abs(dy) > 0.001) {
-                const moved = translateStroke(dragOrigin.stroke, dx, dy);
+                const moved = translateStroke(activeDragOrigin.stroke, dx, dy);
                 void (async () => {
-                  await controller.eraseStrokes(object.id, [dragOrigin.stroke.id]);
-                  const recommitted = await controller.commitStroke(object.id, {
-                    id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
-                    tool: moved.tool,
-                    color: moved.color,
-                    thickness: moved.thickness,
-                    points: moved.points,
-                    ...(moved.text ? { text: moved.text } : {}),
-                    clearVersion: board.clearVersion
-                  });
-                  setSelectedStrokeId(recommitted.id);
+                  try {
+                    await controller.eraseStrokes(object.id, [activeDragOrigin.stroke.id]);
+                    const recommitted = await controller.commitStroke(object.id, {
+                      id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
+                      tool: moved.tool,
+                      color: moved.color,
+                      thickness: moved.thickness,
+                      points: moved.points,
+                      ...(moved.text ? { text: moved.text } : {}),
+                      clearVersion: board.clearVersion
+                    });
+                    setSelectedStrokeId(recommitted.id);
+                  } catch {
+                    return;
+                  }
                 })();
               }
+              dragOriginRef.current = null;
               setDragOrigin(null);
               return;
             }
-            if (!draft) return;
-            const currentDraft = draft.tool === "pen" || draft.tool === "highlighter" || draft.tool === "eraser"
-              ? draft
-              : { ...draft, points: [draft.start, point] };
+            const activeDraft = draftRef.current;
+            if (!activeDraft) return;
+            const currentDraft = activeDraft.tool === "pen" || activeDraft.tool === "highlighter" || activeDraft.tool === "eraser"
+              ? activeDraft
+              : { ...activeDraft, points: [activeDraft.start, point] };
+            draftRef.current = null;
             setDraft(null);
 
             if (currentDraft.tool === "eraser") {
@@ -451,7 +499,7 @@ export function WhiteboardSurface({
             if ((currentDraft.tool === "pen" || currentDraft.tool === "highlighter") && currentDraft.points.length < 2) {
               return;
             }
-            void commitDraftStroke(currentDraft);
+            void commitDraftStroke(currentDraft).catch(() => undefined);
           }}
         />
         {textDraft ? (
@@ -479,7 +527,7 @@ export function WhiteboardSurface({
               }).then((stroke) => {
                 setUndoStack((stack) => [...stack, stroke]);
                 setRedoStack([]);
-              });
+              }).catch(() => undefined);
             }}
           />
         ) : null}
