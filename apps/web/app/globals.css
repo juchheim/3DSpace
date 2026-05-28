@@ -6173,6 +6173,10 @@ body.lobby-dark::before {
   cursor: crosshair;
 }
 
+.whiteboard-surface--interactive[data-active-tool="text"] .whiteboard-surface__canvas {
+  cursor: text;
+}
+
 .whiteboard-surface[data-read-only="true"] .whiteboard-surface__canvas {
   cursor: default;
 }
@@ -6224,6 +6228,7 @@ body.lobby-dark::before {
 
 .whiteboard-surface__text-input {
   position: absolute;
+  z-index: 12;
   min-width: 8rem;
   min-height: 2.5rem;
   transform: translate(-8%, -8%);
@@ -6233,7 +6238,9 @@ body.lobby-dark::before {
   padding: 0.4rem;
   background: #fffaf0;
   color: #17201a;
-  font-size: var(--whiteboard-ui-font-size);
+  line-height: 1.25;
+  pointer-events: auto;
+  box-shadow: 0 2px 10px rgba(17, 24, 39, 0.12);
 }
 
 .map2d-whiteboards {

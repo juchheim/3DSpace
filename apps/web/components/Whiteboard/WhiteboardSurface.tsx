@@ -247,6 +247,10 @@ export function WhiteboardSurface({
   const [dragOrigin, setDragOrigin] = useState<{ stroke: WhiteboardStroke; point: WhiteboardPoint } | null>(null);
   const dragOriginRef = useRef<{ stroke: WhiteboardStroke; point: WhiteboardPoint } | null>(null);
   const [textDraft, setTextDraft] = useState<{ point: WhiteboardPoint; value: string; fontSize: number } | null>(null);
+  const textDraftRef = useRef(textDraft);
+  const textInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const textOpenedAtRef = useRef(0);
+  const textPlacementRef = useRef<WhiteboardPoint | null>(null);
   const [undoStack, setUndoStack] = useState<WhiteboardStroke[]>([]);
   const [redoStack, setRedoStack] = useState<WhiteboardStroke[]>([]);
   const [surfaceSize, setSurfaceSize] = useState({ width: 640, height: 360 });
@@ -297,6 +301,19 @@ export function WhiteboardSurface({
   useEffect(() => {
     dragOriginRef.current = dragOrigin;
   }, [dragOrigin]);
+
+  useEffect(() => {
+    textDraftRef.current = textDraft;
+  }, [textDraft]);
+
+  useEffect(() => {
+    if (!textDraft) return;
+    textOpenedAtRef.current = Date.now();
+    const frame = requestAnimationFrame(() => {
+      textInputRef.current?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [textDraft]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -438,11 +455,40 @@ export function WhiteboardSurface({
     }
   }
 
+  async function commitTextDraft(current: { point: WhiteboardPoint; value: string; fontSize: number }) {
+    const trimmed = current.value.trim();
+    if (!trimmed) return;
+    try {
+      const stroke = await controller.commitStroke(object.id, {
+        id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
+        tool: "text",
+        color,
+        thickness,
+        points: [current.point],
+        text: {
+          value: trimmed,
+          fontSize: current.fontSize
+        },
+        clearVersion: board.clearVersion
+      });
+      setUndoStack((stack) => [...stack, stroke]);
+      setRedoStack([]);
+    } catch {
+      return;
+    }
+  }
+
+  function cancelTextDraft() {
+    textPlacementRef.current = null;
+    setTextDraft(null);
+  }
+
   return (
     <div
       ref={rootRef}
       className={`whiteboard-surface${interactive ? " whiteboard-surface--interactive" : ""}`}
       data-read-only={!canWrite}
+      data-active-tool={tool}
       style={whiteboardUiStyle}
     >
       <div className="whiteboard-surface__canvas-wrap">
@@ -459,6 +505,8 @@ export function WhiteboardSurface({
                   if (tool !== entry.id) {
                     draftRef.current = null;
                     setDraft(null);
+                    textPlacementRef.current = null;
+                    setTextDraft(null);
                   }
                   setTool(entry.id);
                 }}
@@ -563,7 +611,7 @@ export function WhiteboardSurface({
             });
 
             if (tool === "text") {
-              setTextDraft({ point, value: "", fontSize: 20 });
+              textPlacementRef.current = point;
               return;
             }
 
@@ -648,6 +696,14 @@ export function WhiteboardSurface({
               senderId: currentUserId
             });
             if (!interactive || !canWrite) return;
+            if (tool === "text") {
+              const placement = textPlacementRef.current;
+              textPlacementRef.current = null;
+              if (placement) {
+                setTextDraft({ point: placement, value: "", fontSize: 20 });
+              }
+              return;
+            }
             const activeDragOrigin = dragOriginRef.current;
             if (activeDragOrigin) {
               const dx = point.x - activeDragOrigin.point.x;
@@ -702,30 +758,41 @@ export function WhiteboardSurface({
         />
         {textDraft ? (
           <textarea
+            ref={textInputRef}
             className="whiteboard-surface__text-input"
-            autoFocus
-            style={{ left: `${textDraft.point.x * 100}%`, top: `${textDraft.point.y * 100}%` }}
+            style={{
+              left: `${textDraft.point.x * 100}%`,
+              top: `${textDraft.point.y * 100}%`,
+              color,
+              fontSize: `${textDraft.fontSize}px`
+            }}
             value={textDraft.value}
+            placeholder="Type here"
             onChange={(event) => setTextDraft((current) => (current ? { ...current, value: event.target.value } : current))}
+            onPointerDown={(event) => event.stopPropagation()}
+            onMouseDown={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                cancelTextDraft();
+                return;
+              }
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                const current = textDraftRef.current;
+                setTextDraft(null);
+                if (current) void commitTextDraft(current);
+              }
+            }}
             onBlur={() => {
-              const current = textDraft;
+              if (Date.now() - textOpenedAtRef.current < 200) {
+                requestAnimationFrame(() => textInputRef.current?.focus({ preventScroll: true }));
+                return;
+              }
+              const current = textDraftRef.current;
               setTextDraft(null);
-              if (!current?.value.trim()) return;
-              void controller.commitStroke(object.id, {
-                id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
-                tool: "text",
-                color,
-                thickness,
-                points: [current.point],
-                text: {
-                  value: current.value.trim(),
-                  fontSize: current.fontSize
-                },
-                clearVersion: board.clearVersion
-              }).then((stroke) => {
-                setUndoStack((stack) => [...stack, stroke]);
-                setRedoStack([]);
-              }).catch(() => undefined);
+              if (!current) return;
+              void commitTextDraft(current);
             }}
           />
         ) : null}
