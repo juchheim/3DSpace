@@ -1,0 +1,10 @@
+# LiveKit WebSocket + HTTPS for 3dspace.tripjuchheim.com
+# Copy to the server: /etc/caddy/Caddyfile
+#
+# Prerequisites:
+# - DNS A record: 3dspace -> 178.105.34.126 (Cloudflare DNS only / grey cloud)
+# - LiveKit listening on 127.0.0.1:7880 (see README.md)
+
+3dspace.tripjuchheim.com {
+	reverse_proxy 127.0.0.1:7880
+}

@@ -1,0 +1,11 @@
+# Reference copy — on the server this lives at /opt/livekit/docker-compose.yml
+# See README.md Part E.
+
+services:
+  livekit:
+    image: livekit/livekit-server:latest
+    command: --config /etc/livekit.yaml
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro

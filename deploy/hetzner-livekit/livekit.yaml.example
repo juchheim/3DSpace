@@ -1,0 +1,21 @@
+# Copy to the server as /opt/livekit/livekit.yaml
+# Replace YOUR_API_KEY and YOUR_API_SECRET (see README.md Part E2).
+# node_ip is set for this Hetzner server.
+
+port: 7880
+bind_addresses:
+  - 127.0.0.1
+
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 60000
+  use_external_ip: true
+  node_ip: 178.105.34.126
+
+turn:
+  enabled: false
+  # Enable after Caddy TLS — requires cert_file and key_file (see README.md).
+
+keys:
+  YOUR_API_KEY: YOUR_API_SECRET
