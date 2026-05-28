@@ -68,6 +68,19 @@ export class ApiError extends Error {
   }
 }
 
+function apiErrorMessage(response: Response, payload: Record<string, unknown>) {
+  if (typeof payload.message === "string" && payload.message.trim()) return payload.message;
+  if (payload.error === "validation_error" && Array.isArray(payload.issues)) {
+    const issue = payload.issues[0] as { message?: unknown; path?: unknown } | undefined;
+    if (typeof issue?.message === "string" && issue.message.trim()) {
+      const path = Array.isArray(issue.path) ? issue.path.join(".") : "";
+      return path ? `${path}: ${issue.message}` : issue.message;
+    }
+  }
+  if (response.statusText) return response.statusText;
+  return `Request failed with ${response.status}`;
+}
+
 function roomObjectUploadErrorMessage(error: ApiError) {
   const details = error.details;
   if (error.code === "room-object-upload-rejected" && details?.reason === "triangle_budget_exceeded") {
@@ -109,11 +122,11 @@ export async function apiFetch<T>(path: string, options: RequestOptions): Promis
   const response = await fetch(`${API_URL}${path}`, init);
 
   if (!response.ok) {
-    const payload = await response.json().catch(() => ({ message: response.statusText }));
+    const payload = await response.json().catch(() => ({ message: response.statusText })) as Record<string, unknown>;
     throw new ApiError(
       response.status,
-      payload.message ?? `Request failed with ${response.status}`,
-      payload.error,
+      apiErrorMessage(response, payload),
+      typeof payload.error === "string" ? payload.error : undefined,
       payload
     );
   }

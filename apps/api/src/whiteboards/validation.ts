@@ -28,9 +28,6 @@ export function validateWhiteboardStrokeInput(
   }
 
   if (FREEHAND_TOOLS.has(input.tool)) {
-    if (input.points.length < 2 && input.tool !== "eraser") {
-      throw badRequest("Freehand whiteboard strokes require at least two points");
-    }
     if (input.text) throw badRequest("Text payload is only valid for text strokes");
     return;
   }

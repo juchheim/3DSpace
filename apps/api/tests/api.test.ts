@@ -1555,7 +1555,7 @@ describe("3dspace api", () => {
         tool: "pen",
         color: "#1f2937",
         thickness: 4,
-        points: [{ x: 0.1, y: 0.15 }, { x: 0.35, y: 0.42 }],
+        points: [{ x: 0.1, y: 0.15 }],
         clearVersion: 0
       }
     });

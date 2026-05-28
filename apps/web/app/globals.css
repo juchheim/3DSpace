@@ -6027,7 +6027,8 @@ body.lobby-dark::before {
 .whiteboard-surface {
   --whiteboard-ui-font-size: 12px;
   --whiteboard-ui-gap: 4px;
-  --whiteboard-ui-swatch-size: 18px;
+  --whiteboard-ui-control-size: 24px;
+  --whiteboard-ui-swatch-size: 14px;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -6043,51 +6044,73 @@ body.lobby-dark::before {
   gap: var(--whiteboard-ui-gap);
   align-items: center;
   align-content: flex-start;
-  padding: calc(var(--whiteboard-ui-gap) + 1px);
-  border-bottom: 1px solid rgba(23, 32, 26, 0.14);
-  background: rgba(255, 250, 240, 0.92);
+  max-width: 100%;
+  padding: var(--whiteboard-ui-gap);
+  border-bottom: 1px solid rgba(255, 250, 240, 0.12);
+  background: rgba(10, 18, 15, 0.9);
+  box-shadow: 0 2px 10px rgba(10, 18, 15, 0.18);
   overflow: hidden;
+}
+
+.whiteboard-toolbar__group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--whiteboard-ui-gap);
+  align-items: center;
+  min-width: 0;
+}
+
+.whiteboard-toolbar__group--tools {
+  flex: 1 1 210px;
+}
+
+.whiteboard-toolbar__actions {
+  margin-left: auto;
 }
 
 .whiteboard-toolbar__tool,
 .whiteboard-toolbar__weight,
 .whiteboard-toolbar__action {
-  border: 1px solid rgba(23, 32, 26, 0.16);
-  background: #fffaf0;
-  color: #17201a;
-  border-radius: 999px;
-  padding: calc(var(--whiteboard-ui-gap) * 0.85) calc(var(--whiteboard-ui-gap) * 1.75);
+  display: inline-grid;
+  place-items: center;
+  width: var(--whiteboard-ui-control-size);
+  height: var(--whiteboard-ui-control-size);
+  min-width: var(--whiteboard-ui-control-size);
+  border: 1px solid rgba(255, 250, 240, 0.18);
+  background: rgba(255, 250, 240, 0.08);
+  color: #fffaf0;
+  border-radius: 6px;
+  padding: 0;
   font-size: var(--whiteboard-ui-font-size);
   line-height: 1.1;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
 }
 
 .whiteboard-toolbar__tool.is-active,
 .whiteboard-toolbar__weight.is-active {
-  background: #17201a;
-  color: #fffaf0;
+  border-color: rgba(255, 201, 107, 0.7);
+  background: rgba(255, 201, 107, 0.22);
+  color: #fff7df;
 }
 
 .whiteboard-toolbar__swatches,
 .whiteboard-toolbar__weights {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--whiteboard-ui-gap);
-  align-items: center;
+  flex: 0 1 auto;
 }
 
 .whiteboard-toolbar__swatch {
   width: var(--whiteboard-ui-swatch-size);
   height: var(--whiteboard-ui-swatch-size);
-  border-radius: 999px;
-  border: 2px solid rgba(23, 32, 26, 0.16);
+  border-radius: 50%;
+  border: 1px solid rgba(255, 250, 240, 0.32);
   cursor: pointer;
 }
 
 .whiteboard-toolbar__swatch.is-active {
-  transform: scale(1.15);
-  border-color: #17201a;
+  transform: scale(1.14);
+  border-color: #ffc96b;
+  box-shadow: 0 0 0 1px rgba(10, 18, 15, 0.75);
 }
 
 .whiteboard-toolbar__status {
@@ -6096,7 +6119,12 @@ body.lobby-dark::before {
   min-width: max-content;
   text-align: right;
   font-size: calc(var(--whiteboard-ui-font-size) - 1px);
-  color: rgba(23, 32, 26, 0.72);
+  color: rgba(255, 250, 240, 0.72);
+}
+
+.whiteboard-toolbar button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
 }
 
 .whiteboard-surface__canvas-wrap {

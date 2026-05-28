@@ -14,6 +14,20 @@ import {
 
 type Tool = "select" | WhiteboardStroke["tool"];
 
+const TOOL_OPTIONS: Array<{ id: Tool; label: string; token: string }> = [
+  { id: "select", label: "Select", token: "S" },
+  { id: "pen", label: "Pen", token: "P" },
+  { id: "highlighter", label: "Highlighter", token: "H" },
+  { id: "eraser", label: "Eraser", token: "E" },
+  { id: "line", label: "Line", token: "/" },
+  { id: "rectangle", label: "Rectangle", token: "[]" },
+  { id: "ellipse", label: "Ellipse", token: "O" },
+  { id: "arrow", label: "Arrow", token: "->" },
+  { id: "text", label: "Text", token: "T" }
+];
+
+const MAX_COMMIT_POINTS = 50;
+
 type DraftStrokeState = {
   id: string;
   tool: WhiteboardStroke["tool"];
@@ -58,6 +72,33 @@ function pointFromEvent(event: React.PointerEvent<HTMLCanvasElement>, canvas: HT
     x: Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width)),
     y: Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height))
   };
+}
+
+function sanitizePoint(point: WhiteboardPoint): WhiteboardPoint {
+  return {
+    x: Number.isFinite(point.x) ? Math.min(1, Math.max(0, point.x)) : 0,
+    y: Number.isFinite(point.y) ? Math.min(1, Math.max(0, point.y)) : 0,
+    ...(point.pressure !== undefined && Number.isFinite(point.pressure)
+      ? { pressure: Math.min(1, Math.max(0, point.pressure)) }
+      : {})
+  };
+}
+
+function nudgePoint(point: WhiteboardPoint): WhiteboardPoint {
+  return {
+    ...point,
+    x: point.x < 0.999 ? point.x + 0.001 : point.x - 0.001
+  };
+}
+
+function thinPoints(points: WhiteboardPoint[], maxPoints = MAX_COMMIT_POINTS) {
+  const sanitized = points.map(sanitizePoint);
+  if (sanitized.length <= maxPoints) return sanitized;
+  if (maxPoints <= 1) return [sanitized[0]!];
+  return Array.from({ length: maxPoints }, (_, index) => {
+    const sourceIndex = Math.round((index * (sanitized.length - 1)) / (maxPoints - 1));
+    return sanitized[sourceIndex]!;
+  });
 }
 
 export function WhiteboardSurface({
@@ -184,14 +225,18 @@ export function WhiteboardSurface({
       nextDraft.tool === "rectangle" ||
       nextDraft.tool === "ellipse" ||
       nextDraft.tool === "arrow"
-        ? [nextDraft.start, nextDraft.points.at(-1) ?? nextDraft.start]
-        : nextDraft.points;
+        ? [sanitizePoint(nextDraft.start), sanitizePoint(nextDraft.points.at(-1) ?? nextDraft.start)]
+        : thinPoints(nextDraft.points);
+    const commitPoints =
+      (nextDraft.tool === "pen" || nextDraft.tool === "highlighter") && nextPoints.length < 2
+        ? [sanitizePoint(nextDraft.start), nudgePoint(sanitizePoint(nextDraft.start))]
+        : nextPoints;
     const stroke = await controller.commitStroke(object.id, {
       id: nextDraft.id,
       tool: nextDraft.tool,
       color: nextDraft.color,
       thickness: nextDraft.thickness,
-      points: nextPoints,
+      points: commitPoints,
       clearVersion: board.clearVersion
     });
     setUndoStack((current) => [...current, stroke]);
@@ -215,12 +260,14 @@ export function WhiteboardSurface({
   }
 
   const whiteboardUiStyle = useMemo<CSSProperties>(() => {
-    const fontSize = Math.max(10, Math.min(13, surfaceSize.width / 52));
-    const gap = Math.max(3, Math.min(5, surfaceSize.width / 220));
-    const swatchSize = Math.max(14, Math.min(20, surfaceSize.width / 30));
+    const controlSize = Math.max(20, Math.min(26, surfaceSize.width / 30));
+    const fontSize = Math.max(9, Math.min(11, controlSize * 0.45));
+    const gap = Math.max(3, Math.min(5, surfaceSize.width / 180));
+    const swatchSize = Math.max(12, Math.min(16, controlSize * 0.62));
     return {
       "--whiteboard-ui-font-size": `${fontSize}px`,
       "--whiteboard-ui-gap": `${gap}px`,
+      "--whiteboard-ui-control-size": `${controlSize}px`,
       "--whiteboard-ui-swatch-size": `${swatchSize}px`
     } as CSSProperties;
   }, [surfaceSize.width]);
@@ -281,18 +328,22 @@ export function WhiteboardSurface({
     >
       {showToolbar ? (
         <div className="whiteboard-toolbar">
-          {(["select", "pen", "highlighter", "eraser", "line", "rectangle", "ellipse", "arrow", "text"] as Tool[]).map((entry) => (
-            <button
-              key={entry}
-              type="button"
-              className={`whiteboard-toolbar__tool${tool === entry ? " is-active" : ""}`}
-              disabled={!interactive || (!canWrite && entry !== "select")}
-              onClick={() => setTool(entry)}
-            >
-              {entry}
-            </button>
-          ))}
-          <div className="whiteboard-toolbar__swatches">
+          <div className="whiteboard-toolbar__group whiteboard-toolbar__group--tools" role="group" aria-label="Whiteboard tools">
+            {TOOL_OPTIONS.map((entry) => (
+              <button
+                key={entry.id}
+                type="button"
+                className={`whiteboard-toolbar__tool${tool === entry.id ? " is-active" : ""}`}
+                disabled={!interactive || (!canWrite && entry.id !== "select")}
+                onClick={() => setTool(entry.id)}
+                title={entry.label}
+                aria-label={entry.label}
+              >
+                {entry.token}
+              </button>
+            ))}
+          </div>
+          <div className="whiteboard-toolbar__group whiteboard-toolbar__swatches" role="group" aria-label="Ink color">
             {WHITEBOARD_PRESET_COLORS.map((entry) => (
               <button
                 key={entry}
@@ -305,7 +356,7 @@ export function WhiteboardSurface({
               />
             ))}
           </div>
-          <div className="whiteboard-toolbar__weights">
+          <div className="whiteboard-toolbar__group whiteboard-toolbar__weights" role="group" aria-label="Stroke weight">
             {WHITEBOARD_THICKNESSES.map((entry) => (
               <button
                 key={entry}
@@ -313,34 +364,54 @@ export function WhiteboardSurface({
                 className={`whiteboard-toolbar__weight${thickness === entry ? " is-active" : ""}`}
                 disabled={!interactive || !canWrite}
                 onClick={() => setThickness(entry)}
+                title={`${entry}px`}
+                aria-label={`${entry}px stroke`}
               >
-                {entry}px
+                {entry}
               </button>
             ))}
           </div>
-          <button type="button" className="whiteboard-toolbar__action" disabled={!interactive || undoStack.length === 0 || !canWrite} onClick={() => void handleUndo()}>
-            Undo
-          </button>
-          <button type="button" className="whiteboard-toolbar__action" disabled={!interactive || redoStack.length === 0 || !canWrite} onClick={() => void handleRedo()}>
-            Redo
-          </button>
-          <button type="button" className="whiteboard-toolbar__action" onClick={() => void handleExport()}>
-            Export
-          </button>
-          <button
-            type="button"
-            className="whiteboard-toolbar__action"
-            disabled={!interactive || !canManage}
-            onClick={() => {
-              if (!canManage) return;
-              if (!window.confirm("Clear this whiteboard for everyone?")) return;
-              void controller.clear(object.id);
-              setUndoStack([]);
-              setRedoStack([]);
-            }}
-          >
-            Clear
-          </button>
+          <div className="whiteboard-toolbar__group whiteboard-toolbar__actions" role="group" aria-label="Whiteboard actions">
+            <button
+              type="button"
+              className="whiteboard-toolbar__action"
+              disabled={!interactive || undoStack.length === 0 || !canWrite}
+              onClick={() => void handleUndo()}
+              title="Undo"
+              aria-label="Undo"
+            >
+              U
+            </button>
+            <button
+              type="button"
+              className="whiteboard-toolbar__action"
+              disabled={!interactive || redoStack.length === 0 || !canWrite}
+              onClick={() => void handleRedo()}
+              title="Redo"
+              aria-label="Redo"
+            >
+              R
+            </button>
+            <button type="button" className="whiteboard-toolbar__action" onClick={() => void handleExport()} title="Export PNG" aria-label="Export PNG">
+              DL
+            </button>
+            <button
+              type="button"
+              className="whiteboard-toolbar__action"
+              disabled={!interactive || !canManage}
+              onClick={() => {
+                if (!canManage) return;
+                if (!window.confirm("Clear this whiteboard for everyone?")) return;
+                void controller.clear(object.id);
+                setUndoStack([]);
+                setRedoStack([]);
+              }}
+              title="Clear"
+              aria-label="Clear whiteboard"
+            >
+              X
+            </button>
+          </div>
           {!canWrite ? <span className="whiteboard-toolbar__status">Read-only</span> : null}
         </div>
       ) : null}
@@ -410,30 +481,29 @@ export function WhiteboardSurface({
             });
             if (!interactive || !canWrite) return;
             if (dragOriginRef.current) return;
-            if (!draftRef.current) return;
-            setDraft((current) => {
-              if (!current) return current;
-              if (current.tool === "pen" || current.tool === "highlighter" || current.tool === "eraser") {
-                const next = { ...current, points: [...current.points, point] };
-                draftRef.current = next;
-                controller.publishStrokeDelta(object.id, {
-                  type: "room.whiteboard.stroke-delta.v1",
-                  wallObjectId: object.id,
-                  strokeId: next.id,
-                  authorUserId: currentUserId,
-                  tool: next.tool,
-                  color: next.color,
-                  thickness: next.thickness,
-                  deltaPoints: [point],
-                  sentAt: Date.now(),
-                  senderId: currentUserId
-                });
-                return next;
-              }
-              const next = { ...current, points: [current.start, point] };
+            const current = draftRef.current;
+            if (!current) return;
+            if (current.tool === "pen" || current.tool === "highlighter" || current.tool === "eraser") {
+              const next = { ...current, points: [...current.points, point] };
               draftRef.current = next;
-              return next;
-            });
+              setDraft(next);
+              controller.publishStrokeDelta(object.id, {
+                type: "room.whiteboard.stroke-delta.v1",
+                wallObjectId: object.id,
+                strokeId: next.id,
+                authorUserId: currentUserId,
+                tool: next.tool,
+                color: next.color,
+                thickness: next.thickness,
+                deltaPoints: [point],
+                sentAt: Date.now(),
+                senderId: currentUserId
+              });
+              return;
+            }
+            const next = { ...current, points: [current.start, point] };
+            draftRef.current = next;
+            setDraft(next);
           }}
           onPointerUp={(event) => {
             const canvas = canvasRef.current;
