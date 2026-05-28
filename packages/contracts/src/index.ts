@@ -1390,8 +1390,8 @@ export const WhiteboardSnapshotSchema = z.object({
 export const WhiteboardWallObjectStateSchema = z.object({
   strokeCount: z.number().int().nonnegative().default(0),
   lastUpdatedAt: z.string().datetime().optional(),
-  snapshotKey: z.string().optional(),
-  snapshotZ: z.number().int().nonnegative().optional(),
+  snapshotKey: z.preprocess((value) => value === null ? undefined : value, z.string().optional()),
+  snapshotZ: z.preprocess((value) => value === null ? undefined : value, z.number().int().nonnegative().optional()),
   clearVersion: z.number().int().nonnegative().default(0)
 });
 

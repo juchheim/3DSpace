@@ -1524,9 +1524,10 @@ describe("3dspace api", () => {
   });
 
   it("commits, hydrates, erases, and clears whiteboard strokes", async () => {
+    const repository = new MemoryRepository();
     const app = await buildApp({
       config: loadConfig({ NODE_ENV: "test" } as NodeJS.ProcessEnv),
-      repository: new MemoryRepository()
+      repository
     });
     const { roomWithManifest } = await createClassAndRoom(app, "teacher-whiteboard-flow");
     const roomId = roomWithManifest.room.id;
@@ -1545,6 +1546,14 @@ describe("3dspace api", () => {
     });
     expect(createWhiteboard.statusCode).toBe(200);
     const whiteboard = createWhiteboard.json();
+    await repository.updateWallObject(roomId, whiteboard.id, {
+      updatedByUserId: "teacher-whiteboard-flow",
+      state: {
+        ...whiteboard.state,
+        snapshotKey: null,
+        snapshotZ: null
+      } as any
+    });
 
     const firstCommit = await app.inject({
       method: "POST",
