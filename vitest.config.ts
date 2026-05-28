@@ -11,6 +11,7 @@ export default defineConfig({
     environment: "node",
     include: [
       "apps/api/tests/**/*.test.ts",
+      "apps/web/tests/**/*.test.ts",
       "packages/**/tests/**/*.test.ts"
     ],
     coverage: {
