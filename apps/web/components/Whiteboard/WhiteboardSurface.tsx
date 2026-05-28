@@ -360,13 +360,18 @@ export function WhiteboardSurface({
 
   function beginDraft(nextTool: WhiteboardStroke["tool"], point: WhiteboardPoint) {
     const strokeId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+    const usesTwoPoints =
+      nextTool === "line" ||
+      nextTool === "rectangle" ||
+      nextTool === "ellipse" ||
+      nextTool === "arrow";
     const nextDraft: DraftStrokeState = {
       id: strokeId,
       tool: nextTool,
       color,
       thickness,
       start: point,
-      points: [point]
+      points: usesTwoPoints ? [point, point] : [point]
     };
     draftRef.current = nextDraft;
     setDraft(nextDraft);
@@ -450,7 +455,13 @@ export function WhiteboardSurface({
                 type="button"
                 className={`whiteboard-toolbar__tool${tool === entry.id ? " is-active" : ""}`}
                 disabled={!interactive || (!canWrite && entry.id !== "select")}
-                onClick={() => setTool(entry.id)}
+                onClick={() => {
+                  if (tool !== entry.id) {
+                    draftRef.current = null;
+                    setDraft(null);
+                  }
+                  setTool(entry.id);
+                }}
                 title={entry.label}
                 aria-label={entry.label}
               >

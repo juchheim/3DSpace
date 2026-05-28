@@ -22,8 +22,16 @@ function applyStrokeStyle(context: CanvasRenderingContext2D, stroke: WhiteboardS
   context.globalAlpha = stroke.tool === "highlighter" ? 0.5 : 1;
 }
 
+function isValidPoint(point: WhiteboardPoint | undefined): point is WhiteboardPoint {
+  return Boolean(point && Number.isFinite(point.x) && Number.isFinite(point.y));
+}
+
 function toCanvasPoint(point: WhiteboardPoint, width: number, height: number) {
   return { x: point.x * width, y: point.y * height };
+}
+
+function twoPointTools(stroke: WhiteboardStroke) {
+  return stroke.tool === "line" || stroke.tool === "rectangle" || stroke.tool === "ellipse" || stroke.tool === "arrow";
 }
 
 export function strokeBounds(stroke: WhiteboardStroke) {
@@ -32,10 +40,14 @@ export function strokeBounds(stroke: WhiteboardStroke) {
   let maxX = 0;
   let maxY = 0;
   for (const point of stroke.points) {
+    if (!isValidPoint(point)) continue;
     minX = Math.min(minX, point.x);
     minY = Math.min(minY, point.y);
     maxX = Math.max(maxX, point.x);
     maxY = Math.max(maxY, point.y);
+  }
+  if (minX > maxX || minY > maxY) {
+    return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
   }
   if (stroke.tool === "text") {
     maxX = Math.min(1, maxX + 0.2);
@@ -64,8 +76,10 @@ export function drawWhiteboardStroke(
   stroke: WhiteboardStroke,
   size: { width: number; height: number }
 ) {
-  if (stroke.points.length === 0) return;
-  const points = stroke.points.map((point) => toCanvasPoint(point, size.width, size.height));
+  const validPoints = stroke.points.filter(isValidPoint);
+  if (validPoints.length === 0) return;
+  if (twoPointTools(stroke) && validPoints.length < 2) return;
+  const points = validPoints.map((point) => toCanvasPoint(point, size.width, size.height));
   context.save();
   applyStrokeStyle(context, stroke);
 
