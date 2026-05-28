@@ -23,25 +23,30 @@ const MOCK_BOARD: WhiteboardBoardState = {
   strokes: [],
   clearVersion: 0,
   loading: false,
-  error: null,
+  error: "",
   inProgressRemote: {},
   remoteCursors: {},
+  strokeCount: 0
 };
 
 const MOCK_CONTROLLER: WhiteboardController = {
+  boards: { [MOCK_OBJECT.id]: MOCK_BOARD },
+  getBoard: () => MOCK_BOARD,
   commitStroke: async (_objectId, payload) => ({
     ...payload,
-    roomId: "dev-room-1",
-    wallObjectId: "dev-wb-1",
+    roomId: MOCK_OBJECT.roomId,
+    wallObjectId: MOCK_OBJECT.id,
     authorUserId: "dev-user",
     z: Date.now(),
     clearVersion: 0,
-    createdAt: new Date().toISOString(),
+    createdAt: new Date().toISOString()
   }),
-  eraseStrokes: async () => {},
-  clear: async () => {},
-  publishStrokeDelta: () => {},
-  publishCursor: () => {},
+  eraseStrokes: async () => [],
+  clear: async () => undefined,
+  requestSnapshot: async () => undefined,
+  publishStrokeDelta: () => undefined,
+  publishCursor: () => undefined,
+  handleRealtimeMessage: () => false
 };
 
 export default function WhiteboardHeroPage() {
