@@ -2,7 +2,7 @@
 
 import { Html } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
-import { type CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CanvasTexture, LinearFilter, MeshBasicMaterial, SRGBColorSpace, type Mesh } from "three";
 import type { WallObject } from "@3dspace/contracts";
 import { CLIENT_TUNING } from "../../lib/config";
@@ -16,6 +16,22 @@ import { useHyperbeamEmbed } from "./useHyperbeamEmbed";
 const WALL_BROWSER_HTML_Z_INDEX_RANGE: [number, number] = [15, 0];
 const VIEWPORT_HEIGHT_RATIO = 0.84;
 const CHROME_HEIGHT_RATIO = 0.16;
+
+function eventPointToFrame(
+  clientX: number,
+  clientY: number,
+  bounds: DOMRect,
+  frameWidth: number,
+  frameHeight: number
+) {
+  if (bounds.width <= 0 || bounds.height <= 0) return null;
+  const normalizedX = Math.min(Math.max((clientX - bounds.left) / bounds.width, 0), 1);
+  const normalizedY = Math.min(Math.max((clientY - bounds.top) / bounds.height, 0), 1);
+  return {
+    x: Math.round(normalizedX * frameWidth),
+    y: Math.round(normalizedY * frameHeight)
+  };
+}
 
 export function SharedBrowserWallSurface({
   object,
@@ -42,6 +58,8 @@ export function SharedBrowserWallSurface({
   const textureRef = useRef<CanvasTexture | null>(null);
   const materialRef = useRef<MeshBasicMaterial | null>(null);
   const hasFrameRef = useRef(false);
+  const pointerDownRef = useRef(false);
+  const loggedDragMoveRef = useRef(false);
   const [hasFrame, setHasFrame] = useState(false);
   const invalidate = useThree((state) => state.invalidate);
   // Tracks whether we've sent the auto-navigate for the current embed session.
@@ -159,6 +177,17 @@ export function SharedBrowserWallSurface({
   }, [hyperbeam.status]);
 
   useEffect(() => {
+    console.log("[SharedBrowser] wall input state", {
+      hasLease,
+      status: hyperbeam.status,
+      embedEnabled,
+      hasFrame,
+      hasContainer: Boolean(hyperbeam.containerRef.current),
+      hasInstance: Boolean(hyperbeam.instance)
+    });
+  }, [embedEnabled, hasFrame, hasLease, hyperbeam.containerRef, hyperbeam.instance, hyperbeam.status]);
+
+  useEffect(() => {
     const material = materialRef.current;
     if (!material) return;
     material.map = hasFrame ? textureRef.current : null;
@@ -196,7 +225,7 @@ export function SharedBrowserWallSurface({
     return {
       width: `${widthPx}px`,
       height: `${heightPx}px`,
-      pointerEvents: "none",
+      pointerEvents: "auto",
       overflow: "hidden"
     };
   }, [viewportHeight, viewportWidth]);
@@ -215,6 +244,84 @@ export function SharedBrowserWallSurface({
       : hyperbeam.status === "error"
       ? "Connection lost"
       : "Loading browser…";
+
+  const onViewportPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!hasLease) return;
+    const point = eventPointToFrame(
+      event.clientX,
+      event.clientY,
+      event.currentTarget.getBoundingClientRect(),
+      frameSize.width,
+      frameSize.height
+    );
+    console.log("[SharedBrowser] wall pointerdown", {
+      point,
+      button: event.button,
+      pointerType: event.pointerType,
+      hasInstance: Boolean(hyperbeam.instance)
+    });
+    if (!point || !hyperbeam.instance) return;
+    pointerDownRef.current = true;
+    loggedDragMoveRef.current = false;
+    event.currentTarget.focus({ preventScroll: true });
+    event.currentTarget.setPointerCapture(event.pointerId);
+    hyperbeam.instance.sendEvent({ type: "mousemove", x: point.x, y: point.y });
+    hyperbeam.instance.sendEvent({ type: "mousedown", x: point.x, y: point.y, button: event.button });
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const onViewportPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!hasLease || !hyperbeam.instance) return;
+    const point = eventPointToFrame(
+      event.clientX,
+      event.clientY,
+      event.currentTarget.getBoundingClientRect(),
+      frameSize.width,
+      frameSize.height
+    );
+    if (!point) return;
+    if (pointerDownRef.current && !loggedDragMoveRef.current) {
+      loggedDragMoveRef.current = true;
+      console.log("[SharedBrowser] wall drag move", { point, buttons: event.buttons });
+    }
+    hyperbeam.instance.sendEvent({ type: "mousemove", x: point.x, y: point.y });
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const endViewportPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!hasLease || !hyperbeam.instance) return;
+    const point = eventPointToFrame(
+      event.clientX,
+      event.clientY,
+      event.currentTarget.getBoundingClientRect(),
+      frameSize.width,
+      frameSize.height
+    );
+    console.log("[SharedBrowser] wall pointerup", {
+      point,
+      button: event.button,
+      hadPointerDown: pointerDownRef.current
+    });
+    pointerDownRef.current = false;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    if (point) {
+      hyperbeam.instance.sendEvent({ type: "mouseup", x: point.x, y: point.y, button: event.button });
+    }
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const onViewportWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
+    if (!hasLease || !hyperbeam.instance) return;
+    console.log("[SharedBrowser] wall wheel", { deltaY: event.deltaY });
+    hyperbeam.instance.sendEvent({ type: "wheel", deltaY: event.deltaY });
+    event.preventDefault();
+    event.stopPropagation();
+  };
 
   return (
     <>
@@ -260,25 +367,38 @@ export function SharedBrowserWallSurface({
         zIndexRange={WALL_BROWSER_HTML_Z_INDEX_RANGE}
         style={viewportStyle}
       >
-        <div className="wall-object-surface-mount">
+        <div className="wall-object-surface-mount" style={{ position: "relative", width: "100%", height: "100%" }}>
           <div
             ref={hyperbeam.containerRef}
             className="shared-browser-viewport__embed shared-browser-viewport__embed--input-layer"
             aria-label="Shared browser interaction layer"
             role="application"
-            tabIndex={hasLease ? 0 : -1}
-            onPointerDown={(event) => {
-              if (!hasLease) return;
-              event.currentTarget.focus({ preventScroll: true });
-            }}
             style={{
               width: "100%",
               height: "100%",
-              pointerEvents: hasLease ? "auto" : "none",
+              pointerEvents: "none",
               touchAction: "pan-x pan-y",
-              cursor: hasLease ? "default" : "auto",
               background: "transparent",
               overflow: "hidden"
+            }}
+          />
+          <div
+            aria-label="Shared browser event overlay"
+            role="application"
+            tabIndex={hasLease ? 0 : -1}
+            onPointerDown={onViewportPointerDown}
+            onPointerMove={onViewportPointerMove}
+            onPointerUp={endViewportPointer}
+            onPointerCancel={endViewportPointer}
+            onWheel={onViewportWheel}
+            style={{
+              position: "absolute",
+              inset: 0,
+              pointerEvents: hasLease ? "auto" : "none",
+              touchAction: "none",
+              cursor: hasLease ? "default" : "auto",
+              background: "transparent",
+              zIndex: 2
             }}
           />
         </div>
