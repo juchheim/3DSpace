@@ -119,6 +119,7 @@ export class SharedBrowserOrchestrator {
     await assertNavigationAllowed(input.startUrl, guard);
 
     const now = nowIso();
+    const senderId = input.createdBy.userId;
     const session: SharedBrowserSession = {
       id: input.sessionId,
       roomId: input.roomId,
@@ -133,11 +134,33 @@ export class SharedBrowserOrchestrator {
       createdAt: now,
       updatedAt: now
     };
+
+    // Lazy start: persist the session as paused and defer Chromium until someone
+    // resumes, navigates, or sends input. This avoids launching a browser for
+    // every board placed on a wall while the room is empty or unused.
+    if (this.config.tuning.sharedBrowserLazyStart) {
+      const paused: SharedBrowserSession = { ...session, status: "paused", updatedAt: now };
+      await this.repository.createSharedBrowserSession(paused);
+      await this.syncWallObjectState(paused);
+      return {
+        session: paused,
+        realtimeMessages: [
+          {
+            type: "room.shared-browser.session.v1",
+            roomId: paused.roomId,
+            wallObjectId: paused.wallObjectId,
+            status: paused.status,
+            sentAt: Date.now(),
+            senderId
+          },
+          this.stateMessage(paused, senderId)
+        ]
+      };
+    }
+
     await this.repository.createSharedBrowserSession(session);
 
-    // Launch the driver and flip to active. The stub is instant; the Puppeteer
-    // driver (Phase 3) may move this to a background task and leave the row in
-    // "starting" until the page loads.
+    // Eager start (legacy): launch Chromium immediately on board creation.
     let active: SharedBrowserSession;
     try {
       const result = await this.driver.start({ session, startUrl: input.startUrl, navigationGuard: guard });
@@ -158,7 +181,6 @@ export class SharedBrowserOrchestrator {
     await this.syncWallObjectState(active);
     if (active.status === "active") this.video?.onSessionActive(active);
 
-    const senderId = input.createdBy.userId;
     return {
       session: active,
       realtimeMessages: [
@@ -173,6 +195,47 @@ export class SharedBrowserOrchestrator {
         this.stateMessage(active, senderId)
       ]
     };
+  }
+
+  /**
+   * Tear down the live Chromium page and mark the session paused. Idempotent for
+   * already-paused/stopped sessions.
+   */
+  async pauseSession(session: SharedBrowserSession): Promise<boolean> {
+    if (session.status === "paused" || session.status === "stopped") return false;
+    this.video?.onSessionInactive(session.id);
+    try {
+      await this.driver.stop(session.id);
+    } catch {
+      // best-effort teardown
+    }
+    const updated = await this.repository.updateSharedBrowserSession(session.id, {
+      status: "paused",
+      updatedAt: nowIso()
+    });
+    await this.syncWallObjectState(updated);
+    return true;
+  }
+
+  /** Pause every live browser in rooms with no recent participant heartbeats. */
+  async pauseLiveSessionsInEmptyRooms(): Promise<number> {
+    if (!this.config.tuning.sharedBrowserPauseWhenRoomEmpty) return 0;
+    const live = await this.repository.listLiveSharedBrowserSessions();
+    const byRoom = new Map<string, SharedBrowserSession[]>();
+    for (const session of live) {
+      const list = byRoom.get(session.roomId) ?? [];
+      list.push(session);
+      byRoom.set(session.roomId, list);
+    }
+    let paused = 0;
+    for (const [roomId, sessions] of byRoom) {
+      const occupants = await this.repository.countActiveRoomParticipants(roomId);
+      if (occupants > 0) continue;
+      for (const session of sessions) {
+        if (await this.pauseSession(session)) paused += 1;
+      }
+    }
+    return paused;
   }
 
   private async requireSession(roomId: string, wallObjectId: string): Promise<SharedBrowserSession> {

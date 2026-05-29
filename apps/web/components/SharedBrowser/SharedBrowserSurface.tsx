@@ -362,10 +362,18 @@ export function SharedBrowserSurface({
         {!videoStream && jpegUrl ? <img src={jpegUrl} alt={board.title || object.title} className="shared-browser-viewport__image" /> : null}
         {!videoStream && !jpegUrl ? (
           <div className="shared-browser-viewport__placeholder">
-            <strong>{board.status === "paused" ? "Browser paused" : board.loading ? "Connecting…" : "Waiting for video"}</strong>
+            <strong>
+              {board.status === "paused"
+                ? "Browser not started"
+                : board.loading
+                ? "Connecting…"
+                : "Waiting for video"}
+            </strong>
             <span>
               {board.error ||
-                (jpegLoading
+                (board.status === "paused"
+                  ? "Tap Resume or Go to start the room browser."
+                  : jpegLoading
                   ? "Receiving fallback frames…"
                   : board.currentUrl || "The room-owned browser will appear here.")}
             </span>

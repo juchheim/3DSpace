@@ -93,6 +93,8 @@ export type AppConfig = {
     sharedBrowserDeviceScaleFactor: number;
     sharedBrowserScreencastQuality: number;
     sharedBrowserScreencastEveryNthFrame: number;
+    sharedBrowserLazyStart: boolean;
+    sharedBrowserPauseWhenRoomEmpty: boolean;
     sharedBrowserChromiumExecutable: string | undefined;
     enableStudentMediaPermissions: boolean;
     spatialAudio: SpatialAudioConfig;
@@ -332,6 +334,8 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       sharedBrowserDeviceScaleFactor: envNumber(raw, "SHARED_BROWSER_DEVICE_SCALE_FACTOR", 1.5),
       sharedBrowserScreencastQuality: envNumber(raw, "SHARED_BROWSER_SCREENCAST_QUALITY", 85),
       sharedBrowserScreencastEveryNthFrame: envNumber(raw, "SHARED_BROWSER_SCREENCAST_EVERY_NTH_FRAME", 2),
+      sharedBrowserLazyStart: envBoolean(raw, "SHARED_BROWSER_LAZY_START", true),
+      sharedBrowserPauseWhenRoomEmpty: envBoolean(raw, "SHARED_BROWSER_PAUSE_WHEN_ROOM_EMPTY", true),
       sharedBrowserChromiumExecutable: envString(raw, "SHARED_BROWSER_CHROMIUM_EXECUTABLE"),
       enableStudentMediaPermissions: envBoolean(raw, "ENABLE_STUDENT_MEDIA_PERMISSIONS", false),
       spatialAudio: {

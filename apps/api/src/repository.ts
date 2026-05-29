@@ -141,6 +141,8 @@ export type Repository = {
   removeRoomObject(roomId: string, objectId: string): Promise<RoomObject>;
   recordRoomEvent(input: { roomId: string; type: string; payload: Record<string, unknown>; createdByUserId: string }): Promise<RoomEventRecord>;
   recordRoomSession(input: { roomId: string; participantIdentity: string; userId: string; role: Role; maxParticipants: number }): Promise<number>;
+  countActiveRoomParticipants(roomId: string): Promise<number>;
+  releaseRoomSession(roomId: string, participantIdentity: string): Promise<void>;
   listFreeForAllRooms(args: { classId?: string }): Promise<RoomRecord[]>;
   listDynamicWallAnchorsForRoom(roomId: string): Promise<DynamicWallAnchor[]>;
   countDynamicWallAnchorsForRoom(roomId: string): Promise<number>;
@@ -174,7 +176,11 @@ export type Repository = {
   updateSharedBrowserSession(id: string, patch: Partial<SharedBrowserSession>): Promise<SharedBrowserSession>;
   deleteSharedBrowserSession(id: string): Promise<void>;
   listStaleSharedBrowserSessions(olderThanIso: string): Promise<SharedBrowserSession[]>;
+  listLiveSharedBrowserSessions(): Promise<SharedBrowserSession[]>;
 };
+
+/** How long after the last heartbeat a room participant still counts as present. */
+export const ROOM_SESSION_PRESENCE_MS = 90_000;
 
 export function nowIso() {
   return new Date().toISOString();
@@ -769,9 +775,20 @@ export class MemoryRepository implements Repository {
     return Array.from(this.roomEvents.values()).filter((e) => e.roomId === roomId);
   }
 
+  async countActiveRoomParticipants(roomId: string): Promise<number> {
+    const cutoff = Date.now() - ROOM_SESSION_PRESENCE_MS;
+    return Array.from(this.activeSessions.values()).filter(
+      (session) => session.roomId === roomId && session.lastSeenAt >= cutoff
+    ).length;
+  }
+
+  async releaseRoomSession(roomId: string, participantIdentity: string): Promise<void> {
+    this.activeSessions.delete(`${roomId}:${participantIdentity}`);
+  }
+
   async recordRoomSession(input: { roomId: string; participantIdentity: string; userId: string; role: Role; maxParticipants: number }) {
     const sessionKey = `${input.roomId}:${input.participantIdentity}`;
-    const cutoff = Date.now() - 90_000;
+    const cutoff = Date.now() - ROOM_SESSION_PRESENCE_MS;
     for (const [key, value] of this.activeSessions.entries()) {
       if (value.lastSeenAt < cutoff) this.activeSessions.delete(key);
     }
@@ -974,5 +991,10 @@ export class MemoryRepository implements Repository {
     return Array.from(this.sharedBrowserSessions.values()).filter(
       (s) => active.has(s.status) && s.lastInputAt <= olderThanIso
     );
+  }
+
+  async listLiveSharedBrowserSessions(): Promise<SharedBrowserSession[]> {
+    const live = new Set(["starting", "active"]);
+    return Array.from(this.sharedBrowserSessions.values()).filter((s) => live.has(s.status));
   }
 }

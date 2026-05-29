@@ -238,6 +238,20 @@ export function joinRoom(identity: ApiIdentity, roomId: string, input: { viewMod
   });
 }
 
+export function heartbeatRoomSession(identity: ApiIdentity, roomId: string) {
+  return apiFetch<{ ok: boolean }>(`/v1/rooms/${roomId}/session/heartbeat`, {
+    method: "POST",
+    identity
+  });
+}
+
+export function leaveRoomSession(identity: ApiIdentity, roomId: string) {
+  return apiFetch<{ ok: boolean }>(`/v1/rooms/${roomId}/session`, {
+    method: "DELETE",
+    identity
+  });
+}
+
 export function patchAvatarAppearance(identity: ApiIdentity, appearance: AvatarAppearance) {
   return apiFetch<{ ok: boolean }>("/v1/users/me/avatar", {
     method: "PATCH",

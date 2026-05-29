@@ -14,7 +14,9 @@ import { AvatarAppearanceMessageSchema, AvatarReactionMessageSchema, getRoomType
 import { computeGroupMemberPosition, createAvatarState, floorYFromZ, unprojectPointFrom2D } from "@3dspace/room-engine";
 import {
   archiveRoomObjectTemplate,
+  heartbeatRoomSession,
   joinRoom,
+  leaveRoomSession,
   listClassMembers,
   patchAvatarAppearance,
   patchRoom,
@@ -656,6 +658,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     if (leaving) return;
     setLeaving(true);
     setStatus("Leaving room...");
+    void leaveRoomSession(identity, roomId).catch(() => undefined);
     teardownSession();
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -714,6 +717,20 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       cancelled = true;
     };
   }, [session?.room.classId, session?.participantId, identity.userId]);
+
+  useEffect(() => {
+    if (!session || leaving) return;
+    const activeRoomId = session.room.id;
+    const tick = () => {
+      void heartbeatRoomSession(identity, activeRoomId).catch(() => undefined);
+    };
+    tick();
+    const interval = window.setInterval(tick, 30_000);
+    return () => {
+      window.clearInterval(interval);
+      void leaveRoomSession(identity, activeRoomId).catch(() => undefined);
+    };
+  }, [identity, leaving, session]);
 
   useEffect(() => {
     if (!session || leaving) return;

@@ -34,6 +34,7 @@ import {
   newId,
   normalizeRoomRecord,
   nowIso,
+  ROOM_SESSION_PRESENCE_MS,
   type Repository,
   type RoomEventRecord,
   type RoomSettings
@@ -1164,9 +1165,18 @@ export class MongoRepository implements Repository {
     return record;
   }
 
+  async countActiveRoomParticipants(roomId: string): Promise<number> {
+    const cutoff = new Date(Date.now() - ROOM_SESSION_PRESENCE_MS);
+    return this.models.RoomSession.countDocuments({ roomId, lastSeenAt: { $gte: cutoff } });
+  }
+
+  async releaseRoomSession(roomId: string, participantIdentity: string): Promise<void> {
+    await this.models.RoomSession.deleteOne({ roomId, participantIdentity });
+  }
+
   async recordRoomSession(input: { roomId: string; participantIdentity: string; userId: string; role: Role; maxParticipants: number }) {
     const now = new Date();
-    const cutoff = new Date(Date.now() - 90_000);
+    const cutoff = new Date(Date.now() - ROOM_SESSION_PRESENCE_MS);
     const existing = await this.models.RoomSession.findOne({ roomId: input.roomId, participantIdentity: input.participantIdentity }).lean();
     const activeCount = await this.models.RoomSession.countDocuments({ roomId: input.roomId, lastSeenAt: { $gte: cutoff } });
     if (!existing && activeCount >= input.maxParticipants) {
@@ -1399,6 +1409,13 @@ export class MongoRepository implements Repository {
     const docs = await this.models.SharedBrowserSession.find({
       status: { $in: ["starting", "active"] },
       lastInputAt: { $lte: olderThanIso }
+    }).lean() as Record<string, unknown>[];
+    return docs.map(docToSharedBrowserSession);
+  }
+
+  async listLiveSharedBrowserSessions(): Promise<SharedBrowserSession[]> {
+    const docs = await this.models.SharedBrowserSession.find({
+      status: { $in: ["starting", "active"] }
     }).lean() as Record<string, unknown>[];
     return docs.map(docToSharedBrowserSession);
   }

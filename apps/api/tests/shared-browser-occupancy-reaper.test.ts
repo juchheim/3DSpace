@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { SharedBrowserSession } from "@3dspace/contracts";
 import { loadConfig } from "../src/config.js";
 import { MemoryRepository } from "../src/repository.js";
-import { SharedBrowserIdleReaper } from "../src/shared-browser/idle-reaper.js";
+import { SharedBrowserOccupancyReaper } from "../src/shared-browser/occupancy-reaper.js";
 import { SharedBrowserOrchestrator } from "../src/shared-browser/orchestrator.js";
 import type { SharedBrowserDriver } from "../src/shared-browser/types.js";
 
@@ -41,43 +41,46 @@ class StopSpyDriver implements SharedBrowserDriver {
   async pointer() {}
   async keyboard() {}
   async screencastLoop() {}
+  isLive() {
+    return true;
+  }
 }
 
-describe("SharedBrowserIdleReaper.sweep", () => {
-  it("pauses sessions idle past the threshold and leaves fresh ones alone", async () => {
+describe("SharedBrowserOccupancyReaper.sweep", () => {
+  it("pauses live browsers when the room has no active participants", async () => {
     const repository = new MemoryRepository();
-    const config = loadConfig({ SHARED_BROWSER_IDLE_PAUSE_MINUTES: "15" });
+    const config = loadConfig({ SHARED_BROWSER_PAUSE_WHEN_ROOM_EMPTY: "true" });
     const driver = new StopSpyDriver();
     const orchestrator = new SharedBrowserOrchestrator({ repository, config, driver });
-    const reaper = new SharedBrowserIdleReaper({ repository, orchestrator, config });
+    const reaper = new SharedBrowserOccupancyReaper({ orchestrator });
 
-    const now = Date.now();
-    const staleIso = new Date(now - 20 * 60_000).toISOString();
-    const freshIso = new Date(now - 5 * 60_000).toISOString();
+    await repository.createSharedBrowserSession(makeSession({ id: "live" }));
 
-    await repository.createSharedBrowserSession(makeSession({ id: "stale", lastInputAt: staleIso }));
-    await repository.createSharedBrowserSession(makeSession({ id: "fresh", wallObjectId: "wo-2", lastInputAt: freshIso }));
-
-    const paused = await reaper.sweep(now);
-
+    const paused = await reaper.sweep();
     expect(paused).toBe(1);
-    expect(driver.stopped).toEqual(["stale"]);
-    expect((await repository.getSharedBrowserSession("stale"))?.status).toBe("paused");
-    expect((await repository.getSharedBrowserSession("fresh"))?.status).toBe("active");
+    expect(driver.stopped).toEqual(["live"]);
+    expect((await repository.getSharedBrowserSession("live"))?.status).toBe("paused");
   });
 
-  it("does not re-pause already paused sessions", async () => {
+  it("leaves browsers running while participants are present", async () => {
     const repository = new MemoryRepository();
-    const config = loadConfig({ SHARED_BROWSER_IDLE_PAUSE_MINUTES: "15" });
+    const config = loadConfig({ SHARED_BROWSER_PAUSE_WHEN_ROOM_EMPTY: "true" });
     const driver = new StopSpyDriver();
     const orchestrator = new SharedBrowserOrchestrator({ repository, config, driver });
-    const reaper = new SharedBrowserIdleReaper({ repository, orchestrator, config });
+    const reaper = new SharedBrowserOccupancyReaper({ orchestrator });
 
-    const staleIso = new Date(Date.now() - 60 * 60_000).toISOString();
-    await repository.createSharedBrowserSession(makeSession({ id: "p", status: "paused", lastInputAt: staleIso }));
+    await repository.createSharedBrowserSession(makeSession({ id: "live" }));
+    await repository.recordRoomSession({
+      roomId: "room-1",
+      participantIdentity: "user-1:room-1",
+      userId: "user-1",
+      role: "student",
+      maxParticipants: 32
+    });
 
     const paused = await reaper.sweep();
     expect(paused).toBe(0);
     expect(driver.stopped).toEqual([]);
+    expect((await repository.getSharedBrowserSession("live"))?.status).toBe("active");
   });
 });

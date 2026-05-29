@@ -169,6 +169,7 @@ import { RoomObjectGrabLock } from "./room-objects/grab-lock.js";
 import { SharedBrowserOrchestrator, type SharedBrowserActor } from "./shared-browser/orchestrator.js";
 import { PuppeteerSharedBrowserDriver } from "./shared-browser/puppeteer-driver.js";
 import { SharedBrowserIdleReaper } from "./shared-browser/idle-reaper.js";
+import { SharedBrowserOccupancyReaper } from "./shared-browser/occupancy-reaper.js";
 import { SharedBrowserVideoManager } from "./shared-browser/video-manager.js";
 import { JpegFrameStore } from "./shared-browser/jpeg-fallback.js";
 import type { SharedBrowserDriver } from "./shared-browser/types.js";
@@ -2780,15 +2781,20 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   });
 
   let sharedBrowserIdleReaper: SharedBrowserIdleReaper | undefined;
+  let sharedBrowserOccupancyReaper: SharedBrowserOccupancyReaper | undefined;
   if (sharedBrowserDriver) {
     sharedBrowserIdleReaper = new SharedBrowserIdleReaper({
       repository,
-      driver: sharedBrowserDriver,
+      orchestrator: sharedBrowserOrchestrator,
       config,
-      logger: app.log,
-      ...(sharedBrowserVideo ? { video: sharedBrowserVideo } : {})
+      logger: app.log
     });
     sharedBrowserIdleReaper.start();
+    sharedBrowserOccupancyReaper = new SharedBrowserOccupancyReaper({
+      orchestrator: sharedBrowserOrchestrator,
+      logger: app.log
+    });
+    sharedBrowserOccupancyReaper.start();
   }
 
   function clearMeetingNotesAudio(roomId: string, sessionId: string) {
@@ -2970,6 +2976,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   app.addHook("onClose", async () => {
     roomObjectGrabLock.stopReaper();
     sharedBrowserIdleReaper?.stop();
+    sharedBrowserOccupancyReaper?.stop();
     if (sharedBrowserVideo) await sharedBrowserVideo.close();
     if (sharedBrowserDriver?.close) await sharedBrowserDriver.close();
     clearRoomObjectParameterDebounceForTests();
@@ -3437,6 +3444,31 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
         media: config.tuning.media
       }
     });
+  });
+
+  app.post("/v1/rooms/:roomId/session/heartbeat", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomId, request);
+    const { room } = await requireRoomAccess(repository, params.roomId, auth);
+    const membership = await repository.getMembership(room.classId, auth.userId);
+    if (!membership || membership.status !== "active") throw forbidden("Active room membership required");
+    const participantIdentity = `${auth.userId}:${room.id}`;
+    await repository.recordRoomSession({
+      roomId: room.id,
+      participantIdentity,
+      userId: auth.userId,
+      role: membership.role,
+      maxParticipants: room.settings.maxParticipants
+    });
+    return { ok: true as const };
+  });
+
+  app.delete("/v1/rooms/:roomId/session", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomId, request);
+    await requireRoomAccess(repository, params.roomId, auth);
+    await repository.releaseRoomSession(params.roomId, `${auth.userId}:${params.roomId}`);
+    return { ok: true as const };
   });
 
   app.get("/v1/rooms/:roomId/attachments", async (request) => {

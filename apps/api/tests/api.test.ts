@@ -5451,7 +5451,7 @@ describe("room object realtime grab lock", () => {
       expect(created.statusCode).toBe(200);
       const object = created.json();
       expect(object.type).toBe("web.browser.shared");
-      expect(object.state.sessionStatus).toBe("active");
+      expect(object.state.sessionStatus).toBe("paused");
       expect(object.state.currentUrl).toBe("https://1.1.1.1/");
 
       const hydrate = await app.inject({
@@ -5460,7 +5460,7 @@ describe("room object realtime grab lock", () => {
         headers: authHeaders("teacher-sb", "Ms. Rivera")
       });
       expect(hydrate.statusCode).toBe(200);
-      expect(hydrate.json().session.status).toBe("active");
+      expect(hydrate.json().session.status).toBe("paused");
       expect(hydrate.json().session.currentUrl).toBe("https://1.1.1.1/");
 
       await app.close();
