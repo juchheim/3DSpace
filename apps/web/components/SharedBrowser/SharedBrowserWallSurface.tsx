@@ -240,13 +240,15 @@ export function SharedBrowserWallSurface({
     [htmlResolutionScale]
   );
   const viewportStyle = useMemo<CSSProperties>(() => {
-    const widthPx = ((viewportWidth * 400) / WALL_OBJECT_DISTANCE_FACTOR) * htmlResolutionScale;
-    const heightPx = ((viewportHeight * 400) / WALL_OBJECT_DISTANCE_FACTOR) * htmlResolutionScale;
+    const widthPx = (viewportWidth * 400) / WALL_OBJECT_DISTANCE_FACTOR;
+    const heightPx = (viewportHeight * 400) / WALL_OBJECT_DISTANCE_FACTOR;
     return {
       width: `${widthPx}px`,
-      height: `${heightPx}px`
+      height: `${heightPx}px`,
+      pointerEvents: "none",
+      overflow: "hidden"
     };
-  }, [htmlResolutionScale, viewportHeight, viewportWidth]);
+  }, [viewportHeight, viewportWidth]);
 
   const showPlaceholder =
     board.status === "paused" ||
@@ -369,7 +371,7 @@ export function SharedBrowserWallSurface({
         zIndexRange={WALL_BROWSER_HTML_Z_INDEX_RANGE}
         style={viewportStyle}
       >
-        <div className="wall-object-surface-mount" style={chromeMountStyle}>
+        <div className="wall-object-surface-mount">
           <div
             aria-label="Shared browser interaction layer"
             role="application"
@@ -385,7 +387,8 @@ export function SharedBrowserWallSurface({
               pointerEvents: hasLease ? "auto" : "none",
               touchAction: "none",
               cursor: hasLease ? "default" : "auto",
-              background: "transparent"
+              background: "transparent",
+              overflow: "hidden"
             }}
           />
         </div>
