@@ -37,6 +37,7 @@ export type RoomSettings = z.infer<typeof RoomSettingsSchema>;
 export type SharedBrowserSessionPatch = Partial<SharedBrowserSession> & {
   unsetHyperbeam?: boolean;
   unsetLivekit?: boolean;
+  unsetControlLease?: boolean;
 };
 
 export function normalizeRoomRecord(room: RoomRecord): RoomRecord {
@@ -983,10 +984,11 @@ export class MemoryRepository implements Repository {
   async updateSharedBrowserSession(id: string, patch: SharedBrowserSessionPatch): Promise<SharedBrowserSession> {
     const existing = this.sharedBrowserSessions.get(id);
     if (!existing) throw notFound("Shared browser session not found");
-    const { unsetHyperbeam, unsetLivekit, ...rest } = patch;
+    const { unsetHyperbeam, unsetLivekit, unsetControlLease, ...rest } = patch;
     const updated = { ...existing, ...rest } as SharedBrowserSession;
     if (unsetHyperbeam) delete (updated as { hyperbeam?: unknown }).hyperbeam;
     if (unsetLivekit) delete (updated as { livekit?: unknown }).livekit;
+    if (unsetControlLease) delete (updated as { controlLease?: unknown }).controlLease;
     this.sharedBrowserSessions.set(id, updated);
     return updated;
   }

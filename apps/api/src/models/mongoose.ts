@@ -1406,11 +1406,12 @@ export class MongoRepository implements Repository {
   }
 
   async updateSharedBrowserSession(id: string, patch: SharedBrowserSessionPatch): Promise<SharedBrowserSession> {
-    const { unsetHyperbeam, unsetLivekit, ...rest } = patch;
+    const { unsetHyperbeam, unsetLivekit, unsetControlLease, ...rest } = patch;
     const update: Record<string, unknown> = { $set: rest };
     const unset: Record<string, 1> = {};
     if (unsetHyperbeam) unset.hyperbeam = 1;
     if (unsetLivekit) unset.livekit = 1;
+    if (unsetControlLease) unset.controlLease = 1;
     if (Object.keys(unset).length > 0) update.$unset = unset;
     const doc = await this.models.SharedBrowserSession.findOneAndUpdate(
       { id },

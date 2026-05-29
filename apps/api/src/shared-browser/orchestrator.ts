@@ -470,7 +470,8 @@ export class SharedBrowserOrchestrator {
     }
 
     const updated = await this.repository.updateSharedBrowserSession(session.id, {
-      controlLease: nextLease,
+      ...(nextLease ? { controlLease: nextLease } : {}),
+      ...(nextLease ? {} : { unsetControlLease: true }),
       lastInputAt: now,
       updatedAt: now
     });

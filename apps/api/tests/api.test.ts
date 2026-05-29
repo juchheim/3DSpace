@@ -5702,6 +5702,42 @@ describe("room object realtime grab lock", () => {
       await app.close();
     });
 
+    it("clears the stored control lease on release", async () => {
+      const app = await buildSharedBrowserApp();
+      const { roomWithManifest } = await createClassAndRoom(app, "teacher-sb", "free-for-all");
+      const roomId = roomWithManifest.room.id;
+      const object = (await createSharedBrowser(app, roomId, "teacher-sb")).json();
+      const leaseUrl = `/v1/rooms/${roomId}/wall-objects/${object.id}/shared-browser/control-lease`;
+
+      const take = await app.inject({
+        method: "POST",
+        url: leaseUrl,
+        headers: authHeaders("teacher-sb", "Ms. Rivera"),
+        payload: { action: "take" }
+      });
+      expect(take.statusCode).toBe(200);
+      expect(take.json().session.controlLease.userId).toBe("teacher-sb");
+
+      const release = await app.inject({
+        method: "POST",
+        url: leaseUrl,
+        headers: authHeaders("teacher-sb", "Ms. Rivera"),
+        payload: { action: "release" }
+      });
+      expect(release.statusCode).toBe(200);
+      expect(release.json().session.controlLease ?? null).toBeNull();
+
+      const hydrate = await app.inject({
+        method: "GET",
+        url: `/v1/rooms/${roomId}/wall-objects/${object.id}/shared-browser`,
+        headers: authHeaders("teacher-sb", "Ms. Rivera")
+      });
+      expect(hydrate.statusCode).toBe(200);
+      expect(hydrate.json().session.controlLease ?? null).toBeNull();
+
+      await app.close();
+    });
+
     it("returns a typed conflict instead of a 500 when the browser driver is unavailable", async () => {
       const app = await buildFailingSharedBrowserApp();
       const { roomWithManifest } = await createClassAndRoom(app, "teacher-sb", "free-for-all");
