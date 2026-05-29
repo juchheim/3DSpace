@@ -25,33 +25,32 @@ const VIEWPORT_HEIGHT_RATIO = 0.84;
 const CHROME_HEIGHT_RATIO = 0.16;
 
 function forwardPointerToHyperbeam(
-  container: HTMLDivElement | null,
+  sendEvent: ((event: { type: "mousedown" | "mousemove" | "mouseup"; x: number; y: number; button?: number }) => void) | undefined,
   uv: Vector2 | undefined,
   frameWidth: number,
   frameHeight: number,
   nativeEvent: PointerEvent,
-  type: "pointerdown" | "pointermove" | "pointerup" | "pointercancel"
+  type: "mousedown" | "mousemove" | "mouseup"
 ) {
-  if (!container || !uv) return;
-  const rect = container.getBoundingClientRect();
-  const clientX = rect.left + uv.x * frameWidth;
-  // UV origin is bottom-left; DOM origin is top-left, so flip Y.
-  const clientY = rect.top + (1 - uv.y) * frameHeight;
-  const target = container.querySelector("video, iframe") ?? container;
-  target.dispatchEvent(
-    new PointerEvent(type, {
-      bubbles: true,
-      cancelable: true,
-      clientX,
-      clientY,
-      button: nativeEvent.button,
-      buttons: nativeEvent.buttons,
-      pointerId: nativeEvent.pointerId,
-      pointerType: nativeEvent.pointerType,
-      isPrimary: nativeEvent.isPrimary,
-      pressure: nativeEvent.pressure
-    })
-  );
+  if (!sendEvent || !uv) return;
+  sendEvent({
+    type,
+    x: Math.round(Math.min(Math.max(uv.x, 0), 1) * frameWidth),
+    // UV origin is bottom-left; Hyperbeam coordinates are top-left.
+    y: Math.round((1 - Math.min(Math.max(uv.y, 0), 1)) * frameHeight),
+    button: nativeEvent.button
+  });
+}
+
+function forwardWheelToHyperbeam(
+  sendEvent: ((event: { type: "wheel"; deltaY: number }) => void) | undefined,
+  nativeEvent: WheelEvent
+) {
+  if (!sendEvent) return;
+  sendEvent({
+    type: "wheel",
+    deltaY: nativeEvent.deltaY
+  });
 }
 
 export function SharedBrowserWallSurface({
@@ -266,25 +265,25 @@ export function SharedBrowserWallSurface({
     pointerDownRef.current = true;
     (event.target as Element).setPointerCapture?.(event.pointerId);
     forwardPointerToHyperbeam(
-      hyperbeam.containerRef.current,
+      hyperbeam.instance?.sendEvent.bind(hyperbeam.instance),
       event.uv,
       frameSize.width,
       frameSize.height,
       event.nativeEvent,
-      "pointerdown"
+      "mousedown"
     );
   };
 
   const onPointerMove = (event: ThreeEvent<PointerEvent>) => {
-    if (!hasLease || !pointerDownRef.current) return;
+    if (!hasLease) return;
     event.stopPropagation();
     forwardPointerToHyperbeam(
-      hyperbeam.containerRef.current,
+      hyperbeam.instance?.sendEvent.bind(hyperbeam.instance),
       event.uv,
       frameSize.width,
       frameSize.height,
       event.nativeEvent,
-      "pointermove"
+      "mousemove"
     );
   };
 
@@ -297,13 +296,19 @@ export function SharedBrowserWallSurface({
       target.releasePointerCapture(event.pointerId);
     }
     forwardPointerToHyperbeam(
-      hyperbeam.containerRef.current,
+      hyperbeam.instance?.sendEvent.bind(hyperbeam.instance),
       event.uv,
       frameSize.width,
       frameSize.height,
       event.nativeEvent,
-      "pointerup"
+      "mouseup"
     );
+  };
+
+  const onWheel = (event: ThreeEvent<WheelEvent>) => {
+    if (!hasLease) return;
+    event.stopPropagation();
+    forwardWheelToHyperbeam(hyperbeam.instance?.sendEvent.bind(hyperbeam.instance), event.nativeEvent);
   };
 
   return (
@@ -336,7 +341,8 @@ export function SharedBrowserWallSurface({
               onPointerDown,
               onPointerMove,
               onPointerUp: endPointer,
-              onPointerCancel: endPointer
+              onPointerCancel: endPointer,
+              onWheel
             }
           : { raycast: () => null })}
       >
