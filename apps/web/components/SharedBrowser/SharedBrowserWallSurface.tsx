@@ -2,7 +2,7 @@
 
 import { Html } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
-import { type CSSProperties, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type PointerEvent as ReactPointerEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CanvasTexture, LinearFilter, MeshBasicMaterial, SRGBColorSpace, type Mesh } from "three";
 import type { WallObject } from "@3dspace/contracts";
 import { CLIENT_TUNING } from "../../lib/config";
@@ -55,9 +55,9 @@ export function SharedBrowserWallSurface({
   const meshRef = useRef<Mesh | null>(null);
   const textureRef = useRef<CanvasTexture | null>(null);
   const materialRef = useRef<MeshBasicMaterial | null>(null);
+  const interactionOverlayRef = useRef<HTMLDivElement | null>(null);
   const hasFrameRef = useRef(false);
   const pointerDownRef = useRef(false);
-  const loggedDragMoveRef = useRef(false);
   const [hasFrame, setHasFrame] = useState(false);
   const invalidate = useThree((state) => state.invalidate);
   // Tracks whether we've sent the auto-navigate for the current embed session.
@@ -108,6 +108,14 @@ export function SharedBrowserWallSurface({
     onDisconnect: (reason) => {
       if (reason === "unauthorized" || reason === "inactive") {
         void controller.refreshEmbed(object.id).catch(() => undefined);
+        return;
+      }
+      if (reason === "request" && embedEnabled && board.status === "active") {
+        console.warn("[SharedBrowser] unexpected request disconnect while wall is live; refreshing embed");
+        void controller
+          .refreshEmbed(object.id)
+          .catch(() => controller.resume(object.id))
+          .catch(() => undefined);
       }
     }
   });
@@ -175,23 +183,27 @@ export function SharedBrowserWallSurface({
   }, [hyperbeam.status]);
 
   useEffect(() => {
-    console.log("[SharedBrowser] wall input state", {
-      hasLease,
-      status: hyperbeam.status,
-      embedEnabled,
-      hasFrame,
-      hasContainer: Boolean(hyperbeam.containerRef.current),
-      hasInstance: Boolean(hyperbeam.instance)
-    });
-  }, [embedEnabled, hasFrame, hasLease, hyperbeam.containerRef, hyperbeam.instance, hyperbeam.status]);
-
-  useEffect(() => {
     const material = materialRef.current;
     if (!material) return;
     material.map = hasFrame ? textureRef.current : null;
     material.needsUpdate = true;
     invalidate();
   }, [hasFrame, invalidate]);
+
+  useEffect(() => {
+    const overlay = interactionOverlayRef.current;
+    const hb = hyperbeam.instance;
+    if (!overlay || !hb || !hasLease) return;
+
+    const onWheel = (event: WheelEvent) => {
+      hb.sendEvent({ type: "wheel", deltaY: event.deltaY });
+      event.preventDefault();
+      event.stopPropagation();
+    };
+
+    overlay.addEventListener("wheel", onWheel, { passive: false });
+    return () => overlay.removeEventListener("wheel", onWheel);
+  }, [hasLease, hyperbeam.instance]);
 
   const viewportWidth = surfaceWidth * 0.985;
   const viewportHeight = surfaceHeight * VIEWPORT_HEIGHT_RATIO;
@@ -250,15 +262,8 @@ export function SharedBrowserWallSurface({
       event.clientY,
       event.currentTarget.getBoundingClientRect()
     );
-    console.log("[SharedBrowser] wall pointerdown", {
-      point,
-      button: event.button,
-      pointerType: event.pointerType,
-      hasInstance: Boolean(hyperbeam.instance)
-    });
     if (!point || !hyperbeam.instance) return;
     pointerDownRef.current = true;
-    loggedDragMoveRef.current = false;
     event.currentTarget.focus({ preventScroll: true });
     event.currentTarget.setPointerCapture(event.pointerId);
     hyperbeam.instance.sendEvent({ type: "mousemove", x: point.x, y: point.y });
@@ -275,10 +280,6 @@ export function SharedBrowserWallSurface({
       event.currentTarget.getBoundingClientRect()
     );
     if (!point) return;
-    if (pointerDownRef.current && !loggedDragMoveRef.current) {
-      loggedDragMoveRef.current = true;
-      console.log("[SharedBrowser] wall drag move", { point, buttons: event.buttons });
-    }
     hyperbeam.instance.sendEvent({ type: "mousemove", x: point.x, y: point.y });
     event.preventDefault();
     event.stopPropagation();
@@ -291,11 +292,6 @@ export function SharedBrowserWallSurface({
       event.clientY,
       event.currentTarget.getBoundingClientRect()
     );
-    console.log("[SharedBrowser] wall pointerup", {
-      point,
-      button: event.button,
-      hadPointerDown: pointerDownRef.current
-    });
     pointerDownRef.current = false;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
@@ -303,13 +299,6 @@ export function SharedBrowserWallSurface({
     if (point) {
       hyperbeam.instance.sendEvent({ type: "mouseup", x: point.x, y: point.y, button: event.button });
     }
-    event.stopPropagation();
-  };
-
-  const onViewportWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
-    if (!hasLease || !hyperbeam.instance) return;
-    console.log("[SharedBrowser] wall wheel", { deltaY: event.deltaY });
-    hyperbeam.instance.sendEvent({ type: "wheel", deltaY: event.deltaY });
     event.preventDefault();
     event.stopPropagation();
   };
@@ -376,12 +365,12 @@ export function SharedBrowserWallSurface({
           <div
             aria-label="Shared browser event overlay"
             role="application"
+            ref={interactionOverlayRef}
             tabIndex={hasLease ? 0 : -1}
             onPointerDown={onViewportPointerDown}
             onPointerMove={onViewportPointerMove}
             onPointerUp={endViewportPointer}
             onPointerCancel={endViewportPointer}
-            onWheel={onViewportWheel}
             style={{
               position: "absolute",
               inset: 0,
