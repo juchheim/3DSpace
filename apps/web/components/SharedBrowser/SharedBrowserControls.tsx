@@ -115,15 +115,15 @@ export function SharedBrowserControls({
     toggleLease
   } = useSharedBrowserControls(object, board, controller, currentUserId);
 
-  const navDisabled = board.status === "starting";
+  const navDisabled = board.status === "starting" || board.status === "paused";
 
   return (
-    <div className={`shared-browser-surface${compact ? " shared-browser-surface--board" : ""} shared-browser-surface--controls-only`}>
-      <div className="shared-browser-bar">
-        <div className="shared-browser-bar__nav">
+    <div className="sb-wall-controls" data-testid="shared-browser-toolbar">
+      <div className="sb-wall-toolbar">
+        <div className="sb-wall-toolbar__nav">
           <button
             type="button"
-            className="hud-btn shared-browser-bar__icon"
+            className="sb-wall-toolbar__btn"
             title="Back"
             aria-label="Back"
             onClick={() => void controller.history(object.id, "back")}
@@ -133,7 +133,7 @@ export function SharedBrowserControls({
           </button>
           <button
             type="button"
-            className="hud-btn shared-browser-bar__icon"
+            className="sb-wall-toolbar__btn"
             title="Forward"
             aria-label="Forward"
             onClick={() => void controller.history(object.id, "forward")}
@@ -143,9 +143,9 @@ export function SharedBrowserControls({
           </button>
           <button
             type="button"
-            className="hud-btn shared-browser-bar__icon"
-            title="Refresh"
-            aria-label="Refresh"
+            className="sb-wall-toolbar__btn"
+            title="Reload"
+            aria-label="Reload"
             onClick={() => void controller.history(object.id, "refresh")}
             disabled={navDisabled}
           >
@@ -153,12 +153,17 @@ export function SharedBrowserControls({
           </button>
         </div>
         <form
-          className="shared-browser-bar__url"
+          className="sb-wall-toolbar__address"
           onSubmit={(event) => {
             event.preventDefault();
             void submitNavigate();
           }}
         >
+          <span
+            className={`sb-wall-toolbar__status sb-wall-toolbar__status--${board.status}`}
+            title={controlChip}
+            aria-label={controlChip}
+          />
           <input
             value={urlValue}
             onChange={(event) => setUrlValue(event.target.value)}
@@ -166,45 +171,47 @@ export function SharedBrowserControls({
             aria-label="Shared browser URL"
             spellCheck={false}
           />
-          <button type="submit" className="hud-btn shared-browser-bar__go" disabled={submitting || !urlValue.trim()}>
+          <button type="submit" className="sb-wall-toolbar__go" disabled={submitting || !urlValue.trim()}>
             Go
           </button>
         </form>
-        <div className="shared-browser-bar__actions">
-          <button
-            type="button"
-            className={`hud-btn${hasLease ? " hud-btn--active" : ""}`}
-            onClick={() => void toggleLease()}
-            disabled={leaseBusy}
-          >
-            {hasLease ? "Release" : "Take control"}
-          </button>
+        <div className="sb-wall-toolbar__actions">
+          {board.status === "paused" ? (
+            <button
+              type="button"
+              data-testid="shared-browser-resume"
+              className="sb-wall-toolbar__lease sb-wall-toolbar__lease--resume"
+              onClick={() => void controller.resume(object.id)}
+            >
+              Start browser
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={`sb-wall-toolbar__lease${hasLease ? " is-active" : ""}`}
+              onClick={() => void toggleLease()}
+              disabled={leaseBusy}
+            >
+              {hasLease ? "Release" : "Take control"}
+            </button>
+          )}
           {board.currentUrl ? (
-            <a href={board.currentUrl} target="_blank" rel="noreferrer" className="shared-browser-bar__open" title="Open in a new tab">
-              Open ↗
+            <a
+              href={board.currentUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="sb-wall-toolbar__open"
+              title="Open in a new tab"
+              aria-label="Open in a new tab"
+            >
+              ↗
             </a>
           ) : null}
         </div>
       </div>
-
-      {board.status === "paused" ? (
-        <button
-          type="button"
-          data-testid="shared-browser-resume"
-          className="hud-btn shared-browser-notice shared-browser-notice--resume"
-          onClick={() => void controller.resume(object.id)}
-        >
-          Browser paused — resume
-        </button>
-      ) : null}
       {board.error && board.status !== "paused" ? (
-        <p className="shared-browser-notice shared-browser-notice--error">{board.error}</p>
+        <p className="sb-wall-controls__error">{board.error}</p>
       ) : null}
-
-      <div className={`shared-browser-chip${hasLease ? " shared-browser-chip--owned" : ""}`}>
-        <span className={`shared-browser-chip__dot shared-browser-chip__dot--${board.status}`} />
-        {controlChip}
-      </div>
     </div>
   );
 }

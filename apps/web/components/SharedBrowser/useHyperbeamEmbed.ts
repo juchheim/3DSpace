@@ -28,6 +28,8 @@ export type UseHyperbeamEmbedOptions = {
   onCloseWarning?: (secondsUntilClose: number | undefined) => void;
   /** Fired after each frame-mode canvas blit (3D wall mesh textures). */
   onFrameDrawn?: () => void;
+  /** Expose the raw video MediaStreamTrack (for VideoTexture on 3D wall meshes) instead of using frameCb. */
+  captureVideoTrack?: boolean;
 };
 
 export type UseHyperbeamEmbedResult = {
@@ -38,6 +40,8 @@ export type UseHyperbeamEmbedResult = {
   error: string | null;
   instance: HyperbeamEmbed | null;
   videoMode: HyperbeamVideoMode;
+  /** Live video track when `captureVideoTrack` is set; drives `THREE.VideoTexture` on wall meshes. */
+  videoTrack: MediaStreamTrack | null;
 };
 
 export function useHyperbeamEmbed(options: UseHyperbeamEmbedOptions): UseHyperbeamEmbedResult {
@@ -52,7 +56,8 @@ export function useHyperbeamEmbed(options: UseHyperbeamEmbedOptions): UseHyperbe
     volume = 1,
     onDisconnect,
     onCloseWarning,
-    onFrameDrawn
+    onFrameDrawn,
+    captureVideoTrack = false
   } = options;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -73,6 +78,7 @@ export function useHyperbeamEmbed(options: UseHyperbeamEmbedOptions): UseHyperbe
   const [status, setStatus] = useState<HyperbeamEmbedStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [instance, setInstance] = useState<HyperbeamEmbed | null>(null);
+  const [videoTrack, setVideoTrack] = useState<MediaStreamTrack | null>(null);
 
   const attachAudio = useCallback((track: MediaStreamTrack) => {
     const audio = audioRef.current;
@@ -128,6 +134,7 @@ export function useHyperbeamEmbed(options: UseHyperbeamEmbedOptions): UseHyperbe
         const ctx = canvas.getContext("2d");
         ctx?.clearRect(0, 0, canvas.width, canvas.height);
       }
+      setVideoTrack(null);
       return;
     }
 
@@ -155,7 +162,11 @@ export function useHyperbeamEmbed(options: UseHyperbeamEmbedOptions): UseHyperbe
           playoutDelay,
           volume,
           audioTrackCb: attachAudio,
-          ...(videoMode === "frame" ? { frameCb: onFrame } : {}),
+          ...(videoMode === "frame"
+            ? captureVideoTrack
+              ? { videoTrackCb: (track: MediaStreamTrack) => setVideoTrack(track) }
+              : { frameCb: onFrame }
+            : {}),
           onConnectionStateChange: (event) => {
             if (event.state === "playing") {
               setStatus("connected");
@@ -203,10 +214,11 @@ export function useHyperbeamEmbed(options: UseHyperbeamEmbedOptions): UseHyperbe
       instanceRef.current?.destroy();
       instanceRef.current = null;
       setInstance(null);
+      setVideoTrack(null);
       const audio = audioRef.current;
       if (audio?.srcObject) audio.srcObject = null;
     };
-  }, [attachAudio, embedUrl, enabled, onFrame, playoutDelay, resizeForDisplayAspect, videoMode, volume]);
+  }, [attachAudio, captureVideoTrack, embedUrl, enabled, onFrame, playoutDelay, resizeForDisplayAspect, videoMode, volume]);
 
   useEffect(() => {
     const hb = instanceRef.current;
@@ -228,6 +240,7 @@ export function useHyperbeamEmbed(options: UseHyperbeamEmbedOptions): UseHyperbe
     status,
     error,
     instance,
-    videoMode
+    videoMode,
+    videoTrack
   };
 }
