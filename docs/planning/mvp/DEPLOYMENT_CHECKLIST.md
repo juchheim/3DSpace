@@ -103,11 +103,19 @@ Expected `/ready`: `"status":"ready"` with checks `auth`, `mongodb`, `livekit`, 
 2. **Custom domain** — point DNS to Vercel; add Clerk Production instance; update `CORS_ALLOWED_ORIGINS` and Clerk allowed origins.
 3. **MVP+1** — implement wall media per `docs/planning/mvp+1/MVP_PLUS_ONE_WALL_MEDIA_PLAN.md`.
 
-## Shared Browser Deployment Notes
+## Shared Browser Deployment Notes (Hyperbeam)
 
-- `ENABLE_SHARED_BROWSERS=true` requires Chromium/Puppeteer headroom on the API worker. Budget roughly 200-400 MB RAM per active session.
-- Koyeb / container deployments should keep `SHARED_BROWSER_MAX_ACTIVE_PER_ROOM` low (`2` by default) and pair it with `SHARED_BROWSER_IDLE_PAUSE_MINUTES`.
-- For a 0.5 vCPU / 1 GB API worker, start with `SHARED_BROWSER_VIEWPORT_WIDTH=1280`, `SHARED_BROWSER_VIEWPORT_HEIGHT=720`, `SHARED_BROWSER_DEVICE_SCALE_FACTOR=1.5`, `SHARED_BROWSER_SCREENCAST_QUALITY=85`, and `SHARED_BROWSER_SCREENCAST_EVERY_NTH_FRAME=2`. Increase quality before increasing viewport size.
-- `SHARED_BROWSER_LAZY_START=true` (default) keeps Chromium off until someone resumes or navigates. `SHARED_BROWSER_PAUSE_WHEN_ROOM_EMPTY=true` (default) tears browsers down when the room has no participant heartbeats (clients POST `/session/heartbeat` every 30s while in-room).
-- Production must use LiveKit publishing for shared browsers. Keep `SHARED_BROWSER_USE_JPEG_FALLBACK=false` when `NODE_ENV=production`.
-- If the main API container becomes memory-bound, move the shared-browser driver into a sidecar service that shares MongoDB + LiveKit credentials rather than introducing a hosted browser vendor.
+See [`docs/planning/rooms/free-for-all/IMPL_FREE_FOR_ALL_SHARED_BROWSER_HYPERBEAM.md`](../rooms/free-for-all/IMPL_FREE_FOR_ALL_SHARED_BROWSER_HYPERBEAM.md).
+
+- `ENABLE_SHARED_BROWSERS=true` in production requires **`HYPERBEAM_API_KEY`** (no Chromium on the API worker after migration Phase 7).
+- Set `SHARED_BROWSER_VIEWPORT_WIDTH` / `SHARED_BROWSER_VIEWPORT_HEIGHT` (max 1920×1080) and tune `SHARED_BROWSER_HYPERBEAM_QUALITY` (`smooth` default) and `SHARED_BROWSER_HYPERBEAM_FRAMERATE` (24–60, default `30`).
+- `SHARED_BROWSER_LAZY_START=true` (default) avoids creating a Hyperbeam VM until resume/navigate. `SHARED_BROWSER_PAUSE_WHEN_ROOM_EMPTY=true` (default) terminates VMs when the room has no participant heartbeats (clients POST `/session/heartbeat` every 30s while in-room).
+- **Billing:** Hyperbeam charges **participant-minutes** (~10k free/month, then ~$0.007/min per connected viewer). Monitor the Hyperbeam dashboard; keep `SHARED_BROWSER_MAX_ACTIVE_PER_ROOM` low (`2` default).
+- Room A/V still uses LiveKit; shared-browser video is **not** published through LiveKit after Hyperbeam migration.
+- Puppeteer/JPEG/LiveKit-bot shared-browser env vars were removed in Hyperbeam Phase 7; use Hyperbeam settings only.
+
+**Rollout checklist**
+
+1. **Staging:** Set `HYPERBEAM_API_KEY` on the API worker; confirm `GET /health` and create/resume a shared browser board. Watch Hyperbeam dashboard participant-minutes during a two-user soak.
+2. **Production:** Enable `ENABLE_SHARED_BROWSERS=true` and `NEXT_PUBLIC_ENABLE_SHARED_BROWSERS=true` only after staging sign-off. Keep existing room A/V on LiveKit unchanged.
+3. **CI / local E2E:** `npm run test:e2e -- --grep "shared browser"` (starts a local Hyperbeam REST mock on port `19098` and uses `NEXT_PUBLIC_E2E_MOCK_HYPERBEAM_EMBED` for the client SDK).

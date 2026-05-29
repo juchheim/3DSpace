@@ -155,6 +155,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const [error, setError] = useState("");
   const realtimeRef = useRef<RealtimeClient | null>(null);
   const realtimeGenerationRef = useRef(0);
+  const joinGenerationRef = useRef(0);
   const avatarStateRef = useRef<AvatarStateMessage | null>(null);
   const memberNamesRef = useRef(new Map<string, string>());
   const localAppearanceRef = useRef<AvatarAppearance>(DEFAULT_APPEARANCE);
@@ -671,12 +672,12 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     if (!identityLoaded) return;
     if (clerkEnabled && !signedIn) return;
     if (leaving) return;
-    let cancelled = false;
+    const generation = ++joinGenerationRef.current;
     setStatus("Joining room...");
     setError("");
     joinRoom(identity, roomId, inviteCode ? { viewMode, inviteCode } : { viewMode })
       .then((nextSession) => {
-        if (cancelled) return;
+        if (generation !== joinGenerationRef.current) return;
         const normalizedManifest = normalizeRoomManifest(nextSession.manifest, nextSession.room.type);
         const initialAppearance = nextSession.avatarAppearance ?? DEFAULT_APPEARANCE;
         localAppearanceRef.current = initialAppearance;
@@ -686,12 +687,13 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         setStatus("Joined room. Connecting to LiveKit...");
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Unable to join room.");
+        if (generation !== joinGenerationRef.current) return;
+        setError(err instanceof Error ? err.message : "Unable to join room.");
       });
     return () => {
-      cancelled = true;
+      joinGenerationRef.current += 1;
     };
-  }, [identityLoaded, clerkEnabled, signedIn, identity.userId, roomId, inviteCode, leaving]);
+  }, [identityLoaded, clerkEnabled, signedIn, identity.userId, roomId, inviteCode, leaving, viewMode]);
 
   useEffect(() => {
     if (!session) return;
@@ -2494,6 +2496,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
                 sharedBrowserController={sharedBrowsers}
                 sharedBrowserIdentity={identity}
                 sharedBrowserRoomId={session?.room.id ?? roomId}
+                {...(fsObject.type === "web.browser.shared" ? { hyperbeamEmbedVisible: true } : {})}
                 onControl={controlWallObject}
               />
             </div>

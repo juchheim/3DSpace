@@ -1,4 +1,4 @@
-import type { SharedBrowserKeyEvent, SharedBrowserPointerEvent, SharedBrowserSession } from "@3dspace/contracts";
+import type { SharedBrowserSession } from "@3dspace/contracts";
 import type { NavigationGuardSettings } from "./ssrf.js";
 
 export type DriverStartOptions = {
@@ -8,25 +8,24 @@ export type DriverStartOptions = {
   navigationGuard: NavigationGuardSettings;
 };
 
-/**
- * The single driver abstraction for the shared browser. v1 ships exactly two
- * implementations: a no-Chromium stub (used in tests and when the feature is
- * disabled) and the self-hosted Puppeteer driver (Phase 3). There is
- * intentionally NO third-party / SaaS backend — see the IMPL doc § D.
- */
+export type DriverStartResult = {
+  url: string;
+  title: string;
+  hyperbeam?: {
+    sessionId: string;
+    embedUrl: string;
+    /** Server-only; never returned to API clients. */
+    adminToken: string;
+  };
+};
+
+/** Driver abstraction for the shared browser (Hyperbeam production, stub for tests). */
 export interface SharedBrowserDriver {
-  start(options: DriverStartOptions): Promise<{ url: string; title: string }>;
+  start(options: DriverStartOptions): Promise<DriverStartResult>;
   stop(sessionId: string): Promise<void>;
   isLive?(sessionId: string): boolean;
   navigate(sessionId: string, url: string): Promise<{ url: string; title: string }>;
   history(sessionId: string, action: "back" | "forward" | "refresh"): Promise<{ url: string; title: string }>;
-  pointer(sessionId: string, events: SharedBrowserPointerEvent[]): Promise<void>;
-  keyboard(sessionId: string, events: SharedBrowserKeyEvent[]): Promise<void>;
-  /**
-   * Begin a screencast loop, invoking `onFrame` with each JPEG buffer. Phase 5
-   * wires this to LiveKit / the JPEG fallback. The stub never emits frames.
-   */
-  screencastLoop(sessionId: string, onFrame: (jpeg: Buffer) => void): Promise<void>;
   /** Tear down all live resources (called on app shutdown). Optional — the stub has none. */
   close?(): Promise<void>;
 }

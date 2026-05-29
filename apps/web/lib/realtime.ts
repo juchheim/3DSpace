@@ -575,6 +575,8 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
       wallObjectIdFromPublication(publicationName(publication)) ??
       sharedBrowserWallObjectIdFromIdentity(participantIdentity);
     if (wallObjectId) {
+      // Shared browsers stream via Hyperbeam embed URLs, not LiveKit synthetic tracks.
+      if (sharedBrowserWallObjectIdFromIdentity(participantIdentity)) return;
       if (track.kind === Track.Kind.Audio || track.source === Track.Source.ScreenShareAudio) {
         input.onRemoteMedia?.({ participantId, wallObjectId, wallAudioStream: streamFromTrack(track) });
         return;
@@ -598,6 +600,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
       wallObjectIdFromPublication(publicationName(publication)) ??
       sharedBrowserWallObjectIdFromIdentity(participantIdentity);
     if (wallObjectId) {
+      if (sharedBrowserWallObjectIdFromIdentity(participantIdentity)) return;
       if (track.kind === Track.Kind.Audio || track.source === Track.Source.ScreenShareAudio) {
         input.onRemoteMedia?.({ participantId, wallObjectId, wallAudioStream: null });
         return;

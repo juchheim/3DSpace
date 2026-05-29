@@ -1250,6 +1250,21 @@
                                 "minimum": 10,
                                 "maximum": 600,
                                 "default": 120
+                              },
+                              "hyperbeamQuality": {
+                                "type": "string",
+                                "enum": [
+                                  "sharp",
+                                  "smooth",
+                                  "blocky"
+                                ],
+                                "default": "smooth"
+                              },
+                              "hyperbeamFramerate": {
+                                "type": "integer",
+                                "minimum": 24,
+                                "maximum": 60,
+                                "default": 30
                               }
                             },
                             "additionalProperties": false,
@@ -1262,7 +1277,9 @@
                               "idlePauseMinutes": 15,
                               "navigationAllowlistEnabled": false,
                               "navigationAllowlist": [],
-                              "controlLeaseSeconds": 120
+                              "controlLeaseSeconds": 120,
+                              "hyperbeamQuality": "smooth",
+                              "hyperbeamFramerate": 30
                             }
                           }
                         },
@@ -1811,6 +1828,21 @@
                                   "minimum": 10,
                                   "maximum": 600,
                                   "default": 120
+                                },
+                                "hyperbeamQuality": {
+                                  "type": "string",
+                                  "enum": [
+                                    "sharp",
+                                    "smooth",
+                                    "blocky"
+                                  ],
+                                  "default": "smooth"
+                                },
+                                "hyperbeamFramerate": {
+                                  "type": "integer",
+                                  "minimum": 24,
+                                  "maximum": 60,
+                                  "default": 30
                                 }
                               },
                               "additionalProperties": false,
@@ -1823,7 +1855,9 @@
                                 "idlePauseMinutes": 15,
                                 "navigationAllowlistEnabled": false,
                                 "navigationAllowlist": [],
-                                "controlLeaseSeconds": 120
+                                "controlLeaseSeconds": 120,
+                                "hyperbeamQuality": "smooth",
+                                "hyperbeamFramerate": 30
                               }
                             }
                           },
@@ -2844,6 +2878,21 @@
                             "minimum": 10,
                             "maximum": 600,
                             "default": 120
+                          },
+                          "hyperbeamQuality": {
+                            "type": "string",
+                            "enum": [
+                              "sharp",
+                              "smooth",
+                              "blocky"
+                            ],
+                            "default": "smooth"
+                          },
+                          "hyperbeamFramerate": {
+                            "type": "integer",
+                            "minimum": 24,
+                            "maximum": 60,
+                            "default": 30
                           }
                         },
                         "additionalProperties": false,
@@ -2856,7 +2905,9 @@
                           "idlePauseMinutes": 15,
                           "navigationAllowlistEnabled": false,
                           "navigationAllowlist": [],
-                          "controlLeaseSeconds": 120
+                          "controlLeaseSeconds": 120,
+                          "hyperbeamQuality": "smooth",
+                          "hyperbeamFramerate": 30
                         }
                       }
                     },
@@ -3334,6 +3385,21 @@
                               "minimum": 10,
                               "maximum": 600,
                               "default": 120
+                            },
+                            "hyperbeamQuality": {
+                              "type": "string",
+                              "enum": [
+                                "sharp",
+                                "smooth",
+                                "blocky"
+                              ],
+                              "default": "smooth"
+                            },
+                            "hyperbeamFramerate": {
+                              "type": "integer",
+                              "minimum": 24,
+                              "maximum": 60,
+                              "default": 30
                             }
                           },
                           "additionalProperties": false,
@@ -3346,7 +3412,9 @@
                             "idlePauseMinutes": 15,
                             "navigationAllowlistEnabled": false,
                             "navigationAllowlist": [],
-                            "controlLeaseSeconds": 120
+                            "controlLeaseSeconds": 120,
+                            "hyperbeamQuality": "smooth",
+                            "hyperbeamFramerate": 30
                           }
                         }
                       },
@@ -4476,6 +4544,21 @@
                                   "minimum": 10,
                                   "maximum": 600,
                                   "default": 120
+                                },
+                                "hyperbeamQuality": {
+                                  "type": "string",
+                                  "enum": [
+                                    "sharp",
+                                    "smooth",
+                                    "blocky"
+                                  ],
+                                  "default": "smooth"
+                                },
+                                "hyperbeamFramerate": {
+                                  "type": "integer",
+                                  "minimum": 24,
+                                  "maximum": 60,
+                                  "default": 30
                                 }
                               },
                               "additionalProperties": false,
@@ -4488,7 +4571,9 @@
                                 "idlePauseMinutes": 15,
                                 "navigationAllowlistEnabled": false,
                                 "navigationAllowlist": [],
-                                "controlLeaseSeconds": 120
+                                "controlLeaseSeconds": 120,
+                                "hyperbeamQuality": "smooth",
+                                "hyperbeamFramerate": 30
                               }
                             }
                           },
@@ -10547,6 +10632,23 @@
                           ],
                           "additionalProperties": false
                         },
+                        "hyperbeam": {
+                          "type": "object",
+                          "properties": {
+                            "sessionId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "embedUrl": {
+                              "type": "string",
+                              "format": "uri"
+                            }
+                          },
+                          "required": [
+                            "sessionId"
+                          ],
+                          "additionalProperties": false
+                        },
                         "livekit": {
                           "type": "object",
                           "properties": {
@@ -11074,6 +11176,23 @@
                             "userId",
                             "displayName",
                             "expiresAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "hyperbeam": {
+                          "type": "object",
+                          "properties": {
+                            "sessionId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "embedUrl": {
+                              "type": "string",
+                              "format": "uri"
+                            }
+                          },
+                          "required": [
+                            "sessionId"
                           ],
                           "additionalProperties": false
                         },
@@ -11611,6 +11730,23 @@
                           ],
                           "additionalProperties": false
                         },
+                        "hyperbeam": {
+                          "type": "object",
+                          "properties": {
+                            "sessionId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "embedUrl": {
+                              "type": "string",
+                              "format": "uri"
+                            }
+                          },
+                          "required": [
+                            "sessionId"
+                          ],
+                          "additionalProperties": false
+                        },
                         "livekit": {
                           "type": "object",
                           "properties": {
@@ -12145,6 +12281,23 @@
                           ],
                           "additionalProperties": false
                         },
+                        "hyperbeam": {
+                          "type": "object",
+                          "properties": {
+                            "sessionId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "embedUrl": {
+                              "type": "string",
+                              "format": "uri"
+                            }
+                          },
+                          "required": [
+                            "sessionId"
+                          ],
+                          "additionalProperties": false
+                        },
                         "livekit": {
                           "type": "object",
                           "properties": {
@@ -12655,6 +12808,23 @@
                           ],
                           "additionalProperties": false
                         },
+                        "hyperbeam": {
+                          "type": "object",
+                          "properties": {
+                            "sessionId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "embedUrl": {
+                              "type": "string",
+                              "format": "uri"
+                            }
+                          },
+                          "required": [
+                            "sessionId"
+                          ],
+                          "additionalProperties": false
+                        },
                         "livekit": {
                           "type": "object",
                           "properties": {
@@ -13070,121 +13240,12 @@
         }
       }
     },
-    "/v1/rooms/{roomId}/shared-browser/realtime": {
+    "/v1/rooms/{roomId}/wall-objects/{objectId}/shared-browser/embed": {
       "post": {
-        "summary": "Accept batched shared browser pointer/keyboard input and fan out realtime messages",
+        "summary": "Refresh the Hyperbeam embed URL for a live shared browser session",
         "tags": [
           "shared-browsers"
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "wallObjectId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "pointer": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "kind": {
-                          "type": "string",
-                          "enum": [
-                            "move",
-                            "down",
-                            "up",
-                            "wheel"
-                          ]
-                        },
-                        "x": {
-                          "type": "number",
-                          "minimum": 0,
-                          "maximum": 1
-                        },
-                        "y": {
-                          "type": "number",
-                          "minimum": 0,
-                          "maximum": 1
-                        },
-                        "button": {
-                          "type": "string",
-                          "enum": [
-                            "left",
-                            "middle",
-                            "right"
-                          ]
-                        },
-                        "deltaX": {
-                          "type": "number"
-                        },
-                        "deltaY": {
-                          "type": "number"
-                        },
-                        "at": {
-                          "type": "integer"
-                        }
-                      },
-                      "required": [
-                        "kind",
-                        "x",
-                        "y",
-                        "at"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "maxItems": 120,
-                    "default": []
-                  },
-                  "keyboard": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "kind": {
-                          "type": "string",
-                          "enum": [
-                            "down",
-                            "up",
-                            "char"
-                          ]
-                        },
-                        "key": {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 64
-                        },
-                        "text": {
-                          "type": "string",
-                          "maxLength": 8
-                        },
-                        "at": {
-                          "type": "integer"
-                        }
-                      },
-                      "required": [
-                        "kind",
-                        "key",
-                        "at"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "maxItems": 120,
-                    "default": []
-                  }
-                },
-                "required": [
-                  "wallObjectId"
-                ],
-                "additionalProperties": false
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "Successful response",
@@ -13274,6 +13335,23 @@
                           ],
                           "additionalProperties": false
                         },
+                        "hyperbeam": {
+                          "type": "object",
+                          "properties": {
+                            "sessionId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "embedUrl": {
+                              "type": "string",
+                              "format": "uri"
+                            }
+                          },
+                          "required": [
+                            "sessionId"
+                          ],
+                          "additionalProperties": false
+                        },
                         "livekit": {
                           "type": "object",
                           "properties": {
@@ -13325,8 +13403,7 @@
                         "createdAt",
                         "updatedAt"
                       ],
-                      "additionalProperties": false,
-                      "nullable": true
+                      "additionalProperties": false
                     },
                     "realtimeMessages": {
                       "type": "array",

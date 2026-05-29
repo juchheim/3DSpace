@@ -51,10 +51,7 @@ import type {
   EraseWhiteboardStrokesResponse,
   RequestWhiteboardSnapshotResponse,
   ClearWhiteboardResponse,
-  SharedBrowserSessionResponse,
-  SharedBrowserRealtimeDispatchResponse,
-  SharedBrowserPointerEvent,
-  SharedBrowserKeyEvent
+  SharedBrowserSessionResponse
 } from "@3dspace/contracts";
 import type { z } from "zod";
 import { API_URL } from "./config";
@@ -402,16 +399,10 @@ export function resumeSharedBrowser(identity: ApiIdentity, roomId: string, objec
   });
 }
 
-export function sendSharedBrowserInput(
-  identity: ApiIdentity,
-  roomId: string,
-  objectId: string,
-  input: { pointer?: SharedBrowserPointerEvent[]; keyboard?: SharedBrowserKeyEvent[] }
-) {
-  return apiFetch<SharedBrowserRealtimeDispatchResponse>(`/v1/rooms/${roomId}/shared-browser/realtime`, {
+export function refreshSharedBrowserEmbed(identity: ApiIdentity, roomId: string, objectId: string) {
+  return apiFetch<SharedBrowserSessionResponse>(`/v1/rooms/${roomId}/wall-objects/${objectId}/shared-browser/embed`, {
     method: "POST",
-    identity,
-    body: { wallObjectId: objectId, pointer: input.pointer ?? [], keyboard: input.keyboard ?? [] }
+    identity
   });
 }
 

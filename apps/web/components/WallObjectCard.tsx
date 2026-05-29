@@ -20,6 +20,7 @@ import type { ApiIdentity } from "../lib/identity";
 import type { SharedBrowserController } from "../lib/useSharedBrowser";
 import type { WhiteboardController } from "../lib/useWhiteboards";
 import { SharedBrowserSummary, SharedBrowserSurface } from "./SharedBrowser/SharedBrowserSurface";
+import type { HyperbeamVideoMode } from "./SharedBrowser/useHyperbeamEmbed";
 import { WhiteboardSurface } from "./Whiteboard/WhiteboardSurface";
 
 type WallObjectCardStyle = CSSProperties & { "--wall-object-fit": string };
@@ -505,6 +506,8 @@ export function WallObjectContent({
   sharedBrowserController,
   sharedBrowserIdentity,
   sharedBrowserRoomId,
+  sharedBrowserHyperbeamVideoMode,
+  hyperbeamEmbedVisible,
   compact
 }: {
   object: WallObject;
@@ -522,6 +525,8 @@ export function WallObjectContent({
   sharedBrowserController?: SharedBrowserController | undefined;
   sharedBrowserIdentity?: ApiIdentity | undefined;
   sharedBrowserRoomId?: string | undefined;
+  sharedBrowserHyperbeamVideoMode?: HyperbeamVideoMode | undefined;
+  hyperbeamEmbedVisible?: boolean | undefined;
 }) {
   if (object.type === "whiteboard" && whiteboardController && currentUserId) {
     if (!surface) {
@@ -586,7 +591,8 @@ export function WallObjectContent({
         surface={surface}
         {...(currentUserId ? { currentUserId } : {})}
         {...(compact !== undefined ? { compact } : {})}
-        {...(videoStream !== undefined ? { videoStream } : {})}
+        {...(sharedBrowserHyperbeamVideoMode ? { hyperbeamVideoMode: sharedBrowserHyperbeamVideoMode } : {})}
+        {...(hyperbeamEmbedVisible !== undefined ? { hyperbeamEmbedVisible } : {})}
       />
     );
   }
@@ -663,6 +669,8 @@ export function WallObjectCard({
   sharedBrowserController,
   sharedBrowserIdentity,
   sharedBrowserRoomId,
+  sharedBrowserHyperbeamVideoMode,
+  hyperbeamEmbedVisible,
   onModerate,
   onFullscreen,
   hideHeader = false
@@ -684,6 +692,8 @@ export function WallObjectCard({
   sharedBrowserController?: SharedBrowserController | undefined;
   sharedBrowserIdentity?: ApiIdentity | undefined;
   sharedBrowserRoomId?: string | undefined;
+  sharedBrowserHyperbeamVideoMode?: HyperbeamVideoMode | undefined;
+  hyperbeamEmbedVisible?: boolean | undefined;
   onModerate?: (objectId: string, action: "approve" | "reject") => void;
   onFullscreen?: (objectId: string) => void;
   hideHeader?: boolean;
@@ -707,6 +717,8 @@ export function WallObjectCard({
         sharedBrowserController={sharedBrowserController}
         sharedBrowserIdentity={sharedBrowserIdentity}
         sharedBrowserRoomId={sharedBrowserRoomId}
+        sharedBrowserHyperbeamVideoMode={sharedBrowserHyperbeamVideoMode}
+        hyperbeamEmbedVisible={hyperbeamEmbedVisible}
         compact={compact}
         {...(onControl ? { onControl } : {})}
       />
@@ -721,6 +733,8 @@ export function WallObjectCard({
       object,
       onControl,
       sharedBrowserController,
+      sharedBrowserHyperbeamVideoMode,
+      hyperbeamEmbedVisible,
       sharedBrowserIdentity,
       sharedBrowserRoomId,
       surface,

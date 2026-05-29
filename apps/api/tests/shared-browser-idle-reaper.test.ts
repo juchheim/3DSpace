@@ -38,9 +38,6 @@ class StopSpyDriver implements SharedBrowserDriver {
   async history() {
     return { url: "https://1.1.1.1/", title: "" };
   }
-  async pointer() {}
-  async keyboard() {}
-  async screencastLoop() {}
 }
 
 describe("SharedBrowserIdleReaper.sweep", () => {

@@ -2805,13 +2805,62 @@ button.hud-heading-btn:hover {
   box-shadow: 0 0 0 2px rgba(133, 204, 255, 0.55);
 }
 
-.shared-browser-viewport__video,
-.shared-browser-viewport__image {
-  display: block;
+.shared-browser-viewport--frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shared-browser-viewport__canvas {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: fill;
+  display: block;
+  object-fit: contain;
   background: #0a1112;
+  pointer-events: none;
+}
+
+.shared-browser-viewport__embed {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 12rem;
+}
+
+.shared-browser-viewport__embed--input-layer {
+  opacity: 0;
+  z-index: 1;
+  pointer-events: auto;
+}
+
+.shared-browser-viewport__embed--input-layer iframe,
+.shared-browser-viewport__embed--input-layer video {
+  opacity: 0;
+}
+
+.shared-browser-viewport__embed--hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.shared-browser-viewport__embed iframe,
+.shared-browser-viewport__embed video {
+  width: 100% !important;
+  height: 100% !important;
+  border: 0;
+  display: block;
+  background: #0a1112;
+}
+
+.shared-browser-viewport__audio {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .shared-browser-viewport__placeholder {
@@ -2822,6 +2871,14 @@ button.hud-heading-btn:hover {
   padding: 1rem;
   text-align: center;
   color: rgba(255, 250, 240, 0.82);
+}
+
+.shared-browser-viewport__placeholder--overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: rgba(7, 11, 13, 0.82);
+  backdrop-filter: blur(2px);
 }
 
 .shared-browser-viewport__placeholder span {

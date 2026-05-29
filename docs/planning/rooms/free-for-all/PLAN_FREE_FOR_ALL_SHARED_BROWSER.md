@@ -19,22 +19,22 @@ Today 3DSpace already supports:
 
 The Shared Browser closes the Frame parity gap for collaborative in-room browsing without tying the session to one person's machine or LiveKit track.
 
-### 1.1 Vendor / cost policy (hard constraint)
+### 1.1 Production runtime (Hyperbeam)
 
-**No paid or freemium third-party browser/co-browsing SaaS in v1.** That explicitly excludes Hyperbeam, Browserless.io, BrowserBase, Steel.dev, Playwright Cloud, BrowserStack, and similar hosted remote-browser products.
+**Production path (2026):** Shared browsers use **[Hyperbeam](https://hyperbeam.com/)** managed Chromium + client WebRTC embeds. Implementation guide: [`IMPL_FREE_FOR_ALL_SHARED_BROWSER_HYPERBEAM.md`](./IMPL_FREE_FOR_ALL_SHARED_BROWSER_HYPERBEAM.md).
 
-v1 uses **only**:
+| Component | Role |
+|---|---|
+| **Hyperbeam** | Remote browser VM + per-viewer WebRTC (usage-based **participant-minutes**) |
+| **3DSpace API** | SSRF-safe navigation, session lifecycle, MongoDB persistence, occupancy/idle pause |
+| **3DSpace web** | `@hyperbeam/web` embed on boards; visibility-gated to limit billing |
+| **LiveKit (existing)** | Realtime **data channel only** for URL/title/lease sync — not shared-browser video |
 
-| Component | License / cost | Role |
-|---|---|---|
-| **Chromium** (bundled with Puppeteer) | BSD / free OSS | Headless browser engine |
-| **Puppeteer** | Apache 2.0 | CDP control, navigation, input injection, screencast |
-| **Existing 3DSpace stack** | already deployed | MongoDB persistence, Fastify API, LiveKit realtime (optional self-hosted per `deploy/hetzner-livekit/`) |
-| **@livekit/rtc-node** (optional path) | Apache 2.0 | Server-side synthetic video track for wall rendering |
+The original self-hosted **Puppeteer + LiveKit synthetic track** design is archived in [`IMPL_FREE_FOR_ALL_SHARED_BROWSER.md`](./IMPL_FREE_FOR_ALL_SHARED_BROWSER.md) (superseded at runtime).
 
-We **reuse** LiveKit and MongoDB already in the product; we do **not** add any new vendor account or metered API for browsing itself.
+**Ops:** Production requires `HYPERBEAM_API_KEY` when `ENABLE_SHARED_BROWSERS=true`. See `DEPLOYMENT_CHECKLIST.md` and Hyperbeam dashboard for usage alerts.
 
-OpenAI, Meshy, and other AI vendors are **out of scope** for this feature.
+OpenAI, Meshy, and other AI vendors remain **out of scope** for this feature.
 
 ### 1.2 Product goals
 

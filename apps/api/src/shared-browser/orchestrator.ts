@@ -1,18 +1,18 @@
 import type {
   RoomSettings,
   SharedBrowserControlLease,
-  SharedBrowserKeyEvent,
-  SharedBrowserPointerEvent,
   SharedBrowserRealtimeMessage,
   SharedBrowserSession,
   SharedBrowserWallObjectState
 } from "@3dspace/contracts";
 import type { AppConfig } from "../config.js";
-import { badRequest, conflict, forbidden, notFound } from "../errors.js";
-import { newId, nowIso, type Repository } from "../repository.js";
+import { conflict, notFound } from "../errors.js";
+import { newId, nowIso, type Repository, type SharedBrowserSessionPatch } from "../repository.js";
+import { hyperbeamGetVm, hyperbeamTerminateVm } from "./hyperbeam-api.js";
+import { HyperbeamSharedBrowserDriver } from "./hyperbeam-driver.js";
 import { assertNavigationAllowed, type NavigationGuardSettings } from "./ssrf.js";
 import { StubSharedBrowserDriver } from "./stub-driver.js";
-import type { SharedBrowserDriver } from "./types.js";
+import type { DriverStartResult, SharedBrowserDriver } from "./types.js";
 
 export type SharedBrowserActor = { userId: string; displayName: string };
 
@@ -30,24 +30,11 @@ export type SharedBrowserResult = {
   realtimeMessages: SharedBrowserRealtimeMessage[];
 };
 
-/**
- * Lifecycle hook for video delivery (Phase 5). The orchestrator calls these as
- * sessions activate/deactivate so the video manager can start/stop the LiveKit
- * publisher or JPEG fallback. Both are fire-and-forget — failures must not break
- * the session mutation.
- */
-export interface SharedBrowserVideoLifecycle {
-  onSessionActive(session: SharedBrowserSession): void;
-  onSessionInactive(sessionId: string): void;
-}
-
 export type SharedBrowserOrchestratorOptions = {
   repository: Repository;
   config: AppConfig;
-  /** Defaults to the no-Chromium stub. Phase 3 injects the Puppeteer driver. */
+  /** Defaults to stub when omitted; production uses Hyperbeam when `HYPERBEAM_API_KEY` is set. */
   driver?: SharedBrowserDriver;
-  /** Phase 5 video delivery hook. Omitted in tests / when video is disabled. */
-  video?: SharedBrowserVideoLifecycle;
 };
 
 function leaseActive(lease: SharedBrowserControlLease | undefined, atIso: string): boolean {
@@ -58,13 +45,11 @@ export class SharedBrowserOrchestrator {
   private readonly repository: Repository;
   private readonly config: AppConfig;
   private readonly driver: SharedBrowserDriver;
-  private readonly video: SharedBrowserVideoLifecycle | undefined;
 
   constructor(options: SharedBrowserOrchestratorOptions) {
     this.repository = options.repository;
     this.config = options.config;
     this.driver = options.driver ?? new StubSharedBrowserDriver();
-    this.video = options.video;
   }
 
   guardSettings(settings: RoomSettings["sharedBrowsers"]): NavigationGuardSettings {
@@ -100,6 +85,70 @@ export class SharedBrowserOrchestrator {
     });
   }
 
+  private usesHyperbeam(): boolean {
+    return Boolean(this.config.tuning.hyperbeamApiKey);
+  }
+
+  private patchFromDriverStart(result: DriverStartResult): SharedBrowserSessionPatch {
+    const patch: SharedBrowserSessionPatch = {
+      status: "active",
+      currentUrl: result.url,
+      title: result.title,
+      lastInputAt: nowIso(),
+      errorCode: undefined,
+      errorMessage: undefined,
+      updatedAt: nowIso()
+    };
+    if (result.hyperbeam) {
+      patch.hyperbeam = {
+        sessionId: result.hyperbeam.sessionId,
+        ...(result.hyperbeam.embedUrl ? { embedUrl: result.hyperbeam.embedUrl } : {})
+      };
+      patch.unsetLivekit = true;
+    }
+    return patch;
+  }
+
+  private async terminateRemoteHyperbeam(hyperbeamSessionId: string): Promise<void> {
+    const apiKey = this.config.tuning.hyperbeamApiKey;
+    if (!apiKey) return;
+    try {
+      await hyperbeamTerminateVm(this.config.tuning.hyperbeamApiBase, apiKey, hyperbeamSessionId);
+    } catch {
+      // best-effort
+    }
+  }
+
+  private async startDriver(
+    session: SharedBrowserSession,
+    startUrl: string,
+    settings: RoomSettings["sharedBrowsers"]
+  ): Promise<DriverStartResult> {
+    if (
+      session.hyperbeam?.sessionId &&
+      this.driver instanceof HyperbeamSharedBrowserDriver
+    ) {
+      const attached = await this.driver.attachExisting(session.id, session.hyperbeam.sessionId);
+      if (attached) {
+        return {
+          url: session.currentUrl,
+          title: session.title,
+          hyperbeam: {
+            sessionId: session.hyperbeam.sessionId,
+            embedUrl: session.hyperbeam.embedUrl ?? "",
+            adminToken: "" // re-attach uses in-memory admin token from Hyperbeam GET /vm
+          }
+        };
+      }
+      await this.terminateRemoteHyperbeam(session.hyperbeam.sessionId);
+    }
+    return this.driver.start({
+      session,
+      startUrl,
+      navigationGuard: this.guardSettings(settings)
+    });
+  }
+
   private stateMessage(session: SharedBrowserSession, senderId: string): SharedBrowserRealtimeMessage {
     return {
       type: "room.shared-browser.state.v1",
@@ -129,13 +178,12 @@ export class SharedBrowserOrchestrator {
       currentUrl: input.startUrl,
       title: "",
       viewport: { width: input.settings.viewportWidth, height: input.settings.viewportHeight },
-      livekit: { participantIdentity: `shared-browser:${input.wallObjectId}` },
       lastInputAt: now,
       createdAt: now,
       updatedAt: now
     };
 
-    // Lazy start: persist the session as paused and defer Chromium until someone
+    // Lazy start: persist the session as paused and defer Hyperbeam until someone
     // resumes, navigates, or sends input. This avoids launching a browser for
     // every board placed on a wall while the room is empty or unused.
     if (this.config.tuning.sharedBrowserLazyStart) {
@@ -160,16 +208,11 @@ export class SharedBrowserOrchestrator {
 
     await this.repository.createSharedBrowserSession(session);
 
-    // Eager start (legacy): launch Chromium immediately on board creation.
+    // Eager start: launch Hyperbeam immediately on board creation.
     let active: SharedBrowserSession;
     try {
-      const result = await this.driver.start({ session, startUrl: input.startUrl, navigationGuard: guard });
-      active = await this.repository.updateSharedBrowserSession(session.id, {
-        status: "active",
-        currentUrl: result.url,
-        title: result.title,
-        updatedAt: nowIso()
-      });
+      const result = await this.startDriver(session, input.startUrl, input.settings);
+      active = await this.repository.updateSharedBrowserSession(session.id, this.patchFromDriverStart(result));
     } catch (error) {
       active = await this.repository.updateSharedBrowserSession(session.id, {
         status: "error",
@@ -179,7 +222,6 @@ export class SharedBrowserOrchestrator {
       });
     }
     await this.syncWallObjectState(active);
-    if (active.status === "active") this.video?.onSessionActive(active);
 
     return {
       session: active,
@@ -198,20 +240,24 @@ export class SharedBrowserOrchestrator {
   }
 
   /**
-   * Tear down the live Chromium page and mark the session paused. Idempotent for
-   * already-paused/stopped sessions.
+   * Tear down the live Hyperbeam VM and mark paused.
+   * Idempotent for already-paused/stopped sessions.
    */
   async pauseSession(session: SharedBrowserSession): Promise<boolean> {
     if (session.status === "paused" || session.status === "stopped") return false;
-    this.video?.onSessionInactive(session.id);
     try {
       await this.driver.stop(session.id);
     } catch {
       // best-effort teardown
     }
+    if (session.hyperbeam?.sessionId) {
+      await this.terminateRemoteHyperbeam(session.hyperbeam.sessionId);
+    }
     const updated = await this.repository.updateSharedBrowserSession(session.id, {
       status: "paused",
-      updatedAt: nowIso()
+      updatedAt: nowIso(),
+      unsetHyperbeam: true,
+      unsetLivekit: true
     });
     await this.syncWallObjectState(updated);
     return true;
@@ -248,28 +294,15 @@ export class SharedBrowserOrchestrator {
     session: SharedBrowserSession,
     settings: RoomSettings["sharedBrowsers"]
   ): Promise<{ session: SharedBrowserSession; recovered: boolean }> {
-    const live = this.driver.isLive?.(session.id) ?? true;
+    const live = this.driver.isLive?.(session.id) ?? session.status === "active";
     if (session.status === "active" && live) {
       return { session, recovered: false };
     }
 
     try {
-      const result = await this.driver.start({
-        session,
-        startUrl: session.currentUrl,
-        navigationGuard: this.guardSettings(settings)
-      });
-      const updated = await this.repository.updateSharedBrowserSession(session.id, {
-        status: "active",
-        currentUrl: result.url,
-        title: result.title,
-        lastInputAt: nowIso(),
-        errorCode: undefined,
-        errorMessage: undefined,
-        updatedAt: nowIso()
-      });
+      const result = await this.startDriver(session, session.currentUrl, settings);
+      const updated = await this.repository.updateSharedBrowserSession(session.id, this.patchFromDriverStart(result));
       await this.syncWallObjectState(updated);
-      this.video?.onSessionActive(updated);
       return { session: updated, recovered: true };
     } catch (error) {
       const updated = await this.repository.updateSharedBrowserSession(session.id, {
@@ -286,6 +319,36 @@ export class SharedBrowserOrchestrator {
   async hydrate(roomId: string, wallObjectId: string): Promise<SharedBrowserResult> {
     const session = await this.requireSession(roomId, wallObjectId);
     return { session, realtimeMessages: [] };
+  }
+
+  /**
+   * Refresh the client embed URL from Hyperbeam (e.g. after token expiry).
+   * No-op when the session has no live Hyperbeam VM.
+   */
+  async refreshEmbed(roomId: string, wallObjectId: string): Promise<SharedBrowserResult> {
+    const session = await this.requireSession(roomId, wallObjectId);
+    const hyperbeamSessionId = session.hyperbeam?.sessionId;
+    if (!hyperbeamSessionId || session.status !== "active") {
+      throw conflict("Shared browser is not live");
+    }
+    const apiKey = this.config.tuning.hyperbeamApiKey;
+    if (!apiKey) throw conflict("Hyperbeam is not configured");
+
+    const remote = await hyperbeamGetVm(
+      this.config.tuning.hyperbeamApiBase,
+      apiKey,
+      hyperbeamSessionId
+    );
+    if (!remote || remote.termination_date) {
+      throw conflict("Hyperbeam session is no longer live");
+    }
+
+    const updated = await this.repository.updateSharedBrowserSession(session.id, {
+      hyperbeam: { sessionId: remote.session_id, embedUrl: remote.embed_url },
+      updatedAt: nowIso()
+    });
+    await this.syncWallObjectState(updated);
+    return { session: updated, realtimeMessages: [] };
   }
 
   async navigate(
@@ -439,16 +502,8 @@ export class SharedBrowserOrchestrator {
     }
     let updated: SharedBrowserSession;
     try {
-      const result = await this.driver.start({ session, startUrl: session.currentUrl, navigationGuard: this.guardSettings(settings) });
-      updated = await this.repository.updateSharedBrowserSession(session.id, {
-        status: "active",
-        currentUrl: result.url,
-        title: result.title,
-        lastInputAt: nowIso(),
-        errorCode: undefined,
-        errorMessage: undefined,
-        updatedAt: nowIso()
-      });
+      const result = await this.startDriver(session, session.currentUrl, settings);
+      updated = await this.repository.updateSharedBrowserSession(session.id, this.patchFromDriverStart(result));
     } catch (error) {
       updated = await this.repository.updateSharedBrowserSession(session.id, {
         status: "error",
@@ -458,7 +513,6 @@ export class SharedBrowserOrchestrator {
       });
     }
     await this.syncWallObjectState(updated);
-    if (updated.status === "active") this.video?.onSessionActive(updated);
     return {
       session: updated,
       realtimeMessages: [
@@ -475,64 +529,17 @@ export class SharedBrowserOrchestrator {
     };
   }
 
-  /**
-   * Apply a batch of pointer/keyboard input. Keyboard requires a live control
-   * lease held by the actor; pointer events never do. Used by the realtime
-   * ingress route (Phase 4).
-   */
-  async applyInput(
-    roomId: string,
-    wallObjectId: string,
-    pointer: SharedBrowserPointerEvent[],
-    keyboard: SharedBrowserKeyEvent[],
-    actor: SharedBrowserActor,
-    settings: RoomSettings["sharedBrowsers"]
-  ): Promise<SharedBrowserResult> {
-    const current = await this.requireSession(roomId, wallObjectId);
-    const ensured = await this.ensureLiveSession(current, settings);
-    const session = ensured.session;
-    if (session.status !== "active") {
-      return { session, realtimeMessages: [] };
-    }
-    if (keyboard.length > 0) {
-      const now = nowIso();
-      if (!leaseActive(session.controlLease, now) || session.controlLease!.userId !== actor.userId) {
-        throw forbidden("Keyboard input requires the control lease");
-      }
-    }
-
-    if (pointer.length > 0) await this.driver.pointer(session.id, pointer);
-    if (keyboard.length > 0) await this.driver.keyboard(session.id, keyboard);
-
-    const updated = await this.repository.updateSharedBrowserSession(session.id, {
-      lastInputAt: nowIso(),
-      updatedAt: nowIso()
-    });
-
-    const messages: SharedBrowserRealtimeMessage[] = [];
-    if (pointer.length > 0) {
-      messages.push({
-        type: "room.shared-browser.pointer.v1",
-        roomId,
-        wallObjectId,
-        authorUserId: actor.userId,
-        pointer,
-        sentAt: Date.now(),
-        senderId: actor.userId
-      });
-    }
-    return { session: updated, realtimeMessages: messages };
-  }
-
   /** Stop and remove a session (wall object delete). Safe to call repeatedly. */
   async stopSession(wallObjectId: string): Promise<void> {
     const session = await this.repository.getSharedBrowserSessionByWallObject(wallObjectId);
     if (!session) return;
-    this.video?.onSessionInactive(session.id);
     try {
       await this.driver.stop(session.id);
     } catch {
       // best-effort teardown
+    }
+    if (session.hyperbeam?.sessionId) {
+      await this.terminateRemoteHyperbeam(session.hyperbeam.sessionId);
     }
     await this.repository.deleteSharedBrowserSession(session.id);
   }

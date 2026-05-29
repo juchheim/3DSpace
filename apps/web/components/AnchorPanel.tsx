@@ -495,6 +495,9 @@ export function AnchorPanel({
 
           {selectedType === "shared-browser" && (
             <div className="content-form">
+              <p className="hud-ctx-sub shared-browser-billing-note">
+                Shared browsers use Hyperbeam (usage-based billing per viewer-minute while someone is watching the board).
+              </p>
               <label>
                 Title
                 <input value={sharedBrowserTitle} onChange={(e) => setSharedBrowserTitle(e.target.value)} placeholder="Shared Browser" />

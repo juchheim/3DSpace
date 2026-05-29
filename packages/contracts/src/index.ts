@@ -907,6 +907,14 @@ export function getRoomTypeFeatureFlags(roomType: RoomType | string | null | und
   }
 }
 
+export const SharedBrowserHyperbeamQualitySchema = z.enum(["sharp", "smooth", "blocky"]);
+
+export const SharedBrowserHyperbeamSessionSchema = z.object({
+  sessionId: z.string().min(1),
+  /** Present while the Hyperbeam VM is live; omitted when paused. */
+  embedUrl: z.string().url().optional()
+});
+
 export const RoomSettingsSchema = z.object({
   maxParticipants: z.number().int().positive(),
   defaultViewMode: ViewModeSchema,
@@ -1014,7 +1022,9 @@ export const RoomSettingsSchema = z.object({
     idlePauseMinutes: z.number().int().min(1).max(240).default(15),
     navigationAllowlistEnabled: z.boolean().default(false),
     navigationAllowlist: z.array(z.string()).default([]),
-    controlLeaseSeconds: z.number().int().min(10).max(600).default(120)
+    controlLeaseSeconds: z.number().int().min(10).max(600).default(120),
+    hyperbeamQuality: SharedBrowserHyperbeamQualitySchema.default("smooth"),
+    hyperbeamFramerate: z.number().int().min(24).max(60).default(30)
   }).default({
     enabled: true,
     maxActivePerRoom: 2,
@@ -1024,7 +1034,9 @@ export const RoomSettingsSchema = z.object({
     idlePauseMinutes: 15,
     navigationAllowlistEnabled: false,
     navigationAllowlist: [],
-    controlLeaseSeconds: 120
+    controlLeaseSeconds: 120,
+    hyperbeamQuality: "smooth",
+    hyperbeamFramerate: 30
   })
 });
 
@@ -1572,6 +1584,8 @@ export const SharedBrowserSessionSchema = z.object({
     height: z.number().int().positive()
   }),
   controlLease: SharedBrowserControlLeaseSchema.optional(),
+  hyperbeam: SharedBrowserHyperbeamSessionSchema.optional(),
+  /** @deprecated Puppeteer/LiveKit path — removed in Hyperbeam migration (Phase 7). Kept for existing Mongo rows. */
   livekit: z.object({
     participantIdentity: z.string().min(1),
     trackSid: z.string().optional()
@@ -2754,6 +2768,8 @@ export type WhiteboardStrokeEraseMessageV1 = z.infer<typeof WhiteboardStrokeEras
 export type WhiteboardClearedMessageV1 = z.infer<typeof WhiteboardClearedMessageV1Schema>;
 export type WhiteboardSnapshotReadyMessageV1 = z.infer<typeof WhiteboardSnapshotReadyMessageV1Schema>;
 export type WhiteboardRealtimeMessage = z.infer<typeof WhiteboardRealtimeMessageSchema>;
+export type SharedBrowserHyperbeamQuality = z.infer<typeof SharedBrowserHyperbeamQualitySchema>;
+export type SharedBrowserHyperbeamSession = z.infer<typeof SharedBrowserHyperbeamSessionSchema>;
 export type SharedBrowserSessionStatus = z.infer<typeof SharedBrowserSessionStatusSchema>;
 export type SharedBrowserControlLease = z.infer<typeof SharedBrowserControlLeaseSchema>;
 export type SharedBrowserSession = z.infer<typeof SharedBrowserSessionSchema>;
@@ -3043,7 +3059,7 @@ export const apiRoutes: ApiRoute[] = [
   { method: "post", path: "/v1/rooms/{roomId}/wall-objects/{objectId}/shared-browser/history", summary: "Run a back/forward/refresh action on the shared browser", tags: ["shared-browsers"], request: SharedBrowserHistoryRequestSchema, response: SharedBrowserSessionResponseSchema },
   { method: "post", path: "/v1/rooms/{roomId}/wall-objects/{objectId}/shared-browser/control-lease", summary: "Take, release, or renew the shared browser keyboard control lease", tags: ["shared-browsers"], request: SharedBrowserControlLeaseRequestSchema, response: SharedBrowserSessionResponseSchema },
   { method: "post", path: "/v1/rooms/{roomId}/wall-objects/{objectId}/shared-browser/resume", summary: "Resume a paused shared browser session (idempotent)", tags: ["shared-browsers"], response: SharedBrowserSessionResponseSchema },
-  { method: "post", path: "/v1/rooms/{roomId}/shared-browser/realtime", summary: "Accept batched shared browser pointer/keyboard input and fan out realtime messages", tags: ["shared-browsers"], request: SharedBrowserPointerBatchSchema, response: SharedBrowserRealtimeDispatchResponseSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/wall-objects/{objectId}/shared-browser/embed", summary: "Refresh the Hyperbeam embed URL for a live shared browser session", tags: ["shared-browsers"], response: SharedBrowserSessionResponseSchema },
   { method: "post", path: "/v1/rooms/{roomId}/wall-shares", summary: "Create live wall share intent", tags: ["wall-objects"], request: CreateWallShareRequestSchema, response: CreateWallShareResponseSchema },
   { method: "post", path: "/v1/rooms/{roomId}/wall-shares/{objectId}/end", summary: "Mark live wall share ended", tags: ["wall-objects"], response: WallObjectSchema },
   { method: "post", path: "/v1/rooms/{roomId}/web-resources", summary: "Create safe wall web resource", tags: ["wall-objects"], request: CreateWebResourceRequestSchema, response: WallObjectSchema },

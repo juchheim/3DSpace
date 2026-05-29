@@ -4,8 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   RoomSessionResponse,
   SharedBrowserControlLease,
-  SharedBrowserKeyEvent,
-  SharedBrowserPointerEvent,
   SharedBrowserSession,
   SharedBrowserSessionStatus,
   WallObject
@@ -13,8 +11,8 @@ import type {
 import {
   getSharedBrowserSession as getSharedBrowserSessionApi,
   navigateSharedBrowser as navigateSharedBrowserApi,
+  refreshSharedBrowserEmbed as refreshSharedBrowserEmbedApi,
   resumeSharedBrowser as resumeSharedBrowserApi,
-  sendSharedBrowserInput as sendSharedBrowserInputApi,
   sharedBrowserControlLease as sharedBrowserControlLeaseApi,
   sharedBrowserHistory as sharedBrowserHistoryApi
 } from "./api";
@@ -38,8 +36,7 @@ export type SharedBrowserController = {
   history(objectId: string, action: "back" | "forward" | "refresh"): Promise<void>;
   controlLease(objectId: string, action: "take" | "release" | "renew"): Promise<void>;
   resume(objectId: string): Promise<void>;
-  queuePointer(objectId: string, event: SharedBrowserPointerEvent): void;
-  queueKey(objectId: string, event: SharedBrowserKeyEvent): void;
+  refreshEmbed(objectId: string): Promise<void>;
   handleRealtimeMessage(message: RealtimeMessage): boolean;
 };
 
@@ -73,6 +70,7 @@ export function useSharedBrowser(input: {
   publish?: ((message: RealtimeMessage) => void) | undefined;
 }) {
   const [boards, setBoards] = useState<Record<string, SharedBrowserBoardState>>({});
+  const startedHydrationRef = useRef(new Set<string>());
   const publishRef = useRef(input.publish);
   publishRef.current = input.publish;
 
@@ -109,20 +107,30 @@ export function useSharedBrowser(input: {
   useEffect(() => {
     if (!input.enabled) {
       setBoards({});
+      startedHydrationRef.current.clear();
       return;
     }
     const ids = new Set(browserObjects.map((object) => object.id));
     setBoards((current) => {
+      let changed = false;
       const next = { ...current };
       for (const key of Object.keys(next)) {
-        if (!ids.has(key)) delete next[key];
+        if (!ids.has(key)) {
+          delete next[key];
+          changed = true;
+        }
       }
-      return next;
+      return changed ? next : current;
     });
-    for (const object of browserObjects) {
-      if (!boards[object.id]) void hydrateBoard(object);
+    for (const id of [...startedHydrationRef.current]) {
+      if (!ids.has(id)) startedHydrationRef.current.delete(id);
     }
-  }, [boards, browserObjects, hydrateBoard, input.enabled]);
+    for (const object of browserObjects) {
+      if (startedHydrationRef.current.has(object.id)) continue;
+      startedHydrationRef.current.add(object.id);
+      void hydrateBoard(object);
+    }
+  }, [browserObjects, hydrateBoard, input.enabled]);
 
   const getBoard = useCallback((objectId: string) => boards[objectId] ?? EMPTY_BOARD, [boards]);
 
@@ -168,77 +176,23 @@ export function useSharedBrowser(input: {
     try {
       const result = await resumeSharedBrowserApi(input.identity, input.roomId, objectId);
       publishMessages(result.realtimeMessages);
-      patchBoard(objectId, fromSession(result.session));
+      patchBoard(objectId, { loading: false, ...fromSession(result.session) });
     } catch (error) {
-      patchBoard(objectId, { error: error instanceof Error ? error.message : "Unable to resume." });
+      patchBoard(objectId, { loading: false, error: error instanceof Error ? error.message : "Unable to resume." });
       throw error;
     }
   }, [input.identity, input.roomId, patchBoard, publishMessages]);
 
-  // Batch pointer/keyboard input and flush on a throttled cadence so a drag does
-  // not fire one request per mousemove. We coalesce queued events and POST at
-  // most once per MIN_FLUSH_INTERVAL_MS (~20 Hz), prioritizing clicks, wheel, and
-  // keyboard over raw pointer motion.
-  const queueRef = useRef<Record<string, { pointer: SharedBrowserPointerEvent[]; keyboard: SharedBrowserKeyEvent[] }>>({});
-  const frameRef = useRef<number | null>(null);
-  const timerRef = useRef<number | null>(null);
-  const lastFlushRef = useRef(0);
-  const MIN_FLUSH_INTERVAL_MS = 50;
-
-  const flushInput = useCallback(() => {
-    frameRef.current = null;
-    timerRef.current = null;
-    lastFlushRef.current = Date.now();
-    if (!input.roomId) {
-      queueRef.current = {};
-      return;
+  const refreshEmbed = useCallback(async (objectId: string) => {
+    if (!input.roomId) throw new Error("Room is not ready.");
+    try {
+      const result = await refreshSharedBrowserEmbedApi(input.identity, input.roomId, objectId);
+      patchBoard(objectId, fromSession(result.session));
+    } catch (error) {
+      patchBoard(objectId, { error: error instanceof Error ? error.message : "Unable to refresh embed." });
+      throw error;
     }
-    const pending = queueRef.current;
-    queueRef.current = {};
-    for (const [objectId, batch] of Object.entries(pending)) {
-      if (batch.pointer.length === 0 && batch.keyboard.length === 0) continue;
-      void sendSharedBrowserInputApi(input.identity, input.roomId, objectId, batch)
-        .then((result) => {
-          publishMessages(result.realtimeMessages);
-          if (result.session) patchBoard(objectId, fromSession(result.session));
-        })
-        .catch(() => undefined);
-    }
-  }, [input.identity, input.roomId, patchBoard, publishMessages]);
-
-  const scheduleFlush = useCallback(() => {
-    if (typeof window === "undefined") return;
-    if (frameRef.current !== null || timerRef.current !== null) return;
-    const elapsed = Date.now() - lastFlushRef.current;
-    if (elapsed >= MIN_FLUSH_INTERVAL_MS) {
-      frameRef.current = window.requestAnimationFrame(flushInput);
-    } else {
-      timerRef.current = window.setTimeout(() => {
-        timerRef.current = null;
-        frameRef.current = window.requestAnimationFrame(flushInput);
-      }, MIN_FLUSH_INTERVAL_MS - elapsed);
-    }
-  }, [flushInput]);
-
-  const queuePointer = useCallback((objectId: string, event: SharedBrowserPointerEvent) => {
-    const batch = queueRef.current[objectId] ?? { pointer: [], keyboard: [] };
-    batch.pointer.push(event);
-    queueRef.current[objectId] = batch;
-    scheduleFlush();
-  }, [scheduleFlush]);
-
-  const queueKey = useCallback((objectId: string, event: SharedBrowserKeyEvent) => {
-    const batch = queueRef.current[objectId] ?? { pointer: [], keyboard: [] };
-    batch.keyboard.push(event);
-    queueRef.current[objectId] = batch;
-    scheduleFlush();
-  }, [scheduleFlush]);
-
-  useEffect(() => () => {
-    if (typeof window === "undefined") return;
-    if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
-    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
-  }, []);
+  }, [input.identity, input.roomId, patchBoard]);
 
   const handleRealtimeMessage = useCallback((message: RealtimeMessage) => {
     if (!input.roomId) return false;
@@ -270,8 +224,6 @@ export function useSharedBrowser(input: {
       return true;
     }
 
-    // history + pointer carry no durable state for the board; they are consumed
-    // by the live view (Phase 5/6) but acknowledged here so they stop dispatch.
     if (message.type === "room.shared-browser.history.v1" || message.type === "room.shared-browser.pointer.v1") {
       return true;
     }
@@ -286,8 +238,7 @@ export function useSharedBrowser(input: {
     history,
     controlLease,
     resume,
-    queuePointer,
-    queueKey,
+    refreshEmbed,
     handleRealtimeMessage
   } satisfies SharedBrowserController;
 }

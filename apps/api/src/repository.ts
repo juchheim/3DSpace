@@ -33,6 +33,12 @@ import { conflict, notFound } from "./errors.js";
 
 export type RoomSettings = z.infer<typeof RoomSettingsSchema>;
 
+/** Patch for shared browser session rows; supports clearing nested runtime fields. */
+export type SharedBrowserSessionPatch = Partial<SharedBrowserSession> & {
+  unsetHyperbeam?: boolean;
+  unsetLivekit?: boolean;
+};
+
 export function normalizeRoomRecord(room: RoomRecord): RoomRecord {
   return { ...room, settings: parseRoomSettings(room.settings) };
 }
@@ -173,7 +179,7 @@ export type Repository = {
   getSharedBrowserSessionByWallObject(wallObjectId: string): Promise<SharedBrowserSession | undefined>;
   listSharedBrowserSessionsForRoom(roomId: string): Promise<SharedBrowserSession[]>;
   countActiveSharedBrowserSessionsForRoom(roomId: string): Promise<number>;
-  updateSharedBrowserSession(id: string, patch: Partial<SharedBrowserSession>): Promise<SharedBrowserSession>;
+  updateSharedBrowserSession(id: string, patch: SharedBrowserSessionPatch): Promise<SharedBrowserSession>;
   deleteSharedBrowserSession(id: string): Promise<void>;
   listStaleSharedBrowserSessions(olderThanIso: string): Promise<SharedBrowserSession[]>;
   listLiveSharedBrowserSessions(): Promise<SharedBrowserSession[]>;
@@ -974,10 +980,13 @@ export class MemoryRepository implements Repository {
     ).length;
   }
 
-  async updateSharedBrowserSession(id: string, patch: Partial<SharedBrowserSession>): Promise<SharedBrowserSession> {
+  async updateSharedBrowserSession(id: string, patch: SharedBrowserSessionPatch): Promise<SharedBrowserSession> {
     const existing = this.sharedBrowserSessions.get(id);
     if (!existing) throw notFound("Shared browser session not found");
-    const updated = { ...existing, ...patch };
+    const { unsetHyperbeam, unsetLivekit, ...rest } = patch;
+    const updated = { ...existing, ...rest } as SharedBrowserSession;
+    if (unsetHyperbeam) delete (updated as { hyperbeam?: unknown }).hyperbeam;
+    if (unsetLivekit) delete (updated as { livekit?: unknown }).livekit;
     this.sharedBrowserSessions.set(id, updated);
     return updated;
   }

@@ -55,6 +55,26 @@ describe("shared browser realtime contracts", () => {
     expect(getRoomTypeFeatureFlags("classroom").sharedBrowsers).toBe(false);
   });
 
+  it("parses optional hyperbeam metadata on the session entity", () => {
+    const session = SharedBrowserSessionSchema.parse({
+      id: "s1",
+      roomId: "room-1",
+      wallObjectId: "wo-1",
+      createdByUserId: "user-1",
+      status: "active",
+      currentUrl: "https://example.com/",
+      viewport: { width: 1280, height: 720 },
+      hyperbeam: {
+        sessionId: "hb_sess_1",
+        embedUrl: "https://embed.hyperbeam.com/test?token=abc"
+      },
+      lastInputAt: "2026-05-28T00:00:00.000Z",
+      createdAt: "2026-05-28T00:00:00.000Z",
+      updatedAt: "2026-05-28T00:00:00.000Z"
+    });
+    expect(session.hyperbeam?.sessionId).toBe("hb_sess_1");
+  });
+
   it("requires an https currentUrl on the session entity", () => {
     expect(() =>
       SharedBrowserSessionSchema.parse({

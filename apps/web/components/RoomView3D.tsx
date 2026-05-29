@@ -869,6 +869,9 @@ const WallObjectSurface = memo(function WallObjectSurface({
               {...(sharedBrowserController ? { sharedBrowserController } : {})}
               {...(sharedBrowserIdentity ? { sharedBrowserIdentity } : {})}
               {...(sharedBrowserRoomId ? { sharedBrowserRoomId } : {})}
+              {...(object.type === "web.browser.shared"
+                ? { sharedBrowserHyperbeamVideoMode: "frame" as const, hyperbeamEmbedVisible: visible }
+                : {})}
               hideHeader={hideHeader}
             />
           </div>

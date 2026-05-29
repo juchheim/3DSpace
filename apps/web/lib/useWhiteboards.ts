@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   CommitWhiteboardStrokeRequestSchema,
   RoomSessionResponse,
@@ -122,6 +122,7 @@ export function useWhiteboards(input: {
   publish?: ((message: RealtimeMessage) => void) | undefined;
 }) {
   const [boards, setBoards] = useState<Record<string, WhiteboardBoardState>>({});
+  const startedHydrationRef = useRef(new Set<string>());
 
   const whiteboardObjects = useMemo(
     () => input.wallObjects.filter((object) => object.type === "whiteboard" && object.status !== "removed"),
@@ -168,22 +169,30 @@ export function useWhiteboards(input: {
   useEffect(() => {
     if (!input.enabled) {
       setBoards({});
+      startedHydrationRef.current.clear();
       return;
     }
     const whiteboardIds = new Set(whiteboardObjects.map((object) => object.id));
     setBoards((current) => {
+      let changed = false;
       const next = { ...current };
       for (const key of Object.keys(next)) {
-        if (!whiteboardIds.has(key)) delete next[key];
+        if (!whiteboardIds.has(key)) {
+          delete next[key];
+          changed = true;
+        }
       }
-      return next;
+      return changed ? next : current;
     });
-    for (const object of whiteboardObjects) {
-      if (!boards[object.id]) {
-        void hydrateBoard(object);
-      }
+    for (const id of [...startedHydrationRef.current]) {
+      if (!whiteboardIds.has(id)) startedHydrationRef.current.delete(id);
     }
-  }, [boards, hydrateBoard, input.enabled, whiteboardObjects]);
+    for (const object of whiteboardObjects) {
+      if (startedHydrationRef.current.has(object.id)) continue;
+      startedHydrationRef.current.add(object.id);
+      void hydrateBoard(object);
+    }
+  }, [hydrateBoard, input.enabled, whiteboardObjects]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -204,25 +213,27 @@ export function useWhiteboards(input: {
   const getBoard = useCallback((objectId: string) => boards[objectId] ?? EMPTY_BOARD, [boards]);
 
   const commitStroke = useCallback(async (objectId: string, stroke: CommitStrokeInput) => {
-    if (!input.roomId) throw new Error("Room is not ready.");
+    const roomId = input.roomId;
+    if (!roomId) throw new Error("Room is not ready.");
     const object = whiteboardObjects.find((candidate) => candidate.id === objectId);
     if (!object) throw new Error("Whiteboard not found.");
-    const optimistic: WhiteboardStroke = {
-      id: stroke.id,
-      roomId: input.roomId,
-      wallObjectId: objectId,
-      authorUserId: input.identity.userId,
-      tool: stroke.tool,
-      color: stroke.color,
-      thickness: stroke.thickness,
-      points: stroke.points,
-      ...(stroke.text ? { text: stroke.text } : {}),
-      z: (boards[objectId]?.strokes.at(-1)?.z ?? -1) + 1,
-      clearVersion: stroke.clearVersion,
-      createdAt: new Date().toISOString()
-    };
+    let optimistic!: WhiteboardStroke;
     setBoards((current) => {
       const board = current[objectId] ?? EMPTY_BOARD;
+      optimistic = {
+        id: stroke.id,
+        roomId,
+        wallObjectId: objectId,
+        authorUserId: input.identity.userId,
+        tool: stroke.tool,
+        color: stroke.color,
+        thickness: stroke.thickness,
+        points: stroke.points,
+        ...(stroke.text ? { text: stroke.text } : {}),
+        z: (board.strokes.at(-1)?.z ?? -1) + 1,
+        clearVersion: stroke.clearVersion,
+        createdAt: new Date().toISOString()
+      };
       return {
         ...current,
         [objectId]: {
@@ -234,7 +245,7 @@ export function useWhiteboards(input: {
       };
     });
     try {
-      const result = await commitWhiteboardStrokeApi(input.identity, input.roomId, objectId, stroke);
+      const result = await commitWhiteboardStrokeApi(input.identity, roomId, objectId, stroke);
       for (const message of result.realtimeMessages) input.publish?.(message);
       setBoards((current) => {
         const board = current[objectId] ?? EMPTY_BOARD;
@@ -265,13 +276,14 @@ export function useWhiteboards(input: {
       });
       throw error;
     }
-  }, [boards, input.identity, input.publish, input.roomId, whiteboardObjects]);
+  }, [input.identity, input.publish, input.roomId, whiteboardObjects]);
 
   const eraseStrokes = useCallback(async (objectId: string, strokeIds: string[]) => {
     if (!input.roomId) throw new Error("Room is not ready.");
-    const previous = boards[objectId]?.strokes ?? [];
+    let previous: WhiteboardStroke[] = [];
     setBoards((current) => {
       const board = current[objectId] ?? EMPTY_BOARD;
+      previous = board.strokes;
       return {
         ...current,
         [objectId]: {
@@ -298,21 +310,24 @@ export function useWhiteboards(input: {
       }));
       throw error;
     }
-  }, [boards, input.identity, input.publish, input.roomId]);
+  }, [input.identity, input.publish, input.roomId]);
 
   const clear = useCallback(async (objectId: string) => {
     if (!input.roomId) throw new Error("Room is not ready.");
-    const previous = boards[objectId] ?? EMPTY_BOARD;
-    setBoards((current) => ({
-      ...current,
-      [objectId]: {
-        ...(current[objectId] ?? EMPTY_BOARD),
-        error: "",
-        strokes: [],
-        inProgressRemote: {},
-        strokeCount: 0
-      }
-    }));
+    let previous = EMPTY_BOARD;
+    setBoards((current) => {
+      previous = current[objectId] ?? EMPTY_BOARD;
+      return {
+        ...current,
+        [objectId]: {
+          ...(current[objectId] ?? EMPTY_BOARD),
+          error: "",
+          strokes: [],
+          inProgressRemote: {},
+          strokeCount: 0
+        }
+      };
+    });
     try {
       const result = await clearWhiteboardApi(input.identity, input.roomId, objectId);
       for (const message of result.realtimeMessages) input.publish?.(message);
@@ -336,7 +351,7 @@ export function useWhiteboards(input: {
       }));
       throw error;
     }
-  }, [boards, input.identity, input.publish, input.roomId]);
+  }, [input.identity, input.publish, input.roomId]);
 
   const requestSnapshot = useCallback(async (objectId: string) => {
     if (!input.roomId) throw new Error("Room is not ready.");

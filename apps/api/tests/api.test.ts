@@ -5,7 +5,7 @@ import { loadConfig } from "../src/config";
 import { RoomObjectGrabLock } from "../src/room-objects/grab-lock.js";
 import { MemoryRepository } from "../src/repository";
 import { SharedBrowserOrchestrator } from "../src/shared-browser/orchestrator.js";
-import type { SharedBrowserDriver } from "../src/shared-browser/types.js";
+import type { DriverStartOptions, SharedBrowserDriver } from "../src/shared-browser/types.js";
 import { putDevStoredObject } from "../src/services/storage.js";
 
 function authHeaders(userId: string, name: string) {
@@ -5366,9 +5366,33 @@ describe("room object realtime grab lock", () => {
   });
 
   describe("shared browser boards", () => {
+    class MockHyperbeamSharedBrowserDriver implements SharedBrowserDriver {
+      async start(options: DriverStartOptions) {
+        return {
+          url: options.startUrl,
+          title: "example",
+          hyperbeam: {
+            sessionId: `hb_${options.session.id}`,
+            embedUrl: "https://embed.hyperbeam.test/session?token=viewer",
+            adminToken: "admin"
+          }
+        };
+      }
+      async stop() {}
+      isLive() {
+        return true;
+      }
+      async navigate(_sessionId: string, url: string) {
+        return { url, title: "example" };
+      }
+      async history() {
+        return { url: "https://example.com/", title: "example" };
+      }
+    }
+
     class FailingSharedBrowserDriver implements SharedBrowserDriver {
       async start() {
-        throw new Error("chromium failed to launch");
+        throw new Error("shared browser driver failed to start");
       }
       async stop() {}
       isLive() {
@@ -5380,9 +5404,6 @@ describe("room object realtime grab lock", () => {
       async history() {
         return { url: "", title: "" };
       }
-      async pointer() {}
-      async keyboard() {}
-      async screencastLoop() {}
     }
 
     function sharedBrowserConfig() {
@@ -5396,15 +5417,27 @@ describe("room object realtime grab lock", () => {
 
     const FFA_ANCHOR = "ffa-adj-east-anchor";
 
-    // Inject an orchestrator using the no-Chromium stub driver so these tests
-    // stay offline and deterministic (buildApp would otherwise launch real
-    // Chromium when ENABLE_SHARED_BROWSERS is set).
+    // Inject an orchestrator using the offline stub driver so these tests stay
+    // deterministic without a Hyperbeam API key.
     async function buildSharedBrowserApp(repository: MemoryRepository = new MemoryRepository()) {
       const config = sharedBrowserConfig();
       return buildApp({
         config,
         repository,
         sharedBrowserOrchestrator: new SharedBrowserOrchestrator({ repository, config })
+      });
+    }
+
+    async function buildHyperbeamSharedBrowserApp(repository: MemoryRepository = new MemoryRepository()) {
+      const config = sharedBrowserConfig();
+      return buildApp({
+        config,
+        repository,
+        sharedBrowserOrchestrator: new SharedBrowserOrchestrator({
+          repository,
+          config,
+          driver: new MockHyperbeamSharedBrowserDriver()
+        })
       });
     }
 
@@ -5580,44 +5613,29 @@ describe("room object realtime grab lock", () => {
       await app.close();
     });
 
-    it("requires a control lease for keyboard input but not pointer input", async () => {
-      const app = await buildSharedBrowserApp();
+    it("returns hyperbeam embedUrl on hydrate after resume", async () => {
+      const app = await buildHyperbeamSharedBrowserApp();
       const { roomWithManifest } = await createClassAndRoom(app, "teacher-sb", "free-for-all");
       const roomId = roomWithManifest.room.id;
       const object = (await createSharedBrowser(app, roomId, "teacher-sb")).json();
 
-      const pointerOnly = await app.inject({
+      const resumed = await app.inject({
         method: "POST",
-        url: `/v1/rooms/${roomId}/shared-browser/realtime`,
-        headers: authHeaders("teacher-sb", "Ms. Rivera"),
-        payload: { wallObjectId: object.id, pointer: [{ kind: "move", x: 0.5, y: 0.5, at: Date.now() }], keyboard: [] }
+        url: `/v1/rooms/${roomId}/wall-objects/${object.id}/shared-browser/resume`,
+        headers: authHeaders("teacher-sb", "Ms. Rivera")
       });
-      expect(pointerOnly.statusCode).toBe(200);
+      expect(resumed.statusCode).toBe(200);
+      expect(resumed.json().session.hyperbeam?.embedUrl).toContain("embed.hyperbeam.test");
 
-      const keyboardNoLease = await app.inject({
-        method: "POST",
-        url: `/v1/rooms/${roomId}/shared-browser/realtime`,
-        headers: authHeaders("teacher-sb", "Ms. Rivera"),
-        payload: { wallObjectId: object.id, pointer: [], keyboard: [{ kind: "char", key: "a", text: "a", at: Date.now() }] }
+      const hydrate = await app.inject({
+        method: "GET",
+        url: `/v1/rooms/${roomId}/wall-objects/${object.id}/shared-browser`,
+        headers: authHeaders("teacher-sb", "Ms. Rivera")
       });
-      expect(keyboardNoLease.statusCode).toBe(403);
-
-      const lease = await app.inject({
-        method: "POST",
-        url: `/v1/rooms/${roomId}/wall-objects/${object.id}/shared-browser/control-lease`,
-        headers: authHeaders("teacher-sb", "Ms. Rivera"),
-        payload: { action: "take" }
-      });
-      expect(lease.statusCode).toBe(200);
-      expect(lease.json().session.controlLease.userId).toBe("teacher-sb");
-
-      const keyboardWithLease = await app.inject({
-        method: "POST",
-        url: `/v1/rooms/${roomId}/shared-browser/realtime`,
-        headers: authHeaders("teacher-sb", "Ms. Rivera"),
-        payload: { wallObjectId: object.id, pointer: [], keyboard: [{ kind: "char", key: "a", text: "a", at: Date.now() }] }
-      });
-      expect(keyboardWithLease.statusCode).toBe(200);
+      expect(hydrate.statusCode).toBe(200);
+      expect(hydrate.json().session.hyperbeam?.sessionId).toBeTruthy();
+      expect(hydrate.json().session.hyperbeam?.embedUrl).toContain("embed.hyperbeam.test");
+      expect(hydrate.json().session.adminToken).toBeUndefined();
 
       await app.close();
     });
@@ -5663,37 +5681,11 @@ describe("room object realtime grab lock", () => {
       await app.close();
     });
 
-    it("fans out realtime envelopes for pointer input and control-lease changes", async () => {
+    it("fans out realtime envelopes for control-lease changes", async () => {
       const app = await buildSharedBrowserApp();
       const { roomWithManifest } = await createClassAndRoom(app, "teacher-sb", "free-for-all");
       const roomId = roomWithManifest.room.id;
       const object = (await createSharedBrowser(app, roomId, "teacher-sb")).json();
-
-      const pointer = await app.inject({
-        method: "POST",
-        url: `/v1/rooms/${roomId}/shared-browser/realtime`,
-        headers: authHeaders("teacher-sb", "Ms. Rivera"),
-        payload: { wallObjectId: object.id, pointer: [{ kind: "move", x: 0.5, y: 0.5, at: Date.now() }], keyboard: [] }
-      });
-      expect(pointer.statusCode).toBe(200);
-      const pointerMsgs = pointer.json().realtimeMessages;
-      expect(pointerMsgs).toHaveLength(1);
-      expect(pointerMsgs[0]).toMatchObject({
-        type: "room.shared-browser.pointer.v1",
-        roomId,
-        wallObjectId: object.id,
-        senderId: "teacher-sb"
-      });
-
-      // An empty batch is a no-op: applied to the driver but no fan-out.
-      const empty = await app.inject({
-        method: "POST",
-        url: `/v1/rooms/${roomId}/shared-browser/realtime`,
-        headers: authHeaders("teacher-sb", "Ms. Rivera"),
-        payload: { wallObjectId: object.id, pointer: [], keyboard: [] }
-      });
-      expect(empty.statusCode).toBe(200);
-      expect(empty.json().realtimeMessages).toHaveLength(0);
 
       const lease = await app.inject({
         method: "POST",
@@ -5723,26 +5715,7 @@ describe("room object realtime grab lock", () => {
         payload: { url: "https://1.0.0.1/" }
       });
       expect(nav.statusCode).toBe(409);
-      expect(nav.json().message).toMatch(/chromium failed to launch/i);
-
-      await app.close();
-    });
-
-    it("returns the errored session instead of 400 spam for realtime input when the driver cannot recover", async () => {
-      const app = await buildFailingSharedBrowserApp();
-      const { roomWithManifest } = await createClassAndRoom(app, "teacher-sb", "free-for-all");
-      const roomId = roomWithManifest.room.id;
-      const object = (await createSharedBrowser(app, roomId, "teacher-sb")).json();
-
-      const input = await app.inject({
-        method: "POST",
-        url: `/v1/rooms/${roomId}/shared-browser/realtime`,
-        headers: authHeaders("teacher-sb", "Ms. Rivera"),
-        payload: { wallObjectId: object.id, pointer: [{ kind: "move", x: 0.5, y: 0.5, at: Date.now() }], keyboard: [] }
-      });
-      expect(input.statusCode).toBe(200);
-      expect(input.json().session.status).toBe("error");
-      expect(input.json().realtimeMessages).toHaveLength(0);
+      expect(nav.json().message).toMatch(/failed to (launch|start)|unavailable/i);
 
       await app.close();
     });

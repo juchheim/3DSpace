@@ -1,10 +1,8 @@
-import type { SharedBrowserKeyEvent, SharedBrowserPointerEvent } from "@3dspace/contracts";
 import type { DriverStartOptions, SharedBrowserDriver } from "./types.js";
 
 /**
- * No-Chromium driver. Tracks the current URL/title in memory and derives a
- * title from the hostname. Used in tests and as the Phase 2 default before the
- * Puppeteer driver lands. Pointer/keyboard/screencast are no-ops.
+ * Offline driver for tests and local dev without `HYPERBEAM_API_KEY`. Tracks URL/title
+ * in memory only; navigation is not executed against a real browser.
  */
 export class StubSharedBrowserDriver implements SharedBrowserDriver {
   private urls = new Map<string, string>();
@@ -35,20 +33,8 @@ export class StubSharedBrowserDriver implements SharedBrowserDriver {
     return { url, title: this.titleFor(url) };
   }
 
-  async history(sessionId: string): Promise<{ url: string; title: string }> {
+  async history(sessionId: string, _action: "back" | "forward" | "refresh"): Promise<{ url: string; title: string }> {
     const url = this.urls.get(sessionId) ?? "";
     return { url, title: this.titleFor(url) };
-  }
-
-  async pointer(_sessionId: string, _events: SharedBrowserPointerEvent[]): Promise<void> {
-    // no-op
-  }
-
-  async keyboard(_sessionId: string, _events: SharedBrowserKeyEvent[]): Promise<void> {
-    // no-op
-  }
-
-  async screencastLoop(_sessionId: string, _onFrame: (jpeg: Buffer) => void): Promise<void> {
-    // no-op — the stub never produces frames.
   }
 }

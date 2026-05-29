@@ -1,5 +1,7 @@
 # Implementation — Shared Browser Board (Free-for-All Room Type)
 
+> **Runtime superseded:** Production shared browsers use Hyperbeam per [`IMPL_FREE_FOR_ALL_SHARED_BROWSER_HYPERBEAM.md`](./IMPL_FREE_FOR_ALL_SHARED_BROWSER_HYPERBEAM.md). This document remains as the historical Puppeteer/LiveKit/JPEG implementation record.
+
 Source plan: [`PLAN_FREE_FOR_ALL_SHARED_BROWSER.md`](./PLAN_FREE_FOR_ALL_SHARED_BROWSER.md)
 Parent room type: [`IMPL_FREE_FOR_ALL_ROOM.md`](./IMPL_FREE_FOR_ALL_ROOM.md)
 Parity source: [`FRAME_FEATURE_PARITY_GAP_ANALYSIS.md`](./FRAME_FEATURE_PARITY_GAP_ANALYSIS.md)
@@ -10,7 +12,7 @@ Last updated: 2026-05-28
 
 ## Status / Scope
 
-**Status:** Phase 6 implementation complete; Phase 7 rollout scaffolding landed. The shared browser now has creation UI, 3D/2D/fullscreen rendering, shared media wiring, and JPEG fallback polling in the web client. Remaining work is verification-heavy: add/run dedicated multi-tab E2E coverage and do manual latency/UX passes.
+**Status:** Superseded at runtime by Hyperbeam (see banner above). Original Puppeteer/LiveKit/JPEG phases 1–7 are archived in this file; active work continues in `IMPL_FREE_FOR_ALL_SHARED_BROWSER_HYPERBEAM.md`.
 
 ### Progress log
 

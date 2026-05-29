@@ -1,4 +1,11 @@
-import { DistanceModelSchema, QualityLevelSchema, ViewModeSchema, type SpatialAudioConfig } from "@3dspace/contracts";
+import {
+  DistanceModelSchema,
+  QualityLevelSchema,
+  SharedBrowserHyperbeamQualitySchema,
+  ViewModeSchema,
+  type SharedBrowserHyperbeamQuality,
+  type SpatialAudioConfig
+} from "@3dspace/contracts";
 
 export type AppConfig = {
   nodeEnv: string;
@@ -88,14 +95,13 @@ export type AppConfig = {
     sharedBrowserIdlePauseMinutes: number;
     sharedBrowserMaxNavigationsPerUserPerMinute: number;
     sharedBrowserBlockedHostSuffixes: string[];
-    sharedBrowserUseJpegFallback: boolean;
-    sharedBrowserJpegFps: number;
-    sharedBrowserDeviceScaleFactor: number;
-    sharedBrowserScreencastQuality: number;
-    sharedBrowserScreencastEveryNthFrame: number;
     sharedBrowserLazyStart: boolean;
     sharedBrowserPauseWhenRoomEmpty: boolean;
-    sharedBrowserChromiumExecutable: string | undefined;
+    hyperbeamApiKey: string | undefined;
+    hyperbeamApiBase: string;
+    sharedBrowserHyperbeamQuality: SharedBrowserHyperbeamQuality;
+    sharedBrowserHyperbeamFramerate: number;
+    sharedBrowserHyperbeamRegion: string | undefined;
     enableStudentMediaPermissions: boolean;
     spatialAudio: SpatialAudioConfig;
     media: {
@@ -213,12 +219,7 @@ function requiredInProduction(config: AppConfig, raw: NodeJS.ProcessEnv) {
   }
 
   if (config.tuning.enableSharedBrowsers) {
-    // Shared browsers publish their screencast through the existing LiveKit room in
-    // production; the JPEG fallback is a dev/QA convenience only.
-    required.push("LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET");
-    if (config.tuning.sharedBrowserUseJpegFallback) {
-      throw new Error("SHARED_BROWSER_USE_JPEG_FALLBACK is dev-only and must be false in production");
-    }
+    required.push("HYPERBEAM_API_KEY");
   }
 
   const missing = required.filter((key) => !envString(raw, key));
@@ -329,14 +330,21 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       sharedBrowserIdlePauseMinutes: envNumber(raw, "SHARED_BROWSER_IDLE_PAUSE_MINUTES", 15),
       sharedBrowserMaxNavigationsPerUserPerMinute: envNumber(raw, "SHARED_BROWSER_MAX_NAVIGATIONS_PER_USER_PER_MINUTE", 20),
       sharedBrowserBlockedHostSuffixes: envStringList(raw, "SHARED_BROWSER_BLOCKED_HOST_SUFFIXES", []),
-      sharedBrowserUseJpegFallback: envBoolean(raw, "SHARED_BROWSER_USE_JPEG_FALLBACK", false),
-      sharedBrowserJpegFps: envNumber(raw, "SHARED_BROWSER_JPEG_FPS", 8),
-      sharedBrowserDeviceScaleFactor: envNumber(raw, "SHARED_BROWSER_DEVICE_SCALE_FACTOR", 1.5),
-      sharedBrowserScreencastQuality: envNumber(raw, "SHARED_BROWSER_SCREENCAST_QUALITY", 85),
-      sharedBrowserScreencastEveryNthFrame: envNumber(raw, "SHARED_BROWSER_SCREENCAST_EVERY_NTH_FRAME", 2),
       sharedBrowserLazyStart: envBoolean(raw, "SHARED_BROWSER_LAZY_START", true),
       sharedBrowserPauseWhenRoomEmpty: envBoolean(raw, "SHARED_BROWSER_PAUSE_WHEN_ROOM_EMPTY", true),
-      sharedBrowserChromiumExecutable: envString(raw, "SHARED_BROWSER_CHROMIUM_EXECUTABLE"),
+      hyperbeamApiKey: envString(raw, "HYPERBEAM_API_KEY"),
+      hyperbeamApiBase: envString(raw, "HYPERBEAM_API_BASE") ?? "https://engine.hyperbeam.com",
+      sharedBrowserHyperbeamQuality: SharedBrowserHyperbeamQualitySchema.parse(
+        envString(raw, "SHARED_BROWSER_HYPERBEAM_QUALITY") ?? "smooth"
+      ),
+      sharedBrowserHyperbeamFramerate: (() => {
+        const fps = envNumber(raw, "SHARED_BROWSER_HYPERBEAM_FRAMERATE", 30);
+        if (fps < 24 || fps > 60) {
+          throw new Error("SHARED_BROWSER_HYPERBEAM_FRAMERATE must be between 24 and 60");
+        }
+        return fps;
+      })(),
+      sharedBrowserHyperbeamRegion: envString(raw, "SHARED_BROWSER_HYPERBEAM_REGION"),
       enableStudentMediaPermissions: envBoolean(raw, "ENABLE_STUDENT_MEDIA_PERMISSIONS", false),
       spatialAudio: {
         enabled: envBoolean(raw, "SPATIAL_AUDIO_ENABLED", true),
