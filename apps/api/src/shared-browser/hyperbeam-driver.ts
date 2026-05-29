@@ -185,10 +185,13 @@ export class HyperbeamSharedBrowserDriver implements SharedBrowserDriver {
     const live = this.live.get(threeDSpaceSessionId);
     if (!live) throw new Error("Shared browser session is not live");
 
-    let response = await this.sessionPost(live, "tabs.update", { url });
-    if (!response.ok) {
-      response = await this.sessionPost(live, "tabs.update", [undefined, { url }]);
-    }
+    // Hyperbeam's session REST API mirrors the Chrome tabs API. The request body is
+    // the JSON-encoded argument list: `tabs.update(updateProperties)` updates the
+    // ACTIVE tab (body `[{ url }]`), while `tabs.update(tabId, updateProperties)` is
+    // `[tabId, { url }]`. We must send the array form — a bare `{ url }` object (or a
+    // `[null, { url }]` from a JS `undefined` tabId) is not a valid argument list and
+    // the call no-ops, leaving the VM stranded on its blank start page.
+    let response = await this.sessionPost(live, "tabs.update", [{ url }]);
     if (!response.ok) {
       response = await this.sessionPost(live, "tabs.update", [1, { url }]);
     }
@@ -210,7 +213,8 @@ export class HyperbeamSharedBrowserDriver implements SharedBrowserDriver {
 
     const path =
       action === "back" ? "tabs.goBack" : action === "forward" ? "tabs.goForward" : "tabs.reload";
-    const response = await this.sessionPost(live, path);
+    // Empty argument list = operate on the active tab (Chrome tabs API arg-list form).
+    const response = await this.sessionPost(live, path, []);
     if (!response.ok) {
       return { url: live.currentUrl, title: live.title };
     }

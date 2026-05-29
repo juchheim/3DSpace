@@ -97,8 +97,17 @@ export async function startHyperbeamMockServer(port = 19_098): Promise<Server> {
       }
       if (adminPath === "tabs.update") {
         const raw = await readBody(req);
-        const parsed = JSON.parse(raw || "{}") as { url?: string };
-        const tabUrl = parsed.url ?? session.currentUrl;
+        // Hyperbeam mirrors the Chrome tabs API: the body is the JSON-encoded argument
+        // list — `[updateProperties]` (active tab) or `[tabId, updateProperties]`.
+        const args = JSON.parse(raw || "[]") as unknown;
+        const props = (
+          Array.isArray(args)
+            ? args.length >= 2
+              ? args[1]
+              : args[0]
+            : args
+        ) as { url?: string } | undefined;
+        const tabUrl = props?.url ?? session.currentUrl;
         session.currentUrl = tabUrl;
         try {
           session.title = new URL(tabUrl).hostname.replace(/^www\./, "");
