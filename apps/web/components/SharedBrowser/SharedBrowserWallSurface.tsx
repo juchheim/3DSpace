@@ -20,16 +20,14 @@ const CHROME_HEIGHT_RATIO = 0.16;
 function eventPointToFrame(
   clientX: number,
   clientY: number,
-  bounds: DOMRect,
-  frameWidth: number,
-  frameHeight: number
+  bounds: DOMRect
 ) {
   if (bounds.width <= 0 || bounds.height <= 0) return null;
-  const normalizedX = Math.min(Math.max((clientX - bounds.left) / bounds.width, 0), 1);
-  const normalizedY = Math.min(Math.max((clientY - bounds.top) / bounds.height, 0), 1);
+  const x = Math.min(Math.max((clientX - bounds.left) / bounds.width, 0), 1);
+  const y = Math.min(Math.max((clientY - bounds.top) / bounds.height, 0), 1);
   return {
-    x: Math.round(normalizedX * frameWidth),
-    y: Math.round(normalizedY * frameHeight)
+    x,
+    y
   };
 }
 
@@ -250,9 +248,7 @@ export function SharedBrowserWallSurface({
     const point = eventPointToFrame(
       event.clientX,
       event.clientY,
-      event.currentTarget.getBoundingClientRect(),
-      frameSize.width,
-      frameSize.height
+      event.currentTarget.getBoundingClientRect()
     );
     console.log("[SharedBrowser] wall pointerdown", {
       point,
@@ -276,9 +272,7 @@ export function SharedBrowserWallSurface({
     const point = eventPointToFrame(
       event.clientX,
       event.clientY,
-      event.currentTarget.getBoundingClientRect(),
-      frameSize.width,
-      frameSize.height
+      event.currentTarget.getBoundingClientRect()
     );
     if (!point) return;
     if (pointerDownRef.current && !loggedDragMoveRef.current) {
@@ -295,9 +289,7 @@ export function SharedBrowserWallSurface({
     const point = eventPointToFrame(
       event.clientX,
       event.clientY,
-      event.currentTarget.getBoundingClientRect(),
-      frameSize.width,
-      frameSize.height
+      event.currentTarget.getBoundingClientRect()
     );
     console.log("[SharedBrowser] wall pointerup", {
       point,
@@ -311,7 +303,6 @@ export function SharedBrowserWallSurface({
     if (point) {
       hyperbeam.instance.sendEvent({ type: "mouseup", x: point.x, y: point.y, button: event.button });
     }
-    event.preventDefault();
     event.stopPropagation();
   };
 
