@@ -43,6 +43,27 @@ function hyperbeamRegion(region: string | undefined): string | undefined {
   return normalized;
 }
 
+/**
+ * Hyperbeam's default/free-tier `max_area` is 1280×720 (921,600 px). Requesting a
+ * larger viewport returns a 400, so clamp to the cap preserving aspect ratio and
+ * keeping each dimension divisible by 4 (a Hyperbeam create constraint).
+ */
+export const HYPERBEAM_MAX_VIEWPORT_AREA = 1280 * 720;
+
+export function clampHyperbeamViewport(
+  width: number,
+  height: number,
+  maxArea = HYPERBEAM_MAX_VIEWPORT_AREA
+): { width: number; height: number } {
+  const toMultipleOf4 = (value: number) => Math.max(540, Math.floor(value / 4) * 4);
+  const area = width * height;
+  if (area <= maxArea) {
+    return { width: toMultipleOf4(width), height: toMultipleOf4(height) };
+  }
+  const scale = Math.sqrt(maxArea / area);
+  return { width: toMultipleOf4(width * scale), height: toMultipleOf4(height * scale) };
+}
+
 export class HyperbeamSharedBrowserDriver implements SharedBrowserDriver {
   private readonly config: AppConfig;
   private readonly fetchImpl: typeof fetch;
@@ -110,10 +131,11 @@ export class HyperbeamSharedBrowserDriver implements SharedBrowserDriver {
   async start(options: DriverStartOptions): Promise<DriverStartResult> {
     const apiKey = this.requireApiKey();
     const { session, startUrl } = options;
+    const viewport = clampHyperbeamViewport(session.viewport.width, session.viewport.height);
     const body: HyperbeamVmCreateBody = {
       start_url: startUrl,
-      width: session.viewport.width,
-      height: session.viewport.height,
+      width: viewport.width,
+      height: viewport.height,
       fps: this.config.tuning.sharedBrowserHyperbeamFramerate,
       quality: { mode: this.config.tuning.sharedBrowserHyperbeamQuality },
       tag: session.wallObjectId,

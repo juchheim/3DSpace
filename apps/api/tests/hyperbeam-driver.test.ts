@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { loadConfig } from "../src/config.js";
-import { HyperbeamSharedBrowserDriver, hyperbeamSessionTimeouts } from "../src/shared-browser/hyperbeam-driver.js";
+import {
+  clampHyperbeamViewport,
+  HyperbeamSharedBrowserDriver,
+  hyperbeamSessionTimeouts
+} from "../src/shared-browser/hyperbeam-driver.js";
 import { ROOM_SESSION_PRESENCE_MS } from "../src/repository.js";
 import type { SharedBrowserSession } from "@3dspace/contracts";
 
@@ -20,6 +24,20 @@ function sessionFixture(): SharedBrowserSession {
     updatedAt: now
   };
 }
+
+describe("clampHyperbeamViewport", () => {
+  it("keeps a viewport within the free-tier area unchanged", () => {
+    expect(clampHyperbeamViewport(1280, 720)).toEqual({ width: 1280, height: 720 });
+  });
+
+  it("scales an over-cap viewport down to the area limit preserving aspect ratio", () => {
+    const clamped = clampHyperbeamViewport(1920, 1080);
+    expect(clamped.width * clamped.height).toBeLessThanOrEqual(1280 * 720);
+    expect(clamped.width % 4).toBe(0);
+    expect(clamped.height % 4).toBe(0);
+    expect(clamped.width / clamped.height).toBeCloseTo(16 / 9, 1);
+  });
+});
 
 describe("hyperbeamSessionTimeouts", () => {
   it("aligns offline with room presence TTL and empty with idle pause", () => {
