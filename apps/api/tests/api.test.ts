@@ -5,6 +5,7 @@ import { loadConfig } from "../src/config";
 import { RoomObjectGrabLock } from "../src/room-objects/grab-lock.js";
 import { MemoryRepository } from "../src/repository";
 import { SharedBrowserOrchestrator } from "../src/shared-browser/orchestrator.js";
+import type { SharedBrowserDriver } from "../src/shared-browser/types.js";
 import { putDevStoredObject } from "../src/services/storage.js";
 
 function authHeaders(userId: string, name: string) {
@@ -5365,6 +5366,25 @@ describe("room object realtime grab lock", () => {
   });
 
   describe("shared browser boards", () => {
+    class FailingSharedBrowserDriver implements SharedBrowserDriver {
+      async start() {
+        throw new Error("chromium failed to launch");
+      }
+      async stop() {}
+      isLive() {
+        return false;
+      }
+      async navigate() {
+        throw new Error("Shared browser session is not live");
+      }
+      async history() {
+        return { url: "", title: "" };
+      }
+      async pointer() {}
+      async keyboard() {}
+      async screencastLoop() {}
+    }
+
     function sharedBrowserConfig() {
       return loadConfig({
         NODE_ENV: "test",
@@ -5385,6 +5405,19 @@ describe("room object realtime grab lock", () => {
         config,
         repository,
         sharedBrowserOrchestrator: new SharedBrowserOrchestrator({ repository, config })
+      });
+    }
+
+    async function buildFailingSharedBrowserApp(repository: MemoryRepository = new MemoryRepository()) {
+      const config = sharedBrowserConfig();
+      return buildApp({
+        config,
+        repository,
+        sharedBrowserOrchestrator: new SharedBrowserOrchestrator({
+          repository,
+          config,
+          driver: new FailingSharedBrowserDriver()
+        })
       });
     }
 
@@ -5632,6 +5665,43 @@ describe("room object realtime grab lock", () => {
         (m: { type: string }) => m.type === "room.shared-browser.control-lease.v1"
       );
       expect(leaseMsg.controlLease.userId).toBe("teacher-sb");
+
+      await app.close();
+    });
+
+    it("returns a typed conflict instead of a 500 when the browser driver is unavailable", async () => {
+      const app = await buildFailingSharedBrowserApp();
+      const { roomWithManifest } = await createClassAndRoom(app, "teacher-sb", "free-for-all");
+      const roomId = roomWithManifest.room.id;
+      const object = (await createSharedBrowser(app, roomId, "teacher-sb")).json();
+
+      const nav = await app.inject({
+        method: "POST",
+        url: `/v1/rooms/${roomId}/wall-objects/${object.id}/shared-browser/navigate`,
+        headers: authHeaders("teacher-sb", "Ms. Rivera"),
+        payload: { url: "https://1.0.0.1/" }
+      });
+      expect(nav.statusCode).toBe(409);
+      expect(nav.json().message).toMatch(/chromium failed to launch/i);
+
+      await app.close();
+    });
+
+    it("returns the errored session instead of 400 spam for realtime input when the driver cannot recover", async () => {
+      const app = await buildFailingSharedBrowserApp();
+      const { roomWithManifest } = await createClassAndRoom(app, "teacher-sb", "free-for-all");
+      const roomId = roomWithManifest.room.id;
+      const object = (await createSharedBrowser(app, roomId, "teacher-sb")).json();
+
+      const input = await app.inject({
+        method: "POST",
+        url: `/v1/rooms/${roomId}/shared-browser/realtime`,
+        headers: authHeaders("teacher-sb", "Ms. Rivera"),
+        payload: { wallObjectId: object.id, pointer: [{ kind: "move", x: 0.5, y: 0.5, at: Date.now() }], keyboard: [] }
+      });
+      expect(input.statusCode).toBe(200);
+      expect(input.json().session.status).toBe("error");
+      expect(input.json().realtimeMessages).toHaveLength(0);
 
       await app.close();
     });

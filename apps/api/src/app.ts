@@ -4505,9 +4505,9 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   });
 
   app.post("/v1/rooms/:roomId/wall-objects/:objectId/shared-browser/history", async (request) => {
-    const { params, actor } = await requireSharedBrowserAccess(request);
+    const { params, room, actor } = await requireSharedBrowserAccess(request);
     const body = parseBody(SharedBrowserHistoryRequestSchema, request);
-    const result = await sharedBrowserOrchestrator.history(params.roomId, params.objectId, body.action, actor);
+    const result = await sharedBrowserOrchestrator.history(params.roomId, params.objectId, body.action, actor, room.settings.sharedBrowsers);
     return SharedBrowserSessionResponseSchema.parse(result);
   });
 
@@ -4543,7 +4543,14 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     assertWallObjectsEnabled({ settings: room.settings }, config);
     assertSharedBrowsersEnabled(room, config);
     const actor: SharedBrowserActor = { userId: auth.userId, displayName: auth.displayName };
-    const result = await sharedBrowserOrchestrator.applyInput(params.roomId, body.wallObjectId, body.pointer, body.keyboard, actor);
+    const result = await sharedBrowserOrchestrator.applyInput(
+      params.roomId,
+      body.wallObjectId,
+      body.pointer,
+      body.keyboard,
+      actor,
+      room.settings.sharedBrowsers
+    );
     return SharedBrowserRealtimeDispatchResponseSchema.parse(result);
   });
 

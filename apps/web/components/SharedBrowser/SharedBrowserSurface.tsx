@@ -182,6 +182,7 @@ export function SharedBrowserSurface({
   };
 
   const emitPointer = (payload: Omit<SharedBrowserPointerEvent, "at">) => {
+    if (board.status !== "active") return;
     controller.queuePointer(object.id, { ...payload, at: Date.now() });
   };
 

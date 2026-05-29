@@ -59,7 +59,8 @@ function fromSession(session: SharedBrowserSession): Partial<SharedBrowserBoardS
     currentUrl: session.currentUrl,
     title: session.title,
     status: session.status,
-    controlLease: session.controlLease ?? null
+    controlLease: session.controlLease ?? null,
+    error: session.status === "error" ? (session.errorMessage ?? "Shared browser is unavailable.") : ""
   };
 }
 

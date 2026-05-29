@@ -181,6 +181,45 @@ export class SharedBrowserOrchestrator {
     return session;
   }
 
+  private async ensureLiveSession(
+    session: SharedBrowserSession,
+    settings: RoomSettings["sharedBrowsers"]
+  ): Promise<{ session: SharedBrowserSession; recovered: boolean }> {
+    const live = this.driver.isLive?.(session.id) ?? true;
+    if (session.status === "active" && live) {
+      return { session, recovered: false };
+    }
+
+    try {
+      const result = await this.driver.start({
+        session,
+        startUrl: session.currentUrl,
+        navigationGuard: this.guardSettings(settings)
+      });
+      const updated = await this.repository.updateSharedBrowserSession(session.id, {
+        status: "active",
+        currentUrl: result.url,
+        title: result.title,
+        lastInputAt: nowIso(),
+        errorCode: undefined,
+        errorMessage: undefined,
+        updatedAt: nowIso()
+      });
+      await this.syncWallObjectState(updated);
+      this.video?.onSessionActive(updated);
+      return { session: updated, recovered: true };
+    } catch (error) {
+      const updated = await this.repository.updateSharedBrowserSession(session.id, {
+        status: "error",
+        errorCode: "driver_start_failed",
+        errorMessage: error instanceof Error ? error.message : String(error),
+        updatedAt: nowIso()
+      });
+      await this.syncWallObjectState(updated);
+      return { session: updated, recovered: false };
+    }
+  }
+
   async hydrate(roomId: string, wallObjectId: string): Promise<SharedBrowserResult> {
     const session = await this.requireSession(roomId, wallObjectId);
     return { session, realtimeMessages: [] };
@@ -193,14 +232,19 @@ export class SharedBrowserOrchestrator {
     actor: SharedBrowserActor,
     settings: RoomSettings["sharedBrowsers"]
   ): Promise<SharedBrowserResult> {
-    const session = await this.requireSession(roomId, wallObjectId);
+    const current = await this.requireSession(roomId, wallObjectId);
+    const ensured = await this.ensureLiveSession(current, settings);
+    const session = ensured.session;
+    if (session.status !== "active") {
+      throw conflict(session.errorMessage || "Shared browser session is unavailable");
+    }
     await assertNavigationAllowed(url, this.guardSettings(settings));
     const result = await this.driver.navigate(session.id, url);
     const updated = await this.repository.updateSharedBrowserSession(session.id, {
       currentUrl: result.url,
       title: result.title,
       lastInputAt: nowIso(),
-      status: session.status === "paused" ? "active" : session.status,
+      status: session.status,
       updatedAt: nowIso()
     });
     await this.syncWallObjectState(updated);
@@ -225,9 +269,15 @@ export class SharedBrowserOrchestrator {
     roomId: string,
     wallObjectId: string,
     action: "back" | "forward" | "refresh",
-    actor: SharedBrowserActor
+    actor: SharedBrowserActor,
+    settings: RoomSettings["sharedBrowsers"]
   ): Promise<SharedBrowserResult> {
-    const session = await this.requireSession(roomId, wallObjectId);
+    const current = await this.requireSession(roomId, wallObjectId);
+    const ensured = await this.ensureLiveSession(current, settings);
+    const session = ensured.session;
+    if (session.status !== "active") {
+      throw conflict(session.errorMessage || "Shared browser session is unavailable");
+    }
     const result = await this.driver.history(session.id, action);
     const updated = await this.repository.updateSharedBrowserSession(session.id, {
       currentUrl: result.url,
@@ -358,11 +408,14 @@ export class SharedBrowserOrchestrator {
     wallObjectId: string,
     pointer: SharedBrowserPointerEvent[],
     keyboard: SharedBrowserKeyEvent[],
-    actor: SharedBrowserActor
+    actor: SharedBrowserActor,
+    settings: RoomSettings["sharedBrowsers"]
   ): Promise<SharedBrowserResult> {
-    const session = await this.requireSession(roomId, wallObjectId);
+    const current = await this.requireSession(roomId, wallObjectId);
+    const ensured = await this.ensureLiveSession(current, settings);
+    const session = ensured.session;
     if (session.status !== "active") {
-      throw badRequest("Shared browser session is not active");
+      return { session, realtimeMessages: [] };
     }
     if (keyboard.length > 0) {
       const now = nowIso();

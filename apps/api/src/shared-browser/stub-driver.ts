@@ -26,6 +26,10 @@ export class StubSharedBrowserDriver implements SharedBrowserDriver {
     this.urls.delete(sessionId);
   }
 
+  isLive(sessionId: string): boolean {
+    return this.urls.has(sessionId);
+  }
+
   async navigate(sessionId: string, url: string): Promise<{ url: string; title: string }> {
     this.urls.set(sessionId, url);
     return { url, title: this.titleFor(url) };

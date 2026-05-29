@@ -17,6 +17,7 @@ export type DriverStartOptions = {
 export interface SharedBrowserDriver {
   start(options: DriverStartOptions): Promise<{ url: string; title: string }>;
   stop(sessionId: string): Promise<void>;
+  isLive?(sessionId: string): boolean;
   navigate(sessionId: string, url: string): Promise<{ url: string; title: string }>;
   history(sessionId: string, action: "back" | "forward" | "refresh"): Promise<{ url: string; title: string }>;
   pointer(sessionId: string, events: SharedBrowserPointerEvent[]): Promise<void>;

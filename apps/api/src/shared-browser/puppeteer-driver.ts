@@ -111,6 +111,10 @@ export class PuppeteerSharedBrowserDriver implements SharedBrowserDriver {
     return this.gotoSafe(live.page, url);
   }
 
+  isLive(sessionId: string): boolean {
+    return this.registry.has(sessionId);
+  }
+
   async history(sessionId: string, action: "back" | "forward" | "refresh"): Promise<{ url: string; title: string }> {
     const live = this.registry.get(sessionId);
     if (!live) throw new Error("Shared browser session is not live");

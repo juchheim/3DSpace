@@ -27,6 +27,10 @@ export class LiveSessionRegistry {
     return this.sessions.get(sessionId);
   }
 
+  has(sessionId: string): boolean {
+    return this.sessions.has(sessionId);
+  }
+
   delete(sessionId: string): void {
     this.sessions.delete(sessionId);
   }
