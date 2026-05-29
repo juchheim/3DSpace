@@ -1,16 +1,9 @@
 "use client";
 
 import { Html } from "@react-three/drei";
-import { type ThreeEvent, useThree } from "@react-three/fiber";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import {
-  CanvasTexture,
-  LinearFilter,
-  MeshBasicMaterial,
-  SRGBColorSpace,
-  Vector2,
-  type Mesh
-} from "three";
+import { useThree } from "@react-three/fiber";
+import { type CSSProperties, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { CanvasTexture, LinearFilter, MeshBasicMaterial, SRGBColorSpace, type Mesh } from "three";
 import type { WallObject } from "@3dspace/contracts";
 import { CLIENT_TUNING } from "../../lib/config";
 import { useDocumentVisible } from "../../lib/visibility";
@@ -24,21 +17,24 @@ const WALL_BROWSER_HTML_Z_INDEX_RANGE: [number, number] = [15, 0];
 const VIEWPORT_HEIGHT_RATIO = 0.84;
 const CHROME_HEIGHT_RATIO = 0.16;
 
-function forwardPointerToHyperbeam(
+function forwardMouseToHyperbeam(
   sendEvent: ((event: { type: "mousedown" | "mousemove" | "mouseup"; x: number; y: number; button?: number }) => void) | undefined,
-  uv: Vector2 | undefined,
+  clientX: number,
+  clientY: number,
+  bounds: DOMRect,
   frameWidth: number,
   frameHeight: number,
-  nativeEvent: PointerEvent,
+  button: number,
   type: "mousedown" | "mousemove" | "mouseup"
 ) {
-  if (!sendEvent || !uv) return;
+  if (!sendEvent || bounds.width <= 0 || bounds.height <= 0) return;
+  const normalizedX = Math.min(Math.max((clientX - bounds.left) / bounds.width, 0), 1);
+  const normalizedY = Math.min(Math.max((clientY - bounds.top) / bounds.height, 0), 1);
   sendEvent({
     type,
-    x: Math.round(Math.min(Math.max(uv.x, 0), 1) * frameWidth),
-    // UV origin is bottom-left; Hyperbeam coordinates are top-left.
-    y: Math.round((1 - Math.min(Math.max(uv.y, 0), 1)) * frameHeight),
-    button: nativeEvent.button
+    x: Math.round(normalizedX * frameWidth),
+    y: Math.round(normalizedY * frameHeight),
+    button
   });
 }
 
@@ -243,6 +239,14 @@ export function SharedBrowserWallSurface({
     }),
     [htmlResolutionScale]
   );
+  const viewportStyle = useMemo<CSSProperties>(() => {
+    const widthPx = ((viewportWidth * 400) / WALL_OBJECT_DISTANCE_FACTOR) * htmlResolutionScale;
+    const heightPx = ((viewportHeight * 400) / WALL_OBJECT_DISTANCE_FACTOR) * htmlResolutionScale;
+    return {
+      width: `${widthPx}px`,
+      height: `${heightPx}px`
+    };
+  }, [htmlResolutionScale, viewportHeight, viewportWidth]);
 
   const showPlaceholder =
     board.status === "paused" ||
@@ -259,54 +263,64 @@ export function SharedBrowserWallSurface({
       ? "Connection lost"
       : "Loading browser…";
 
-  const onPointerDown = (event: ThreeEvent<PointerEvent>) => {
+  const onViewportPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!hasLease) return;
+    event.preventDefault();
     event.stopPropagation();
     pointerDownRef.current = true;
-    (event.target as Element).setPointerCapture?.(event.pointerId);
-    forwardPointerToHyperbeam(
+    event.currentTarget.focus({ preventScroll: true });
+    event.currentTarget.setPointerCapture(event.pointerId);
+    forwardMouseToHyperbeam(
       hyperbeam.instance?.sendEvent.bind(hyperbeam.instance),
-      event.uv,
+      event.clientX,
+      event.clientY,
+      event.currentTarget.getBoundingClientRect(),
       frameSize.width,
       frameSize.height,
-      event.nativeEvent,
+      event.button,
       "mousedown"
     );
   };
 
-  const onPointerMove = (event: ThreeEvent<PointerEvent>) => {
+  const onViewportPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!hasLease) return;
+    event.preventDefault();
     event.stopPropagation();
-    forwardPointerToHyperbeam(
+    forwardMouseToHyperbeam(
       hyperbeam.instance?.sendEvent.bind(hyperbeam.instance),
-      event.uv,
+      event.clientX,
+      event.clientY,
+      event.currentTarget.getBoundingClientRect(),
       frameSize.width,
       frameSize.height,
-      event.nativeEvent,
+      event.button,
       "mousemove"
     );
   };
 
-  const endPointer = (event: ThreeEvent<PointerEvent>) => {
+  const endViewportPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!hasLease || !pointerDownRef.current) return;
+    event.preventDefault();
     event.stopPropagation();
     pointerDownRef.current = false;
-    const target = event.target as Element | null;
-    if (target?.hasPointerCapture?.(event.pointerId)) {
-      target.releasePointerCapture(event.pointerId);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
     }
-    forwardPointerToHyperbeam(
+    forwardMouseToHyperbeam(
       hyperbeam.instance?.sendEvent.bind(hyperbeam.instance),
-      event.uv,
+      event.clientX,
+      event.clientY,
+      event.currentTarget.getBoundingClientRect(),
       frameSize.width,
       frameSize.height,
-      event.nativeEvent,
+      event.button,
       "mouseup"
     );
   };
 
-  const onWheel = (event: ThreeEvent<WheelEvent>) => {
+  const onViewportWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
     if (!hasLease) return;
+    event.preventDefault();
     event.stopPropagation();
     forwardWheelToHyperbeam(hyperbeam.instance?.sendEvent.bind(hyperbeam.instance), event.nativeEvent);
   };
@@ -336,15 +350,7 @@ export function SharedBrowserWallSurface({
         ref={meshRef}
         position={[0, meshY, 0.004]}
         data-testid="shared-browser-wall-mesh"
-        {...(hasLease
-          ? {
-              onPointerDown,
-              onPointerMove,
-              onPointerUp: endPointer,
-              onPointerCancel: endPointer,
-              onWheel
-            }
-          : { raycast: () => null })}
+        raycast={() => null}
       >
         <planeGeometry args={[viewportWidth, viewportHeight]} />
         <meshBasicMaterial
@@ -354,6 +360,36 @@ export function SharedBrowserWallSurface({
           toneMapped={false}
         />
       </mesh>
+      <Html
+        transform
+        center
+        distanceFactor={WALL_OBJECT_DISTANCE_FACTOR}
+        position={[0, meshY, 0.0055]}
+        className="wall-object-html shared-browser-wall-html"
+        zIndexRange={WALL_BROWSER_HTML_Z_INDEX_RANGE}
+        style={viewportStyle}
+      >
+        <div className="wall-object-surface-mount" style={chromeMountStyle}>
+          <div
+            aria-label="Shared browser interaction layer"
+            role="application"
+            tabIndex={hasLease ? 0 : -1}
+            onPointerDown={onViewportPointerDown}
+            onPointerMove={onViewportPointerMove}
+            onPointerUp={endViewportPointer}
+            onPointerCancel={endViewportPointer}
+            onWheel={onViewportWheel}
+            style={{
+              width: "100%",
+              height: "100%",
+              pointerEvents: hasLease ? "auto" : "none",
+              touchAction: "none",
+              cursor: hasLease ? "default" : "auto",
+              background: "transparent"
+            }}
+          />
+        </div>
+      </Html>
       {showPlaceholder ? (
         <Html
           transform
