@@ -335,7 +335,7 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       hyperbeamApiKey: envString(raw, "HYPERBEAM_API_KEY"),
       hyperbeamApiBase: envString(raw, "HYPERBEAM_API_BASE") ?? "https://engine.hyperbeam.com",
       sharedBrowserHyperbeamQuality: SharedBrowserHyperbeamQualitySchema.parse(
-        envString(raw, "SHARED_BROWSER_HYPERBEAM_QUALITY") ?? "smooth"
+        envString(raw, "SHARED_BROWSER_HYPERBEAM_QUALITY") ?? "sharp"
       ),
       sharedBrowserHyperbeamFramerate: (() => {
         const fps = envNumber(raw, "SHARED_BROWSER_HYPERBEAM_FRAMERATE", 30);

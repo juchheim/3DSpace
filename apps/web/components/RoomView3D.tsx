@@ -870,7 +870,7 @@ const WallObjectSurface = memo(function WallObjectSurface({
               {...(sharedBrowserIdentity ? { sharedBrowserIdentity } : {})}
               {...(sharedBrowserRoomId ? { sharedBrowserRoomId } : {})}
               {...(object.type === "web.browser.shared"
-                ? { sharedBrowserHyperbeamVideoMode: "frame" as const, hyperbeamEmbedVisible: visible }
+                ? { hyperbeamEmbedVisible: visible }
                 : {})}
               hideHeader={hideHeader}
             />

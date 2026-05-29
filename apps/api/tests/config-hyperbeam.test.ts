@@ -24,7 +24,7 @@ describe("loadConfig shared browser / Hyperbeam", () => {
     const config = loadConfig({ ...productionEnv, HYPERBEAM_API_KEY: "hb_test" });
     expect(config.tuning.enableSharedBrowsers).toBe(true);
     expect(config.tuning.hyperbeamApiKey).toBe("hb_test");
-    expect(config.tuning.sharedBrowserHyperbeamQuality).toBe("smooth");
+    expect(config.tuning.sharedBrowserHyperbeamQuality).toBe("sharp");
     expect(config.tuning.sharedBrowserHyperbeamFramerate).toBe(30);
   });
 

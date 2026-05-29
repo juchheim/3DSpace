@@ -57,6 +57,8 @@ export function useHyperbeamEmbed(options: UseHyperbeamEmbedOptions): UseHyperbe
   onDisconnectRef.current = onDisconnect;
   const onCloseWarningRef = useRef(onCloseWarning);
   onCloseWarningRef.current = onCloseWarning;
+  const hasControlRef = useRef(hasControl);
+  hasControlRef.current = hasControl;
   const [status, setStatus] = useState<HyperbeamEmbedStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [instance, setInstance] = useState<HyperbeamEmbed | null>(null);
@@ -128,22 +130,12 @@ export function useHyperbeamEmbed(options: UseHyperbeamEmbedOptions): UseHyperbe
         container.replaceChildren();
 
         const hb = await Hyperbeam(container, embedUrl, {
-          delegateKeyboard: hasControl,
-          disableInput: !hasControl,
+          delegateKeyboard: hasControlRef.current,
+          disableInput: !hasControlRef.current,
           playoutDelay,
           volume,
           audioTrackCb: attachAudio,
-          ...(videoMode === "frame"
-            ? { frameCb: onFrame }
-            : {
-                videoTrackCb: (track) => {
-                  const video = container.querySelector("video");
-                  if (video) {
-                    video.srcObject = new MediaStream([track]);
-                    void video.play().catch(() => undefined);
-                  }
-                }
-              }),
+          ...(videoMode === "frame" ? { frameCb: onFrame } : {}),
           onConnectionStateChange: (event) => {
             if (event.state === "playing") {
               setStatus("connected");
@@ -188,7 +180,7 @@ export function useHyperbeamEmbed(options: UseHyperbeamEmbedOptions): UseHyperbe
       const audio = audioRef.current;
       if (audio?.srcObject) audio.srcObject = null;
     };
-  }, [attachAudio, embedUrl, enabled, hasControl, onFrame, playoutDelay, videoMode, volume]);
+  }, [attachAudio, embedUrl, enabled, onFrame, playoutDelay, videoMode, volume]);
 
   useEffect(() => {
     const hb = instanceRef.current;

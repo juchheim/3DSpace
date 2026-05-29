@@ -38,7 +38,7 @@ describe("HyperbeamSharedBrowserDriver", () => {
   const config = loadConfig({
     HYPERBEAM_API_KEY: "hb_test_key",
     HYPERBEAM_API_BASE: "https://engine.hyperbeam.com",
-    SHARED_BROWSER_HYPERBEAM_QUALITY: "smooth",
+    SHARED_BROWSER_HYPERBEAM_QUALITY: "sharp",
     SHARED_BROWSER_HYPERBEAM_FRAMERATE: "30",
     SHARED_BROWSER_IDLE_PAUSE_MINUTES: "15"
   } as NodeJS.ProcessEnv);
@@ -84,7 +84,7 @@ describe("HyperbeamSharedBrowserDriver", () => {
 
     expect(createBody?.timeout).toEqual(hyperbeamSessionTimeouts(config));
     expect(createBody?.fps).toBe(30);
-    expect(createBody?.quality).toEqual({ mode: "smooth" });
+    expect(createBody?.quality).toEqual({ mode: "sharp" });
     expect(createBody).not.toHaveProperty("framerate");
     expect(started.hyperbeam?.sessionId).toBe("hb_sess_1");
     expect(started.hyperbeam?.embedUrl).toContain("embed.hyperbeam.test");

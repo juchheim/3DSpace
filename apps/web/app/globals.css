@@ -2636,7 +2636,9 @@ button.hud-heading-btn:hover {
 
 .wall-object-card--surface .wall-object-card__media img,
 .wall-object-card--surface .wall-object-card__media video,
-.wall-object-card--surface .wall-object-card__media iframe {
+.wall-object-card--surface .wall-object-card__media iframe,
+.wall-object-card--surface .shared-browser-viewport__embed iframe,
+.wall-object-card--surface .shared-browser-viewport__embed video {
   height: 100%;
   min-height: 0;
   aspect-ratio: auto;
@@ -2831,7 +2833,7 @@ button.hud-heading-btn:hover {
 }
 
 .shared-browser-viewport__embed--input-layer {
-  opacity: 0;
+  /* Keep hit target interactive; Hyperbeam mounts in a shadow root beneath this node. */
   z-index: 1;
   pointer-events: auto;
 }
@@ -2839,6 +2841,7 @@ button.hud-heading-btn:hover {
 .shared-browser-viewport__embed--input-layer iframe,
 .shared-browser-viewport__embed--input-layer video {
   opacity: 0;
+  pointer-events: none;
 }
 
 .shared-browser-viewport__embed--hidden {

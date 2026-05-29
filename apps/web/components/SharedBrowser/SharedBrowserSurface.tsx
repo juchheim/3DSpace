@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { WallObject } from "@3dspace/contracts";
 import type { ApiIdentity } from "../../lib/identity";
 import { CLIENT_TUNING } from "../../lib/config";
@@ -76,6 +76,7 @@ export function SharedBrowserSurface({
   hyperbeamEmbedVisible?: boolean;
 }) {
   const tabVisible = useDocumentVisible();
+  const viewportRef = useRef<HTMLDivElement | null>(null);
   const [urlValue, setUrlValue] = useState(board.currentUrl);
   const [submitting, setSubmitting] = useState(false);
   const [leaseBusy, setLeaseBusy] = useState(false);
@@ -112,6 +113,11 @@ export function SharedBrowserSurface({
     }, 8000);
     return () => window.clearInterval(interval);
   }, [controller, hasLease, object.id]);
+
+  useEffect(() => {
+    if (!hasLease) return;
+    viewportRef.current?.focus({ preventScroll: true });
+  }, [hasLease]);
 
   const driverLabel = useMemo(() => {
     const lease = board.controlLease;
@@ -180,7 +186,10 @@ export function SharedBrowserSurface({
     frameSize.width > 0 && frameSize.height > 0 ? `${frameSize.width} / ${frameSize.height}` : "16 / 9";
 
   return (
-    <div className={`shared-browser-surface${surface ? " shared-browser-surface--board" : ""}`}>
+    <div
+      className={`shared-browser-surface${surface ? " shared-browser-surface--board" : ""}`}
+      data-shared-browser-id={object.id}
+    >
       <audio ref={hyperbeam.audioRef} className="shared-browser-viewport__audio" autoPlay playsInline />
 
       <div className="shared-browser-bar">
@@ -266,7 +275,9 @@ export function SharedBrowserSurface({
       ) : null}
 
       <div
+        ref={viewportRef}
         data-testid="shared-browser-viewport"
+        tabIndex={hasLease ? 0 : -1}
         className={`shared-browser-viewport${hasLease ? " shared-browser-viewport--active" : ""}${useFrameVideo ? " shared-browser-viewport--frame" : ""}`}
         style={{ aspectRatio: viewportAspectRatio }}
       >
