@@ -523,6 +523,10 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
     return identity.includes(":") ? identity.split(":")[0]! : identity;
   }
 
+  function isSharedBrowserIdentity(identity: string) {
+    return identity.startsWith("shared-browser:");
+  }
+
   function roleFromMetadata(metadata: string | undefined): Role {
     if (!metadata) return "student";
     try {
@@ -533,7 +537,8 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
     }
   }
 
-  function presenceFromParticipant(participant: { identity: string; name?: string; metadata?: string }): PresenceMessage {
+  function presenceFromParticipant(participant: { identity: string; name?: string; metadata?: string }): PresenceMessage | null {
+    if (isSharedBrowserIdentity(participant.identity)) return null;
     const participantId = participantIdFromIdentity(participant.identity);
     return {
       type: "participant.presence.v1",
@@ -624,9 +629,11 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
     handleRemoteTrackRemoved(track, participant.identity, publication);
   });
   room.on(RoomEvent.ParticipantConnected, (participant) => {
-    input.onMessage(presenceFromParticipant(participant));
+    const presence = presenceFromParticipant(participant);
+    if (presence) input.onMessage(presence);
   });
   room.on(RoomEvent.ParticipantDisconnected, (participant) => {
+    if (isSharedBrowserIdentity(participant.identity)) return;
     input.onMessage({
       type: "participant.leave.v1",
       participantId: participantIdFromIdentity(participant.identity)
@@ -637,7 +644,8 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   input.onStatus("Connected through LiveKit media and data channels.");
 
   room.remoteParticipants.forEach((participant) => {
-    input.onMessage(presenceFromParticipant(participant));
+    const presence = presenceFromParticipant(participant);
+    if (presence) input.onMessage(presence);
     participant.trackPublications.forEach((publication) => {
       if (publication.track) {
         handleRemoteTrack(publication.track, participant.identity, publication);
@@ -653,7 +661,8 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
       },
       syncParticipants() {
         room.remoteParticipants.forEach((participant) => {
-          input.onMessage(presenceFromParticipant(participant));
+          const presence = presenceFromParticipant(participant);
+          if (presence) input.onMessage(presence);
         });
       },
       async setLocalMedia(media) {

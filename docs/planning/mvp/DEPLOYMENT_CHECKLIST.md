@@ -107,5 +107,6 @@ Expected `/ready`: `"status":"ready"` with checks `auth`, `mongodb`, `livekit`, 
 
 - `ENABLE_SHARED_BROWSERS=true` requires Chromium/Puppeteer headroom on the API worker. Budget roughly 200-400 MB RAM per active session.
 - Koyeb / container deployments should keep `SHARED_BROWSER_MAX_ACTIVE_PER_ROOM` low (`2` by default) and pair it with `SHARED_BROWSER_IDLE_PAUSE_MINUTES`.
+- For a 0.5 vCPU / 1 GB API worker, start with `SHARED_BROWSER_VIEWPORT_WIDTH=1280`, `SHARED_BROWSER_VIEWPORT_HEIGHT=720`, `SHARED_BROWSER_DEVICE_SCALE_FACTOR=1.5`, `SHARED_BROWSER_SCREENCAST_QUALITY=85`, and `SHARED_BROWSER_SCREENCAST_EVERY_NTH_FRAME=2`. Increase quality before increasing viewport size.
 - Production must use LiveKit publishing for shared browsers. Keep `SHARED_BROWSER_USE_JPEG_FALLBACK=false` when `NODE_ENV=production`.
 - If the main API container becomes memory-bound, move the shared-browser driver into a sidecar service that shares MongoDB + LiveKit credentials rather than introducing a hosted browser vendor.

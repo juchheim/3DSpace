@@ -66,12 +66,12 @@ export class SharedBrowserLiveKitPublisher {
     if (!this.publishing || this.encoding) return; // drop frames while a decode is in flight
     this.encoding = true;
     try {
-      const { data } = await sharp(jpeg)
-        .resize(this.options.width, this.options.height, { fit: "fill" })
+      const { data, info } = await sharp(jpeg)
+        .resize(this.options.width, this.options.height, { fit: "fill", kernel: "lanczos3" })
         .ensureAlpha()
         .raw()
         .toBuffer({ resolveWithObject: true });
-      const frame = new VideoFrame(new Uint8Array(data), this.options.width, this.options.height, VideoBufferType.RGBA);
+      const frame = new VideoFrame(new Uint8Array(data), info.width, info.height, VideoBufferType.RGBA);
       this.source.captureFrame(frame);
     } catch {
       // Skip undecodable / transient frames rather than tearing down the track.

@@ -203,11 +203,11 @@ export function SharedBrowserSurface({
 
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!viewportRef.current) return;
-    // Throttle hover moves hard (and drag moves a little) so we do not flood the
-    // realtime endpoint just because the cursor is over the board.
+    if (!pointerDownRef.current) return;
+    // Throttle drag moves so we do not flood the realtime endpoint while keeping
+    // pointer-down/up, wheel, and keyboard actions immediate.
     const now = Date.now();
-    const interval = pointerDownRef.current ? 33 : 90;
-    if (now - lastMoveSentRef.current < interval) return;
+    if (now - lastMoveSentRef.current < 45) return;
     lastMoveSentRef.current = now;
     const point = normalizedPoint(event, viewportRef.current);
     emitPointer({ kind: "move", ...point });

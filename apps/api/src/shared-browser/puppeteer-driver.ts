@@ -34,10 +34,16 @@ export class PuppeteerSharedBrowserDriver implements SharedBrowserDriver {
   private browserPromise: Promise<Browser> | null = null;
   private readonly registry: LiveSessionRegistry;
   private readonly executablePath: string | undefined;
+  private readonly deviceScaleFactor: number;
+  private readonly screencastQuality: number;
+  private readonly screencastEveryNthFrame: number;
 
   constructor(options: { config: AppConfig; registry?: LiveSessionRegistry }) {
     this.registry = options.registry ?? new LiveSessionRegistry();
     this.executablePath = options.config.tuning.sharedBrowserChromiumExecutable || undefined;
+    this.deviceScaleFactor = Math.min(2, Math.max(1, options.config.tuning.sharedBrowserDeviceScaleFactor));
+    this.screencastQuality = Math.min(95, Math.max(40, Math.round(options.config.tuning.sharedBrowserScreencastQuality)));
+    this.screencastEveryNthFrame = Math.min(6, Math.max(1, Math.round(options.config.tuning.sharedBrowserScreencastEveryNthFrame)));
   }
 
   private async browser(): Promise<Browser> {
@@ -56,7 +62,7 @@ export class PuppeteerSharedBrowserDriver implements SharedBrowserDriver {
     const context = await browser.createBrowserContext();
     const page = await context.newPage();
     const viewport = { width: options.session.viewport.width, height: options.session.viewport.height };
-    await page.setViewport(viewport);
+    await page.setViewport({ ...viewport, deviceScaleFactor: this.deviceScaleFactor });
 
     const cdp = await page.createCDPSession();
     await cdp.send("Page.setDownloadBehavior", { behavior: "deny" }).catch(() => undefined);
@@ -190,7 +196,11 @@ export class PuppeteerSharedBrowserDriver implements SharedBrowserDriver {
       }
       void cdp.send("Page.screencastFrameAck", { sessionId: frame.sessionId }).catch(() => undefined);
     });
-    await cdp.send("Page.startScreencast", { format: "jpeg", quality: 60, everyNthFrame: 1 });
+    await cdp.send("Page.startScreencast", {
+      format: "jpeg",
+      quality: this.screencastQuality,
+      everyNthFrame: this.screencastEveryNthFrame
+    });
   }
 
   async stop(sessionId: string): Promise<void> {

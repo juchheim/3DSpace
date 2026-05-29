@@ -175,15 +175,15 @@ export function useSharedBrowser(input: {
     }
   }, [input.identity, input.roomId, patchBoard, publishMessages]);
 
-  // Batch pointer/keyboard input and flush on a throttled cadence so a drag (or
-  // even idle hover) does not fire one request per mousemove. We coalesce queued
-  // events and POST at most once per MIN_FLUSH_INTERVAL_MS (~16 Hz), which keeps
-  // the realtime endpoint from being saturated while staying responsive.
+  // Batch pointer/keyboard input and flush on a throttled cadence so a drag does
+  // not fire one request per mousemove. We coalesce queued events and POST at
+  // most once per MIN_FLUSH_INTERVAL_MS (~20 Hz), prioritizing clicks, wheel, and
+  // keyboard over raw pointer motion.
   const queueRef = useRef<Record<string, { pointer: SharedBrowserPointerEvent[]; keyboard: SharedBrowserKeyEvent[] }>>({});
   const frameRef = useRef<number | null>(null);
   const timerRef = useRef<number | null>(null);
   const lastFlushRef = useRef(0);
-  const MIN_FLUSH_INTERVAL_MS = 60;
+  const MIN_FLUSH_INTERVAL_MS = 50;
 
   const flushInput = useCallback(() => {
     frameRef.current = null;

@@ -90,6 +90,9 @@ export type AppConfig = {
     sharedBrowserBlockedHostSuffixes: string[];
     sharedBrowserUseJpegFallback: boolean;
     sharedBrowserJpegFps: number;
+    sharedBrowserDeviceScaleFactor: number;
+    sharedBrowserScreencastQuality: number;
+    sharedBrowserScreencastEveryNthFrame: number;
     sharedBrowserChromiumExecutable: string | undefined;
     enableStudentMediaPermissions: boolean;
     spatialAudio: SpatialAudioConfig;
@@ -326,6 +329,9 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       sharedBrowserBlockedHostSuffixes: envStringList(raw, "SHARED_BROWSER_BLOCKED_HOST_SUFFIXES", []),
       sharedBrowserUseJpegFallback: envBoolean(raw, "SHARED_BROWSER_USE_JPEG_FALLBACK", false),
       sharedBrowserJpegFps: envNumber(raw, "SHARED_BROWSER_JPEG_FPS", 8),
+      sharedBrowserDeviceScaleFactor: envNumber(raw, "SHARED_BROWSER_DEVICE_SCALE_FACTOR", 1.5),
+      sharedBrowserScreencastQuality: envNumber(raw, "SHARED_BROWSER_SCREENCAST_QUALITY", 85),
+      sharedBrowserScreencastEveryNthFrame: envNumber(raw, "SHARED_BROWSER_SCREENCAST_EVERY_NTH_FRAME", 2),
       sharedBrowserChromiumExecutable: envString(raw, "SHARED_BROWSER_CHROMIUM_EXECUTABLE"),
       enableStudentMediaPermissions: envBoolean(raw, "ENABLE_STUDENT_MEDIA_PERMISSIONS", false),
       spatialAudio: {
