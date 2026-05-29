@@ -162,51 +162,6 @@ function wallBlocksOverlayLineOfSight(from: Vector3, to: Vector3, anchor: Anchor
 /** Keep Drei Html board overlays below room HUD (z-index 18–20). */
 const WALL_OBJECT_HTML_Z_INDEX_RANGE: [number, number] = [15, 0];
 
-const AVATAR_BOARD_OCCLUSION_RADIUS_M = 0.5;
-const AVATAR_BOARD_OCCLUSION_HEIGHT_M = 1.85;
-
-function participantBlocksWallSurface(
-  cameraPosition: Vector3,
-  target: Vector3,
-  surfaceWidth: number,
-  surfaceHeight: number,
-  right: Vector3,
-  participants: ParticipantView[]
-) {
-  const toBoard = target.clone().sub(cameraPosition);
-  const boardDistance = toBoard.length();
-  if (boardDistance < 0.05) return false;
-
-  const toBoardDir = toBoard.normalize();
-  const up = new Vector3(0, 1, 0);
-
-  for (const participant of participants) {
-    const position = participant.state.position;
-    const feetY = position.y ?? 0;
-    const avatarCenter = new Vector3(position.x, feetY + AVATAR_BOARD_OCCLUSION_HEIGHT_M * 0.5, position.z);
-    const toAvatar = avatarCenter.clone().sub(cameraPosition);
-    const avatarDistance = toAvatar.length();
-    if (avatarDistance >= boardDistance - 0.12) continue;
-
-    const projected = toAvatar.dot(toBoardDir);
-    if (projected < 0.05 || projected > boardDistance - 0.05) continue;
-
-    const pointOnRay = cameraPosition.clone().add(toBoardDir.clone().multiplyScalar(projected));
-    const offset = avatarCenter.clone().sub(pointOnRay);
-    const horizontal = Math.abs(offset.dot(right));
-    const vertical = Math.abs(offset.dot(up));
-
-    if (
-      horizontal <= surfaceWidth / 2 + AVATAR_BOARD_OCCLUSION_RADIUS_M &&
-      vertical <= surfaceHeight / 2 + AVATAR_BOARD_OCCLUSION_RADIUS_M
-    ) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 function wallSurfaceVisibleFromCamera(cameraPosition: Vector3, target: Vector3, anchor: Anchor, normal: Vector3, walls: Wall[]) {
   const signedDistance = cameraPosition.clone().sub(
     new Vector3(anchor.position.x, anchor.position.y, anchor.position.z)
@@ -462,7 +417,6 @@ export function RoomView3D({
         <WallObjectLayer
           manifest={mergedManifest}
           wallObjects={wallObjects}
-          participants={participants}
           assetUrls={assetUrls}
           wallMediaStreams={wallMediaStreams}
           canManageWallObjects={canManageWallObjects}
@@ -715,7 +669,6 @@ function HallpassZoneMarker({ zone }: { zone: NonNullable<RoomManifest["hallpass
 function WallObjectLayer({
   manifest,
   wallObjects,
-  participants,
   assetUrls,
   wallMediaStreams,
   canManageWallObjects,
@@ -735,7 +688,6 @@ function WallObjectLayer({
 }: {
   manifest: RoomManifest;
   wallObjects: WallObject[];
-  participants: ParticipantView[];
   assetUrls: Record<string, string>;
   wallMediaStreams: Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>;
   canManageWallObjects: boolean;
@@ -770,7 +722,6 @@ function WallObjectLayer({
               key={object.id}
               anchor={anchor}
               walls={manifest.walls}
-              participants={participants}
               object={object}
               assetUrl={assetUrls[object.id]}
               videoStream={wallMediaStreams[object.id]?.videoStream}
@@ -799,7 +750,6 @@ function WallObjectLayer({
 const WallObjectSurface = memo(function WallObjectSurface({
   anchor,
   walls,
-  participants,
   object,
   assetUrl,
   videoStream,
@@ -821,7 +771,6 @@ const WallObjectSurface = memo(function WallObjectSurface({
 }: {
   anchor: Anchor;
   walls: Wall[];
-  participants: ParticipantView[];
   object: WallObject;
   assetUrl?: string | undefined;
   videoStream?: MediaStream | null | undefined;
@@ -896,17 +845,7 @@ const WallObjectSurface = memo(function WallObjectSurface({
     return [base.x, base.y, base.z];
   }, [anchor.height, anchor.position.x, anchor.position.y, anchor.position.z, anchor.width, normal, placement, right]);
   const targetPoint = useMemo(() => new Vector3(position[0], position[1], position[2]), [position]);
-  const visible = useOverlayVisibility(() => {
-    if (!wallSurfaceVisibleFromCamera(camera.position, targetPoint, anchor, normal, walls)) return false;
-    return !participantBlocksWallSurface(
-      camera.position,
-      targetPoint,
-      surfaceWidth,
-      surfaceHeight,
-      right,
-      participants
-    );
-  });
+  const visible = useOverlayVisibility(() => wallSurfaceVisibleFromCamera(camera.position, targetPoint, anchor, normal, walls));
 
   return (
     <group position={position} rotation={rotation}>
