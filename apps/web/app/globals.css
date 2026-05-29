@@ -3019,8 +3019,8 @@ button.hud-heading-btn:hover {
   height: 62cqh;
   padding: 0 3cqh 0 4cqh;
   border-radius: 3cqh;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .sb-wall-toolbar__status {

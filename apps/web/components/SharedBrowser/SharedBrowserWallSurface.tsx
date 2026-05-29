@@ -205,16 +205,25 @@ export function SharedBrowserWallSurface({
   const meshY = -surfaceHeight * ((1 - VIEWPORT_HEIGHT_RATIO) / 2 + 0.01);
   const chromeY = surfaceHeight * (VIEWPORT_HEIGHT_RATIO / 2 + CHROME_HEIGHT_RATIO / 2 + 0.005);
 
+  // Size goes on the drei <Html> group; the resolution-scale compensation goes on a
+  // child mount (matching every other wall board). Putting a transform directly in the
+  // Html style clobbers drei's own transform and collapses the toolbar layout.
   const chromeStyle = useMemo(() => {
     const widthPx = ((surfaceWidth * 400) / WALL_OBJECT_DISTANCE_FACTOR) * htmlResolutionScale;
     const heightPx = ((surfaceHeight * CHROME_HEIGHT_RATIO * 400) / WALL_OBJECT_DISTANCE_FACTOR) * htmlResolutionScale;
     return {
       width: `${widthPx}px`,
-      height: `${heightPx}px`,
-      transform: `scale(${1 / htmlResolutionScale})`,
-      transformOrigin: "center center"
+      height: `${heightPx}px`
     };
   }, [htmlResolutionScale, surfaceHeight, surfaceWidth]);
+
+  const chromeMountStyle = useMemo(
+    () => ({
+      transform: `scale(${1 / htmlResolutionScale})`,
+      transformOrigin: "center center" as const
+    }),
+    [htmlResolutionScale]
+  );
 
   const showPlaceholder =
     board.status === "paused" ||
@@ -288,13 +297,15 @@ export function SharedBrowserWallSurface({
         zIndexRange={WALL_BROWSER_HTML_Z_INDEX_RANGE}
         style={chromeStyle}
       >
-        <SharedBrowserControls
-          object={object}
-          board={board}
-          controller={controller}
-          {...(currentUserId ? { currentUserId } : {})}
-          compact
-        />
+        <div className="wall-object-surface-mount" style={chromeMountStyle}>
+          <SharedBrowserControls
+            object={object}
+            board={board}
+            controller={controller}
+            {...(currentUserId ? { currentUserId } : {})}
+            compact
+          />
+        </div>
       </Html>
       <mesh
         ref={meshRef}
