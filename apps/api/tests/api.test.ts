@@ -5622,6 +5622,47 @@ describe("room object realtime grab lock", () => {
       await app.close();
     });
 
+    it("lets any participant take over control without a conflict (cooperative)", async () => {
+      const app = await buildSharedBrowserApp();
+      const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-sb", "free-for-all");
+      const roomId = roomWithManifest.room.id;
+      await addStudentMember(app, classRecord.id, "teacher-sb", "participant-sb", "Trip Juchheim");
+      const object = (await createSharedBrowser(app, roomId, "teacher-sb")).json();
+
+      const leaseUrl = `/v1/rooms/${roomId}/wall-objects/${object.id}/shared-browser/control-lease`;
+
+      const first = await app.inject({
+        method: "POST",
+        url: leaseUrl,
+        headers: authHeaders("teacher-sb", "Ms. Rivera"),
+        payload: { action: "take" }
+      });
+      expect(first.statusCode).toBe(200);
+      expect(first.json().session.controlLease.userId).toBe("teacher-sb");
+
+      // A different participant can always take over — no 409.
+      const takeover = await app.inject({
+        method: "POST",
+        url: leaseUrl,
+        headers: authHeaders("participant-sb", "Trip Juchheim"),
+        payload: { action: "take" }
+      });
+      expect(takeover.statusCode).toBe(200);
+      expect(takeover.json().session.controlLease.userId).toBe("participant-sb");
+
+      // The previous holder's periodic renew must NOT steal control back.
+      const staleRenew = await app.inject({
+        method: "POST",
+        url: leaseUrl,
+        headers: authHeaders("teacher-sb", "Ms. Rivera"),
+        payload: { action: "renew" }
+      });
+      expect(staleRenew.statusCode).toBe(200);
+      expect(staleRenew.json().session.controlLease.userId).toBe("participant-sb");
+
+      await app.close();
+    });
+
     it("fans out realtime envelopes for pointer input and control-lease changes", async () => {
       const app = await buildSharedBrowserApp();
       const { roomWithManifest } = await createClassAndRoom(app, "teacher-sb", "free-for-all");

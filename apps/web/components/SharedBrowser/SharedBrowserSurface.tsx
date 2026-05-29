@@ -138,7 +138,10 @@ export function SharedBrowserSurface({
 }) {
   const [urlValue, setUrlValue] = useState(board.currentUrl);
   const [submitting, setSubmitting] = useState(false);
+  const [leaseBusy, setLeaseBusy] = useState(false);
   const viewportRef = useRef<HTMLDivElement | null>(null);
+  const pointerDownRef = useRef(false);
+  const lastMoveSentRef = useRef(0);
   const leaseUserId = activeLeaseUserId(board);
   const hasLease = Boolean(currentUserId && leaseUserId === currentUserId);
   const isJpegFallback = board.status === "active" && !videoStream && !board.session?.livekit?.trackSid;
@@ -181,6 +184,18 @@ export function SharedBrowserSurface({
     }
   };
 
+  const toggleLease = async () => {
+    if (leaseBusy) return;
+    setLeaseBusy(true);
+    try {
+      await controller.controlLease(object.id, hasLease ? "release" : "take");
+    } catch {
+      // Errors surface through board.error; the button re-enables either way.
+    } finally {
+      setLeaseBusy(false);
+    }
+  };
+
   const emitPointer = (payload: Omit<SharedBrowserPointerEvent, "at">) => {
     if (board.status !== "active") return;
     controller.queuePointer(object.id, { ...payload, at: Date.now() });
@@ -188,6 +203,12 @@ export function SharedBrowserSurface({
 
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!viewportRef.current) return;
+    // Throttle hover moves hard (and drag moves a little) so we do not flood the
+    // realtime endpoint just because the cursor is over the board.
+    const now = Date.now();
+    const interval = pointerDownRef.current ? 33 : 90;
+    if (now - lastMoveSentRef.current < interval) return;
+    lastMoveSentRef.current = now;
     const point = normalizedPoint(event, viewportRef.current);
     emitPointer({ kind: "move", ...point });
   };
@@ -196,12 +217,14 @@ export function SharedBrowserSurface({
     if (!viewportRef.current) return;
     viewportRef.current.focus();
     event.currentTarget.setPointerCapture(event.pointerId);
+    pointerDownRef.current = true;
     const point = normalizedPoint(event, viewportRef.current);
     emitPointer({ kind: "down", ...point, button: pointerButton(event.button) });
   };
 
   const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!viewportRef.current) return;
+    pointerDownRef.current = false;
     const point = normalizedPoint(event, viewportRef.current);
     emitPointer({ kind: "up", ...point, button: pointerButton(event.button) });
   };
@@ -233,26 +256,55 @@ export function SharedBrowserSurface({
     return <SharedBrowserSummary board={board} compact />;
   }
 
+  const navDisabled = board.status === "starting";
+  const controlChip = hasLease
+    ? "You have control"
+    : driverLabel === "No one"
+    ? "Open to control"
+    : `${driverLabel} in control`;
+
   return (
     <div className={`shared-browser-surface${surface ? " shared-browser-surface--board" : ""}`}>
-      <div className="shared-browser-toolbar">
-        <div className="shared-browser-toolbar__nav">
-          <button type="button" className="secondary" onClick={() => void controller.history(object.id, "back")} disabled={board.loading || board.status === "starting"}>
-            Back
+      <div className="shared-browser-bar">
+        <div className="shared-browser-bar__nav">
+          <button
+            type="button"
+            className="hud-btn shared-browser-bar__icon"
+            title="Back"
+            aria-label="Back"
+            onClick={() => void controller.history(object.id, "back")}
+            disabled={navDisabled}
+          >
+            ‹
           </button>
-          <button type="button" className="secondary" onClick={() => void controller.history(object.id, "forward")} disabled={board.loading || board.status === "starting"}>
-            Forward
+          <button
+            type="button"
+            className="hud-btn shared-browser-bar__icon"
+            title="Forward"
+            aria-label="Forward"
+            onClick={() => void controller.history(object.id, "forward")}
+            disabled={navDisabled}
+          >
+            ›
           </button>
-          <button type="button" className="secondary" onClick={() => void controller.history(object.id, "refresh")} disabled={board.loading || board.status === "starting"}>
-            Refresh
+          <button
+            type="button"
+            className="hud-btn shared-browser-bar__icon"
+            title="Refresh"
+            aria-label="Refresh"
+            onClick={() => void controller.history(object.id, "refresh")}
+            disabled={navDisabled}
+          >
+            ⟳
           </button>
-          {board.status === "paused" ? (
-            <button type="button" className="secondary" onClick={() => void controller.resume(object.id)}>
-              Resume
-            </button>
-          ) : null}
         </div>
-        <div className="shared-browser-toolbar__url">
+        <form
+          className="shared-browser-bar__url"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void submitNavigate();
+          }}
+        >
           <input
             value={urlValue}
             onChange={(event) => setUrlValue(event.target.value)}
@@ -263,28 +315,37 @@ export function SharedBrowserSurface({
                 void submitNavigate();
               }
             }}
-            placeholder="https://example.com"
+            placeholder="Search or enter address"
             aria-label="Shared browser URL"
+            spellCheck={false}
           />
-          <button type="button" className="secondary" onClick={() => void submitNavigate()} disabled={submitting || !urlValue.trim()}>
+          <button type="submit" className="hud-btn shared-browser-bar__go" disabled={submitting || !urlValue.trim()}>
             Go
           </button>
-        </div>
-        <div className="shared-browser-toolbar__lease">
+        </form>
+        <div className="shared-browser-bar__actions">
           <button
             type="button"
-            className={`secondary${hasLease ? " shared-browser-toolbar__lease-btn--active" : ""}`}
-            onClick={() => void controller.controlLease(object.id, hasLease ? "release" : "take")}
+            className={`hud-btn${hasLease ? " hud-btn--active" : ""}`}
+            onClick={() => void toggleLease()}
+            disabled={leaseBusy}
           >
-            {hasLease ? "Release control" : "Take control"}
+            {hasLease ? "Release" : "Take control"}
           </button>
           {board.currentUrl ? (
-            <a href={board.currentUrl} target="_blank" rel="noreferrer" className="shared-browser-toolbar__external">
-              Open
+            <a href={board.currentUrl} target="_blank" rel="noreferrer" className="shared-browser-bar__open" title="Open in a new tab">
+              Open ↗
             </a>
           ) : null}
         </div>
       </div>
+
+      {board.status === "paused" ? (
+        <button type="button" className="hud-btn shared-browser-notice shared-browser-notice--resume" onClick={() => void controller.resume(object.id)}>
+          Browser paused — resume
+        </button>
+      ) : null}
+      {board.error ? <p className="shared-browser-notice shared-browser-notice--error">{board.error}</p> : null}
 
       <div
         ref={viewportRef}
@@ -305,20 +366,17 @@ export function SharedBrowserSurface({
             <span>
               {board.error ||
                 (jpegLoading
-                  ? "Receiving JPEG fallback frames."
+                  ? "Receiving fallback frames…"
                   : board.currentUrl || "The room-owned browser will appear here.")}
             </span>
           </div>
         ) : null}
-        {!hasLease ? <div className="shared-browser-viewport__hint">Take control to type. Pointer input is shared.</div> : null}
+        <div className={`shared-browser-chip${hasLease ? " shared-browser-chip--owned" : ""}`}>
+          <span className={`shared-browser-chip__dot shared-browser-chip__dot--${board.status}`} />
+          {controlChip}
+        </div>
+        {!hasLease ? <div className="shared-browser-viewport__hint">Take control to type</div> : null}
       </div>
-
-      <div className="shared-browser-status">
-        <span>{board.title || object.title}</span>
-        <span>{board.status === "active" ? "Active" : board.status === "paused" ? "Paused" : board.status}</span>
-        <span>{driverLabel} {driverLabel === "No one" ? "has" : "has"} control</span>
-      </div>
-      {!surface ? <SharedBrowserSummary board={board} /> : null}
     </div>
   );
 }

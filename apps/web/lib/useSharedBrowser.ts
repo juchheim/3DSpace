@@ -175,13 +175,20 @@ export function useSharedBrowser(input: {
     }
   }, [input.identity, input.roomId, patchBoard, publishMessages]);
 
-  // Batch pointer/keyboard input and flush once per animation frame so a drag
-  // does not fire a request per mousemove.
+  // Batch pointer/keyboard input and flush on a throttled cadence so a drag (or
+  // even idle hover) does not fire one request per mousemove. We coalesce queued
+  // events and POST at most once per MIN_FLUSH_INTERVAL_MS (~16 Hz), which keeps
+  // the realtime endpoint from being saturated while staying responsive.
   const queueRef = useRef<Record<string, { pointer: SharedBrowserPointerEvent[]; keyboard: SharedBrowserKeyEvent[] }>>({});
   const frameRef = useRef<number | null>(null);
+  const timerRef = useRef<number | null>(null);
+  const lastFlushRef = useRef(0);
+  const MIN_FLUSH_INTERVAL_MS = 60;
 
   const flushInput = useCallback(() => {
     frameRef.current = null;
+    timerRef.current = null;
+    lastFlushRef.current = Date.now();
     if (!input.roomId) {
       queueRef.current = {};
       return;
@@ -200,8 +207,17 @@ export function useSharedBrowser(input: {
   }, [input.identity, input.roomId, patchBoard, publishMessages]);
 
   const scheduleFlush = useCallback(() => {
-    if (frameRef.current !== null || typeof window === "undefined") return;
-    frameRef.current = window.requestAnimationFrame(flushInput);
+    if (typeof window === "undefined") return;
+    if (frameRef.current !== null || timerRef.current !== null) return;
+    const elapsed = Date.now() - lastFlushRef.current;
+    if (elapsed >= MIN_FLUSH_INTERVAL_MS) {
+      frameRef.current = window.requestAnimationFrame(flushInput);
+    } else {
+      timerRef.current = window.setTimeout(() => {
+        timerRef.current = null;
+        frameRef.current = window.requestAnimationFrame(flushInput);
+      }, MIN_FLUSH_INTERVAL_MS - elapsed);
+    }
   }, [flushInput]);
 
   const queuePointer = useCallback((objectId: string, event: SharedBrowserPointerEvent) => {
@@ -219,7 +235,9 @@ export function useSharedBrowser(input: {
   }, [scheduleFlush]);
 
   useEffect(() => () => {
-    if (frameRef.current !== null && typeof window !== "undefined") window.cancelAnimationFrame(frameRef.current);
+    if (typeof window === "undefined") return;
+    if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
   }, []);
 
   const handleRealtimeMessage = useCallback((message: RealtimeMessage) => {

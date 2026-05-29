@@ -2763,7 +2763,20 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   const meetingNotesAudioChunks = new Map<string, MeetingNotesAudioChunk[]>();
   const app = fastify({
     logger: config.nodeEnv !== "test",
+    // Suppress the high-volume "incoming request"/"request completed" pair. The
+    // shared browser + lobby polling generate thousands of these per minute and
+    // bury real errors. We re-add a focused failure log via the onResponse hook.
+    disableRequestLogging: true,
     bodyLimit: 10 * 1024 * 1024
+  });
+
+  app.addHook("onResponse", async (request, reply) => {
+    if (reply.statusCode >= 500) {
+      request.log.error(
+        { method: request.method, url: request.url, statusCode: reply.statusCode },
+        "request failed"
+      );
+    }
   });
 
   let sharedBrowserIdleReaper: SharedBrowserIdleReaper | undefined;
@@ -2915,6 +2928,10 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       callback(new Error(`Origin not allowed: ${origin}`), false);
     },
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+    // Cache the CORS preflight so high-frequency endpoints (shared browser input)
+    // do not trigger an OPTIONS round-trip before every POST. Browsers cap this
+    // (Chrome at 2h) but even that eliminates the per-request preflight flood.
+    maxAge: 86400,
     allowedHeaders: [
       "Content-Type",
       "Authorization",

@@ -313,20 +313,34 @@ export class SharedBrowserOrchestrator {
     const session = await this.requireSession(roomId, wallObjectId);
     const now = nowIso();
     const expiresAt = new Date(Date.now() + settings.controlLeaseSeconds * 1000).toISOString();
+    const heldByActor = session.controlLease?.userId === actor.userId && leaseActive(session.controlLease, now);
     let nextLease: SharedBrowserControlLease | undefined;
+    let leaseChanged = true;
 
-    if (action === "take" || action === "renew") {
-      const held = leaseActive(session.controlLease, now);
-      if (held && session.controlLease!.userId !== actor.userId) {
-        throw conflict("Another participant currently holds keyboard control");
+    if (action === "take") {
+      // Free-for-All is cooperative: "take" is always a takeover. Anyone can grab
+      // keyboard control from whoever currently holds it. The previous holder is
+      // notified via the control-lease realtime broadcast and simply loses typing.
+      nextLease = { userId: actor.userId, displayName: actor.displayName, expiresAt };
+    } else if (action === "renew") {
+      // Renew only refreshes the lease if the actor still holds it. If someone
+      // else took over, renew is a no-op so the 8s client renewal cannot silently
+      // steal control back into a tug-of-war.
+      if (!heldByActor) {
+        return { session, realtimeMessages: [] };
       }
       nextLease = { userId: actor.userId, displayName: actor.displayName, expiresAt };
     } else {
-      // release
-      if (session.controlLease && session.controlLease.userId !== actor.userId) {
-        throw forbidden("Only the control holder can release the lease");
+      // release — only the current holder can clear the lease; otherwise no-op.
+      if (session.controlLease && !heldByActor) {
+        return { session, realtimeMessages: [] };
       }
       nextLease = undefined;
+      leaseChanged = Boolean(session.controlLease);
+    }
+
+    if (!leaseChanged) {
+      return { session, realtimeMessages: [] };
     }
 
     const updated = await this.repository.updateSharedBrowserSession(session.id, {
