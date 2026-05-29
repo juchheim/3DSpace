@@ -15,13 +15,13 @@ export type HyperbeamVmCreateBody = {
   start_url?: string;
   width: number;
   height: number;
-  framerate: number;
-  quality: SharedBrowserHyperbeamQuality;
+  fps: number;
+  quality: { mode: SharedBrowserHyperbeamQuality };
   region?: string;
   tag?: string;
   timeout?: {
     offline?: number;
-    empty?: number;
+    inactive?: number;
   };
 };
 
@@ -95,7 +95,14 @@ export async function hyperbeamCreateVm(
   }, fetchImpl);
   if (!response.ok) {
     const text = await readErrorBody(response);
-    throw new HyperbeamApiError(`Hyperbeam create session failed (${response.status})`, response.status, text);
+    const detail = text.trim().slice(0, 500);
+    throw new HyperbeamApiError(
+      detail
+        ? `Hyperbeam create session failed (${response.status}): ${detail}`
+        : `Hyperbeam create session failed (${response.status})`,
+      response.status,
+      text
+    );
   }
   return (await response.json()) as HyperbeamVmCreateResponse;
 }

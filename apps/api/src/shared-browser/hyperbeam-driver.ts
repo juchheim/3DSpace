@@ -30,9 +30,17 @@ export type HyperbeamSharedBrowserDriverOptions = {
  */
 /** Hyperbeam VM timeouts aligned with 3DSpace reapers (see IMPL Hyperbeam Phase 6). */
 export function hyperbeamSessionTimeouts(config: AppConfig) {
-  const emptySeconds = Math.max(60, config.tuning.sharedBrowserIdlePauseMinutes * 60);
+  const inactiveSeconds = Math.max(60, config.tuning.sharedBrowserIdlePauseMinutes * 60);
   const offlineSeconds = Math.max(60, Math.ceil(ROOM_SESSION_PRESENCE_MS / 1000));
-  return { offline: offlineSeconds, empty: emptySeconds };
+  return { offline: offlineSeconds, inactive: inactiveSeconds };
+}
+
+const HYPERBEAM_REGIONS = new Set(["NA", "EU", "AS"]);
+
+function hyperbeamRegion(region: string | undefined): string | undefined {
+  const normalized = region?.trim().toUpperCase();
+  if (!normalized || !HYPERBEAM_REGIONS.has(normalized)) return undefined;
+  return normalized;
 }
 
 export class HyperbeamSharedBrowserDriver implements SharedBrowserDriver {
@@ -106,12 +114,12 @@ export class HyperbeamSharedBrowserDriver implements SharedBrowserDriver {
       start_url: startUrl,
       width: session.viewport.width,
       height: session.viewport.height,
-      framerate: this.config.tuning.sharedBrowserHyperbeamFramerate,
-      quality: this.config.tuning.sharedBrowserHyperbeamQuality,
+      fps: this.config.tuning.sharedBrowserHyperbeamFramerate,
+      quality: { mode: this.config.tuning.sharedBrowserHyperbeamQuality },
       tag: session.wallObjectId,
       timeout: hyperbeamSessionTimeouts(this.config)
     };
-    const region = this.config.tuning.sharedBrowserHyperbeamRegion;
+    const region = hyperbeamRegion(this.config.tuning.sharedBrowserHyperbeamRegion);
     if (region) body.region = region;
 
     const created = await hyperbeamCreateVm(

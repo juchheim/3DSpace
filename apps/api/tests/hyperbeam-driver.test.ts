@@ -29,7 +29,7 @@ describe("hyperbeamSessionTimeouts", () => {
     } as NodeJS.ProcessEnv);
     expect(hyperbeamSessionTimeouts(config)).toEqual({
       offline: Math.max(60, Math.ceil(ROOM_SESSION_PRESENCE_MS / 1000)),
-      empty: 15 * 60
+      inactive: 15 * 60
     });
   });
 });
@@ -83,6 +83,9 @@ describe("HyperbeamSharedBrowserDriver", () => {
     });
 
     expect(createBody?.timeout).toEqual(hyperbeamSessionTimeouts(config));
+    expect(createBody?.fps).toBe(30);
+    expect(createBody?.quality).toEqual({ mode: "smooth" });
+    expect(createBody).not.toHaveProperty("framerate");
     expect(started.hyperbeam?.sessionId).toBe("hb_sess_1");
     expect(started.hyperbeam?.embedUrl).toContain("embed.hyperbeam.test");
     expect(driver.isLive(session.id)).toBe(true);
