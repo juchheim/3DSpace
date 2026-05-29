@@ -74,6 +74,13 @@ export class HyperbeamSharedBrowserDriver implements SharedBrowserDriver {
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
+  private log(level: "info" | "warn" | "error", msg: string, data?: Record<string, unknown>) {
+    const entry = { t: new Date().toISOString(), hb: true, msg, ...data };
+    if (level === "error") console.error(JSON.stringify(entry));
+    else if (level === "warn") console.warn(JSON.stringify(entry));
+    else console.log(JSON.stringify(entry));
+  }
+
   private requireApiKey(): string {
     const key = this.config.tuning.hyperbeamApiKey;
     if (!key) throw new Error("HYPERBEAM_API_KEY is not configured");
@@ -144,12 +151,15 @@ export class HyperbeamSharedBrowserDriver implements SharedBrowserDriver {
     const region = hyperbeamRegion(this.config.tuning.sharedBrowserHyperbeamRegion);
     if (region) body.region = region;
 
+    this.log("info", "hb.start: creating VM", { sessionId: session.id, startUrl, viewport });
+
     const created = await hyperbeamCreateVm(
       this.config.tuning.hyperbeamApiBase,
       apiKey,
       body,
       this.fetchImpl
     );
+    this.log("info", "hb.start: VM created", { sessionId: session.id, hbSessionId: created.session_id });
     const title = titleFromUrl(startUrl);
     this.registerFromCreate(session.id, created, startUrl, title);
 
@@ -183,7 +193,12 @@ export class HyperbeamSharedBrowserDriver implements SharedBrowserDriver {
 
   async navigate(threeDSpaceSessionId: string, url: string): Promise<{ url: string; title: string }> {
     const live = this.live.get(threeDSpaceSessionId);
-    if (!live) throw new Error("Shared browser session is not live");
+    if (!live) {
+      this.log("error", "hb.navigate: session not in live map", { threeDSpaceSessionId, url });
+      throw new Error("Shared browser session is not live");
+    }
+
+    this.log("info", "hb.navigate: sending tabs.update", { threeDSpaceSessionId, url, baseUrl: live.baseUrl, hbSessionId: live.hyperbeamSessionId });
 
     // Hyperbeam's session REST API mirrors the Chrome tabs API. The request body is
     // the JSON-encoded argument list: `tabs.update(updateProperties)` updates the
@@ -192,16 +207,22 @@ export class HyperbeamSharedBrowserDriver implements SharedBrowserDriver {
     // `[null, { url }]` from a JS `undefined` tabId) is not a valid argument list and
     // the call no-ops, leaving the VM stranded on its blank start page.
     let response = await this.sessionPost(live, "tabs.update", [{ url }]);
+    this.log(response.ok ? "info" : "warn", "hb.navigate: tabs.update[{url}] response", { status: response.status, ok: response.ok });
+
     if (!response.ok) {
       response = await this.sessionPost(live, "tabs.update", [1, { url }]);
+      this.log(response.ok ? "info" : "warn", "hb.navigate: tabs.update[1,{url}] fallback response", { status: response.status, ok: response.ok });
     }
     if (!response.ok) {
+      this.log("warn", "hb.navigate: both tabs.update attempts failed — returning cached url without navigating", { url });
       live.currentUrl = url;
       live.title = titleFromUrl(url);
       return { url, title: live.title };
     }
 
-    return this.readActiveTab(live);
+    const result = await this.readActiveTab(live);
+    this.log("info", "hb.navigate: done", { navigatedTo: result.url });
+    return result;
   }
 
   async history(
@@ -228,6 +249,7 @@ export class HyperbeamSharedBrowserDriver implements SharedBrowserDriver {
     threeDSpaceSessionId: string,
     hyperbeamSessionId: string
   ): Promise<boolean> {
+    this.log("info", "hb.attachExisting: attempting", { threeDSpaceSessionId, hyperbeamSessionId });
     const apiKey = this.requireApiKey();
     const remote = await hyperbeamGetVm(
       this.config.tuning.hyperbeamApiBase,
@@ -235,7 +257,10 @@ export class HyperbeamSharedBrowserDriver implements SharedBrowserDriver {
       hyperbeamSessionId,
       this.fetchImpl
     );
-    if (!remote || remote.termination_date) return false;
+    if (!remote || remote.termination_date) {
+      this.log("warn", "hb.attachExisting: VM gone or terminated — will create fresh", { hyperbeamSessionId, terminated: remote?.termination_date ?? "not found" });
+      return false;
+    }
     const url = remote.embed_url;
     const live = this.registerFromCreate(
       threeDSpaceSessionId,

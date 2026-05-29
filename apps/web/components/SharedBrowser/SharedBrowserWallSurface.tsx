@@ -105,6 +105,22 @@ export function SharedBrowserWallSurface({
       if (!hasFrameRef.current) {
         hasFrameRef.current = true;
         setHasFrame(true);
+        // Sample the first frame's average color to confirm real content vs blank VM.
+        const canvas = hyperbeam.canvasRef.current;
+        if (canvas) {
+          try {
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              const d = ctx.getImageData(0, 0, Math.min(80, canvas.width), Math.min(45, canvas.height)).data;
+              let r = 0, g = 0, b = 0;
+              for (let i = 0; i < d.length; i += 4) { r += d[i] ?? 0; g += d[i+1] ?? 0; b += d[i+2] ?? 0; }
+              const n = d.length / 4;
+              console.log(`[SharedBrowser] first frame received — avgRGB=[${Math.round(r/n)},${Math.round(g/n)},${Math.round(b/n)}] canvas=${canvas.width}x${canvas.height}`);
+            }
+          } catch (e) {
+            console.log("[SharedBrowser] first frame received — pixel sample failed:", e);
+          }
+        }
       }
     },
     onDisconnect: (reason) => {
@@ -121,7 +137,10 @@ export function SharedBrowserWallSurface({
     if (!board.currentUrl || board.status !== "active") return;
     if (autoNavigatedForEmbedRef.current === embedUrl) return;
     autoNavigatedForEmbedRef.current = embedUrl;
-    void controller.navigate(object.id, board.currentUrl).catch(() => undefined);
+    console.log("[SharedBrowser] auto-navigate on connect", { url: board.currentUrl, embedUrl, status: hyperbeam.status });
+    void controller.navigate(object.id, board.currentUrl)
+      .then(() => console.log("[SharedBrowser] auto-navigate succeeded"))
+      .catch((err: unknown) => console.error("[SharedBrowser] auto-navigate failed", err));
   }, [hyperbeam.status, board.currentUrl, board.status, embedUrl, controller, object.id]);
 
   // Build the off-screen Hyperbeam host imperatively so no DOM nodes live in the R3F tree.
