@@ -43,6 +43,7 @@ import type { ParticipantView } from "./RoomClient";
 import { BlockyAvatar } from "./BlockyAvatar";
 import { RoomObjectsLayer } from "./RoomObjectsLayer";
 import { WallObjectCard } from "./WallObjectCard";
+import { SharedBrowserWallSurface } from "./SharedBrowser/SharedBrowserWallSurface";
 import type { WhiteboardController } from "../lib/useWhiteboards";
 import type { SharedBrowserController } from "../lib/useSharedBrowser";
 import type { ApiIdentity } from "../lib/identity";
@@ -846,6 +847,28 @@ const WallObjectSurface = memo(function WallObjectSurface({
   }, [anchor.height, anchor.position.x, anchor.position.y, anchor.position.z, anchor.width, normal, placement, right]);
   const targetPoint = useMemo(() => new Vector3(position[0], position[1], position[2]), [position]);
   const visible = useOverlayVisibility(() => wallSurfaceVisibleFromCamera(camera.position, targetPoint, anchor, normal, walls));
+  const useSharedBrowserMesh =
+    object.type === "web.browser.shared" &&
+    Boolean(sharedBrowserController && sharedBrowserIdentity && sharedBrowserRoomId);
+
+  if (useSharedBrowserMesh && sharedBrowserController) {
+    return (
+      <group position={position} rotation={rotation}>
+        {visible ? (
+          <SharedBrowserWallSurface
+            object={object}
+            controller={sharedBrowserController}
+            surfaceWidth={surfaceWidth}
+            surfaceHeight={surfaceHeight}
+            displayAspectRatio={displayAspectRatio}
+            embedVisible={visible}
+            htmlResolutionScale={effectiveResolutionScale}
+            {...(currentUserId ? { currentUserId } : {})}
+          />
+        ) : null}
+      </group>
+    );
+  }
 
   return (
     <group position={position} rotation={rotation}>

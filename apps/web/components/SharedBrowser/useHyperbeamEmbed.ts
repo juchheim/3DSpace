@@ -26,6 +26,8 @@ export type UseHyperbeamEmbedOptions = {
   volume?: number;
   onDisconnect?: (reason: string) => void;
   onCloseWarning?: (secondsUntilClose: number | undefined) => void;
+  /** Fired after each frame-mode canvas blit (3D wall mesh textures). */
+  onFrameDrawn?: () => void;
 };
 
 export type UseHyperbeamEmbedResult = {
@@ -49,7 +51,8 @@ export function useHyperbeamEmbed(options: UseHyperbeamEmbedOptions): UseHyperbe
     playoutDelay = false,
     volume = 1,
     onDisconnect,
-    onCloseWarning
+    onCloseWarning,
+    onFrameDrawn
   } = options;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -61,6 +64,8 @@ export function useHyperbeamEmbed(options: UseHyperbeamEmbedOptions): UseHyperbe
   onDisconnectRef.current = onDisconnect;
   const onCloseWarningRef = useRef(onCloseWarning);
   onCloseWarningRef.current = onCloseWarning;
+  const onFrameDrawnRef = useRef(onFrameDrawn);
+  onFrameDrawnRef.current = onFrameDrawn;
   const hasControlRef = useRef(hasControl);
   hasControlRef.current = hasControl;
   const displayAspectRatioRef = useRef(displayAspectRatio);
@@ -96,6 +101,7 @@ export function useHyperbeamEmbed(options: UseHyperbeamEmbedOptions): UseHyperbe
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
       drawHyperbeamFrame(ctx, frame, width, height);
+      onFrameDrawnRef.current?.();
     },
     [videoMode]
   );
