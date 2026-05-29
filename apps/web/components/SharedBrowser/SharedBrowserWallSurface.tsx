@@ -2,8 +2,7 @@
 
 import { Html } from "@react-three/drei";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   CanvasTexture,
   LinearFilter,
@@ -79,7 +78,6 @@ export function SharedBrowserWallSurface({
   const frameDirtyRef = useRef(false);
   const pointerDownRef = useRef(false);
   const videoMapRef = useRef<CanvasTextureType | null>(null);
-  const [hostReady, setHostReady] = useState(false);
   const [videoMap, setVideoMap] = useState<CanvasTextureType | null>(null);
 
   const leaseUserId = activeSharedBrowserLeaseUserId(board);
@@ -107,9 +105,56 @@ export function SharedBrowserWallSurface({
     }
   });
 
-  useEffect(() => {
-    setHostReady(true);
-  }, []);
+  useLayoutEffect(() => {
+    if (typeof document === "undefined") return;
+    const host = document.createElement("div");
+    host.className = "shared-browser-hyperbeam-host";
+    host.style.position = "fixed";
+    host.style.left = "-10000px";
+    host.style.top = "0";
+    host.style.overflow = "hidden";
+    host.style.opacity = "0";
+    host.style.pointerEvents = "none";
+
+    const canvas = document.createElement("canvas");
+    canvas.className = "shared-browser-viewport__canvas";
+
+    const container = document.createElement("div");
+    container.className = "shared-browser-viewport__embed shared-browser-viewport__embed--input-layer";
+    container.style.width = "100%";
+    container.style.height = "100%";
+
+    const audio = document.createElement("audio");
+    audio.className = "shared-browser-viewport__audio";
+    audio.autoplay = true;
+    audio.setAttribute("playsinline", "");
+
+    host.appendChild(canvas);
+    host.appendChild(container);
+    host.appendChild(audio);
+    document.body.appendChild(host);
+
+    hyperbeam.canvasRef.current = canvas;
+    hyperbeam.containerRef.current = container;
+    hyperbeam.audioRef.current = audio;
+
+    return () => {
+      hyperbeam.canvasRef.current = null;
+      hyperbeam.containerRef.current = null;
+      hyperbeam.audioRef.current = null;
+      host.remove();
+    };
+  }, [hyperbeam.audioRef, hyperbeam.canvasRef, hyperbeam.containerRef]);
+
+  useLayoutEffect(() => {
+    const host = hyperbeam.containerRef.current?.parentElement;
+    const canvas = hyperbeam.canvasRef.current;
+    if (!host || !canvas) return;
+    host.style.width = `${frameSize.width}px`;
+    host.style.height = `${frameSize.height}px`;
+    canvas.width = frameSize.width;
+    canvas.height = frameSize.height;
+  }, [frameSize.height, frameSize.width, hyperbeam.canvasRef, hyperbeam.containerRef]);
 
   useEffect(() => {
     if (!embedEnabled || hyperbeam.status !== "connected") {
@@ -223,42 +268,8 @@ export function SharedBrowserWallSurface({
     );
   };
 
-  const hyperbeamHost =
-    hostReady && typeof document !== "undefined"
-      ? createPortal(
-          <div
-            className="shared-browser-hyperbeam-host"
-            style={{
-              position: "fixed",
-              left: -10_000,
-              top: 0,
-              width: frameSize.width,
-              height: frameSize.height,
-              overflow: "hidden",
-              opacity: 0,
-              pointerEvents: "none"
-            }}
-          >
-            <canvas
-              ref={hyperbeam.canvasRef}
-              className="shared-browser-viewport__canvas"
-              width={frameSize.width}
-              height={frameSize.height}
-            />
-            <div
-              ref={hyperbeam.containerRef}
-              className="shared-browser-viewport__embed shared-browser-viewport__embed--input-layer"
-              style={{ width: "100%", height: "100%" }}
-            />
-            <audio ref={hyperbeam.audioRef} className="shared-browser-viewport__audio" autoPlay playsInline />
-          </div>,
-          document.body
-        )
-      : null;
-
   return (
     <>
-      {hyperbeamHost}
       <Html
         transform
         center
