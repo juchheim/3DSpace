@@ -197,7 +197,6 @@ export function SharedBrowserWallSurface({
 
     const onWheel = (event: WheelEvent) => {
       hb.sendEvent({ type: "wheel", deltaY: event.deltaY });
-      event.preventDefault();
       event.stopPropagation();
     };
 

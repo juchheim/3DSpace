@@ -29,6 +29,7 @@ import { useAvatarMovement } from "../lib/useAvatarMovement";
 import { useAvatarAppearance } from "../lib/useAvatarAppearance";
 import { useAvatarReactions } from "../lib/useAvatarReactions";
 import { useAudioModes } from "../lib/useAudioModes";
+import { isKeyboardOwnedTarget } from "../lib/isKeyboardOwnedTarget";
 import { DEFAULT_APPEARANCE } from "./BlockyAvatar";
 import { useThirdPersonCamera } from "../lib/useThirdPersonCamera";
 import { useLocalMedia } from "../lib/useLocalMedia";
@@ -140,8 +141,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   useEffect(() => {
     if (viewMode !== "3d") return;
     function onKeyDown(e: KeyboardEvent) {
-      const target = e.target as HTMLElement | null;
-      if (target?.isContentEditable || target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return;
+      if (isKeyboardOwnedTarget(e.target)) return;
       if (e.code === "KeyV") setFirstPerson((prev) => !prev);
     }
     window.addEventListener("keydown", onKeyDown);

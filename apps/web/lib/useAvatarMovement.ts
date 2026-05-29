@@ -3,18 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import type { AvatarStateMessage, Role, RoomManifest, Vector3, ViewMode } from "@3dspace/contracts";
 import { clampPositionToBounds, createAvatarState, floorYFromZ, resolveWallCollisions, transformLocalMovementToWorld, unprojectPointFrom2D } from "@3dspace/room-engine";
-
-function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  if (target.isContentEditable) return true;
-  if (target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true;
-  if (target instanceof HTMLInputElement) {
-    const type = target.type.toLowerCase();
-    const nonTextTypes = new Set(["button", "submit", "reset", "checkbox", "radio", "range", "color", "file", "hidden", "image"]);
-    return !nonTextTypes.has(type);
-  }
-  return false;
-}
+import { isKeyboardOwnedTarget } from "./isKeyboardOwnedTarget";
 
 export function useAvatarMovement(input: {
   manifest: RoomManifest | null;
@@ -69,7 +58,7 @@ export function useAvatarMovement(input: {
 
   useEffect(() => {
     function down(event: KeyboardEvent) {
-      if (isEditableTarget(event.target)) return;
+      if (isKeyboardOwnedTarget(event.target)) return;
       if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyW", "KeyA", "KeyS", "KeyD"].includes(event.code)) {
         keys.current.add(event.code);
         event.preventDefault();
@@ -77,7 +66,7 @@ export function useAvatarMovement(input: {
     }
 
     function up(event: KeyboardEvent) {
-      if (isEditableTarget(event.target)) return;
+      if (isKeyboardOwnedTarget(event.target)) return;
       keys.current.delete(event.code);
     }
 
