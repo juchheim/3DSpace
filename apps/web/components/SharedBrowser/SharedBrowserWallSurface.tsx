@@ -1,13 +1,13 @@
 "use client";
 
 import { Html } from "@react-three/drei";
-import { useFrame, type ThreeEvent } from "@react-three/fiber";
+import { type ThreeEvent } from "@react-three/fiber";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
+  CanvasTexture,
   LinearFilter,
   SRGBColorSpace,
   Vector2,
-  VideoTexture,
   type Mesh
 } from "three";
 import type { WallObject } from "@3dspace/contracts";
@@ -75,8 +75,7 @@ export function SharedBrowserWallSurface({
   const tabVisible = useDocumentVisible();
   const board = controller.getBoard(object.id);
   const meshRef = useRef<Mesh | null>(null);
-  const videoElRef = useRef<HTMLVideoElement | null>(null);
-  const textureRef = useRef<VideoTexture | null>(null);
+  const textureRef = useRef<CanvasTexture | null>(null);
   const pointerDownRef = useRef(false);
   const hasFrameRef = useRef(false);
   const [hasFrame, setHasFrame] = useState(false);
@@ -95,10 +94,19 @@ export function SharedBrowserWallSurface({
     enabled: embedEnabled,
     hasControl: hasLease,
     videoMode: "frame",
-    captureVideoTrack: true,
     frameSize,
     displayAspectRatio,
     playoutDelay: CLIENT_TUNING.sharedBrowserHyperbeamPlayoutDelay,
+    // Hyperbeam blits each decoded frame into our off-screen canvas (via the hook's
+    // canvasRef). Flag the CanvasTexture for re-upload so the wall mesh repaints.
+    onFrameDrawn: () => {
+      const texture = textureRef.current;
+      if (texture) texture.needsUpdate = true;
+      if (!hasFrameRef.current) {
+        hasFrameRef.current = true;
+        setHasFrame(true);
+      }
+    },
     onDisconnect: (reason) => {
       if (reason === "unauthorized" || reason === "inactive") {
         void controller.refreshEmbed(object.id).catch(() => undefined);
@@ -117,6 +125,8 @@ export function SharedBrowserWallSurface({
   }, [hyperbeam.status, board.currentUrl, board.status, embedUrl, controller, object.id]);
 
   // Build the off-screen Hyperbeam host imperatively so no DOM nodes live in the R3F tree.
+  // Hyperbeam mounts its embed in `container` and blits frames into `canvas`, which backs
+  // the wall mesh's CanvasTexture.
   useLayoutEffect(() => {
     if (typeof document === "undefined") return;
     const host = document.createElement("div");
@@ -127,12 +137,9 @@ export function SharedBrowserWallSurface({
     container.style.width = "100%";
     container.style.height = "100%";
 
-    const video = document.createElement("video");
-    video.muted = true;
-    video.autoplay = true;
-    video.setAttribute("playsinline", "");
-    video.style.width = "100%";
-    video.style.height = "100%";
+    const canvas = document.createElement("canvas");
+    canvas.width = frameSize.width;
+    canvas.height = frameSize.height;
 
     const audio = document.createElement("audio");
     audio.className = "shared-browser-viewport__audio";
@@ -140,15 +147,14 @@ export function SharedBrowserWallSurface({
     audio.setAttribute("playsinline", "");
 
     host.appendChild(container);
-    host.appendChild(video);
     host.appendChild(audio);
     document.body.appendChild(host);
 
     hyperbeam.containerRef.current = container;
+    hyperbeam.canvasRef.current = canvas;
     hyperbeam.audioRef.current = audio;
-    videoElRef.current = video;
 
-    const texture = new VideoTexture(video);
+    const texture = new CanvasTexture(canvas);
     texture.colorSpace = SRGBColorSpace;
     texture.minFilter = LinearFilter;
     texture.magFilter = LinearFilter;
@@ -158,12 +164,14 @@ export function SharedBrowserWallSurface({
       texture.dispose();
       textureRef.current = null;
       hyperbeam.containerRef.current = null;
+      hyperbeam.canvasRef.current = null;
       hyperbeam.audioRef.current = null;
-      videoElRef.current = null;
-      video.srcObject = null;
       host.remove();
     };
-  }, [hyperbeam.audioRef, hyperbeam.containerRef]);
+    // Host is created once; frameSize only seeds the initial canvas size — the embed hook
+    // resizes the canvas per-frame, so we must not recreate the host (it would orphan the embed).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hyperbeam.audioRef, hyperbeam.canvasRef, hyperbeam.containerRef]);
 
   useLayoutEffect(() => {
     const host = hyperbeam.containerRef.current?.parentElement;
@@ -173,32 +181,13 @@ export function SharedBrowserWallSurface({
     }
   }, [frameSize.height, frameSize.width, hyperbeam.containerRef]);
 
-  // Feed the live video track into the off-screen <video> that backs the texture.
+  // Reset the "has a painted frame" gate whenever the embed leaves the connected state,
+  // so the dark placeholder shows again instead of a stale frame.
   useEffect(() => {
-    const video = videoElRef.current;
-    if (!video) return;
-    const track = hyperbeam.videoTrack;
-    if (!track) {
-      video.srcObject = null;
-      hasFrameRef.current = false;
-      setHasFrame(false);
-      return;
-    }
-    video.srcObject = new MediaStream([track]);
-    void video.play().catch(() => undefined);
-  }, [hyperbeam.videoTrack]);
-
-  useFrame(() => {
-    const video = videoElRef.current;
-    const texture = textureRef.current;
-    if (!video || !texture) return;
-    if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
-    texture.needsUpdate = true;
-    if (!hasFrameRef.current) {
-      hasFrameRef.current = true;
-      setHasFrame(true);
-    }
-  });
+    if (hyperbeam.status === "connected") return;
+    hasFrameRef.current = false;
+    setHasFrame(false);
+  }, [hyperbeam.status]);
 
   const viewportWidth = surfaceWidth * 0.985;
   const viewportHeight = surfaceHeight * VIEWPORT_HEIGHT_RATIO;
