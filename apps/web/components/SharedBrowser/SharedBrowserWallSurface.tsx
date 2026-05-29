@@ -6,6 +6,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   CanvasTexture,
   LinearFilter,
+  MeshBasicMaterial,
   SRGBColorSpace,
   Vector2,
   type Mesh
@@ -76,6 +77,7 @@ export function SharedBrowserWallSurface({
   const board = controller.getBoard(object.id);
   const meshRef = useRef<Mesh | null>(null);
   const textureRef = useRef<CanvasTexture | null>(null);
+  const materialRef = useRef<MeshBasicMaterial | null>(null);
   const pointerDownRef = useRef(false);
   const hasFrameRef = useRef(false);
   const [hasFrame, setHasFrame] = useState(false);
@@ -210,6 +212,14 @@ export function SharedBrowserWallSurface({
     setHasFrame(false);
   }, [hyperbeam.status]);
 
+  useEffect(() => {
+    const material = materialRef.current;
+    if (!material) return;
+    material.map = hasFrame ? textureRef.current : null;
+    material.needsUpdate = true;
+    invalidate();
+  }, [hasFrame, invalidate]);
+
   const viewportWidth = surfaceWidth * 0.985;
   const viewportHeight = surfaceHeight * VIEWPORT_HEIGHT_RATIO;
   const meshY = -surfaceHeight * ((1 - VIEWPORT_HEIGHT_RATIO) / 2 + 0.01);
@@ -332,7 +342,8 @@ export function SharedBrowserWallSurface({
       >
         <planeGeometry args={[viewportWidth, viewportHeight]} />
         <meshBasicMaterial
-          map={hasFrame ? textureRef.current : null}
+          ref={materialRef}
+          map={null}
           color={hasFrame ? "#ffffff" : "#0b1418"}
           toneMapped={false}
         />
