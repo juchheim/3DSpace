@@ -33,6 +33,7 @@ import { useLocalMedia } from "../lib/useLocalMedia";
 import { useDisplayMedia } from "../lib/useDisplayMedia";
 import { useWallObjects } from "../lib/useWallObjects";
 import { useWhiteboards } from "../lib/useWhiteboards";
+import { useSharedBrowser } from "../lib/useSharedBrowser";
 import { useRoomObjects } from "../lib/useRoomObjects";
 import { useRoomObjectTemplates } from "../lib/useRoomObjectTemplates";
 import { useWorldSkin } from "../lib/useWorldSkin";
@@ -212,6 +213,14 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     publish: publishRealtime
   });
   const roomTypeFeatures = useMemo(() => getRoomTypeFeatureFlags(session?.room.type), [session?.room.type]);
+  const sharedBrowsers = useSharedBrowser({
+    identity,
+    roomId: session?.room.id ?? roomId,
+    session,
+    wallObjects: wall.wallObjects,
+    enabled: CLIENT_TUNING.enableSharedBrowsers && roomTypeFeatures.sharedBrowsers && Boolean(session && manifest),
+    publish: publishRealtime
+  });
   const classroom = useClassroomState({
     identity,
     roomId: session?.room.id ?? roomId,
@@ -446,6 +455,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   meetingNotesRealtimeHandlerRef.current = meetingNotes.handleRealtimeMessage;
   const aiObjectsRealtimeHandlerRef = useRef(aiObjectGenerator.handleRealtimeMessage);
   aiObjectsRealtimeHandlerRef.current = aiObjectGenerator.handleRealtimeMessage;
+  const sharedBrowserRealtimeHandlerRef = useRef(sharedBrowsers.handleRealtimeMessage);
+  sharedBrowserRealtimeHandlerRef.current = sharedBrowsers.handleRealtimeMessage;
   camera.lockedRef.current = classroom.state?.spotlight?.mode === "force";
 
   useEffect(() => {
@@ -717,8 +728,10 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       if (dynamicBoardsRealtimeHandlerRef.current(message)) return;
       if (meetingNotesRealtimeHandlerRef.current(message)) return;
       if (aiObjectsRealtimeHandlerRef.current(message)) return;
+      if (sharedBrowserRealtimeHandlerRef.current(message)) return;
       if (message.type.startsWith("wall.")) return;
       if (message.type.startsWith("room.whiteboard.")) return;
+      if (message.type.startsWith("room.shared-browser.")) return;
       if (message.type.startsWith("room.object.")) return;
       if (message.type.startsWith("room.board.")) return;
       if (message.type.startsWith("room.meeting-notes.")) return;
@@ -1231,6 +1244,18 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const createWhiteboard = useCallback(
     async (input: { anchorId: string; title: string }) => {
       await wall.createInlineObject({ anchorId: input.anchorId, type: "whiteboard", title: input.title, data: {} });
+    },
+    [wall.createInlineObject]
+  );
+
+  const createSharedBrowser = useCallback(
+    async (input: { anchorId: string; title: string; startUrl: string }) => {
+      await wall.createInlineObject({
+        anchorId: input.anchorId,
+        type: "web.browser.shared",
+        title: input.title,
+        data: { startUrl: input.startUrl }
+      });
     },
     [wall.createInlineObject]
   );
@@ -1819,6 +1844,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             whiteboardController={whiteboards}
             whiteboardParticipantNames={participantNameMap}
             canWriteWhiteboard={canWriteWhiteboard}
+            sharedBrowserController={sharedBrowsers}
+            sharedBrowserIdentity={identity}
+            sharedBrowserRoomId={session.room.id}
             dynamicBoardPlacement={dynamicBoardPlacement}
             {...(roomObjectsEnabled && manifest
               ? {
@@ -1861,6 +1889,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             whiteboardController={whiteboards}
             whiteboardParticipantNames={participantNameMap}
             canWriteWhiteboard={canWriteWhiteboard}
+            sharedBrowserController={sharedBrowsers}
+            sharedBrowserIdentity={identity}
+            sharedBrowserRoomId={session.room.id}
             classroomGroups={classroom.state?.groups ?? []}
             podsEnabled={podsVisualEnabled}
             podRadiusMeters={podRadiusMeters}
@@ -2189,6 +2220,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               focusAnchorId={focusAnchorId}
               onCreateFile={createFileObject}
               onCreateWhiteboard={createWhiteboard}
+              onCreateSharedBrowser={createSharedBrowser}
               onCreateNote={createNote}
               onCreateTimer={createTimer}
               onCreatePoll={createPoll}
@@ -2205,6 +2237,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               whiteboardController={whiteboards}
               whiteboardParticipantNames={participantNameMap}
               canWriteWhiteboard={canWriteWhiteboard}
+              sharedBrowserController={sharedBrowsers}
+              sharedBrowserEnabled={CLIENT_TUNING.enableSharedBrowsers && roomTypeFeatures.sharedBrowsers && session.room.settings.sharedBrowsers.enabled}
               hostSingular={roleLabels.hostSingular}
             />
           ) : null}
@@ -2440,6 +2474,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
                 whiteboardController={whiteboards}
                 whiteboardParticipantNames={participantNameMap}
                 canWriteWhiteboard={canWriteWhiteboard}
+                sharedBrowserController={sharedBrowsers}
+                sharedBrowserIdentity={identity}
+                sharedBrowserRoomId={session?.room.id ?? roomId}
                 onControl={controlWallObject}
               />
             </div>

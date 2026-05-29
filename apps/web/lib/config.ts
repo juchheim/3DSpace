@@ -19,5 +19,7 @@ export const CLIENT_TUNING = {
   enableFreeForAll: process.env.NEXT_PUBLIC_ENABLE_FREE_FOR_ALL === "true",
   enableAiMeetingNotes: process.env.NEXT_PUBLIC_ENABLE_AI_MEETING_NOTES === "true",
   enableAiObjectGeneration: process.env.NEXT_PUBLIC_ENABLE_AI_OBJECT_GENERATION === "true",
-  enableWhiteboards: process.env.NEXT_PUBLIC_ENABLE_WHITEBOARDS !== "false"
+  enableWhiteboards: process.env.NEXT_PUBLIC_ENABLE_WHITEBOARDS !== "false",
+  enableSharedBrowsers: process.env.NEXT_PUBLIC_ENABLE_SHARED_BROWSERS === "true",
+  sharedBrowserJpegFps: Math.max(1, Number(process.env.NEXT_PUBLIC_SHARED_BROWSER_JPEG_FPS ?? 8))
 };

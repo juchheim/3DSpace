@@ -81,6 +81,16 @@ export type AppConfig = {
     aiObjectMaxJobsPerUserPerDay: number;
     aiObjectRetentionDays: number;
     aiObjectUseTestFixture: boolean;
+    enableSharedBrowsers: boolean;
+    sharedBrowserViewportWidth: number;
+    sharedBrowserViewportHeight: number;
+    sharedBrowserMaxActivePerRoom: number;
+    sharedBrowserIdlePauseMinutes: number;
+    sharedBrowserMaxNavigationsPerUserPerMinute: number;
+    sharedBrowserBlockedHostSuffixes: string[];
+    sharedBrowserUseJpegFallback: boolean;
+    sharedBrowserJpegFps: number;
+    sharedBrowserChromiumExecutable: string | undefined;
     enableStudentMediaPermissions: boolean;
     spatialAudio: SpatialAudioConfig;
     media: {
@@ -197,6 +207,15 @@ function requiredInProduction(config: AppConfig, raw: NodeJS.ProcessEnv) {
     required.push("MESHY_API_KEY");
   }
 
+  if (config.tuning.enableSharedBrowsers) {
+    // Shared browsers publish their screencast through the existing LiveKit room in
+    // production; the JPEG fallback is a dev/QA convenience only.
+    required.push("LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET");
+    if (config.tuning.sharedBrowserUseJpegFallback) {
+      throw new Error("SHARED_BROWSER_USE_JPEG_FALLBACK is dev-only and must be false in production");
+    }
+  }
+
   const missing = required.filter((key) => !envString(raw, key));
   if (missing.length > 0) {
     throw new Error(`Missing required production environment variables: ${missing.join(", ")}`);
@@ -298,6 +317,16 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       aiObjectMaxJobsPerUserPerDay: envNumber(raw, "AI_OBJECT_MAX_JOBS_PER_USER_PER_DAY", 20),
       aiObjectRetentionDays: envNumber(raw, "AI_OBJECT_RETENTION_DAYS", 30),
       aiObjectUseTestFixture: envBoolean(raw, "AI_OBJECT_USE_TEST_FIXTURE", false),
+      enableSharedBrowsers: envBoolean(raw, "ENABLE_SHARED_BROWSERS", false),
+      sharedBrowserViewportWidth: envNumber(raw, "SHARED_BROWSER_VIEWPORT_WIDTH", 1280),
+      sharedBrowserViewportHeight: envNumber(raw, "SHARED_BROWSER_VIEWPORT_HEIGHT", 720),
+      sharedBrowserMaxActivePerRoom: envNumber(raw, "SHARED_BROWSER_MAX_ACTIVE_PER_ROOM", 2),
+      sharedBrowserIdlePauseMinutes: envNumber(raw, "SHARED_BROWSER_IDLE_PAUSE_MINUTES", 15),
+      sharedBrowserMaxNavigationsPerUserPerMinute: envNumber(raw, "SHARED_BROWSER_MAX_NAVIGATIONS_PER_USER_PER_MINUTE", 20),
+      sharedBrowserBlockedHostSuffixes: envStringList(raw, "SHARED_BROWSER_BLOCKED_HOST_SUFFIXES", []),
+      sharedBrowserUseJpegFallback: envBoolean(raw, "SHARED_BROWSER_USE_JPEG_FALLBACK", false),
+      sharedBrowserJpegFps: envNumber(raw, "SHARED_BROWSER_JPEG_FPS", 8),
+      sharedBrowserChromiumExecutable: envString(raw, "SHARED_BROWSER_CHROMIUM_EXECUTABLE"),
       enableStudentMediaPermissions: envBoolean(raw, "ENABLE_STUDENT_MEDIA_PERMISSIONS", false),
       spatialAudio: {
         enabled: envBoolean(raw, "SPATIAL_AUDIO_ENABLED", true),

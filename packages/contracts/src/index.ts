@@ -20,6 +20,7 @@ export const WallObjectTypeSchema = z.enum([
   "browser-tab.live",
   "web.embed",
   "web.link",
+  "web.browser.shared",
   "document.file",
   "slides.file",
   "whiteboard",
@@ -829,6 +830,7 @@ export type RoomTypeFeatureFlags = {
   aiMeetingNotes: boolean;
   aiObjects: boolean;
   whiteboards: boolean;
+  sharedBrowsers: boolean;
 };
 
 const NON_CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
@@ -847,7 +849,8 @@ const NON_CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freez
   openJoin: false,
   aiMeetingNotes: false,
   aiObjects: false,
-  whiteboards: true
+  whiteboards: true,
+  sharedBrowsers: false
 });
 
 const CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
@@ -866,7 +869,8 @@ const CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
   openJoin: false,
   aiMeetingNotes: false,
   aiObjects: false,
-  whiteboards: true
+  whiteboards: true,
+  sharedBrowsers: false
 });
 
 const FREE_FOR_ALL_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
@@ -885,7 +889,8 @@ const FREE_FOR_ALL_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze
   openJoin: true,
   aiMeetingNotes: true,
   aiObjects: true,
-  whiteboards: true
+  whiteboards: true,
+  sharedBrowsers: true
 });
 
 /**
@@ -999,6 +1004,27 @@ export const RoomSettingsSchema = z.object({
     allowMeshy: false,
     meshyRefineTextures: true,
     defaultPolycountTarget: 15000
+  }),
+  sharedBrowsers: z.object({
+    enabled: z.boolean().default(true),
+    maxActivePerRoom: z.number().int().min(0).max(4).default(2),
+    defaultStartUrl: z.string().url().default("https://www.wikipedia.org"),
+    viewportWidth: z.number().int().min(640).max(1920).default(1280),
+    viewportHeight: z.number().int().min(360).max(1080).default(720),
+    idlePauseMinutes: z.number().int().min(1).max(240).default(15),
+    navigationAllowlistEnabled: z.boolean().default(false),
+    navigationAllowlist: z.array(z.string()).default([]),
+    controlLeaseSeconds: z.number().int().min(10).max(600).default(120)
+  }).default({
+    enabled: true,
+    maxActivePerRoom: 2,
+    defaultStartUrl: "https://www.wikipedia.org",
+    viewportWidth: 1280,
+    viewportHeight: 720,
+    idlePauseMinutes: 15,
+    navigationAllowlistEnabled: false,
+    navigationAllowlist: [],
+    controlLeaseSeconds: 120
   })
 });
 
@@ -1515,6 +1541,173 @@ export const ClearWhiteboardResponseSchema = z.object({
 export const RequestWhiteboardSnapshotResponseSchema = z.object({
   snapshot: WhiteboardSnapshotSchema.nullable(),
   realtimeMessages: z.array(WhiteboardRealtimeMessageSchema).default([])
+});
+
+// --- Shared Browser (Free-for-All room type) ---
+
+export const SharedBrowserSessionStatusSchema = z.enum([
+  "starting",
+  "active",
+  "paused",
+  "error",
+  "stopped"
+]);
+
+export const SharedBrowserControlLeaseSchema = z.object({
+  userId: z.string().min(1),
+  displayName: z.string().min(1),
+  expiresAt: z.string().datetime()
+});
+
+export const SharedBrowserSessionSchema = z.object({
+  id: z.string().min(1),
+  roomId: z.string().min(1),
+  wallObjectId: z.string().min(1),
+  createdByUserId: z.string().min(1),
+  status: SharedBrowserSessionStatusSchema,
+  currentUrl: z.string().url(),
+  title: z.string().max(512).default(""),
+  viewport: z.object({
+    width: z.number().int().positive(),
+    height: z.number().int().positive()
+  }),
+  controlLease: SharedBrowserControlLeaseSchema.optional(),
+  livekit: z.object({
+    participantIdentity: z.string().min(1),
+    trackSid: z.string().optional()
+  }).optional(),
+  lastInputAt: z.string().datetime(),
+  lastFrameAt: z.string().datetime().optional(),
+  errorCode: z.string().optional(),
+  errorMessage: z.string().optional(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime()
+});
+
+/** Cached runtime snapshot stored on `WallObject.state` for the shared browser. */
+export const SharedBrowserWallObjectStateSchema = z.object({
+  sessionStatus: SharedBrowserSessionStatusSchema.default("starting"),
+  currentUrl: z.string().default(""),
+  title: z.string().default(""),
+  controlUserId: z.string().optional(),
+  controlDisplayName: z.string().optional(),
+  lastActivityAt: z.string().datetime().optional()
+});
+
+export const SharedBrowserPointerEventSchema = z.object({
+  kind: z.enum(["move", "down", "up", "wheel"]),
+  x: z.number().min(0).max(1),
+  y: z.number().min(0).max(1),
+  button: z.enum(["left", "middle", "right"]).optional(),
+  deltaX: z.number().optional(),
+  deltaY: z.number().optional(),
+  at: z.number().int()
+});
+
+export const SharedBrowserKeyEventSchema = z.object({
+  kind: z.enum(["down", "up", "char"]),
+  key: z.string().min(1).max(64),
+  text: z.string().max(8).optional(),
+  at: z.number().int()
+});
+
+export const SharedBrowserNavigateRequestSchema = z.object({
+  url: z.string().url()
+});
+
+export const SharedBrowserHistoryRequestSchema = z.object({
+  action: z.enum(["back", "forward", "refresh"])
+});
+
+export const SharedBrowserControlLeaseRequestSchema = z.object({
+  action: z.enum(["take", "release", "renew"])
+});
+
+export const SharedBrowserPointerBatchSchema = z.object({
+  wallObjectId: z.string().min(1),
+  pointer: z.array(SharedBrowserPointerEventSchema).max(120).default([]),
+  keyboard: z.array(SharedBrowserKeyEventSchema).max(120).default([])
+});
+
+// Realtime messages (see RoomBoardCreatedMessageV1Schema for envelope conventions).
+
+export const SharedBrowserPointerMessageV1Schema = z.object({
+  type: z.literal("room.shared-browser.pointer.v1"),
+  roomId: z.string(),
+  wallObjectId: z.string(),
+  authorUserId: z.string(),
+  pointer: z.array(SharedBrowserPointerEventSchema).default([]),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const SharedBrowserNavigateMessageV1Schema = z.object({
+  type: z.literal("room.shared-browser.navigate.v1"),
+  roomId: z.string(),
+  wallObjectId: z.string(),
+  url: z.string(),
+  navigatedByUserId: z.string(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const SharedBrowserHistoryMessageV1Schema = z.object({
+  type: z.literal("room.shared-browser.history.v1"),
+  roomId: z.string(),
+  wallObjectId: z.string(),
+  action: z.enum(["back", "forward", "refresh"]),
+  actedByUserId: z.string(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const SharedBrowserControlLeaseMessageV1Schema = z.object({
+  type: z.literal("room.shared-browser.control-lease.v1"),
+  roomId: z.string(),
+  wallObjectId: z.string(),
+  controlLease: SharedBrowserControlLeaseSchema.nullable(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const SharedBrowserStateMessageV1Schema = z.object({
+  type: z.literal("room.shared-browser.state.v1"),
+  roomId: z.string(),
+  wallObjectId: z.string(),
+  currentUrl: z.string(),
+  title: z.string(),
+  status: SharedBrowserSessionStatusSchema,
+  controlLease: SharedBrowserControlLeaseSchema.nullable().optional(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const SharedBrowserSessionMessageV1Schema = z.object({
+  type: z.literal("room.shared-browser.session.v1"),
+  roomId: z.string(),
+  wallObjectId: z.string(),
+  status: SharedBrowserSessionStatusSchema,
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const SharedBrowserRealtimeMessageSchema = z.discriminatedUnion("type", [
+  SharedBrowserPointerMessageV1Schema,
+  SharedBrowserNavigateMessageV1Schema,
+  SharedBrowserHistoryMessageV1Schema,
+  SharedBrowserControlLeaseMessageV1Schema,
+  SharedBrowserStateMessageV1Schema,
+  SharedBrowserSessionMessageV1Schema
+]);
+
+export const SharedBrowserSessionResponseSchema = z.object({
+  session: SharedBrowserSessionSchema,
+  realtimeMessages: z.array(SharedBrowserRealtimeMessageSchema).default([])
+});
+
+export const SharedBrowserRealtimeDispatchResponseSchema = z.object({
+  session: SharedBrowserSessionSchema.nullable(),
+  realtimeMessages: z.array(SharedBrowserRealtimeMessageSchema).default([])
 });
 
 export const CreateWallShareRequestSchema = z.object({
@@ -2561,6 +2754,25 @@ export type WhiteboardStrokeEraseMessageV1 = z.infer<typeof WhiteboardStrokeEras
 export type WhiteboardClearedMessageV1 = z.infer<typeof WhiteboardClearedMessageV1Schema>;
 export type WhiteboardSnapshotReadyMessageV1 = z.infer<typeof WhiteboardSnapshotReadyMessageV1Schema>;
 export type WhiteboardRealtimeMessage = z.infer<typeof WhiteboardRealtimeMessageSchema>;
+export type SharedBrowserSessionStatus = z.infer<typeof SharedBrowserSessionStatusSchema>;
+export type SharedBrowserControlLease = z.infer<typeof SharedBrowserControlLeaseSchema>;
+export type SharedBrowserSession = z.infer<typeof SharedBrowserSessionSchema>;
+export type SharedBrowserWallObjectState = z.infer<typeof SharedBrowserWallObjectStateSchema>;
+export type SharedBrowserPointerEvent = z.infer<typeof SharedBrowserPointerEventSchema>;
+export type SharedBrowserKeyEvent = z.infer<typeof SharedBrowserKeyEventSchema>;
+export type SharedBrowserNavigateRequest = z.infer<typeof SharedBrowserNavigateRequestSchema>;
+export type SharedBrowserHistoryRequest = z.infer<typeof SharedBrowserHistoryRequestSchema>;
+export type SharedBrowserControlLeaseRequest = z.infer<typeof SharedBrowserControlLeaseRequestSchema>;
+export type SharedBrowserPointerBatch = z.infer<typeof SharedBrowserPointerBatchSchema>;
+export type SharedBrowserSessionResponse = z.infer<typeof SharedBrowserSessionResponseSchema>;
+export type SharedBrowserRealtimeDispatchResponse = z.infer<typeof SharedBrowserRealtimeDispatchResponseSchema>;
+export type SharedBrowserPointerMessageV1 = z.infer<typeof SharedBrowserPointerMessageV1Schema>;
+export type SharedBrowserNavigateMessageV1 = z.infer<typeof SharedBrowserNavigateMessageV1Schema>;
+export type SharedBrowserHistoryMessageV1 = z.infer<typeof SharedBrowserHistoryMessageV1Schema>;
+export type SharedBrowserControlLeaseMessageV1 = z.infer<typeof SharedBrowserControlLeaseMessageV1Schema>;
+export type SharedBrowserStateMessageV1 = z.infer<typeof SharedBrowserStateMessageV1Schema>;
+export type SharedBrowserSessionMessageV1 = z.infer<typeof SharedBrowserSessionMessageV1Schema>;
+export type SharedBrowserRealtimeMessage = z.infer<typeof SharedBrowserRealtimeMessageSchema>;
 export type ClassroomHelpRequest = z.infer<typeof ClassroomHelpRequestSchema>;
 export type ClassroomBoardAccessGrant = z.infer<typeof ClassroomBoardAccessGrantSchema>;
 export type ClassroomGroupHold = z.infer<typeof ClassroomGroupHoldSchema>;
@@ -2826,6 +3038,12 @@ export const apiRoutes: ApiRoute[] = [
   { method: "delete", path: "/v1/rooms/{roomId}/wall-objects/{objectId}/whiteboard/strokes", summary: "Erase whiteboard strokes by id", tags: ["whiteboards"], request: EraseWhiteboardStrokesRequestSchema, response: EraseWhiteboardStrokesResponseSchema },
   { method: "post", path: "/v1/rooms/{roomId}/wall-objects/{objectId}/whiteboard/clear", summary: "Clear all strokes from a whiteboard", tags: ["whiteboards"], response: ClearWhiteboardResponseSchema },
   { method: "post", path: "/v1/rooms/{roomId}/wall-objects/{objectId}/whiteboard/snapshots", summary: "Request whiteboard snapshot compaction", tags: ["whiteboards"], response: RequestWhiteboardSnapshotResponseSchema },
+  { method: "get", path: "/v1/rooms/{roomId}/wall-objects/{objectId}/shared-browser", summary: "Hydrate a shared browser session", tags: ["shared-browsers"], response: SharedBrowserSessionResponseSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/wall-objects/{objectId}/shared-browser/navigate", summary: "Navigate the shared browser to a URL (SSRF-checked)", tags: ["shared-browsers"], request: SharedBrowserNavigateRequestSchema, response: SharedBrowserSessionResponseSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/wall-objects/{objectId}/shared-browser/history", summary: "Run a back/forward/refresh action on the shared browser", tags: ["shared-browsers"], request: SharedBrowserHistoryRequestSchema, response: SharedBrowserSessionResponseSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/wall-objects/{objectId}/shared-browser/control-lease", summary: "Take, release, or renew the shared browser keyboard control lease", tags: ["shared-browsers"], request: SharedBrowserControlLeaseRequestSchema, response: SharedBrowserSessionResponseSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/wall-objects/{objectId}/shared-browser/resume", summary: "Resume a paused shared browser session (idempotent)", tags: ["shared-browsers"], response: SharedBrowserSessionResponseSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/shared-browser/realtime", summary: "Accept batched shared browser pointer/keyboard input and fan out realtime messages", tags: ["shared-browsers"], request: SharedBrowserPointerBatchSchema, response: SharedBrowserRealtimeDispatchResponseSchema },
   { method: "post", path: "/v1/rooms/{roomId}/wall-shares", summary: "Create live wall share intent", tags: ["wall-objects"], request: CreateWallShareRequestSchema, response: CreateWallShareResponseSchema },
   { method: "post", path: "/v1/rooms/{roomId}/wall-shares/{objectId}/end", summary: "Mark live wall share ended", tags: ["wall-objects"], response: WallObjectSchema },
   { method: "post", path: "/v1/rooms/{roomId}/web-resources", summary: "Create safe wall web resource", tags: ["wall-objects"], request: CreateWebResourceRequestSchema, response: WallObjectSchema },

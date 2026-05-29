@@ -4,6 +4,7 @@ import { buildApp } from "../src/app";
 import { loadConfig } from "../src/config";
 import { RoomObjectGrabLock } from "../src/room-objects/grab-lock.js";
 import { MemoryRepository } from "../src/repository";
+import { SharedBrowserOrchestrator } from "../src/shared-browser/orchestrator.js";
 import { putDevStoredObject } from "../src/services/storage.js";
 
 function authHeaders(userId: string, name: string) {
@@ -5358,6 +5359,279 @@ describe("room object realtime grab lock", () => {
       expect(resolveRes.statusCode).toBe(200);
       expect(resolveRes.json().id).toBe(finalJob.templateId);
       expect(resolveRes.json().source).toBe("ai-generated");
+
+      await app.close();
+    });
+  });
+
+  describe("shared browser boards", () => {
+    function sharedBrowserConfig() {
+      return loadConfig({
+        NODE_ENV: "test",
+        ENABLE_FREE_FOR_ALL: "true",
+        FREE_FOR_ALL_PASSWORD: "open-sesame",
+        ENABLE_SHARED_BROWSERS: "true"
+      } as NodeJS.ProcessEnv);
+    }
+
+    const FFA_ANCHOR = "ffa-adj-east-anchor";
+
+    // Inject an orchestrator using the no-Chromium stub driver so these tests
+    // stay offline and deterministic (buildApp would otherwise launch real
+    // Chromium when ENABLE_SHARED_BROWSERS is set).
+    async function buildSharedBrowserApp(repository: MemoryRepository = new MemoryRepository()) {
+      const config = sharedBrowserConfig();
+      return buildApp({
+        config,
+        repository,
+        sharedBrowserOrchestrator: new SharedBrowserOrchestrator({ repository, config })
+      });
+    }
+
+    async function createSharedBrowser(
+      app: Awaited<ReturnType<typeof buildApp>>,
+      roomId: string,
+      teacherId: string,
+      startUrl = "https://1.1.1.1/",
+      wallAnchorId = FFA_ANCHOR
+    ) {
+      return app.inject({
+        method: "POST",
+        url: `/v1/rooms/${roomId}/wall-objects`,
+        headers: authHeaders(teacherId, "Ms. Rivera"),
+        payload: {
+          type: "web.browser.shared",
+          title: "Shared Browser",
+          wallAnchorId,
+          placement: { row: 0, column: 0 },
+          source: { kind: "inline", data: { startUrl } }
+        }
+      });
+    }
+
+    it("creates a session and mirrors state onto the wall object", async () => {
+      const app = await buildSharedBrowserApp();
+      const { roomWithManifest } = await createClassAndRoom(app, "teacher-sb", "free-for-all");
+      const roomId = roomWithManifest.room.id;
+
+      const created = await createSharedBrowser(app, roomId, "teacher-sb");
+      expect(created.statusCode).toBe(200);
+      const object = created.json();
+      expect(object.type).toBe("web.browser.shared");
+      expect(object.state.sessionStatus).toBe("active");
+      expect(object.state.currentUrl).toBe("https://1.1.1.1/");
+
+      const hydrate = await app.inject({
+        method: "GET",
+        url: `/v1/rooms/${roomId}/wall-objects/${object.id}/shared-browser`,
+        headers: authHeaders("teacher-sb", "Ms. Rivera")
+      });
+      expect(hydrate.statusCode).toBe(200);
+      expect(hydrate.json().session.status).toBe("active");
+      expect(hydrate.json().session.currentUrl).toBe("https://1.1.1.1/");
+
+      await app.close();
+    });
+
+    it("navigates the session and updates currentUrl", async () => {
+      const app = await buildSharedBrowserApp();
+      const { roomWithManifest } = await createClassAndRoom(app, "teacher-sb", "free-for-all");
+      const roomId = roomWithManifest.room.id;
+      const object = (await createSharedBrowser(app, roomId, "teacher-sb")).json();
+
+      const nav = await app.inject({
+        method: "POST",
+        url: `/v1/rooms/${roomId}/wall-objects/${object.id}/shared-browser/navigate`,
+        headers: authHeaders("teacher-sb", "Ms. Rivera"),
+        payload: { url: "https://1.0.0.1/" }
+      });
+      expect(nav.statusCode).toBe(200);
+      expect(nav.json().session.currentUrl).toBe("https://1.0.0.1/");
+      const navMsg = nav.json().realtimeMessages.find((m: { type: string }) => m.type === "room.shared-browser.navigate.v1");
+      expect(navMsg.url).toBe("https://1.0.0.1/");
+
+      await app.close();
+    });
+
+    it("blocks navigation to private/reserved/localhost targets (SSRF)", async () => {
+      const app = await buildSharedBrowserApp();
+      const { roomWithManifest } = await createClassAndRoom(app, "teacher-sb", "free-for-all");
+      const roomId = roomWithManifest.room.id;
+      const object = (await createSharedBrowser(app, roomId, "teacher-sb")).json();
+
+      for (const url of ["https://127.0.0.1/", "https://169.254.169.254/", "https://10.0.0.5/", "https://localhost/"]) {
+        const res = await app.inject({
+          method: "POST",
+          url: `/v1/rooms/${roomId}/wall-objects/${object.id}/shared-browser/navigate`,
+          headers: authHeaders("teacher-sb", "Ms. Rivera"),
+          payload: { url }
+        });
+        expect(res.statusCode).toBe(400);
+        expect(res.json().message).toMatch(/navigation_blocked/);
+      }
+
+      await app.close();
+    });
+
+    it("rejects shared browser creation with a non-https start URL", async () => {
+      const app = await buildSharedBrowserApp();
+      const { roomWithManifest } = await createClassAndRoom(app, "teacher-sb", "free-for-all");
+      const roomId = roomWithManifest.room.id;
+
+      const res = await createSharedBrowser(app, roomId, "teacher-sb", "http://1.1.1.1/");
+      expect(res.statusCode).toBe(400);
+
+      await app.close();
+    });
+
+    it("hides shared browsers on non-FFA rooms and when the flag is off", async () => {
+      const classApp = await buildSharedBrowserApp();
+      const { roomWithManifest: classRoom } = await createClassAndRoom(classApp, "teacher-class", "classroom");
+      const classRes = await classApp.inject({
+        method: "POST",
+        url: `/v1/rooms/${classRoom.room.id}/wall-objects`,
+        headers: authHeaders("teacher-class", "Ms. Rivera"),
+        payload: {
+          type: "web.browser.shared",
+          title: "Shared Browser",
+          wallAnchorId: classRoom.manifest.wallAnchors[0].id,
+          placement: { row: 0, column: 0 },
+          source: { kind: "inline", data: { startUrl: "https://1.1.1.1/" } }
+        }
+      });
+      expect(classRes.statusCode).toBe(404);
+      await classApp.close();
+
+      const offApp = await buildApp({
+        config: loadConfig({ NODE_ENV: "test", ENABLE_FREE_FOR_ALL: "true", FREE_FOR_ALL_PASSWORD: "open-sesame" } as NodeJS.ProcessEnv),
+        repository: new MemoryRepository()
+      });
+      const { roomWithManifest } = await createClassAndRoom(offApp, "teacher-off", "free-for-all");
+      const offRes = await createSharedBrowser(offApp, roomWithManifest.room.id, "teacher-off");
+      expect(offRes.statusCode).toBe(404);
+      await offApp.close();
+    });
+
+    it("stops the session when the wall object is deleted", async () => {
+      const repository = new MemoryRepository();
+      const app = await buildSharedBrowserApp(repository);
+      const { roomWithManifest } = await createClassAndRoom(app, "teacher-sb", "free-for-all");
+      const roomId = roomWithManifest.room.id;
+      const object = (await createSharedBrowser(app, roomId, "teacher-sb")).json();
+
+      expect(await repository.getSharedBrowserSessionByWallObject(object.id)).toBeDefined();
+
+      const del = await app.inject({
+        method: "DELETE",
+        url: `/v1/rooms/${roomId}/wall-objects/${object.id}`,
+        headers: authHeaders("teacher-sb", "Ms. Rivera")
+      });
+      expect(del.statusCode).toBe(200);
+      expect(await repository.getSharedBrowserSessionByWallObject(object.id)).toBeUndefined();
+
+      await app.close();
+    });
+
+    it("enforces a per-room active shared browser limit", async () => {
+      const app = await buildSharedBrowserApp();
+      const { roomWithManifest } = await createClassAndRoom(app, "teacher-sb", "free-for-all");
+      const roomId = roomWithManifest.room.id;
+
+      const first = await createSharedBrowser(app, roomId, "teacher-sb", "https://1.1.1.1/", "ffa-adj-east-anchor");
+      expect(first.statusCode).toBe(200);
+      const second = await createSharedBrowser(app, roomId, "teacher-sb", "https://1.1.1.1/", "ffa-adj-south-anchor");
+      expect(second.statusCode).toBe(200);
+      const third = await createSharedBrowser(app, roomId, "teacher-sb", "https://1.1.1.1/", "ffa-adj-west-anchor");
+      expect(third.statusCode).toBe(409);
+
+      await app.close();
+    });
+
+    it("requires a control lease for keyboard input but not pointer input", async () => {
+      const app = await buildSharedBrowserApp();
+      const { roomWithManifest } = await createClassAndRoom(app, "teacher-sb", "free-for-all");
+      const roomId = roomWithManifest.room.id;
+      const object = (await createSharedBrowser(app, roomId, "teacher-sb")).json();
+
+      const pointerOnly = await app.inject({
+        method: "POST",
+        url: `/v1/rooms/${roomId}/shared-browser/realtime`,
+        headers: authHeaders("teacher-sb", "Ms. Rivera"),
+        payload: { wallObjectId: object.id, pointer: [{ kind: "move", x: 0.5, y: 0.5, at: Date.now() }], keyboard: [] }
+      });
+      expect(pointerOnly.statusCode).toBe(200);
+
+      const keyboardNoLease = await app.inject({
+        method: "POST",
+        url: `/v1/rooms/${roomId}/shared-browser/realtime`,
+        headers: authHeaders("teacher-sb", "Ms. Rivera"),
+        payload: { wallObjectId: object.id, pointer: [], keyboard: [{ kind: "char", key: "a", text: "a", at: Date.now() }] }
+      });
+      expect(keyboardNoLease.statusCode).toBe(403);
+
+      const lease = await app.inject({
+        method: "POST",
+        url: `/v1/rooms/${roomId}/wall-objects/${object.id}/shared-browser/control-lease`,
+        headers: authHeaders("teacher-sb", "Ms. Rivera"),
+        payload: { action: "take" }
+      });
+      expect(lease.statusCode).toBe(200);
+      expect(lease.json().session.controlLease.userId).toBe("teacher-sb");
+
+      const keyboardWithLease = await app.inject({
+        method: "POST",
+        url: `/v1/rooms/${roomId}/shared-browser/realtime`,
+        headers: authHeaders("teacher-sb", "Ms. Rivera"),
+        payload: { wallObjectId: object.id, pointer: [], keyboard: [{ kind: "char", key: "a", text: "a", at: Date.now() }] }
+      });
+      expect(keyboardWithLease.statusCode).toBe(200);
+
+      await app.close();
+    });
+
+    it("fans out realtime envelopes for pointer input and control-lease changes", async () => {
+      const app = await buildSharedBrowserApp();
+      const { roomWithManifest } = await createClassAndRoom(app, "teacher-sb", "free-for-all");
+      const roomId = roomWithManifest.room.id;
+      const object = (await createSharedBrowser(app, roomId, "teacher-sb")).json();
+
+      const pointer = await app.inject({
+        method: "POST",
+        url: `/v1/rooms/${roomId}/shared-browser/realtime`,
+        headers: authHeaders("teacher-sb", "Ms. Rivera"),
+        payload: { wallObjectId: object.id, pointer: [{ kind: "move", x: 0.5, y: 0.5, at: Date.now() }], keyboard: [] }
+      });
+      expect(pointer.statusCode).toBe(200);
+      const pointerMsgs = pointer.json().realtimeMessages;
+      expect(pointerMsgs).toHaveLength(1);
+      expect(pointerMsgs[0]).toMatchObject({
+        type: "room.shared-browser.pointer.v1",
+        roomId,
+        wallObjectId: object.id,
+        senderId: "teacher-sb"
+      });
+
+      // An empty batch is a no-op: applied to the driver but no fan-out.
+      const empty = await app.inject({
+        method: "POST",
+        url: `/v1/rooms/${roomId}/shared-browser/realtime`,
+        headers: authHeaders("teacher-sb", "Ms. Rivera"),
+        payload: { wallObjectId: object.id, pointer: [], keyboard: [] }
+      });
+      expect(empty.statusCode).toBe(200);
+      expect(empty.json().realtimeMessages).toHaveLength(0);
+
+      const lease = await app.inject({
+        method: "POST",
+        url: `/v1/rooms/${roomId}/wall-objects/${object.id}/shared-browser/control-lease`,
+        headers: authHeaders("teacher-sb", "Ms. Rivera"),
+        payload: { action: "take" }
+      });
+      expect(lease.statusCode).toBe(200);
+      const leaseMsg = lease.json().realtimeMessages.find(
+        (m: { type: string }) => m.type === "room.shared-browser.control-lease.v1"
+      );
+      expect(leaseMsg.controlLease.userId).toBe("teacher-sb");
 
       await app.close();
     });

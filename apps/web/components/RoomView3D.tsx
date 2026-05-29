@@ -44,6 +44,8 @@ import { BlockyAvatar } from "./BlockyAvatar";
 import { RoomObjectsLayer } from "./RoomObjectsLayer";
 import { WallObjectCard } from "./WallObjectCard";
 import type { WhiteboardController } from "../lib/useWhiteboards";
+import type { SharedBrowserController } from "../lib/useSharedBrowser";
+import type { ApiIdentity } from "../lib/identity";
 import {
   useWallObjectHtmlResolutionScale,
   WALL_OBJECT_DISTANCE_FACTOR,
@@ -76,6 +78,7 @@ const DYNAMIC_BOARD_ACCEPTS: CreateDynamicWallAnchorRequest["accepts"] = [
   "camera.live",
   "microphone.live",
   "browser-tab.live",
+  "web.browser.shared",
   "web.embed",
   "web.link",
   "whiteboard",
@@ -246,6 +249,9 @@ export function RoomView3D({
   whiteboardController,
   whiteboardParticipantNames,
   canWriteWhiteboard,
+  sharedBrowserController,
+  sharedBrowserIdentity,
+  sharedBrowserRoomId,
   dynamicBoardPlacement,
   hallpassZone,
   dynamicWallAnchors,
@@ -302,6 +308,9 @@ export function RoomView3D({
   whiteboardController?: WhiteboardController;
   whiteboardParticipantNames?: Record<string, string>;
   canWriteWhiteboard?: (object: WallObject) => boolean;
+  sharedBrowserController?: SharedBrowserController;
+  sharedBrowserIdentity?: ApiIdentity;
+  sharedBrowserRoomId?: string;
   dynamicBoardPlacement?: DynamicBoardPlacementConfig | null | undefined;
   hallpassZone?: RoomManifest["hallpassHoldingZone"];
   roomObjects?: RoomObject[];
@@ -418,6 +427,9 @@ export function RoomView3D({
           {...(whiteboardController ? { whiteboardController } : {})}
           {...(whiteboardParticipantNames ? { whiteboardParticipantNames } : {})}
           {...(canWriteWhiteboard ? { canWriteWhiteboard } : {})}
+          {...(sharedBrowserController ? { sharedBrowserController } : {})}
+          {...(sharedBrowserIdentity ? { sharedBrowserIdentity } : {})}
+          {...(sharedBrowserRoomId ? { sharedBrowserRoomId } : {})}
         />
         <GroupTargetLayer
           manifest={mergedManifest}
@@ -666,7 +678,10 @@ function WallObjectLayer({
   onWallObjectFullscreen,
   whiteboardController,
   whiteboardParticipantNames,
-  canWriteWhiteboard
+  canWriteWhiteboard,
+  sharedBrowserController,
+  sharedBrowserIdentity,
+  sharedBrowserRoomId
 }: {
   manifest: RoomManifest;
   wallObjects: WallObject[];
@@ -688,6 +703,9 @@ function WallObjectLayer({
   whiteboardController?: WhiteboardController;
   whiteboardParticipantNames?: Record<string, string>;
   canWriteWhiteboard?: (object: WallObject) => boolean;
+  sharedBrowserController?: SharedBrowserController;
+  sharedBrowserIdentity?: ApiIdentity;
+  sharedBrowserRoomId?: string;
 }) {
   return (
     <group>
@@ -716,6 +734,9 @@ function WallObjectLayer({
               {...(whiteboardController ? { whiteboardController } : {})}
               {...(whiteboardParticipantNames ? { whiteboardParticipantNames } : {})}
               {...(canWriteWhiteboard ? { canWriteWhiteboard } : {})}
+              {...(sharedBrowserController ? { sharedBrowserController } : {})}
+              {...(sharedBrowserIdentity ? { sharedBrowserIdentity } : {})}
+              {...(sharedBrowserRoomId ? { sharedBrowserRoomId } : {})}
             />
           );
         })}
@@ -740,7 +761,10 @@ const WallObjectSurface = memo(function WallObjectSurface({
   onFullscreen,
   whiteboardController,
   whiteboardParticipantNames,
-  canWriteWhiteboard
+  canWriteWhiteboard,
+  sharedBrowserController,
+  sharedBrowserIdentity,
+  sharedBrowserRoomId
 }: {
   anchor: Anchor;
   walls: Wall[];
@@ -764,6 +788,9 @@ const WallObjectSurface = memo(function WallObjectSurface({
   whiteboardController?: WhiteboardController;
   whiteboardParticipantNames?: Record<string, string>;
   canWriteWhiteboard?: (object: WallObject) => boolean;
+  sharedBrowserController?: SharedBrowserController;
+  sharedBrowserIdentity?: ApiIdentity;
+  sharedBrowserRoomId?: string;
 }) {
   const { camera } = useThree();
   const normal = useMemo(() => new Vector3(anchor.normal.x, anchor.normal.y, anchor.normal.z).normalize(), [anchor.normal.x, anchor.normal.y, anchor.normal.z]);
@@ -839,6 +866,9 @@ const WallObjectSurface = memo(function WallObjectSurface({
               {...(whiteboardController ? { whiteboardController } : {})}
               {...(whiteboardParticipantNames ? { whiteboardParticipantNames } : {})}
               {...(canWriteWhiteboard ? { canWriteWhiteboard } : {})}
+              {...(sharedBrowserController ? { sharedBrowserController } : {})}
+              {...(sharedBrowserIdentity ? { sharedBrowserIdentity } : {})}
+              {...(sharedBrowserRoomId ? { sharedBrowserRoomId } : {})}
               hideHeader={hideHeader}
             />
           </div>

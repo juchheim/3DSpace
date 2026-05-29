@@ -370,7 +370,7 @@ export function useWallObjects(input: {
   );
 
   const createInlineObject = useCallback(
-    async (options: { anchorId: string; type: Extract<WallObjectType, "note" | "timer" | "poll" | "whiteboard">; title: string; data: Record<string, unknown> }) => {
+    async (options: { anchorId: string; type: Extract<WallObjectType, "note" | "timer" | "poll" | "whiteboard" | "web.browser.shared">; title: string; data: Record<string, unknown> }) => {
       if (!input.roomId) throw new Error("Room is not ready.");
       assertAnchorAvailable(options.anchorId);
       const object = await createWallObject(input.identity, input.roomId, {

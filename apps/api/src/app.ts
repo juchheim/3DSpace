@@ -113,6 +113,12 @@ import {
   EraseWhiteboardStrokesResponseSchema,
   ClearWhiteboardResponseSchema,
   RequestWhiteboardSnapshotResponseSchema,
+  SharedBrowserNavigateRequestSchema,
+  SharedBrowserHistoryRequestSchema,
+  SharedBrowserControlLeaseRequestSchema,
+  SharedBrowserPointerBatchSchema,
+  SharedBrowserSessionResponseSchema,
+  SharedBrowserRealtimeDispatchResponseSchema,
   UpdateMeetingNotesSummaryRequestSchema,
   UploadMeetingNotesAudioChunkRequestSchema,
   UploadMeetingNotesAudioChunkResponseSchema,
@@ -160,6 +166,12 @@ import {
 import { seedBuiltinRoomObjectTemplates } from "./room-objects/builtin-catalog.js";
 import { seedBuiltinWorldSkins } from "./world-skins/builtin-catalog.js";
 import { RoomObjectGrabLock } from "./room-objects/grab-lock.js";
+import { SharedBrowserOrchestrator, type SharedBrowserActor } from "./shared-browser/orchestrator.js";
+import { PuppeteerSharedBrowserDriver } from "./shared-browser/puppeteer-driver.js";
+import { SharedBrowserIdleReaper } from "./shared-browser/idle-reaper.js";
+import { SharedBrowserVideoManager } from "./shared-browser/video-manager.js";
+import { JpegFrameStore } from "./shared-browser/jpeg-fallback.js";
+import type { SharedBrowserDriver } from "./shared-browser/types.js";
 import {
   assertCanTouchRoomObject,
   assertRoomObjectNotLocked,
@@ -244,6 +256,7 @@ type BuildAppOptions = {
   config?: AppConfig;
   repository?: Repository;
   roomObjectGrabLock?: RoomObjectGrabLock;
+  sharedBrowserOrchestrator?: SharedBrowserOrchestrator;
 };
 
 function normalizeRequestOrigin(origin: string) {
@@ -456,6 +469,17 @@ function roomSettings(config: AppConfig) {
       allowMeshy: config.tuning.aiObjectProvider === "meshy",
       meshyRefineTextures: config.tuning.aiObjectMeshyRefineTextures,
       defaultPolycountTarget: 10000
+    },
+    sharedBrowsers: {
+      enabled: config.tuning.enableSharedBrowsers,
+      maxActivePerRoom: config.tuning.sharedBrowserMaxActivePerRoom,
+      defaultStartUrl: "https://www.wikipedia.org",
+      viewportWidth: config.tuning.sharedBrowserViewportWidth,
+      viewportHeight: config.tuning.sharedBrowserViewportHeight,
+      idlePauseMinutes: config.tuning.sharedBrowserIdlePauseMinutes,
+      navigationAllowlistEnabled: false,
+      navigationAllowlist: [] as string[],
+      controlLeaseSeconds: 120
     }
   };
 }
@@ -587,6 +611,12 @@ function assertWallObjectsEnabled(room: { settings: RoomSettings }, config: AppC
 function assertWhiteboardsEnabled(room: { type?: RoomType | string | null | undefined; settings: RoomSettings }, config: AppConfig) {
   if (!config.tuning.enableWhiteboards || !room.settings.whiteboards.enabled || !getRoomTypeFeatureFlags(room.type).whiteboards) {
     throw notFound("Whiteboards are unavailable for this room");
+  }
+}
+
+function assertSharedBrowsersEnabled(room: { type?: RoomType | string | null | undefined; settings: RoomSettings }, config: AppConfig) {
+  if (!config.tuning.enableSharedBrowsers || !room.settings.sharedBrowsers.enabled || !getRoomTypeFeatureFlags(room.type).sharedBrowsers) {
+    throw notFound("Shared browsers are unavailable for this room");
   }
 }
 
@@ -783,6 +813,16 @@ async function validateWallObjectSource(input: {
     return;
   }
 
+  if (input.type === "web.browser.shared") {
+    if (input.source.kind !== "inline") throw badRequest("web.browser.shared requires an inline source");
+    const startUrl = (input.source.data as { startUrl?: unknown }).startUrl;
+    if (typeof startUrl !== "string" || startUrl.length === 0) {
+      throw badRequest("web.browser.shared requires an inline source with a startUrl");
+    }
+    assertHttpsUrl(startUrl);
+    return;
+  }
+
   if (["note", "poll", "timer", "whiteboard"].includes(input.type)) {
     if (input.source.kind !== "inline") throw badRequest(`${input.type} requires an inline source`);
   }
@@ -837,6 +877,12 @@ async function enforceWallObjectLimits(repository: Repository, room: { id: strin
     const activeLive = active.filter((object) => isLiveWallObjectType(object.type));
     if (activeLive.length >= room.settings.maxActiveLiveShares) {
       throw conflict("Room has reached the active live wall share limit");
+    }
+  }
+  if (type === "web.browser.shared") {
+    const activeBrowsers = active.filter((object) => object.type === "web.browser.shared");
+    if (activeBrowsers.length >= room.settings.sharedBrowsers.maxActivePerRoom) {
+      throw conflict("Room has reached the active shared browser limit");
     }
   }
 }
@@ -2688,12 +2734,49 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   if (config.tuning.enableRoomObjects) {
     roomObjectGrabLock.startReaper();
   }
+  // The Puppeteer driver owns a live Chromium process, so only build it when the
+  // feature is enabled and the caller did not inject their own orchestrator (tests
+  // rely on the no-Chromium stub default inside SharedBrowserOrchestrator).
+  let sharedBrowserDriver: SharedBrowserDriver | undefined;
+  if (!options.sharedBrowserOrchestrator && config.tuning.enableSharedBrowsers) {
+    sharedBrowserDriver = new PuppeteerSharedBrowserDriver({ config });
+  }
+  const sharedBrowserFrameStore = new JpegFrameStore();
+  let sharedBrowserVideo: SharedBrowserVideoManager | undefined;
+  if (sharedBrowserDriver) {
+    sharedBrowserVideo = new SharedBrowserVideoManager({
+      repository,
+      driver: sharedBrowserDriver,
+      config,
+      frameStore: sharedBrowserFrameStore
+    });
+  }
+  const sharedBrowserOrchestrator =
+    options.sharedBrowserOrchestrator ??
+    new SharedBrowserOrchestrator({
+      repository,
+      config,
+      ...(sharedBrowserDriver ? { driver: sharedBrowserDriver } : {}),
+      ...(sharedBrowserVideo ? { video: sharedBrowserVideo } : {})
+    });
   const sessionJoinAttempts = new Map<string, { count: number; resetAt: number }>();
   const meetingNotesAudioChunks = new Map<string, MeetingNotesAudioChunk[]>();
   const app = fastify({
     logger: config.nodeEnv !== "test",
     bodyLimit: 10 * 1024 * 1024
   });
+
+  let sharedBrowserIdleReaper: SharedBrowserIdleReaper | undefined;
+  if (sharedBrowserDriver) {
+    sharedBrowserIdleReaper = new SharedBrowserIdleReaper({
+      repository,
+      driver: sharedBrowserDriver,
+      config,
+      logger: app.log,
+      ...(sharedBrowserVideo ? { video: sharedBrowserVideo } : {})
+    });
+    sharedBrowserIdleReaper.start();
+  }
 
   function clearMeetingNotesAudio(roomId: string, sessionId: string) {
     meetingNotesAudioChunks.delete(meetingNotesTaskKey(roomId, sessionId));
@@ -2869,6 +2952,9 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
 
   app.addHook("onClose", async () => {
     roomObjectGrabLock.stopReaper();
+    sharedBrowserIdleReaper?.stop();
+    if (sharedBrowserVideo) await sharedBrowserVideo.close();
+    if (sharedBrowserDriver?.close) await sharedBrowserDriver.close();
     clearRoomObjectParameterDebounceForTests();
     await repository.close();
   });
@@ -3459,6 +3545,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const { room, manifest } = await requireRoomAccess(repository, params.roomId, auth);
     assertWallObjectsEnabled({ settings: room.settings }, config);
     if (body.type === "whiteboard") assertWhiteboardsEnabled(room, config);
+    if (body.type === "web.browser.shared") assertSharedBrowsersEnabled(room, config);
     await assertAnchorAcceptsType(repository, room, manifest, body.wallAnchorId, body.type);
     await assertAnchorAvailableForNewObject(repository, params.roomId, body.wallAnchorId);
     const { teacher, granted } = await assertWallObjectCreatePolicy({
@@ -3501,6 +3588,19 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       payload: { objectId: object.id, wallAnchorId: object.wallAnchorId, type: object.type, status: object.status },
       createdByUserId: auth.userId
     });
+    if (object.type === "web.browser.shared" && object.status === "active") {
+      const startUrl = String((object.source.kind === "inline" ? object.source.data?.startUrl : undefined) ?? "");
+      await sharedBrowserOrchestrator.createSession({
+        sessionId: SharedBrowserOrchestrator.newSessionId(),
+        roomId: params.roomId,
+        wallObjectId: object.id,
+        createdBy: { userId: auth.userId, displayName: auth.displayName },
+        startUrl,
+        settings: room.settings.sharedBrowsers
+      });
+      const refreshed = await repository.getWallObject(params.roomId, object.id);
+      return refreshed ? WallObjectSchema.parse(refreshed) : object;
+    }
     return object;
   });
 
@@ -3553,6 +3653,9 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     if (!existing) throw notFound("Wall object not found");
     await assertWallObjectManagePolicy(repository, params.roomId, auth, existing);
     const updated = await repository.softRemoveWallObject(params.roomId, params.objectId, { updatedByUserId: auth.userId });
+    if (existing.type === "web.browser.shared") {
+      await sharedBrowserOrchestrator.stopSession(params.objectId);
+    }
     await repository.recordRoomEvent({
       roomId: params.roomId,
       type: "wall.object.removed.v1",
@@ -4374,6 +4477,74 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
         })
       ] : []
     });
+  });
+
+  // ── Shared browser sessions (Free-for-All rooms) ─────────────────────────
+
+  async function requireSharedBrowserAccess(request: FastifyRequest) {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomAndObjectId, request);
+    const { room } = await requireRoomAccess(repository, params.roomId, auth);
+    assertWallObjectsEnabled({ settings: room.settings }, config);
+    assertSharedBrowsersEnabled(room, config);
+    const actor: SharedBrowserActor = { userId: auth.userId, displayName: auth.displayName };
+    return { auth, params, room, actor };
+  }
+
+  app.get("/v1/rooms/:roomId/wall-objects/:objectId/shared-browser", async (request) => {
+    const { params } = await requireSharedBrowserAccess(request);
+    const result = await sharedBrowserOrchestrator.hydrate(params.roomId, params.objectId);
+    return SharedBrowserSessionResponseSchema.parse(result);
+  });
+
+  app.post("/v1/rooms/:roomId/wall-objects/:objectId/shared-browser/navigate", async (request) => {
+    const { params, room, actor } = await requireSharedBrowserAccess(request);
+    const body = parseBody(SharedBrowserNavigateRequestSchema, request);
+    const result = await sharedBrowserOrchestrator.navigate(params.roomId, params.objectId, body.url, actor, room.settings.sharedBrowsers);
+    return SharedBrowserSessionResponseSchema.parse(result);
+  });
+
+  app.post("/v1/rooms/:roomId/wall-objects/:objectId/shared-browser/history", async (request) => {
+    const { params, actor } = await requireSharedBrowserAccess(request);
+    const body = parseBody(SharedBrowserHistoryRequestSchema, request);
+    const result = await sharedBrowserOrchestrator.history(params.roomId, params.objectId, body.action, actor);
+    return SharedBrowserSessionResponseSchema.parse(result);
+  });
+
+  app.post("/v1/rooms/:roomId/wall-objects/:objectId/shared-browser/control-lease", async (request) => {
+    const { params, room, actor } = await requireSharedBrowserAccess(request);
+    const body = parseBody(SharedBrowserControlLeaseRequestSchema, request);
+    const result = await sharedBrowserOrchestrator.controlLease(params.roomId, params.objectId, body.action, actor, room.settings.sharedBrowsers);
+    return SharedBrowserSessionResponseSchema.parse(result);
+  });
+
+  app.post("/v1/rooms/:roomId/wall-objects/:objectId/shared-browser/resume", async (request) => {
+    const { params, room, actor } = await requireSharedBrowserAccess(request);
+    const result = await sharedBrowserOrchestrator.resume(params.roomId, params.objectId, actor, room.settings.sharedBrowsers);
+    return SharedBrowserSessionResponseSchema.parse(result);
+  });
+
+  // Dev/QA JPEG fallback. Production renders the LiveKit video track instead; this
+  // route only returns frames when SHARED_BROWSER_USE_JPEG_FALLBACK is on.
+  app.get("/v1/rooms/:roomId/wall-objects/:objectId/shared-browser/frame.jpg", async (request, reply) => {
+    const { params } = await requireSharedBrowserAccess(request);
+    const session = await repository.getSharedBrowserSessionByWallObject(params.objectId);
+    if (!session || session.roomId !== params.roomId) throw notFound("Shared browser session not found");
+    const frame = sharedBrowserFrameStore.get(session.id);
+    if (!frame) throw notFound("No frame available");
+    return reply.header("Content-Type", "image/jpeg").header("Cache-Control", "no-store").send(frame.jpeg);
+  });
+
+  app.post("/v1/rooms/:roomId/shared-browser/realtime", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomId, request);
+    const body = parseBody(SharedBrowserPointerBatchSchema, request);
+    const { room } = await requireRoomAccess(repository, params.roomId, auth);
+    assertWallObjectsEnabled({ settings: room.settings }, config);
+    assertSharedBrowsersEnabled(room, config);
+    const actor: SharedBrowserActor = { userId: auth.userId, displayName: auth.displayName };
+    const result = await sharedBrowserOrchestrator.applyInput(params.roomId, body.wallObjectId, body.pointer, body.keyboard, actor);
+    return SharedBrowserRealtimeDispatchResponseSchema.parse(result);
   });
 
   app.post("/v1/rooms/:roomId/wall-shares", async (request) => {

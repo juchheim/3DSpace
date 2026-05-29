@@ -50,7 +50,11 @@ import type {
   ListWhiteboardStrokesResponse,
   EraseWhiteboardStrokesResponse,
   RequestWhiteboardSnapshotResponse,
-  ClearWhiteboardResponse
+  ClearWhiteboardResponse,
+  SharedBrowserSessionResponse,
+  SharedBrowserRealtimeDispatchResponse,
+  SharedBrowserPointerEvent,
+  SharedBrowserKeyEvent
 } from "@3dspace/contracts";
 import type { z } from "zod";
 import { API_URL } from "./config";
@@ -336,6 +340,64 @@ export function requestWhiteboardSnapshot(identity: ApiIdentity, roomId: string,
   return apiFetch<RequestWhiteboardSnapshotResponse>(`/v1/rooms/${roomId}/wall-objects/${objectId}/whiteboard/snapshots`, {
     method: "POST",
     identity
+  });
+}
+
+export function getSharedBrowserSession(identity: ApiIdentity, roomId: string, objectId: string) {
+  return apiFetch<SharedBrowserSessionResponse>(`/v1/rooms/${roomId}/wall-objects/${objectId}/shared-browser`, { identity });
+}
+
+export function navigateSharedBrowser(identity: ApiIdentity, roomId: string, objectId: string, url: string) {
+  return apiFetch<SharedBrowserSessionResponse>(`/v1/rooms/${roomId}/wall-objects/${objectId}/shared-browser/navigate`, {
+    method: "POST",
+    identity,
+    body: { url }
+  });
+}
+
+export function sharedBrowserHistory(
+  identity: ApiIdentity,
+  roomId: string,
+  objectId: string,
+  action: "back" | "forward" | "refresh"
+) {
+  return apiFetch<SharedBrowserSessionResponse>(`/v1/rooms/${roomId}/wall-objects/${objectId}/shared-browser/history`, {
+    method: "POST",
+    identity,
+    body: { action }
+  });
+}
+
+export function sharedBrowserControlLease(
+  identity: ApiIdentity,
+  roomId: string,
+  objectId: string,
+  action: "take" | "release" | "renew"
+) {
+  return apiFetch<SharedBrowserSessionResponse>(`/v1/rooms/${roomId}/wall-objects/${objectId}/shared-browser/control-lease`, {
+    method: "POST",
+    identity,
+    body: { action }
+  });
+}
+
+export function resumeSharedBrowser(identity: ApiIdentity, roomId: string, objectId: string) {
+  return apiFetch<SharedBrowserSessionResponse>(`/v1/rooms/${roomId}/wall-objects/${objectId}/shared-browser/resume`, {
+    method: "POST",
+    identity
+  });
+}
+
+export function sendSharedBrowserInput(
+  identity: ApiIdentity,
+  roomId: string,
+  objectId: string,
+  input: { pointer?: SharedBrowserPointerEvent[]; keyboard?: SharedBrowserKeyEvent[] }
+) {
+  return apiFetch<SharedBrowserRealtimeDispatchResponse>(`/v1/rooms/${roomId}/shared-browser/realtime`, {
+    method: "POST",
+    identity,
+    body: { wallObjectId: objectId, pointer: input.pointer ?? [], keyboard: input.keyboard ?? [] }
   });
 }
 

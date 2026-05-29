@@ -102,3 +102,10 @@ Expected `/ready`: `"status":"ready"` with checks `auth`, `mongodb`, `livekit`, 
 1. **Sentry** — create project; set `SENTRY_DSN` (Koyeb) and `NEXT_PUBLIC_SENTRY_DSN` (Vercel).
 2. **Custom domain** — point DNS to Vercel; add Clerk Production instance; update `CORS_ALLOWED_ORIGINS` and Clerk allowed origins.
 3. **MVP+1** — implement wall media per `docs/planning/mvp+1/MVP_PLUS_ONE_WALL_MEDIA_PLAN.md`.
+
+## Shared Browser Deployment Notes
+
+- `ENABLE_SHARED_BROWSERS=true` requires Chromium/Puppeteer headroom on the API worker. Budget roughly 200-400 MB RAM per active session.
+- Koyeb / container deployments should keep `SHARED_BROWSER_MAX_ACTIVE_PER_ROOM` low (`2` by default) and pair it with `SHARED_BROWSER_IDLE_PAUSE_MINUTES`.
+- Production must use LiveKit publishing for shared browsers. Keep `SHARED_BROWSER_USE_JPEG_FALLBACK=false` when `NODE_ENV=production`.
+- If the main API container becomes memory-bound, move the shared-browser driver into a sidecar service that shares MongoDB + LiveKit credentials rather than introducing a hosted browser vendor.

@@ -21,6 +21,8 @@ import { RoomObjectIcon2D } from "./RoomObjectIcon2D";
 import { canGrabRoomObject, canTouchRoomObject, snapPosition, snapScale, snapYaw } from "../lib/roomObjectInteraction";
 import { WallObjectCard } from "./WallObjectCard";
 import type { WhiteboardController } from "../lib/useWhiteboards";
+import type { SharedBrowserController } from "../lib/useSharedBrowser";
+import type { ApiIdentity } from "../lib/identity";
 
 function anchorPrivateChecks(privateChecks: ClassroomPrivateCheck[], anchorId: string) {
   return privateChecks.filter((check) => check.status === "open" && check.wallAnchorId === anchorId);
@@ -83,7 +85,10 @@ export function RoomView2D({
   dynamicWallAnchors,
   whiteboardController,
   whiteboardParticipantNames,
-  canWriteWhiteboard
+  canWriteWhiteboard,
+  sharedBrowserController,
+  sharedBrowserIdentity,
+  sharedBrowserRoomId
 }: {
   manifest: RoomManifest;
   dynamicWallAnchors?: RoomManifest["wallAnchors"];
@@ -116,6 +121,9 @@ export function RoomView2D({
   whiteboardController?: WhiteboardController;
   whiteboardParticipantNames?: Record<string, string>;
   canWriteWhiteboard?: (object: WallObject) => boolean;
+  sharedBrowserController?: SharedBrowserController;
+  sharedBrowserIdentity?: ApiIdentity;
+  sharedBrowserRoomId?: string;
 }) {
   const [liveAnnouncement, setLiveAnnouncement] = useState("");
   const objectsEnabled = Boolean(
@@ -520,16 +528,23 @@ export function RoomView2D({
         {liveAnnouncement}
       </div>
 
-      {whiteboardController ? (
+      {whiteboardController || sharedBrowserController ? (
         <div className="map2d-whiteboards" aria-hidden={false}>
           {allWallAnchors.map((anchor) => {
-            const object = wallObjects.find((candidate) => candidate.wallAnchorId === anchor.id && candidate.type === "whiteboard" && candidate.status !== "removed");
+            const object = wallObjects.find(
+              (candidate) =>
+                candidate.wallAnchorId === anchor.id &&
+                (candidate.type === "whiteboard" || candidate.type === "web.browser.shared") &&
+                candidate.status !== "removed"
+            );
             if (!object) return null;
+            if (object.type === "whiteboard" && !whiteboardController) return null;
+            if (object.type === "web.browser.shared" && !sharedBrowserController) return null;
             const rect = projectAnchorRectTo2D(manifest, anchor);
             return (
               <div
-                key={`whiteboard-${object.id}`}
-                className="map2d-whiteboard"
+                key={`board-surface-${object.id}`}
+                className={`map2d-whiteboard${object.type === "web.browser.shared" ? " map2d-whiteboard--browser" : ""}`}
                 style={{
                   left: `${rect.x}%`,
                   top: `${rect.y}%`,
@@ -545,6 +560,9 @@ export function RoomView2D({
                   currentUserId={currentUserId}
                   whiteboardController={whiteboardController}
                   whiteboardParticipantNames={whiteboardParticipantNames}
+                  sharedBrowserController={sharedBrowserController}
+                  sharedBrowserIdentity={sharedBrowserIdentity}
+                  sharedBrowserRoomId={sharedBrowserRoomId}
                   {...(canWriteWhiteboard ? { canWriteWhiteboard } : {})}
                   hideHeader={anchor.metadata?.hideObjectHeader === true}
                 />
@@ -567,6 +585,9 @@ export function RoomView2D({
               audioStream={wallMediaStreams[object.id]?.audioStream}
               whiteboardController={whiteboardController}
               whiteboardParticipantNames={whiteboardParticipantNames}
+              sharedBrowserController={sharedBrowserController}
+              sharedBrowserIdentity={sharedBrowserIdentity}
+              sharedBrowserRoomId={sharedBrowserRoomId}
               {...(canWriteWhiteboard ? { canWriteWhiteboard } : {})}
             />
           ))}

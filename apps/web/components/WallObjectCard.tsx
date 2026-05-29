@@ -16,7 +16,10 @@ import {
   timerElapsedForResume
 } from "../lib/timerRuntime";
 import { useTimerRuntime } from "../lib/useTimerRuntime";
+import type { ApiIdentity } from "../lib/identity";
+import type { SharedBrowserController } from "../lib/useSharedBrowser";
 import type { WhiteboardController } from "../lib/useWhiteboards";
+import { SharedBrowserSummary, SharedBrowserSurface } from "./SharedBrowser/SharedBrowserSurface";
 import { WhiteboardSurface } from "./Whiteboard/WhiteboardSurface";
 
 type WallObjectCardStyle = CSSProperties & { "--wall-object-fit": string };
@@ -498,12 +501,17 @@ export function WallObjectContent({
   onControl,
   whiteboardController,
   whiteboardParticipantNames,
-  canWriteWhiteboard
+  canWriteWhiteboard,
+  sharedBrowserController,
+  sharedBrowserIdentity,
+  sharedBrowserRoomId,
+  compact
 }: {
   object: WallObject;
   canManage: boolean;
   currentUserId?: string | undefined;
   surface: boolean;
+  compact?: boolean;
   assetUrl?: string | undefined;
   videoStream?: MediaStream | null | undefined;
   audioStream?: MediaStream | null | undefined;
@@ -511,6 +519,9 @@ export function WallObjectContent({
   whiteboardController?: WhiteboardController | undefined;
   whiteboardParticipantNames?: Record<string, string> | undefined;
   canWriteWhiteboard?: ((object: WallObject) => boolean) | undefined;
+  sharedBrowserController?: SharedBrowserController | undefined;
+  sharedBrowserIdentity?: ApiIdentity | undefined;
+  sharedBrowserRoomId?: string | undefined;
 }) {
   if (object.type === "whiteboard" && whiteboardController && currentUserId) {
     if (!surface) {
@@ -553,6 +564,29 @@ export function WallObjectContent({
         currentUserId={currentUserId}
         surface={surface}
         {...(onControl ? { onControl } : {})}
+      />
+    );
+  }
+
+  if (object.type === "web.browser.shared") {
+    if (!sharedBrowserController) {
+      return <div className="wall-object-placeholder">Shared browser controls are unavailable.</div>;
+    }
+    const board = sharedBrowserController.getBoard(object.id);
+    if (!sharedBrowserIdentity || !sharedBrowserRoomId) {
+      return <SharedBrowserSummary board={board} compact={compact ?? false} />;
+    }
+    return (
+      <SharedBrowserSurface
+        object={object}
+        board={board}
+        controller={sharedBrowserController}
+        identity={sharedBrowserIdentity}
+        roomId={sharedBrowserRoomId}
+        surface={surface}
+        {...(currentUserId ? { currentUserId } : {})}
+        {...(compact !== undefined ? { compact } : {})}
+        {...(videoStream !== undefined ? { videoStream } : {})}
       />
     );
   }
@@ -626,6 +660,9 @@ export function WallObjectCard({
   whiteboardController,
   whiteboardParticipantNames,
   canWriteWhiteboard,
+  sharedBrowserController,
+  sharedBrowserIdentity,
+  sharedBrowserRoomId,
   onModerate,
   onFullscreen,
   hideHeader = false
@@ -644,6 +681,9 @@ export function WallObjectCard({
   whiteboardController?: WhiteboardController | undefined;
   whiteboardParticipantNames?: Record<string, string> | undefined;
   canWriteWhiteboard?: ((object: WallObject) => boolean) | undefined;
+  sharedBrowserController?: SharedBrowserController | undefined;
+  sharedBrowserIdentity?: ApiIdentity | undefined;
+  sharedBrowserRoomId?: string | undefined;
   onModerate?: (objectId: string, action: "approve" | "reject") => void;
   onFullscreen?: (objectId: string) => void;
   hideHeader?: boolean;
@@ -664,10 +704,30 @@ export function WallObjectCard({
         whiteboardController={whiteboardController}
         whiteboardParticipantNames={whiteboardParticipantNames}
         canWriteWhiteboard={canWriteWhiteboard}
+        sharedBrowserController={sharedBrowserController}
+        sharedBrowserIdentity={sharedBrowserIdentity}
+        sharedBrowserRoomId={sharedBrowserRoomId}
+        compact={compact}
         {...(onControl ? { onControl } : {})}
       />
     ),
-    [assetUrl, audioStream, canManage, canWriteWhiteboard, currentUserId, object, onControl, surface, videoStream, whiteboardController, whiteboardParticipantNames]
+    [
+      assetUrl,
+      audioStream,
+      canManage,
+      canWriteWhiteboard,
+      compact,
+      currentUserId,
+      object,
+      onControl,
+      sharedBrowserController,
+      sharedBrowserIdentity,
+      sharedBrowserRoomId,
+      surface,
+      videoStream,
+      whiteboardController,
+      whiteboardParticipantNames
+    ]
   );
 
   return (
@@ -701,7 +761,7 @@ export function WallObjectCard({
         </header>
       )}
       <div className="wall-object-card__media">{body}</div>
-      {canManage && !(surface && (object.type === "timer" || object.type === "poll" || object.type === "whiteboard")) ? (
+      {canManage && !(surface && (object.type === "timer" || object.type === "poll" || object.type === "whiteboard" || object.type === "web.browser.shared")) ? (
         <footer className="wall-object-card__actions">
           {object.type.endsWith(".live") && live ? (
             <button type="button" className="secondary" onClick={() => onStopShare?.(object.id)}>

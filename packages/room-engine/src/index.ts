@@ -106,6 +106,7 @@ const FULL_WALL_OBJECT_ACCEPTS = [
   "browser-tab.live",
   "web.embed",
   "web.link",
+  "web.browser.shared",
   "document.file",
   "slides.file",
   "whiteboard",

@@ -16,6 +16,7 @@ import type {
   RoomObjectTemplate,
   RoomRecord,
   RoomType,
+  SharedBrowserSession,
   User,
   WallAttachment,
   WallObject,
@@ -59,6 +60,7 @@ type Models = {
   MeetingNotesSession: Model<any>;
   MeetingNotesSegment: Model<any>;
   AiObjectJob: Model<any>;
+  SharedBrowserSession: Model<any>;
 };
 
 function entity<T>(doc: unknown) {
@@ -430,6 +432,37 @@ export function createModels(connection: Connection): Models {
   aiObjectJobSchema.index({ requestedByUserId: 1, createdAt: -1 });
   aiObjectJobSchema.index({ status: 1, updatedAt: 1 });
 
+  const sharedBrowserSessionSchema = new Schema({
+    id: { type: String, required: true, unique: true },
+    roomId: { type: String, required: true, index: true },
+    wallObjectId: { type: String, required: true, index: true },
+    createdByUserId: { type: String, required: true },
+    status: { type: String, required: true, enum: ["starting", "active", "paused", "error", "stopped"] },
+    currentUrl: { type: String, required: true },
+    title: { type: String, default: "" },
+    viewport: {
+      width: { type: Number, required: true },
+      height: { type: Number, required: true }
+    },
+    controlLease: {
+      userId: String,
+      displayName: String,
+      expiresAt: String
+    },
+    livekit: {
+      participantIdentity: String,
+      trackSid: String
+    },
+    lastInputAt: { type: String, required: true },
+    lastFrameAt: String,
+    errorCode: String,
+    errorMessage: String,
+    createdAt: { type: String, required: true },
+    updatedAt: { type: String, required: true }
+  });
+  sharedBrowserSessionSchema.index({ roomId: 1, wallObjectId: 1 });
+  sharedBrowserSessionSchema.index({ status: 1, updatedAt: 1 });
+
   return {
     User: connection.model("User", userSchema),
     Class: connection.model("Class", classSchema),
@@ -450,7 +483,8 @@ export function createModels(connection: Connection): Models {
     DynamicWallAnchor: connection.model("DynamicWallAnchor", dynamicWallAnchorSchema, "dynamic_wall_anchors"),
     MeetingNotesSession: connection.model("MeetingNotesSession", meetingNotesSessionSchema, "meeting_notes_sessions"),
     MeetingNotesSegment: connection.model("MeetingNotesSegment", meetingNotesSegmentSchema, "meeting_notes_segments"),
-    AiObjectJob: connection.model("AiObjectJob", aiObjectJobSchema, "ai_object_jobs")
+    AiObjectJob: connection.model("AiObjectJob", aiObjectJobSchema, "ai_object_jobs"),
+    SharedBrowserSession: connection.model("SharedBrowserSession", sharedBrowserSessionSchema, "shared_browser_sessions")
   };
 }
 
@@ -529,6 +563,41 @@ function meetingNotesSessionToDoc(session: MeetingNotesSession): Record<string, 
     errorMessage: session.errorMessage,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt
+  };
+}
+
+function docToSharedBrowserSession(doc: Record<string, unknown>): SharedBrowserSession {
+  const lease = doc.controlLease as { userId?: string; displayName?: string; expiresAt?: string } | undefined;
+  const livekit = doc.livekit as { participantIdentity?: string; trackSid?: string } | undefined;
+  return {
+    id: doc.id as string,
+    roomId: doc.roomId as string,
+    wallObjectId: doc.wallObjectId as string,
+    createdByUserId: doc.createdByUserId as string,
+    status: doc.status as SharedBrowserSession["status"],
+    currentUrl: doc.currentUrl as string,
+    title: (doc.title as string | undefined) ?? "",
+    viewport: {
+      width: (doc.viewport as { width: number; height: number }).width,
+      height: (doc.viewport as { width: number; height: number }).height
+    },
+    ...(lease && lease.userId && lease.displayName && lease.expiresAt
+      ? { controlLease: { userId: lease.userId, displayName: lease.displayName, expiresAt: lease.expiresAt } }
+      : {}),
+    ...(livekit && livekit.participantIdentity
+      ? {
+          livekit: {
+            participantIdentity: livekit.participantIdentity,
+            ...(livekit.trackSid ? { trackSid: livekit.trackSid } : {})
+          }
+        }
+      : {}),
+    lastInputAt: doc.lastInputAt as string,
+    ...(typeof doc.lastFrameAt === "string" ? { lastFrameAt: doc.lastFrameAt } : {}),
+    ...(typeof doc.errorCode === "string" ? { errorCode: doc.errorCode } : {}),
+    ...(typeof doc.errorMessage === "string" ? { errorMessage: doc.errorMessage } : {}),
+    createdAt: doc.createdAt as string,
+    updatedAt: doc.updatedAt as string
   };
 }
 
@@ -741,6 +810,7 @@ export class MongoRepository implements Repository {
       this.models.RoomSession.deleteMany({ roomId }),
       this.models.MeetingNotesSession.deleteMany({ roomId }),
       this.models.MeetingNotesSegment.deleteMany({ roomId }),
+      this.models.SharedBrowserSession.deleteMany({ roomId }),
       this.models.Invite.deleteMany({ roomId })
     ]);
   }
@@ -1282,5 +1352,54 @@ export class MongoRepository implements Repository {
       finishedAt: { $lte: beforeIso }
     }).sort({ finishedAt: 1 }).limit(limit).lean();
     return entities<AiObjectJob>(docs);
+  }
+
+  async createSharedBrowserSession(input: SharedBrowserSession): Promise<SharedBrowserSession> {
+    await this.models.SharedBrowserSession.create(input);
+    return input;
+  }
+
+  async getSharedBrowserSession(id: string): Promise<SharedBrowserSession | undefined> {
+    const doc = await this.models.SharedBrowserSession.findOne({ id }).lean() as Record<string, unknown> | null;
+    return doc ? docToSharedBrowserSession(doc) : undefined;
+  }
+
+  async getSharedBrowserSessionByWallObject(wallObjectId: string): Promise<SharedBrowserSession | undefined> {
+    const doc = await this.models.SharedBrowserSession.findOne({ wallObjectId }).lean() as Record<string, unknown> | null;
+    return doc ? docToSharedBrowserSession(doc) : undefined;
+  }
+
+  async listSharedBrowserSessionsForRoom(roomId: string): Promise<SharedBrowserSession[]> {
+    const docs = await this.models.SharedBrowserSession.find({ roomId }).lean() as Record<string, unknown>[];
+    return docs.map(docToSharedBrowserSession);
+  }
+
+  async countActiveSharedBrowserSessionsForRoom(roomId: string): Promise<number> {
+    return this.models.SharedBrowserSession.countDocuments({
+      roomId,
+      status: { $in: ["starting", "active", "paused"] }
+    });
+  }
+
+  async updateSharedBrowserSession(id: string, patch: Partial<SharedBrowserSession>): Promise<SharedBrowserSession> {
+    const doc = await this.models.SharedBrowserSession.findOneAndUpdate(
+      { id },
+      { $set: patch },
+      { new: true }
+    ).lean() as Record<string, unknown> | null;
+    if (!doc) throw notFound("Shared browser session not found");
+    return docToSharedBrowserSession(doc);
+  }
+
+  async deleteSharedBrowserSession(id: string): Promise<void> {
+    await this.models.SharedBrowserSession.deleteOne({ id });
+  }
+
+  async listStaleSharedBrowserSessions(olderThanIso: string): Promise<SharedBrowserSession[]> {
+    const docs = await this.models.SharedBrowserSession.find({
+      status: { $in: ["starting", "active"] },
+      lastInputAt: { $lte: olderThanIso }
+    }).lean() as Record<string, unknown>[];
+    return docs.map(docToSharedBrowserSession);
   }
 }

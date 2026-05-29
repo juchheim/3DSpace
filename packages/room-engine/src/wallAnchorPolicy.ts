@@ -13,7 +13,8 @@ export type WallAnchorCreateOption =
   | "link"
   | "camera"
   | "microphone"
-  | "screen";
+  | "screen"
+  | "shared-browser";
 
 function readAnchorAccepts(anchor: WallAnchorLike): string[] {
   const accepts = anchor.metadata.accepts;
@@ -62,6 +63,8 @@ export function anchorSupportsCreateOption(anchor: WallAnchorLike, option: WallA
       return anchorAcceptsWallObjectType(anchor, "microphone.live");
     case "screen":
       return anchorAcceptsWallObjectType(anchor, "screen.live") || anchorAcceptsWallObjectType(anchor, "browser-tab.live");
+    case "shared-browser":
+      return anchorAcceptsWallObjectType(anchor, "web.browser.shared");
     default:
       return false;
   }

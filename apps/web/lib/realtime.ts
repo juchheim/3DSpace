@@ -20,6 +20,7 @@ import type {
   RoomObjectRealtimeMessageSchema,
   RoomSessionResponse,
   RoomSkinMessage,
+  SharedBrowserRealtimeMessage,
   WallModerationStateMessageSchema,
   WallObjectRealtimeRemoveSchema,
   WallObjectRealtimeUpsertSchema,
@@ -80,13 +81,15 @@ export type RealtimeMessage =
   | BoardRealtimeMessage
   | MeetingNotesRealtimeMessage
   | WhiteboardRealtime
+  | SharedBrowserRealtimeMessage
   | AiObjectRealtimeMessage;
 
 const ROOM_OBJECT_UNRELIABLE_TYPES = new Set([
   "room.object.pose.v1",
   "room.meeting-notes.segment.v1",
   "room.whiteboard.stroke-delta.v1",
-  "room.whiteboard.cursor.v1"
+  "room.whiteboard.cursor.v1",
+  "room.shared-browser.pointer.v1"
 ]);
 
 export function isRoomObjectRealtimeUnreliable(type: string) {
@@ -555,9 +558,17 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
     return name.replace(/^wall:/, "").replace(/:audio$/, "");
   }
 
+  function sharedBrowserWallObjectIdFromIdentity(identity: string) {
+    if (!identity.startsWith("shared-browser:")) return undefined;
+    const objectId = identity.slice("shared-browser:".length);
+    return objectId || undefined;
+  }
+
   function handleRemoteTrack(track: { kind: string; source: string; mediaStreamTrack: MediaStreamTrack }, participantIdentity: string, publication?: unknown) {
     const participantId = participantIdFromIdentity(participantIdentity);
-    const wallObjectId = wallObjectIdFromPublication(publicationName(publication));
+    const wallObjectId =
+      wallObjectIdFromPublication(publicationName(publication)) ??
+      sharedBrowserWallObjectIdFromIdentity(participantIdentity);
     if (wallObjectId) {
       if (track.kind === Track.Kind.Audio || track.source === Track.Source.ScreenShareAudio) {
         input.onRemoteMedia?.({ participantId, wallObjectId, wallAudioStream: streamFromTrack(track) });
@@ -578,7 +589,9 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
 
   function handleRemoteTrackRemoved(track: { kind: string; source: string }, participantIdentity: string, publication?: unknown) {
     const participantId = participantIdFromIdentity(participantIdentity);
-    const wallObjectId = wallObjectIdFromPublication(publicationName(publication));
+    const wallObjectId =
+      wallObjectIdFromPublication(publicationName(publication)) ??
+      sharedBrowserWallObjectIdFromIdentity(participantIdentity);
     if (wallObjectId) {
       if (track.kind === Track.Kind.Audio || track.source === Track.Source.ScreenShareAudio) {
         input.onRemoteMedia?.({ participantId, wallObjectId, wallAudioStream: null });

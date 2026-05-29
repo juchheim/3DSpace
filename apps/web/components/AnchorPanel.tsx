@@ -10,15 +10,17 @@ import {
   DYNAMIC_WALL_ANCHOR_MIN_WIDTH_M
 } from "@3dspace/contracts";
 import type { ApiIdentity } from "../lib/identity";
+import type { SharedBrowserController } from "../lib/useSharedBrowser";
 import type { WhiteboardController } from "../lib/useWhiteboards";
 import { WallObjectCard, type WallObjectControlAction } from "./WallObjectCard";
 import { HudCard } from "./HudCard";
 
-type CreateType = "file" | "whiteboard" | "note" | "timer" | "poll" | "link";
+type CreateType = "file" | "whiteboard" | "shared-browser" | "note" | "timer" | "poll" | "link";
 
 const FORM_TYPES: { id: CreateType; label: string }[] = [
   { id: "file",  label: "File"  },
   { id: "whiteboard", label: "Whiteboard" },
+  { id: "shared-browser", label: "Shared Browser" },
   { id: "note",  label: "Note"  },
   { id: "timer", label: "Timer" },
   { id: "poll",  label: "Poll"  },
@@ -42,6 +44,7 @@ export function AnchorPanel({
   error,
   onCreateFile,
   onCreateWhiteboard,
+  onCreateSharedBrowser,
   onCreateNote,
   onCreateTimer,
   onCreatePoll,
@@ -56,6 +59,8 @@ export function AnchorPanel({
   whiteboardController,
   whiteboardParticipantNames,
   canWriteWhiteboard,
+  sharedBrowserController,
+  sharedBrowserEnabled = false,
   dynamicAnchorPlacementActive = false,
   onStartDynamicAnchorPlacement,
   onCancelDynamicAnchorPlacement,
@@ -84,6 +89,7 @@ export function AnchorPanel({
   error: string;
   onCreateFile(input: { anchorId: string; file: File; title: string; altText?: string | undefined; caption?: string | undefined }): Promise<void>;
   onCreateWhiteboard(input: { anchorId: string; title: string }): Promise<void>;
+  onCreateSharedBrowser(input: { anchorId: string; title: string; startUrl: string }): Promise<void>;
   onCreateNote(input: { anchorId: string; title: string; text: string }): Promise<void>;
   onCreateTimer(input: { anchorId: string; title: string; seconds: number }): Promise<void>;
   onCreatePoll(input: { anchorId: string; title: string; question: string; choices: string[] }): Promise<void>;
@@ -98,6 +104,8 @@ export function AnchorPanel({
   whiteboardController?: WhiteboardController;
   whiteboardParticipantNames?: Record<string, string>;
   canWriteWhiteboard?: (object: WallObject) => boolean;
+  sharedBrowserController?: SharedBrowserController;
+  sharedBrowserEnabled?: boolean;
   dynamicAnchorPlacementActive?: boolean;
   onStartDynamicAnchorPlacement?(): void;
   onCancelDynamicAnchorPlacement?(): void;
@@ -123,6 +131,8 @@ export function AnchorPanel({
   const [file, setFile] = useState<File | null>(null);
   const [fileTitle, setFileTitle] = useState("");
   const [whiteboardTitle, setWhiteboardTitle] = useState("Whiteboard");
+  const [sharedBrowserTitle, setSharedBrowserTitle] = useState("Shared Browser");
+  const [sharedBrowserUrl, setSharedBrowserUrl] = useState("https://www.wikipedia.org");
   const [noteText, setNoteText] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [pollQuestion, setPollQuestion] = useState("");
@@ -160,6 +170,7 @@ export function AnchorPanel({
       return ["image.file", "video.file", "audio.file"].some((type) => grantAllowedTypes.has(type as WallObjectType));
     }
     if (option === "whiteboard") return grantAllowedTypes.has("whiteboard");
+    if (option === "shared-browser") return grantAllowedTypes.has("web.browser.shared");
     if (option === "note") return grantAllowedTypes.has("note");
     if (option === "timer") return grantAllowedTypes.has("timer");
     if (option === "poll") return grantAllowedTypes.has("poll");
@@ -170,8 +181,15 @@ export function AnchorPanel({
   };
 
   const availableFormTypes = useMemo(
-    () => FORM_TYPES.filter(({ id }) => selectedAnchorData && anchorSupportsCreateOption(selectedAnchorData, id) && optionAllowedByGrant(id)),
-    [selectedAnchorData, grantRestricted, anchorWithinGrant, activeBoardGrant?.allowedObjectTypes]
+    () =>
+      FORM_TYPES.filter(
+        ({ id }) =>
+          selectedAnchorData &&
+          anchorSupportsCreateOption(selectedAnchorData, id) &&
+          optionAllowedByGrant(id) &&
+          (id !== "shared-browser" || sharedBrowserEnabled)
+      ),
+    [activeBoardGrant?.allowedObjectTypes, selectedAnchorData, sharedBrowserEnabled]
   );
 
   const showCamera = selectedAnchorData ? anchorSupportsCreateOption(selectedAnchorData, "camera") && optionAllowedByGrant("camera") : false;
@@ -238,6 +256,17 @@ export function AnchorPanel({
     await run("whiteboard", async () => {
       await onCreateWhiteboard({ anchorId: selectedAnchor, title });
       setWhiteboardTitle("Whiteboard");
+    });
+  }
+
+  async function submitSharedBrowser() {
+    const title = sharedBrowserTitle.trim() || "Shared Browser";
+    const startUrl = sharedBrowserUrl.trim();
+    if (!startUrl) return;
+    await run("shared-browser", async () => {
+      await onCreateSharedBrowser({ anchorId: selectedAnchor, title, startUrl });
+      setSharedBrowserTitle("Shared Browser");
+      setSharedBrowserUrl("https://www.wikipedia.org");
     });
   }
 
@@ -464,6 +493,22 @@ export function AnchorPanel({
             </div>
           )}
 
+          {selectedType === "shared-browser" && (
+            <div className="content-form">
+              <label>
+                Title
+                <input value={sharedBrowserTitle} onChange={(e) => setSharedBrowserTitle(e.target.value)} placeholder="Shared Browser" />
+              </label>
+              <label>
+                Start URL
+                <input value={sharedBrowserUrl} onChange={(e) => setSharedBrowserUrl(e.target.value)} placeholder="https://www.wikipedia.org" />
+              </label>
+              <button type="button" className="hud-btn" disabled={selectedAnchorOccupied || !sharedBrowserUrl.trim() || Boolean(busy)} onClick={() => void submitSharedBrowser()}>
+                {busy === "shared-browser" ? "Adding…" : "Add shared browser"}
+              </button>
+            </div>
+          )}
+
           {/* Note form */}
           {selectedType === "note" && (
             <div className="content-form">
@@ -577,6 +622,9 @@ export function AnchorPanel({
                     audioStream={wallMediaStreams[object.id]?.audioStream}
                     whiteboardController={whiteboardController}
                     whiteboardParticipantNames={whiteboardParticipantNames}
+                    sharedBrowserController={sharedBrowserController}
+                    sharedBrowserIdentity={identity}
+                    sharedBrowserRoomId={roomId}
                     {...(canWriteWhiteboard ? { canWriteWhiteboard } : {})}
                     onRemove={(objectId) => void onRemove(objectId)}
                     onStopShare={(objectId) => void onStopShare(objectId)}

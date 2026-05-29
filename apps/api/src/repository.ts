@@ -13,6 +13,7 @@ import {
   type Role,
   type RoomManifest,
   type RoomRecord,
+  type SharedBrowserSession,
   type WhiteboardSnapshot,
   type WhiteboardStroke,
   type RoomSettingsSchema,
@@ -165,6 +166,14 @@ export type Repository = {
   updateAiObjectJob(id: string, patch: Partial<AiObjectJob>): Promise<AiObjectJob>;
   deleteAiObjectJob(id: string, roomId: string): Promise<void>;
   listExpiredAiObjectJobs(beforeIso: string, limit: number): Promise<AiObjectJob[]>;
+  createSharedBrowserSession(input: SharedBrowserSession): Promise<SharedBrowserSession>;
+  getSharedBrowserSession(id: string): Promise<SharedBrowserSession | undefined>;
+  getSharedBrowserSessionByWallObject(wallObjectId: string): Promise<SharedBrowserSession | undefined>;
+  listSharedBrowserSessionsForRoom(roomId: string): Promise<SharedBrowserSession[]>;
+  countActiveSharedBrowserSessionsForRoom(roomId: string): Promise<number>;
+  updateSharedBrowserSession(id: string, patch: Partial<SharedBrowserSession>): Promise<SharedBrowserSession>;
+  deleteSharedBrowserSession(id: string): Promise<void>;
+  listStaleSharedBrowserSessions(olderThanIso: string): Promise<SharedBrowserSession[]>;
 };
 
 export function nowIso() {
@@ -212,6 +221,7 @@ export class MemoryRepository implements Repository {
   private meetingNotesSessions = new Map<string, MeetingNotesSession>();
   private meetingNotesSegments = new Map<string, MeetingNotesSegment>();
   private aiObjectJobs = new Map<string, AiObjectJob>();
+  private sharedBrowserSessions = new Map<string, SharedBrowserSession>();
 
   async close() {
     return;
@@ -444,6 +454,9 @@ export class MemoryRepository implements Repository {
     }
     for (const [code, invite] of this.invites.entries()) {
       if (invite.roomId === roomId) this.invites.delete(code);
+    }
+    for (const [id, session] of this.sharedBrowserSessions.entries()) {
+      if (session.roomId === roomId) this.sharedBrowserSessions.delete(id);
     }
   }
 
@@ -918,5 +931,48 @@ export class MemoryRepository implements Repository {
       .filter((j) => terminal.has(j.status) && j.finishedAt && j.finishedAt <= beforeIso)
       .sort((a, b) => (a.finishedAt ?? "").localeCompare(b.finishedAt ?? ""))
       .slice(0, limit);
+  }
+
+  async createSharedBrowserSession(input: SharedBrowserSession): Promise<SharedBrowserSession> {
+    this.sharedBrowserSessions.set(input.id, input);
+    return input;
+  }
+
+  async getSharedBrowserSession(id: string): Promise<SharedBrowserSession | undefined> {
+    return this.sharedBrowserSessions.get(id);
+  }
+
+  async getSharedBrowserSessionByWallObject(wallObjectId: string): Promise<SharedBrowserSession | undefined> {
+    return Array.from(this.sharedBrowserSessions.values()).find((s) => s.wallObjectId === wallObjectId);
+  }
+
+  async listSharedBrowserSessionsForRoom(roomId: string): Promise<SharedBrowserSession[]> {
+    return Array.from(this.sharedBrowserSessions.values()).filter((s) => s.roomId === roomId);
+  }
+
+  async countActiveSharedBrowserSessionsForRoom(roomId: string): Promise<number> {
+    const active = new Set(["starting", "active", "paused"]);
+    return Array.from(this.sharedBrowserSessions.values()).filter(
+      (s) => s.roomId === roomId && active.has(s.status)
+    ).length;
+  }
+
+  async updateSharedBrowserSession(id: string, patch: Partial<SharedBrowserSession>): Promise<SharedBrowserSession> {
+    const existing = this.sharedBrowserSessions.get(id);
+    if (!existing) throw notFound("Shared browser session not found");
+    const updated = { ...existing, ...patch };
+    this.sharedBrowserSessions.set(id, updated);
+    return updated;
+  }
+
+  async deleteSharedBrowserSession(id: string): Promise<void> {
+    this.sharedBrowserSessions.delete(id);
+  }
+
+  async listStaleSharedBrowserSessions(olderThanIso: string): Promise<SharedBrowserSession[]> {
+    const active = new Set(["starting", "active"]);
+    return Array.from(this.sharedBrowserSessions.values()).filter(
+      (s) => active.has(s.status) && s.lastInputAt <= olderThanIso
+    );
   }
 }

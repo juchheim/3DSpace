@@ -1197,6 +1197,73 @@
                               "meshyRefineTextures": true,
                               "defaultPolycountTarget": 15000
                             }
+                          },
+                          "sharedBrowsers": {
+                            "type": "object",
+                            "properties": {
+                              "enabled": {
+                                "type": "boolean",
+                                "default": true
+                              },
+                              "maxActivePerRoom": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 4,
+                                "default": 2
+                              },
+                              "defaultStartUrl": {
+                                "type": "string",
+                                "format": "uri",
+                                "default": "https://www.wikipedia.org"
+                              },
+                              "viewportWidth": {
+                                "type": "integer",
+                                "minimum": 640,
+                                "maximum": 1920,
+                                "default": 1280
+                              },
+                              "viewportHeight": {
+                                "type": "integer",
+                                "minimum": 360,
+                                "maximum": 1080,
+                                "default": 720
+                              },
+                              "idlePauseMinutes": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 240,
+                                "default": 15
+                              },
+                              "navigationAllowlistEnabled": {
+                                "type": "boolean",
+                                "default": false
+                              },
+                              "navigationAllowlist": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "default": []
+                              },
+                              "controlLeaseSeconds": {
+                                "type": "integer",
+                                "minimum": 10,
+                                "maximum": 600,
+                                "default": 120
+                              }
+                            },
+                            "additionalProperties": false,
+                            "default": {
+                              "enabled": true,
+                              "maxActivePerRoom": 2,
+                              "defaultStartUrl": "https://www.wikipedia.org",
+                              "viewportWidth": 1280,
+                              "viewportHeight": 720,
+                              "idlePauseMinutes": 15,
+                              "navigationAllowlistEnabled": false,
+                              "navigationAllowlist": [],
+                              "controlLeaseSeconds": 120
+                            }
                           }
                         },
                         "required": [
@@ -1690,6 +1757,73 @@
                                 "allowMeshy": false,
                                 "meshyRefineTextures": true,
                                 "defaultPolycountTarget": 15000
+                              }
+                            },
+                            "sharedBrowsers": {
+                              "type": "object",
+                              "properties": {
+                                "enabled": {
+                                  "type": "boolean",
+                                  "default": true
+                                },
+                                "maxActivePerRoom": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4,
+                                  "default": 2
+                                },
+                                "defaultStartUrl": {
+                                  "type": "string",
+                                  "format": "uri",
+                                  "default": "https://www.wikipedia.org"
+                                },
+                                "viewportWidth": {
+                                  "type": "integer",
+                                  "minimum": 640,
+                                  "maximum": 1920,
+                                  "default": 1280
+                                },
+                                "viewportHeight": {
+                                  "type": "integer",
+                                  "minimum": 360,
+                                  "maximum": 1080,
+                                  "default": 720
+                                },
+                                "idlePauseMinutes": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 240,
+                                  "default": 15
+                                },
+                                "navigationAllowlistEnabled": {
+                                  "type": "boolean",
+                                  "default": false
+                                },
+                                "navigationAllowlist": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "default": []
+                                },
+                                "controlLeaseSeconds": {
+                                  "type": "integer",
+                                  "minimum": 10,
+                                  "maximum": 600,
+                                  "default": 120
+                                }
+                              },
+                              "additionalProperties": false,
+                              "default": {
+                                "enabled": true,
+                                "maxActivePerRoom": 2,
+                                "defaultStartUrl": "https://www.wikipedia.org",
+                                "viewportWidth": 1280,
+                                "viewportHeight": 720,
+                                "idlePauseMinutes": 15,
+                                "navigationAllowlistEnabled": false,
+                                "navigationAllowlist": [],
+                                "controlLeaseSeconds": 120
                               }
                             }
                           },
@@ -2657,6 +2791,73 @@
                           "meshyRefineTextures": true,
                           "defaultPolycountTarget": 15000
                         }
+                      },
+                      "sharedBrowsers": {
+                        "type": "object",
+                        "properties": {
+                          "enabled": {
+                            "type": "boolean",
+                            "default": true
+                          },
+                          "maxActivePerRoom": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 4,
+                            "default": 2
+                          },
+                          "defaultStartUrl": {
+                            "type": "string",
+                            "format": "uri",
+                            "default": "https://www.wikipedia.org"
+                          },
+                          "viewportWidth": {
+                            "type": "integer",
+                            "minimum": 640,
+                            "maximum": 1920,
+                            "default": 1280
+                          },
+                          "viewportHeight": {
+                            "type": "integer",
+                            "minimum": 360,
+                            "maximum": 1080,
+                            "default": 720
+                          },
+                          "idlePauseMinutes": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 240,
+                            "default": 15
+                          },
+                          "navigationAllowlistEnabled": {
+                            "type": "boolean",
+                            "default": false
+                          },
+                          "navigationAllowlist": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "default": []
+                          },
+                          "controlLeaseSeconds": {
+                            "type": "integer",
+                            "minimum": 10,
+                            "maximum": 600,
+                            "default": 120
+                          }
+                        },
+                        "additionalProperties": false,
+                        "default": {
+                          "enabled": true,
+                          "maxActivePerRoom": 2,
+                          "defaultStartUrl": "https://www.wikipedia.org",
+                          "viewportWidth": 1280,
+                          "viewportHeight": 720,
+                          "idlePauseMinutes": 15,
+                          "navigationAllowlistEnabled": false,
+                          "navigationAllowlist": [],
+                          "controlLeaseSeconds": 120
+                        }
                       }
                     },
                     "additionalProperties": false
@@ -3079,6 +3280,73 @@
                             "allowMeshy": false,
                             "meshyRefineTextures": true,
                             "defaultPolycountTarget": 15000
+                          }
+                        },
+                        "sharedBrowsers": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean",
+                              "default": true
+                            },
+                            "maxActivePerRoom": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 4,
+                              "default": 2
+                            },
+                            "defaultStartUrl": {
+                              "type": "string",
+                              "format": "uri",
+                              "default": "https://www.wikipedia.org"
+                            },
+                            "viewportWidth": {
+                              "type": "integer",
+                              "minimum": 640,
+                              "maximum": 1920,
+                              "default": 1280
+                            },
+                            "viewportHeight": {
+                              "type": "integer",
+                              "minimum": 360,
+                              "maximum": 1080,
+                              "default": 720
+                            },
+                            "idlePauseMinutes": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 240,
+                              "default": 15
+                            },
+                            "navigationAllowlistEnabled": {
+                              "type": "boolean",
+                              "default": false
+                            },
+                            "navigationAllowlist": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "default": []
+                            },
+                            "controlLeaseSeconds": {
+                              "type": "integer",
+                              "minimum": 10,
+                              "maximum": 600,
+                              "default": 120
+                            }
+                          },
+                          "additionalProperties": false,
+                          "default": {
+                            "enabled": true,
+                            "maxActivePerRoom": 2,
+                            "defaultStartUrl": "https://www.wikipedia.org",
+                            "viewportWidth": 1280,
+                            "viewportHeight": 720,
+                            "idlePauseMinutes": 15,
+                            "navigationAllowlistEnabled": false,
+                            "navigationAllowlist": [],
+                            "controlLeaseSeconds": 120
                           }
                         }
                       },
@@ -4154,6 +4422,73 @@
                                 "allowMeshy": false,
                                 "meshyRefineTextures": true,
                                 "defaultPolycountTarget": 15000
+                              }
+                            },
+                            "sharedBrowsers": {
+                              "type": "object",
+                              "properties": {
+                                "enabled": {
+                                  "type": "boolean",
+                                  "default": true
+                                },
+                                "maxActivePerRoom": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4,
+                                  "default": 2
+                                },
+                                "defaultStartUrl": {
+                                  "type": "string",
+                                  "format": "uri",
+                                  "default": "https://www.wikipedia.org"
+                                },
+                                "viewportWidth": {
+                                  "type": "integer",
+                                  "minimum": 640,
+                                  "maximum": 1920,
+                                  "default": 1280
+                                },
+                                "viewportHeight": {
+                                  "type": "integer",
+                                  "minimum": 360,
+                                  "maximum": 1080,
+                                  "default": 720
+                                },
+                                "idlePauseMinutes": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 240,
+                                  "default": 15
+                                },
+                                "navigationAllowlistEnabled": {
+                                  "type": "boolean",
+                                  "default": false
+                                },
+                                "navigationAllowlist": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "default": []
+                                },
+                                "controlLeaseSeconds": {
+                                  "type": "integer",
+                                  "minimum": 10,
+                                  "maximum": 600,
+                                  "default": 120
+                                }
+                              },
+                              "additionalProperties": false,
+                              "default": {
+                                "enabled": true,
+                                "maxActivePerRoom": 2,
+                                "defaultStartUrl": "https://www.wikipedia.org",
+                                "viewportWidth": 1280,
+                                "viewportHeight": 720,
+                                "idlePauseMinutes": 15,
+                                "navigationAllowlistEnabled": false,
+                                "navigationAllowlist": [],
+                                "controlLeaseSeconds": 120
                               }
                             }
                           },
@@ -5633,6 +5968,7 @@
                           "browser-tab.live",
                           "web.embed",
                           "web.link",
+                          "web.browser.shared",
                           "document.file",
                           "slides.file",
                           "whiteboard",
@@ -5910,6 +6246,7 @@
                       "browser-tab.live",
                       "web.embed",
                       "web.link",
+                      "web.browser.shared",
                       "document.file",
                       "slides.file",
                       "whiteboard",
@@ -6160,6 +6497,7 @@
                         "browser-tab.live",
                         "web.embed",
                         "web.link",
+                        "web.browser.shared",
                         "document.file",
                         "slides.file",
                         "whiteboard",
@@ -6444,6 +6782,7 @@
                         "browser-tab.live",
                         "web.embed",
                         "web.link",
+                        "web.browser.shared",
                         "document.file",
                         "slides.file",
                         "whiteboard",
@@ -6824,6 +7163,7 @@
                         "browser-tab.live",
                         "web.embed",
                         "web.link",
+                        "web.browser.shared",
                         "document.file",
                         "slides.file",
                         "whiteboard",
@@ -7106,6 +7446,7 @@
                         "browser-tab.live",
                         "web.embed",
                         "web.link",
+                        "web.browser.shared",
                         "document.file",
                         "slides.file",
                         "whiteboard",
@@ -7447,6 +7788,7 @@
                         "browser-tab.live",
                         "web.embed",
                         "web.link",
+                        "web.browser.shared",
                         "document.file",
                         "slides.file",
                         "whiteboard",
@@ -10110,6 +10452,3244 @@
         }
       }
     },
+    "/v1/rooms/{roomId}/wall-objects/{objectId}/shared-browser": {
+      "get": {
+        "summary": "Hydrate a shared browser session",
+        "tags": [
+          "shared-browsers"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "session": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "roomId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "wallObjectId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "createdByUserId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "starting",
+                            "active",
+                            "paused",
+                            "error",
+                            "stopped"
+                          ]
+                        },
+                        "currentUrl": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "title": {
+                          "type": "string",
+                          "maxLength": 512,
+                          "default": ""
+                        },
+                        "viewport": {
+                          "type": "object",
+                          "properties": {
+                            "width": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0
+                            },
+                            "height": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "width",
+                            "height"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "controlLease": {
+                          "type": "object",
+                          "properties": {
+                            "userId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "displayName": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "expiresAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          },
+                          "required": [
+                            "userId",
+                            "displayName",
+                            "expiresAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "livekit": {
+                          "type": "object",
+                          "properties": {
+                            "participantIdentity": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "trackSid": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "participantIdentity"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "lastInputAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "lastFrameAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "errorCode": {
+                          "type": "string"
+                        },
+                        "errorMessage": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "roomId",
+                        "wallObjectId",
+                        "createdByUserId",
+                        "status",
+                        "currentUrl",
+                        "viewport",
+                        "lastInputAt",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "realtimeMessages": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.pointer.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "authorUserId": {
+                                "type": "string"
+                              },
+                              "pointer": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "move",
+                                        "down",
+                                        "up",
+                                        "wheel"
+                                      ]
+                                    },
+                                    "x": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "y": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "button": {
+                                      "type": "string",
+                                      "enum": [
+                                        "left",
+                                        "middle",
+                                        "right"
+                                      ]
+                                    },
+                                    "deltaX": {
+                                      "type": "number"
+                                    },
+                                    "deltaY": {
+                                      "type": "number"
+                                    },
+                                    "at": {
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "x",
+                                    "y",
+                                    "at"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "default": []
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "authorUserId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.navigate.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "url": {
+                                "type": "string"
+                              },
+                              "navigatedByUserId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "url",
+                              "navigatedByUserId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.history.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "action": {
+                                "type": "string",
+                                "enum": [
+                                  "back",
+                                  "forward",
+                                  "refresh"
+                                ]
+                              },
+                              "actedByUserId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "action",
+                              "actedByUserId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.control-lease.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "controlLease": {
+                                "type": "object",
+                                "properties": {
+                                  "userId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "displayName": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "expiresAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "userId",
+                                  "displayName",
+                                  "expiresAt"
+                                ],
+                                "additionalProperties": false,
+                                "nullable": true
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "controlLease",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.state.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "currentUrl": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "starting",
+                                  "active",
+                                  "paused",
+                                  "error",
+                                  "stopped"
+                                ]
+                              },
+                              "controlLease": {
+                                "type": "object",
+                                "properties": {
+                                  "userId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "displayName": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "expiresAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "userId",
+                                  "displayName",
+                                  "expiresAt"
+                                ],
+                                "additionalProperties": false,
+                                "nullable": true
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "currentUrl",
+                              "title",
+                              "status",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.session.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "starting",
+                                  "active",
+                                  "paused",
+                                  "error",
+                                  "stopped"
+                                ]
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "status",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "default": []
+                    }
+                  },
+                  "required": [
+                    "session"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{roomId}/wall-objects/{objectId}/shared-browser/navigate": {
+      "post": {
+        "summary": "Navigate the shared browser to a URL (SSRF-checked)",
+        "tags": [
+          "shared-browsers"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "format": "uri"
+                  }
+                },
+                "required": [
+                  "url"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "session": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "roomId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "wallObjectId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "createdByUserId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "starting",
+                            "active",
+                            "paused",
+                            "error",
+                            "stopped"
+                          ]
+                        },
+                        "currentUrl": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "title": {
+                          "type": "string",
+                          "maxLength": 512,
+                          "default": ""
+                        },
+                        "viewport": {
+                          "type": "object",
+                          "properties": {
+                            "width": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0
+                            },
+                            "height": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "width",
+                            "height"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "controlLease": {
+                          "type": "object",
+                          "properties": {
+                            "userId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "displayName": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "expiresAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          },
+                          "required": [
+                            "userId",
+                            "displayName",
+                            "expiresAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "livekit": {
+                          "type": "object",
+                          "properties": {
+                            "participantIdentity": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "trackSid": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "participantIdentity"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "lastInputAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "lastFrameAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "errorCode": {
+                          "type": "string"
+                        },
+                        "errorMessage": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "roomId",
+                        "wallObjectId",
+                        "createdByUserId",
+                        "status",
+                        "currentUrl",
+                        "viewport",
+                        "lastInputAt",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "realtimeMessages": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.pointer.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "authorUserId": {
+                                "type": "string"
+                              },
+                              "pointer": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "move",
+                                        "down",
+                                        "up",
+                                        "wheel"
+                                      ]
+                                    },
+                                    "x": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "y": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "button": {
+                                      "type": "string",
+                                      "enum": [
+                                        "left",
+                                        "middle",
+                                        "right"
+                                      ]
+                                    },
+                                    "deltaX": {
+                                      "type": "number"
+                                    },
+                                    "deltaY": {
+                                      "type": "number"
+                                    },
+                                    "at": {
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "x",
+                                    "y",
+                                    "at"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "default": []
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "authorUserId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.navigate.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "url": {
+                                "type": "string"
+                              },
+                              "navigatedByUserId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "url",
+                              "navigatedByUserId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.history.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "action": {
+                                "type": "string",
+                                "enum": [
+                                  "back",
+                                  "forward",
+                                  "refresh"
+                                ]
+                              },
+                              "actedByUserId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "action",
+                              "actedByUserId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.control-lease.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "controlLease": {
+                                "type": "object",
+                                "properties": {
+                                  "userId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "displayName": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "expiresAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "userId",
+                                  "displayName",
+                                  "expiresAt"
+                                ],
+                                "additionalProperties": false,
+                                "nullable": true
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "controlLease",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.state.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "currentUrl": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "starting",
+                                  "active",
+                                  "paused",
+                                  "error",
+                                  "stopped"
+                                ]
+                              },
+                              "controlLease": {
+                                "type": "object",
+                                "properties": {
+                                  "userId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "displayName": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "expiresAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "userId",
+                                  "displayName",
+                                  "expiresAt"
+                                ],
+                                "additionalProperties": false,
+                                "nullable": true
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "currentUrl",
+                              "title",
+                              "status",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.session.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "starting",
+                                  "active",
+                                  "paused",
+                                  "error",
+                                  "stopped"
+                                ]
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "status",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "default": []
+                    }
+                  },
+                  "required": [
+                    "session"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{roomId}/wall-objects/{objectId}/shared-browser/history": {
+      "post": {
+        "summary": "Run a back/forward/refresh action on the shared browser",
+        "tags": [
+          "shared-browsers"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "back",
+                      "forward",
+                      "refresh"
+                    ]
+                  }
+                },
+                "required": [
+                  "action"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "session": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "roomId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "wallObjectId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "createdByUserId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "starting",
+                            "active",
+                            "paused",
+                            "error",
+                            "stopped"
+                          ]
+                        },
+                        "currentUrl": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "title": {
+                          "type": "string",
+                          "maxLength": 512,
+                          "default": ""
+                        },
+                        "viewport": {
+                          "type": "object",
+                          "properties": {
+                            "width": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0
+                            },
+                            "height": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "width",
+                            "height"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "controlLease": {
+                          "type": "object",
+                          "properties": {
+                            "userId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "displayName": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "expiresAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          },
+                          "required": [
+                            "userId",
+                            "displayName",
+                            "expiresAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "livekit": {
+                          "type": "object",
+                          "properties": {
+                            "participantIdentity": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "trackSid": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "participantIdentity"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "lastInputAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "lastFrameAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "errorCode": {
+                          "type": "string"
+                        },
+                        "errorMessage": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "roomId",
+                        "wallObjectId",
+                        "createdByUserId",
+                        "status",
+                        "currentUrl",
+                        "viewport",
+                        "lastInputAt",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "realtimeMessages": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.pointer.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "authorUserId": {
+                                "type": "string"
+                              },
+                              "pointer": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "move",
+                                        "down",
+                                        "up",
+                                        "wheel"
+                                      ]
+                                    },
+                                    "x": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "y": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "button": {
+                                      "type": "string",
+                                      "enum": [
+                                        "left",
+                                        "middle",
+                                        "right"
+                                      ]
+                                    },
+                                    "deltaX": {
+                                      "type": "number"
+                                    },
+                                    "deltaY": {
+                                      "type": "number"
+                                    },
+                                    "at": {
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "x",
+                                    "y",
+                                    "at"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "default": []
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "authorUserId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.navigate.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "url": {
+                                "type": "string"
+                              },
+                              "navigatedByUserId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "url",
+                              "navigatedByUserId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.history.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "action": {
+                                "type": "string",
+                                "enum": [
+                                  "back",
+                                  "forward",
+                                  "refresh"
+                                ]
+                              },
+                              "actedByUserId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "action",
+                              "actedByUserId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.control-lease.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "controlLease": {
+                                "type": "object",
+                                "properties": {
+                                  "userId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "displayName": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "expiresAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "userId",
+                                  "displayName",
+                                  "expiresAt"
+                                ],
+                                "additionalProperties": false,
+                                "nullable": true
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "controlLease",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.state.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "currentUrl": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "starting",
+                                  "active",
+                                  "paused",
+                                  "error",
+                                  "stopped"
+                                ]
+                              },
+                              "controlLease": {
+                                "type": "object",
+                                "properties": {
+                                  "userId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "displayName": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "expiresAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "userId",
+                                  "displayName",
+                                  "expiresAt"
+                                ],
+                                "additionalProperties": false,
+                                "nullable": true
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "currentUrl",
+                              "title",
+                              "status",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.session.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "starting",
+                                  "active",
+                                  "paused",
+                                  "error",
+                                  "stopped"
+                                ]
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "status",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "default": []
+                    }
+                  },
+                  "required": [
+                    "session"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{roomId}/wall-objects/{objectId}/shared-browser/control-lease": {
+      "post": {
+        "summary": "Take, release, or renew the shared browser keyboard control lease",
+        "tags": [
+          "shared-browsers"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "take",
+                      "release",
+                      "renew"
+                    ]
+                  }
+                },
+                "required": [
+                  "action"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "session": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "roomId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "wallObjectId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "createdByUserId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "starting",
+                            "active",
+                            "paused",
+                            "error",
+                            "stopped"
+                          ]
+                        },
+                        "currentUrl": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "title": {
+                          "type": "string",
+                          "maxLength": 512,
+                          "default": ""
+                        },
+                        "viewport": {
+                          "type": "object",
+                          "properties": {
+                            "width": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0
+                            },
+                            "height": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "width",
+                            "height"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "controlLease": {
+                          "type": "object",
+                          "properties": {
+                            "userId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "displayName": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "expiresAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          },
+                          "required": [
+                            "userId",
+                            "displayName",
+                            "expiresAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "livekit": {
+                          "type": "object",
+                          "properties": {
+                            "participantIdentity": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "trackSid": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "participantIdentity"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "lastInputAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "lastFrameAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "errorCode": {
+                          "type": "string"
+                        },
+                        "errorMessage": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "roomId",
+                        "wallObjectId",
+                        "createdByUserId",
+                        "status",
+                        "currentUrl",
+                        "viewport",
+                        "lastInputAt",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "realtimeMessages": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.pointer.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "authorUserId": {
+                                "type": "string"
+                              },
+                              "pointer": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "move",
+                                        "down",
+                                        "up",
+                                        "wheel"
+                                      ]
+                                    },
+                                    "x": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "y": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "button": {
+                                      "type": "string",
+                                      "enum": [
+                                        "left",
+                                        "middle",
+                                        "right"
+                                      ]
+                                    },
+                                    "deltaX": {
+                                      "type": "number"
+                                    },
+                                    "deltaY": {
+                                      "type": "number"
+                                    },
+                                    "at": {
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "x",
+                                    "y",
+                                    "at"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "default": []
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "authorUserId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.navigate.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "url": {
+                                "type": "string"
+                              },
+                              "navigatedByUserId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "url",
+                              "navigatedByUserId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.history.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "action": {
+                                "type": "string",
+                                "enum": [
+                                  "back",
+                                  "forward",
+                                  "refresh"
+                                ]
+                              },
+                              "actedByUserId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "action",
+                              "actedByUserId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.control-lease.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "controlLease": {
+                                "type": "object",
+                                "properties": {
+                                  "userId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "displayName": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "expiresAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "userId",
+                                  "displayName",
+                                  "expiresAt"
+                                ],
+                                "additionalProperties": false,
+                                "nullable": true
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "controlLease",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.state.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "currentUrl": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "starting",
+                                  "active",
+                                  "paused",
+                                  "error",
+                                  "stopped"
+                                ]
+                              },
+                              "controlLease": {
+                                "type": "object",
+                                "properties": {
+                                  "userId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "displayName": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "expiresAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "userId",
+                                  "displayName",
+                                  "expiresAt"
+                                ],
+                                "additionalProperties": false,
+                                "nullable": true
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "currentUrl",
+                              "title",
+                              "status",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.session.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "starting",
+                                  "active",
+                                  "paused",
+                                  "error",
+                                  "stopped"
+                                ]
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "status",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "default": []
+                    }
+                  },
+                  "required": [
+                    "session"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{roomId}/wall-objects/{objectId}/shared-browser/resume": {
+      "post": {
+        "summary": "Resume a paused shared browser session (idempotent)",
+        "tags": [
+          "shared-browsers"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "session": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "roomId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "wallObjectId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "createdByUserId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "starting",
+                            "active",
+                            "paused",
+                            "error",
+                            "stopped"
+                          ]
+                        },
+                        "currentUrl": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "title": {
+                          "type": "string",
+                          "maxLength": 512,
+                          "default": ""
+                        },
+                        "viewport": {
+                          "type": "object",
+                          "properties": {
+                            "width": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0
+                            },
+                            "height": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "width",
+                            "height"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "controlLease": {
+                          "type": "object",
+                          "properties": {
+                            "userId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "displayName": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "expiresAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          },
+                          "required": [
+                            "userId",
+                            "displayName",
+                            "expiresAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "livekit": {
+                          "type": "object",
+                          "properties": {
+                            "participantIdentity": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "trackSid": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "participantIdentity"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "lastInputAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "lastFrameAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "errorCode": {
+                          "type": "string"
+                        },
+                        "errorMessage": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "roomId",
+                        "wallObjectId",
+                        "createdByUserId",
+                        "status",
+                        "currentUrl",
+                        "viewport",
+                        "lastInputAt",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "realtimeMessages": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.pointer.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "authorUserId": {
+                                "type": "string"
+                              },
+                              "pointer": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "move",
+                                        "down",
+                                        "up",
+                                        "wheel"
+                                      ]
+                                    },
+                                    "x": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "y": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "button": {
+                                      "type": "string",
+                                      "enum": [
+                                        "left",
+                                        "middle",
+                                        "right"
+                                      ]
+                                    },
+                                    "deltaX": {
+                                      "type": "number"
+                                    },
+                                    "deltaY": {
+                                      "type": "number"
+                                    },
+                                    "at": {
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "x",
+                                    "y",
+                                    "at"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "default": []
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "authorUserId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.navigate.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "url": {
+                                "type": "string"
+                              },
+                              "navigatedByUserId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "url",
+                              "navigatedByUserId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.history.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "action": {
+                                "type": "string",
+                                "enum": [
+                                  "back",
+                                  "forward",
+                                  "refresh"
+                                ]
+                              },
+                              "actedByUserId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "action",
+                              "actedByUserId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.control-lease.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "controlLease": {
+                                "type": "object",
+                                "properties": {
+                                  "userId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "displayName": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "expiresAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "userId",
+                                  "displayName",
+                                  "expiresAt"
+                                ],
+                                "additionalProperties": false,
+                                "nullable": true
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "controlLease",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.state.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "currentUrl": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "starting",
+                                  "active",
+                                  "paused",
+                                  "error",
+                                  "stopped"
+                                ]
+                              },
+                              "controlLease": {
+                                "type": "object",
+                                "properties": {
+                                  "userId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "displayName": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "expiresAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "userId",
+                                  "displayName",
+                                  "expiresAt"
+                                ],
+                                "additionalProperties": false,
+                                "nullable": true
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "currentUrl",
+                              "title",
+                              "status",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.session.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "starting",
+                                  "active",
+                                  "paused",
+                                  "error",
+                                  "stopped"
+                                ]
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "status",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "default": []
+                    }
+                  },
+                  "required": [
+                    "session"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{roomId}/shared-browser/realtime": {
+      "post": {
+        "summary": "Accept batched shared browser pointer/keyboard input and fan out realtime messages",
+        "tags": [
+          "shared-browsers"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "wallObjectId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "pointer": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "move",
+                            "down",
+                            "up",
+                            "wheel"
+                          ]
+                        },
+                        "x": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "y": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "button": {
+                          "type": "string",
+                          "enum": [
+                            "left",
+                            "middle",
+                            "right"
+                          ]
+                        },
+                        "deltaX": {
+                          "type": "number"
+                        },
+                        "deltaY": {
+                          "type": "number"
+                        },
+                        "at": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "x",
+                        "y",
+                        "at"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 120,
+                    "default": []
+                  },
+                  "keyboard": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "down",
+                            "up",
+                            "char"
+                          ]
+                        },
+                        "key": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "text": {
+                          "type": "string",
+                          "maxLength": 8
+                        },
+                        "at": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "key",
+                        "at"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 120,
+                    "default": []
+                  }
+                },
+                "required": [
+                  "wallObjectId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "session": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "roomId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "wallObjectId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "createdByUserId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "starting",
+                            "active",
+                            "paused",
+                            "error",
+                            "stopped"
+                          ]
+                        },
+                        "currentUrl": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "title": {
+                          "type": "string",
+                          "maxLength": 512,
+                          "default": ""
+                        },
+                        "viewport": {
+                          "type": "object",
+                          "properties": {
+                            "width": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0
+                            },
+                            "height": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "width",
+                            "height"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "controlLease": {
+                          "type": "object",
+                          "properties": {
+                            "userId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "displayName": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "expiresAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          },
+                          "required": [
+                            "userId",
+                            "displayName",
+                            "expiresAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "livekit": {
+                          "type": "object",
+                          "properties": {
+                            "participantIdentity": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "trackSid": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "participantIdentity"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "lastInputAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "lastFrameAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "errorCode": {
+                          "type": "string"
+                        },
+                        "errorMessage": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "roomId",
+                        "wallObjectId",
+                        "createdByUserId",
+                        "status",
+                        "currentUrl",
+                        "viewport",
+                        "lastInputAt",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false,
+                      "nullable": true
+                    },
+                    "realtimeMessages": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.pointer.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "authorUserId": {
+                                "type": "string"
+                              },
+                              "pointer": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "move",
+                                        "down",
+                                        "up",
+                                        "wheel"
+                                      ]
+                                    },
+                                    "x": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "y": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1
+                                    },
+                                    "button": {
+                                      "type": "string",
+                                      "enum": [
+                                        "left",
+                                        "middle",
+                                        "right"
+                                      ]
+                                    },
+                                    "deltaX": {
+                                      "type": "number"
+                                    },
+                                    "deltaY": {
+                                      "type": "number"
+                                    },
+                                    "at": {
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "x",
+                                    "y",
+                                    "at"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "default": []
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "authorUserId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.navigate.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "url": {
+                                "type": "string"
+                              },
+                              "navigatedByUserId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "url",
+                              "navigatedByUserId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.history.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "action": {
+                                "type": "string",
+                                "enum": [
+                                  "back",
+                                  "forward",
+                                  "refresh"
+                                ]
+                              },
+                              "actedByUserId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "action",
+                              "actedByUserId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.control-lease.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "controlLease": {
+                                "type": "object",
+                                "properties": {
+                                  "userId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "displayName": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "expiresAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "userId",
+                                  "displayName",
+                                  "expiresAt"
+                                ],
+                                "additionalProperties": false,
+                                "nullable": true
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "controlLease",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.state.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "currentUrl": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "starting",
+                                  "active",
+                                  "paused",
+                                  "error",
+                                  "stopped"
+                                ]
+                              },
+                              "controlLease": {
+                                "type": "object",
+                                "properties": {
+                                  "userId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "displayName": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "expiresAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "userId",
+                                  "displayName",
+                                  "expiresAt"
+                                ],
+                                "additionalProperties": false,
+                                "nullable": true
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "currentUrl",
+                              "title",
+                              "status",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.shared-browser.session.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "wallObjectId": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "starting",
+                                  "active",
+                                  "paused",
+                                  "error",
+                                  "stopped"
+                                ]
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "wallObjectId",
+                              "status",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "default": []
+                    }
+                  },
+                  "required": [
+                    "session"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/rooms/{roomId}/wall-shares": {
       "post": {
         "summary": "Create live wall share intent",
@@ -10239,6 +13819,7 @@
                             "browser-tab.live",
                             "web.embed",
                             "web.link",
+                            "web.browser.shared",
                             "document.file",
                             "slides.file",
                             "whiteboard",
@@ -10543,6 +14124,7 @@
                         "browser-tab.live",
                         "web.embed",
                         "web.link",
+                        "web.browser.shared",
                         "document.file",
                         "slides.file",
                         "whiteboard",
@@ -10915,6 +14497,7 @@
                         "browser-tab.live",
                         "web.embed",
                         "web.link",
+                        "web.browser.shared",
                         "document.file",
                         "slides.file",
                         "whiteboard",
@@ -12206,6 +15789,7 @@
                                 "browser-tab.live",
                                 "web.embed",
                                 "web.link",
+                                "web.browser.shared",
                                 "document.file",
                                 "slides.file",
                                 "whiteboard",
@@ -12973,6 +16557,7 @@
                                                 "browser-tab.live",
                                                 "web.embed",
                                                 "web.link",
+                                                "web.browser.shared",
                                                 "document.file",
                                                 "slides.file",
                                                 "whiteboard",
@@ -13545,6 +17130,7 @@
                             "browser-tab.live",
                             "web.embed",
                             "web.link",
+                            "web.browser.shared",
                             "document.file",
                             "slides.file",
                             "whiteboard",
@@ -14691,6 +18277,7 @@
                                             "browser-tab.live",
                                             "web.embed",
                                             "web.link",
+                                            "web.browser.shared",
                                             "document.file",
                                             "slides.file",
                                             "whiteboard",
@@ -15238,6 +18825,7 @@
                                         "browser-tab.live",
                                         "web.embed",
                                         "web.link",
+                                        "web.browser.shared",
                                         "document.file",
                                         "slides.file",
                                         "whiteboard",
@@ -15969,6 +19557,7 @@
                                 "browser-tab.live",
                                 "web.embed",
                                 "web.link",
+                                "web.browser.shared",
                                 "document.file",
                                 "slides.file",
                                 "whiteboard",
@@ -16736,6 +20325,7 @@
                                                 "browser-tab.live",
                                                 "web.embed",
                                                 "web.link",
+                                                "web.browser.shared",
                                                 "document.file",
                                                 "slides.file",
                                                 "whiteboard",

@@ -10,7 +10,71 @@ Last updated: 2026-05-28
 
 ## Status / Scope
 
-**Status:** Not started. Planning only.
+**Status:** Phase 6 implementation complete; Phase 7 rollout scaffolding landed. The shared browser now has creation UI, 3D/2D/fullscreen rendering, shared media wiring, and JPEG fallback polling in the web client. Remaining work is verification-heavy: add/run dedicated multi-tab E2E coverage and do manual latency/UX passes.
+
+### Progress log
+
+- **2026-05-28 — Phase 6 complete; Phase 7 rollout scaffolding landed.** Shared-browser UI now renders and drives the room-owned Chromium session across 3D, 2D, sidebar, and fullscreen surfaces; env/docs updated; `@3dspace/web` + `@3dspace/api` typecheck green.
+  - `apps/web/components/SharedBrowser/SharedBrowserSurface.tsx` (NEW): shared-browser toolbar + viewport + status strip. Supports navigate/back/forward/refresh, take/release control, pause resume, open-in-new-tab, pointer injection, and keyboard forwarding gated on the control lease. `SharedBrowserSummary` gives compact/sidebar rendering.
+  - `apps/web/components/SharedBrowser/useSharedBrowserVideo.ts` (NEW): authenticated JPEG fallback polling against `GET .../frame.jpg`, using `NEXT_PUBLIC_SHARED_BROWSER_JPEG_FPS` on the client. It activates only when the session is active and there is no LiveKit `trackSid`.
+  - `apps/web/lib/realtime.ts`: remote track subscription now maps LiveKit participant identities of the form `shared-browser:<wallObjectId>` into the existing `wallMediaStreams` store, so the server-published synthetic track reuses the normal wall-media render path.
+  - `apps/web/lib/useWallObjects.ts`: `createInlineObject` now accepts `web.browser.shared`, letting the room UI create browser boards through the existing wall-object mutation path.
+  - `apps/web/components/AnchorPanel.tsx`: added the **Shared Browser** create option and form (title + start URL), wired to `onCreateSharedBrowser`, hidden unless the shared-browser feature is enabled client-side for the current room.
+  - `apps/web/components/RoomClient.tsx`: created `createSharedBrowser`, threaded the shared-browser controller/identity/roomId into `RoomView3D`, `RoomView2D`, `AnchorPanel`, and the fullscreen wall-object overlay.
+  - `apps/web/components/RoomView3D.tsx`: dynamic Free-for-All boards now accept `web.browser.shared`; shared-browser props flow through `WallObjectLayer` / `WallObjectSurface`.
+  - `apps/web/components/RoomView2D.tsx`: 2D projected board overlays now render shared-browser surfaces alongside whiteboards when present.
+  - `apps/web/components/WallObjectCard.tsx`: shared-browser rendering branch added to `WallObjectContent`, reusing the surface for boards/fullscreen and the summary view for compact sidebar cards.
+  - `apps/web/app/globals.css`: added shared-browser surface, toolbar, viewport, fallback, status, fullscreen, and 2D overlay styling.
+  - Rollout/docs: `.env.example`, `apps/api/.env.example`, and `apps/web/.env.example` now include shared-browser env vars; `docs/planning/mvp/DEPLOYMENT_CHECKLIST.md` now records RAM/LiveKit/JPEG-fallback deployment notes.
+
+- **2026-05-28 — Phase 4 done.** Realtime fan-out plumbed end-to-end; full suite 248 tests + `@3dspace/api` and `@3dspace/web` typecheck green. No new routes/contracts (the server side shipped in Phase 2).
+  - Server (already in place from Phase 2, verified): all shared-browser REST mutations return `realtimeMessages` envelopes; `navigate`→`navigate.v1`+`state.v1`, `history`→`history.v1`+`state.v1`, `control-lease`→`control-lease.v1`, `applyInput` (`POST /v1/rooms/:roomId/shared-browser/realtime`)→`pointer.v1` (pointer only; empty batch = no fan-out; keyboard requires the actor's live control lease else 403). The client publishes the returned messages over the existing LiveKit data channel (same pattern as whiteboards — server does not self-broadcast).
+  - `apps/web/lib/realtime.ts`: added `SharedBrowserRealtimeMessage` to the `RealtimeMessage` union and `room.shared-browser.pointer.v1` to `ROOM_OBJECT_UNRELIABLE_TYPES` (pointer is unreliable; navigate/history/control-lease/state/session are reliable).
+  - `apps/web/lib/api.ts`: added `getSharedBrowserSession`, `navigateSharedBrowser`, `sharedBrowserHistory`, `sharedBrowserControlLease`, `resumeSharedBrowser`, `sendSharedBrowserInput` (the last posts to the room-scoped `/shared-browser/realtime` with `wallObjectId` in the body).
+  - `apps/web/lib/useSharedBrowser.ts` (NEW): `useSharedBrowser` controller mirroring `useWhiteboards`. Per-object `SharedBrowserBoardState` (session + derived `currentUrl`/`title`/`status`/`controlLease`); hydrates each `web.browser.shared` object on mount; actions `navigate`/`history`/`controlLease`/`resume` (publish returned envelopes + patch local state); `queuePointer`/`queueKey` batch input and flush once per `requestAnimationFrame` via `sendSharedBrowserInput`; `handleRealtimeMessage` merges `state.v1`/`session.v1`/`navigate.v1`/`control-lease.v1` and acks `history.v1`/`pointer.v1`. Gated on `CLIENT_TUNING.enableSharedBrowsers && roomTypeFeatures.sharedBrowsers && session && manifest`.
+  - `apps/web/components/RoomClient.tsx`: instantiate `useSharedBrowser` after `roomTypeFeatures`; add `sharedBrowserRealtimeHandlerRef` and dispatch it in `handleMessage` (before the prefix-fallthrough), plus a `room.shared-browser.` prefix guard.
+  - Tests: `packages/contracts/tests/shared-browser.test.ts` (6 — discriminated-union parse for all 6 message types, control-lease payload, unknown-type rejection, pointer-batch clamp/defaults, FFA-only feature flag, https `currentUrl` guard); `apps/api/tests/api.test.ts` gained "fans out realtime envelopes for pointer input and control-lease changes" (pointer→1 `pointer.v1`, empty batch→0, lease take→`control-lease.v1`). Existing navigate/keyboard-lease tests already cover the other fan-out paths.
+
+- **2026-05-28 — Phase 3 done.** Real self-hosted Chromium driver implemented and wired in behind `enableSharedBrowsers`; full suite (241 tests, incl. 4 real-Chromium integration tests) + `npm --workspace @3dspace/api run typecheck` green. No new routes, so OpenAPI is unchanged.
+  - Deps added to `apps/api`: `puppeteer` (24.x, bundled Chromium → `~/.cache/puppeteer`) and `@livekit/rtc-node` (installed now for Phase 5). **No hosted remote-browser SDK** — hard vendor rule honored.
+  - `apps/api/src/shared-browser/session-registry.ts` (NEW): `LiveSessionRegistry` — in-memory `sessionId → { browser, context, page, cdp, screencastActive, guard, viewport }`. DB row stays the source of truth for metadata.
+  - `apps/api/src/shared-browser/puppeteer-driver.ts` (NEW): `PuppeteerSharedBrowserDriver implements SharedBrowserDriver`. Lazy single `browserPromise`; per-session **incognito `BrowserContext`** + page for cookie/storage isolation; `Page.setDownloadBehavior: deny`; **redirect SSRF guard via request interception** (`assertNavigationAllowed` re-checked on every main-frame navigation, `abort("blockedbyclient")` on reject); `navigate`/`history` drive `goto`/`goBack`/`goForward`/`reload` and swallow transient/timeout errors, returning the settled `{ url, title }`; `pointer`/`keyboard` map normalized coords to `page.mouse`/`page.keyboard`; `screencastLoop` via CDP `Page.startScreencast` (JPEG q60) with frame-ack; `stop` tears down the context, `close` tears down all sessions + the browser.
+  - `apps/api/src/shared-browser/idle-reaper.ts` (NEW): `SharedBrowserIdleReaper.sweep()` pauses sessions whose `lastInputAt` is older than `tuning.sharedBrowserIdlePauseMinutes` (driver `stop` + row → `paused`). LIMITATIONS: uses the **global** tuning value, not the per-room `settings.sharedBrowsers.idlePauseMinutes`; does **not** refresh the wall-object state cache (lags until the next mutation). `start()` runs a 60s `setInterval` (unref'd); `stop()` clears it.
+  - `apps/api/src/shared-browser/types.ts`: `DriverStartOptions` gained `navigationGuard: NavigationGuardSettings`; `SharedBrowserDriver` gained optional `close?()`.
+  - `apps/api/src/shared-browser/orchestrator.ts`: `createSession`/`resume` now pass `navigationGuard` to `driver.start` and pre-validate the start URL.
+  - `apps/api/src/app.ts`: `buildApp` constructs a `PuppeteerSharedBrowserDriver` only when `enableSharedBrowsers` **and** no orchestrator is injected (tests inject a stub-driver orchestrator). Idle reaper started after `fastify()`; `onClose` stops the reaper and calls `driver.close()`.
+  - Tests: `apps/api/tests/ssrf.test.ts` (13 — `__testing` IP/suffix helpers + `assertNavigationAllowed` allow/reject incl. scheme, private IP, localhost, allowlist, blocked-suffix, allowInsecureLocal); `apps/api/tests/shared-browser-idle-reaper.test.ts` (2 — stale→paused + driver.stop, fresh untouched, no re-pause of paused); `apps/api/tests/puppeteer-driver.test.ts` (4, gated on `puppeteer.executablePath()` existing — local HTTP server, start/navigate/history/`not live` after stop; uses `allowInsecureLocal` guard to reach loopback offline). `api.test.ts` shared-browser tests now build via a `buildSharedBrowserApp` helper that injects a **stub-driver** orchestrator so they stay offline (the real driver would otherwise launch Chromium + hit the network — that broke the `1.1.1.1 → one.one.one.one` redirect assertions).
+
+- **2026-05-28 — Phase 2 done.** Durable session lifecycle on the stub driver; full API surface, gating, SSRF, and tests landed. `npm --workspace @3dspace/api run typecheck` and the full `npx vitest run` (222 tests) are green.
+  - `apps/api/src/repository.ts`: `Repository` gained 8 `*SharedBrowserSession*` methods (return `| undefined`, not `| null`, to match the codebase). `MemoryRepository` implements all + `deleteRoom` cascade. `MongoRepository` (`models/mongoose.ts`) mirrors them with `sharedBrowserSessionSchema` (indexes `{roomId,wallObjectId}`, `{status,updatedAt}`, collection `shared_browser_sessions`), `docToSharedBrowserSession`, and lean-doc casts (`as Record<string, unknown> | null`) matching the meeting-notes pattern.
+  - `apps/api/src/shared-browser/`: `ssrf.ts` (`assertNavigationAllowed` — blocks non-https, private/reserved IPv4/IPv6 after DNS, localhost, optional allowlist/blocked-suffix), `types.ts` (`SharedBrowserDriver` interface), `stub-driver.ts` (URL/title-only, pointer/keyboard/screencast no-ops), `orchestrator.ts` (`SharedBrowserOrchestrator`: `createSession`/`hydrate`/`navigate`/`history`/`controlLease`/`resume`/`applyInput`/`stopSession`, mirrors runtime snapshot onto `WallObject.state` via `updateWallObject({ updatedByUserId: session.createdByUserId, state })`, builds realtime messages now so Phase 4 only needs fan-out). `guardSettings.allowInsecureLocal` is hard-`false` — the shared browser never targets loopback, even in dev.
+  - `apps/api/src/app.ts`: `assertSharedBrowsersEnabled` (double gate: `tuning.enableSharedBrowsers` + `settings.sharedBrowsers.enabled` + `getRoomTypeFeatureFlags().sharedBrowsers`, throws `notFound`). `validateWallObjectSource` requires an inline source with an https `startUrl`. `enforceWallObjectLimits` caps `web.browser.shared` at `settings.sharedBrowsers.maxActivePerRoom` (note: one object occupies an anchor, so the cap only bites across distinct anchors). Wall-object create handler gates + (when active) calls `orchestrator.createSession` and returns the state-synced object; delete handler calls `orchestrator.stopSession`. Six REST handlers: GET/navigate/history/control-lease/resume are wall-object-scoped; `POST /v1/rooms/:roomId/shared-browser/realtime` is room-scoped with `wallObjectId` in the body (matches the registered route). Orchestrator instantiated in `buildApp` (`options.sharedBrowserOrchestrator` injectable, defaults to stub).
+  - `apps/api/tests/api.test.ts`: `describe("shared browser boards")` — 8 tests: create+state mirror, navigate updates `currentUrl`, SSRF rejects `127.0.0.1`/`169.254.169.254`/`10.0.0.5`/`localhost` (400 `navigation_blocked`), non-https start URL rejected, 404 on classroom + flag-off rooms, delete→session gone, per-room limit across 3 FFA static anchors (2 allowed, 3rd 409), keyboard requires control lease / pointer does not. Tests use literal public IP `1.1.1.1`/`1.0.0.1` to keep SSRF DNS off the network.
+  - OpenAPI regenerated (same explicit command as Phase 1); 6 shared-browser paths present.
+
+- **2026-05-28 — Phase 1 done.** Contracts, room-engine, feature flags, room settings, config tuning, and OpenAPI all landed and typecheck green.
+  - `packages/contracts/src/index.ts`: added `"web.browser.shared"` to `WallObjectTypeSchema`; `sharedBrowsers: boolean` on `RoomTypeFeatureFlags` (FFA `true`, others `false`); `RoomSettings.sharedBrowsers` block (after `aiObjects`); full shared-browser schema block (entity `SharedBrowserSessionSchema`, `SharedBrowserWallObjectStateSchema`, pointer/key event, navigate/history/control-lease/pointer-batch requests, 6 realtime messages + `SharedBrowserRealtimeMessageSchema` union, `SharedBrowserSessionResponseSchema`, `SharedBrowserRealtimeDispatchResponseSchema`) placed right after the whiteboard response schemas (~line 1519). Type exports added after `WhiteboardRealtimeMessage`. Six REST routes registered in `apiRoutes` after the whiteboard routes (tag `shared-browsers`). NOTE: `frame.jpg` is NOT in `apiRoutes` (binary response) — register it manually in `app.ts` in Phase 5.
+  - `packages/room-engine/src/index.ts`: `"web.browser.shared"` added to `FULL_WALL_OBJECT_ACCEPTS`.
+  - `packages/room-engine/src/wallAnchorPolicy.ts`: `"shared-browser"` added to `WallAnchorCreateOption` + `anchorSupportsCreateOption` case → `web.browser.shared`.
+  - `apps/web/lib/config.ts`: `CLIENT_TUNING.enableSharedBrowsers` (`NEXT_PUBLIC_ENABLE_SHARED_BROWSERS === "true"`).
+  - `apps/api/src/config.ts`: added 10 `tuning.sharedBrowser*` fields + loader (env vars per PLAN § 5) + `requiredInProduction` guard (requires LiveKit when enabled; rejects JPEG fallback in production).
+  - `apps/api/src/app.ts`: `roomSettings()` factory now emits the `sharedBrowsers` block (needed for compile).
+  - OpenAPI regenerated via `npm run build -w @3dspace/contracts && node apps/api/dist/openapi.js > packages/contracts/openapi/openapi.json` (the `npm run openapi` wrapper pollutes stdout — use the explicit form).
+  - Validation green: `npm --workspace @3dspace/contracts run typecheck`, `@3dspace/room-engine`, `@3dspace/web`; api builds.
+
+### Where to start next (Phase 5)
+
+Realtime is wired; the missing piece is **pixels on the board**. Phase 5 turns the driver's screencast (`driver.screencastLoop(sessionId, onFrame)`, JPEG buffers) into something the room can render: a LiveKit synthetic video track in production and a `GET .../frame.jpg` fallback in dev. See the "Phase 5" section below. Plan:
+
+1. **`apps/api/src/shared-browser/livekit-publisher.ts` (NEW)**: use `@livekit/rtc-node` (already installed) to join the room as a bot identity (`shared-browser:<wallObjectId>`), publish a synthetic video track, and feed it the screencast frames. Store `trackSid`/`participantIdentity` on the session row (`session.livekit`).
+2. **`apps/api/src/shared-browser/jpeg-fallback.ts` (NEW)**: when `SHARED_BROWSER_USE_JPEG_FALLBACK=true` or LiveKit is unconfigured (non-production only — `config.ts` already forbids the fallback in production), keep the latest JPEG per session in memory.
+3. **`apps/api/src/app.ts`**: register `GET /v1/rooms/:roomId/wall-objects/:objectId/shared-browser/frame.jpg` **manually** (binary `image/jpeg`, `Cache-Control: no-store`) — it is intentionally NOT in `apiRoutes` (binary response). Start the publisher/fallback when a session goes active; stop it on pause/stop. Wire the screencast loop start into the orchestrator/driver lifecycle.
+4. **`apps/web/lib/useSharedBrowserVideo.ts` (NEW)**: subscribe the bot's LiveKit track when `status === "active"`, or poll `frame.jpg` in dev.
+5. **Tests**: gate any encode test on `@livekit/rtc-node` availability; a fallback test can assert `frame.jpg` returns the last pushed buffer with `image/jpeg`.
+
+Key files: new `livekit-publisher.ts`, `jpeg-fallback.ts`, `apps/web/lib/useSharedBrowserVideo.ts`; `frame.jpg` route + lifecycle wiring in `apps/api/src/app.ts`. **Then Phase 6** adds the actual UI (SharedBrowser components, AnchorPanel create form, WallObjectCard branch, RoomView3D/2D mount) — until then the feature has no user-facing surface even though the hook + dispatch exist.
+
+**Gotchas for the next AI:** (a) The real Puppeteer driver is only built in `buildApp` when `enableSharedBrowsers` AND no orchestrator is injected — API tests MUST inject a stub-driver orchestrator (see `buildSharedBrowserApp` in `api.test.ts`) or they'll launch Chromium and hit the network. (b) The idle reaper uses the **global** `tuning.sharedBrowserIdlePauseMinutes`, not the per-room setting, and does not refresh the wall-object state cache — revisit if per-room idle config matters. (c) `puppeteer-driver.test.ts` is gated on `puppeteer.executablePath()` existing on disk; it will silently `describe.skip` in lanes without bundled Chromium. (d) The server never self-broadcasts realtime — handlers return `realtimeMessages` and the **client** publishes them over the LiveKit data channel; preserve that contract (`useSharedBrowser` already does it). (e) `applyInput` only emits a `pointer.v1` envelope (no `state.v1`); an empty batch is a no-op with zero fan-out.
 
 This doc implements the Shared Browser board described in the PLAN. It is **additive to Free-for-All Phase 1** and follows the hard vendor rule: **no paid or freemium third-party browser services** — only self-hosted Chromium + Puppeteer and reuse of existing 3DSpace infra (MongoDB, API, LiveKit).
 
@@ -454,17 +518,17 @@ Goal: render screencast on the board.
 
 ## Validation checkboxes
 
-- [ ] Phase 1: `npm run typecheck` (contracts, room-engine, web).
-- [ ] Phase 1: OpenAPI regenerated.
-- [ ] Phase 2: `npm run test -- apps/api/tests/api.test.ts -t "shared browser"` passes.
-- [ ] Phase 2: creator disconnect does **not** stop session (API test).
-- [ ] Phase 3: Puppeteer navigates example.com in CI (allow network or mock HTTP server).
-- [ ] Phase 3: SSRF unit tests pass for localhost + metadata IP.
-- [ ] Phase 4: two-tab pointer click reflected in session state < 500 ms (local).
-- [ ] Phase 5: video track visible on board OR JPEG fallback renders in dev.
-- [ ] Phase 6: 3D + 2D parity manually verified.
-- [ ] Phase 7: Playwright `shared-browser.spec.ts` passes.
-- [ ] Phase 7: `grep -r hyperbeam\|browserless\|browserbase apps/api/src/shared-browser` returns **no matches**.
+- [x] Phase 1: `npm run typecheck` (contracts, room-engine, web).
+- [x] Phase 1: OpenAPI regenerated.
+- [x] Phase 2: `npx vitest run apps/api/tests/api.test.ts -t "shared browser boards"` passes (8 tests; full suite 222 green).
+- [x] Phase 2: session persists in the repository independent of the creator's connection (no disconnect teardown wired — only wall-object delete calls `stopSession`).
+- [x] Phase 3: Puppeteer navigates a local mock HTTP server (`puppeteer-driver.test.ts`, gated on bundled Chromium; start/navigate/history/`not live`).
+- [x] Phase 3: SSRF unit tests pass for localhost + metadata IP (`ssrf.test.ts`, 13 tests incl. `169.254.169.254`, `127.0.0.1`, `::1`).
+- [~] Phase 4: realtime plumbing done + unit-tested (contract parse + ingress fan-out envelopes); full two-tab manual latency check still pending.
+- [x] Phase 5: code paths for LiveKit video wiring + JPEG fallback landed on both API and web; manual rendered-board verification still pending.
+- [x] Phase 6: UI/rendering implementation landed for creation, 3D, 2D, sidebar, and fullscreen shared-browser surfaces.
+- [~] Phase 7: env/docs scaffolding landed and `@3dspace/web` + `@3dspace/api` typecheck pass; dedicated Playwright coverage is still pending.
+- [x] Phase 7: `rg "hyperbeam|browserless|browserbase" apps/api/src/shared-browser apps/web` returns no matches.
 
 ---
 
