@@ -2,7 +2,7 @@
 
 import { Html } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
-import { type CSSProperties, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CanvasTexture, LinearFilter, MeshBasicMaterial, SRGBColorSpace, type Mesh } from "three";
 import type { WallObject } from "@3dspace/contracts";
 import { CLIENT_TUNING } from "../../lib/config";
@@ -16,38 +16,6 @@ import { useHyperbeamEmbed } from "./useHyperbeamEmbed";
 const WALL_BROWSER_HTML_Z_INDEX_RANGE: [number, number] = [15, 0];
 const VIEWPORT_HEIGHT_RATIO = 0.84;
 const CHROME_HEIGHT_RATIO = 0.16;
-
-function forwardMouseToHyperbeam(
-  sendEvent: ((event: { type: "mousedown" | "mousemove" | "mouseup"; x: number; y: number; button?: number }) => void) | undefined,
-  clientX: number,
-  clientY: number,
-  bounds: DOMRect,
-  frameWidth: number,
-  frameHeight: number,
-  button: number,
-  type: "mousedown" | "mousemove" | "mouseup"
-) {
-  if (!sendEvent || bounds.width <= 0 || bounds.height <= 0) return;
-  const normalizedX = Math.min(Math.max((clientX - bounds.left) / bounds.width, 0), 1);
-  const normalizedY = Math.min(Math.max((clientY - bounds.top) / bounds.height, 0), 1);
-  sendEvent({
-    type,
-    x: Math.round(normalizedX * frameWidth),
-    y: Math.round(normalizedY * frameHeight),
-    button
-  });
-}
-
-function forwardWheelToHyperbeam(
-  sendEvent: ((event: { type: "wheel"; deltaY: number }) => void) | undefined,
-  nativeEvent: WheelEvent
-) {
-  if (!sendEvent) return;
-  sendEvent({
-    type: "wheel",
-    deltaY: nativeEvent.deltaY
-  });
-}
 
 export function SharedBrowserWallSurface({
   object,
@@ -73,7 +41,6 @@ export function SharedBrowserWallSurface({
   const meshRef = useRef<Mesh | null>(null);
   const textureRef = useRef<CanvasTexture | null>(null);
   const materialRef = useRef<MeshBasicMaterial | null>(null);
-  const pointerDownRef = useRef(false);
   const hasFrameRef = useRef(false);
   const [hasFrame, setHasFrame] = useState(false);
   const invalidate = useThree((state) => state.invalidate);
@@ -142,18 +109,13 @@ export function SharedBrowserWallSurface({
       .catch((err: unknown) => console.error("[SharedBrowser] auto-navigate failed", err));
   }, [hyperbeam.status, board.currentUrl, board.status, embedUrl, controller, object.id]);
 
-  // Build the off-screen Hyperbeam host imperatively so no DOM nodes live in the R3F tree.
-  // Hyperbeam mounts its embed in `container` and blits frames into `canvas`, which backs
-  // the wall mesh's CanvasTexture.
+  // The wall texture still comes from an off-screen canvas, but the live Hyperbeam container
+  // now sits in an Html overlay sized to the board surface so native pointer input lands on
+  // Hyperbeam itself instead of the scene canvas camera controller.
   useLayoutEffect(() => {
     if (typeof document === "undefined") return;
     const host = document.createElement("div");
     host.className = "shared-browser-hyperbeam-host";
-
-    const container = document.createElement("div");
-    container.className = "shared-browser-viewport__embed shared-browser-viewport__embed--input-layer";
-    container.style.width = "100%";
-    container.style.height = "100%";
 
     const canvas = document.createElement("canvas");
     canvas.width = frameSize.width;
@@ -164,11 +126,9 @@ export function SharedBrowserWallSurface({
     audio.autoplay = true;
     audio.setAttribute("playsinline", "");
 
-    host.appendChild(container);
     host.appendChild(audio);
     document.body.appendChild(host);
 
-    hyperbeam.containerRef.current = container;
     hyperbeam.canvasRef.current = canvas;
     hyperbeam.audioRef.current = audio;
 
@@ -181,23 +141,14 @@ export function SharedBrowserWallSurface({
     return () => {
       texture.dispose();
       textureRef.current = null;
-      hyperbeam.containerRef.current = null;
       hyperbeam.canvasRef.current = null;
       hyperbeam.audioRef.current = null;
       host.remove();
     };
-    // Host is created once; frameSize only seeds the initial canvas size — the embed hook
-    // resizes the canvas per-frame, so we must not recreate the host (it would orphan the embed).
+    // Canvas/audio host is created once; frameSize only seeds the initial canvas size — the
+    // embed hook resizes the canvas per-frame, so we must not recreate the host.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hyperbeam.audioRef, hyperbeam.canvasRef, hyperbeam.containerRef]);
-
-  useLayoutEffect(() => {
-    const host = hyperbeam.containerRef.current?.parentElement;
-    if (host) {
-      host.style.width = `${frameSize.width}px`;
-      host.style.height = `${frameSize.height}px`;
-    }
-  }, [frameSize.height, frameSize.width, hyperbeam.containerRef]);
+  }, [hyperbeam.audioRef, hyperbeam.canvasRef]);
 
   // Reset the "has a painted frame" gate whenever the embed leaves the connected state,
   // so the dark placeholder shows again instead of a stale frame.
@@ -265,68 +216,6 @@ export function SharedBrowserWallSurface({
       ? "Connection lost"
       : "Loading browser…";
 
-  const onViewportPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!hasLease) return;
-    event.preventDefault();
-    event.stopPropagation();
-    pointerDownRef.current = true;
-    event.currentTarget.focus({ preventScroll: true });
-    event.currentTarget.setPointerCapture(event.pointerId);
-    forwardMouseToHyperbeam(
-      hyperbeam.instance?.sendEvent.bind(hyperbeam.instance),
-      event.clientX,
-      event.clientY,
-      event.currentTarget.getBoundingClientRect(),
-      frameSize.width,
-      frameSize.height,
-      event.button,
-      "mousedown"
-    );
-  };
-
-  const onViewportPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!hasLease) return;
-    event.preventDefault();
-    event.stopPropagation();
-    forwardMouseToHyperbeam(
-      hyperbeam.instance?.sendEvent.bind(hyperbeam.instance),
-      event.clientX,
-      event.clientY,
-      event.currentTarget.getBoundingClientRect(),
-      frameSize.width,
-      frameSize.height,
-      event.button,
-      "mousemove"
-    );
-  };
-
-  const endViewportPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!hasLease || !pointerDownRef.current) return;
-    event.preventDefault();
-    event.stopPropagation();
-    pointerDownRef.current = false;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    forwardMouseToHyperbeam(
-      hyperbeam.instance?.sendEvent.bind(hyperbeam.instance),
-      event.clientX,
-      event.clientY,
-      event.currentTarget.getBoundingClientRect(),
-      frameSize.width,
-      frameSize.height,
-      event.button,
-      "mouseup"
-    );
-  };
-
-  const onViewportWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
-    if (!hasLease) return;
-    event.preventDefault();
-    event.stopPropagation();
-    forwardWheelToHyperbeam(hyperbeam.instance?.sendEvent.bind(hyperbeam.instance), event.nativeEvent);
-  };
-
   return (
     <>
       <Html
@@ -373,19 +262,20 @@ export function SharedBrowserWallSurface({
       >
         <div className="wall-object-surface-mount">
           <div
+            ref={hyperbeam.containerRef}
+            className="shared-browser-viewport__embed shared-browser-viewport__embed--input-layer"
             aria-label="Shared browser interaction layer"
             role="application"
             tabIndex={hasLease ? 0 : -1}
-            onPointerDown={onViewportPointerDown}
-            onPointerMove={onViewportPointerMove}
-            onPointerUp={endViewportPointer}
-            onPointerCancel={endViewportPointer}
-            onWheel={onViewportWheel}
+            onPointerDown={(event) => {
+              if (!hasLease) return;
+              event.currentTarget.focus({ preventScroll: true });
+            }}
             style={{
               width: "100%",
               height: "100%",
               pointerEvents: hasLease ? "auto" : "none",
-              touchAction: "none",
+              touchAction: "pan-x pan-y",
               cursor: hasLease ? "default" : "auto",
               background: "transparent",
               overflow: "hidden"
