@@ -174,6 +174,8 @@ export function useHyperbeamEmbed(options: UseHyperbeamEmbedOptions): UseHyperbe
             } else if (event.state === "failed") {
               setStatus("error");
               setError("Hyperbeam connection failed");
+            } else {
+              setStatus("loading");
             }
           },
           onDisconnect: (event) => {
@@ -199,7 +201,6 @@ export function useHyperbeamEmbed(options: UseHyperbeamEmbedOptions): UseHyperbe
 
         instanceRef.current = hb;
         setInstance(hb);
-        setStatus("connected");
       } catch (cause) {
         if (cancelled) return;
         instanceRef.current = null;

@@ -1,7 +1,7 @@
 "use client";
 
 import { Html } from "@react-three/drei";
-import { type ThreeEvent } from "@react-three/fiber";
+import { type ThreeEvent, useThree } from "@react-three/fiber";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   CanvasTexture,
@@ -79,6 +79,7 @@ export function SharedBrowserWallSurface({
   const pointerDownRef = useRef(false);
   const hasFrameRef = useRef(false);
   const [hasFrame, setHasFrame] = useState(false);
+  const invalidate = useThree((state) => state.invalidate);
   // Tracks whether we've sent the auto-navigate for the current embed session.
   const autoNavigatedForEmbedRef = useRef<string | null>(null);
 
@@ -102,6 +103,7 @@ export function SharedBrowserWallSurface({
     onFrameDrawn: () => {
       const texture = textureRef.current;
       if (texture) texture.needsUpdate = true;
+      invalidate();
       if (!hasFrameRef.current) {
         hasFrameRef.current = true;
         setHasFrame(true);
@@ -137,7 +139,7 @@ export function SharedBrowserWallSurface({
     if (!board.currentUrl || board.status !== "active") return;
     if (autoNavigatedForEmbedRef.current === embedUrl) return;
     autoNavigatedForEmbedRef.current = embedUrl;
-    console.log("[SharedBrowser] auto-navigate on connect", { url: board.currentUrl, embedUrl, status: hyperbeam.status });
+    console.log("[SharedBrowser] auto-navigate on playback ready", { url: board.currentUrl, embedUrl, status: hyperbeam.status });
     void controller.navigate(object.id, board.currentUrl)
       .then(() => console.log("[SharedBrowser] auto-navigate succeeded"))
       .catch((err: unknown) => console.error("[SharedBrowser] auto-navigate failed", err));
