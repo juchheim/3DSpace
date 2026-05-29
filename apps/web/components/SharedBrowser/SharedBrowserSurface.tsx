@@ -60,7 +60,8 @@ export function SharedBrowserSurface({
   compact = false,
   surface = false,
   hyperbeamVideoMode = "dom",
-  hyperbeamEmbedVisible = true
+  hyperbeamEmbedVisible = true,
+  displayAspectRatio
 }: {
   object: WallObject;
   board: SharedBrowserBoardState;
@@ -74,6 +75,8 @@ export function SharedBrowserSurface({
   hyperbeamVideoMode?: HyperbeamVideoMode;
   /** When false, tears down the Hyperbeam client (off-screen board, background tab, etc.). */
   hyperbeamEmbedVisible?: boolean;
+  /** Board display aspect (width / height) for 3D wall surfaces; drives VM resize and viewport layout. */
+  displayAspectRatio?: number;
 }) {
   const tabVisible = useDocumentVisible();
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -94,6 +97,7 @@ export function SharedBrowserSurface({
     hasControl: hasLease,
     videoMode: useFrameVideo ? "frame" : "dom",
     frameSize,
+    ...(displayAspectRatio !== undefined ? { displayAspectRatio } : {}),
     playoutDelay: CLIENT_TUNING.sharedBrowserHyperbeamPlayoutDelay,
     onDisconnect: (reason) => {
       if (reason === "unauthorized" || reason === "inactive") {
@@ -183,7 +187,11 @@ export function SharedBrowserSurface({
       : null);
 
   const viewportAspectRatio =
-    frameSize.width > 0 && frameSize.height > 0 ? `${frameSize.width} / ${frameSize.height}` : "16 / 9";
+    displayAspectRatio && displayAspectRatio > 0
+      ? `${displayAspectRatio}`
+      : frameSize.width > 0 && frameSize.height > 0
+      ? `${frameSize.width} / ${frameSize.height}`
+      : "16 / 9";
 
   return (
     <div

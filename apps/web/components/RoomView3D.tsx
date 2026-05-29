@@ -65,8 +65,8 @@ const WALL_ANCHOR_SURFACE_OFFSET = 0.04;
 const WALL_SURFACE_MIN_VISIBLE_DISTANCE = 0.02;
 const WALL_SURFACE_SELF_OCCLUSION_DISTANCE = 0.45;
 const WALL_INTERSECTION_EPSILON = 0.0001;
-export const DYNAMIC_BOARD_DEFAULT_WIDTH = 4.0;
-export const DYNAMIC_BOARD_DEFAULT_HEIGHT = 2.5;
+export const DYNAMIC_BOARD_DEFAULT_WIDTH = 8.0;
+export const DYNAMIC_BOARD_DEFAULT_HEIGHT = 5.0;
 const DYNAMIC_BOARD_WALL_INSET = 0.1;
 const DYNAMIC_BOARD_ACCEPTS: CreateDynamicWallAnchorRequest["accepts"] = [
   "image",
@@ -807,22 +807,29 @@ const WallObjectSurface = memo(function WallObjectSurface({
   const surfaceWidth = placement.width * anchor.width;
   const surfaceHeight = placement.height * anchor.height;
   const htmlResolutionScale = useWallObjectHtmlResolutionScale(quality);
+  const effectiveResolutionScale =
+    object.type === "web.browser.shared" ? Math.min(3, htmlResolutionScale + 0.5) : htmlResolutionScale;
+  const displayAspectRatio = surfaceWidth / surfaceHeight;
   const surfaceStyle = useMemo<WallObjectSurfaceStyle>(() => {
-    const { widthPx, heightPx, baseHeightPx } = wallObjectSurfacePixelSize(surfaceWidth, surfaceHeight, htmlResolutionScale);
+    const { widthPx, heightPx, baseHeightPx } = wallObjectSurfacePixelSize(
+      surfaceWidth,
+      surfaceHeight,
+      effectiveResolutionScale
+    );
     const fontRatio = object.type === "poll" ? 0.18 : 0.28;
     const fontMax = object.type === "poll" ? 80 : 96;
     return {
       width: `${widthPx}px`,
       height: `${heightPx}px`,
-      "--wall-surface-font-size": `${clamp(baseHeightPx * fontRatio, 20, fontMax) * htmlResolutionScale}px`
+      "--wall-surface-font-size": `${clamp(baseHeightPx * fontRatio, 20, fontMax) * effectiveResolutionScale}px`
     };
-  }, [htmlResolutionScale, object.type, surfaceHeight, surfaceWidth]);
+  }, [effectiveResolutionScale, object.type, surfaceHeight, surfaceWidth]);
   const mountStyle = useMemo<CSSProperties>(
     () => ({
-      transform: `scale(${1 / htmlResolutionScale})`,
+      transform: `scale(${1 / effectiveResolutionScale})`,
       transformOrigin: "center center"
     }),
-    [htmlResolutionScale]
+    [effectiveResolutionScale]
   );
   const position = useMemo<[number, number, number]>(() => {
     const xOffset = (placement.x + placement.width / 2 - 0.5) * anchor.width;
@@ -843,6 +850,7 @@ const WallObjectSurface = memo(function WallObjectSurface({
         <Html
           center
           transform
+          occlude="blending"
           distanceFactor={WALL_OBJECT_DISTANCE_FACTOR}
           className="wall-object-html wall-object-html--board"
           style={surfaceStyle}
@@ -870,7 +878,7 @@ const WallObjectSurface = memo(function WallObjectSurface({
               {...(sharedBrowserIdentity ? { sharedBrowserIdentity } : {})}
               {...(sharedBrowserRoomId ? { sharedBrowserRoomId } : {})}
               {...(object.type === "web.browser.shared"
-                ? { hyperbeamEmbedVisible: visible }
+                ? { hyperbeamEmbedVisible: visible, displayAspectRatio }
                 : {})}
               hideHeader={hideHeader}
             />

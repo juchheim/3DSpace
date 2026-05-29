@@ -96,11 +96,13 @@ export default async function mockHyperbeamEmbed(
     volume: options.volume ?? 1,
     delegateKeyboard: options.delegateKeyboard ?? false,
     disableInput: options.disableInput ?? true,
+    maxArea: 1280 * 720,
+    async resize(_width: number, _height: number) {},
     destroy() {
       if (frameTimer !== undefined) window.clearInterval(frameTimer);
       container.replaceChildren();
     }
-  } as HyperbeamEmbed;
+  } as unknown as HyperbeamEmbed;
 
   return instance;
 }

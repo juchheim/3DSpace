@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import type { HyperbeamEmbed } from "@hyperbeam/web";
 import { drawHyperbeamFrame, DEFAULT_SHARED_BROWSER_FRAME_SIZE } from "./hyperbeamFrameCanvas";
+import { HYPERBEAM_MAX_VIEWPORT_AREA, optimalHyperbeamViewportForAspect } from "../../lib/hyperbeamViewport";
 
 export type HyperbeamEmbedStatus = "idle" | "loading" | "connected" | "error";
 
@@ -18,6 +19,8 @@ export type UseHyperbeamEmbedOptions = {
   videoMode?: HyperbeamVideoMode;
   /** Native Hyperbeam session resolution; used for frame-mode canvas backing store. */
   frameSize?: { width: number; height: number };
+  /** When set, resizes the Hyperbeam VM to the best resolution for this aspect ratio within maxArea. */
+  displayAspectRatio?: number;
   /** Trades latency for smoother motion when true (Hyperbeam playoutDelay). */
   playoutDelay?: boolean;
   volume?: number;
@@ -42,6 +45,7 @@ export function useHyperbeamEmbed(options: UseHyperbeamEmbedOptions): UseHyperbe
     hasControl,
     videoMode = "dom",
     frameSize = DEFAULT_SHARED_BROWSER_FRAME_SIZE,
+    displayAspectRatio,
     playoutDelay = false,
     volume = 1,
     onDisconnect,
@@ -59,6 +63,8 @@ export function useHyperbeamEmbed(options: UseHyperbeamEmbedOptions): UseHyperbe
   onCloseWarningRef.current = onCloseWarning;
   const hasControlRef = useRef(hasControl);
   hasControlRef.current = hasControl;
+  const displayAspectRatioRef = useRef(displayAspectRatio);
+  displayAspectRatioRef.current = displayAspectRatio;
   const [status, setStatus] = useState<HyperbeamEmbedStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [instance, setInstance] = useState<HyperbeamEmbed | null>(null);
@@ -69,6 +75,14 @@ export function useHyperbeamEmbed(options: UseHyperbeamEmbedOptions): UseHyperbe
     const stream = new MediaStream([track]);
     audio.srcObject = stream;
     void audio.play().catch(() => undefined);
+  }, []);
+
+  const resizeForDisplayAspect = useCallback(async (hb: HyperbeamEmbed) => {
+    const aspect = displayAspectRatioRef.current;
+    if (!aspect || aspect <= 0) return;
+    const maxArea = hb.maxArea ?? HYPERBEAM_MAX_VIEWPORT_AREA;
+    const { width, height } = optimalHyperbeamViewportForAspect(aspect, maxArea);
+    await hb.resize(width, height);
   }, []);
 
   const onFrame = useCallback(
@@ -160,6 +174,12 @@ export function useHyperbeamEmbed(options: UseHyperbeamEmbedOptions): UseHyperbe
           return;
         }
 
+        try {
+          await resizeForDisplayAspect(hb);
+        } catch {
+          // Keep the default session size if resize is rejected.
+        }
+
         instanceRef.current = hb;
         setInstance(hb);
         setStatus("connected");
@@ -180,7 +200,13 @@ export function useHyperbeamEmbed(options: UseHyperbeamEmbedOptions): UseHyperbe
       const audio = audioRef.current;
       if (audio?.srcObject) audio.srcObject = null;
     };
-  }, [attachAudio, embedUrl, enabled, onFrame, playoutDelay, videoMode, volume]);
+  }, [attachAudio, embedUrl, enabled, onFrame, playoutDelay, resizeForDisplayAspect, videoMode, volume]);
+
+  useEffect(() => {
+    const hb = instanceRef.current;
+    if (!hb) return;
+    void resizeForDisplayAspect(hb).catch(() => undefined);
+  }, [displayAspectRatio, instance, resizeForDisplayAspect]);
 
   useEffect(() => {
     const hb = instanceRef.current;

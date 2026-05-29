@@ -508,6 +508,7 @@ export function WallObjectContent({
   sharedBrowserRoomId,
   sharedBrowserHyperbeamVideoMode,
   hyperbeamEmbedVisible,
+  displayAspectRatio,
   compact
 }: {
   object: WallObject;
@@ -527,6 +528,7 @@ export function WallObjectContent({
   sharedBrowserRoomId?: string | undefined;
   sharedBrowserHyperbeamVideoMode?: HyperbeamVideoMode | undefined;
   hyperbeamEmbedVisible?: boolean | undefined;
+  displayAspectRatio?: number | undefined;
 }) {
   if (object.type === "whiteboard" && whiteboardController && currentUserId) {
     if (!surface) {
@@ -593,6 +595,7 @@ export function WallObjectContent({
         {...(compact !== undefined ? { compact } : {})}
         {...(sharedBrowserHyperbeamVideoMode ? { hyperbeamVideoMode: sharedBrowserHyperbeamVideoMode } : {})}
         {...(hyperbeamEmbedVisible !== undefined ? { hyperbeamEmbedVisible } : {})}
+        {...(displayAspectRatio !== undefined ? { displayAspectRatio } : {})}
       />
     );
   }
@@ -671,6 +674,7 @@ export function WallObjectCard({
   sharedBrowserRoomId,
   sharedBrowserHyperbeamVideoMode,
   hyperbeamEmbedVisible,
+  displayAspectRatio,
   onModerate,
   onFullscreen,
   hideHeader = false
@@ -694,6 +698,7 @@ export function WallObjectCard({
   sharedBrowserRoomId?: string | undefined;
   sharedBrowserHyperbeamVideoMode?: HyperbeamVideoMode | undefined;
   hyperbeamEmbedVisible?: boolean | undefined;
+  displayAspectRatio?: number | undefined;
   onModerate?: (objectId: string, action: "approve" | "reject") => void;
   onFullscreen?: (objectId: string) => void;
   hideHeader?: boolean;
@@ -719,6 +724,7 @@ export function WallObjectCard({
         sharedBrowserRoomId={sharedBrowserRoomId}
         sharedBrowserHyperbeamVideoMode={sharedBrowserHyperbeamVideoMode}
         hyperbeamEmbedVisible={hyperbeamEmbedVisible}
+        displayAspectRatio={displayAspectRatio}
         compact={compact}
         {...(onControl ? { onControl } : {})}
       />
@@ -735,6 +741,7 @@ export function WallObjectCard({
       sharedBrowserController,
       sharedBrowserHyperbeamVideoMode,
       hyperbeamEmbedVisible,
+      displayAspectRatio,
       sharedBrowserIdentity,
       sharedBrowserRoomId,
       surface,
