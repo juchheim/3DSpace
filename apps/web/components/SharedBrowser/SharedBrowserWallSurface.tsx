@@ -80,6 +80,8 @@ export function SharedBrowserWallSurface({
   const pointerDownRef = useRef(false);
   const hasFrameRef = useRef(false);
   const [hasFrame, setHasFrame] = useState(false);
+  // Tracks whether we've sent the auto-navigate for the current embed session.
+  const autoNavigatedForEmbedRef = useRef<string | null>(null);
 
   const leaseUserId = activeSharedBrowserLeaseUserId(board);
   const hasLease = Boolean(currentUserId && leaseUserId === currentUserId);
@@ -103,6 +105,16 @@ export function SharedBrowserWallSurface({
       }
     }
   });
+
+  // When the embed first connects and the board has a stored URL, navigate to it.
+  // This restores the page after a session restart/resume that produces a blank browser.
+  useEffect(() => {
+    if (hyperbeam.status !== "connected") return;
+    if (!board.currentUrl || board.status !== "active") return;
+    if (autoNavigatedForEmbedRef.current === embedUrl) return;
+    autoNavigatedForEmbedRef.current = embedUrl;
+    void controller.navigate(object.id, board.currentUrl).catch(() => undefined);
+  }, [hyperbeam.status, board.currentUrl, board.status, embedUrl, controller, object.id]);
 
   // Build the off-screen Hyperbeam host imperatively so no DOM nodes live in the R3F tree.
   useLayoutEffect(() => {
