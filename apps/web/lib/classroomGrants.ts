@@ -1,4 +1,5 @@
 import { anchorAcceptsWallObjectType, isBoardGrantActive } from "@3dspace/room-engine";
+export { isBoardGrantActive };
 import type { ClassroomBoardAccessGrant, RoomManifest, WallObjectType } from "@3dspace/contracts";
 
 export type SupportedBoardGrantType = Extract<
