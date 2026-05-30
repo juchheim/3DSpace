@@ -1,4 +1,4 @@
-import { clampPositionToBounds, floorYFromZ } from "@3dspace/room-engine";
+import { canTouchRoomObject, clampPositionToBounds, floorYFromZ } from "@3dspace/room-engine";
 import {
   clampRoomObjectScaleValue,
   type ClassMembership,
@@ -81,18 +81,12 @@ export async function assertCanTouchRoomObject(
   auth: AuthContext,
   membership: ClassMembership
 ) {
-  if (membership.role === "teacher") return;
-  if (object.touchPolicy === "all-class") return;
-  if (object.touchPolicy === "granted") {
-    if (object.grantedUserIds.includes(auth.userId)) return;
-    if (object.grantedGroupIds.length > 0) {
-      const state = await repository.getClassroomState(roomId);
-      const inGrantedGroup = state.groups.some(
-        (group) => object.grantedGroupIds.includes(group.id) && group.memberUserIds.includes(auth.userId)
-      );
-      if (inGrantedGroup) return;
-    }
-  }
+  const state = object.grantedGroupIds.length > 0 ? await repository.getClassroomState(roomId) : undefined;
+  const memberGroupIds =
+    state?.groups
+      .filter((group) => group.memberUserIds.includes(auth.userId))
+      .map((group) => group.id) ?? [];
+  if (canTouchRoomObject({ object, userId: auth.userId, role: membership.role, memberGroupIds })) return;
   throw roomObjectTouchDenied();
 }
 

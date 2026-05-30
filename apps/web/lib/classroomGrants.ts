@@ -1,4 +1,4 @@
-import { anchorAcceptsWallObjectType } from "@3dspace/room-engine";
+import { anchorAcceptsWallObjectType, isBoardGrantActive } from "@3dspace/room-engine";
 import type { ClassroomBoardAccessGrant, RoomManifest, WallObjectType } from "@3dspace/contracts";
 
 export type SupportedBoardGrantType = Extract<
@@ -49,13 +49,6 @@ export const BOARD_GRANT_PRESETS: Array<{
 const BOARD_GRANT_TYPE_LABELS = new Map<SupportedBoardGrantType, string>(
   BOARD_GRANT_TYPE_OPTIONS.map((option) => [option.type, option.label])
 );
-
-export function isBoardGrantActive(grant: ClassroomBoardAccessGrant, now = Date.now()) {
-  if (grant.status !== "active") return false;
-  if (!grant.expiresAt) return true;
-  const expiresAt = Date.parse(grant.expiresAt);
-  return Number.isFinite(expiresAt) && expiresAt > now;
-}
 
 export function allowedBoardGrantTypesForAnchor(manifest: RoomManifest | null | undefined, anchorId: string): SupportedBoardGrantType[] {
   const anchor = manifest?.wallAnchors.find((candidate) => candidate.id === anchorId);

@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   anchorHasOccupyingWallObject,
+  anchorAcceptsWallObjectType,
   anchorSupportsCreateOption,
   applyDefaultWallAnchorDimensions,
+  canTouchRoomObject,
   calculateSpatialAudio,
   isOccupyingWallObjectStatus,
+  isBoardGrantActive,
   clampPositionToBounds,
   createAvatarState,
   roomCenterXZ,
@@ -42,6 +45,7 @@ import {
   SECONDARY_BOARD_HEIGHT,
   BACK_DISPLAY_CENTER_Y
 } from "../src/index";
+import type { ClassroomBoardAccessGrant, RoomObject } from "@3dspace/contracts";
 
 describe("room engine", () => {
   it("creates a manifest with shared 3D and 2D data", () => {
@@ -207,6 +211,41 @@ describe("room engine", () => {
     expect(
       anchorHasOccupyingWallObject([{ wallAnchorId: "anchor-board", status: "removed" }], "anchor-board")
     ).toBe(false);
+  });
+
+  it("matches broad wall-anchor accepts rules for file-backed object types", () => {
+    const manifest = createDefaultRoomManifest({ roomId: "room_1" });
+    const media = manifest.wallAnchors.find((anchor) => anchor.id === "anchor-media-left");
+
+    expect(media).toBeDefined();
+    expect(anchorAcceptsWallObjectType(media!, "image.file")).toBe(true);
+    expect(anchorAcceptsWallObjectType(media!, "audio.file")).toBe(true);
+    expect(anchorAcceptsWallObjectType(media!, "video.file")).toBe(false);
+    expect(anchorAcceptsWallObjectType(media!, "screen.live")).toBe(false);
+  });
+
+  it("evaluates board-grant expiry from shared policy", () => {
+    const activeNoExpiry = { status: "active", expiresAt: null } as ClassroomBoardAccessGrant;
+    const revoked = { status: "revoked", expiresAt: null } as ClassroomBoardAccessGrant;
+    const expiresAtNoon = { status: "active", expiresAt: "2026-05-30T12:00:00.000Z" } as ClassroomBoardAccessGrant;
+
+    expect(isBoardGrantActive(activeNoExpiry)).toBe(true);
+    expect(isBoardGrantActive(revoked)).toBe(false);
+    expect(isBoardGrantActive(expiresAtNoon, Date.parse("2026-05-30T11:59:59.000Z"))).toBe(true);
+    expect(isBoardGrantActive(expiresAtNoon, Date.parse("2026-05-30T12:00:00.000Z"))).toBe(false);
+  });
+
+  it("evaluates room-object touch grants for users and groups", () => {
+    const object = {
+      touchPolicy: "granted",
+      grantedUserIds: ["student-1"],
+      grantedGroupIds: ["group-1"]
+    } as RoomObject;
+
+    expect(canTouchRoomObject({ object, userId: "teacher-1", role: "teacher", memberGroupIds: [] })).toBe(true);
+    expect(canTouchRoomObject({ object, userId: "student-1", role: "student", memberGroupIds: [] })).toBe(true);
+    expect(canTouchRoomObject({ object, userId: "student-2", role: "student", memberGroupIds: ["group-1"] })).toBe(true);
+    expect(canTouchRoomObject({ object, userId: "student-3", role: "student", memberGroupIds: [] })).toBe(false);
   });
 
   it("transforms local movement relative to avatar facing", () => {

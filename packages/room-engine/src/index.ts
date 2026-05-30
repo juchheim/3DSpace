@@ -1518,6 +1518,9 @@ export function getWallAnchorAudioPosition(manifest: RoomManifest, wallAnchorId:
 }
 
 export {
+  isBoardGrantActive
+} from "./classroom";
+export {
   anchorAcceptsWallObjectType,
   anchorHasOccupyingWallObject,
   anchorSupportsCreateOption,
@@ -1527,6 +1530,7 @@ export {
   isOccupyingWallObjectStatus
 } from "./wallAnchorPolicy";
 export type { WallAnchorCreateOption } from "./wallAnchorPolicy";
+export { canTouchRoomObject } from "./roomObjectTouch";
 export {
   createInitialPollState,
   isValidPollChoiceId,

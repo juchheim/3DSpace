@@ -1,6 +1,14 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-29 (Hyperbeam 3D wall mesh texture rendering)
+Last updated: 2026-05-30 (refactor-candidate audit)
+
+## Refactor audit (2026-05-30)
+
+**API app.ts decomposition — COMPLETE (2026-05-30, branch `refactor/api-app-decomposition`).**
+`apps/api/src/app.ts` reduced from 5,296 lines / 93 inline routes to **184 lines / 0 inline routes** — now contains only seeding, orchestrator construction, CORS, error handler, lifecycle hooks, and `registerRoutes(app, ctx)`. All 93 routes live in 16 plugin files under `apps/api/src/routes/`. Tests split from `api.test.ts` (5,759 lines) into `tests/routes/`, `tests/classroom/`, `tests/helpers/`. Full vitest suite (268 tests) green; typecheck clean.
+**Decomposition docs:** `docs/refactors/PLAN_API_APP_DECOMPOSITION.md`, `docs/refactors/IMPL_API_APP_DECOMPOSITION.md`.
+
+Remaining top refactor candidates: `packages/contracts/src/index.ts` (3179 lines), `apps/web/components/RoomClient.tsx` (2509), `apps/web/components/RoomView3D.tsx` (2175).
 
 ## Project Summary
 

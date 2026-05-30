@@ -1,5 +1,5 @@
 import { roomObjectScaleBounds, type Pose, type Role, type RoomManifest, type RoomObject, type RoomObjectTemplate, type Vector3 } from "@3dspace/contracts";
-import { clampPositionToBounds } from "@3dspace/room-engine";
+import { canTouchRoomObject as sharedCanTouchRoomObject, clampPositionToBounds } from "@3dspace/room-engine";
 import { ROOM_OBJECT_PROCEDURALS } from "../components/roomObjectProcedurals";
 
 const POSITION_GRID_M = 0.25;
@@ -30,15 +30,7 @@ export function canTouchRoomObject(input: {
   role: Role;
   memberGroupIds: string[];
 }) {
-  if (input.role === "teacher") return true;
-  if (input.object.touchPolicy === "all-class") return true;
-  if (input.object.touchPolicy === "granted") {
-    return (
-      input.object.grantedUserIds.includes(input.userId) ||
-      input.object.grantedGroupIds.some((groupId) => input.memberGroupIds.includes(groupId))
-    );
-  }
-  return false;
+  return sharedCanTouchRoomObject(input);
 }
 
 /** In-world grab / drag / keyboard move (blocked when teacher locks the object). */
