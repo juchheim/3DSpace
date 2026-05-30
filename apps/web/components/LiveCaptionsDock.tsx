@@ -115,6 +115,10 @@ export function LiveCaptionsDock({
         <span className={`room-captions-dock__cc-badge${controller.live ? " room-captions-dock__cc-badge--live" : ""}`}>CC</span>
         {visibleContributorLabel ? (
           <span className="room-captions-dock__contributors">Captioning: {visibleContributorLabel}</span>
+        ) : controller.sharing ? (
+          <span className="room-captions-dock__contributors">
+            {controller.listening ? "Listening…" : "Starting speech recognition…"}
+          </span>
         ) : (
           <span className="room-captions-dock__contributors room-captions-dock__contributors--muted">No active captioners</span>
         )}
@@ -157,7 +161,13 @@ export function LiveCaptionsDock({
       >
         {displayRows.length === 0 ? (
           <p className="room-captions-dock__empty">
-            {controller.contributors.size > 0 ? "Waiting for speech…" : "Enable Share my captions and turn on your mic to contribute."}
+            {controller.sharing
+              ? controller.listening
+                ? "Speak clearly — captions appear here as you talk."
+                : "Waiting for speech recognition to start…"
+              : controller.contributors.size > 0
+                ? "Waiting for speech…"
+                : "Turn on your mic, then click Share my captions."}
           </p>
         ) : (
           displayRows.map((row, index) => {

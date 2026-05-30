@@ -36,6 +36,21 @@ function trimLines(lines: CaptionLine[]) {
   return lines.length > MAX_LINES ? lines.slice(-MAX_LINES) : lines;
 }
 
+function speechErrorMessage(code: string) {
+  switch (code) {
+    case "not-allowed":
+    case "service-not-allowed":
+      return "Speech recognition permission denied. Allow microphone access for this site.";
+    case "audio-capture":
+      return "Could not capture audio for captions. Turn on your mic first.";
+    case "invalid-state":
+    case "start-failed":
+      return "Could not start speech recognition. Try toggling captions off and on.";
+    default:
+      return "Speech recognition error.";
+  }
+}
+
 export function useLiveCaptions(input: {
   roomId?: string | undefined;
   participantId: string;
@@ -47,19 +62,38 @@ export function useLiveCaptions(input: {
   const [interimByParticipant, setInterimByParticipant] = useState<Map<string, InterimLine>>(() => new Map());
   const [contributors, setContributors] = useState<Set<string>>(() => new Set());
   const [sharing, setSharing] = useState(false);
+  const [listening, setListening] = useState(false);
   const [error, setError] = useState("");
   const [dockOpen, setDockOpen] = useState(false);
 
   const sharingRef = useRef(false);
-  const startedAtMsRef = useRef(0);
   const chunkIdRef = useRef(newChunkId());
   const lastInterimSentRef = useRef(0);
   const sharingStartedAtRef = useRef(0);
+  const stopRecognitionRef = useRef<() => void>(() => {});
 
   const supported = speechRecognitionSupported();
-  const disableSharingRef = useRef<() => void>(() => {});
+
+  const setLocalInterim = useCallback((text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const now = Date.now();
+    const chunkId = chunkIdRef.current;
+    setInterimByParticipant((current) => {
+      const next = new Map(current);
+      next.set(input.participantId, { chunkId, text: trimmed, sentAt: now });
+      return next;
+    });
+    setContributors((current) => new Set(current).add(input.participantId));
+  }, [input.participantId]);
 
   const publishContributor = useCallback((active: boolean) => {
+    setContributors((current) => {
+      const next = new Set(current);
+      if (active) next.add(input.participantId);
+      else next.delete(input.participantId);
+      return next;
+    });
     if (!input.roomId || !input.publish) return;
     const message: LiveCaptionsContributorMessageV1 = {
       type: "room.captions.contributor.v1",
@@ -72,7 +106,10 @@ export function useLiveCaptions(input: {
   }, [input.participantId, input.publish, input.roomId]);
 
   const publishInterim = useCallback((text: string) => {
-    if (!input.roomId || !input.publish || !text.trim()) return;
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    setLocalInterim(trimmed);
+    if (!input.roomId || !input.publish) return;
     const now = Date.now();
     if (now - lastInterimSentRef.current < INTERIM_MIN_INTERVAL_MS) return;
     lastInterimSentRef.current = now;
@@ -82,35 +119,31 @@ export function useLiveCaptions(input: {
       roomId: input.roomId,
       participantId: input.participantId,
       chunkId,
-      text: text.trim(),
+      text: trimmed,
       sentAt: now
     };
     input.publish(message);
-    setInterimByParticipant((current) => {
-      const next = new Map(current);
-      next.set(input.participantId, { chunkId, text: text.trim(), sentAt: now });
-      return next;
-    });
-    setContributors((current) => new Set(current).add(input.participantId));
-  }, [input.participantId, input.publish, input.roomId]);
+  }, [input.participantId, input.publish, input.roomId, setLocalInterim]);
 
   const publishFinal = useCallback((text: string) => {
     const trimmed = text.trim();
-    if (!trimmed || !input.roomId || !input.publish) return;
+    if (!trimmed) return;
     const now = Date.now();
     const chunkId = chunkIdRef.current;
     const startMs = Math.max(0, now - sharingStartedAtRef.current);
-    const message: LiveCaptionsChunkMessageV1 = {
-      type: "room.captions.chunk.v1",
-      roomId: input.roomId,
-      participantId: input.participantId,
-      chunkId,
-      text: trimmed,
-      isFinal: true,
-      startMs,
-      sentAt: now
-    };
-    input.publish(message);
+    if (input.roomId && input.publish) {
+      const message: LiveCaptionsChunkMessageV1 = {
+        type: "room.captions.chunk.v1",
+        roomId: input.roomId,
+        participantId: input.participantId,
+        chunkId,
+        text: trimmed,
+        isFinal: true,
+        startMs,
+        sentAt: now
+      };
+      input.publish(message);
+    }
     chunkIdRef.current = newChunkId();
     lastInterimSentRef.current = 0;
     setInterimByParticipant((current) => {
@@ -134,23 +167,11 @@ export function useLiveCaptions(input: {
     setDockOpen(true);
   }, [input.participantId, input.publish, input.roomId]);
 
-  const recognition = useSpeechRecognition({
-    onInterim: publishInterim,
-    onFinal: publishFinal,
-    onError: (code) => {
-      setError(code === "not-allowed" ? "Microphone or speech permission denied." : "Speech recognition error.");
-      disableSharingRef.current();
-    }
-  });
-
   const disableSharing = useCallback(() => {
-    if (!sharingRef.current) {
-      recognition.stop();
-      return;
-    }
     sharingRef.current = false;
     setSharing(false);
-    recognition.stop();
+    setListening(false);
+    stopRecognitionRef.current();
     publishContributor(false);
     setInterimByParticipant((current) => {
       if (!current.has(input.participantId)) return current;
@@ -158,12 +179,29 @@ export function useLiveCaptions(input: {
       next.delete(input.participantId);
       return next;
     });
-  }, [input.participantId, publishContributor, recognition]);
+  }, [input.participantId, publishContributor]);
 
-  disableSharingRef.current = disableSharing;
+  const { start: startRecognition, stop: stopRecognition, listening: recognitionListening } = useSpeechRecognition({
+    onInterim: publishInterim,
+    onFinal: publishFinal,
+    onError: (code) => {
+      setError(speechErrorMessage(code));
+      disableSharing();
+    }
+  });
+
+  stopRecognitionRef.current = stopRecognition;
 
   const enableSharing = useCallback(() => {
-    if (!input.enabled || !input.micEnabled || !supported) return;
+    if (!input.enabled) return;
+    if (!supported) {
+      setError("Chrome or Edge required to share captions.");
+      return;
+    }
+    if (!input.micEnabled) {
+      setError("Turn on your mic before sharing captions.");
+      return;
+    }
     setError("");
     sharingRef.current = true;
     sharingStartedAtRef.current = Date.now();
@@ -172,13 +210,17 @@ export function useLiveCaptions(input: {
     setSharing(true);
     setDockOpen(true);
     publishContributor(true);
-    recognition.start();
-  }, [input.enabled, input.micEnabled, publishContributor, recognition, supported]);
+    startRecognition();
+  }, [input.enabled, input.micEnabled, publishContributor, startRecognition, supported]);
 
   const toggleSharing = useCallback(() => {
     if (sharingRef.current) disableSharing();
     else enableSharing();
   }, [disableSharing, enableSharing]);
+
+  useEffect(() => {
+    setListening(sharing && recognitionListening);
+  }, [recognitionListening, sharing]);
 
   const handleRealtimeMessage = useCallback((message: RealtimeMessage) => {
     if (!input.roomId || !("roomId" in message) || message.roomId !== input.roomId) return false;
@@ -230,6 +272,7 @@ export function useLiveCaptions(input: {
 
     if (message.type === "room.captions.contributor.v1") {
       const contributor = message as LiveCaptionsContributorMessageV1;
+      if (contributor.participantId === input.participantId) return true;
       setContributors((current) => {
         const next = new Set(current);
         if (contributor.active) next.add(contributor.participantId);
@@ -250,7 +293,7 @@ export function useLiveCaptions(input: {
     }
 
     return false;
-  }, [input.roomId]);
+  }, [input.participantId, input.roomId]);
 
   const dropContributor = useCallback((participantId: string) => {
     setContributors((current) => {
@@ -266,11 +309,9 @@ export function useLiveCaptions(input: {
       return next;
     });
     if (participantId === input.participantId && sharingRef.current) {
-      sharingRef.current = false;
-      setSharing(false);
-      recognition.stop();
+      disableSharing();
     }
-  }, [input.participantId, recognition]);
+  }, [disableSharing, input.participantId]);
 
   const copyVisible = useCallback(async () => {
     const parts: string[] = [];
@@ -301,9 +342,9 @@ export function useLiveCaptions(input: {
   useEffect(() => () => {
     if (sharingRef.current) {
       sharingRef.current = false;
-      recognition.stop();
+      stopRecognitionRef.current();
     }
-  }, [recognition]);
+  }, []);
 
   const live = contributors.size > 0 || sharing;
 
@@ -316,6 +357,7 @@ export function useLiveCaptions(input: {
     interimByParticipant,
     contributors,
     sharing,
+    listening,
     supported,
     error,
     dockOpen,

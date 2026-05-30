@@ -44,6 +44,7 @@ export function useSpeechRecognition(input: {
   const wantListeningRef = useRef(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const restartTimerRef = useRef<number | null>(null);
+  const startRecognitionRef = useRef<() => void>(() => {});
   const onInterimRef = useRef(input.onInterim);
   const onFinalRef = useRef(input.onFinal);
   const onErrorRef = useRef(input.onError);
@@ -77,6 +78,11 @@ export function useSpeechRecognition(input: {
     if (!Ctor || !wantListeningRef.current) return;
 
     clearRestartTimer();
+    if (recognitionRef.current) {
+      recognitionRef.current.abort();
+      recognitionRef.current = null;
+    }
+
     const recognition = new Ctor();
     recognition.lang = input.lang ?? "en-US";
     recognition.continuous = true;
@@ -101,23 +107,29 @@ export function useSpeechRecognition(input: {
       const code = event.error ?? "unknown";
       if (code === "not-allowed" || code === "service-not-allowed") {
         wantListeningRef.current = false;
-        recognitionRef.current?.abort();
         recognitionRef.current = null;
         onErrorRef.current?.(code);
         setListening(false);
         return;
       }
+      if (code === "audio-capture") {
+        wantListeningRef.current = false;
+        recognitionRef.current = null;
+        onErrorRef.current?.(code);
+        setListening(false);
+      }
     };
 
     recognition.onend = () => {
       if (!wantListeningRef.current) {
+        recognitionRef.current = null;
         setListening(false);
         return;
       }
       recognitionRef.current = null;
       restartTimerRef.current = window.setTimeout(() => {
         restartTimerRef.current = null;
-        startRecognition();
+        startRecognitionRef.current();
       }, 300);
     };
 
@@ -125,16 +137,23 @@ export function useSpeechRecognition(input: {
     try {
       recognition.start();
       setListening(true);
-    } catch {
+    } catch (error) {
       wantListeningRef.current = false;
+      recognitionRef.current = null;
       setListening(false);
+      onErrorRef.current?.(error instanceof DOMException && error.name === "InvalidStateError"
+        ? "invalid-state"
+        : "start-failed");
     }
   }, [clearRestartTimer, input.lang]);
 
+  startRecognitionRef.current = startRecognition;
+
   const start = useCallback(() => {
-    if (!supported) return;
+    if (!supported) return false;
     wantListeningRef.current = true;
     startRecognition();
+    return true;
   }, [startRecognition, supported]);
 
   useEffect(() => () => {
