@@ -128,12 +128,12 @@ function FreeForAllRoomBrowser({
         <p className="lb-join-hint">Open rooms — enter the shared password to join (not required for rooms you created):</p>
         {CLIENT_TUNING.enableAiMeetingNotes ? (
           <p className="lb-join-hint">
-            Anyone in this room can start recording the conversation and producing an AI transcript and summary. By joining, you understand that your microphone audio may be transcribed.
+            Anyone can record this conversation for an AI transcript and summary. By joining, you agree your mic may be transcribed.
           </p>
         ) : null}
         {CLIENT_TUNING.enableLiveCaptions ? (
           <p className="lb-join-hint">
-            Participants may optionally share live captions using their browser (Chrome or Edge). Caption text is sent to others in the room over realtime channels; audio may be processed by your browser vendor. No transcript is stored on 3DSpace servers.
+            You may share live captions in Chrome or Edge. Text is sent to others in the room; your browser may process audio. Nothing is stored on 3DSpace servers.
           </p>
         ) : null}
         <div className="lb-field">
@@ -650,12 +650,12 @@ export function Lobby() {
                 </div>
                 {CLIENT_TUNING.enableAiMeetingNotes ? (
                   <p className="lb-join-hint">
-                    Anyone in this room can start recording the conversation and producing an AI transcript and summary. By joining, you understand that your microphone audio may be transcribed.
+                    Anyone can record this conversation for an AI transcript and summary. By joining, you agree your mic may be transcribed.
                   </p>
                 ) : null}
                 {CLIENT_TUNING.enableLiveCaptions ? (
                   <p className="lb-join-hint">
-                    Participants may optionally share live captions using their browser (Chrome or Edge). Caption text is sent to others in the room over realtime channels; audio may be processed by your browser vendor. No transcript is stored on 3DSpace servers.
+                    You may share live captions in Chrome or Edge. Text is sent to others in the room; your browser may process audio. Nothing is stored on 3DSpace servers.
                   </p>
                 ) : null}
                 <button
