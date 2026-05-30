@@ -58,7 +58,9 @@ export function nearestWallEdge(x: number, z: number, ix: number, iz: number): B
 
 export function inferPlacementLevel(hitY: number, surfacePiece?: BuildPiece | null, baseLevel = 0) {
   if (surfacePiece?.kind === "floor") {
-    return clampLevel(surfacePiece.level + 1);
+    // Hitting a floor's top face means "extend at this level," not "stack above."
+    // To build a second story you walk up a ramp to that level and place from there.
+    return clampLevel(surfacePiece.level);
   }
   if (surfacePiece?.kind === "ramp") {
     return clampLevel(surfacePiece.level + 1);

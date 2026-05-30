@@ -232,7 +232,7 @@ describe("buildPlacement", () => {
     expect(target.cell.iz).toBeGreaterThan(worldToCell(10, 10).iz);
   });
 
-  it("place-ahead stacks on floor surface at target cell", () => {
+  it("place-ahead extends floor at the same level when target cell has a floor", () => {
     const floor = BuildPieceSchema.parse({
       id: "build:floor:5:5:0",
       roomId: "room-placement",
@@ -253,7 +253,8 @@ describe("buildPlacement", () => {
       pieces: [floor]
     });
     expect(target.cell).toEqual({ ix: 5, iz: 6 });
-    expect(target.level).toBe(1);
+    // Same level as the existing floor — extending horizontally, not stacking above.
+    expect(target.level).toBe(0);
   });
 
   it("finds topmost destroy target at a cell", () => {
