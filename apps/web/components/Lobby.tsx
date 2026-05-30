@@ -131,6 +131,11 @@ function FreeForAllRoomBrowser({
             Anyone in this room can start recording the conversation and producing an AI transcript and summary. By joining, you understand that your microphone audio may be transcribed.
           </p>
         ) : null}
+        {CLIENT_TUNING.enableLiveCaptions ? (
+          <p className="lb-join-hint">
+            Participants may optionally share live captions using their browser (Chrome or Edge). Caption text is sent to others in the room over realtime channels; audio may be processed by your browser vendor. No transcript is stored on 3DSpace servers.
+          </p>
+        ) : null}
         <div className="lb-field">
         <label className="lb-label lb-label-tx" htmlFor="lb-ffa-join-password">Room password</label>
         <input
@@ -646,6 +651,11 @@ export function Lobby() {
                 {CLIENT_TUNING.enableAiMeetingNotes ? (
                   <p className="lb-join-hint">
                     Anyone in this room can start recording the conversation and producing an AI transcript and summary. By joining, you understand that your microphone audio may be transcribed.
+                  </p>
+                ) : null}
+                {CLIENT_TUNING.enableLiveCaptions ? (
+                  <p className="lb-join-hint">
+                    Participants may optionally share live captions using their browser (Chrome or Edge). Caption text is sent to others in the room over realtime channels; audio may be processed by your browser vendor. No transcript is stored on 3DSpace servers.
                   </p>
                 ) : null}
                 <button

@@ -18,6 +18,7 @@ export const CLIENT_TUNING = {
   enableWorkforceTraining: process.env.NEXT_PUBLIC_ENABLE_WORKFORCE_TRAINING === "true",
   enableFreeForAll: process.env.NEXT_PUBLIC_ENABLE_FREE_FOR_ALL === "true",
   enableAiMeetingNotes: process.env.NEXT_PUBLIC_ENABLE_AI_MEETING_NOTES === "true",
+  enableLiveCaptions: process.env.NEXT_PUBLIC_ENABLE_LIVE_CAPTIONS === "true",
   enableAiObjectGeneration: process.env.NEXT_PUBLIC_ENABLE_AI_OBJECT_GENERATION === "true",
   enableWhiteboards: process.env.NEXT_PUBLIC_ENABLE_WHITEBOARDS !== "false",
   enableSharedBrowsers: process.env.NEXT_PUBLIC_ENABLE_SHARED_BROWSERS === "true",

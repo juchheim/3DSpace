@@ -831,6 +831,7 @@ export type RoomTypeFeatureFlags = {
   aiObjects: boolean;
   whiteboards: boolean;
   sharedBrowsers: boolean;
+  liveCaptions: boolean;
 };
 
 const NON_CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
@@ -850,7 +851,8 @@ const NON_CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freez
   aiMeetingNotes: false,
   aiObjects: false,
   whiteboards: true,
-  sharedBrowsers: false
+  sharedBrowsers: false,
+  liveCaptions: false
 });
 
 const CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
@@ -870,7 +872,8 @@ const CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
   aiMeetingNotes: false,
   aiObjects: false,
   whiteboards: true,
-  sharedBrowsers: false
+  sharedBrowsers: false,
+  liveCaptions: false
 });
 
 const FREE_FOR_ALL_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
@@ -890,7 +893,8 @@ const FREE_FOR_ALL_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze
   aiMeetingNotes: true,
   aiObjects: true,
   whiteboards: true,
-  sharedBrowsers: true
+  sharedBrowsers: true,
+  liveCaptions: true
 });
 
 /**
@@ -1954,6 +1958,34 @@ export const MeetingNotesSegmentMessageV1Schema = z.object({
   senderId: z.string()
 });
 
+export const LiveCaptionsChunkMessageV1Schema = z.object({
+  type: z.literal("room.captions.chunk.v1"),
+  roomId: z.string(),
+  participantId: z.string(),
+  chunkId: z.string(),
+  text: z.string().max(2000),
+  isFinal: z.literal(true),
+  startMs: z.number().int().nonnegative(),
+  sentAt: z.number().int()
+});
+
+export const LiveCaptionsInterimMessageV1Schema = z.object({
+  type: z.literal("room.captions.interim.v1"),
+  roomId: z.string(),
+  participantId: z.string(),
+  chunkId: z.string(),
+  text: z.string().max(2000),
+  sentAt: z.number().int()
+});
+
+export const LiveCaptionsContributorMessageV1Schema = z.object({
+  type: z.literal("room.captions.contributor.v1"),
+  roomId: z.string(),
+  participantId: z.string(),
+  active: z.boolean(),
+  sentAt: z.number().int()
+});
+
 export type RoomBoardCreatedMessageV1 = z.infer<typeof RoomBoardCreatedMessageV1Schema>;
 export type RoomBoardUpdatedMessageV1 = z.infer<typeof RoomBoardUpdatedMessageV1Schema>;
 export type RoomBoardRemovedMessageV1 = z.infer<typeof RoomBoardRemovedMessageV1Schema>;
@@ -1962,6 +1994,9 @@ export type MeetingNotesEndedMessageV1 = z.infer<typeof MeetingNotesEndedMessage
 export type MeetingNotesSummaryReadyMessageV1 = z.infer<typeof MeetingNotesSummaryReadyMessageV1Schema>;
 export type MeetingNotesErrorMessageV1 = z.infer<typeof MeetingNotesErrorMessageV1Schema>;
 export type MeetingNotesSegmentMessageV1 = z.infer<typeof MeetingNotesSegmentMessageV1Schema>;
+export type LiveCaptionsChunkMessageV1 = z.infer<typeof LiveCaptionsChunkMessageV1Schema>;
+export type LiveCaptionsInterimMessageV1 = z.infer<typeof LiveCaptionsInterimMessageV1Schema>;
+export type LiveCaptionsContributorMessageV1 = z.infer<typeof LiveCaptionsContributorMessageV1Schema>;
 
 /** Client → server realtime dispatch (roomId comes from the URL). */
 export const RoomObjectRealtimeInboundSchema = z.discriminatedUnion("type", [

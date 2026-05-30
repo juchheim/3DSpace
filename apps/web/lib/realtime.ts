@@ -12,6 +12,9 @@ import type {
   MeetingNotesSegmentMessageV1,
   MeetingNotesStartedMessageV1,
   MeetingNotesSummaryReadyMessageV1,
+  LiveCaptionsChunkMessageV1,
+  LiveCaptionsContributorMessageV1,
+  LiveCaptionsInterimMessageV1,
   ParticipantAudioModeMessage,
   Role,
   RoomBoardCreatedMessageV1,
@@ -65,6 +68,11 @@ export type MeetingNotesRealtimeMessage =
   | MeetingNotesErrorMessageV1
   | MeetingNotesSegmentMessageV1;
 
+export type LiveCaptionsRealtimeMessage =
+  | LiveCaptionsChunkMessageV1
+  | LiveCaptionsInterimMessageV1
+  | LiveCaptionsContributorMessageV1;
+
 export type WhiteboardRealtime = WhiteboardRealtimeMessage;
 
 export type RealtimeMessage =
@@ -80,6 +88,7 @@ export type RealtimeMessage =
   | RoomSkinMessage
   | BoardRealtimeMessage
   | MeetingNotesRealtimeMessage
+  | LiveCaptionsRealtimeMessage
   | WhiteboardRealtime
   | SharedBrowserRealtimeMessage
   | AiObjectRealtimeMessage;
@@ -87,6 +96,7 @@ export type RealtimeMessage =
 const ROOM_OBJECT_UNRELIABLE_TYPES = new Set([
   "room.object.pose.v1",
   "room.meeting-notes.segment.v1",
+  "room.captions.interim.v1",
   "room.whiteboard.stroke-delta.v1",
   "room.whiteboard.cursor.v1",
   "room.shared-browser.pointer.v1"

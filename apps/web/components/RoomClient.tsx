@@ -74,7 +74,9 @@ import { buildSpawnPoseInFront } from "../lib/roomObjectInteraction";
 import { EnvironmentCard } from "./EnvironmentCard";
 import { useDynamicWallAnchors } from "../lib/useDynamicWallAnchors";
 import { useMeetingNotes } from "../lib/useMeetingNotes";
+import { useLiveCaptions } from "../lib/useLiveCaptions";
 import { MeetingNotesPanel } from "./MeetingNotesPanel";
+import { LiveCaptionsDock } from "./LiveCaptionsDock";
 import { useAiObjectGenerator } from "../lib/useAiObjectGenerator";
 import { AiObjectPanel } from "./AiObjectPanel";
 import { DYNAMIC_BOARD_DEFAULT_HEIGHT, DYNAMIC_BOARD_DEFAULT_WIDTH } from "./RoomView3D";
@@ -259,6 +261,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     enabled: roomTypeFeatures.dynamicBoards && Boolean(session)
   });
   const meetingNotesEnabled = roomTypeFeatures.aiMeetingNotes && CLIENT_TUNING.enableAiMeetingNotes && Boolean(session);
+  const liveCaptionsEnabled = roomTypeFeatures.liveCaptions && CLIENT_TUNING.enableLiveCaptions && Boolean(session);
   const meetingNotes = useMeetingNotes({
     identity,
     roomId: session?.room.id ?? roomId,
@@ -269,6 +272,13 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       displayName: participant.displayName,
       microphoneStream: participant.microphoneStream
     })),
+    publish: publishRealtime
+  });
+  const liveCaptions = useLiveCaptions({
+    roomId: session?.room.id ?? roomId,
+    participantId: session?.participantId ?? identity.userId,
+    enabled: liveCaptionsEnabled,
+    micEnabled: media.microphoneEnabled,
     publish: publishRealtime
   });
   const aiObjectsEnabled = CLIENT_TUNING.enableAiObjectGeneration && roomTypeFeatures.aiObjects && Boolean(session);
@@ -456,6 +466,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   dynamicBoardsRealtimeHandlerRef.current = dynamicBoards.handleRealtimeMessage;
   const meetingNotesRealtimeHandlerRef = useRef(meetingNotes.handleRealtimeMessage);
   meetingNotesRealtimeHandlerRef.current = meetingNotes.handleRealtimeMessage;
+  const liveCaptionsRealtimeHandlerRef = useRef(liveCaptions.handleRealtimeMessage);
+  liveCaptionsRealtimeHandlerRef.current = liveCaptions.handleRealtimeMessage;
   const aiObjectsRealtimeHandlerRef = useRef(aiObjectGenerator.handleRealtimeMessage);
   aiObjectsRealtimeHandlerRef.current = aiObjectGenerator.handleRealtimeMessage;
   const sharedBrowserRealtimeHandlerRef = useRef(sharedBrowsers.handleRealtimeMessage);
@@ -746,6 +758,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       if (classroomRealtimeHandlerRef.current(message)) return;
       if (dynamicBoardsRealtimeHandlerRef.current(message)) return;
       if (meetingNotesRealtimeHandlerRef.current(message)) return;
+      if (liveCaptionsRealtimeHandlerRef.current(message)) return;
       if (aiObjectsRealtimeHandlerRef.current(message)) return;
       if (sharedBrowserRealtimeHandlerRef.current(message)) return;
       if (message.type.startsWith("wall.")) return;
@@ -754,9 +767,11 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       if (message.type.startsWith("room.object.")) return;
       if (message.type.startsWith("room.board.")) return;
       if (message.type.startsWith("room.meeting-notes.")) return;
+      if (message.type.startsWith("room.captions.")) return;
 
       if (message.type === "participant.leave.v1") {
         dropReaction(message.participantId);
+        liveCaptions.dropContributor(message.participantId);
         dropAudioMode(message.participantId);
         setParticipants((current) => {
           const next = { ...current };
@@ -1951,6 +1966,11 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             REC
           </span>
         ) : null}
+        {liveCaptionsEnabled && liveCaptions.contributors.size > 0 ? (
+          <span className="room-hud-cc-badge" data-testid="live-captions-cc-badge">
+            CC
+          </span>
+        ) : null}
         {role === "teacher" && session ? (
           <>
             <div className="room-hud-top-sep" />
@@ -2503,6 +2523,13 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           </div>
         );
       })()}
+      {liveCaptionsEnabled && session ? (
+        <LiveCaptionsDock
+          controller={liveCaptions}
+          speakerLabel={(id) => participantNameMap[id] ?? id}
+          selfParticipantId={session.participantId}
+        />
+      ) : null}
     </main>
     </SkinLayer>
   );
