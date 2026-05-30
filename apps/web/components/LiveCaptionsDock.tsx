@@ -69,10 +69,6 @@ export function LiveCaptionsDock({
   }, [controller.interimByParticipant, controller.lines, controller.sharing, selfParticipantId]);
 
   useEffect(() => {
-    if (controller.live) controller.setDockOpen(true);
-  }, [controller.live, controller.setDockOpen]);
-
-  useEffect(() => {
     if (controller.lines.length <= prevLineCountRef.current) {
       prevLineCountRef.current = controller.lines.length;
       return;
@@ -86,15 +82,20 @@ export function LiveCaptionsDock({
     });
   }, [controller.lines.length, displayRows.length]);
 
-  if (!controller.dockOpen && !controller.live) {
+  const handleReset = () => {
+    setExpanded(false);
+    controller.resetDock();
+  };
+
+  if (!controller.dockOpen) {
     return (
       <div className="room-captions-dock room-captions-dock--idle">
         <button
           type="button"
-          className="room-captions-dock__peek hud-btn"
+          className={`room-captions-dock__peek hud-btn${controller.live ? " room-captions-dock__peek--live" : ""}`}
           onClick={() => controller.setDockOpen(true)}
         >
-          CC · Off
+          CC · {controller.live ? "Live" : "Off"}
         </button>
       </div>
     );
@@ -123,6 +124,15 @@ export function LiveCaptionsDock({
           <span className="room-captions-dock__contributors room-captions-dock__contributors--muted">No active captioners</span>
         )}
         <div className="room-captions-dock__actions">
+          {displayRows.length > 0 ? (
+            <button
+              type="button"
+              className="hud-btn room-captions-dock__action"
+              onClick={() => controller.clearTranscript()}
+            >
+              Clear
+            </button>
+          ) : null}
           {expanded ? (
             <button type="button" className="hud-btn room-captions-dock__action" onClick={() => void controller.copyVisible()}>
               Copy
@@ -144,6 +154,14 @@ export function LiveCaptionsDock({
             onClick={() => setExpanded((value) => !value)}
           >
             {expanded ? "▴" : "▾"}
+          </button>
+          <button
+            type="button"
+            className="hud-btn room-captions-dock__action room-captions-dock__hide"
+            title="Clear captions and hide"
+            onClick={handleReset}
+          >
+            Hide
           </button>
         </div>
       </div>

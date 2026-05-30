@@ -67,10 +67,16 @@ export function useLiveCaptions(input: {
   const [dockOpen, setDockOpen] = useState(false);
 
   const sharingRef = useRef(false);
+  const dockDismissedRef = useRef(false);
   const chunkIdRef = useRef(newChunkId());
   const lastInterimSentRef = useRef(0);
   const sharingStartedAtRef = useRef(0);
   const stopRecognitionRef = useRef<() => void>(() => {});
+
+  const openDock = useCallback(() => {
+    dockDismissedRef.current = false;
+    setDockOpen(true);
+  }, []);
 
   const supported = speechRecognitionSupported();
 
@@ -164,8 +170,8 @@ export function useLiveCaptions(input: {
       }
     ]));
     setContributors((current) => new Set(current).add(input.participantId));
-    setDockOpen(true);
-  }, [input.participantId, input.publish, input.roomId]);
+    if (!dockDismissedRef.current) openDock();
+  }, [input.participantId, input.publish, input.roomId, openDock]);
 
   const disableSharing = useCallback(() => {
     sharingRef.current = false;
@@ -208,10 +214,10 @@ export function useLiveCaptions(input: {
     chunkIdRef.current = newChunkId();
     lastInterimSentRef.current = 0;
     setSharing(true);
-    setDockOpen(true);
+    openDock();
     publishContributor(true);
     startRecognition();
-  }, [input.enabled, input.micEnabled, publishContributor, startRecognition, supported]);
+  }, [input.enabled, input.micEnabled, openDock, publishContributor, startRecognition, supported]);
 
   const toggleSharing = useCallback(() => {
     if (sharingRef.current) disableSharing();
@@ -250,7 +256,7 @@ export function useLiveCaptions(input: {
         ]);
       });
       setContributors((current) => new Set(current).add(chunk.participantId));
-      setDockOpen(true);
+      if (!dockDismissedRef.current) openDock();
       return true;
     }
 
@@ -266,7 +272,7 @@ export function useLiveCaptions(input: {
         return next;
       });
       setContributors((current) => new Set(current).add(interim.participantId));
-      setDockOpen(true);
+      if (!dockDismissedRef.current) openDock();
       return true;
     }
 
@@ -286,14 +292,14 @@ export function useLiveCaptions(input: {
           next.delete(contributor.participantId);
           return next;
         });
-      } else {
-        setDockOpen(true);
+      } else if (!dockDismissedRef.current) {
+        openDock();
       }
       return true;
     }
 
     return false;
-  }, [input.participantId, input.roomId]);
+  }, [input.participantId, input.roomId, openDock]);
 
   const dropContributor = useCallback((participantId: string) => {
     setContributors((current) => {
@@ -348,7 +354,21 @@ export function useLiveCaptions(input: {
 
   const live = contributors.size > 0 || sharing;
 
+  const clearTranscript = useCallback(() => {
+    setLines([]);
+    setInterimByParticipant(new Map());
+  }, []);
+
+  const resetDock = useCallback(() => {
+    clearTranscript();
+    setError("");
+    dockDismissedRef.current = true;
+    setDockOpen(false);
+  }, [clearTranscript]);
+
   const setDockOpenStable = useCallback((open: boolean) => {
+    if (open) dockDismissedRef.current = false;
+    else dockDismissedRef.current = true;
     setDockOpen(open);
   }, []);
 
@@ -363,6 +383,8 @@ export function useLiveCaptions(input: {
     dockOpen,
     live,
     setDockOpen: setDockOpenStable,
+    clearTranscript,
+    resetDock,
     enableSharing,
     disableSharing,
     toggleSharing,

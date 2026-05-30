@@ -709,6 +709,12 @@ label {
   font-size: 11px;
 }
 
+.room-captions-dock__peek--live {
+  color: #ffd89a;
+  border-color: rgba(255, 196, 110, 0.42);
+  background: rgba(196, 132, 24, 0.18);
+}
+
 .room-captions-dock__bar {
   display: flex;
   align-items: center;
