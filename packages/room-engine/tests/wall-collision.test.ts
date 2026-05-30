@@ -9,6 +9,7 @@ import {
   createFreeForAllManifest,
   createWorkforceTrainingManifest,
   levelToY,
+  rampHeightAt,
   resolveWallCollisions,
   resolveWallCollisionsV2
 } from "../src/index.js";
@@ -128,7 +129,7 @@ describe("build-piece wall collision", () => {
     expect(result.z).toBeCloseTo(startZ, 3);
   });
 
-  describe("ramp barrier collision", () => {
+  describe("ramp surface has no collision barriers", () => {
     const ramp = BuildPieceSchema.parse({
       id: `${BUILD_ID_PREFIX}ramp:0,0:0`,
       roomId: manifest.roomId,
@@ -140,65 +141,55 @@ describe("build-piece wall collision", () => {
       createdByUserId: "u1",
       createdAt: "2026-05-30T12:00:00.000Z"
     });
-    const rampWalls = buildPieceColliders(ramp).walls;
-    const backWall = rampWalls.find((wall) => wall.id.endsWith(":back"))!;
-    const sideWall = rampWalls.find((wall) => wall.id.endsWith(":side-w"))!;
+    // Climb +z across the cell (x∈[0,2], z∈[0,2]); surface rises lowY=0 → highY=levelToY(1).
+    const surface = buildPieceColliders(ramp).ramp!;
+    const centerX = (ramp.cell.ix + 0.5) * BUILD_CELL_SIZE;
 
-    it("includes back and side barriers in the collision set", () => {
-      const walls = collectCollisionWalls(manifest, [ramp]);
-      const rampBarrierIds = walls
+    it("contributes a walkable surface but no collision walls", () => {
+      const colliders = buildPieceColliders(ramp);
+      expect(colliders.ramp).toBeDefined();
+      expect(colliders.walls).toEqual([]);
+    });
+
+    it("adds no build colliders to the room collision set", () => {
+      const buildWallIds = collectCollisionWalls(manifest, [ramp])
         .filter((wall) => wall.id.startsWith(BUILD_ID_PREFIX))
         .map((wall) => wall.id);
-      expect(rampBarrierIds).toContain(backWall.id);
-      expect(rampBarrierIds).toContain(sideWall.id);
+      expect(buildWallIds).toEqual([]);
     });
 
-    it("blocks ground-level movement through the ramp back barrier", () => {
-      const wallZ = backWall.start.z;
-      const stopZ = wallZ - (backWall.thickness ?? 0) / 2 - 0.4;
-      const startX = (ramp.cell.ix + 0.5) * BUILD_CELL_SIZE;
+    it("lets an avatar standing on the ramp walk off the side", () => {
+      // Mid-ramp: feet on the sloped surface, then step west past the side edge (x < minX).
+      const midZ = (surface.minZ + surface.maxZ) / 2;
+      const feetY = rampHeightAt(surface, centerX, midZ)!;
+      // Genuinely elevated — a full-height side barrier would have trapped the avatar here.
+      expect(feetY).toBeGreaterThan(surface.lowY + 0.5);
 
       const result = resolveWallCollisionsV2(
-        { x: startX, z: stopZ - 0.5 },
-        { x: startX, z: stopZ + 1.5 },
+        { x: centerX, z: midZ },
+        { x: surface.minX - 1.0, z: midZ },
         collectCollisionWalls(manifest, [ramp]),
-        0
+        feetY
       );
 
-      expect(result.x).toBeCloseTo(startX, 3);
-      expect(result.z).toBeCloseTo(stopZ, 3);
+      expect(result.x).toBeCloseTo(surface.minX - 1.0, 3);
+      expect(result.z).toBeCloseTo(midZ, 3);
     });
 
-    it("blocks ground-level movement through a ramp side barrier", () => {
-      const wallX = sideWall.start.x;
-      const stopX = wallX + (sideWall.thickness ?? 0) / 2 + 0.4;
-      const startZ = (ramp.cell.iz + 0.5) * BUILD_CELL_SIZE;
+    it("lets an avatar step off the high (top) edge of the ramp", () => {
+      // Near the top: feet high on the surface, then continue past the high edge (z > maxZ).
+      const nearTopZ = surface.maxZ - 0.2;
+      const feetY = rampHeightAt(surface, centerX, nearTopZ)!;
 
       const result = resolveWallCollisionsV2(
-        { x: stopX + 0.5, z: startZ },
-        { x: stopX - 1.5, z: startZ },
+        { x: centerX, z: nearTopZ },
+        { x: centerX, z: surface.maxZ + 1.0 },
         collectCollisionWalls(manifest, [ramp]),
-        0
+        feetY
       );
 
-      expect(result.x).toBeCloseTo(stopX, 3);
-      expect(result.z).toBeCloseTo(startZ, 3);
-    });
-
-    it("does not block movement under elevated ramp barriers", () => {
-      const elevatedRamp = { ...ramp, level: 2 as const, id: `${BUILD_ID_PREFIX}ramp:0,0:2` };
-      const wallZ = backWall.start.z;
-      const passZ = wallZ - (backWall.thickness ?? 0) / 2 - 0.8;
-      const startX = (ramp.cell.ix + 0.5) * BUILD_CELL_SIZE;
-
-      const result = resolveWallCollisionsV2(
-        { x: startX, z: passZ - 0.5 },
-        { x: startX, z: passZ + 1.5 },
-        collectCollisionWalls(manifest, [elevatedRamp]),
-        0
-      );
-
-      expect(result.z).toBeCloseTo(passZ + 1.5, 3);
+      expect(result.x).toBeCloseTo(centerX, 3);
+      expect(result.z).toBeCloseTo(surface.maxZ + 1.0, 3);
     });
   });
 });

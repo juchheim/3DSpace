@@ -107,7 +107,8 @@ describe("ramp walking simulation", () => {
     }
     expect(heights[heights.length - 1]).toBeCloseTo(expectedTop, 2);
     expect(heights[0]).toBeCloseTo(surface.lowY, 2);
-    expect(expectedTop).toBeGreaterThan(surface.lowY + 2.5);
+    // Climbed nearly a full level (relative to the ramp's rise — independent of the level-height constant).
+    expect(expectedTop).toBeGreaterThan(surface.lowY + (surface.highY - surface.lowY) * 0.9);
   });
 
   it("walks down a +Z ramp with decreasing height", () => {
@@ -140,21 +141,24 @@ describe("ramp walking simulation", () => {
     expect(y).toBeCloseTo(floorTop, 2);
   });
 
-  it("blocks walking through the ramp back barrier at ground level", () => {
+  it("does not block an avatar walking off the side of a ramp", () => {
     const ramp = rampPiece(manifest, 5, 5, 0, 0);
-    const backWall = buildPieceColliders(ramp).walls.find((wall) => wall.id.endsWith(":back"))!;
-    const wallZ = backWall.start.z;
-    const stopZ = wallZ - (backWall.thickness ?? 0) / 2 - 0.4;
-    const x = (5 + 0.5) * BUILD_CELL_SIZE;
+    // A ramp adds no collision barriers — you can leave the surface from any edge.
+    expect(buildPieceColliders(ramp).walls).toEqual([]);
+
+    const surface = buildPieceColliders(ramp).ramp!;
+    const centerX = (5 + 0.5) * BUILD_CELL_SIZE;
+    const midZ = (surface.minZ + surface.maxZ) / 2;
+    const feetY = rampHeightAt(surface, centerX, midZ)!;
 
     const result = resolveWallCollisionsV2(
-      { x, z: stopZ - 0.5 },
-      { x, z: stopZ + 1.5 },
+      { x: centerX, z: midZ },
+      { x: surface.minX - 1.0, z: midZ },
       collectCollisionWalls(manifest, [ramp]),
-      0
+      feetY
     );
 
-    expect(result.z).toBeCloseTo(stopZ, 3);
+    expect(result.x).toBeCloseTo(surface.minX - 1.0, 3);
   });
 });
 

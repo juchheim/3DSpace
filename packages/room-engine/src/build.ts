@@ -12,9 +12,13 @@ import { manifestWallToCollider } from "./wall-collision.js";
 
 export { BUILD_MAX_LEVEL };
 
+// INVARIANT: BUILD_CELL_SIZE === BUILD_LEVEL_HEIGHT === BUILD_WALL_HEIGHT.
+// Equal run and rise make a single-cell ramp exactly 45° (a 3 m rise over a 2 m run is a
+// near-unwalkable 56°), and a wall being exactly one level tall keeps floor tops aligned with
+// wall tops. Tune all three together; never independently.
 export const BUILD_CELL_SIZE = 2.0;
-export const BUILD_LEVEL_HEIGHT = 3.0;
-export const BUILD_WALL_HEIGHT = 3.0;
+export const BUILD_LEVEL_HEIGHT = 2.0;
+export const BUILD_WALL_HEIGHT = 2.0;
 export const BUILD_WALL_THICKNESS = 0.2;
 export const BUILD_FLOOR_THICKNESS = 0.3;
 export const BUILD_STEP_UP_MAX = 0.6;
@@ -196,93 +200,30 @@ export function buildPieceColliders(piece: BuildPiece): BuildPieceColliders {
 
   const b = cellBounds(piece.cell.ix, piece.cell.iz);
   const { climbAxis, climbSign } = rampClimbFromRotation(piece.rotation);
-  const lowY = baseY;
-  const highY = levelToY(piece.level + 1);
   const ramp: RampSurface = {
     id: stableId,
     minX: b.minX,
     maxX: b.maxX,
     minZ: b.minZ,
     maxZ: b.maxZ,
-    lowY,
-    highY,
+    lowY: baseY,
+    highY: levelToY(piece.level + 1),
     climbAxis,
     climbSign,
     rotation: piece.rotation
   };
 
-  const barrierWalls: WallCollider[] = [];
-  if (climbAxis === "z") {
-    const highZ = climbSign === 1 ? b.maxZ : b.minZ;
-    barrierWalls.push(
-      impassableWall({
-        id: `${stableId}:back`,
-        label: "build-ramp-back",
-        start: { x: b.minX, y: lowY, z: highZ },
-        end: { x: b.maxX, y: lowY, z: highZ },
-        height: BUILD_LEVEL_HEIGHT,
-        thickness: BUILD_WALL_THICKNESS,
-        anchorIds: [],
-        baseY: lowY
-      }),
-      impassableWall({
-        id: `${stableId}:side-w`,
-        label: "build-ramp-side",
-        start: { x: b.minX, y: lowY, z: b.minZ },
-        end: { x: b.minX, y: lowY, z: b.maxZ },
-        height: BUILD_LEVEL_HEIGHT,
-        thickness: BUILD_WALL_THICKNESS,
-        anchorIds: [],
-        baseY: lowY
-      }),
-      impassableWall({
-        id: `${stableId}:side-e`,
-        label: "build-ramp-side",
-        start: { x: b.maxX, y: lowY, z: b.minZ },
-        end: { x: b.maxX, y: lowY, z: b.maxZ },
-        height: BUILD_LEVEL_HEIGHT,
-        thickness: BUILD_WALL_THICKNESS,
-        anchorIds: [],
-        baseY: lowY
-      })
-    );
-  } else {
-    const highX = climbSign === 1 ? b.maxX : b.minX;
-    barrierWalls.push(
-      impassableWall({
-        id: `${stableId}:back`,
-        label: "build-ramp-back",
-        start: { x: highX, y: lowY, z: b.minZ },
-        end: { x: highX, y: lowY, z: b.maxZ },
-        height: BUILD_LEVEL_HEIGHT,
-        thickness: BUILD_WALL_THICKNESS,
-        anchorIds: [],
-        baseY: lowY
-      }),
-      impassableWall({
-        id: `${stableId}:side-s`,
-        label: "build-ramp-side",
-        start: { x: b.minX, y: lowY, z: b.minZ },
-        end: { x: b.maxX, y: lowY, z: b.minZ },
-        height: BUILD_LEVEL_HEIGHT,
-        thickness: BUILD_WALL_THICKNESS,
-        anchorIds: [],
-        baseY: lowY
-      }),
-      impassableWall({
-        id: `${stableId}:side-n`,
-        label: "build-ramp-side",
-        start: { x: b.minX, y: lowY, z: b.maxZ },
-        end: { x: b.maxX, y: lowY, z: b.maxZ },
-        height: BUILD_LEVEL_HEIGHT,
-        thickness: BUILD_WALL_THICKNESS,
-        anchorIds: [],
-        baseY: lowY
-      })
-    );
-  }
-
-  return { walls: barrierWalls, ramp };
+  // A ramp contributes a walkable surface only — no collision barriers.
+  //
+  // The wedge's sides are triangles (0 tall at the low edge, one level tall at the
+  // high edge) and its back face is full height. A constant-height axis-aligned wall
+  // cannot represent a triangle, so a full-height side/back barrier blocks an avatar
+  // standing *on* the surface everywhere except the exact crest — you can't walk off
+  // the sides or step off the top. Since walk-off-any-edge is the required behavior,
+  // the solid wedge is visual-only. An avatar may cosmetically clip the underside if
+  // it walks into the high side at ground level; that is an acceptable v1 tradeoff and
+  // groundHeightAt still refuses to lift it onto an out-of-reach surface.
+  return { walls: [], ramp };
 }
 
 /**

@@ -69,8 +69,8 @@ describe("buildPieceColliders", () => {
     const rampColliders = buildPieceColliders(ramp);
     expect(rampColliders.ramp?.climbAxis).toBe("z");
     expect(rampColliders.ramp?.climbSign).toBe(1);
-    expect(rampColliders.walls.length).toBeGreaterThan(0);
-    expect(rampColliders.walls.every((wall) => wall.passable === false)).toBe(true);
+    // A ramp is a walkable surface only — no collision barriers, so an avatar can walk off any edge.
+    expect(rampColliders.walls).toHaveLength(0);
   });
 });
 

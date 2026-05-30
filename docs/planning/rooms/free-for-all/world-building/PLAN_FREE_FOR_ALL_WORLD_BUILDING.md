@@ -72,7 +72,7 @@ Three piece types, each occupying one cell of a **build grid** (default cell = *
 |---|---|---|---|---|---|
 | **Wall** | Thin vertical slab | 2 m wide × 2 m tall (one level) × 0.2 m thick | No (it's a barrier) | **Yes** | Snaps to a cell *edge*; rotates to the 4 edges of a cell. Reuses `WallPlane` collision semantics. |
 | **Floor** | Flat slab | 2 m × 2 m × 0.3 m thick | **Yes (top face)** | Edge reads as a wall (reach a raised floor by ramp, not by stepping up) | Snaps to a cell *center* at a chosen whole height level (2 m increments). Walking surface sits **on** the level line; the 0.3 m thickness renders below it. |
-| **Ramp** | Inclined slab (45° wedge) | 2 m × 2 m footprint, rises exactly one level (2 m) along one axis | **Yes (sloped top face)** | Underside/back is a wall-like barrier | Snaps to a cell center; rotation chooses which of 4 directions it climbs. High edge meets a same-level floor flush. |
+| **Ramp** | Inclined slab (45° wedge) | 2 m × 2 m footprint, rises exactly one level (2 m) along one axis | **Yes (sloped top face)** | No — walkable surface only (solid wedge is visual) | Snaps to a cell center; rotation chooses which of 4 directions it climbs. High edge meets a same-level floor flush. **Walk on/off any edge.** |
 
 Design rationale:
 
@@ -171,7 +171,7 @@ A pure function `buildPieceToGeometry(piece, grid)` turns a piece into:
 - one or more **colliders**:
   - **Wall** → a `WallPlane`-shaped segment (start/end/height/thickness) with a **base elevation** = `level * levelHeight`. (We extend `WallPlane` reasoning to carry a base `y`; see §6.)
   - **Floor** → an **axis-aligned box** whose walking surface is at `topY = level*levelHeight` (the slab's `floorThickness` renders *below* the surface, so it isn't a step), used by the ground-height query.
-  - **Ramp** → an **inclined quad** with a low edge at level *N* (`levelToY(N)`) and high edge at level *N+1* (`levelToY(N+1)`) — meeting a level-*N+1* floor flush — plus a back/underside barrier collider.
+  - **Ramp** → an **inclined quad** (walkable surface) with a low edge at level *N* (`levelToY(N)`) and high edge at level *N+1* (`levelToY(N+1)`) — meeting a level-*N+1* floor flush. **No collision barriers:** the wedge's sides are triangles and its back face is full height, but a constant-height axis-aligned wall can't represent a triangle, so a full-height barrier would trap an avatar standing on the surface (it couldn't walk off the sides or crest the top). The solid wedge is therefore visual-only; you can walk on and off any edge. (An avatar may cosmetically clip the underside if it walks into the high side at ground level — acceptable; `groundHeightAt` still refuses to lift it onto an out-of-reach surface.)
 
 Because v1 pieces are grid-snapped and 90°-rotated, **every collider is axis-aligned in world space**, which is exactly what the existing resolver and a simple ground-height query can handle efficiently.
 
@@ -179,7 +179,7 @@ Because v1 pieces are grid-snapped and 90°-rotated, **every collider is axis-al
 
 All of "walls block, floors/ramps carry you" reduces to two pure functions the movement loop calls each frame:
 
-1. **`resolveWallCollisions(old, new, walls)`** — *already exists.* We extend it (or wrap it) so user wall colliders and ramp-back barriers are included, and so a wall only blocks when the avatar's **standing height overlaps the wall's vertical span** `[baseY, baseY+height]` (so you can walk on a floor *over* a lower wall, and under a raised walkway). Today walls are infinitely tall in the resolver because movement has no height; we make the check height-aware.
+1. **`resolveWallCollisions(old, new, walls)`** — *already exists.* We extend it (or wrap it) so user wall colliders are included, and so a wall only blocks when the avatar's **standing height overlaps the wall's vertical span** `[baseY, baseY+height]` (so you can walk on a floor *over* a lower wall, and under a raised walkway). Today walls are infinitely tall in the resolver because movement has no height; we make the check height-aware. (Ramps contribute **no** wall colliders — they are walkable surfaces only; see §4.2.)
 
 2. **`groundHeightAt(x, z, surfaces, currentY)`** — *new.* Returns the **walkable surface height** the avatar should stand at for a given XZ. It needs `currentY` (the avatar's feet this frame) because the step rule is relative to where you're standing. It considers:
    - the base manifest floor/tiers (`floorYFromZ`),

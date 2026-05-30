@@ -300,7 +300,7 @@ This function is called by **both** the client (ghost validity) and server (auth
   ): { x: number; z: number }
   ```
   It **skips a wall when the avatar's vertical span `[feetY, feetY + standHeight]` does not overlap the wall's `[baseY, baseY + height]`**. Keeps the per-axis XZ resolution and the FFA radial clamp unchanged.
-- Provide `collectCollisionWalls(manifest, buildPieces)` = `manifest.walls` (treated as `baseY = 0`, full height) ∪ build-wall colliders ∪ ramp-back barriers. **Ensure build ids use `BUILD_ID_PREFIX`** so they never hit the `ffa-perim-*` radial-clamp branch.
+- Provide `collectCollisionWalls(manifest, buildPieces)` = `manifest.walls` (treated as `baseY = 0`, full height) ∪ build-wall colliders. (Ramps add **no** colliders — see Phase 8.) **Ensure build ids use `BUILD_ID_PREFIX`** so they never hit the `ffa-perim-*` radial-clamp branch.
 
 **`apps/web/lib/useAvatarMovement.ts`** — pass the merged wall set + the avatar's current feet `y` into the resolver:
 ```ts
@@ -350,17 +350,17 @@ Keep `clampPositionToBounds` for XZ-bound clamping, but **override its `y`** wit
 **`packages/room-engine`**:
 - A ramp is a **single-cell 45° wedge** (rise `BUILD_LEVEL_HEIGHT` over run `BUILD_CELL_SIZE`, equal by invariant). Base at `level` (≤ `BUILD_MAX_RAMP_LEVEL`), top at `level+1` — so the top lands exactly on the next floor level and connects flush to a floor placed there.
 - `rampHeightAt(ramp, x, z)` — linear interpolation along the ramp's climb axis (chosen by `rotation`): at the low edge `y = levelToY(level)`, at the high edge `y = levelToY(level)+BUILD_LEVEL_HEIGHT`; clamp to footprint.
-- Ramp **back/side barriers**: a wall collider on the high edge + the two sides below the slope so you can't walk through the solid part; the low edge is open (you walk on).
-- Include ramps in `groundHeightAt` candidates and in `collectCollisionWalls` (barriers).
+- **No collision barriers.** A ramp returns `{ walls: [], ramp }` — it contributes a walkable surface only, not wall colliders. The wedge's sides are triangles (0 tall at the low edge, one level at the high edge) and its back face is full height; a constant-height axis-aligned wall can't represent a triangle, so a full-height side/back barrier traps an avatar standing on the surface — it can't walk off the sides or crest the top. Since walk-off-any-edge is required, the solid wedge is **visual-only**. The only cost is a cosmetic underside clip if an avatar walks into the high side at ground level, and `groundHeightAt` still refuses to lift it onto an out-of-reach surface. *(This was a real bug in the first cut: full-height barriers shipped and trapped avatars on ramps; they were removed.)*
+- Include ramps in `groundHeightAt` candidates only (no entry in `collectCollisionWalls`).
 - Step rule makes the **foot of a ramp** (height ≈ base) walk-on-able; the slope then carries you up within step tolerance frame-to-frame. Sanity check at 45°: one frame at 3.2 m/s ≈ 0.05 m of run → 0.05 m of rise, far under `BUILD_STEP_UP_MAX` (0.6 m), so the climb is smooth.
 
 **Render** — ramp wedge mesh (Phase 5 stub → real geometry); ghost shows climb direction arrow; rotation cycles the 4 directions.
 
 **Placement targeting** — aiming at a floor/level edge auto-orients the ramp to climb from that level to the next (the “1×1 + ramp” affordance from plan §3.3).
 
-**Tests:** walk up a ramp end-to-end (y increases smoothly to next level); walk down; can’t pass through the ramp’s solid back; ramp + floor at top connect (no gap/step).
+**Tests:** walk up a ramp end-to-end (y increases smoothly to next level); walk down; **walk off any side and off the top edge without being blocked** (`buildPieceColliders(ramp).walls === []`; an avatar at surface height is not pushed back); ramp + floor at top connect (no gap/step).
 
-*Exit criteria (Milestone C):* full wall/floor/ramp kit; build a two-story structure with a ramp and walk up it. 
+*Exit criteria (Milestone C):* full wall/floor/ramp kit; build a two-story structure with a ramp, walk up it, and walk off any edge. 
 
 ---
 
