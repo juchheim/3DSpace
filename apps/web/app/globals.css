@@ -652,7 +652,7 @@ label {
 
 .room-captions-dock {
   position: absolute;
-  bottom: 6px;
+  top: calc(var(--hud-th) + 12px);
   left: calc(var(--hud-lw) + 18px);
   right: calc(var(--hud-pw) + 18px);
   z-index: 21;
@@ -668,6 +668,11 @@ label {
   overflow: hidden;
   font-family: 'Barlow', system-ui, sans-serif;
   color: var(--hud-tx);
+}
+
+/* Top-anchored: keep the control bar pinned and let the transcript grow/scroll below it. */
+.room-captions-dock__bar {
+  flex-shrink: 0;
 }
 
 .room-captions-dock > * {
@@ -4378,6 +4383,7 @@ button.hud-heading-btn:hover {
   }
 
   .room-captions-dock {
+    left: 6px;
     right: 6px;
   }
 }

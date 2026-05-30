@@ -143,7 +143,7 @@ export function LiveCaptionsDock({
             aria-expanded={expanded}
             onClick={() => setExpanded((value) => !value)}
           >
-            {expanded ? "▾" : "▴"}
+            {expanded ? "▴" : "▾"}
           </button>
         </div>
       </div>
