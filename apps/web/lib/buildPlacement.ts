@@ -34,6 +34,17 @@ function clampLevel(level: number) {
   return Math.min(Math.max(level, 0), BUILD_MAX_LEVEL);
 }
 
+/**
+ * The build level the avatar is standing at, from its feet `y`.
+ * Floor thickness (0.3) is well under half a level, so rounding lands on the right level:
+ * ground → 0, on a level-1 floor (y≈2.3) → 1, etc. Used as the placement level when the
+ * cursor falls on empty ground (so a floor/ramp/wall extends at the level you're on,
+ * instead of dropping to level 0).
+ */
+export function avatarStandingLevel(avatarY: number) {
+  return clampLevel(Math.round(avatarY / BUILD_LEVEL_HEIGHT));
+}
+
 export function nearestWallEdge(x: number, z: number, ix: number, iz: number): BuildPieceEdge {
   const centerX = (ix + 0.5) * BUILD_CELL_SIZE;
   const centerZ = (iz + 0.5) * BUILD_CELL_SIZE;
@@ -45,7 +56,7 @@ export function nearestWallEdge(x: number, z: number, ix: number, iz: number): B
   return dz >= 0 ? "n" : "s";
 }
 
-export function inferPlacementLevel(hitY: number, surfacePiece?: BuildPiece | null) {
+export function inferPlacementLevel(hitY: number, surfacePiece?: BuildPiece | null, baseLevel = 0) {
   if (surfacePiece?.kind === "floor") {
     return clampLevel(surfacePiece.level + 1);
   }
@@ -55,10 +66,11 @@ export function inferPlacementLevel(hitY: number, surfacePiece?: BuildPiece | nu
   if (hitY >= BUILD_LEVEL_HEIGHT * 0.75) {
     return clampLevel(Math.floor((hitY + 0.01) / BUILD_LEVEL_HEIGHT));
   }
-  return 0;
+  // Cursor on empty ground: extend at the level the avatar is standing on, not level 0.
+  return clampLevel(baseLevel);
 }
 
-export function wallLevelFromSurface(hitY: number, surfacePiece?: BuildPiece | null) {
+export function wallLevelFromSurface(hitY: number, surfacePiece?: BuildPiece | null, baseLevel = 0) {
   if (surfacePiece?.kind === "floor") {
     return surfacePiece.level;
   }
@@ -68,7 +80,7 @@ export function wallLevelFromSurface(hitY: number, surfacePiece?: BuildPiece | n
   if (hitY >= BUILD_FLOOR_THICKNESS) {
     return clampLevel(Math.floor((hitY + 0.01) / BUILD_LEVEL_HEIGHT));
   }
-  return 0;
+  return clampLevel(baseLevel);
 }
 
 /** Orient ramp climb toward the hit (high edge at the aimed side of the cell). */
@@ -83,11 +95,11 @@ export function inferRampRotationFromHit(hitX: number, hitZ: number, ix: number,
   return dz >= 0 ? 0 : 180;
 }
 
-export function rampLevelFromSurface(hitY: number, surfacePiece?: BuildPiece | null) {
+export function rampLevelFromSurface(hitY: number, surfacePiece?: BuildPiece | null, baseLevel = 0) {
   if (surfacePiece?.kind === "floor" || surfacePiece?.kind === "ramp") {
     return clampLevel(surfacePiece.level);
   }
-  return wallLevelFromSurface(hitY, surfacePiece);
+  return wallLevelFromSurface(hitY, surfacePiece, baseLevel);
 }
 
 /** Auto-orient from hit unless the user pressed R while the ramp tool is active. */
@@ -113,13 +125,16 @@ export function resolveBuildPlacementTarget(input: {
   materialId: BuildPieceMaterial;
   surfacePiece?: BuildPiece | null;
   rampRotationOverride?: boolean;
+  /** Avatar's standing level — placement level when the cursor falls on empty ground. */
+  baseLevel?: number;
 }): BuildPlacementTarget {
   const cell = worldToCell(input.hitX, input.hitZ);
+  const baseLevel = input.baseLevel ?? 0;
   if (input.tool === "wall") {
     return {
       kind: "wall",
       cell,
-      level: wallLevelFromSurface(input.hitY, input.surfacePiece),
+      level: wallLevelFromSurface(input.hitY, input.surfacePiece, baseLevel),
       edge: nearestWallEdge(input.hitX, input.hitZ, cell.ix, cell.iz),
       rotation: input.rotation,
       materialId: input.materialId
@@ -132,7 +147,7 @@ export function resolveBuildPlacementTarget(input: {
     return {
       kind: "ramp",
       cell,
-      level: rampLevelFromSurface(input.hitY, input.surfacePiece),
+      level: rampLevelFromSurface(input.hitY, input.surfacePiece, baseLevel),
       rotation: autoOrient
         ? resolveRampRotation(
             input.hitX,
@@ -150,7 +165,7 @@ export function resolveBuildPlacementTarget(input: {
   return {
     kind: input.tool,
     cell,
-    level: inferPlacementLevel(input.hitY, input.surfacePiece),
+    level: inferPlacementLevel(input.hitY, input.surfacePiece, baseLevel),
     rotation: input.rotation,
     materialId: input.materialId
   };
@@ -361,6 +376,7 @@ export function resolveBuildTargetFromWorld(input: {
 }): BuildPlacementTarget {
   const cell = worldToCell(input.hitX, input.hitZ);
   const surfacePiece = findSurfacePieceAtCell(input.pieces, cell, input.hitY);
+  // 2D top-down passes the avatar's feet `y` as `hitY`, so it doubles as the standing level.
   return resolveBuildPlacementTarget({
     tool: input.tool,
     hitX: input.hitX,
@@ -369,6 +385,7 @@ export function resolveBuildTargetFromWorld(input: {
     rotation: input.rotation,
     materialId: input.materialId,
     surfacePiece,
+    baseLevel: avatarStandingLevel(input.hitY),
     ...(input.rampRotationOverride !== undefined
       ? { rampRotationOverride: input.rampRotationOverride }
       : {})
@@ -401,6 +418,7 @@ export function resolvePlaceAheadBuildTarget(input: {
     rotation: input.rotation,
     materialId: input.materialId,
     surfacePiece,
+    baseLevel: avatarStandingLevel(input.avatarPosition.y),
     ...(input.rampRotationOverride !== undefined
       ? { rampRotationOverride: input.rampRotationOverride }
       : {})

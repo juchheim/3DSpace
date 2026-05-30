@@ -2,6 +2,7 @@ import { BuildPieceSchema } from "@3dspace/contracts";
 import { describe, expect, it } from "vitest";
 import { BUILD_CELL_SIZE, createFreeForAllManifest, worldToCell } from "@3dspace/room-engine";
 import {
+  avatarStandingLevel,
   buildPlacementStatusMessage,
   checkBuildCapsForPlacements,
   evaluateBuildPlacement,
@@ -21,6 +22,43 @@ describe("buildPlacement", () => {
   it("picks the nearest wall edge from a hit point", () => {
     expect(nearestWallEdge(23.8, 11, 11, 5)).toBe("e");
     expect(nearestWallEdge(11, 23.8, 5, 11)).toBe("n");
+  });
+
+  it("derives the avatar's standing level from feet height", () => {
+    expect(avatarStandingLevel(0)).toBe(0); // ground
+    expect(avatarStandingLevel(2.3)).toBe(1); // on a level-1 floor (levelToY(1) + floor thickness)
+    expect(avatarStandingLevel(4.3)).toBe(2);
+  });
+
+  it("extends a floor at the avatar's standing level when the cursor hits empty ground", () => {
+    // Standing on a level-1 floor (feet ≈ 2.3); aim at the empty neighbour cell, where the
+    // ray hits the ground plane (hitY ≈ 0, no surface piece). Without baseLevel this fell to 0.
+    const target = resolveBuildPlacementTarget({
+      tool: "floor",
+      hitX: 12.1,
+      hitY: 0.001,
+      hitZ: 10,
+      rotation: 0,
+      materialId: "stone",
+      surfacePiece: null,
+      baseLevel: avatarStandingLevel(2.3)
+    });
+    expect(target.kind).toBe("floor");
+    expect(target.level).toBe(1);
+  });
+
+  it("still builds on the ground (level 0) when the avatar is standing on the ground", () => {
+    const target = resolveBuildPlacementTarget({
+      tool: "floor",
+      hitX: 12.1,
+      hitY: 0.001,
+      hitZ: 10,
+      rotation: 0,
+      materialId: "stone",
+      surfacePiece: null,
+      baseLevel: avatarStandingLevel(0)
+    });
+    expect(target.level).toBe(0);
   });
 
   it("rejects hall-overlapping wall targets consistently with floors", () => {

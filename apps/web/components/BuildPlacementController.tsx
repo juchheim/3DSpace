@@ -6,6 +6,7 @@ import type { BuildPiece, BuildPieceKind, RoomManifest } from "@3dspace/contract
 import type { ThreeEvent } from "@react-three/fiber";
 import { BUILD_CELL_SIZE, BUILD_PLACEMENT_RATE_LIMIT_MS } from "@3dspace/room-engine";
 import {
+  avatarStandingLevel,
   buildPlacementPreviewPiece,
   buildPlacementStatusMessage,
   checkBuildCapsForPlacements,
@@ -136,9 +137,12 @@ export function BuildPlacementController({
         rotation: buildMode.rotation,
         materialId: buildMode.materialId,
         surfacePiece,
-        rampRotationOverride: buildMode.rampRotationOverride
+        rampRotationOverride: buildMode.rampRotationOverride,
+        // The raycast `hitY` is the ground under the cursor; the level we build at when the
+        // cursor lands on empty ground comes from where the avatar is standing.
+        baseLevel: avatarStandingLevel(localAvatarPosition.y)
       }),
-    [buildMode.materialId, buildMode.rampRotationOverride, buildMode.rotation]
+    [buildMode.materialId, buildMode.rampRotationOverride, buildMode.rotation, localAvatarPosition.y]
   );
 
   const flushPendingBatch = useCallback(async () => {
