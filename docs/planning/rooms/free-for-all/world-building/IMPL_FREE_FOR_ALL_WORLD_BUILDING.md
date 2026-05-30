@@ -41,11 +41,12 @@ Confirmed by reading the tree on 2026-05-30:
 ## Design decisions locked for this implementation
 
 1. **`BuildPiece` is a new entity**, not a `RoomObject` variant (structural, grid-quantized, collidable vs free-pose, grabbable, non-colliding). It clones the room-objects *plumbing*.
-2. **Integer grid identity.** A piece is identified by `(kind, cell.ix, cell.iz, level, edge?)`. World geometry is derived, never stored. This makes placement idempotent and clients deterministic.
-3. **Manifest is untouched.** Build pieces are a runtime overlay merged with `manifest.walls`/tiers on the client for collision/render. "Reset" = delete pieces.
-4. **Verticality via surface-follow**, not physics. Two new engine functions: `buildPieceColliders` (derive) and `groundHeightAt` (query). Wall collision becomes height-aware.
-5. **Axis-aligned only in v1** (90° rotation) so the existing `resolveWallCollisions` is reused without a general OBB resolver.
-6. **Realtime mirrors `room.object.*`**: `room.build.upsert.v1`, `room.build.remove.v1`, `room.build.batch.v1` (drag-paint coalesce), reliable channel, optimistic + server echo.
+2. **Deterministic slot identity.** Each piece's id IS its canonical slot id (`buildPieceSlotId`, above): `build:wallX|wallZ:…:level` for walls (canonicalized so shared edges collapse) and `build:flat:ix:iz:level` for floors/ramps (one occupant per cell+level). World geometry is derived from `cell/level/edge/rotation`, never stored. This single decision buys us: idempotent placement, deduped walls, mutually-exclusive floor/ramp slots, trivial optimistic apply (client computes the same id the server will), and a dirt-simple persistence key (the id is the Mongo `_id` — no compound unique index needed).
+3. **Placement is create-if-free, not last-write-wins.** Re-placing the *identical* piece on an occupied slot is an idempotent success; placing a *different* piece on an occupied slot is **rejected** (you must destroy first). This makes concurrent placement conflict-safe and prevents silent ownership-steal. **First-writer-wins** for `createdByUserId`/`createdAt`.
+4. **Manifest is untouched.** Build pieces are a runtime overlay merged with `manifest.walls`/tiers on the client for collision/render. "Reset" = delete pieces.
+5. **Verticality via surface-follow**, not physics. Two new engine functions: `buildPieceColliders` (derive) and `groundHeightAt` (query). Wall collision becomes height-aware.
+6. **Axis-aligned only in v1** (90° rotation) so the existing `resolveWallCollisions` is reused without a general OBB resolver. The geometry invariant `cell == level == wall height` keeps ramps at 45° and walls one level tall.
+7. **Realtime mirrors `room.object.*`**: `room.build.upsert.v1`, `room.build.remove.v1`, `room.build.batch.v1` (drag-paint coalesce), reliable channel, optimistic + server echo. Because ids are deterministic, the server echo carries the same id as the optimistic insert — no temp-id reconcile.
 
 ---
 
@@ -54,17 +55,26 @@ Confirmed by reading the tree on 2026-05-30:
 Add to `room-engine` (single source of truth, imported by client + server):
 
 ```ts
+// INVARIANT: BUILD_CELL_SIZE === BUILD_LEVEL_HEIGHT === BUILD_WALL_HEIGHT.
+// This is load-bearing: it makes single-cell ramps exactly 45° (rise == run) and
+// makes a wall exactly one level tall so floors line up with wall tops (Fortnite-correct).
+// Tune all three together; never independently. (3 m rise over a 2 m run = 56° — too steep.)
 export const BUILD_CELL_SIZE = 2.0;        // m, XZ grid cell
-export const BUILD_LEVEL_HEIGHT = 3.0;     // m, one vertical level (== wall height)
-export const BUILD_WALL_HEIGHT = 3.0;      // m
+export const BUILD_LEVEL_HEIGHT = 2.0;     // m, one vertical level (== cell == wall height)
+export const BUILD_WALL_HEIGHT = 2.0;      // m
 export const BUILD_WALL_THICKNESS = 0.2;   // m
-export const BUILD_FLOOR_THICKNESS = 0.3;  // m
-export const BUILD_STEP_UP_MAX = 0.6;      // m, free step-up tolerance
-export const BUILD_MAX_LEVEL = 4;          // height cap (≈12 m)
+export const BUILD_FLOOR_THICKNESS = 0.3;  // m, RENDER-ONLY slab depth below the walking surface (not a step)
+export const BUILD_STEP_UP_MAX = 0.6;      // m, ramp-foot / junction smoothing tolerance; stay < BUILD_LEVEL_HEIGHT so a full level reads as a wall
+export const BUILD_STAND_HEIGHT = 1.6;     // m, avatar vertical extent for height-aware wall overlap
+export const BUILD_MAX_LEVEL = 4;          // floor/wall height cap (== 8 m, matches FFA perimeter wall height)
+export const BUILD_MAX_RAMP_LEVEL = BUILD_MAX_LEVEL - 1; // a ramp at level L rises to L+1, so its base caps one level lower
+export const BUILD_SPAWN_KEEPOUT_RADIUS = 2 * BUILD_CELL_SIZE; // 4 m — never box in a joiner (SPAWN_OCCUPIED_RADIUS 0.9 is too small)
 export const BUILD_MAX_PIECES_PER_ROOM = 1000;
 export const BUILD_MAX_PIECES_PER_USER = 400;
 export const BUILD_ID_PREFIX = "build:";   // MUST NOT collide with ffa-perim-* radial clamp
 ```
+
+> **Why these relate.** A floor's **walking surface sits exactly on its level line** (`levelToY(level)`); the 0.3 m thickness is rendered *below* the surface, so it is **not** a step you mount — you reach a raised floor by ramp. This is what makes a ramp (top at `levelToY(level+1)`) connect **flush** to a floor placed at that level, with no phantom lip at the junction. `BUILD_STEP_UP_MAX` (0.6) is just a smoothing tolerance for the ramp foot and float-epsilon seams; it must stay **smaller** than `BUILD_LEVEL_HEIGHT` (2.0) so a full level reads as a wall, not a staircase. Headroom under a one-level-raised floor is `BUILD_LEVEL_HEIGHT − BUILD_FLOOR_THICKNESS = 1.7 m`, which must exceed `BUILD_STAND_HEIGHT` (1.6 m) so an avatar can walk underneath — another reason to retune the three heights together. `BUILD_MAX_LEVEL = 4` is pinned to `FFA_WALL_HEIGHT` (8 m) so builds can't out-top the room shell.
 
 Cell↔world mapping (cell centers on the grid, origin-aligned):
 
@@ -77,6 +87,36 @@ export function worldToCell(x: number, z: number) {
 }
 export function levelToY(level: number) { return level * BUILD_LEVEL_HEIGHT; }
 ```
+
+**Canonical identity (critical — see §"Identity" decision).** A wall lives on a grid *edge*, and every interior edge is shared by two cells, so `(cell, edge)` is **two-to-one**: the north edge of `(ix,iz)` is the same physical wall as the south edge of `(ix,iz+1)`. Persisting by `(cell, edge)` would let those two names create two overlapping walls (double collider + z-fight). We collapse them to one canonical grid-line identity:
+
+```ts
+// Walls along X (block N↔S) sit on a horizontal grid line gz; walls along Z (block E↔W) on a vertical line gx.
+export function canonicalWallEdge(cell: {ix:number; iz:number}, edge: "n"|"e"|"s"|"w") {
+  switch (edge) {
+    case "n": return { axis: "x" as const, ix: cell.ix, line: cell.iz + 1 }; // n edge == s edge of (ix, iz+1)
+    case "s": return { axis: "x" as const, ix: cell.ix, line: cell.iz };
+    case "e": return { axis: "z" as const, iz: cell.iz, line: cell.ix + 1 }; // e edge == w edge of (ix+1, iz)
+    case "w": return { axis: "z" as const, iz: cell.iz, line: cell.ix };
+  }
+}
+
+// Deterministic slot ids — the id IS the dedup key (used as Mongo _id). No separate compound unique index.
+export function wallSlotId(cell, edge, level) {                 // walls
+  const e = canonicalWallEdge(cell, edge);
+  return e.axis === "x"
+    ? `${BUILD_ID_PREFIX}wallX:${e.ix}:${e.line}:${level}`
+    : `${BUILD_ID_PREFIX}wallZ:${e.line}:${e.iz}:${level}`;
+}
+export function flatSlotId(cell, level) {                       // floor OR ramp (single occupant per cell+level)
+  return `${BUILD_ID_PREFIX}flat:${cell.ix}:${cell.iz}:${level}`;
+}
+export function buildPieceSlotId(piece) {
+  return piece.kind === "wall" ? wallSlotId(piece.cell, piece.edge!, piece.level) : flatSlotId(piece.cell, piece.level);
+}
+```
+
+Two consequences this buys us for free: (1) walls dedupe regardless of which neighbor named them; (2) a **flat slot holds at most one floor-or-ramp** (their ids collide), so a floor and a ramp can never overlap in the same cell+level.
 
 ---
 
@@ -93,23 +133,25 @@ export function levelToY(level: number) { return level * BUILD_LEVEL_HEIGHT; }
 - `BuildPieceSchema`:
   ```ts
   z.object({
-    id: z.string(),
+    id: z.string(),                            // == buildPieceSlotId(piece); server uses it as Mongo _id
     roomId: z.string(),
     kind: BuildPieceKindSchema,
     cell: z.object({ ix: z.number().int(), iz: z.number().int() }),
     level: z.number().int().min(0).max(BUILD_MAX_LEVEL),
     edge: BuildPieceEdgeSchema.optional(),     // walls only
-    rotation: BuildPieceRotationSchema.default(0),
+    rotation: BuildPieceRotationSchema.default(0),   // ramps: climb dir; walls/floors: ignored (edge carries wall orientation)
     materialId: BuildPieceMaterialSchema.default("stone"),
     createdByUserId: z.string(),
     createdAt: z.string()
-  }).superRefine(/* wall ⇒ edge required; floor/ramp ⇒ edge absent */)
+  }).superRefine(/* wall ⇒ edge required; floor/ramp ⇒ edge absent; ramp ⇒ level ≤ BUILD_MAX_RAMP_LEVEL (it rises to level+1) */)
   ```
+  The `id` is **derived** (`buildPieceSlotId`), not random — the create endpoint computes it server-side from `cell/level/edge/kind` and ignores any client-supplied id. The client computes the same id optimistically.
 - REST request/response schemas: `CreateBuildPieceRequestSchema` (kind/cell/level/edge?/rotation/materialId), `CreateBuildPieceResponseSchema` ({ piece, realtimeMessages }), `ListBuildPiecesResponseSchema` ({ pieces }), `DeleteBuildPieceResponseSchema` ({ realtimeMessages }), `CreateBuildPiecesBatchRequestSchema` ({ pieces: […] }) for drag-paint.
 - Realtime messages (mirror `room.object.*`):
   - `RoomBuildUpsertMessageV1Schema` `{ type: "room.build.upsert.v1", roomId, piece, sentAt, senderId }`
   - `RoomBuildRemoveMessageV1Schema` `{ type: "room.build.remove.v1", roomId, pieceId, sentAt, senderId }`
   - `RoomBuildBatchMessageV1Schema` `{ type: "room.build.batch.v1", roomId, pieces: BuildPiece[], sentAt, senderId }`
+  - `RoomBuildClearMessageV1Schema` `{ type: "room.build.clear.v1", roomId, sentAt, senderId }` (clear-all; clients drop all local pieces)
   - `RoomBuildRealtimeMessageSchema = z.discriminatedUnion("type", [...])` + exported `RoomBuildRealtimeMessage` type.
 - `RoomObjectRealtimeInbound`-equivalent not needed (no grab/pose); placement goes through REST which returns the canonical realtime messages, same as object create/delete.
 - **Feature flag:** add `building: boolean` to `RoomTypeFeatureFlags`; set `true` in `FREE_FOR_ALL_ROOM_TYPE_FEATURE_FLAGS`, `false` elsewhere.
@@ -135,14 +177,17 @@ export function levelToY(level: number) { return level * BUILD_LEVEL_HEIGHT; }
 
 Clone the room-objects server stack.
 
-**`apps/api/src/models/mongoose.ts`** — add `buildPieceSchema` (fields per `BuildPieceSchema`), compound index `{ roomId: 1 }`, and a **unique** index on `{ roomId, kind, cell.ix, cell.iz, level, edge }` so duplicate placements collapse (idempotency). Register `BuildPiece` model.
+**`apps/api/src/models/mongoose.ts`** — add `buildPieceSchema` (fields per `BuildPieceSchema`) with `_id` set to the deterministic `buildPieceSlotId` (string). The `_id` **is** the dedup key — no separate compound unique index. Add a non-unique index `{ roomId: 1 }` for bulk list and `{ roomId: 1, createdByUserId: 1 }` for the per-user cap count. Register `BuildPiece` model.
 
 **`apps/api/src/repository.ts`** (+ in-memory impl):
 
 ```
 listBuildPiecesForRoom(roomId): Promise<BuildPiece[]>
-createBuildPiece(input): Promise<BuildPiece>          // upsert on the unique key (last write wins)
-createBuildPiecesBatch(inputs): Promise<BuildPiece[]>
+createBuildPiece(input): Promise<{ piece: BuildPiece; created: boolean }>
+  // id = buildPieceSlotId(input). If absent → insert (created:true).
+  // If present and structurally identical → return existing (created:false, idempotent no-op).
+  // If present and DIFFERENT (slot occupied by another piece) → throw conflict. First-writer keeps ownership.
+createBuildPiecesBatch(inputs): Promise<{ pieces: BuildPiece[]; conflicts: string[] }>  // skip-on-conflict
 getBuildPiece(roomId, pieceId): Promise<BuildPiece | undefined>
 removeBuildPiece(roomId, pieceId): Promise<BuildPiece>
 countBuildPiecesForRoom(roomId): Promise<number>
@@ -158,13 +203,13 @@ Wire `deleteAllBuildPiecesForRoom` into the existing room-delete cascade (next t
 
 **`apps/api/src/routes/build-pieces.ts`** (mirror `routes/room-objects.ts`; register in app):
 - `GET  /v1/rooms/:roomId/build-pieces` → `{ pieces }` (bulk load; `requireRoomAccess`).
-- `POST /v1/rooms/:roomId/build-pieces` → create one → `{ piece, realtimeMessages: [upsert] }`.
-- `POST /v1/rooms/:roomId/build-pieces/batch` → create many → `{ pieces, realtimeMessages: [batch] }` (cap batch size, e.g. ≤ 32).
-- `DELETE /v1/rooms/:roomId/build-pieces/:pieceId` → `{ realtimeMessages: [remove] }`.
-- `DELETE /v1/rooms/:roomId/build-pieces` → clear all (any participant; or gate by setting) → `{ realtimeMessages: [batch-or-clear] }`.
-- All enforce: feature flag + `buildingEnabled`, caps, no-build-zone, destroy policy. Server is authoritative; **returns** canonical realtime messages (client broadcasts them, exactly like room objects).
+- `POST /v1/rooms/:roomId/build-pieces` → create one. On a free slot → `201 { piece, realtimeMessages: [upsert] }`; on an identical re-place → `200 { piece, realtimeMessages: [] }` (idempotent, no rebroadcast); on a *different* piece occupying the slot → `409` (`buildSlotOccupied`).
+- `POST /v1/rooms/:roomId/build-pieces/batch` → create many, **skip-on-conflict** → `{ pieces, conflicts, realtimeMessages: [batch] }` (cap batch size ≤ 32; `batch` carries only the pieces actually created).
+- `DELETE /v1/rooms/:roomId/build-pieces/:pieceId` → `{ realtimeMessages: [remove] }` (idempotent if already gone).
+- `DELETE /v1/rooms/:roomId/build-pieces` → **clear all.** Higher-risk than single destroy (one call nukes everyone's work), so gate it more strictly than `buildDestroyPolicy`: require **room teacher/owner** (`requireRoomTeacher`) OR, in a teacherless FFA room, a typed confirm token. Returns `{ realtimeMessages: [clear] }` carrying a `room.build.clear.v1` so clients drop all local pieces in one message (don't replay N removes).
+- All enforce: feature flag + `buildingEnabled`, caps, no-build-zone, destroy policy. Server is authoritative; **returns** canonical realtime messages (client broadcasts them, exactly like room objects). The clear-all path emits the `room.build.clear.v1` message defined in Phase 1.
 
-Reuse auth guards from `http/auth-guards.ts` (`requireRoomAccess`, `requireUser`). Errors via `errors.ts` (add `buildDisabled`, `buildRejected`, `buildCapExceeded`, `buildDestroyDenied`).
+Reuse auth guards from `http/auth-guards.ts` (`requireRoomAccess`, `requireRoomTeacher`, `requireUser`). Errors via `errors.ts` (add `buildDisabled`, `buildSlotOccupied`, `buildCapExceeded`, `buildDestroyDenied`).
 
 **Tests** (`apps/api`): create→list→delete; idempotent re-create collapses; cap enforcement; no-build-zone reject; destroy-policy; clear-all; room-delete cascade.
 
@@ -177,13 +222,13 @@ Reuse auth guards from `http/auth-guards.ts` (`requireRoomAccess`, `requireUser`
 **`apps/web/lib/api.ts`** — `listBuildPieces`, `createBuildPiece`, `createBuildPiecesBatch`, `deleteBuildPiece`, `clearBuildPieces`.
 
 **`apps/web/lib/useBuildPieces.ts`** — clone `useRoomObjects` structure:
-- State `piecesById: Record<string, BuildPiece>`; selector `pieces` array (sorted by createdAt).
+- State `piecesById: Record<string, BuildPiece>` keyed by the deterministic slot id; selector `pieces` array (sorted by createdAt).
 - `refresh()` bulk-loads on enable; periodic refresh + on-focus (copy the visibility/focus effect).
-- `handleRealtimeMessage(message)` applies `room.build.upsert.v1` / `.remove.v1` / `.batch.v1`; returns handled boolean.
-- `actions.place(kind, cell, level, edge?, rotation, materialId)` — optimistic upsert (synthesize a temp piece), `POST`, reconcile with server piece + `publishMessages` to LiveKit. Last-write-wins via the unique key means a temp id is replaced by the server id on reconcile.
-- `actions.placeBatch(pieces)` — drag-paint; one request, one `batch` broadcast.
+- `handleRealtimeMessage(message)` applies `room.build.upsert.v1` / `.remove.v1` / `.batch.v1` / `.clear.v1` (clear empties `piecesById`); returns handled boolean.
+- `actions.place(spec: { kind; cell; level; edge?; rotation?; materialId })` — **options object** (an optional `edge` can't sit before required positional args). Compute the slot id locally via `buildPieceSlotId`, optimistically insert keyed by that id, `POST`, then `publishMessages` the server's `upsert`. Because the id is deterministic, the server echo lands on the same key — **no temp-id reconcile**. On a `409 buildSlotOccupied`, roll back the optimistic insert and keep the server's existing piece (it arrives via realtime / a refetch).
+- `actions.placeBatch(specs)` — drag-paint; one request, one `batch` broadcast; conflicts are silently skipped (the cell was already taken).
 - `actions.destroy(pieceId)` — optimistic remove, `DELETE`, broadcast.
-- `actions.clearAll()`.
+- `actions.clearAll()` — guarded action (teacher/owner or confirm token, per Phase 2).
 
 **`apps/web/lib/realtime.ts`** — add `RoomBuildRealtimeMessage` to the `RealtimeMessage` union; `room.build.*` are **reliable** (omit from `ROOM_OBJECT_UNRELIABLE_TYPES`). No transport changes otherwise (JSON over data channel; broadcast fallback already generic).
 
@@ -197,11 +242,13 @@ Reuse auth guards from `http/auth-guards.ts` (`requireRoomAccess`, `requireUser`
 
 **`packages/room-engine`** — `isBuildAllowedAt(manifest, piece)`:
 - **Bounds:** every collider corner within `manifest.bounds`.
-- **Level cap:** `0 ≤ level ≤ BUILD_MAX_LEVEL`.
-- **Spawn keep-out:** reject if the cell footprint is within `SPAWN_OCCUPIED_RADIUS + cell` of any `manifest.spawnPoints` (reuse the constant).
+- **Height cap:** `0 ≤ level ≤ BUILD_MAX_LEVEL`, and for ramps `level ≤ BUILD_MAX_RAMP_LEVEL` (a ramp's *top* is `level+1`, which must also stay ≤ cap). The schema refinement already enforces the ramp case; re-assert here so the server is authoritative.
+- **Spawn keep-out:** reject any cell whose footprint comes within `BUILD_SPAWN_KEEPOUT_RADIUS` (≈ 2 cells = `2 * BUILD_CELL_SIZE`) of any `manifest.spawnPoints`. `SPAWN_OCCUPIED_RADIUS` (0.9 m) is too small here — it's smaller than one cell, so a single wall could still box a joiner in. Use a dedicated larger constant so a spawning avatar always has room to step out.
 - **FFA exits/halls keep-out:** reject cells that overlap the four exit arcs / hall corridors. Reuse the exit-arc math already in `resolveWallCollisions` (`exitAngles`, `FFA_EXIT_HALF_ARC`) and the hall rectangles from `buildFreeForAllWalls`. Factor that geometry into a reusable `freeForAllExitMask(manifest)` so both collision and build share it.
 - **Static boards keep-out:** reject walls on cells fronting `ffa-adj-*-anchor` so builds can't occlude shared boards.
 - Returns `{ ok:false, reason }` for the client to surface (red ghost tooltip) and the server to reject.
+
+> **Slot occupancy is NOT this function's job.** "A different piece already holds this slot" is enforced by the deterministic id (`409` from `createBuildPiece`), not by `isBuildAllowedAt`. The client ghost still turns red on an occupied slot, but it learns that from `piecesById` (does an id collision exist?), not from this predicate.
 
 This function is called by **both** the client (ghost validity) and server (authoritative). Pure + unit-tested with FFA manifest fixtures.
 
@@ -215,8 +262,8 @@ This function is called by **both** the client (ghost validity) and server (auth
 - `pieces.map(piece => <BuildPieceMesh piece={...} />)`.
 - `BuildPieceMesh` switches on `kind`:
   - wall → `boxGeometry [BUILD_CELL_SIZE, BUILD_WALL_HEIGHT, BUILD_WALL_THICKNESS]` positioned at the cell edge (from `buildPieceColliders`), `y = levelToY(level) + height/2`.
-  - floor → `boxGeometry [CELL, FLOOR_THICKNESS, CELL]` at cell center, top at `levelToY(level)+thickness`.
-  - ramp → a wedge geometry (custom `BufferGeometry` or a rotated/sheared box) spanning level→level+1 along `rotation`.
+  - floor → `boxGeometry [CELL, FLOOR_THICKNESS, CELL]` at cell center, **walking surface on the level line**: box center `y = levelToY(level) − FLOOR_THICKNESS/2` (slab hangs below the surface; top face at `levelToY(level)`).
+  - ramp → a wedge geometry (custom `BufferGeometry` or a rotated/sheared box) spanning `levelToY(level)`→`levelToY(level+1)` along `rotation`, so its high edge meets a level-`level+1` floor flush.
   - material from `materialId` (map to `meshStandardMaterial` presets; `glass` = transparent, `neon` = emissive).
 - Reuse skin-aware lighting already in the scene.
 
@@ -242,15 +289,25 @@ This function is called by **both** the client (ghost validity) and server (auth
 
 **`packages/room-engine`** — height-aware wall collision:
 - Extend the collider type so a wall carries `baseY` and `height` (existing `WallPlane` is base 0 / full height; build walls have `baseY = levelToY(level)`).
-- New `resolveWallCollisionsV2(oldPos3, newPos3, walls, standHeight)` (or augment the existing fn) that **skips a wall when the avatar's vertical span `[y, y+standHeight]` does not overlap `[baseY, baseY+height]`**. Keep the per-axis XZ resolution and the FFA radial clamp unchanged. `standHeight ≈ 1.6` m (avatar torso/head).
-- Provide `collectCollisionWalls(manifest, buildPieces)` = `manifest.walls` (treated as base 0) ∪ build-wall colliders ∪ ramp-back barriers. **Ensure build ids use `BUILD_ID_PREFIX`** so they never hit the `ffa-perim-*` radial-clamp branch.
+- New signature — the avatar `y` is a distinct argument from the 2D `old`/`new` positions (the existing `resolveWallCollisions` takes `{x,z}`, not 3D points, so we pass `y` explicitly rather than smuggling it in):
+  ```ts
+  resolveWallCollisionsV2(
+    old: { x: number; z: number },
+    next: { x: number; z: number },
+    walls: WallCollider[],
+    feetY: number,                 // avatar feet height this frame
+    standHeight = BUILD_STAND_HEIGHT
+  ): { x: number; z: number }
+  ```
+  It **skips a wall when the avatar's vertical span `[feetY, feetY + standHeight]` does not overlap the wall's `[baseY, baseY + height]`**. Keeps the per-axis XZ resolution and the FFA radial clamp unchanged.
+- Provide `collectCollisionWalls(manifest, buildPieces)` = `manifest.walls` (treated as `baseY = 0`, full height) ∪ build-wall colliders ∪ ramp-back barriers. **Ensure build ids use `BUILD_ID_PREFIX`** so they never hit the `ffa-perim-*` radial-clamp branch.
 
-**`apps/web/lib/useAvatarMovement.ts`** — pass the merged wall set + the avatar's current `y`/standHeight into the resolver:
+**`apps/web/lib/useAvatarMovement.ts`** — pass the merged wall set + the avatar's current feet `y` into the resolver:
+```ts
+const walls = collectCollisionWallsRef.current;                       // from a ref to avoid rAF restarts
+const resolved = resolveWallCollisionsV2(current.position, rawNext, walls, current.position.y);
 ```
-const walls = collectCollisionWalls(manifest, buildPieces);   // memoized; from a ref to avoid rAF restarts
-const resolved = resolveWallCollisionsV2(current, rawNext, walls, current.y, STAND_HEIGHT);
-```
-Feed `buildPieces` via a ref (like `walkSpeedMultiplierRef`) so the rAF effect doesn't restart on every placement.
+Feed the merged wall set (and the surface index from Phase 7) via refs (pattern: `walkSpeedMultiplierRef`) so the rAF effect doesn't restart on every placement. The default `standHeight` argument is the `BUILD_STAND_HEIGHT` engine constant — no separate `STAND_HEIGHT` in the component.
 
 **Regression safety (critical, see plan §7.5):** add tests asserting **ground-level** navigation against `manifest.walls` is byte-for-byte unchanged (FFA perimeter, halls, classroom walls) when there are no build pieces and `y=0`. The height-aware change must be a no-op at ground level.
 
@@ -260,40 +317,42 @@ Feed `buildPieces` via a ref (like `walkSpeedMultiplierRef`) so the rAF effect d
 
 ### Phase 7 — Floors you can stand on (Milestone B: verticality)
 
-**`packages/room-engine`** — `groundHeightAt(x, z, ctx)`:
-- `ctx` = `{ manifest, floorTops: FloorTop[], ramps: RampSurface[] }` derived from build pieces (built once per piece-set change, indexed by cell for O(1) lookup).
+**`packages/room-engine`** — `groundHeightAt(x, z, surfaces, currentY)`:
+- Signature: `groundHeightAt(x: number, z: number, surfaces: BuildSurfaceIndex, currentY: number): number`. `currentY` is required — the step-up rule compares candidate surfaces against where the avatar's feet are *this* frame.
+- `surfaces` = a `BuildSurfaceIndex` built from `{ manifest, floorTops, ramps }` (built once per piece-set change, indexed by cell for O(1) lookup; the manifest base/tiers are folded in).
 - Start with `base = floorYFromZ(manifest, z)`.
-- For each floor whose footprint contains (x,z): candidate `top = levelToY(level) + BUILD_FLOOR_THICKNESS`.
+- For each floor whose footprint contains (x,z): candidate `top = levelToY(level)` (the walking surface is on the level line; thickness is render-only).
 - For each ramp whose footprint contains (x,z): candidate `top = rampHeightAt(ramp, x, z)` (Phase 8).
-- **Support rule:** among `{base} ∪ candidates`, choose the **highest candidate that is ≤ currentY + BUILD_STEP_UP_MAX**. Surfaces higher than that are unreachable from here (you’ll bump their side as a wall). If none qualify above `base`, return the highest surface ≤ current standing (i.e., you descend).
-- Deterministic: integer cells + fixed tie-breaks; identical on all clients.
-- Build a **spatial index** `BuildSurfaceIndex` keyed by cell so the query checks only the avatar’s cell + 8 neighbors.
+- **Support rule:** let `reachable = { base } ∪ { c ∈ candidates : c ≤ currentY + BUILD_STEP_UP_MAX }`. Return `max(reachable)`. Surfaces above `currentY + BUILD_STEP_UP_MAX` are unreachable from here (you'll bump their side as a wall); lower surfaces let you descend (`base` is always reachable, so stepping off any ledge falls to it).
+- Deterministic: integer cells + fixed tie-breaks; identical on all clients (and only the *local owner* runs it — observers render remote avatars at their broadcast `position.y`, so clients can't disagree).
+- Build a **spatial index** `BuildSurfaceIndex` keyed by cell so the query checks only the avatar's cell + 8 neighbors.
 
-**Floor edges as steps, not walls:** a 0.3 m floor lip is < `BUILD_STEP_UP_MAX`, so walking into a floor’s side steps you up onto it automatically — no wall collider needed for floor sides. (Stacked floors creating a full-level lip become un-steppable and read as a wall edge; that’s desired — you need a ramp to go up a level.)
+**Floors are mounted by ramp, not stepped onto:** a floor's surface sits a full level (2 m) above the level below it, which is `> BUILD_STEP_UP_MAX`, so its edge reads as a wall — you can't walk up onto a raised floor from the side; you ramp up (the "1×1 + ramp" flow, plan §3.3). Floor sides therefore need **no wall collider** — `groundHeightAt` already refuses to lift you onto an out-of-reach surface, and the edge you'd bump is the wall-like side of the floor below it (or empty air you walk under). `BUILD_STEP_UP_MAX` exists only to smooth the ramp foot and float-epsilon seams at ramp/floor junctions, not to mount platforms.
 
 **`useAvatarMovement.ts`** — after wall resolve, set `y`:
-```
-const surfaces = buildSurfaceIndexRef.current;       // from useBuildPieces, memoized
-const groundY = groundHeightAt(resolved.x, resolved.z, { manifest, ...surfaces }, current.y);
+```ts
+const surfaces = buildSurfaceIndexRef.current;        // from useBuildPieces, memoized into a ref
+const groundY = groundHeightAt(resolved.x, resolved.z, surfaces, current.position.y);
 next.position = { x: resolved.x, y: groundY, z: resolved.z };
 ```
-Keep `clampPositionToBounds` for XZ bounds but take `y` from `groundHeightAt` (don’t let `floorYFromZ` overwrite it). Also resolve **spawn `y`** through `groundHeightAt` in `createAvatarState` consumers.
+Keep `clampPositionToBounds` for XZ-bound clamping, but **override its `y`** with `groundHeightAt` (today `clampPositionToBounds` returns `y = floorYFromZ(z)` — that becomes just the `base` input to the surface query, not the final `y`). The **locked-position** branch (classroom feature; FFA never locks) keeps its `floorYFromZ` path — out of scope. Also resolve **spawn `y`** through `groundHeightAt` in `createAvatarState` consumers (belt-and-suspenders; spawns are no-build zones so this is normally `base`).
 
 **Camera:** `useThirdPersonCamera` pivot follows the avatar `y` (already tracks position; confirm it reads the integrated `y`). Accept minor wall clipping for v1.
 
-**Tests:** stand on a single floor (y rises by a level); step up a 0.3 m lip for free; can’t step up a full level (blocked); walk off a floor edge → descend to base; multi-floor stacks pick the right top; determinism (same inputs → same y).
+**Tests:** stand on a level-1 floor (y == `levelToY(1)`, surface on the level line); cannot mount a raised floor from the side (a full level > step-up → `groundHeightAt` keeps you at base); walk off a floor edge → descend to base; multi-floor stacks pick the right top; a sub-epsilon junction seam is smoothed by `BUILD_STEP_UP_MAX`; determinism (same inputs → same y).
 
-*Exit criteria (Milestone B):* build a raised platform, walk up onto it from a ramp-less lip where intended, stand and walk on top, walk off and drop. Two-tab consistent. Verify with screenshots + a short driven walk via the preview tools.
+*Exit criteria (Milestone B):* build a raised platform, stand and walk on its top (surface on the level line), walk off the edge and drop to base; confirm you **can't** mount the platform by walking into its side (that needs the Phase 8 ramp). Two-tab consistent. Verify with screenshots + a short driven walk via the preview tools.
 
 ---
 
 ### Phase 8 — Ramps (Milestone C: complete the kit)
 
 **`packages/room-engine`**:
-- `rampHeightAt(ramp, x, z)` — linear interpolation along the ramp’s climb axis (chosen by `rotation`): at the low edge `y = levelToY(level)`, at the high edge `y = levelToY(level)+BUILD_LEVEL_HEIGHT`; clamp to footprint.
-- Ramp **back/side barriers**: a wall collider on the high edge + the two sides below the slope so you can’t walk through the solid part; the low edge is open (you walk on).
+- A ramp is a **single-cell 45° wedge** (rise `BUILD_LEVEL_HEIGHT` over run `BUILD_CELL_SIZE`, equal by invariant). Base at `level` (≤ `BUILD_MAX_RAMP_LEVEL`), top at `level+1` — so the top lands exactly on the next floor level and connects flush to a floor placed there.
+- `rampHeightAt(ramp, x, z)` — linear interpolation along the ramp's climb axis (chosen by `rotation`): at the low edge `y = levelToY(level)`, at the high edge `y = levelToY(level)+BUILD_LEVEL_HEIGHT`; clamp to footprint.
+- Ramp **back/side barriers**: a wall collider on the high edge + the two sides below the slope so you can't walk through the solid part; the low edge is open (you walk on).
 - Include ramps in `groundHeightAt` candidates and in `collectCollisionWalls` (barriers).
-- Step rule makes the **foot of a ramp** (height ≈ base) walk-on-able; the slope then carries you up within step tolerance frame-to-frame (each frame’s rise over a 3.2 m/s step is « 0.6 m).
+- Step rule makes the **foot of a ramp** (height ≈ base) walk-on-able; the slope then carries you up within step tolerance frame-to-frame. Sanity check at 45°: one frame at 3.2 m/s ≈ 0.05 m of run → 0.05 m of rise, far under `BUILD_STEP_UP_MAX` (0.6 m), so the climb is smooth.
 
 **Render** — ramp wedge mesh (Phase 5 stub → real geometry); ghost shows climb direction arrow; rotation cycles the 4 directions.
 
@@ -310,7 +369,7 @@ Keep `clampPositionToBounds` for XZ bounds but take `y` from `groundHeightAt` (d
 - **`apps/web/components/RoomView2D.tsx`** — draw build footprints: walls as line segments on cell edges, floors as filled squares (opacity by level), ramps as arrows. Source from the same `buildPieces`. (Movement already respects builds in 2D since collision/ground are shared — this is purely visibility.)
 - **Drag-paint** finalize: coalesce to `placeBatch`, rate-limit, ghost trail.
 - **Optional eased fall** (plan §6.4) behind a constant: when `current.y > groundY + ε`, integrate a small `vy` instead of snapping. Tune in playtest.
-- **“Clear all builds”** confirm dialog; **return-to-spawn** self-unstick button (reuse `selectSpawnPoint`).
+- **“Clear all builds”** — shown only to those allowed to call it (teacher/owner, or behind the typed-confirm token in a teacherless room, per Phase 2), with a confirm dialog. **Return-to-spawn** self-unstick button for everyone (reuse `selectSpawnPoint`).
 - **Empty/onboarding state** in `BuildControls` (one-line “Place walls, floors, ramps — anyone can build or remove”).
 - **Mobile**: rotate/destroy buttons; place-ahead targeting via `MovementPad` facing.
 
@@ -340,7 +399,7 @@ Keep `clampPositionToBounds` for XZ bounds but take `y` from `groundHeightAt` (d
 - `apps/web/lib/useBuildPieces.ts`, `apps/web/lib/useBuildMode.ts`
 - `apps/api/src/routes/build-pieces.ts`
 - `apps/api/src/build-pieces/helpers.ts`, `build-pieces/realtime-outbox.ts`
-- `packages/room-engine/src/build.ts` (or extend `index.ts`): constants, `cell↔world`, `buildPieceColliders`, `groundHeightAt`, `resolveWallCollisionsV2`, `collectCollisionWalls`, `freeForAllExitMask`, `isBuildAllowedAt`, `BuildSurfaceIndex`
+- `packages/room-engine/src/build.ts` (or extend `index.ts`): constants, `cell↔world`, `canonicalWallEdge`/`wallSlotId`/`flatSlotId`/`buildPieceSlotId`, `buildPieceColliders`, `groundHeightAt`, `resolveWallCollisionsV2`, `collectCollisionWalls`, `freeForAllExitMask`, `isBuildAllowedAt`, `BuildSurfaceIndex`
 - Tests in `packages/room-engine/tests`, `apps/api` route tests, `apps/web` E2E
 
 **Modified**

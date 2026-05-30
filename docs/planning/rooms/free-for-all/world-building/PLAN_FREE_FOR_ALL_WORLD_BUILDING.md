@@ -70,15 +70,15 @@ Three piece types, each occupying one cell of a **build grid** (default cell = *
 
 | Piece | Shape | Footprint | Walkable? | Impassable? | Notes |
 |---|---|---|---|---|---|
-| **Wall** | Thin vertical slab | 2 m wide × `wallHeight` (default 3 m) tall × 0.2 m thick | No (it's a barrier) | **Yes** | Snaps to a cell *edge*; rotates to the 4 edges of a cell. Reuses `WallPlane` collision semantics. |
-| **Floor** | Flat slab | 2 m × 2 m × 0.3 m thick | **Yes (top face)** | Sides act as a low step you walk up onto | Snaps to a cell *center* at a chosen height level (stacks in 1 m or `wallHeight` increments). |
-| **Ramp** | Inclined slab (wedge) | 2 m × 2 m footprint, rises `rampRise` (default = one floor level) along one axis | **Yes (sloped top face)** | Underside/back is a wall-like barrier | Snaps to a cell center; rotation chooses which of 4 directions it climbs. |
+| **Wall** | Thin vertical slab | 2 m wide × 2 m tall (one level) × 0.2 m thick | No (it's a barrier) | **Yes** | Snaps to a cell *edge*; rotates to the 4 edges of a cell. Reuses `WallPlane` collision semantics. |
+| **Floor** | Flat slab | 2 m × 2 m × 0.3 m thick | **Yes (top face)** | Edge reads as a wall (reach a raised floor by ramp, not by stepping up) | Snaps to a cell *center* at a chosen whole height level (2 m increments). Walking surface sits **on** the level line; the 0.3 m thickness renders below it. |
+| **Ramp** | Inclined slab (45° wedge) | 2 m × 2 m footprint, rises exactly one level (2 m) along one axis | **Yes (sloped top face)** | Underside/back is a wall-like barrier | Snaps to a cell center; rotation chooses which of 4 directions it climbs. High edge meets a same-level floor flush. |
 
 Design rationale:
 
-- **A 2 m cell** keeps the grid coarse enough that piece counts stay in the low hundreds even for ambitious builds (good for networking + collision cost), while still letting people make rooms, ramps, towers, and mazes that an avatar (radius 0.4 m, ~1.7 m tall) can navigate.
+- **A 2 m cell** keeps the grid coarse enough that piece counts stay in the low hundreds even for ambitious builds (good for networking + collision cost), while still letting people make rooms, ramps, towers, and mazes that an avatar (radius 0.4 m, ~1.6 m tall) can navigate.
 - **Walls snap to cell edges; floors/ramps snap to cell centers.** This is the core Fortnite insight: walls live "between" cells, floors live "on" cells. It makes structures line up automatically and makes the ghost preview unambiguous.
-- **Height levels are quantized** (default level height = 3 m to match wall height, with floors also placeable at 1 m sub-steps for terracing). Quantized heights make the ground-height query cheap and make ramps connect cleanly from level *N* to level *N+1*.
+- **One quantum for everything: cell size = level height = wall height = 2 m.** This invariant is load-bearing (see §6.3 and the IMPL constants block): equal run and rise make a single-cell ramp exactly **45°** (a 3 m rise over a 2 m run would be a near-unwalkable 56°), and a wall being exactly one level tall means a floor placed on top lines up flush with the wall top. Quantized heights also make the ground-height query cheap and make ramps connect cleanly from level *N* to level *N+1*. Finer sub-level terracing (e.g., 0.5 m steps) is deferred to expansion (§8) — it complicates ramp connection and the surface query.
 
 ---
 
@@ -143,18 +143,25 @@ A `BuildPiece` is compact:
 
 ```
 BuildPiece {
-  id, roomId,
+  id,                              // == its canonical slot id (deterministic; see below)
+  roomId,
   kind: "wall" | "floor" | "ramp",
   cell: { ix: int, iz: int },     // integer grid coordinates
-  level: int,                      // height level (0 = ground)
+  level: int,                      // height level (0 = ground); ramp.level ≤ maxLevel-1 (it rises to level+1)
   edge?: "n" | "e" | "s" | "w",    // walls only: which cell edge
-  rotation: 0 | 90 | 180 | 270,    // ramps: climb direction; floors: ignored
+  rotation: 0 | 90 | 180 | 270,    // ramps: climb direction; walls/floors: ignored
   materialId: string,              // small fixed palette in v1
   createdByUserId, createdAt
 }
 ```
 
-Integer cell/level coordinates (not floats) make placement **idempotent and conflict-free**: two people placing "the wall on the north edge of cell (3,5) at level 1" resolve to the same identity, so we can dedupe and last-write-wins without drift. World-space geometry is *derived* from `cell/level/edge/rotation` at render and collision time.
+**The id is a deterministic slot id**, and getting this right is what makes placement idempotent and conflict-free — but the obvious "key by `(cell, edge)`" is a **trap**: every interior edge is shared by two cells, so the north edge of `(3,5)` and the south edge of `(3,6)` are the *same physical wall* under two names. Keying by `(cell, edge)` would let those two names spawn two overlapping walls. So we **canonicalize**: a wall is identified by the grid *line* it sits on, not by an owning cell —
+
+- walls running along X → `build:wallX:{ix}:{gridLineZ}:{level}`
+- walls running along Z → `build:wallZ:{gridLineX}:{iz}:{level}`
+- floors **and** ramps share one **flat slot** per cell+level → `build:flat:{ix}:{iz}:{level}` (so a floor and a ramp can never overlap in the same cell)
+
+Because the id is fully derived from `cell/level/edge/kind`, the client computes the same id the server will, so the optimistic insert and the server echo land on the same key (no temp-id reconcile). Placement is **create-if-free with first-writer-wins**: re-placing the identical piece is an idempotent no-op; placing a *different* piece on an occupied slot is rejected (destroy first), which keeps concurrent edits conflict-safe and prevents silent ownership-steal. World-space geometry is *derived* from `cell/level/edge/rotation` at render and collision time.
 
 ### 4.2 Derived geometry
 
@@ -163,8 +170,8 @@ A pure function `buildPieceToGeometry(piece, grid)` turns a piece into:
 - a **render transform** (position, rotation, the right mesh: slab / wedge), and
 - one or more **colliders**:
   - **Wall** → a `WallPlane`-shaped segment (start/end/height/thickness) with a **base elevation** = `level * levelHeight`. (We extend `WallPlane` reasoning to carry a base `y`; see §6.)
-  - **Floor** → an **axis-aligned box** with a top face at `topY = level*levelHeight + floorThickness`, used by the ground-height query.
-  - **Ramp** → an **inclined quad** with a low edge at level *N* and high edge at level *N+1*, plus a back/underside barrier collider.
+  - **Floor** → an **axis-aligned box** whose walking surface is at `topY = level*levelHeight` (the slab's `floorThickness` renders *below* the surface, so it isn't a step), used by the ground-height query.
+  - **Ramp** → an **inclined quad** with a low edge at level *N* (`levelToY(N)`) and high edge at level *N+1* (`levelToY(N+1)`) — meeting a level-*N+1* floor flush — plus a back/underside barrier collider.
 
 Because v1 pieces are grid-snapped and 90°-rotated, **every collider is axis-aligned in world space**, which is exactly what the existing resolver and a simple ground-height query can handle efficiently.
 
@@ -174,13 +181,13 @@ All of "walls block, floors/ramps carry you" reduces to two pure functions the m
 
 1. **`resolveWallCollisions(old, new, walls)`** — *already exists.* We extend it (or wrap it) so user wall colliders and ramp-back barriers are included, and so a wall only blocks when the avatar's **standing height overlaps the wall's vertical span** `[baseY, baseY+height]` (so you can walk on a floor *over* a lower wall, and under a raised walkway). Today walls are infinitely tall in the resolver because movement has no height; we make the check height-aware.
 
-2. **`groundHeightAt(x, z, pieces, manifest)`** — *new.* Returns the **walkable surface height** the avatar should stand at for a given XZ, considering:
+2. **`groundHeightAt(x, z, surfaces, currentY)`** — *new.* Returns the **walkable surface height** the avatar should stand at for a given XZ. It needs `currentY` (the avatar's feet this frame) because the step rule is relative to where you're standing. It considers:
    - the base manifest floor/tiers (`floorYFromZ`),
    - the top faces of floor boxes whose footprint contains (x,z),
    - the interpolated top of any ramp whose footprint contains (x,z),
-   - **step logic:** the avatar snaps up to a surface only if it's within `stepUpMax` (≈0.6 m) of current height; higher surfaces are treated as walls (you bump into the side). Surfaces below current footing make you **descend** (instant in v1, or a quick fall with the optional gravity in §6.4).
+   - **step logic:** the avatar snaps up to a surface only if it's within `stepUpMax` (≈0.6 m) of `currentY`; higher surfaces are treated as walls (you bump into the side). The base floor is always reachable, so stepping off any ledge **descends** to it (instant in v1, or a quick fall with the optional gravity in §6.4).
 
-The movement loop becomes: compute candidate XZ → resolve wall collisions (height-aware) → set `y = groundHeightAt(x, z, …)`. That's the whole feature, kinematically.
+The movement loop becomes: compute candidate XZ → resolve wall collisions (height-aware) → set `y = groundHeightAt(x, z, surfaces, currentY)`. That's the whole feature, kinematically.
 
 ---
 
@@ -222,7 +229,7 @@ nextPosition = { x: resolved.x, y: rawNext.y, z: resolved.z }
 We do **not** add a physics engine. We add **surface following**:
 
 - The avatar always stands exactly on the highest *supported* walkable surface under it (`groundHeightAt`).
-- "Supported" gates on `stepUpMax`: you can walk **up** a lip ≤ ~0.6 m for free (so floor slabs and the foot of a ramp are walk-on-able), but a full wall-height step reads as a barrier, not a staircase.
+- "Supported" gates on `stepUpMax`: a surface within ~0.6 m of your feet carries you (this smooths the foot of a ramp and float-epsilon seams at ramp/floor junctions), but a full level (2 m) reads as a barrier — you **ramp** up a level, you don't step up onto it. Raised floors are mounted by ramp, not by walking into their side.
 - Walking off an edge **descends** to the next surface. v1 default: **snap down immediately** (cheap, predictable, slightly "floaty"). Optional polish (§6.4): a short eased fall so stepping off a tower looks like a drop, not a teleport.
 
 This gives correct, legible behavior for floors and ramps with a few dozen lines of pure math and zero new dependencies.
@@ -259,8 +266,9 @@ These are the things that will bite if not designed for. Most have cheap mitigat
 **Mitigations:**
 - **Anyone can destroy anything** (the core escape hatch — a trapped user can always tear down the wall on them).
 - **No-build zones** (see 7.2): spawns, hub exits/halls, and the four static boards can't be blocked.
-- **A "Reset my area / Clear all builds" affordance** (room-level, any participant) and a per-piece cap so a single actor can't blanket the map.
+- **Per-piece caps** (per-room and per-user) so a single actor can't blanket the map.
 - **Self-unstick:** if an avatar is ever detected fully enclosed with no walkable exit (rare), offer a "return to spawn" button (we already have spawn-selection logic in `selectSpawnPoint`).
+- **"Clear all builds" is the one exception to "anyone."** A single click that erases everyone's work is a grief *amplifier*, not an escape hatch, so it's gated more strictly than single-destroy — teacher/owner (or a typed-confirm token in a teacherless room). See §7.3.
 
 ### 7.2 No-build zones (must-haves)
 Building must be forbidden in/over:
@@ -271,7 +279,7 @@ Building must be forbidden in/over:
 These are expressed as a `isBuildAllowedAt(cell, level)` predicate in the engine, shared by client (ghost turns red) and server (authoritative reject).
 
 ### 7.3 "Who can destroy" tension
-FFA norm is "anyone." But anyone-destroys means anyone can also nuke a build someone spent 10 minutes on. v1 ships **anyone-can-destroy** (matches AI objects / boards and gives the anti-grief escape hatch), with creator attribution on hover. We design the permission as a **room setting** (`buildDestroyPolicy: anyone | owner-or-teacher`) so it's one enum to flip, not a rewrite, if playtests want protection.
+FFA norm is "anyone." But anyone-destroys means anyone can also nuke a build someone spent 10 minutes on. v1 ships **anyone-can-destroy single pieces** (matches AI objects / boards and gives the anti-grief escape hatch), with creator attribution on hover. We design the permission as a **room setting** (`buildDestroyPolicy: anyone | owner-or-teacher`) so it's one enum to flip, not a rewrite, if playtests want protection. **Clear-all is gated separately and more tightly** (teacher/owner or typed-confirm) regardless of `buildDestroyPolicy`, because its blast radius is the whole room — see §7.1.
 
 ### 7.4 Collision resolver assumptions
 `resolveWallCollisions` resolves axis-by-axis and has a **special radial clamp keyed on wall ids starting `ffa-perim-`**. Two consequences:
@@ -279,7 +287,7 @@ FFA norm is "anyone." But anyone-destroys means anyone can also nuke a build som
 - Per-axis resolution can let an avatar squeeze through the exact corner where two build walls meet at 90°. The existing engine already lives with this for room corners; with thickness 0.2 m and radius 0.4 m it's minor. If it shows up, a corner-overlap nudge is a localized fix.
 
 ### 7.5 Height-aware walls change existing behavior
-Making walls block only within `[baseY, baseY+height]` is required for floors-over-walls, but the **existing room walls are full-height** and movement currently ignores height entirely. We must make room walls' effective span `[0, height]` and ensure the avatar's standing height (`y + ~0.9 m torso`) is what we test, so nothing about ground-level navigation changes. This needs a focused regression test against the existing FFA/classroom collision behavior.
+Making walls block only within `[baseY, baseY+height]` is required for floors-over-walls, but the **existing room walls are full-height** and movement currently ignores height entirely. We must give room walls an effective span `[0, height]` and test the avatar's vertical extent `[feetY, feetY + BUILD_STAND_HEIGHT]` (≈ 1.6 m) against it. At ground level (`feetY = 0`) every room wall still overlaps, so ground navigation is unchanged — but this must be proven, not assumed: a focused regression test asserts FFA/classroom collision is byte-for-byte identical with no build pieces and `feetY = 0`.
 
 ### 7.6 Ground-height query cost & determinism
 `groundHeightAt` is O(pieces) per frame. At a few hundred pieces × 60 fps it's fine, but:
@@ -299,7 +307,7 @@ Drag-to-paint a wall run = many placements/second. Mitigate: client-side rate-li
 Hundreds of tiny docs per room. Index by `roomId`; bulk-load on join; cap per room (e.g., 1,000 pieces). Define lifecycle: do builds persist forever, or get reaped like AI objects (there's a `retention-reaper` precedent)? v1: persist with the room, add a manual "Clear all builds," and a config'd optional TTL.
 
 ### 7.11 Interaction with world skins, AI objects, and boards
-- **World skins** repaint floors/walls; build pieces have their own materials and should read fine over any skin, but the ghost's green/red must stay legible on busy skins (use emissive outline, not just tint).
+- **World skins** are currently *off* for Free-for-All (`FREE_FOR_ALL_ROOM_TYPE_FEATURE_FLAGS.worldSkins: false`), so the legibility concern below is **forward-looking** — it doesn't bite v1 but should be respected so building survives a future "skins in FFA" flip. Skins repaint floors/walls; build pieces carry their own materials and should read fine over any skin, but the ghost's green/red must stay legible on busy skins (use an emissive outline, not just a tint).
 - **AI objects / room objects** don't collide today and still won't — they can clip into build walls. Acceptable for v1 (objects are decorative); note it.
 - **Dynamic boards** are placed on `manifest.walls` only; building doesn't add board-able surfaces in v1 (boards-on-build-walls is an expansion).
 
