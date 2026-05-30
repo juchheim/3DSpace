@@ -90,3 +90,28 @@ export function roomObjectUploadTooLarge(details: { maxUploadSizeBytes: number; 
 export function roomObjectUploadRejected(message: string, details?: Record<string, unknown>) {
   return new HttpError(422, message, "room-object-upload-rejected", details);
 }
+
+export function buildDisabled() {
+  return new HttpError(404, "World building is disabled for this room", "build-disabled");
+}
+
+export function buildRejected(reason: string) {
+  return new HttpError(422, `Build placement rejected: ${reason}`, "build-rejected", { reason });
+}
+
+export function buildCapExceeded(scope: "room" | "user") {
+  return new HttpError(
+    422,
+    scope === "room" ? "Build piece limit reached for this room" : "Build piece limit reached for this user",
+    "build-cap-exceeded",
+    { scope }
+  );
+}
+
+export function buildDestroyDenied() {
+  return new HttpError(403, "You do not have permission to remove this build piece", "build-destroy-denied");
+}
+
+export function buildNotFound() {
+  return new HttpError(404, "Build piece not found", "build-not-found");
+}

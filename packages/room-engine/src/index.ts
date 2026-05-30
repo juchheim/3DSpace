@@ -1,5 +1,6 @@
 import type {
   AvatarStateMessage,
+  BuildPiece,
   Role,
   RoomCapabilities,
   RoomManifest,
@@ -9,6 +10,64 @@ import type {
   ViewMode
 } from "@3dspace/contracts";
 import { RoomManifestSchema } from "@3dspace/contracts";
+import { isAngleWithinFreeForAllExitArc } from "./free-for-all-build-mask.js";
+
+export {
+  BUILD_CELL_SIZE,
+  BUILD_FLOOR_THICKNESS,
+  BUILD_ID_PREFIX,
+  BUILD_LEVEL_HEIGHT,
+  BUILD_MAX_LEVEL,
+  BUILD_MAX_PIECES_PER_ROOM,
+  BUILD_MAX_PIECES_PER_USER,
+  BUILD_SPAWN_KEEP_OUT_RADIUS,
+  BUILD_STEP_UP_MAX,
+  BUILD_ENABLE_EASED_FALL,
+  BUILD_FALL_GRAVITY,
+  BUILD_PLACEMENT_RATE_LIMIT_MS,
+  BUILD_WALL_HEIGHT,
+  BUILD_WALL_THICKNESS,
+  buildCellFootprint,
+  buildPieceColliders,
+  buildPieceStableId,
+  rampClimbFromRotation,
+  cellToWorldCenter,
+  collectCollisionWalls,
+  freeForAllBuildMask,
+  isBuildAllowedAt,
+  isAngleWithinFreeForAllExitArc,
+  levelToY,
+  worldToCell,
+  type AxisAlignedRect,
+  type BuildPieceColliders,
+  type FloorTop,
+  type FreeForAllBuildMask,
+  type RampSurface,
+  type WallCollider
+} from "./build.js";
+
+export {
+  AVATAR_STAND_HEIGHT,
+  avatarOverlapsWallVerticalSpan,
+  manifestWallToCollider,
+  resolveWallCollisionsV2,
+  WALL_AVATAR_RADIUS
+} from "./wall-collision.js";
+
+import {
+  buildGroundHeightContext,
+  groundHeightAt
+} from "./ground-height.js";
+
+export {
+  BuildSurfaceIndex,
+  buildGroundHeightContext,
+  groundHeightAt,
+  groundHeightAtSurface,
+  rampHeightAt,
+  type GroundHeightContext,
+  type GroundHeightMode
+} from "./ground-height.js";
 
 type WallPlane = RoomManifest["walls"][number];
 type WallAnchor = RoomManifest["wallAnchors"][number];
@@ -1105,102 +1164,47 @@ export function floorYFromZ(manifest: RoomManifest, z: number): number {
 }
 
 export function clampPositionToBounds(manifest: RoomManifest, position: Vector3): Vector3 {
-  const clampedZ = Math.min(Math.max(position.z, manifest.bounds.minZ), manifest.bounds.maxZ);
+  const { x, z } = clampXZToBounds(manifest, position.x, position.z);
   return {
-    x: Math.min(Math.max(position.x, manifest.bounds.minX), manifest.bounds.maxX),
-    y: floorYFromZ(manifest, clampedZ),
-    z: clampedZ
+    x,
+    y: floorYFromZ(manifest, z),
+    z
   };
 }
 
-const WALL_AVATAR_RADIUS = 0.4;
+export function clampXZToBounds(manifest: RoomManifest, x: number, z: number) {
+  return {
+    x: Math.min(Math.max(x, manifest.bounds.minX), manifest.bounds.maxX),
+    z: Math.min(Math.max(z, manifest.bounds.minZ), manifest.bounds.maxZ)
+  };
+}
+
+export function createGroundHeightContext(manifest: RoomManifest, pieces: BuildPiece[]) {
+  return buildGroundHeightContext(manifest, pieces, (z) => floorYFromZ(manifest, z));
+}
+
+import {
+  AVATAR_STAND_HEIGHT,
+  manifestWallToCollider,
+  resolveWallCollisionsV2
+} from "./wall-collision.js";
 
 /**
  * Push `newPos` back so the avatar cannot enter any non-passable wall volume.
- * Each axis is resolved independently, giving natural wall-sliding behaviour.
- * Axis-aligned walls are handled directly; FFA perimeter segments also receive
- * a radial containment pass so diagonal chords cannot be bypassed.
+ * Ground-level avatar height; equivalent to `resolveWallCollisionsV2` at y=0.
  */
 export function resolveWallCollisions(
   oldPos: { x: number; z: number },
   newPos: { x: number; z: number },
   walls: RoomManifest["walls"]
 ): { x: number; z: number } {
-  let x = newPos.x;
-  let z = newPos.z;
-
-  for (const wall of walls) {
-    if (wall.passable !== false) continue;
-
-    const spanX = Math.abs(wall.end.x - wall.start.x);
-    const spanZ = Math.abs(wall.end.z - wall.start.z);
-    const isAlongX = spanX > spanZ;
-    const halfThickness = (wall.thickness ?? 0) / 2;
-
-    if (isAlongX) {
-      // Horizontal wall centered at z = wallZ, spanning x in [minX, maxX]
-      const wallZ = wall.start.z;
-      const minX = Math.min(wall.start.x, wall.end.x) - WALL_AVATAR_RADIUS;
-      const maxX = Math.max(wall.start.x, wall.end.x) + WALL_AVATAR_RADIUS;
-      const minBlockedZ = wallZ - halfThickness - WALL_AVATAR_RADIUS;
-      const maxBlockedZ = wallZ + halfThickness + WALL_AVATAR_RADIUS;
-      if (x > minX && x < maxX) {
-        if (oldPos.z <= minBlockedZ && z > minBlockedZ) {
-          z = minBlockedZ;
-        } else if (oldPos.z >= maxBlockedZ && z < maxBlockedZ) {
-          z = maxBlockedZ;
-        } else if (oldPos.z > minBlockedZ && oldPos.z < maxBlockedZ) {
-          z = oldPos.z <= wallZ ? minBlockedZ : maxBlockedZ;
-        }
-      }
-    } else {
-      // Vertical wall centered at x = wallX, spanning z in [minZ, maxZ]
-      const wallX = wall.start.x;
-      const minZ = Math.min(wall.start.z, wall.end.z) - WALL_AVATAR_RADIUS;
-      const maxZ = Math.max(wall.start.z, wall.end.z) + WALL_AVATAR_RADIUS;
-      const minBlockedX = wallX - halfThickness - WALL_AVATAR_RADIUS;
-      const maxBlockedX = wallX + halfThickness + WALL_AVATAR_RADIUS;
-      if (z > minZ && z < maxZ) {
-        if (oldPos.x <= minBlockedX && x > minBlockedX) {
-          x = minBlockedX;
-        } else if (oldPos.x >= maxBlockedX && x < maxBlockedX) {
-          x = maxBlockedX;
-        } else if (oldPos.x > minBlockedX && oldPos.x < maxBlockedX) {
-          x = oldPos.x <= wallX ? minBlockedX : maxBlockedX;
-        }
-      }
-    }
-  }
-
-  const hasFreeForAllPerimeter = walls.some((wall) => wall.id.startsWith("ffa-perim-"));
-  if (hasFreeForAllPerimeter) {
-    const oldRadius = Math.hypot(oldPos.x, oldPos.z);
-    const newRadius = Math.hypot(x, z);
-    const shouldApplyPerimeterClamp =
-      oldRadius <= FFA_MAIN_RADIUS + WALL_AVATAR_RADIUS ||
-      newRadius <= FFA_MAIN_RADIUS + WALL_AVATAR_RADIUS;
-    if (!shouldApplyPerimeterClamp) {
-      return { x, z };
-    }
-
-    const angle = Math.atan2(z, x);
-    const exitAngles = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2];
-    const withinExitArc = exitAngles.some((exitAngle) => {
-      const diff = ((angle - exitAngle + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-      return Math.abs(diff) <= FFA_EXIT_HALF_ARC;
-    });
-    if (!withinExitArc) {
-      const maxRadius = FFA_MAIN_RADIUS - WALL_AVATAR_RADIUS;
-      const radialDistance = Math.hypot(x, z);
-      if (radialDistance > maxRadius && radialDistance > 0) {
-        const scale = maxRadius / radialDistance;
-        x *= scale;
-        z *= scale;
-      }
-    }
-  }
-
-  return { x, z };
+  return resolveWallCollisionsV2(
+    oldPos,
+    newPos,
+    walls.map((wall) => manifestWallToCollider(wall)),
+    0,
+    AVATAR_STAND_HEIGHT
+  );
 }
 
 export function transformLocalMovementToWorld(rotationY: number, local: { x: number; z: number }) {
@@ -1372,6 +1376,7 @@ export function createAvatarState(input: {
   occupiedPositions?: Vector3[];
   viewMode?: ViewMode;
   sentAt?: number;
+  buildPieces?: BuildPiece[];
 }): AvatarStateMessage {
   const spawn =
     input.spawnIndex !== undefined
@@ -1383,12 +1388,21 @@ export function createAvatarState(input: {
           ...(input.occupiedPositions ? { occupiedPositions: input.occupiedPositions } : {})
         });
 
+  let position = spawn.position;
+  if (input.buildPieces && input.buildPieces.length > 0) {
+    const groundCtx = createGroundHeightContext(input.manifest, input.buildPieces);
+    position = {
+      ...position,
+      y: groundHeightAt(position.x, position.z, groundCtx, position.y, "snap")
+    };
+  }
+
   return {
     type: "avatar.state.v1",
     sentAt: input.sentAt ?? Date.now(),
     participantId: input.participantId,
-    position: spawn.position,
-    rotation: rotationFacingRoomCenter(input.manifest, spawn.position),
+    position,
+    rotation: rotationFacingRoomCenter(input.manifest, position),
     movement: "idle",
     viewMode: input.viewMode ?? "3d",
     media: {

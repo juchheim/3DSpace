@@ -198,6 +198,9 @@ describe("3dspace api", () => {
     expect(openapiResponse.json().paths["/v1/rooms/{roomId}/wall-objects"]).toBeDefined();
     expect(openapiResponse.json().paths["/v1/rooms/{roomId}/attachments/{attachmentId}/finalize"]).toBeDefined();
     expect(openapiResponse.json().paths["/v1/rooms/{roomId}/meeting-notes/sessions"]).toBeDefined();
+    expect(openapiResponse.json().paths["/v1/rooms/{roomId}/build-pieces"]).toBeDefined();
+    expect(openapiResponse.json().paths["/v1/rooms/{roomId}/build-pieces/batch"]).toBeDefined();
+    expect(openapiResponse.json().paths["/v1/rooms/{roomId}/build-pieces/{pieceId}"]).toBeDefined();
 
     const readyResponse = await app.inject({ method: "GET", url: "/ready" });
     expect(readyResponse.statusCode).toBe(200);

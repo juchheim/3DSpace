@@ -7,6 +7,8 @@ import type {
   ClassMembership,
   ClassRecord,
   CreateDynamicWallAnchorRequest,
+  CreateBuildPieceRequestSchema,
+  CreateBuildPiecesBatchRequestSchema,
   CreateRoomObjectRequestSchema,
   CreateRoomObjectTemplateRequestSchema,
   CreateRoomObjectUploadRequestSchema,
@@ -20,6 +22,8 @@ import type {
   MeetingNotesSessionListResponse,
   PlaceAiObjectRequest,
   Role,
+  BuildPiece,
+  RoomBuildRealtimeMessage,
   RoomObject,
   RoomSessionResponse,
   RoomType,
@@ -140,6 +144,20 @@ type RoomObjectMutationResult = {
   realtimeMessages: RoomObjectRealtimeMessage[];
 };
 
+type BuildPieceMutationResult = {
+  piece: BuildPiece;
+  realtimeMessages: RoomBuildRealtimeMessage[];
+};
+
+type BuildPiecesBatchMutationResult = {
+  pieces: BuildPiece[];
+  realtimeMessages: RoomBuildRealtimeMessage[];
+};
+
+type BuildPieceDeleteMutationResult = {
+  realtimeMessages: RoomBuildRealtimeMessage[];
+};
+
 function normalizeRoomObjectMutationResult(
   payload:
     | { object: RoomObject; realtimeMessages?: RoomObjectRealtimeMessage[] | undefined }
@@ -155,6 +173,34 @@ function normalizeRoomObjectMutationResult(
   return {
     object: object as RoomObject,
     realtimeMessages
+  };
+}
+
+function normalizeBuildPieceMutationResult(payload: {
+  piece: BuildPiece;
+  realtimeMessages?: RoomBuildRealtimeMessage[] | undefined;
+}): BuildPieceMutationResult {
+  return {
+    piece: payload.piece,
+    realtimeMessages: payload.realtimeMessages ?? []
+  };
+}
+
+function normalizeBuildPiecesBatchMutationResult(payload: {
+  pieces: BuildPiece[];
+  realtimeMessages?: RoomBuildRealtimeMessage[] | undefined;
+}): BuildPiecesBatchMutationResult {
+  return {
+    pieces: payload.pieces,
+    realtimeMessages: payload.realtimeMessages ?? []
+  };
+}
+
+function normalizeBuildPieceDeleteMutationResult(payload: {
+  realtimeMessages?: RoomBuildRealtimeMessage[] | undefined;
+}): BuildPieceDeleteMutationResult {
+  return {
+    realtimeMessages: payload.realtimeMessages ?? []
   };
 }
 
@@ -634,6 +680,53 @@ export function dispatchRoomObjectRealtime(identity: ApiIdentity, roomId: string
     identity,
     body: message
   }).then((response) => response.messages);
+}
+
+export function listBuildPieces(identity: ApiIdentity, roomId: string) {
+  return apiFetch<{ pieces: BuildPiece[] }>(`/v1/rooms/${roomId}/build-pieces`, { identity }).then(
+    (response) => response.pieces
+  );
+}
+
+export function createBuildPiece(
+  identity: ApiIdentity,
+  roomId: string,
+  input: z.infer<typeof CreateBuildPieceRequestSchema>
+) {
+  return apiFetch<{ piece: BuildPiece; realtimeMessages?: RoomBuildRealtimeMessage[] }>(`/v1/rooms/${roomId}/build-pieces`, {
+    method: "POST",
+    identity,
+    body: input
+  }).then(normalizeBuildPieceMutationResult);
+}
+
+export function createBuildPiecesBatch(
+  identity: ApiIdentity,
+  roomId: string,
+  input: z.infer<typeof CreateBuildPiecesBatchRequestSchema>
+) {
+  return apiFetch<{ pieces: BuildPiece[]; realtimeMessages?: RoomBuildRealtimeMessage[] }>(
+    `/v1/rooms/${roomId}/build-pieces/batch`,
+    {
+      method: "POST",
+      identity,
+      body: input
+    }
+  ).then(normalizeBuildPiecesBatchMutationResult);
+}
+
+export function deleteBuildPiece(identity: ApiIdentity, roomId: string, pieceId: string) {
+  return apiFetch<{ realtimeMessages?: RoomBuildRealtimeMessage[] }>(`/v1/rooms/${roomId}/build-pieces/${pieceId}`, {
+    method: "DELETE",
+    identity
+  }).then(normalizeBuildPieceDeleteMutationResult);
+}
+
+export function clearBuildPieces(identity: ApiIdentity, roomId: string) {
+  return apiFetch<{ realtimeMessages?: RoomBuildRealtimeMessage[] }>(`/v1/rooms/${roomId}/build-pieces`, {
+    method: "DELETE",
+    identity
+  }).then(normalizeBuildPieceDeleteMutationResult);
 }
 
 export function getClassroomState(identity: ApiIdentity, roomId: string) {

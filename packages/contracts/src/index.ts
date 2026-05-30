@@ -765,6 +765,152 @@ export const RoomObjectResetResponseSchema = z.object({
   object: RoomObjectSchema
 });
 
+// ── World building (FFA build pieces) ─────────────────────────────────────────
+
+/** Canonical max build height level (shared with `@3dspace/room-engine`). */
+export const BUILD_MAX_LEVEL = 4;
+
+export const BuildPieceKindSchema = z.enum(["wall", "floor", "ramp"]);
+export const BuildPieceEdgeSchema = z.enum(["n", "e", "s", "w"]);
+export const BuildPieceRotationSchema = z.union([
+  z.literal(0),
+  z.literal(90),
+  z.literal(180),
+  z.literal(270)
+]);
+export const BuildPieceMaterialSchema = z.enum(["stone", "wood", "metal", "glass", "neon"]);
+export const BuildDestroyPolicySchema = z.enum(["anyone", "owner-or-teacher"]);
+
+export const BuildPieceSchema = z
+  .object({
+    id: z.string(),
+    roomId: z.string(),
+    kind: BuildPieceKindSchema,
+    cell: z.object({ ix: z.number().int(), iz: z.number().int() }),
+    level: z.number().int().min(0).max(BUILD_MAX_LEVEL),
+    edge: BuildPieceEdgeSchema.optional(),
+    rotation: BuildPieceRotationSchema.default(0),
+    materialId: BuildPieceMaterialSchema.default("stone"),
+    createdByUserId: z.string(),
+    createdAt: z.string()
+  })
+  .superRefine((piece, ctx) => {
+    if (piece.kind === "wall") {
+      if (!piece.edge) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "wall pieces require edge",
+          path: ["edge"]
+        });
+      }
+      return;
+    }
+    if (piece.edge !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "only wall pieces may set edge",
+        path: ["edge"]
+      });
+    }
+  });
+
+export const CreateBuildPieceRequestSchema = z
+  .object({
+    kind: BuildPieceKindSchema,
+    cell: z.object({ ix: z.number().int(), iz: z.number().int() }),
+    level: z.number().int().min(0).max(BUILD_MAX_LEVEL),
+    edge: BuildPieceEdgeSchema.optional(),
+    rotation: BuildPieceRotationSchema.optional(),
+    materialId: BuildPieceMaterialSchema.optional()
+  })
+  .superRefine((piece, ctx) => {
+    if (piece.kind === "wall" && !piece.edge) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "wall pieces require edge",
+        path: ["edge"]
+      });
+    }
+    if (piece.kind !== "wall" && piece.edge !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "only wall pieces may set edge",
+        path: ["edge"]
+      });
+    }
+  });
+
+export const CreateBuildPiecesBatchRequestSchema = z.object({
+  pieces: z.array(CreateBuildPieceRequestSchema).min(1).max(32)
+});
+
+export const ListBuildPiecesResponseSchema = z.object({
+  pieces: z.array(BuildPieceSchema)
+});
+
+export const RoomBuildUpsertMessageV1Schema = z.object({
+  type: z.literal("room.build.upsert.v1"),
+  roomId: z.string(),
+  piece: BuildPieceSchema,
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const RoomBuildRemoveMessageV1Schema = z.object({
+  type: z.literal("room.build.remove.v1"),
+  roomId: z.string(),
+  pieceId: z.string(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const RoomBuildBatchMessageV1Schema = z.object({
+  type: z.literal("room.build.batch.v1"),
+  roomId: z.string(),
+  pieces: z.array(BuildPieceSchema),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const RoomBuildRealtimeMessageSchema = z.discriminatedUnion("type", [
+  RoomBuildUpsertMessageV1Schema,
+  RoomBuildRemoveMessageV1Schema,
+  RoomBuildBatchMessageV1Schema
+]);
+
+export const CreateBuildPieceResponseSchema = z.object({
+  piece: BuildPieceSchema,
+  realtimeMessages: z.array(RoomBuildRealtimeMessageSchema).default([])
+});
+
+export const CreateBuildPiecesBatchResponseSchema = z.object({
+  pieces: z.array(BuildPieceSchema),
+  realtimeMessages: z.array(RoomBuildRealtimeMessageSchema).default([])
+});
+
+export const DeleteBuildPieceResponseSchema = z.object({
+  realtimeMessages: z.array(RoomBuildRealtimeMessageSchema).default([])
+});
+
+export const ClearBuildPiecesResponseSchema = z.object({
+  realtimeMessages: z.array(RoomBuildRealtimeMessageSchema).default([])
+});
+
+/** Durable room-event types emitted by build-piece mutations (see `recordRoomEvent`). */
+export const BUILD_ROOM_EVENT_TYPES = {
+  piecePlaced: "build.piece.placed.v1",
+  pieceRemoved: "build.piece.removed.v1",
+  piecesBatch: "build.pieces.batch.v1",
+  piecesCleared: "build.pieces.cleared.v1"
+} as const;
+
+export const BuildRoomEventTypeSchema = z.enum([
+  BUILD_ROOM_EVENT_TYPES.piecePlaced,
+  BUILD_ROOM_EVENT_TYPES.pieceRemoved,
+  BUILD_ROOM_EVENT_TYPES.piecesBatch,
+  BUILD_ROOM_EVENT_TYPES.piecesCleared
+]);
+
 /** Client-side procedural renderer inputs (no React/Three refs — those stay in the web app). */
 export const RoomObjectProceduralRenderPropsSchema = z.object({
   parameters: z.record(z.string(), z.unknown()),
@@ -792,7 +938,12 @@ export const ApiErrorCodeSchema = z.enum([
   "room-object-upload-rejected",
   "meeting-notes-transcription-unavailable",
   "meeting-notes-transcription-failed",
-  "world-skins-disabled"
+  "world-skins-disabled",
+  "build-disabled",
+  "build-rejected",
+  "build-cap-exceeded",
+  "build-destroy-denied",
+  "build-not-found"
 ]);
 
 export function parseRoomObjectParameterSchemaJson(json: string) {
@@ -832,6 +983,7 @@ export type RoomTypeFeatureFlags = {
   whiteboards: boolean;
   sharedBrowsers: boolean;
   liveCaptions: boolean;
+  building: boolean;
 };
 
 const NON_CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
@@ -852,7 +1004,8 @@ const NON_CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freez
   aiObjects: false,
   whiteboards: true,
   sharedBrowsers: false,
-  liveCaptions: false
+  liveCaptions: false,
+  building: false
 });
 
 const CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
@@ -873,7 +1026,8 @@ const CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
   aiObjects: false,
   whiteboards: true,
   sharedBrowsers: false,
-  liveCaptions: false
+  liveCaptions: false,
+  building: false
 });
 
 const FREE_FOR_ALL_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
@@ -894,7 +1048,8 @@ const FREE_FOR_ALL_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze
   aiObjects: true,
   whiteboards: true,
   sharedBrowsers: true,
-  liveCaptions: true
+  liveCaptions: true,
+  building: true
 });
 
 /**
@@ -1041,7 +1196,9 @@ export const RoomSettingsSchema = z.object({
     controlLeaseSeconds: 120,
     hyperbeamQuality: "smooth",
     hyperbeamFramerate: 30
-  })
+  }),
+  buildingEnabled: z.boolean().default(true),
+  buildDestroyPolicy: BuildDestroyPolicySchema.default("anyone")
 });
 
 /** Apply {@link RoomSettingsSchema} defaults to persisted room settings (e.g. `roomObjects` opt-in). */
@@ -2781,6 +2938,16 @@ export type RoomObjectParameterField = z.infer<typeof RoomObjectParameterFieldSc
 export type RoomObjectParameterSchemaMap = z.infer<typeof RoomObjectParameterSchemaMapSchema>;
 export type RoomObjectTemplate = z.infer<typeof RoomObjectTemplateSchema>;
 export type RoomObject = z.infer<typeof RoomObjectSchema>;
+export type BuildPieceKind = z.infer<typeof BuildPieceKindSchema>;
+export type BuildPieceEdge = z.infer<typeof BuildPieceEdgeSchema>;
+export type BuildPieceRotation = z.infer<typeof BuildPieceRotationSchema>;
+export type BuildPieceMaterial = z.infer<typeof BuildPieceMaterialSchema>;
+export type BuildDestroyPolicy = z.infer<typeof BuildDestroyPolicySchema>;
+export type BuildPiece = z.infer<typeof BuildPieceSchema>;
+export type RoomBuildRealtimeMessage = z.infer<typeof RoomBuildRealtimeMessageSchema>;
+export type RoomBuildUpsertMessageV1 = z.infer<typeof RoomBuildUpsertMessageV1Schema>;
+export type RoomBuildRemoveMessageV1 = z.infer<typeof RoomBuildRemoveMessageV1Schema>;
+export type RoomBuildBatchMessageV1 = z.infer<typeof RoomBuildBatchMessageV1Schema>;
 export type RoomObjectsSettings = z.infer<typeof RoomObjectsSettingsSchema>;
 export type RoomObjectUploadKind = z.infer<typeof RoomObjectUploadKindSchema>;
 export type RoomObjectProceduralRenderProps = z.infer<typeof RoomObjectProceduralRenderPropsSchema>;
@@ -3136,6 +3303,18 @@ export const apiRoutes: ApiRoute[] = [
     request: RoomObjectRealtimeInboundSchema,
     response: RoomObjectRealtimeDispatchResponseSchema
   },
+  { method: "get", path: "/v1/rooms/{roomId}/build-pieces", summary: "List build pieces in a room", tags: ["build-pieces"], response: ListBuildPiecesResponseSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/build-pieces", summary: "Place a build piece in a room", tags: ["build-pieces"], request: CreateBuildPieceRequestSchema, response: CreateBuildPieceResponseSchema },
+  {
+    method: "post",
+    path: "/v1/rooms/{roomId}/build-pieces/batch",
+    summary: "Place multiple build pieces (drag-paint batch)",
+    tags: ["build-pieces"],
+    request: CreateBuildPiecesBatchRequestSchema,
+    response: CreateBuildPiecesBatchResponseSchema
+  },
+  { method: "delete", path: "/v1/rooms/{roomId}/build-pieces/{pieceId}", summary: "Remove a build piece", tags: ["build-pieces"], response: DeleteBuildPieceResponseSchema },
+  { method: "delete", path: "/v1/rooms/{roomId}/build-pieces", summary: "Clear all build pieces in a room", tags: ["build-pieces"], response: ClearBuildPiecesResponseSchema },
   { method: "get", path: "/v1/world-skins", summary: "List world skin catalog entries (flag-gated)", tags: ["world-skins"], response: ListWorldSkinsResponseSchema },
   { method: "get", path: "/v1/world-skins/{slug}", summary: "Get a world skin by slug with absolute asset URLs (flag-gated)", tags: ["world-skins"], response: WorldSkinSchema },
   {

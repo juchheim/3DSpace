@@ -66,6 +66,8 @@ export type AppConfig = {
     enableWorldSkins: boolean;
     enableWorkforceTraining: boolean;
     enableFreeForAll: boolean;
+    enableFreeForAllBuilding: boolean;
+    buildPlacementRateLimitPerMinute: number;
     enableAiMeetingNotes: boolean;
     openAiTranscriptionModel: string;
     openAiSummaryModel: string;
@@ -297,6 +299,8 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       enableWorldSkins: envBoolean(raw, "ENABLE_WORLD_SKINS", false),
       enableWorkforceTraining: envBoolean(raw, "ENABLE_WORKFORCE_TRAINING", false),
       enableFreeForAll: envBoolean(raw, "ENABLE_FREE_FOR_ALL", false),
+      enableFreeForAllBuilding: envBoolean(raw, "ENABLE_FREE_FOR_ALL_BUILDING", false),
+      buildPlacementRateLimitPerMinute: envNumber(raw, "BUILD_PLACEMENT_RATE_LIMIT_PER_MINUTE", 600),
       enableAiMeetingNotes: envBoolean(raw, "ENABLE_AI_MEETING_NOTES", false),
       openAiTranscriptionModel: envString(raw, "OPENAI_TRANSCRIPTION_MODEL") ?? "gpt-4o-transcribe",
       openAiSummaryModel: envString(raw, "OPENAI_SUMMARY_MODEL") ?? "gpt-4.1",

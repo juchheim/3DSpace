@@ -23,6 +23,11 @@ import { DYNAMIC_WALL_ANCHOR_MIN_HEIGHT_M } from "@3dspace/contracts";
 import type {
   AvatarAppearance,
   AvatarReactionSlug,
+  BuildPiece,
+  BuildPieceEdge,
+  BuildPieceKind,
+  BuildPieceMaterial,
+  BuildPieceRotation,
   ClassroomGroup,
   ClassroomPrivateCheck,
   ClassroomSpotlight,
@@ -42,6 +47,8 @@ import type { z } from "zod";
 import type { ParticipantView } from "./RoomClient";
 import { BlockyAvatar } from "./BlockyAvatar";
 import { RoomObjectsLayer } from "./RoomObjectsLayer";
+import { BuildPlacementController } from "./BuildPlacementController";
+import type { BuildModeController } from "../lib/useBuildMode";
 import { WallObjectCard } from "./WallObjectCard";
 import { SharedBrowserWallSurface } from "./SharedBrowser/SharedBrowserWallSurface";
 import type { WhiteboardController } from "../lib/useWhiteboards";
@@ -93,6 +100,36 @@ type DynamicBoardPlacementConfig = {
   busy?: boolean;
   boardSize: { width: number; height: number };
   onPlace(body: CreateDynamicWallAnchorRequest): void | Promise<void>;
+};
+
+type BuildSceneConfig = {
+  roomId: string;
+  userId: string;
+  buildMode: BuildModeController;
+  pieces: BuildPiece[];
+  piecesById: Record<string, BuildPiece>;
+  actions: {
+    place(
+      kind: BuildPieceKind,
+      cell: { ix: number; iz: number },
+      level: number,
+      edge?: BuildPieceEdge,
+      rotation?: BuildPieceRotation,
+      materialId?: BuildPieceMaterial
+    ): Promise<unknown>;
+    placeBatch(
+      placements: Array<{
+        kind: BuildPieceKind;
+        cell: { ix: number; iz: number };
+        level: number;
+        edge?: BuildPieceEdge;
+        rotation?: BuildPieceRotation;
+        materialId?: BuildPieceMaterial;
+      }>
+    ): Promise<unknown>;
+    destroy(pieceId: string): Promise<unknown>;
+  };
+  onStatus?(message: string): void;
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -268,7 +305,8 @@ export function RoomView3D({
   roomObjectMemberGroupIds,
   selectedRoomObjectId,
   onSelectRoomObject,
-  roomObjectActions
+  roomObjectActions,
+  buildScene
 }: {
   manifest: RoomManifest;
   dynamicWallAnchors?: Anchor[];
@@ -340,6 +378,7 @@ export function RoomView3D({
     ): Promise<unknown>;
     setParameters(objectId: string, parameters: Record<string, unknown>): void;
   };
+  buildScene?: BuildSceneConfig | null | undefined;
 }) {
   const dpr = quality === "high" ? 1.8 : quality === "medium" ? 1.4 : 1;
   const [canvasElement, setCanvasElement] = useState<HTMLCanvasElement | null>(null);
@@ -413,6 +452,19 @@ export function RoomView3D({
             selectedObjectId={selectedRoomObjectId ?? null}
             onSelectObject={onSelectRoomObject}
             actions={roomObjectActions}
+          />
+        ) : null}
+        {buildScene ? (
+          <BuildPlacementController
+            manifest={mergedManifest}
+            roomId={buildScene.roomId}
+            userId={buildScene.userId}
+            buildMode={buildScene.buildMode}
+            pieces={buildScene.pieces}
+            piecesById={buildScene.piecesById}
+            localAvatarPosition={localParticipantPosition ?? { x: 0, y: 0, z: 0 }}
+            actions={buildScene.actions}
+            {...(buildScene.onStatus ? { onStatus: buildScene.onStatus } : {})}
           />
         ) : null}
         <WallObjectLayer

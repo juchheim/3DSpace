@@ -20,6 +20,11 @@ import {
   type RoomType,
   type User,
   type WallAttachment,
+  type BuildPiece,
+  type BuildPieceEdge,
+  type BuildPieceKind,
+  type BuildPieceMaterial,
+  type BuildPieceRotation,
   type RoomObject,
   type RoomObjectStatus,
   type RoomObjectTemplate,
@@ -27,6 +32,7 @@ import {
   type WallObjectStatus,
   type WorldSkin
 } from "@3dspace/contracts";
+import { buildPieceStableId } from "@3dspace/room-engine";
 import type { z } from "zod";
 import type { AuthContext } from "./auth.js";
 import { conflict, notFound } from "./errors.js";
@@ -146,6 +152,43 @@ export type Repository = {
     patch: Partial<Omit<RoomObject, "id" | "roomId" | "createdAt" | "createdByUserId">>
   ): Promise<RoomObject>;
   removeRoomObject(roomId: string, objectId: string): Promise<RoomObject>;
+  listBuildPiecesForRoom(roomId: string): Promise<BuildPiece[]>;
+  findBuildPieceByPlacement(
+    roomId: string,
+    placement: {
+      kind: BuildPieceKind;
+      cell: { ix: number; iz: number };
+      level: number;
+      edge?: BuildPieceEdge | undefined;
+    }
+  ): Promise<BuildPiece | undefined>;
+  createBuildPiece(input: {
+    roomId: string;
+    kind: BuildPieceKind;
+    cell: { ix: number; iz: number };
+    level: number;
+    edge?: BuildPieceEdge | undefined;
+    rotation: BuildPieceRotation;
+    materialId: BuildPieceMaterial;
+    createdByUserId: string;
+  }): Promise<BuildPiece>;
+  createBuildPiecesBatch(
+    inputs: Array<{
+      roomId: string;
+      kind: BuildPieceKind;
+      cell: { ix: number; iz: number };
+      level: number;
+      edge?: BuildPieceEdge | undefined;
+      rotation: BuildPieceRotation;
+      materialId: BuildPieceMaterial;
+      createdByUserId: string;
+    }>
+  ): Promise<BuildPiece[]>;
+  getBuildPiece(roomId: string, pieceId: string): Promise<BuildPiece | undefined>;
+  removeBuildPiece(roomId: string, pieceId: string): Promise<BuildPiece>;
+  countBuildPiecesForRoom(roomId: string): Promise<number>;
+  countBuildPiecesForUser(roomId: string, userId: string): Promise<number>;
+  deleteAllBuildPiecesForRoom(roomId: string): Promise<void>;
   recordRoomEvent(input: { roomId: string; type: string; payload: Record<string, unknown>; createdByUserId: string }): Promise<RoomEventRecord>;
   recordRoomSession(input: { roomId: string; participantIdentity: string; userId: string; role: Role; maxParticipants: number }): Promise<number>;
   countActiveRoomParticipants(roomId: string): Promise<number>;
@@ -228,6 +271,7 @@ export class MemoryRepository implements Repository {
   private worldSkins = new Map<string, WorldSkin>();
   private roomObjectTemplates = new Map<string, RoomObjectTemplate & { archivedAt?: string }>();
   private roomObjects = new Map<string, RoomObject>();
+  private buildPieces = new Map<string, BuildPiece>();
   private roomEvents = new Map<string, RoomEventRecord>();
   private activeSessions = new Map<string, { roomId: string; participantIdentity: string; lastSeenAt: number }>();
   private dynamicWallAnchors = new Map<string, DynamicWallAnchor>();
@@ -457,6 +501,9 @@ export class MemoryRepository implements Repository {
     }
     for (const [id, object] of this.roomObjects.entries()) {
       if (object.roomId === roomId) this.roomObjects.delete(id);
+    }
+    for (const [id, piece] of this.buildPieces.entries()) {
+      if (piece.roomId === roomId) this.buildPieces.delete(id);
     }
     this.classroomStates.delete(roomId);
     for (const [id, event] of this.roomEvents.entries()) {
@@ -763,6 +810,113 @@ export class MemoryRepository implements Repository {
 
   async removeRoomObject(roomId: string, objectId: string) {
     return this.updateRoomObject(roomId, objectId, { status: "archived" });
+  }
+
+  async listBuildPiecesForRoom(roomId: string) {
+    return Array.from(this.buildPieces.values())
+      .filter((piece) => piece.roomId === roomId)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  async findBuildPieceByPlacement(
+    roomId: string,
+    placement: {
+      kind: BuildPieceKind;
+      cell: { ix: number; iz: number };
+      level: number;
+      edge?: BuildPieceEdge | undefined;
+    }
+  ) {
+    return Array.from(this.buildPieces.values()).find(
+      (piece) =>
+        piece.roomId === roomId &&
+        piece.kind === placement.kind &&
+        piece.cell.ix === placement.cell.ix &&
+        piece.cell.iz === placement.cell.iz &&
+        piece.level === placement.level &&
+        (piece.edge ?? undefined) === (placement.edge ?? undefined)
+    );
+  }
+
+  async createBuildPiece(input: {
+    roomId: string;
+    kind: BuildPieceKind;
+    cell: { ix: number; iz: number };
+    level: number;
+    edge?: BuildPieceEdge | undefined;
+    rotation: BuildPieceRotation;
+    materialId: BuildPieceMaterial;
+    createdByUserId: string;
+  }) {
+    const time = nowIso();
+    const id = buildPieceStableId({
+      kind: input.kind,
+      cell: input.cell,
+      level: input.level,
+      edge: input.edge
+    });
+    const existing = this.buildPieces.get(id);
+    const record: BuildPiece = {
+      id,
+      roomId: input.roomId,
+      kind: input.kind,
+      cell: input.cell,
+      level: input.level,
+      ...(input.edge ? { edge: input.edge } : {}),
+      rotation: input.rotation,
+      materialId: input.materialId,
+      createdByUserId: existing?.createdByUserId ?? input.createdByUserId,
+      createdAt: existing?.createdAt ?? time
+    };
+    this.buildPieces.set(id, record);
+    return record;
+  }
+
+  async createBuildPiecesBatch(
+    inputs: Array<{
+      roomId: string;
+      kind: BuildPieceKind;
+      cell: { ix: number; iz: number };
+      level: number;
+      edge?: BuildPieceEdge | undefined;
+      rotation: BuildPieceRotation;
+      materialId: BuildPieceMaterial;
+      createdByUserId: string;
+    }>
+  ) {
+    const pieces: BuildPiece[] = [];
+    for (const input of inputs) {
+      pieces.push(await this.createBuildPiece(input));
+    }
+    return pieces;
+  }
+
+  async getBuildPiece(roomId: string, pieceId: string) {
+    const piece = this.buildPieces.get(pieceId);
+    return piece?.roomId === roomId ? piece : undefined;
+  }
+
+  async removeBuildPiece(roomId: string, pieceId: string) {
+    const existing = await this.getBuildPiece(roomId, pieceId);
+    if (!existing) throw notFound("Build piece not found");
+    this.buildPieces.delete(pieceId);
+    return existing;
+  }
+
+  async countBuildPiecesForRoom(roomId: string) {
+    return Array.from(this.buildPieces.values()).filter((piece) => piece.roomId === roomId).length;
+  }
+
+  async countBuildPiecesForUser(roomId: string, userId: string) {
+    return Array.from(this.buildPieces.values()).filter(
+      (piece) => piece.roomId === roomId && piece.createdByUserId === userId
+    ).length;
+  }
+
+  async deleteAllBuildPiecesForRoom(roomId: string) {
+    for (const [id, piece] of this.buildPieces.entries()) {
+      if (piece.roomId === roomId) this.buildPieces.delete(id);
+    }
   }
 
   async recordRoomEvent(input: { roomId: string; type: string; payload: Record<string, unknown>; createdByUserId: string }) {

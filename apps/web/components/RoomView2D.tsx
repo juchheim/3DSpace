@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type {
   AvatarAppearance,
   AvatarReactionSlug,
+  BuildPiece,
   ClassroomGroup,
   ClassroomPrivateCheck,
   ClassroomSpotlight,
@@ -19,6 +20,9 @@ import type { ParticipantView } from "./RoomClient";
 import { useWorldSkinContext } from "./worldSkins/SkinLayer";
 import { RoomObjectIcon2D } from "./RoomObjectIcon2D";
 import { canGrabRoomObject, canTouchRoomObject, snapPosition, snapScale, snapYaw } from "../lib/roomObjectInteraction";
+import { BuildFootprints2D } from "./BuildFootprints2D";
+import { BuildPreview2D, type Build2DPreview } from "./BuildPreview2D";
+import type { BuildTool } from "../lib/useBuildMode";
 import { Map2dWallBoard } from "./SharedBrowser/Map2dWallBoard";
 import { WallObjectCard } from "./WallObjectCard";
 import type { WhiteboardController } from "../lib/useWhiteboards";
@@ -89,7 +93,9 @@ export function RoomView2D({
   canWriteWhiteboard,
   sharedBrowserController,
   sharedBrowserIdentity,
-  sharedBrowserRoomId
+  sharedBrowserRoomId,
+  buildPieces = [],
+  buildInteraction
 }: {
   manifest: RoomManifest;
   dynamicWallAnchors?: RoomManifest["wallAnchors"];
@@ -125,6 +131,14 @@ export function RoomView2D({
   sharedBrowserController?: SharedBrowserController;
   sharedBrowserIdentity?: ApiIdentity;
   sharedBrowserRoomId?: string;
+  buildPieces?: BuildPiece[];
+  buildInteraction?: {
+    enabled: boolean;
+    tool: BuildTool;
+    preview: Build2DPreview;
+    onPointerMove(point: { x: number; y: number }): void;
+    onPointerDown(point: { x: number; y: number }): void;
+  };
 }) {
   const [liveAnnouncement, setLiveAnnouncement] = useState("");
   const objectsEnabled = Boolean(
@@ -278,18 +292,48 @@ export function RoomView2D({
   const map2dUrl = skin?.overrides.map2dStorageKey ?? null;
   const boardDarkenOpacity = skin?.overrides.boardDarkenOpacity ?? 0;
 
-  function handlePointer(event: React.PointerEvent<SVGSVGElement>) {
-    if ((event.target as Element).closest(".room-object-icon-2d")) return;
+  function mapPointFromEvent(event: React.PointerEvent<SVGSVGElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
-    onMoveToPoint({
+    return {
       x: ((event.clientX - rect.left) / rect.width) * 100,
       y: ((event.clientY - rect.top) / rect.height) * 100
-    });
+    };
   }
 
+  function handlePointerDown(event: React.PointerEvent<SVGSVGElement>) {
+    if ((event.target as Element).closest(".room-object-icon-2d")) return;
+    const point = mapPointFromEvent(event);
+    if (buildInteraction?.enabled && !positioningMode) {
+      event.stopPropagation();
+      buildInteraction.onPointerDown(point);
+      return;
+    }
+    onMoveToPoint(point);
+  }
+
+  function handlePointerMove(event: React.PointerEvent<SVGSVGElement>) {
+    if (!buildInteraction?.enabled || positioningMode) return;
+    buildInteraction.onPointerMove(mapPointFromEvent(event));
+  }
+
+  function handlePointerLeave() {
+    if (buildInteraction?.enabled) {
+      buildInteraction.onPointerMove({ x: -1, y: -1 });
+    }
+  }
+
+  const buildModeActive = Boolean(buildInteraction?.enabled && !positioningMode);
+
   return (
-    <div className={`map2d${objectsEnabled ? " map2d--room-objects" : ""}`}>
-      <svg role="img" aria-label={`${manifest.name} top-down 2D analog`} viewBox="0 0 100 100" onPointerDown={handlePointer}>
+    <div className={`map2d${objectsEnabled ? " map2d--room-objects" : ""}${buildModeActive ? " map2d--build-mode" : ""}`}>
+      <svg
+        role="img"
+        aria-label={`${manifest.name} top-down 2D analog`}
+        viewBox="0 0 100 100"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerLeave={handlePointerLeave}
+      >
         <rect x="2" y="2" width="96" height="96" rx="5" fill="#f6edcf" stroke="#17201a" strokeOpacity="0.28" strokeWidth="1" />
         {/* Skin floor map — rendered below walls/anchors/participants */}
         {map2dUrl ? (
@@ -307,6 +351,8 @@ export function RoomView2D({
           const end = projectPositionTo2D(manifest, wall.end);
           return <line key={wall.id} x1={start.x} y1={start.y} x2={end.x} y2={end.y} stroke="#17201a" strokeWidth="1.6" />;
         })}
+        <BuildFootprints2D manifest={manifest} pieces={buildPieces} />
+        <BuildPreview2D manifest={manifest} preview={buildInteraction?.preview ?? null} />
         {allWallAnchors.map((anchor) => {
           const point = projectPositionTo2D(manifest, anchor.position);
           const rect = projectAnchorRectTo2D(manifest, anchor);

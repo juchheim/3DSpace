@@ -11,6 +11,11 @@ import type {
   MeetingNotesSession,
   Role,
   RoomManifest,
+  BuildPiece,
+  BuildPieceEdge,
+  BuildPieceKind,
+  BuildPieceMaterial,
+  BuildPieceRotation,
   RoomObject,
   RoomObjectStatus,
   RoomObjectTemplate,
@@ -25,6 +30,8 @@ import type {
   WhiteboardStroke,
   WorldSkin
 } from "@3dspace/contracts";
+import { buildPieceStableId } from "@3dspace/room-engine";
+import { normalizeBuildPiece } from "../build-pieces/normalize.js";
 import type { AuthContext } from "../auth.js";
 import { conflict, notFound } from "../errors.js";
 import {
@@ -56,6 +63,7 @@ type Models = {
   WorldSkin: Model<any>;
   RoomObjectTemplate: Model<any>;
   RoomObject: Model<any>;
+  BuildPiece: Model<any>;
   RoomEvent: Model<any>;
   RoomSession: Model<any>;
   DynamicWallAnchor: Model<any>;
@@ -295,6 +303,27 @@ export function createModels(connection: Connection): Models {
   });
   roomObjectSchema.index({ roomId: 1, status: 1 });
 
+  const buildPieceSchema = new Schema({
+    id: { type: String, required: true, unique: true },
+    roomId: { type: String, required: true, index: true },
+    kind: { type: String, required: true },
+    cell: {
+      ix: { type: Number, required: true },
+      iz: { type: Number, required: true }
+    },
+    level: { type: Number, required: true },
+    edge: { type: String },
+    rotation: { type: Number, default: 0 },
+    materialId: { type: String, required: true },
+    createdByUserId: { type: String, required: true },
+    createdAt: { type: String, required: true }
+  });
+  buildPieceSchema.index({ roomId: 1 });
+  buildPieceSchema.index(
+    { roomId: 1, kind: 1, "cell.ix": 1, "cell.iz": 1, level: 1, edge: 1 },
+    { unique: true }
+  );
+
   const classroomStateSchema = new Schema({
     roomId: { type: String, required: true, unique: true },
     version: { type: Number, required: true },
@@ -484,6 +513,7 @@ export function createModels(connection: Connection): Models {
     WorldSkin: connection.model("WorldSkin", worldSkinSchema),
     RoomObjectTemplate: connection.model("RoomObjectTemplate", roomObjectTemplateSchema),
     RoomObject: connection.model("RoomObject", roomObjectSchema),
+    BuildPiece: connection.model("BuildPiece", buildPieceSchema),
     RoomEvent: connection.model("RoomEvent", eventSchema),
     RoomSession: connection.model("RoomSession", sessionSchema),
     DynamicWallAnchor: connection.model("DynamicWallAnchor", dynamicWallAnchorSchema, "dynamic_wall_anchors"),
@@ -821,6 +851,7 @@ export class MongoRepository implements Repository {
       this.models.WhiteboardStroke.deleteMany({ roomId }),
       this.models.WhiteboardSnapshot.deleteMany({ roomId }),
       this.models.RoomObject.deleteMany({ roomId }),
+      this.models.BuildPiece.deleteMany({ roomId }),
       this.models.RoomEvent.deleteMany({ roomId }),
       this.models.RoomSession.deleteMany({ roomId }),
       this.models.MeetingNotesSession.deleteMany({ roomId }),
@@ -1164,6 +1195,152 @@ export class MongoRepository implements Repository {
 
   async removeRoomObject(roomId: string, objectId: string) {
     return this.updateRoomObject(roomId, objectId, { status: "archived" });
+  }
+
+  private buildPiecePlacementFilter(
+    roomId: string,
+    placement: {
+      kind: BuildPieceKind;
+      cell: { ix: number; iz: number };
+      level: number;
+      edge?: BuildPieceEdge | undefined;
+    }
+  ) {
+    return {
+      roomId,
+      kind: placement.kind,
+      "cell.ix": placement.cell.ix,
+      "cell.iz": placement.cell.iz,
+      level: placement.level,
+      edge: placement.edge ?? null
+    };
+  }
+
+  private buildPieceRecordFromInput(input: {
+    roomId: string;
+    kind: BuildPieceKind;
+    cell: { ix: number; iz: number };
+    level: number;
+    edge?: BuildPieceEdge | undefined;
+    rotation: BuildPieceRotation;
+    materialId: BuildPieceMaterial;
+    createdByUserId: string;
+    createdAt?: string;
+  }): BuildPiece {
+    const id = buildPieceStableId({
+      kind: input.kind,
+      cell: input.cell,
+      level: input.level,
+      edge: input.edge
+    });
+    return {
+      id,
+      roomId: input.roomId,
+      kind: input.kind,
+      cell: input.cell,
+      level: input.level,
+      ...(input.edge ? { edge: input.edge } : {}),
+      rotation: input.rotation,
+      materialId: input.materialId,
+      createdByUserId: input.createdByUserId,
+      createdAt: input.createdAt ?? nowIso()
+    };
+  }
+
+  private toBuildPiece(doc: unknown): BuildPiece {
+    return normalizeBuildPiece(entity<BuildPiece>(doc));
+  }
+
+  async listBuildPiecesForRoom(roomId: string) {
+    const docs = await this.models.BuildPiece.find({ roomId }).sort({ createdAt: 1 }).lean();
+    return docs.map((doc) => this.toBuildPiece(doc));
+  }
+
+  async findBuildPieceByPlacement(
+    roomId: string,
+    placement: {
+      kind: BuildPieceKind;
+      cell: { ix: number; iz: number };
+      level: number;
+      edge?: BuildPieceEdge | undefined;
+    }
+  ) {
+    const doc = await this.models.BuildPiece.findOne(this.buildPiecePlacementFilter(roomId, placement)).lean();
+    return doc ? this.toBuildPiece(doc) : undefined;
+  }
+
+  async createBuildPiece(input: {
+    roomId: string;
+    kind: BuildPieceKind;
+    cell: { ix: number; iz: number };
+    level: number;
+    edge?: BuildPieceEdge | undefined;
+    rotation: BuildPieceRotation;
+    materialId: BuildPieceMaterial;
+    createdByUserId: string;
+  }) {
+    const filter = this.buildPiecePlacementFilter(input.roomId, input);
+    const existingDoc = await this.models.BuildPiece.findOne(filter).lean();
+    const existing = existingDoc ? this.toBuildPiece(existingDoc) : undefined;
+    const time = existing?.createdAt ?? nowIso();
+    const record = this.buildPieceRecordFromInput({
+      ...input,
+      createdAt: time,
+      createdByUserId: existing?.createdByUserId ?? input.createdByUserId
+    });
+    const update: { $set: BuildPiece; $unset?: { edge: "" } } = { $set: record };
+    if (input.kind !== "wall") {
+      update.$unset = { edge: "" };
+    }
+    await this.models.BuildPiece.findOneAndUpdate(filter, update, {
+      upsert: true,
+      new: true,
+      setDefaultsOnInsert: true
+    });
+    return normalizeBuildPiece(record);
+  }
+
+  async createBuildPiecesBatch(
+    inputs: Array<{
+      roomId: string;
+      kind: BuildPieceKind;
+      cell: { ix: number; iz: number };
+      level: number;
+      edge?: BuildPieceEdge | undefined;
+      rotation: BuildPieceRotation;
+      materialId: BuildPieceMaterial;
+      createdByUserId: string;
+    }>
+  ) {
+    const pieces: BuildPiece[] = [];
+    for (const input of inputs) {
+      pieces.push(await this.createBuildPiece(input));
+    }
+    return pieces;
+  }
+
+  async getBuildPiece(roomId: string, pieceId: string) {
+    const doc = await this.models.BuildPiece.findOne({ roomId, id: pieceId }).lean();
+    return doc ? this.toBuildPiece(doc) : undefined;
+  }
+
+  async removeBuildPiece(roomId: string, pieceId: string) {
+    const existing = await this.getBuildPiece(roomId, pieceId);
+    if (!existing) throw notFound("Build piece not found");
+    await this.models.BuildPiece.deleteOne({ roomId, id: pieceId });
+    return existing;
+  }
+
+  async countBuildPiecesForRoom(roomId: string) {
+    return this.models.BuildPiece.countDocuments({ roomId });
+  }
+
+  async countBuildPiecesForUser(roomId: string, userId: string) {
+    return this.models.BuildPiece.countDocuments({ roomId, createdByUserId: userId });
+  }
+
+  async deleteAllBuildPiecesForRoom(roomId: string) {
+    await this.models.BuildPiece.deleteMany({ roomId });
   }
 
   async recordRoomEvent(input: { roomId: string; type: string; payload: Record<string, unknown>; createdByUserId: string }) {

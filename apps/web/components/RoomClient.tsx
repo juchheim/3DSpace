@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AvatarAppearance, AvatarReactionMessage, AvatarReactionSlug, AvatarStateMessage, CreateDynamicWallAnchorRequest, Role, RoomManifest, RoomObjectTemplate, RoomSessionResponse, ViewMode, WallObject, WorldSkinDayNightMode } from "@3dspace/contracts";
+import type { AvatarAppearance, AvatarReactionMessage, AvatarReactionSlug, AvatarStateMessage, BuildPiece, CreateDynamicWallAnchorRequest, Role, RoomManifest, RoomObjectTemplate, RoomSessionResponse, ViewMode, WallObject, WorldSkinDayNightMode } from "@3dspace/contracts";
 import {
   DYNAMIC_WALL_ANCHOR_MAX_HEIGHT_M,
   DYNAMIC_WALL_ANCHOR_MAX_WIDTH_M,
@@ -38,6 +38,17 @@ import { useWallObjects } from "../lib/useWallObjects";
 import { useWhiteboards } from "../lib/useWhiteboards";
 import { useSharedBrowser } from "../lib/useSharedBrowser";
 import { useRoomObjects } from "../lib/useRoomObjects";
+import { useBuildPieces } from "../lib/useBuildPieces";
+import { useBuildMode } from "../lib/useBuildMode";
+import type { Build2DPreview } from "./BuildPreview2D";
+import {
+  buildPlacementStatusMessage,
+  evaluateBuildPlacement,
+  findBuildPieceForDestroy,
+  resolveBuildTargetFromWorld,
+  resolvePlaceAheadBuildTarget,
+  tryAcquireBuildPlacementSlot
+} from "../lib/buildPlacement";
 import { useRoomObjectTemplates } from "../lib/useRoomObjectTemplates";
 import { useWorldSkin } from "../lib/useWorldSkin";
 import { SkinLayer } from "./worldSkins/SkinLayer";
@@ -77,6 +88,7 @@ import { useMeetingNotes } from "../lib/useMeetingNotes";
 import { useLiveCaptions } from "../lib/useLiveCaptions";
 import { MeetingNotesPanel } from "./MeetingNotesPanel";
 import { LiveCaptionsDock } from "./LiveCaptionsDock";
+import { BuildControls } from "./BuildControls";
 import { useAiObjectGenerator } from "../lib/useAiObjectGenerator";
 import { AiObjectPanel } from "./AiObjectPanel";
 import { DYNAMIC_BOARD_DEFAULT_HEIGHT, DYNAMIC_BOARD_DEFAULT_WIDTH } from "./RoomView3D";
@@ -421,6 +433,73 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     enabled: roomObjectsEnabled,
     publish: publishRealtime
   });
+  const buildPiecesEnabled =
+    roomTypeFeatures.building &&
+    CLIENT_TUNING.enableFreeForAllBuilding &&
+    (parsedRoomSettings?.buildingEnabled ?? true) &&
+    Boolean(session);
+  const buildPieces = useBuildPieces({
+    identity,
+    roomId: session?.room.id ?? roomId,
+    enabled: buildPiecesEnabled,
+    publish: publishRealtime
+  });
+  const buildMode = useBuildMode();
+  const buildScene = useMemo(
+    () =>
+      buildPiecesEnabled && manifest && session
+        ? {
+            roomId: session.room.id,
+            userId: identity.userId,
+            buildMode,
+            pieces: buildPieces.pieces,
+            piecesById: buildPieces.piecesById,
+            actions: buildPieces.actions,
+            onStatus: buildMode.setStatusMessage
+          }
+        : null,
+    [
+      buildMode,
+      buildPieces.actions,
+      buildPieces.pieces,
+      buildPieces.piecesById,
+      buildPiecesEnabled,
+      identity.userId,
+      manifest,
+      session
+    ]
+  );
+  useEffect(() => {
+    if (!buildPiecesEnabled) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (isKeyboardOwnedTarget(e.target)) return;
+      if (e.code === "KeyB" && !dynamicBoardPlacementActive) {
+        e.preventDefault();
+        buildMode.toggle();
+        return;
+      }
+      if (!buildMode.enabled) return;
+      if (e.code === "KeyR") {
+        e.preventDefault();
+        buildMode.rotate();
+        return;
+      }
+      if (e.code === "Digit1") buildMode.setTool("wall");
+      if (e.code === "Digit2") buildMode.setTool("floor");
+      if (e.code === "Digit3") buildMode.setTool("ramp");
+      if (e.code === "Digit4") buildMode.setTool("destroy");
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [buildMode, buildPiecesEnabled, dynamicBoardPlacementActive]);
+  useEffect(() => {
+    if (dynamicBoardPlacementActive && buildMode.enabled) {
+      buildMode.setEnabled(false);
+    }
+  }, [buildMode, dynamicBoardPlacementActive]);
+  useEffect(() => {
+    if (!buildMode.enabled) setBuild2dPreview(null);
+  }, [buildMode.enabled]);
   const handleAiObjectJobDeleted = useCallback(
     (payload: { jobId: string; templateId?: string | undefined }) => {
       if (payload.templateId) {
@@ -460,6 +539,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   whiteboardRealtimeHandlerRef.current = whiteboards.handleRealtimeMessage;
   const roomObjectsRealtimeHandlerRef = useRef(roomObjects.handleRealtimeMessage);
   roomObjectsRealtimeHandlerRef.current = roomObjects.handleRealtimeMessage;
+  const buildPiecesRealtimeHandlerRef = useRef(buildPieces.handleRealtimeMessage);
+  buildPiecesRealtimeHandlerRef.current = buildPieces.handleRealtimeMessage;
   const classroomRealtimeHandlerRef = useRef(classroom.handleRealtimeMessage);
   classroomRealtimeHandlerRef.current = classroom.handleRealtimeMessage;
   const dynamicBoardsRealtimeHandlerRef = useRef(dynamicBoards.handleRealtimeMessage);
@@ -473,43 +554,6 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const sharedBrowserRealtimeHandlerRef = useRef(sharedBrowsers.handleRealtimeMessage);
   sharedBrowserRealtimeHandlerRef.current = sharedBrowsers.handleRealtimeMessage;
   camera.lockedRef.current = classroom.state?.spotlight?.mode === "force";
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const debugWindow = window as Window & { __debug?: Record<string, unknown> };
-    debugWindow.__debug = debugWindow.__debug ?? {};
-    debugWindow.__debug.roomObjects = {
-      enabled: roomObjectsEnabled,
-      templatesStatus: roomObjectTemplates.status,
-      templates: roomObjectTemplates.templates,
-      objects: roomObjects.objects,
-      objectsById: roomObjects.objectsById,
-      grabs: roomObjects.grabs,
-      myActiveGrab: roomObjects.myActiveGrab,
-      refresh: roomObjects.refresh,
-      refetchTemplates: roomObjectTemplates.refetch,
-      actions: roomObjects.actions
-    };
-    debugWindow.__debug.worldSkin = activeSkin;
-    return () => {
-      if (debugWindow.__debug) {
-        delete debugWindow.__debug.roomObjects;
-        delete debugWindow.__debug.worldSkin;
-      }
-    };
-  }, [
-    activeSkin,
-    roomObjects.actions,
-    roomObjects.grabs,
-    roomObjects.myActiveGrab,
-    roomObjects.objects,
-    roomObjects.objectsById,
-    roomObjects.refresh,
-    roomObjectsEnabled,
-    roomObjectTemplates.refetch,
-    roomObjectTemplates.status,
-    roomObjectTemplates.templates
-  ]);
 
   const myActiveHallpass = useMemo(() => {
     return (classroom.state?.helpRequests ?? []).find(
@@ -593,6 +637,10 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   }
 
   const walkSpeedMultiplier = activeSkinForRoom?.overrides.walkSpeedMultiplier ?? 1;
+  const buildPiecesForMovementRef = useRef<BuildPiece[]>([]);
+  buildPiecesForMovementRef.current = buildPiecesEnabled ? buildPieces.pieces : [];
+  const lastBuildPlaceAtRef = useRef(0);
+  const [build2dPreview, setBuild2dPreview] = useState<Build2DPreview>(null);
   const movement = useAvatarMovement({
     manifest,
     participantId: session?.participantId ?? identity.userId,
@@ -606,8 +654,271 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       speaking: media.speaking
     },
     lockedPosition,
-    walkSpeedMultiplier
+    walkSpeedMultiplier,
+    buildPiecesRef: buildPiecesForMovementRef
   });
+  const handlePlaceAhead = useCallback(() => {
+    if (!manifest || !session || !buildMode.enabled || buildMode.tool === "destroy") return;
+    const avatar = movement.avatarState;
+    if (!avatar) return;
+    if (!tryAcquireBuildPlacementSlot(lastBuildPlaceAtRef)) {
+      buildMode.setStatusMessage("Slow down…");
+      return;
+    }
+    const target = resolvePlaceAheadBuildTarget({
+      tool: buildMode.tool,
+      avatarPosition: avatar.position,
+      rotationY: avatar.rotation.y,
+      rotation: buildMode.rotation,
+      materialId: buildMode.materialId,
+      pieces: buildPieces.pieces,
+      rampRotationOverride: buildMode.rampRotationOverride
+    });
+    const preview = evaluateBuildPlacement(
+      manifest,
+      target,
+      session.room.id,
+      identity.userId,
+      buildPieces.piecesById
+    );
+    if (!preview.allowed) {
+      buildMode.setStatusMessage(preview.message ?? buildPlacementStatusMessage(preview.reason));
+      return;
+    }
+    void buildPieces.actions
+      .place(target.kind, target.cell, target.level, target.edge, target.rotation, target.materialId)
+      .then(() => buildMode.setStatusMessage("Piece placed."))
+      .catch((err) =>
+        buildMode.setStatusMessage(err instanceof Error ? err.message : "Unable to place piece.")
+      );
+  }, [
+    buildMode,
+    buildPieces.actions,
+    buildPieces.pieces,
+    buildPieces.piecesById,
+    identity.userId,
+    manifest,
+    movement.avatarState,
+    session
+  ]);
+
+  const updateBuild2dPreview = useCallback(
+    (point: { x: number; y: number }) => {
+      if (!manifest || !session || !buildMode.enabled || point.x < 0) {
+        setBuild2dPreview(null);
+        return;
+      }
+      const world = unprojectPointFrom2D(manifest, point);
+      const hitY = movement.avatarState?.position.y ?? 0;
+      if (buildMode.tool === "destroy") {
+        const piece = findBuildPieceForDestroy(buildPieces.pieces, world.x, world.z);
+        setBuild2dPreview(piece ? { mode: "destroy", piece } : null);
+        return;
+      }
+      const target = resolveBuildTargetFromWorld({
+        tool: buildMode.tool,
+        hitX: world.x,
+        hitY,
+        hitZ: world.z,
+        rotation: buildMode.rotation,
+        materialId: buildMode.materialId,
+        pieces: buildPieces.pieces,
+        rampRotationOverride: buildMode.rampRotationOverride
+      });
+      const result = evaluateBuildPlacement(
+        manifest,
+        target,
+        session.room.id,
+        identity.userId,
+        buildPieces.piecesById
+      );
+      setBuild2dPreview({
+        mode: "place",
+        target,
+        allowed: result.allowed,
+        roomId: session.room.id,
+        userId: identity.userId
+      });
+    },
+    [
+      buildMode.enabled,
+      buildMode.materialId,
+      buildMode.rampRotationOverride,
+      buildMode.rotation,
+      buildMode.tool,
+      buildPieces.pieces,
+      buildPieces.piecesById,
+      identity.userId,
+      manifest,
+      movement.avatarState?.position.y,
+      session
+    ]
+  );
+
+  const handleBuild2dPointerDown = useCallback(
+    (point: { x: number; y: number }) => {
+      if (!manifest || !session || !buildMode.enabled) return;
+      const world = unprojectPointFrom2D(manifest, point);
+      const hitY = movement.avatarState?.position.y ?? 0;
+
+      if (buildMode.tool === "destroy") {
+        const piece = findBuildPieceForDestroy(buildPieces.pieces, world.x, world.z);
+        if (!piece) {
+          buildMode.setStatusMessage("Nothing to remove here.");
+          return;
+        }
+        void buildPieces.actions
+          .destroy(piece.id)
+          .then(() => buildMode.setStatusMessage("Piece removed."))
+          .catch((err) =>
+            buildMode.setStatusMessage(err instanceof Error ? err.message : "Unable to remove piece.")
+          );
+        return;
+      }
+
+      if (!tryAcquireBuildPlacementSlot(lastBuildPlaceAtRef)) {
+        buildMode.setStatusMessage("Slow down…");
+        return;
+      }
+
+      const target = resolveBuildTargetFromWorld({
+        tool: buildMode.tool,
+        hitX: world.x,
+        hitY,
+        hitZ: world.z,
+        rotation: buildMode.rotation,
+        materialId: buildMode.materialId,
+        pieces: buildPieces.pieces,
+        rampRotationOverride: buildMode.rampRotationOverride
+      });
+      const preview = evaluateBuildPlacement(
+        manifest,
+        target,
+        session.room.id,
+        identity.userId,
+        buildPieces.piecesById
+      );
+      if (!preview.allowed) {
+        buildMode.setStatusMessage(preview.message ?? buildPlacementStatusMessage(preview.reason));
+        return;
+      }
+      void buildPieces.actions
+        .place(target.kind, target.cell, target.level, target.edge, target.rotation, target.materialId)
+        .then(() => buildMode.setStatusMessage("Piece placed."))
+        .catch((err) =>
+          buildMode.setStatusMessage(err instanceof Error ? err.message : "Unable to place piece.")
+        );
+    },
+    [
+      buildMode,
+      buildPieces.actions,
+      buildPieces.pieces,
+      buildPieces.piecesById,
+      identity.userId,
+      manifest,
+      movement.avatarState?.position.y,
+      session
+    ]
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const debugWindow = window as Window & { __debug?: Record<string, unknown> };
+    debugWindow.__debug = debugWindow.__debug ?? {};
+    debugWindow.__debug.roomObjects = {
+      enabled: roomObjectsEnabled,
+      templatesStatus: roomObjectTemplates.status,
+      templates: roomObjectTemplates.templates,
+      objects: roomObjects.objects,
+      objectsById: roomObjects.objectsById,
+      grabs: roomObjects.grabs,
+      myActiveGrab: roomObjects.myActiveGrab,
+      refresh: roomObjects.refresh,
+      refetchTemplates: roomObjectTemplates.refetch,
+      actions: roomObjects.actions
+    };
+    debugWindow.__debug.buildPieces = {
+      enabled: buildPiecesEnabled,
+      pieces: buildPieces.pieces,
+      piecesById: buildPieces.piecesById,
+      refresh: buildPieces.refresh,
+      actions: buildPieces.actions,
+      previewPlacementAtWorld: (input: {
+        tool: "wall" | "floor" | "ramp";
+        x: number;
+        z: number;
+        y?: number;
+      }) => {
+        if (!manifest || !session) return null;
+        const hitY = input.y ?? movement.getAvatarState()?.position.y ?? 0;
+        const target = resolveBuildTargetFromWorld({
+          tool: input.tool,
+          hitX: input.x,
+          hitY,
+          hitZ: input.z,
+          rotation: buildMode.rotation,
+          materialId: buildMode.materialId,
+          pieces: buildPieces.pieces
+        });
+        const preview = evaluateBuildPlacement(
+          manifest,
+          target,
+          session.room.id,
+          identity.userId,
+          buildPieces.piecesById
+        );
+        return {
+          allowed: preview.allowed,
+          reason: preview.reason,
+          message: preview.message,
+          target
+        };
+      }
+    };
+    debugWindow.__debug.movement = {
+      avatarState: movement.avatarState,
+      getAvatarState: movement.getAvatarState,
+      moveTo3DPoint: movement.moveTo3DPoint,
+      tryMoveDelta: movement.tryMoveDelta,
+      returnToSpawn: movement.returnToSpawn
+    };
+    debugWindow.__debug.worldSkin = activeSkin;
+    return () => {
+      if (debugWindow.__debug) {
+        delete debugWindow.__debug.roomObjects;
+        delete debugWindow.__debug.buildPieces;
+        delete debugWindow.__debug.movement;
+        delete debugWindow.__debug.worldSkin;
+      }
+    };
+  }, [
+    activeSkin,
+    buildMode.materialId,
+    buildMode.rotation,
+    buildPieces.actions,
+    buildPieces.pieces,
+    buildPieces.piecesById,
+    buildPieces.refresh,
+    buildPiecesEnabled,
+    identity.userId,
+    manifest,
+    movement.avatarState,
+    movement.getAvatarState,
+    movement.moveTo3DPoint,
+    movement.returnToSpawn,
+    movement.tryMoveDelta,
+    roomObjects.actions,
+    roomObjects.grabs,
+    roomObjects.myActiveGrab,
+    roomObjects.objects,
+    roomObjects.objectsById,
+    roomObjects.refresh,
+    roomObjectsEnabled,
+    roomObjectTemplates.refetch,
+    roomObjectTemplates.status,
+    roomObjectTemplates.templates,
+    session
+  ]);
 
   // Walk-speed toast: shown once per skin with a non-1× multiplier, auto-dismissed after 6 s or first key press.
   const [walkToastVisible, setWalkToastVisible] = useState(false);
@@ -755,6 +1066,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       if (wallRealtimeHandlerRef.current(message)) return;
       if (whiteboardRealtimeHandlerRef.current(message)) return;
       if (roomObjectsRealtimeHandlerRef.current(message)) return;
+      if (buildPiecesRealtimeHandlerRef.current(message)) return;
       if (classroomRealtimeHandlerRef.current(message)) return;
       if (dynamicBoardsRealtimeHandlerRef.current(message)) return;
       if (meetingNotesRealtimeHandlerRef.current(message)) return;
@@ -765,6 +1077,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       if (message.type.startsWith("room.whiteboard.")) return;
       if (message.type.startsWith("room.shared-browser.")) return;
       if (message.type.startsWith("room.object.")) return;
+      if (message.type.startsWith("room.build.")) return;
       if (message.type.startsWith("room.board.")) return;
       if (message.type.startsWith("room.meeting-notes.")) return;
       if (message.type.startsWith("room.captions.")) return;
@@ -1896,6 +2209,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
                   roomObjectActions: roomObjects.actions
                 }
               : {})}
+            buildScene={buildScene}
           />
         ) : (
           <RoomView2D
@@ -1947,6 +2261,18 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
                   onSelectRoomObject: setSelectedRoomObjectId,
                   roomObjectActions: roomObjects.actions,
                   getAppearance: effectiveGetAppearance
+                }
+              : {})}
+            buildPieces={buildPiecesEnabled ? buildPieces.pieces : []}
+            {...(buildPiecesEnabled && buildMode.enabled
+              ? {
+                  buildInteraction: {
+                    enabled: true,
+                    tool: buildMode.tool,
+                    preview: build2dPreview,
+                    onPointerMove: updateBuild2dPreview,
+                    onPointerDown: handleBuild2dPointerDown
+                  }
                 }
               : {})}
           />
@@ -2528,6 +2854,17 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           controller={liveCaptions}
           speakerLabel={(id) => participantNameMap[id] ?? id}
           selfParticipantId={session.participantId}
+        />
+      ) : null}
+      {buildPiecesEnabled && session ? (
+        <BuildControls
+          buildMode={buildMode}
+          pieceCount={buildPieces.pieces.length}
+          error={buildPieces.error}
+          onClearAll={buildPieces.actions.clearAll}
+          onReturnToSpawn={movement.returnToSpawn}
+          onPlaceAhead={handlePlaceAhead}
+          placeAheadDisabled={!buildMode.enabled || buildMode.tool === "destroy"}
         />
       ) : null}
     </main>

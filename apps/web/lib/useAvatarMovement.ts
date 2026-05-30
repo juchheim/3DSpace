@@ -1,8 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
-import type { AvatarStateMessage, Role, RoomManifest, Vector3, ViewMode } from "@3dspace/contracts";
-import { clampPositionToBounds, createAvatarState, floorYFromZ, resolveWallCollisions, transformLocalMovementToWorld, unprojectPointFrom2D } from "@3dspace/room-engine";
+import type { AvatarStateMessage, BuildPiece, Role, RoomManifest, Vector3, ViewMode } from "@3dspace/contracts";
+import {
+  BUILD_ENABLE_EASED_FALL,
+  BUILD_FALL_GRAVITY,
+  clampXZToBounds,
+  createAvatarState,
+  createGroundHeightContext,
+  floorYFromZ,
+  groundHeightAt,
+  selectSpawnPoint,
+  transformLocalMovementToWorld,
+  unprojectPointFrom2D,
+  type GroundHeightContext,
+  type WallCollider
+} from "@3dspace/room-engine";
+import {
+  buildCollisionWallsCacheKey,
+  resolveAvatarXZWithWalls,
+  type CollisionWallsCache
+} from "./avatar-movement-collision";
 import { isKeyboardOwnedTarget } from "./isKeyboardOwnedTarget";
 
 export function useAvatarMovement(input: {
@@ -15,6 +33,7 @@ export function useAvatarMovement(input: {
   media: { cameraEnabled: boolean; microphoneEnabled: boolean; speaking: boolean };
   lockedPosition?: Vector3 | null;
   walkSpeedMultiplier?: number;
+  buildPiecesRef?: MutableRefObject<BuildPiece[]>;
 }) {
   const [avatarState, setAvatarState] = useState<AvatarStateMessage | null>(null);
   const keys = useRef(new Set<string>());
@@ -27,15 +46,49 @@ export function useAvatarMovement(input: {
   // Keep a mutable ref so the rAF loop always reads the latest value without restarting.
   const walkSpeedMultiplierRef = useRef(input.walkSpeedMultiplier ?? 1);
   walkSpeedMultiplierRef.current = input.walkSpeedMultiplier ?? 1;
+  const collisionWallsKeyRef = useRef("");
+  const collisionWallsRef = useRef<WallCollider[]>([]);
+  const collisionWallsCache: CollisionWallsCache = {
+    keyRef: collisionWallsKeyRef,
+    wallsRef: collisionWallsRef
+  };
+  const groundHeightKeyRef = useRef("");
+  const groundHeightContextRef = useRef<GroundHeightContext | null>(null);
+  const verticalVelocityRef = useRef(0);
+
+  function syncGroundHeightContext(manifest: NonNullable<typeof input.manifest>, pieces: BuildPiece[]) {
+    const key = buildCollisionWallsCacheKey(manifest, pieces);
+    const keyChanged = key !== groundHeightKeyRef.current;
+    if (keyChanged) {
+      groundHeightKeyRef.current = key;
+      groundHeightContextRef.current = createGroundHeightContext(manifest, pieces);
+    }
+    return { ctx: groundHeightContextRef.current!, keyChanged };
+  }
+
+  function applyGroundHeight(
+    manifest: NonNullable<typeof input.manifest>,
+    pieces: BuildPiece[],
+    position: { x: number; y: number; z: number },
+    mode: "walk" | "snap" | "teleport" = "walk"
+  ) {
+    const { ctx } = syncGroundHeightContext(manifest, pieces);
+    return {
+      ...position,
+      y: groundHeightAt(position.x, position.z, ctx, position.y, mode)
+    };
+  }
 
   useEffect(() => {
     if (!input.manifest) return;
+    const buildPieces = input.buildPiecesRef?.current ?? [];
     const next = createAvatarState({
       manifest: input.manifest,
       participantId: input.participantId,
       ...(input.role ? { role: input.role } : {}),
       ...(input.occupiedPositions ? { occupiedPositions: input.occupiedPositions } : {}),
-      viewMode: input.viewMode
+      viewMode: input.viewMode,
+      ...(buildPieces.length > 0 ? { buildPieces } : {})
     });
     // 3D movement copies rotation from camera yaw each frame; initialize it from spawn facing.
     if (input.cameraYawRef) {
@@ -124,21 +177,54 @@ export function useAvatarMovement(input: {
         // walkSpeedMultiplierRef: skin-driven multiplier (e.g. 0.38 for Mars low-gravity).
         // NOT applied to moveTo3DPoint teleports — teleporting slowly on Mars is wrong UX.
         const speed = 3.2 * walkSpeedMultiplierRef.current;
+        const pieces = input.buildPiecesRef?.current ?? [];
+        const { keyChanged: buildSurfacesChanged } = syncGroundHeightContext(input.manifest!, pieces);
         const rawNext = moving
-          ? clampPositionToBounds(input.manifest!, {
-              x: current.position.x + (worldDelta.x / magnitude) * speed * deltaSeconds,
-              y: 0,
-              z: current.position.z + (worldDelta.z / magnitude) * speed * deltaSeconds
-            })
+          ? (() => {
+              const { x, z } = clampXZToBounds(
+                input.manifest!,
+                current.position.x + (worldDelta.x / magnitude) * speed * deltaSeconds,
+                current.position.z + (worldDelta.z / magnitude) * speed * deltaSeconds
+              );
+              return { x, y: current.position.y, z };
+            })()
           : current.position;
-        const resolved = moving
-          ? resolveWallCollisions(current.position, rawNext, input.manifest!.walls)
-          : rawNext;
-        const nextPosition = moving ? { ...rawNext, x: resolved.x, z: resolved.z } : rawNext;
-        const nextRotation =
-          input.viewMode === "3d" && input.cameraYawRef
-            ? { y: input.cameraYawRef.current }
-            : current.rotation;
+        let resolved = rawNext;
+        if (moving) {
+          const collisionResolved = resolveAvatarXZWithWalls({
+            manifest: input.manifest!,
+            pieces,
+            cache: collisionWallsCache,
+            oldPos: { x: current.position.x, z: current.position.z },
+            newPos: { x: rawNext.x, z: rawNext.z },
+            avatarBaseY: current.position.y
+          });
+          resolved = { ...rawNext, x: collisionResolved.x, z: collisionResolved.z };
+        }
+        const groundMode = buildSurfacesChanged && pieces.length > 0 ? "snap" : "walk";
+        let nextPosition = applyGroundHeight(input.manifest!, pieces, resolved, groundMode);
+        if (BUILD_ENABLE_EASED_FALL && !buildSurfacesChanged) {
+          const { ctx } = syncGroundHeightContext(input.manifest!, pieces);
+          const groundY = groundHeightAt(resolved.x, resolved.z, ctx, resolved.y, "walk");
+          if (current.position.y > groundY + 0.05) {
+            verticalVelocityRef.current -= BUILD_FALL_GRAVITY * deltaSeconds;
+            const easedY = Math.max(groundY, current.position.y + verticalVelocityRef.current * deltaSeconds);
+            if (easedY <= groundY + 0.02) {
+              verticalVelocityRef.current = 0;
+            }
+            nextPosition = { ...resolved, y: easedY };
+          } else {
+            verticalVelocityRef.current = 0;
+          }
+        } else if (buildSurfacesChanged) {
+          verticalVelocityRef.current = 0;
+        }
+        let nextRotation = current.rotation;
+        if (input.viewMode === "3d" && input.cameraYawRef) {
+          nextRotation = { y: input.cameraYawRef.current };
+        } else if (moving && input.viewMode === "2d") {
+          nextRotation = { y: Math.atan2(worldDelta.x, worldDelta.z) };
+        }
         const next = {
           ...current,
           sentAt: Date.now(),
@@ -165,7 +251,9 @@ export function useAvatarMovement(input: {
   const moveTo2DPoint = useCallback(
     (point: { x: number; y: number }) => {
       if (!input.manifest || !stateRef.current || lockedPositionRef.current) return;
-      const nextPosition = unprojectPointFrom2D(input.manifest, point);
+      const pieces = input.buildPiecesRef?.current ?? [];
+      const projected = unprojectPointFrom2D(input.manifest, point);
+      const nextPosition = applyGroundHeight(input.manifest, pieces, projected, "teleport");
       const next = {
         ...stateRef.current,
         position: nextPosition,
@@ -182,11 +270,31 @@ export function useAvatarMovement(input: {
   const moveTo3DPoint = useCallback(
     (point: { x: number; z: number }) => {
       if (!input.manifest || !stateRef.current || lockedPositionRef.current) return;
-      const nextPosition = clampPositionToBounds(input.manifest, { x: point.x, y: 0, z: point.z });
-      const nextRotationY = Math.atan2(nextPosition.x - stateRef.current.position.x, nextPosition.z - stateRef.current.position.z);
+      const current = stateRef.current;
+      const { x: boundedX, z: boundedZ } = clampXZToBounds(input.manifest, point.x, point.z);
+      const pieces = input.buildPiecesRef?.current ?? [];
+      const collisionResolved = resolveAvatarXZWithWalls({
+        manifest: input.manifest,
+        pieces,
+        cache: collisionWallsCache,
+        oldPos: { x: current.position.x, z: current.position.z },
+        newPos: { x: boundedX, z: boundedZ },
+        avatarBaseY: current.position.y
+      });
+      const nextPosition = applyGroundHeight(
+        input.manifest,
+        pieces,
+        {
+          x: collisionResolved.x,
+          y: current.position.y,
+          z: collisionResolved.z
+        },
+        "teleport"
+      );
+      const nextRotationY = Math.atan2(nextPosition.x - current.position.x, nextPosition.z - current.position.z);
       if (input.cameraYawRef) input.cameraYawRef.current = nextRotationY;
       const next = {
-        ...stateRef.current,
+        ...current,
         position: nextPosition,
         rotation: { y: nextRotationY },
         sentAt: Date.now(),
@@ -195,8 +303,90 @@ export function useAvatarMovement(input: {
       stateRef.current = next;
       setAvatarState(next);
     },
-    [input.manifest, input.cameraYawRef]
+    [input.manifest, input.cameraYawRef, input.buildPiecesRef]
   );
 
-  return { avatarState, setTouchVector, moveTo2DPoint, moveTo3DPoint };
+  const returnToSpawn = useCallback(() => {
+    if (!input.manifest || !stateRef.current || lockedPositionRef.current) return;
+    const current = stateRef.current;
+    const spawn = selectSpawnPoint({
+      manifest: input.manifest,
+      participantId: input.participantId,
+      ...(input.role ? { role: input.role } : {}),
+      ...(input.occupiedPositions ? { occupiedPositions: input.occupiedPositions } : {})
+    });
+    const pieces = input.buildPiecesRef?.current ?? [];
+    const resolved = resolveAvatarXZWithWalls({
+      manifest: input.manifest,
+      pieces,
+      cache: collisionWallsCache,
+      oldPos: { x: current.position.x, z: current.position.z },
+      newPos: { x: spawn.position.x, z: spawn.position.z },
+      avatarBaseY: current.position.y
+    });
+    const position = applyGroundHeight(
+      input.manifest,
+      pieces,
+      { x: resolved.x, y: spawn.position.y, z: resolved.z },
+      "snap"
+    );
+    verticalVelocityRef.current = 0;
+    const next = {
+      ...stateRef.current,
+      position,
+      rotation: spawn.rotation,
+      sentAt: Date.now(),
+      movement: "idle" as const,
+      viewMode: input.viewMode,
+      media: mediaRef.current
+    };
+    if (input.cameraYawRef) input.cameraYawRef.current = spawn.rotation.y;
+    stateRef.current = next;
+    setAvatarState(next);
+  }, [
+    input.buildPiecesRef,
+    input.cameraYawRef,
+    input.manifest,
+    input.occupiedPositions,
+    input.participantId,
+    input.role,
+    input.viewMode
+  ]);
+
+  const getAvatarState = useCallback(() => stateRef.current, []);
+
+  const tryMoveDelta = useCallback(
+    (dx: number, dz: number) => {
+      if (!input.manifest || !stateRef.current) return null;
+      const current = stateRef.current;
+      const pieces = input.buildPiecesRef?.current ?? [];
+      const oldPos = { x: current.position.x, z: current.position.z };
+      const requested = clampXZToBounds(input.manifest, oldPos.x + dx, oldPos.z + dz);
+      const resolved = resolveAvatarXZWithWalls({
+        manifest: input.manifest,
+        pieces,
+        cache: collisionWallsCache,
+        oldPos,
+        newPos: requested,
+        avatarBaseY: current.position.y
+      });
+      return {
+        from: oldPos,
+        requested,
+        to: resolved,
+        blocked: Math.hypot(resolved.x - requested.x, resolved.z - requested.z) > 0.05
+      };
+    },
+    [input.buildPiecesRef, input.manifest]
+  );
+
+  return {
+    avatarState,
+    setTouchVector,
+    moveTo2DPoint,
+    moveTo3DPoint,
+    returnToSpawn,
+    getAvatarState,
+    tryMoveDelta
+  };
 }

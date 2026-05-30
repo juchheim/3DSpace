@@ -324,6 +324,13 @@ Keep `clampPositionToBounds` for XZ bounds but take `y` from `groundHeightAt` (d
 - **Engine unit tests:** the full `groundHeightAt` / collision matrix.
 - **Rollout:** default flags **off** in prod; enable in a dev/staging FFA room first. `NEXT_PUBLIC_ENABLE_FREE_FOR_ALL_BUILDING` + `ENABLE_FREE_FOR_ALL_BUILDING` + per-room `buildingEnabled` setting.
 
+**Rollout steps (staging → prod):**
+1. Deploy API + web with flags **off** (defaults in `.env.example`).
+2. In staging, set `ENABLE_FREE_FOR_ALL_BUILDING=true` and `NEXT_PUBLIC_ENABLE_FREE_FOR_ALL_BUILDING=true` on API/web services.
+3. Create or patch one FFA room with `buildingEnabled: true`; smoke-test caps, no-build zones, destroy/clear, and two-client sync.
+4. Enable prod flags only after staging E2E (`apps/web/test/world-building.spec.ts`) is green.
+5. Optional: tune `BUILD_PLACEMENT_RATE_LIMIT_PER_MINUTE` (default 600) if drag-paint bursts hit 429 in playtests.
+
 ---
 
 ## Files-to-touch summary
@@ -371,13 +378,13 @@ Keep `clampPositionToBounds` for XZ bounds but take `y` from `groundHeightAt` (d
 
 ## Validation evidence (fill in after implementation)
 
-- [ ] Two-tab: A builds walls/floor/ramp → B sees them in realtime; refresh persists.
-- [ ] B is blocked by A’s wall; B stands on A’s floor (assert avatar `y` ≈ level top); B walks up A’s ramp (assert `y` rises to next level).
-- [ ] No-build zones reject (spawn, exit/hall, board front) on client ghost + server.
-- [ ] Caps enforced (per-room, per-user, max level); over-cap rejected with reason.
-- [ ] Ground-level collision unchanged vs `main` (engine regression tests green).
-- [ ] Destroy: anyone removes any piece; reflects for both tabs; clear-all works.
-- [ ] Flags off by default; feature absent in classroom/workforce-training rooms.
+- [x] Two-tab: A builds walls/floor/ramp → B sees them in realtime; refresh persists.
+- [x] B is blocked by A’s wall; B stands on A’s floor (assert avatar `y` ≈ level top); B walks up A’s ramp (assert `y` rises to next level).
+- [x] No-build zones reject (spawn, exit/hall, board front) on client ghost + server.
+- [x] Caps enforced (per-room, per-user, max level); over-cap rejected with reason.
+- [x] Ground-level collision unchanged vs `main` (engine regression tests green).
+- [x] Destroy: anyone removes any piece; reflects for both tabs; clear-all works.
+- [x] Flags off by default; feature absent in classroom/workforce-training rooms (API unit + classroom E2E; workforce-training shares `building: false` in feature flags).
 - [ ] Preview screenshots: ghost (green/red), a built two-story structure, an avatar standing on a floor and mid-ramp.
 
 ---

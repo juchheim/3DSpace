@@ -72,6 +72,8 @@ export function roomSettings(config: AppConfig) {
       controlLeaseSeconds: 120,
       hyperbeamQuality: config.tuning.sharedBrowserHyperbeamQuality,
       hyperbeamFramerate: config.tuning.sharedBrowserHyperbeamFramerate
-    }
+    },
+    buildingEnabled: true,
+    buildDestroyPolicy: "anyone" as const
   };
 }

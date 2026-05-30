@@ -20,6 +20,7 @@ import type {
   RoomBoardCreatedMessageV1,
   RoomBoardUpdatedMessageV1,
   RoomBoardRemovedMessageV1,
+  RoomBuildRealtimeMessageSchema,
   RoomObjectRealtimeMessageSchema,
   RoomSessionResponse,
   RoomSkinMessage,
@@ -56,6 +57,8 @@ export type ClassroomRealtimeMessage = z.infer<typeof ClassroomStateChangedRealt
 
 export type RoomObjectRealtimeMessage = z.infer<typeof RoomObjectRealtimeMessageSchema>;
 
+export type RoomBuildRealtimeMessage = z.infer<typeof RoomBuildRealtimeMessageSchema>;
+
 export type BoardRealtimeMessage =
   | RoomBoardCreatedMessageV1
   | RoomBoardUpdatedMessageV1
@@ -85,6 +88,7 @@ export type RealtimeMessage =
   | WallRealtimeMessage
   | ClassroomRealtimeMessage
   | RoomObjectRealtimeMessage
+  | RoomBuildRealtimeMessage
   | RoomSkinMessage
   | BoardRealtimeMessage
   | MeetingNotesRealtimeMessage
