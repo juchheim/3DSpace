@@ -1977,13 +1977,30 @@ function DynamicBoardPlacementTargets({
   walls: Wall[];
   placement: DynamicBoardPlacementConfig;
 }) {
+  const targets = useMemo(
+    () => walls.filter((wall) => wall.passable !== true && wall.height >= DYNAMIC_WALL_ANCHOR_MIN_HEIGHT_M),
+    [walls]
+  );
+  const targetIdsKey = targets.map((wall) => wall.id).join("|");
+  useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log(
+      "[board-place] candidate targets",
+      targets.map((wall) => ({
+        id: wall.id,
+        kind: wall.id.startsWith("build:") ? "build" : "room",
+        start: wall.start,
+        end: wall.end,
+        len: Number(Math.hypot(wall.end.x - wall.start.x, wall.end.z - wall.start.z).toFixed(2))
+      }))
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetIdsKey]);
   return (
     <group>
-      {walls
-        .filter((wall) => wall.passable !== true && wall.height >= DYNAMIC_WALL_ANCHOR_MIN_HEIGHT_M)
-        .map((wall) => (
-          <DynamicBoardPlacementTarget key={wall.id} wall={wall} placement={placement} />
-        ))}
+      {targets.map((wall) => (
+        <DynamicBoardPlacementTarget key={wall.id} wall={wall} placement={placement} />
+      ))}
     </group>
   );
 }
@@ -2017,20 +2034,81 @@ function DynamicBoardPlacementTarget({
     ];
   }, [wall]);
 
-  function placementRequest(event: ThreeEvent<PointerEvent>) {
+  // A board always renders flush to the wall it lands on, so a "perpendicular" board means the
+  // ray struck a wall you're viewing edge-on (a crossing wall whose padded hit box overlaps the
+  // one you mean). Accept a hit only when this wall faces back toward the camera enough — the
+  // wall you're actually looking at — and was struck on its broad face. Otherwise don't consume
+  // the event, so r3f keeps walking the (distance-sorted) intersections to the wall behind it.
+  const GRAZING_DOT = 0.3;
+
+  function strikesBroadFace(event: ThreeEvent<PointerEvent> | ThreeEvent<MouseEvent>) {
+    if (!event.face) return true;
+    const { x, y, z } = event.face.normal;
+    const ax = Math.abs(x);
+    const ay = Math.abs(y);
+    const az = Math.abs(z);
+    if (ay >= ax && ay >= az) return false; // top/bottom face
+    const facingAxisIsX = boxSize[0] <= boxSize[2];
+    return facingAxisIsX ? ax >= az : az >= ax;
+  }
+
+  function evaluateHit(event: ThreeEvent<PointerEvent> | ThreeEvent<MouseEvent>) {
     const normal = normalFacingReference(wall, camera.position);
+    const rayDir = new Vector3(
+      event.point.x - camera.position.x,
+      event.point.y - camera.position.y,
+      event.point.z - camera.position.z
+    );
+    if (rayDir.lengthSq() > 1e-6) rayDir.normalize();
+    // `normal` points toward the camera, so a face-on view gives dot ≈ -1; grazing gives ≈ 0.
+    const facingDot = rayDir.dot(normal);
+    const broadFace = strikesBroadFace(event);
+    const accept = broadFace && facingDot <= -GRAZING_DOT;
+    return { accept, normal, facingDot, broadFace };
+  }
+
+  function placementRequest(event: ThreeEvent<PointerEvent>, normal: Vector3) {
     return dynamicBoardRequestFromWallClick(wall, event.point, normal, placement.boardSize);
   }
 
   function updatePreview(event: ThreeEvent<PointerEvent>) {
+    const hit = evaluateHit(event);
+    if (!hit.accept) {
+      setPreview(null);
+      return; // fall through to the wall the user is actually facing
+    }
     event.stopPropagation();
-    setPreview(placementRequest(event));
+    setPreview(placementRequest(event, hit.normal));
   }
 
   function placeBoard(event: ThreeEvent<MouseEvent>) {
+    const hit = evaluateHit(event);
+    // eslint-disable-next-line no-console
+    console.log("[board-place] hit", {
+      wallId: wall.id,
+      isBuildWall: Boolean(buildLayout),
+      accept: hit.accept,
+      facingDot: Number(hit.facingDot.toFixed(3)),
+      broadFace: hit.broadFace,
+      faceNormal: event.face ? { x: event.face.normal.x, y: event.face.normal.y, z: event.face.normal.z } : null,
+      wallStart: wall.start,
+      wallEnd: wall.end,
+      computedNormal: { x: hit.normal.x, y: hit.normal.y, z: hit.normal.z },
+      hitPoint: { x: event.point.x, y: event.point.y, z: event.point.z }
+    });
+    if (!hit.accept) return; // fall through to the wall the user is actually facing
     event.stopPropagation();
     if (placement.busy) return;
-    void placement.onPlace(placementRequest(event as unknown as ThreeEvent<PointerEvent>));
+    const request = placementRequest(event as unknown as ThreeEvent<PointerEvent>, hit.normal);
+    // eslint-disable-next-line no-console
+    console.log("[board-place] committing", {
+      wallId: request.wallId,
+      normal: request.normal,
+      center: request.center,
+      width: request.width,
+      height: request.height
+    });
+    void placement.onPlace(request);
   }
 
   return (
