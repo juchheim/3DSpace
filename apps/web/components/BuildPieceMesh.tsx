@@ -151,7 +151,7 @@ export function BuildPieceMesh({
         position={position}
         rotation={[0, rotationY, 0]}
         userData={{ buildPieceId: piece.id, buildPiece: piece }}
-        raycast={pointerEventsPassThrough ? () => null : undefined}
+        {...(pointerEventsPassThrough ? { raycast: () => {} } : {})}
         {...pointerProps}
       >
         <boxGeometry args={size} />
