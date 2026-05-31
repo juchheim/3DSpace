@@ -1926,13 +1926,15 @@ function dynamicBoardRequestFromWallClick(
     0,
     1
   );
-  const wallX = wall.start.x + projectedT * span.dx;
-  const wallZ = wall.start.z + projectedT * span.dz;
   const offset = (wall.thickness ?? 0) / 2 + DYNAMIC_BOARD_WALL_INSET;
   const width = Math.min(boardSize.width, span.length);
   const height = Math.min(boardSize.height, wall.height);
   const baseY = Math.min(wall.start.y, wall.end.y);
   const centerY = clamp(point.y, baseY + height / 2, baseY + wall.height - height / 2);
+  const centerAlong = projectedT * span.length;
+  const clampedAlong = clamp(centerAlong, width / 2, span.length - width / 2);
+  const wallX = wall.start.x + clampedAlong * span.ux;
+  const wallZ = wall.start.z + clampedAlong * span.uz;
   const title = `Board on ${wall.label}`.slice(0, 80);
 
   return {

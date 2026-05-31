@@ -286,14 +286,143 @@ export function collectCollisionWalls(manifest: RoomManifest, buildPieces: Build
   return walls;
 }
 
+type BoardPlacementWall = RoomManifest["walls"][number];
+
+const BUILD_WALL_PIECE_ID_RE = /^build:wall:(-?\d+),(-?\d+):(\d+):(n|s|e|w)$/;
+
+function parseBuildWallPieceId(id: string) {
+  const match = id.match(BUILD_WALL_PIECE_ID_RE);
+  if (!match) return null;
+  return {
+    ix: Number(match[1]),
+    iz: Number(match[2]),
+    level: Number(match[3]),
+    edge: match[4] as NonNullable<BuildPiece["edge"]>
+  };
+}
+
+function buildWallChainKey(wall: BoardPlacementWall) {
+  const parsed = parseBuildWallPieceId(wall.id);
+  if (!parsed) return null;
+  const baseY = Math.min(wall.start.y, wall.end.y);
+  return `${parsed.level}:${parsed.edge}:${baseY}:${wall.height}:${wall.thickness ?? 0}`;
+}
+
+function buildWallSortAlongAxis(wall: BoardPlacementWall) {
+  const parsed = parseBuildWallPieceId(wall.id)!;
+  return parsed.edge === "n" || parsed.edge === "s" ? parsed.ix : parsed.iz;
+}
+
+function buildWallSegmentsShareEndpoint(a: BoardPlacementWall, b: BoardPlacementWall, epsilon = 0.001) {
+  const endsA = [a.start, a.end];
+  const endsB = [b.start, b.end];
+  return endsA.some((pa) =>
+    endsB.some(
+      (pb) =>
+        Math.abs(pa.x - pb.x) <= epsilon &&
+        Math.abs(pa.y - pb.y) <= epsilon &&
+        Math.abs(pa.z - pb.z) <= epsilon
+    )
+  );
+}
+
+function mergeBuildWallChain(chain: BoardPlacementWall[]): BoardPlacementWall {
+  const first = chain[0]!;
+  const parsed = parseBuildWallPieceId(first.id);
+  const segmentIds = chain.map((wall) => wall.id);
+  if (!parsed || chain.length === 1) {
+    return { ...first, anchorIds: segmentIds };
+  }
+
+  const horizontal = parsed.edge === "n" || parsed.edge === "s";
+  const y = Math.min(first.start.y, first.end.y);
+  let start;
+  let end;
+  if (horizontal) {
+    const xs = chain.flatMap((wall) => [wall.start.x, wall.end.x]);
+    const z = first.start.z;
+    start = { x: Math.min(...xs), y, z };
+    end = { x: Math.max(...xs), y, z };
+  } else {
+    const zs = chain.flatMap((wall) => [wall.start.z, wall.end.z]);
+    const x = first.start.x;
+    start = { x, y, z: Math.min(...zs) };
+    end = { x, y, z: Math.max(...zs) };
+  }
+
+  return {
+    ...first,
+    id: first.id,
+    label: "build-wall",
+    start,
+    end,
+    anchorIds: segmentIds
+  };
+}
+
 /**
- * The walls a dynamic board may be placed on: the room's manifest walls plus the
- * vertical faces of build `wall` pieces. Shared by the client placement targets and
- * the server placement validator so both ends agree on valid surfaces.
- *
- * Returns plain `Wall` (RoomManifest["walls"][number]) — build wall colliders carry an
- * extra `baseY` but are otherwise assignable, and consumers that need the base read it
- * off `start.y`/`end.y`.
+ * Merge collinear adjacent build-wall colliders into continuous board surfaces.
+ * Segment piece ids are stored on `anchorIds` for orphan checks and overlap scoping.
+ */
+export function mergeAdjacentBuildWallSegments(buildWalls: BoardPlacementWall[]): BoardPlacementWall[] {
+  const byChainKey = new Map<string, BoardPlacementWall[]>();
+  for (const wall of buildWalls) {
+    const key = buildWallChainKey(wall);
+    if (!key) continue;
+    const group = byChainKey.get(key) ?? [];
+    group.push(wall);
+    byChainKey.set(key, group);
+  }
+
+  const merged: BoardPlacementWall[] = [];
+  for (const group of byChainKey.values()) {
+    const sorted = [...group].sort((a, b) => buildWallSortAlongAxis(a) - buildWallSortAlongAxis(b));
+    let chain: BoardPlacementWall[] = [sorted[0]!];
+    for (let i = 1; i < sorted.length; i++) {
+      const segment = sorted[i]!;
+      const previous = chain[chain.length - 1]!;
+      if (buildWallSegmentsShareEndpoint(previous, segment)) {
+        chain.push(segment);
+      } else {
+        merged.push(mergeBuildWallChain(chain));
+        chain = [segment];
+      }
+    }
+    merged.push(mergeBuildWallChain(chain));
+  }
+  return merged;
+}
+
+/** Resolve a build-wall piece id or merged run id to the placement surface and its segments. */
+export function resolveBuildWallBoardRun(
+  placementWalls: BoardPlacementWall[],
+  wallId: string
+): { wall: BoardPlacementWall; segmentIds: string[] } | null {
+  const direct = placementWalls.find((candidate) => candidate.id === wallId);
+  if (direct) {
+    const segmentIds = direct.anchorIds?.length ? direct.anchorIds : [direct.id];
+    return { wall: direct, segmentIds };
+  }
+  const parent = placementWalls.find((candidate) => candidate.anchorIds?.includes(wallId));
+  if (!parent) return null;
+  return { wall: parent, segmentIds: parent.anchorIds!.length ? parent.anchorIds! : [parent.id] };
+}
+
+function buildWallRunSharesSegment(
+  placementWalls: BoardPlacementWall[],
+  wallIdA: string,
+  wallIdB: string
+) {
+  if (wallIdA === wallIdB) return true;
+  const runA = resolveBuildWallBoardRun(placementWalls, wallIdA);
+  const runB = resolveBuildWallBoardRun(placementWalls, wallIdB);
+  if (!runA || !runB) return false;
+  return runA.wall.id === runB.wall.id;
+}
+
+/**
+ * The walls a dynamic board may be placed on: the room's manifest walls plus merged
+ * runs of adjacent build `wall` pieces (multi-cell boards span the full run).
  */
 export function boardPlacementWalls(
   manifest: { walls: RoomManifest["walls"] },
@@ -302,5 +431,8 @@ export function boardPlacementWalls(
   const buildWalls = buildPieces
     .filter((piece) => piece.kind === "wall")
     .flatMap((piece) => buildPieceColliders(piece).walls);
-  return [...manifest.walls, ...buildWalls];
+  const mergedBuildWalls = mergeAdjacentBuildWallSegments(buildWalls);
+  return [...manifest.walls, ...mergedBuildWalls];
 }
+
+export { buildWallRunSharesSegment };

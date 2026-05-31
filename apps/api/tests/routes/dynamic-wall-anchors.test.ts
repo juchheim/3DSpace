@@ -1,5 +1,5 @@
 import type { CreateDynamicWallAnchorRequest } from "@3dspace/contracts";
-import { buildPieceColliders } from "@3dspace/room-engine";
+import { buildPieceColliders, boardPlacementWalls } from "@3dspace/room-engine";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../../src/app";
 import { addStudentMember, authHeaders, buildTestApp, createClassAndRoom } from "../helpers/app";
@@ -45,6 +45,10 @@ describe("dynamic wall anchor routes", () => {
     });
     expect(response.statusCode).toBe(200);
     return response.json().piece;
+  }
+
+  function safeBuildCell(index: number) {
+    return { ix: -20 + (index % 25), iz: -20 + Math.floor(index / 25) };
   }
 
   it("accepts board placement on a built wall", async () => {
@@ -215,6 +219,91 @@ describe("dynamic wall anchor routes", () => {
     });
     expect(patchRes.statusCode).toBe(200);
     expect(patchRes.json().anchor.position.x).toBeCloseTo(wall.start.x + 0.5, 3);
+    await app.close();
+  });
+
+  it("accepts a board spanning multiple adjacent build wall segments", async () => {
+    const app = await buildTestApp({ config: buildPiecesConfig() });
+    const { classRecord, roomWithManifest } = await createFfaRoom(app);
+    const roomId = roomWithManifest.room.id;
+    await enableBuildingForRoom(app, roomId, "teacher-ffa-boards");
+    await addStudentMember(app, classRecord.id, "teacher-ffa-boards", "builder-a", "Alex");
+
+    const baseCell = safeBuildCell(80);
+    const pieces = [];
+    for (let offset = 0; offset < 3; offset += 1) {
+      const piece = await createBuildWall(app, roomId, "builder-a", {
+        ix: baseCell.ix + offset,
+        iz: baseCell.iz
+      });
+      pieces.push(piece);
+    }
+
+    const run = boardPlacementWalls(roomWithManifest.manifest, pieces).at(-1)!;
+    expect(run.anchorIds).toHaveLength(3);
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/dynamic-wall-anchors`,
+      headers: authHeaders("builder-a", "Alex"),
+      payload: {
+        wallId: run.id,
+        center: {
+          x: (run.start.x + run.end.x) / 2,
+          y: run.start.y + run.height / 2,
+          z: (run.start.z + run.end.z) / 2
+        },
+        normal: { x: 0, y: 0, z: -1 },
+        width: 5.5,
+        height: 1.5,
+        title: "Wide build board",
+        accepts: ["image"]
+      }
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().anchor.width).toBe(5.5);
+    await app.close();
+  });
+
+  it("blocks destroying any segment in a multi-segment board run (orphan policy B)", async () => {
+    const app = await buildTestApp({ config: buildPiecesConfig() });
+    const { classRecord, roomWithManifest } = await createFfaRoom(app);
+    const roomId = roomWithManifest.room.id;
+    await enableBuildingForRoom(app, roomId, "teacher-ffa-boards");
+    await addStudentMember(app, classRecord.id, "teacher-ffa-boards", "builder-a", "Alex");
+
+    const baseCell = safeBuildCell(85);
+    const pieces = [];
+    for (let offset = 0; offset < 3; offset += 1) {
+      pieces.push(await createBuildWall(app, roomId, "builder-a", { ix: baseCell.ix + offset, iz: baseCell.iz }));
+    }
+    const run = boardPlacementWalls(roomWithManifest.manifest, pieces).at(-1)!;
+    await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/dynamic-wall-anchors`,
+      headers: authHeaders("builder-a", "Alex"),
+      payload: {
+        wallId: run.id,
+        center: {
+          x: (run.start.x + run.end.x) / 2,
+          y: run.start.y + run.height / 2,
+          z: (run.start.z + run.end.z) / 2
+        },
+        normal: { x: 0, y: 0, z: -1 },
+        width: 4,
+        height: 1.5,
+        title: "Run board",
+        accepts: ["image"]
+      }
+    });
+
+    const middleDelete = await app.inject({
+      method: "DELETE",
+      url: `/v1/rooms/${roomId}/build-pieces/${pieces[1]!.id}`,
+      headers: authHeaders("builder-a", "Alex")
+    });
+    expect(middleDelete.statusCode).toBe(409);
+    expect(middleDelete.json().error).toBe("build-wall-has-boards");
     await app.close();
   });
 

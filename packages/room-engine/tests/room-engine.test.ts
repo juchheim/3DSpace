@@ -675,7 +675,7 @@ describe("validateDynamicBoardPlacement with build walls", () => {
     createdAt
   });
   const placementWalls = boardPlacementWalls(manifest, [wallPiece]);
-  const buildWall = buildPieceColliders(wallPiece).walls[0]!;
+  const buildWall = placementWalls.at(-1)!;
   const center = {
     x: (buildWall.start.x + buildWall.end.x) / 2,
     y: buildWall.start.y + buildWall.height / 2,
@@ -707,5 +707,69 @@ describe("validateDynamicBoardPlacement with build walls", () => {
       { wallId: buildWall.id, center, width: 1.5 }
     );
     expect(result).toEqual({ ok: false, reason: "wall-not-found" });
+  });
+
+  it("accepts a wide board spanning a merged multi-segment build wall run", () => {
+    const createdAt = "2026-05-30T12:00:00.000Z";
+    const pieces = [15, 16, 17].map((ix) =>
+      BuildPieceSchema.parse({
+        id: `build:wall:${ix},15:0:n`,
+        roomId: manifest.roomId,
+        kind: "wall",
+        cell: { ix, iz: 15 },
+        level: 0,
+        edge: "n",
+        rotation: 0,
+        materialId: "stone",
+        createdByUserId: "u1",
+        createdAt
+      })
+    );
+    const mergedWalls = boardPlacementWalls(manifest, pieces);
+    const run = mergedWalls.at(-1)!;
+    expect(run.anchorIds).toHaveLength(3);
+
+    const result = validateDynamicBoardPlacement(
+      { walls: mergedWalls },
+      [],
+      {
+        wallId: run.id,
+        center: {
+          x: (run.start.x + run.end.x) / 2,
+          y: run.start.y + run.height / 2,
+          z: run.start.z
+        },
+        width: 5.5
+      }
+    );
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("rejects overlap between boards on different segments of the same merged run", () => {
+    const createdAt = "2026-05-30T12:00:00.000Z";
+    const pieces = [15, 16].map((ix) =>
+      BuildPieceSchema.parse({
+        id: `build:wall:${ix},15:0:n`,
+        roomId: manifest.roomId,
+        kind: "wall",
+        cell: { ix, iz: 15 },
+        level: 0,
+        edge: "n",
+        rotation: 0,
+        materialId: "stone",
+        createdByUserId: "u1",
+        createdAt
+      })
+    );
+    const mergedWalls = boardPlacementWalls(manifest, pieces);
+    const run = mergedWalls.at(-1)!;
+    const center = { x: (run.start.x + run.end.x) / 2, y: run.start.y + 1, z: run.start.z };
+
+    const result = validateDynamicBoardPlacement(
+      { walls: mergedWalls },
+      [{ wallId: pieces[1]!.id, position: center, width: 3 }],
+      { wallId: run.id, center, width: 3 }
+    );
+    expect(result).toEqual({ ok: false, reason: "overlaps-anchor" });
   });
 });

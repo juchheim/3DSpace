@@ -2131,7 +2131,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             <span>
               {dynamicBoardPlacementMessage ||
                 (buildPiecesEnabled
-                  ? "Click a wall in the 3D room. Built walls cap boards to about 2×2 m."
+                  ? "Click a wall in the 3D room. Built walls merge into longer surfaces for larger boards."
                   : "Click a wall in the 3D room.")}
             </span>
             <button

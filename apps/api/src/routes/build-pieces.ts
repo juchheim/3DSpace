@@ -137,11 +137,11 @@ export async function registerBuildPieceRoutes(app: FastifyInstance, ctx: AppCon
   app.delete("/v1/rooms/:roomId/build-pieces/:pieceId", async (request) => {
     const auth = await requireUser(request, config, repository);
     const params = parseParams(ParamsWithRoomAndPieceId, request);
-    const { room } = await requireRoomAccess(repository, params.roomId, auth);
+    const { room, manifest } = await requireRoomAccess(repository, params.roomId, auth);
     assertBuildingEnabled(config, room);
     const existing = await requireBuildPiece(repository, params.roomId, params.pieceId);
     await assertCanDestroyBuildPiece(repository, params.roomId, existing, auth, room.settings);
-    await assertBuildWallHasNoBoards(repository, params.roomId, existing);
+    await assertBuildWallHasNoBoards(repository, params.roomId, existing, manifest);
     buildPlacementRateLimiter.enforce(auth.userId, params.roomId, 1);
     await repository.removeBuildPiece(params.roomId, params.pieceId);
     await recordBuildPieceRemoved(repository, params.roomId, auth.userId, existing);

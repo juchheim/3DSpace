@@ -11,6 +11,7 @@ import {
   BUILD_WALL_HEIGHT,
   isBuildAllowedAt,
   levelToY,
+  mergeAdjacentBuildWallSegments,
   worldToCell
 } from "../src/build.js";
 
@@ -79,7 +80,7 @@ describe("boardPlacementWalls", () => {
   const manifest = createFreeForAllManifest({ roomId: "room-ffa-board-walls" });
   const createdAt = "2026-05-30T12:00:00.000Z";
 
-  it("includes manifest walls plus one entry per wall build piece", () => {
+  it("includes manifest walls plus merged build wall runs (floors/ramps excluded)", () => {
     const wall = BuildPieceSchema.parse({
       id: `${BUILD_ID_PREFIX}wall:3,4:0:e`,
       roomId: "room-1",
@@ -142,6 +143,49 @@ describe("boardPlacementWalls", () => {
 
   it("returns manifest walls only when build pieces are empty", () => {
     expect(boardPlacementWalls(manifest, [])).toEqual(manifest.walls);
+  });
+});
+
+function wallBuildPiece(ix: number, iz: number, level: number, edge: "n" | "e" | "s" | "w", createdAt: string) {
+  return BuildPieceSchema.parse({
+    id: `${BUILD_ID_PREFIX}wall:${ix},${iz}:${level}:${edge}`,
+    roomId: "room-1",
+    kind: "wall",
+    cell: { ix, iz },
+    level,
+    edge,
+    rotation: 0,
+    materialId: "stone",
+    createdByUserId: "u1",
+    createdAt
+  });
+}
+
+describe("mergeAdjacentBuildWallSegments", () => {
+  const createdAt = "2026-05-30T12:00:00.000Z";
+
+  it("merges collinear adjacent build walls into one board surface", () => {
+    const pieces = [15, 16, 17].map((ix) => wallBuildPiece(ix, 15, 0, "n", createdAt));
+    const buildWalls = pieces.flatMap((piece) => buildPieceColliders(piece).walls);
+    const merged = mergeAdjacentBuildWallSegments(buildWalls);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]!.anchorIds).toEqual(pieces.map((piece) => piece.id));
+    expect(Math.hypot(merged[0]!.end.x - merged[0]!.start.x, merged[0]!.end.z - merged[0]!.start.z)).toBeCloseTo(
+      BUILD_CELL_SIZE * 3,
+      3
+    );
+  });
+
+  it("does not merge build walls separated by a missing cell", () => {
+    const pieces = [wallBuildPiece(15, 15, 0, "n", createdAt), wallBuildPiece(17, 15, 0, "n", createdAt)];
+    const buildWalls = pieces.flatMap((piece) => buildPieceColliders(piece).walls);
+    expect(mergeAdjacentBuildWallSegments(buildWalls)).toHaveLength(2);
+  });
+
+  it("does not merge build walls at different levels", () => {
+    const pieces = [wallBuildPiece(15, 15, 0, "e", createdAt), wallBuildPiece(15, 16, 1, "e", createdAt)];
+    const buildWalls = pieces.flatMap((piece) => buildPieceColliders(piece).walls);
+    expect(mergeAdjacentBuildWallSegments(buildWalls)).toHaveLength(2);
   });
 });
 

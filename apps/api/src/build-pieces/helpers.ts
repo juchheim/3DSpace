@@ -5,12 +5,15 @@ import {
   type BuildPieceKind,
   type BuildPieceMaterial,
   type BuildPieceRotation,
+  type RoomManifest,
   type RoomSettings
 } from "@3dspace/contracts";
 import {
   BUILD_MAX_PIECES_PER_ROOM,
   BUILD_MAX_PIECES_PER_USER,
+  boardPlacementWalls,
   buildPieceStableId,
+  buildWallRunSharesSegment,
   isBuildAllowedAt
 } from "@3dspace/room-engine";
 import type { AuthContext } from "../auth.js";
@@ -142,10 +145,21 @@ export async function assertCanDestroyBuildPiece(
 }
 
 /** Orphan policy B: wall pieces with a dynamic board cannot be destroyed until the board is removed. */
-export async function assertBuildWallHasNoBoards(repository: Repository, roomId: string, piece: BuildPiece) {
+export async function assertBuildWallHasNoBoards(
+  repository: Repository,
+  roomId: string,
+  piece: BuildPiece,
+  manifest: RoomManifest
+) {
   if (piece.kind !== "wall") return;
   const anchors = await repository.listDynamicWallAnchorsForRoom(roomId);
-  if (anchors.some((anchor) => anchor.wallId === piece.id)) {
-    throw buildWallHasBoards();
+  if (anchors.length === 0) return;
+
+  const buildPieces = await repository.listBuildPiecesForRoom(roomId);
+  const placementWalls = boardPlacementWalls(manifest, buildPieces);
+  for (const anchor of anchors) {
+    if (buildWallRunSharesSegment(placementWalls, anchor.wallId, piece.id)) {
+      throw buildWallHasBoards();
+    }
   }
 }

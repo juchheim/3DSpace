@@ -10,7 +10,7 @@ import type {
   ViewMode
 } from "@3dspace/contracts";
 import { RoomManifestSchema } from "@3dspace/contracts";
-import { isAngleWithinFreeForAllExitArc } from "./free-for-all-build-mask.js";
+import { buildWallRunSharesSegment, resolveBuildWallBoardRun } from "./build.js";
 
 export {
   BUILD_CELL_SIZE,
@@ -31,6 +31,9 @@ export {
   buildCellFootprint,
   buildPieceColliders,
   buildPieceStableId,
+  buildWallRunSharesSegment,
+  mergeAdjacentBuildWallSegments,
+  resolveBuildWallBoardRun,
   rampClimbFromRotation,
   cellToWorldCenter,
   collectCollisionWalls,
@@ -1126,7 +1129,8 @@ export function validateDynamicBoardPlacement(
   proposed: { wallId: string; center: { x: number; z: number }; width: number },
   options?: { minGapMeters?: number; offWallToleranceMeters?: number }
 ): { ok: true } | { ok: false; reason: "wall-not-found" | "overlaps-anchor" } {
-  const wall = manifest.walls.find((candidate) => candidate.id === proposed.wallId);
+  const resolved = resolveBuildWallBoardRun(manifest.walls, proposed.wallId);
+  const wall = resolved?.wall ?? manifest.walls.find((candidate) => candidate.id === proposed.wallId);
   if (!wall) return { ok: false, reason: "wall-not-found" };
 
   const minGap = options?.minGapMeters ?? DYNAMIC_BOARD_PLACEMENT_MIN_GAP_M;
@@ -1134,7 +1138,9 @@ export function validateDynamicBoardPlacement(
   const proposedProjection = projectPointAlongWall(wall, proposed.center);
 
   for (const anchor of existingAnchors) {
-    if (anchor.wallId && anchor.wallId !== proposed.wallId) continue;
+    if (anchor.wallId && !buildWallRunSharesSegment(manifest.walls, anchor.wallId, proposed.wallId)) {
+      continue;
+    }
 
     const anchorProjection = projectPointAlongWall(wall, anchor.position);
     if (!anchor.wallId && anchorProjection.perpendicular > offWallTolerance) continue;

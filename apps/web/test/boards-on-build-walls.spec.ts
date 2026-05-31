@@ -260,6 +260,43 @@ test.describe("boards on build walls", () => {
     expect(body.message).toMatch(/remove the board/i);
   });
 
+  test("places a board spanning multiple adjacent build wall segments", async ({ request }) => {
+    const room = await createFfaBuildingRoom(request);
+    const baseCell = safeBuildCell(90);
+    const pieces = [];
+    for (let offset = 0; offset < 3; offset += 1) {
+      const created = await placeBuildWall(request, room.id, {
+        ix: baseCell.ix + offset,
+        iz: baseCell.iz
+      });
+      pieces.push(created.piece);
+    }
+
+    const firstWall = buildPieceColliders(pieces[0] as Parameters<typeof buildPieceColliders>[0]).walls[0]!;
+    const lastWall = buildPieceColliders(pieces[2] as Parameters<typeof buildPieceColliders>[0]).walls[0]!;
+    const spanLength = Math.hypot(lastWall.end.x - firstWall.start.x, lastWall.end.z - firstWall.start.z);
+
+    const response = await request.post(`${API_URL}/v1/rooms/${room.id}/dynamic-wall-anchors`, {
+      headers: authHeaders(BUILDER),
+      data: {
+        wallId: pieces[0]!.id,
+        center: {
+          x: (firstWall.start.x + lastWall.end.x) / 2,
+          y: firstWall.start.y + firstWall.height / 2,
+          z: (firstWall.start.z + lastWall.end.z) / 2
+        },
+        normal: { x: 0, y: 0, z: -1 },
+        width: Math.min(6, spanLength - 0.25),
+        height: 1.5,
+        title: "Wide board",
+        accepts: ["image"]
+      }
+    });
+    expect(response.ok()).toBeTruthy();
+    const body = await response.json();
+    expect(body.anchor.width).toBeGreaterThan(2);
+  });
+
   test("places a board on an elevated build wall at the correct height", async ({ request }) => {
     const room = await createFfaBuildingRoom(request);
     const cell = safeBuildCell(72);
