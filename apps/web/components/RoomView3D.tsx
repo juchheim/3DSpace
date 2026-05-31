@@ -2022,36 +2022,12 @@ function DynamicBoardPlacementTarget({
     return dynamicBoardRequestFromWallClick(wall, event.point, normal, placement.boardSize);
   }
 
-  // Hit boxes are padded (≥0.45 m) so thin walls stay clickable, but that makes the boxes of
-  // walls that meet — a built run and a room/perimeter wall crossing near it — overlap. A ray
-  // aimed at one wall can land on the other's end-cap (or top/bottom) and place a board flush
-  // on the *perpendicular* wall, which is why it depends on where in the room you build.
-  // Accept a hit only when it strikes the wall's broad facing face; otherwise let the event
-  // propagate to the target the user is actually viewing face-on. The face normal is read in
-  // geometry-local space so this also holds for room walls rotated to arbitrary yaw.
-  function hitStrikesFacingFace(event: ThreeEvent<PointerEvent> | ThreeEvent<MouseEvent>) {
-    if (!event.face) return true;
-    const { x, y, z } = event.face.normal;
-    const ax = Math.abs(x);
-    const ay = Math.abs(y);
-    const az = Math.abs(z);
-    if (ay >= ax && ay >= az) return false; // top/bottom face
-    // The facing axis is the box's thin horizontal dimension (thickness, not length).
-    const facingAxisIsX = boxSize[0] <= boxSize[2];
-    return facingAxisIsX ? ax >= az : az >= ax;
-  }
-
   function updatePreview(event: ThreeEvent<PointerEvent>) {
-    if (!hitStrikesFacingFace(event)) {
-      setPreview(null);
-      return;
-    }
     event.stopPropagation();
     setPreview(placementRequest(event));
   }
 
   function placeBoard(event: ThreeEvent<MouseEvent>) {
-    if (!hitStrikesFacingFace(event)) return;
     event.stopPropagation();
     if (placement.busy) return;
     void placement.onPlace(placementRequest(event as unknown as ThreeEvent<PointerEvent>));

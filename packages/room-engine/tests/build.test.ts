@@ -189,6 +189,31 @@ describe("mergeAdjacentBuildWallSegments", () => {
     const buildWalls = pieces.flatMap((piece) => buildPieceColliders(piece).walls);
     expect(mergeAdjacentBuildWallSegments(buildWalls)).toHaveLength(2);
   });
+
+  it("merges an adjacent run even when a same-edge wall sits in a parallel row", () => {
+    // 15+16 on row iz=15 are the intended run. A stray same-edge wall on row iz=18 shares the
+    // old chain key and its ix sorts between the run's segments, which used to split the run.
+    const pieces = [
+      wallBuildPiece(15, 15, 0, "n", createdAt),
+      wallBuildPiece(16, 15, 0, "n", createdAt),
+      wallBuildPiece(15, 18, 0, "n", createdAt)
+    ];
+    const buildWalls = pieces.flatMap((piece) => buildPieceColliders(piece).walls);
+    const merged = mergeAdjacentBuildWallSegments(buildWalls);
+    const lengths = merged
+      .map((wall) => Math.round(Math.hypot(wall.end.x - wall.start.x, wall.end.z - wall.start.z)))
+      .sort((a, b) => a - b);
+    expect(lengths).toEqual([BUILD_CELL_SIZE, BUILD_CELL_SIZE * 2]);
+    const run = merged.find((wall) => wall.anchorIds?.length === 2);
+    expect(run?.anchorIds).toEqual([pieces[0]!.id, pieces[1]!.id]);
+  });
+
+  it("does not merge collinear-axis walls that lie on different parallel lines", () => {
+    // Same edge + level, adjacent ix, but different rows (different z line) — never one run.
+    const pieces = [wallBuildPiece(15, 15, 0, "n", createdAt), wallBuildPiece(16, 18, 0, "n", createdAt)];
+    const buildWalls = pieces.flatMap((piece) => buildPieceColliders(piece).walls);
+    expect(mergeAdjacentBuildWallSegments(buildWalls)).toHaveLength(2);
+  });
 });
 
 describe("buildWallFacingNormal", () => {

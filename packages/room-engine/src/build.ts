@@ -305,7 +305,14 @@ function buildWallChainKey(wall: BoardPlacementWall) {
   const parsed = parseBuildWallPieceId(wall.id);
   if (!parsed) return null;
   const baseY = Math.min(wall.start.y, wall.end.y);
-  return `${parsed.level}:${parsed.edge}:${baseY}:${wall.height}:${wall.thickness ?? 0}`;
+  // Walls only share a run when they sit on the same line: an x-run (n/s edge) shares a z, a
+  // z-run (e/w edge) shares an x. Without this line coordinate, a same-edge wall in a parallel
+  // row collides on the key, sorts between a run's segments, and splits it — so a board can no
+  // longer span both cells. Which walls collide depends on every piece's grid position, which
+  // is why the failure looked like it depended on where in the room you built.
+  const horizontal = parsed.edge === "n" || parsed.edge === "s";
+  const lineCoord = horizontal ? wall.start.z : wall.start.x;
+  return `${parsed.level}:${parsed.edge}:${baseY}:${wall.height}:${wall.thickness ?? 0}:${lineCoord}`;
 }
 
 function buildWallSortAlongAxis(wall: BoardPlacementWall) {
