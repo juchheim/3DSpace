@@ -943,7 +943,8 @@ export const ApiErrorCodeSchema = z.enum([
   "build-rejected",
   "build-cap-exceeded",
   "build-destroy-denied",
-  "build-not-found"
+  "build-not-found",
+  "build-wall-has-boards"
 ]);
 
 export function parseRoomObjectParameterSchemaJson(json: string) {

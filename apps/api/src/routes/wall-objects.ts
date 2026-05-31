@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import {
+  boardPlacementWalls,
   createInitialPollState,
   isValidPollChoiceId,
   normalizePollInlineData,
@@ -279,11 +280,17 @@ export async function registerWallObjectRoutes(app: FastifyInstance, ctx: AppCon
         wallId: anchor.wallId
       }))
     ];
-    const validation = validateDynamicBoardPlacement(manifest, existingAnchors, {
-      wallId: body.wallId,
-      center: body.center,
-      width: body.width
-    });
+    const buildPieces = await repository.listBuildPiecesForRoom(params.roomId);
+    const placementWalls = boardPlacementWalls(manifest, buildPieces);
+    const validation = validateDynamicBoardPlacement(
+      { walls: placementWalls },
+      existingAnchors,
+      {
+        wallId: body.wallId,
+        center: body.center,
+        width: body.width
+      }
+    );
     if (!validation.ok) {
       throw unprocessableEntity(validation.reason === "wall-not-found" ? "Wall not found in room manifest" : "Board placement overlaps an existing board");
     }
@@ -350,11 +357,17 @@ export async function registerWallObjectRoutes(app: FastifyInstance, ctx: AppCon
           .filter((anchor) => anchor.id !== params.anchorId)
           .map((anchor) => ({ position: anchor.position, width: anchor.width, wallId: anchor.wallId }))
       ];
-      const validation = validateDynamicBoardPlacement(manifest, otherAnchors, {
-        wallId: proposedWallId,
-        center: proposedCenter,
-        width: proposedWidth
-      });
+      const buildPieces = await repository.listBuildPiecesForRoom(params.roomId);
+      const placementWalls = boardPlacementWalls(manifest, buildPieces);
+      const validation = validateDynamicBoardPlacement(
+        { walls: placementWalls },
+        otherAnchors,
+        {
+          wallId: proposedWallId,
+          center: proposedCenter,
+          width: proposedWidth
+        }
+      );
       if (!validation.ok) {
         throw unprocessableEntity(validation.reason === "wall-not-found" ? "Wall not found in room manifest" : "Board placement overlaps an existing board");
       }

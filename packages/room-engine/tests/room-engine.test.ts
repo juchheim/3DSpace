@@ -1,9 +1,12 @@
+import { BuildPieceSchema } from "@3dspace/contracts";
 import { describe, expect, it } from "vitest";
 import {
   anchorHasOccupyingWallObject,
   anchorAcceptsWallObjectType,
   anchorSupportsCreateOption,
   applyDefaultWallAnchorDimensions,
+  boardPlacementWalls,
+  buildPieceColliders,
   canTouchRoomObject,
   calculateSpatialAudio,
   isOccupyingWallObjectStatus,
@@ -653,5 +656,56 @@ describe("validateDynamicBoardPlacement", () => {
     );
 
     expect(result).toEqual({ ok: false, reason: "overlaps-anchor" });
+  });
+});
+
+describe("validateDynamicBoardPlacement with build walls", () => {
+  const manifest = createFreeForAllManifest({ roomId: "room_ffa_build_boards" });
+  const createdAt = "2026-05-30T12:00:00.000Z";
+  const wallPiece = BuildPieceSchema.parse({
+    id: "build:wall:15,15:0:e",
+    roomId: manifest.roomId,
+    kind: "wall",
+    cell: { ix: 15, iz: 15 },
+    level: 0,
+    edge: "e",
+    rotation: 0,
+    materialId: "stone",
+    createdByUserId: "u1",
+    createdAt
+  });
+  const placementWalls = boardPlacementWalls(manifest, [wallPiece]);
+  const buildWall = buildPieceColliders(wallPiece).walls[0]!;
+  const center = {
+    x: (buildWall.start.x + buildWall.end.x) / 2,
+    y: buildWall.start.y + buildWall.height / 2,
+    z: (buildWall.start.z + buildWall.end.z) / 2
+  };
+
+  it("accepts placement on a build wall collider", () => {
+    const result = validateDynamicBoardPlacement(
+      { walls: placementWalls },
+      [],
+      { wallId: buildWall.id, center, width: 1.5 }
+    );
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("rejects overlapping boards on the same build wall", () => {
+    const result = validateDynamicBoardPlacement(
+      { walls: placementWalls },
+      [{ wallId: buildWall.id, position: center, width: 1.5 }],
+      { wallId: buildWall.id, center, width: 1.5 }
+    );
+    expect(result).toEqual({ ok: false, reason: "overlaps-anchor" });
+  });
+
+  it("returns wall-not-found when the build piece id is absent from placement walls", () => {
+    const result = validateDynamicBoardPlacement(
+      manifest,
+      [],
+      { wallId: buildWall.id, center, width: 1.5 }
+    );
+    expect(result).toEqual({ ok: false, reason: "wall-not-found" });
   });
 });

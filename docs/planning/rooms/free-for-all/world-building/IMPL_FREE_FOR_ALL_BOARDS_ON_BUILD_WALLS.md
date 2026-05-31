@@ -211,13 +211,20 @@ Room walls have `baseY = 0`, so both fixes are no-ops for them.
 
 ## Validation evidence (fill in after implementation)
 
-- [ ] Build a wall, place a board on it; board appears in a second tab and survives refresh.
-- [ ] Board on a level-1 (elevated) built wall lands at the correct height (baseY fix).
-- [ ] Server rejects off-wall and overlapping boards on built walls; room-wall boards unchanged.
-- [ ] Floors/ramps are not offered as placement targets.
-- [ ] Chosen orphan policy behaves as documented (A: floater re-attaches on rebuild / B: destroy blocked while board attached).
-- [ ] Engine + API + E2E suites green; no regression to existing dynamic-board tests.
-- [ ] Preview screenshots: board on a ground-level built wall and on an elevated built wall.
+- [x] Build a wall, place a board on it; board appears in a second tab and survives refresh. (`boards-on-build-walls.spec.ts`)
+- [x] Board on a level-1 (elevated) built wall lands at the correct height (baseY fix). *(engine + E2E)*
+- [x] Server rejects off-wall and overlapping boards on built walls; room-wall boards unchanged.
+- [x] Floors/ramps are not offered as placement targets.
+- [x] Orphan policy B: destroying a wall with an attached board returns 409; destroy succeeds after board removal (`dynamic-wall-anchors.test.ts`).
+- [x] Engine + API + E2E suites green; no regression to existing dynamic-board tests.
+- [ ] Preview screenshots: board on a ground-level built wall and on an elevated built wall. *(manual QA)*
+
+### Phase 4 polish (2026-05-31)
+
+- **Orphan policy:** B (block destroy while board attached) — `assertBuildWallHasNoBoards` on wall-piece DELETE; error `build-wall-has-boards` (409).
+- **Overlay line-of-sight:** build walls included in `overlayOcclusionWalls` for `AnchorMesh` + `WallObjectSurface`.
+- **Size hint:** placement toast notes ~2×2 m cap when building is enabled.
+- **Deferred:** policy A (accept floaters); explicit UI tooltip beyond toast copy.
 
 ---
 

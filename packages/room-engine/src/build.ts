@@ -285,3 +285,22 @@ export function collectCollisionWalls(manifest: RoomManifest, buildPieces: Build
   }
   return walls;
 }
+
+/**
+ * The walls a dynamic board may be placed on: the room's manifest walls plus the
+ * vertical faces of build `wall` pieces. Shared by the client placement targets and
+ * the server placement validator so both ends agree on valid surfaces.
+ *
+ * Returns plain `Wall` (RoomManifest["walls"][number]) — build wall colliders carry an
+ * extra `baseY` but are otherwise assignable, and consumers that need the base read it
+ * off `start.y`/`end.y`.
+ */
+export function boardPlacementWalls(
+  manifest: { walls: RoomManifest["walls"] },
+  buildPieces: BuildPiece[]
+): RoomManifest["walls"] {
+  const buildWalls = buildPieces
+    .filter((piece) => piece.kind === "wall")
+    .flatMap((piece) => buildPieceColliders(piece).walls);
+  return [...manifest.walls, ...buildWalls];
+}

@@ -15,7 +15,7 @@ import {
 } from "@3dspace/room-engine";
 import type { AuthContext } from "../auth.js";
 import type { AppConfig } from "../config.js";
-import { buildCapExceeded, buildDestroyDenied, buildDisabled, buildNotFound, buildRejected } from "../errors.js";
+import { buildCapExceeded, buildDestroyDenied, buildDisabled, buildNotFound, buildRejected, buildWallHasBoards } from "../errors.js";
 import { actorIsRoomTeacher } from "../policy/wall-objects.js";
 import type { Repository } from "../repository.js";
 
@@ -139,4 +139,13 @@ export async function assertCanDestroyBuildPiece(
     return;
   }
   throw buildDestroyDenied();
+}
+
+/** Orphan policy B: wall pieces with a dynamic board cannot be destroyed until the board is removed. */
+export async function assertBuildWallHasNoBoards(repository: Repository, roomId: string, piece: BuildPiece) {
+  if (piece.kind !== "wall") return;
+  const anchors = await repository.listDynamicWallAnchorsForRoom(roomId);
+  if (anchors.some((anchor) => anchor.wallId === piece.id)) {
+    throw buildWallHasBoards();
+  }
 }

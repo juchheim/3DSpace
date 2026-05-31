@@ -59,7 +59,7 @@ import {
   WALL_OBJECT_DISTANCE_FACTOR,
   wallObjectSurfacePixelSize
 } from "../lib/wallObjectSurface";
-import { FFA_MAIN_RADIUS, FFA_WALL_HEIGHT, FFA_WALL_THICKNESS, FFA_EXIT_HALF_ARC, FFA_PERIMETER_SEGMENTS } from "@3dspace/room-engine";
+import { boardPlacementWalls, FFA_MAIN_RADIUS, FFA_WALL_HEIGHT, FFA_WALL_THICKNESS, FFA_EXIT_HALF_ARC, FFA_PERIMETER_SEGMENTS } from "@3dspace/room-engine";
 
 type Wall = z.infer<typeof WallPlaneSchema>;
 type Anchor = z.infer<typeof WallAnchorSchema>;
@@ -410,6 +410,11 @@ export function RoomView3D({
       : manifest,
     [manifest, dynamicWallAnchors]
   );
+  const boardPlacementWallSet = useMemo(
+    () => boardPlacementWalls(manifest, buildScene?.pieces ?? []),
+    [manifest, buildScene?.pieces]
+  );
+  const boardWalls = dynamicBoardPlacement?.active ? boardPlacementWallSet : manifest.walls;
 
   useEffect(() => bindCamera(canvasElement), [bindCamera, canvasElement]);
 
@@ -428,6 +433,8 @@ export function RoomView3D({
           wallObjects={wallObjects}
           spotlightAnchorId={spotlight?.anchorId}
           dynamicBoardPlacement={dynamicBoardPlacement}
+          boardPlacementWalls={boardWalls}
+          overlayOcclusionWalls={boardPlacementWallSet}
         />
         {roomObjects &&
         roomObjectTemplatesById &&
@@ -470,6 +477,7 @@ export function RoomView3D({
         <WallObjectLayer
           manifest={mergedManifest}
           wallObjects={wallObjects}
+          overlayOcclusionWalls={boardPlacementWallSet}
           assetUrls={assetUrls}
           wallMediaStreams={wallMediaStreams}
           canManageWallObjects={canManageWallObjects}
@@ -722,6 +730,7 @@ function HallpassZoneMarker({ zone }: { zone: NonNullable<RoomManifest["hallpass
 function WallObjectLayer({
   manifest,
   wallObjects,
+  overlayOcclusionWalls,
   assetUrls,
   wallMediaStreams,
   canManageWallObjects,
@@ -741,6 +750,7 @@ function WallObjectLayer({
 }: {
   manifest: RoomManifest;
   wallObjects: WallObject[];
+  overlayOcclusionWalls: Wall[];
   assetUrls: Record<string, string>;
   wallMediaStreams: Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }>;
   canManageWallObjects: boolean;
@@ -774,7 +784,7 @@ function WallObjectLayer({
             <WallObjectSurface
               key={object.id}
               anchor={anchor}
-              walls={manifest.walls}
+              walls={overlayOcclusionWalls}
               object={object}
               assetUrl={assetUrls[object.id]}
               videoStream={wallMediaStreams[object.id]?.videoStream}
@@ -1377,13 +1387,17 @@ function RoomGeometry({
   onMoveToPoint,
   wallObjects,
   spotlightAnchorId,
-  dynamicBoardPlacement
+  dynamicBoardPlacement,
+  boardPlacementWalls: placementWalls,
+  overlayOcclusionWalls
 }: {
   manifest: RoomManifest;
   onMoveToPoint(point: { x: number; z: number }): void;
   wallObjects: WallObject[];
   spotlightAnchorId?: string | undefined;
   dynamicBoardPlacement?: DynamicBoardPlacementConfig | null | undefined;
+  boardPlacementWalls: Wall[];
+  overlayOcclusionWalls: Wall[];
 }) {
   const anchorsWithObjects = useMemo(
     () => new Set(wallObjects.filter((object) => object.status !== "removed").map((object) => object.wallAnchorId)),
@@ -1507,7 +1521,7 @@ function RoomGeometry({
       {hasFFAPerim && <PerimeterCylinder color="#8ea487" />}
       {dynamicBoardPlacement?.active ? (
         <DynamicBoardPlacementTargets
-          walls={manifest.walls}
+          walls={placementWalls}
           placement={dynamicBoardPlacement}
         />
       ) : null}
@@ -1523,7 +1537,7 @@ function RoomGeometry({
         <AnchorMesh
           key={anchor.id}
           anchor={anchor}
-          walls={manifest.walls}
+          walls={overlayOcclusionWalls}
           showLabel={!anchorsWithObjects.has(anchor.id)}
           spotlighted={anchor.id === spotlightAnchorId}
         />
@@ -1917,7 +1931,8 @@ function dynamicBoardRequestFromWallClick(
   const offset = (wall.thickness ?? 0) / 2 + DYNAMIC_BOARD_WALL_INSET;
   const width = Math.min(boardSize.width, span.length);
   const height = Math.min(boardSize.height, wall.height);
-  const centerY = clamp(point.y, height / 2, wall.height - height / 2);
+  const baseY = Math.min(wall.start.y, wall.end.y);
+  const centerY = clamp(point.y, baseY + height / 2, baseY + wall.height - height / 2);
   const title = `Board on ${wall.label}`.slice(0, 80);
 
   return {
@@ -1965,11 +1980,14 @@ function DynamicBoardPlacementTarget({
   const span = useMemo(() => wallSpan(wall), [wall]);
   const yaw = useMemo(() => Math.atan2(-span.dz, span.dx), [span.dx, span.dz]);
   const targetThickness = Math.max(wall.thickness ?? 0.08, 0.45);
-  const position = useMemo<[number, number, number]>(() => [
-    (wall.start.x + wall.end.x) / 2,
-    wall.height / 2,
-    (wall.start.z + wall.end.z) / 2
-  ], [wall]);
+  const position = useMemo<[number, number, number]>(() => {
+    const baseY = Math.min(wall.start.y, wall.end.y);
+    return [
+      (wall.start.x + wall.end.x) / 2,
+      baseY + wall.height / 2,
+      (wall.start.z + wall.end.z) / 2
+    ];
+  }, [wall]);
 
   function placementRequest(event: ThreeEvent<PointerEvent>) {
     const normal = normalFacingReference(wall, camera.position);

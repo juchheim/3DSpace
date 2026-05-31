@@ -883,12 +883,18 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       returnToSpawn: movement.returnToSpawn
     };
     debugWindow.__debug.worldSkin = activeSkin;
+    debugWindow.__debug.dynamicBoards = {
+      enabled: roomTypeFeatures.dynamicBoards && Boolean(session),
+      anchors: dynamicBoards.anchors,
+      refresh: dynamicBoards.refresh
+    };
     return () => {
       if (debugWindow.__debug) {
         delete debugWindow.__debug.roomObjects;
         delete debugWindow.__debug.buildPieces;
         delete debugWindow.__debug.movement;
         delete debugWindow.__debug.worldSkin;
+        delete debugWindow.__debug.dynamicBoards;
       }
     };
   }, [
@@ -900,6 +906,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     buildPieces.piecesById,
     buildPieces.refresh,
     buildPiecesEnabled,
+    dynamicBoards.anchors,
+    dynamicBoards.refresh,
     identity.userId,
     manifest,
     movement.avatarState,
@@ -917,6 +925,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     roomObjectTemplates.refetch,
     roomObjectTemplates.status,
     roomObjectTemplates.templates,
+    roomTypeFeatures.dynamicBoards,
     session
   ]);
 
@@ -2119,7 +2128,12 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         {dynamicBoardPlacementActive ? (
           <div className="dynamic-board-placement-toast" role="status" aria-live="polite">
             <strong>Place board</strong>
-            <span>{dynamicBoardPlacementMessage || "Click a wall in the 3D room."}</span>
+            <span>
+              {dynamicBoardPlacementMessage ||
+                (buildPiecesEnabled
+                  ? "Click a wall in the 3D room. Built walls cap boards to about 2×2 m."
+                  : "Click a wall in the 3D room.")}
+            </span>
             <button
               type="button"
               className="dynamic-board-placement-toast__cancel"

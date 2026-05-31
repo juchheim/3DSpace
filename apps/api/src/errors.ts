@@ -115,3 +115,7 @@ export function buildDestroyDenied() {
 export function buildNotFound() {
   return new HttpError(404, "Build piece not found", "build-not-found");
 }
+
+export function buildWallHasBoards() {
+  return new HttpError(409, "Remove the board before destroying this wall.", "build-wall-has-boards");
+}

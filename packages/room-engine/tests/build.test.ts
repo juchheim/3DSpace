@@ -3,6 +3,7 @@ import type { BuildPiece } from "@3dspace/contracts";
 import { BuildPieceSchema } from "@3dspace/contracts";
 import { createFreeForAllManifest } from "../src/index.js";
 import {
+  boardPlacementWalls,
   buildPieceColliders,
   BUILD_CELL_SIZE,
   BUILD_ID_PREFIX,
@@ -71,6 +72,76 @@ describe("buildPieceColliders", () => {
     expect(rampColliders.ramp?.climbSign).toBe(1);
     // A ramp is a walkable surface only — no collision barriers, so an avatar can walk off any edge.
     expect(rampColliders.walls).toHaveLength(0);
+  });
+});
+
+describe("boardPlacementWalls", () => {
+  const manifest = createFreeForAllManifest({ roomId: "room-ffa-board-walls" });
+  const createdAt = "2026-05-30T12:00:00.000Z";
+
+  it("includes manifest walls plus one entry per wall build piece", () => {
+    const wall = BuildPieceSchema.parse({
+      id: `${BUILD_ID_PREFIX}wall:3,4:0:e`,
+      roomId: "room-1",
+      kind: "wall",
+      cell: { ix: 3, iz: 4 },
+      level: 0,
+      edge: "e",
+      rotation: 0,
+      materialId: "stone",
+      createdByUserId: "u1",
+      createdAt
+    });
+    const floor = BuildPieceSchema.parse({
+      id: `${BUILD_ID_PREFIX}floor:0,0:0`,
+      roomId: "room-1",
+      kind: "floor",
+      cell: { ix: 0, iz: 0 },
+      level: 0,
+      rotation: 0,
+      materialId: "wood",
+      createdByUserId: "u1",
+      createdAt
+    });
+    const ramp = BuildPieceSchema.parse({
+      id: `${BUILD_ID_PREFIX}ramp:1,1:0`,
+      roomId: "room-1",
+      kind: "ramp",
+      cell: { ix: 1, iz: 1 },
+      level: 0,
+      rotation: 0,
+      materialId: "metal",
+      createdByUserId: "u1",
+      createdAt
+    });
+
+    const walls = boardPlacementWalls(manifest, [wall, floor, ramp]);
+    expect(walls.slice(0, manifest.walls.length)).toEqual(manifest.walls);
+    expect(walls).toHaveLength(manifest.walls.length + 1);
+    expect(walls.at(-1)!.id).toBe(wall.id);
+  });
+
+  it("sets build wall start.y to levelToY(level)", () => {
+    const wall = BuildPieceSchema.parse({
+      id: `${BUILD_ID_PREFIX}wall:1,2:1:e`,
+      roomId: "room-1",
+      kind: "wall",
+      cell: { ix: 1, iz: 2 },
+      level: 1,
+      edge: "e",
+      rotation: 0,
+      materialId: "stone",
+      createdByUserId: "u1",
+      createdAt
+    });
+
+    const buildWall = boardPlacementWalls(manifest, [wall]).at(-1)!;
+    expect(buildWall.start.y).toBe(levelToY(1));
+    expect(buildWall.end.y).toBe(levelToY(1));
+  });
+
+  it("returns manifest walls only when build pieces are empty", () => {
+    expect(boardPlacementWalls(manifest, [])).toEqual(manifest.walls);
   });
 });
 

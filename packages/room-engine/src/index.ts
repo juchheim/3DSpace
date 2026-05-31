@@ -27,6 +27,7 @@ export {
   BUILD_PLACEMENT_RATE_LIMIT_MS,
   BUILD_WALL_HEIGHT,
   BUILD_WALL_THICKNESS,
+  boardPlacementWalls,
   buildCellFootprint,
   buildPieceColliders,
   buildPieceStableId,

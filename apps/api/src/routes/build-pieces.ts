@@ -16,6 +16,7 @@ import { parseBody, parseParams } from "../http/parse.js";
 import {
   assertBuildAllowed,
   assertBuildingEnabled,
+  assertBuildWallHasNoBoards,
   assertCanDestroyBuildPiece,
   dedupeBuildPlacements,
   enforceBuildCaps,
@@ -140,6 +141,7 @@ export async function registerBuildPieceRoutes(app: FastifyInstance, ctx: AppCon
     assertBuildingEnabled(config, room);
     const existing = await requireBuildPiece(repository, params.roomId, params.pieceId);
     await assertCanDestroyBuildPiece(repository, params.roomId, existing, auth, room.settings);
+    await assertBuildWallHasNoBoards(repository, params.roomId, existing);
     buildPlacementRateLimiter.enforce(auth.userId, params.roomId, 1);
     await repository.removeBuildPiece(params.roomId, params.pieceId);
     await recordBuildPieceRemoved(repository, params.roomId, auth.userId, existing);
