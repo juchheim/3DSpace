@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Grid, Html } from "@react-three/drei";
 import type { BuildPiece, BuildPieceKind, RoomManifest } from "@3dspace/contracts";
 import type { ThreeEvent } from "@react-three/fiber";
-import { BUILD_CELL_SIZE, BUILD_PLACEMENT_RATE_LIMIT_MS } from "@3dspace/room-engine";
+import { BUILD_CELL_SIZE, BUILD_PLACEMENT_RATE_LIMIT_MS, levelToY } from "@3dspace/room-engine";
 import {
   avatarStandingLevel,
   buildPlacementPreviewPiece,
@@ -99,14 +99,21 @@ export function BuildPlacementController({
     [manifest]
   );
 
+  // Raise the build plane to the level the avatar is standing on. With a single ground-level
+  // plane, the floor you stand on occludes the ground point of the cell at its edge, so the
+  // nearest cell is unreachable; lifting the plane to your level makes that cell selectable.
+  // Destroy keeps the plane at the ground so it never occludes lower pieces you want to remove.
+  const standingLevel = avatarStandingLevel(localAvatarPosition.y);
+  const placementPlaneY = buildMode.tool === "destroy" ? 0 : levelToY(standingLevel);
+
   const gridCenter = useMemo(
     () =>
       [
         Math.round(localAvatarPosition.x / BUILD_CELL_SIZE) * BUILD_CELL_SIZE,
-        0.02,
+        placementPlaneY + 0.02,
         Math.round(localAvatarPosition.z / BUILD_CELL_SIZE) * BUILD_CELL_SIZE
       ] as [number, number, number],
-    [localAvatarPosition.x, localAvatarPosition.z]
+    [localAvatarPosition.x, localAvatarPosition.z, placementPlaneY]
   );
 
   const previewPlacement = useCallback(
@@ -360,7 +367,7 @@ export function BuildPlacementController({
 
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, 0.001, 0]}
+        position={[0, placementPlaneY + 0.001, 0]}
         onPointerMove={(event) => handleSurfacePointer(event, pieceFromIntersection(event))}
         onPointerOut={() => {
           setGhost(null);
