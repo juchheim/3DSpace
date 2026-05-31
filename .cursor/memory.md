@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-31 (memory archive split; boards-on-build-walls planning)
+Last updated: 2026-05-31 (boards-on-build-walls Phase 1 — `boardPlacementWalls` helper)
 
 **Historical detail:** `.cursor/memory-archive.md` (planning log + bug-fix chronicle through 2026-05-30). Update that file only when archiving new dated entries; keep this file lean.
 
@@ -38,7 +38,7 @@ Remaining refactor candidates: `packages/contracts/src/index.ts`, `RoomClient.ts
 
 - **Working branch:** `feature/world-building` (from `feature/live-captions`)
 - **FFA world building:** Phases 1–10 complete (contracts, API, `useBuildPieces`, render/ghost, height-aware walls, `groundHeightAt`, ramps, 2D footprints, caps/E2E). Engine: `packages/room-engine/src/build.ts`, `free-for-all-build-mask.ts`. Flags: `ENABLE_FREE_FOR_ALL_BUILDING` / `NEXT_PUBLIC_ENABLE_FREE_FOR_ALL_BUILDING` (default off).
-- **FFA dynamic boards:** `DynamicWallAnchor`, 3D placement via `DynamicBoardPlacementTargets` — currently **`manifest.walls` only**; build walls not yet board-able (see boards-on-build-walls PLAN/IMPL).
+- **FFA boards on build walls:** Complete (Phases 1–5) — `boardPlacementWalls`, server/client wiring, orphan policy B, E2E in `boards-on-build-walls.spec.ts`.
 - **FFA room:** `createFreeForAllManifest()`, perimeter `ffa-perim-*` + radial clamp, `PerimeterCylinder` render, central cube walls, open join + password, `useDynamicWallAnchors`.
 - **Room-type flags:** `getRoomTypeFeatureFlags()` gates classroom tools, building, dynamic boards, etc. Non-classroom rooms skip classroom HUD/API by default.
 - **Movement:** `useAvatarMovement` + `resolveWallCollisionsV2` + `collectCollisionWalls` + `groundHeightAt` when build pieces present.
@@ -79,7 +79,7 @@ Remaining refactor candidates: `packages/contracts/src/index.ts`, `RoomClient.ts
 
 - Room manifest is static per room type; **build pieces** and **dynamic wall anchors** are separate persisted layers merged at runtime.
 - `buildPieceColliders(wall)` emits the same wall shape as `manifest.walls` (+ `baseY` on collider); `collectCollisionWalls` unions them for movement.
-- Board placement validates via `validateDynamicBoardPlacement({ walls }, …)` — must include build walls when boards-on-build-walls ships.
+- Board placement validates via `validateDynamicBoardPlacement({ walls }, …)` — includes build walls. Destroying a build wall with a board returns 409 (`build-wall-has-boards`).
 - `DynamicWallAnchor` stores absolute `position`/`normal`; `wallId` is for placement validation only.
 - Wall objects / anchors: classroom uses manifest anchors; FFA merges dynamic anchors for create + render.
 
@@ -87,6 +87,10 @@ Remaining refactor candidates: `packages/contracts/src/index.ts`, `RoomClient.ts
 
 ## Recent work
 
+- **2026-05-31:** Fixed board placement regression on merged build walls — edge-based normals, build mesh raycast passthrough during placement, occlusion skip for dynamic anchor wallId.
+- **2026-05-31:** Boards-on-build-walls Phase 3 — client threads `boardPlacementWalls` into `DynamicBoardPlacementTargets`; baseY fix for hit target + vertical clamp.
+- **2026-05-31:** Boards-on-build-walls Phase 2 — server validates dynamic board placement against `boardPlacementWalls` (build + manifest walls); 6 API route tests.
+- **2026-05-31:** Boards-on-build-walls Phase 1 — `boardPlacementWalls` engine helper + unit tests (manifest walls + wall pieces only; floors/ramps excluded).
 - **2026-05-31:** Drafted `PLAN_FREE_FOR_ALL_BOARDS_ON_BUILD_WALLS.md` + `IMPL_FREE_FOR_ALL_BOARDS_ON_BUILD_WALLS.md` — integration-only: shared `boardPlacementWalls`, client targets, server validator, baseY fix; no new entity/schema.
 - **2026-05-30:** FFA world-building Phases 1–10 shipped (see world-building IMPL validation checklist).
 - **2026-05-30:** API `app.ts` decomposition complete (268 tests green).
