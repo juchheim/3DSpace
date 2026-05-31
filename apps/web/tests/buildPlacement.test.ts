@@ -2,6 +2,7 @@ import { BuildPieceSchema } from "@3dspace/contracts";
 import { describe, expect, it } from "vitest";
 import { BUILD_CELL_SIZE, createFreeForAllManifest, worldToCell } from "@3dspace/room-engine";
 import {
+  alignWallEdgeToNeighbors,
   avatarStandingLevel,
   buildPlacementStatusMessage,
   checkBuildCapsForPlacements,
@@ -15,6 +16,57 @@ import {
   resolveRampRotation,
   tryAcquireBuildPlacementSlot
 } from "../lib/buildPlacement";
+
+function wallPieceAt(ix: number, iz: number, edge: "n" | "s" | "e" | "w") {
+  return BuildPieceSchema.parse({
+    id: `build:wall:${ix},${iz}:0:${edge}`,
+    roomId: "room-placement",
+    kind: "wall",
+    cell: { ix, iz },
+    level: 0,
+    edge,
+    rotation: 0,
+    materialId: "stone",
+    createdByUserId: "user-1",
+    createdAt: "2026-05-31T00:00:00.000Z"
+  });
+}
+
+describe("alignWallEdgeToNeighbors", () => {
+  it("snaps a perpendicular cursor edge collinear with an adjacent run", () => {
+    // (5,5) already holds an n-wall; placing at (6,5) with a cursor 'e' should extend the run.
+    const existing = wallPieceAt(5, 5, "n");
+    expect(alignWallEdgeToNeighbors({ ix: 6, iz: 5 }, 0, "e", { [existing.id]: existing })).toBe("n");
+  });
+
+  it("keeps the cursor edge for a standalone wall", () => {
+    expect(alignWallEdgeToNeighbors({ ix: 6, iz: 5 }, 0, "e", {})).toBe("e");
+  });
+
+  it("keeps the cursor edge when it already aligns with the run", () => {
+    const existing = wallPieceAt(5, 5, "n");
+    expect(alignWallEdgeToNeighbors({ ix: 6, iz: 5 }, 0, "n", { [existing.id]: existing })).toBe("n");
+  });
+
+  it("does not snap across a perpendicular neighbour (keeps corners buildable)", () => {
+    // (6,5) holds an n-wall (a horizontal run); placing the corner turn at (6,6) with 'e' must
+    // stay 'e' — (6,5) is a front/back neighbour, not part of an e/w run.
+    const existing = wallPieceAt(6, 5, "n");
+    expect(alignWallEdgeToNeighbors({ ix: 6, iz: 6 }, 0, "e", { [existing.id]: existing })).toBe("e");
+  });
+
+  it("keeps the cursor edge when two different runs meet (ambiguous)", () => {
+    const horizontal = wallPieceAt(5, 5, "n"); // suggests 'n' for (6,5)
+    const vertical = wallPieceAt(6, 6, "e"); // suggests 'e' for (6,5)
+    const pieces = { [horizontal.id]: horizontal, [vertical.id]: vertical };
+    expect(alignWallEdgeToNeighbors({ ix: 6, iz: 5 }, 0, "s", pieces)).toBe("s");
+  });
+
+  it("only aligns within the same level", () => {
+    const existing = wallPieceAt(5, 5, "n"); // level 0
+    expect(alignWallEdgeToNeighbors({ ix: 6, iz: 5 }, 1, "e", { [existing.id]: existing })).toBe("e");
+  });
+});
 
 describe("buildPlacement", () => {
   const manifest = createFreeForAllManifest({ roomId: "room-placement" });

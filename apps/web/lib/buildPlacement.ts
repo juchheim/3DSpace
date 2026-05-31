@@ -56,6 +56,39 @@ export function nearestWallEdge(x: number, z: number, ix: number, iz: number): B
   return dz >= 0 ? "n" : "s";
 }
 
+/**
+ * Auto-align a wall's edge to a neighbouring wall so a row stays a straight run.
+ *
+ * `nearestWallEdge` picks the cell side nearest the cursor, which flips between orientations
+ * near cell corners — so two walls meant to be collinear can land on perpendicular edges, and a
+ * board placed on the result looks "perpendicular". When the cell next to a run already holds a
+ * collinear wall, snap to that edge instead. A horizontal run (n/s) extends along x (left/right
+ * neighbours); a vertical run (e/w) extends along z (front/back neighbours). Standalone walls and
+ * ambiguous corners (two different runs meet) keep the cursor edge, so corners stay buildable.
+ */
+export function alignWallEdgeToNeighbors(
+  cell: { ix: number; iz: number },
+  level: number,
+  cursorEdge: BuildPieceEdge,
+  piecesById: Record<string, BuildPiece>
+): BuildPieceEdge {
+  const { ix, iz } = cell;
+  const hasWall = (cix: number, ciz: number, edge: BuildPieceEdge) =>
+    Boolean(piecesById[buildPieceStableId({ kind: "wall", cell: { ix: cix, iz: ciz }, level, edge })]);
+
+  const suggestions = new Set<BuildPieceEdge>();
+  for (const edge of ["n", "s"] as const) {
+    if (hasWall(ix - 1, iz, edge) || hasWall(ix + 1, iz, edge)) suggestions.add(edge);
+  }
+  for (const edge of ["e", "w"] as const) {
+    if (hasWall(ix, iz - 1, edge) || hasWall(ix, iz + 1, edge)) suggestions.add(edge);
+  }
+
+  if (suggestions.has(cursorEdge)) return cursorEdge;
+  if (suggestions.size === 1) return [...suggestions][0]!;
+  return cursorEdge;
+}
+
 export function inferPlacementLevel(hitY: number, surfacePiece?: BuildPiece | null, baseLevel = 0) {
   if (surfacePiece?.kind === "floor") {
     // Hitting a floor's top face means "extend at this level," not "stack above."
@@ -129,15 +162,21 @@ export function resolveBuildPlacementTarget(input: {
   rampRotationOverride?: boolean;
   /** Avatar's standing level — placement level when the cursor falls on empty ground. */
   baseLevel?: number;
+  /** Existing (and in-flight) pieces, used to align a wall collinear with an adjacent wall. */
+  existingPieces?: Record<string, BuildPiece>;
 }): BuildPlacementTarget {
   const cell = worldToCell(input.hitX, input.hitZ);
   const baseLevel = input.baseLevel ?? 0;
   if (input.tool === "wall") {
+    const level = wallLevelFromSurface(input.hitY, input.surfacePiece, baseLevel);
+    const cursorEdge = nearestWallEdge(input.hitX, input.hitZ, cell.ix, cell.iz);
     return {
       kind: "wall",
       cell,
-      level: wallLevelFromSurface(input.hitY, input.surfacePiece, baseLevel),
-      edge: nearestWallEdge(input.hitX, input.hitZ, cell.ix, cell.iz),
+      level,
+      edge: input.existingPieces
+        ? alignWallEdgeToNeighbors(cell, level, cursorEdge, input.existingPieces)
+        : cursorEdge,
       rotation: input.rotation,
       materialId: input.materialId
     };

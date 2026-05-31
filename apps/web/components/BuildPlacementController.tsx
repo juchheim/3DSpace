@@ -137,8 +137,15 @@ export function BuildPlacementController({
       hitY: number,
       hitZ: number,
       surfacePiece: BuildPiece | null
-    ): BuildPlacementTarget =>
-      resolveBuildPlacementTarget({
+    ): BuildPlacementTarget => {
+      // Include in-flight (not-yet-committed) drag pieces so a wall aligns to the run being
+      // dragged, not just to walls the server has already confirmed.
+      const existingPieces: Record<string, BuildPiece> = { ...piecesById };
+      for (const pending of pendingBatchRef.current) {
+        const previewPiece = buildPlacementPreviewPiece(roomId, pending, userId);
+        existingPieces[previewPiece.id] = previewPiece;
+      }
+      return resolveBuildPlacementTarget({
         tool,
         hitX,
         hitY,
@@ -149,9 +156,19 @@ export function BuildPlacementController({
         rampRotationOverride: buildMode.rampRotationOverride,
         // The raycast `hitY` is the ground under the cursor; the level we build at when the
         // cursor lands on empty ground comes from where the avatar is standing.
-        baseLevel: avatarStandingLevel(localAvatarPosition.y)
-      }),
-    [buildMode.materialId, buildMode.rampRotationOverride, buildMode.rotation, localAvatarPosition.y]
+        baseLevel: avatarStandingLevel(localAvatarPosition.y),
+        existingPieces
+      });
+    },
+    [
+      buildMode.materialId,
+      buildMode.rampRotationOverride,
+      buildMode.rotation,
+      localAvatarPosition.y,
+      piecesById,
+      roomId,
+      userId
+    ]
   );
 
   const flushPendingBatch = useCallback(async () => {
