@@ -8,6 +8,7 @@ import {
   readPollState,
   validateDynamicBoardPlacement
 } from "@3dspace/room-engine";
+import { getRoomTypeFeatureFlags } from "@3dspace/contracts";
 import {
   CreateDynamicWallAnchorRequestSchema,
   CreateWallObjectRequestSchema,
@@ -52,6 +53,12 @@ import { readWhiteboardState } from "../whiteboards/validation.js";
 const ParamsWithRoomId = z.object({ roomId: z.string() });
 const ParamsWithRoomAndObjectId = z.object({ roomId: z.string(), objectId: z.string() });
 const ParamsWithRoomAndAnchorId = z.object({ roomId: z.string(), anchorId: z.string() });
+
+function assertDynamicBoardsSupported(room: { type?: string | null }) {
+  if (!getRoomTypeFeatureFlags(room.type).dynamicBoards) {
+    throw notFound("Dynamic wall anchors are only available where dynamic boards are enabled");
+  }
+}
 const MAX_DYNAMIC_ANCHORS_PER_ROOM = 32;
 
 function normalizeHost(host: string) {
@@ -256,7 +263,7 @@ export async function registerWallObjectRoutes(app: FastifyInstance, ctx: AppCon
     const auth = await requireUser(request, config, repository);
     const params = parseParams(ParamsWithRoomId, request);
     const { room } = await requireRoomAccess(repository, params.roomId, auth);
-    if (room.type !== "free-for-all") throw notFound("Dynamic wall anchors are only available in Free-for-All rooms");
+    assertDynamicBoardsSupported(room);
     return repository.listDynamicWallAnchorsForRoom(params.roomId);
   });
 
@@ -265,7 +272,7 @@ export async function registerWallObjectRoutes(app: FastifyInstance, ctx: AppCon
     const params = parseParams(ParamsWithRoomId, request);
     const body = parseBody(CreateDynamicWallAnchorRequestSchema, request);
     const { room, manifest } = await requireRoomAccess(repository, params.roomId, auth);
-    if (room.type !== "free-for-all") throw notFound("Dynamic wall anchors are only available in Free-for-All rooms");
+    assertDynamicBoardsSupported(room);
 
     const count = await repository.countDynamicWallAnchorsForRoom(params.roomId);
     if (count >= MAX_DYNAMIC_ANCHORS_PER_ROOM) {
@@ -329,7 +336,7 @@ export async function registerWallObjectRoutes(app: FastifyInstance, ctx: AppCon
     const params = parseParams(ParamsWithRoomAndAnchorId, request);
     const body = parseBody(UpdateDynamicWallAnchorRequestSchema, request);
     const { room, manifest } = await requireRoomAccess(repository, params.roomId, auth);
-    if (room.type !== "free-for-all") throw notFound("Dynamic wall anchors are only available in Free-for-All rooms");
+    assertDynamicBoardsSupported(room);
 
     const existing = await repository.getDynamicWallAnchor(params.anchorId);
     if (!existing || existing.roomId !== params.roomId) throw notFound("Dynamic wall anchor not found");
@@ -388,7 +395,7 @@ export async function registerWallObjectRoutes(app: FastifyInstance, ctx: AppCon
     const auth = await requireUser(request, config, repository);
     const params = parseParams(ParamsWithRoomAndAnchorId, request);
     const { room } = await requireRoomAccess(repository, params.roomId, auth);
-    if (room.type !== "free-for-all") throw notFound("Dynamic wall anchors are only available in Free-for-All rooms");
+    assertDynamicBoardsSupported(room);
 
     const existing = await repository.getDynamicWallAnchor(params.anchorId);
     if (!existing || existing.roomId !== params.roomId) throw notFound("Dynamic wall anchor not found");

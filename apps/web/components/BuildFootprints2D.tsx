@@ -42,7 +42,7 @@ export function BuildFootprints2D({
           );
         }
 
-        if (piece.kind === "wall") {
+        if (piece.kind === "wall" || piece.kind === "doorway" || piece.kind === "window") {
           const segment = wallFootprintSegment(manifest, piece);
           if (!segment) return null;
           return (

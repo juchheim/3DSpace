@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Grid, Html } from "@react-three/drei";
 import type { BuildPiece, BuildPieceKind, RoomManifest } from "@3dspace/contracts";
 import type { ThreeEvent } from "@react-three/fiber";
-import { BUILD_CELL_SIZE, BUILD_PLACEMENT_RATE_LIMIT_MS, levelToY } from "@3dspace/room-engine";
+import { BUILD_CELL_SIZE, BUILD_PLACEMENT_RATE_LIMIT_MS, levelToY, worldToCell } from "@3dspace/room-engine";
+import { getBuildStamp, stampToPlacementTargets } from "../lib/buildStamps";
 import {
   avatarStandingLevel,
   buildPlacementPreviewPiece,
@@ -80,7 +81,9 @@ export function BuildPlacementController({
   onStatus?(message: string): void;
   boardPlacementPassthrough?: boolean;
 }) {
-  const [ghost, setGhost] = useState<{ piece: BuildPiece; valid: boolean; reason?: string } | null>(null);
+  const [ghost, setGhost] = useState<{ pieces: BuildPiece[]; valid: boolean; reason?: string } | null>(null);
+  const stampMode = Boolean(buildMode.selectedStampId);
+  const activeStamp = buildMode.selectedStampId ? getBuildStamp(buildMode.selectedStampId) : undefined;
   const [ghostTrail, setGhostTrail] = useState<BuildPiece[]>([]);
   const [highlightedPieceId, setHighlightedPieceId] = useState<string | null>(null);
   const dragTargetsRef = useRef<Map<string, BuildPlacementTarget>>(new Map());
@@ -106,7 +109,7 @@ export function BuildPlacementController({
   // nearest cell is unreachable; lifting the plane to your level makes that cell selectable.
   // Destroy keeps the plane at the ground so it never occludes lower pieces you want to remove.
   const standingLevel = avatarStandingLevel(localAvatarPosition.y);
-  const placementPlaneY = buildMode.tool === "destroy" ? 0 : levelToY(standingLevel);
+  const placementPlaneY = buildMode.tool === "destroy" && !stampMode ? 0 : levelToY(standingLevel);
 
   const gridCenter = useMemo(
     () =>
@@ -126,6 +129,43 @@ export function BuildPlacementController({
         augmentedPieces[previewPiece.id] = previewPiece;
       }
       return evaluateBuildPlacement(manifest, target, roomId, userId, augmentedPieces);
+    },
+    [manifest, piecesById, roomId, userId]
+  );
+
+  const stampTargetsFromHit = useCallback(
+    (hitX: number, hitZ: number): BuildPlacementTarget[] => {
+      if (!activeStamp) return [];
+      const anchor = worldToCell(hitX, hitZ);
+      return stampToPlacementTargets(activeStamp, anchor, buildMode.rotation, buildMode.materialId);
+    },
+    [activeStamp, buildMode.materialId, buildMode.rotation]
+  );
+
+  const evaluateStampTargets = useCallback(
+    (targets: BuildPlacementTarget[]) => {
+      const augmentedPieces: Record<string, BuildPiece> = { ...piecesById };
+      const previews: BuildPiece[] = [];
+      let firstReason: string | undefined;
+      let allAllowed = true;
+      for (const target of targets) {
+        const preview = buildPlacementPreviewPiece(roomId, target, userId);
+        previews.push(preview);
+        augmentedPieces[preview.id] = preview;
+      }
+      for (const target of targets) {
+        const result = evaluateBuildPlacement(manifest, target, roomId, userId, augmentedPieces);
+        if (!result.allowed) {
+          allAllowed = false;
+          firstReason ??= result.reason;
+        }
+      }
+      const capCheck = checkBuildCapsForPlacements(Object.values(piecesById), userId, targets);
+      if (!capCheck.ok) {
+        allAllowed = false;
+        firstReason ??= capCheck.reason;
+      }
+      return { previews, allowed: allAllowed, reason: firstReason };
     },
     [manifest, piecesById, roomId, userId]
   );
@@ -207,18 +247,27 @@ export function BuildPlacementController({
 
   const updateGhostFromHit = useCallback(
     (hitX: number, hitY: number, hitZ: number, surfacePiece: BuildPiece | null, tool: BuildTool) => {
-      if (tool === "destroy") {
+      if (tool === "destroy" && !stampMode) {
         setGhost(null);
         return;
       }
-      const target = targetFromHit(tool, hitX, hitY, hitZ, surfacePiece);
+      if (stampMode && activeStamp) {
+        const stampResult = evaluateStampTargets(stampTargetsFromHit(hitX, hitZ));
+        setGhost({
+          pieces: stampResult.previews,
+          valid: stampResult.allowed,
+          ...(stampResult.reason ? { reason: stampResult.reason } : {})
+        });
+        return;
+      }
+      const target = targetFromHit(tool as Exclude<BuildTool, "destroy">, hitX, hitY, hitZ, surfacePiece);
       const preview = previewPlacement(target);
       setGhost({
-        piece: preview.piece,
+        pieces: [preview.piece],
         valid: preview.allowed,
         ...(preview.reason ? { reason: preview.reason } : {})
       });
-      if (draggingRef.current && preview.allowed) {
+      if (draggingRef.current && preview.allowed && !stampMode) {
         const trailKey = placementTargetKey(target);
         if (trailKey !== lastTrailKeyRef.current) {
           lastTrailKeyRef.current = trailKey;
@@ -226,7 +275,7 @@ export function BuildPlacementController({
         }
       }
     },
-    [previewPlacement, targetFromHit]
+    [activeStamp, evaluateStampTargets, previewPlacement, stampMode, stampTargetsFromHit, targetFromHit]
   );
 
   const tryDragPlacement = useCallback(
@@ -234,7 +283,7 @@ export function BuildPlacementController({
       event: ThreeEvent<PointerEvent>,
       surfacePiece: BuildPiece | null
     ) => {
-      if (!draggingRef.current || buildMode.tool === "destroy") return;
+      if (!draggingRef.current || buildMode.tool === "destroy" || stampMode) return;
       const target = targetFromHit(
         buildMode.tool,
         event.point.x,
@@ -254,7 +303,7 @@ export function BuildPlacementController({
     (event: ThreeEvent<PointerEvent>, surfacePiece: BuildPiece | null) => {
       if (!buildMode.enabled) return;
       event.stopPropagation();
-      if (buildMode.tool === "destroy") {
+      if (buildMode.tool === "destroy" && !stampMode) {
         if (surfacePiece) setHighlightedPieceId(surfacePiece.id);
         setGhost(null);
         return;
@@ -295,11 +344,35 @@ export function BuildPlacementController({
     [actions, onStatus, previewPlacement]
   );
 
+  const commitStampPlacement = useCallback(
+    async (hitX: number, hitZ: number) => {
+      const now = Date.now();
+      if (now - lastSinglePlaceAtRef.current < BUILD_PLACEMENT_RATE_LIMIT_MS) {
+        onStatus?.("Slow down…");
+        return;
+      }
+      const targets = stampTargetsFromHit(hitX, hitZ);
+      const stampResult = evaluateStampTargets(targets);
+      if (!stampResult.allowed) {
+        onStatus?.(buildPlacementStatusMessage(stampResult.reason));
+        return;
+      }
+      lastSinglePlaceAtRef.current = now;
+      try {
+        await actions.placeBatch(targets);
+        onStatus?.(`Placed stamp (${targets.length} pieces).`);
+      } catch (err) {
+        onStatus?.(err instanceof Error ? err.message : "Unable to place stamp.");
+      }
+    },
+    [actions, evaluateStampTargets, onStatus, stampTargetsFromHit]
+  );
+
   const handlePointerDown = useCallback(
     (event: ThreeEvent<PointerEvent>, surfacePiece: BuildPiece | null) => {
       if (!buildMode.enabled || event.button !== 0) return;
       event.stopPropagation();
-      if (buildMode.tool === "destroy") return;
+      if (buildMode.tool === "destroy" && !stampMode) return;
       draggingRef.current = true;
       didDragRef.current = false;
       dragTargetsRef.current.clear();
@@ -338,7 +411,7 @@ export function BuildPlacementController({
         return;
       }
 
-      if (buildMode.tool === "destroy") {
+      if (buildMode.tool === "destroy" && !stampMode) {
         if (!surfacePiece) return;
         try {
           await actions.destroy(surfacePiece.id);
@@ -349,8 +422,13 @@ export function BuildPlacementController({
         return;
       }
 
+      if (stampMode) {
+        await commitStampPlacement(event.point.x, event.point.z);
+        return;
+      }
+
       const target = targetFromHit(
-        buildMode.tool,
+        buildMode.tool as Exclude<BuildTool, "destroy">,
         event.point.x,
         event.point.y,
         event.point.z,
@@ -363,7 +441,9 @@ export function BuildPlacementController({
       buildMode.enabled,
       buildMode.tool,
       commitPlacement,
+      commitStampPlacement,
       onStatus,
+      stampMode,
       targetFromHit
     ]
   );
@@ -419,18 +499,20 @@ export function BuildPlacementController({
 
       {ghost ? (
         <group>
-          <BuildPieceMesh piece={ghost.piece} ghost valid={ghost.valid} />
+          {ghost.pieces.map((piece) => (
+            <BuildPieceMesh key={`ghost-${piece.id}`} piece={piece} ghost valid={ghost.valid} />
+          ))}
           {!ghost.valid && ghost.reason ? (
             <Html
               position={[
-                ghost.piece.cell.ix * BUILD_CELL_SIZE + BUILD_CELL_SIZE / 2,
+                ghost.pieces[0]!.cell.ix * BUILD_CELL_SIZE + BUILD_CELL_SIZE / 2,
                 2.2,
-                ghost.piece.cell.iz * BUILD_CELL_SIZE + BUILD_CELL_SIZE / 2
+                ghost.pieces[0]!.cell.iz * BUILD_CELL_SIZE + BUILD_CELL_SIZE / 2
               ]}
               center
               distanceFactor={14}
             >
-              <div className="build-ghost-tooltip">{ghost.reason}</div>
+              <div className="build-ghost-tooltip">{buildPlacementStatusMessage(ghost.reason)}</div>
             </Html>
           ) : null}
         </group>

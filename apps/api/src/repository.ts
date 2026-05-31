@@ -20,11 +20,15 @@ import {
   type RoomType,
   type User,
   type WallAttachment,
+  type BuildLogicPiece,
   type BuildPiece,
   type BuildPieceEdge,
   type BuildPieceKind,
   type BuildPieceMaterial,
   type BuildPieceRotation,
+  type LogicPieceKind,
+  type EscapeSession,
+  type LogicState,
   type RoomObject,
   type RoomObjectStatus,
   type RoomObjectTemplate,
@@ -32,10 +36,11 @@ import {
   type WallObjectStatus,
   type WorldSkin
 } from "@3dspace/contracts";
-import { buildPieceStableId } from "@3dspace/room-engine";
+import { buildPieceStableId, logicPieceStableId } from "@3dspace/room-engine";
+import { defaultLogicConfig } from "./logic-pieces/helpers.js";
 import type { z } from "zod";
 import type { AuthContext } from "./auth.js";
-import { conflict, notFound } from "./errors.js";
+import { conflict, escapeSessionAlreadyRunning, escapeSessionNotRunning, notFound } from "./errors.js";
 
 export type RoomSettings = z.infer<typeof RoomSettingsSchema>;
 
@@ -189,6 +194,39 @@ export type Repository = {
   countBuildPiecesForRoom(roomId: string): Promise<number>;
   countBuildPiecesForUser(roomId: string, userId: string): Promise<number>;
   deleteAllBuildPiecesForRoom(roomId: string): Promise<void>;
+  listLogicPiecesForRoom(roomId: string): Promise<BuildLogicPiece[]>;
+  createLogicPiece(input: {
+    roomId: string;
+    kind: LogicPieceKind;
+    cell: { ix: number; iz: number };
+    level: number;
+    edge?: BuildPieceEdge | undefined;
+    rotation: BuildPieceRotation;
+    channelId?: string | undefined;
+    linkId?: string | undefined;
+    config?: BuildLogicPiece["config"] | undefined;
+    createdByUserId: string;
+  }): Promise<BuildLogicPiece>;
+  updateLogicPiece(
+    roomId: string,
+    pieceId: string,
+    patch: { channelId?: string | undefined; linkId?: string | undefined; config?: BuildLogicPiece["config"] | undefined }
+  ): Promise<BuildLogicPiece>;
+  getLogicPiece(roomId: string, pieceId: string): Promise<BuildLogicPiece | undefined>;
+  removeLogicPiece(roomId: string, pieceId: string): Promise<BuildLogicPiece>;
+  countLogicPiecesForRoom(roomId: string): Promise<number>;
+  countLogicPiecesForUser(roomId: string, userId: string): Promise<number>;
+  deleteAllLogicPiecesForRoom(roomId: string): Promise<void>;
+  getLogicState(roomId: string): Promise<LogicState>;
+  patchLogicState(
+    roomId: string,
+    patch: { channels?: LogicState["channels"] | undefined; nodes?: LogicState["nodes"] | undefined }
+  ): Promise<LogicState>;
+  resetLogicState(roomId: string): Promise<LogicState>;
+  getEscapeSession(roomId: string): Promise<EscapeSession>;
+  startEscapeSession(roomId: string, durationSec?: number): Promise<EscapeSession>;
+  resetEscapeSession(roomId: string): Promise<EscapeSession>;
+  markEscapeSessionWon(roomId: string): Promise<EscapeSession>;
   recordRoomEvent(input: { roomId: string; type: string; payload: Record<string, unknown>; createdByUserId: string }): Promise<RoomEventRecord>;
   recordRoomSession(input: { roomId: string; participantIdentity: string; userId: string; role: Role; maxParticipants: number }): Promise<number>;
   countActiveRoomParticipants(roomId: string): Promise<number>;
@@ -272,6 +310,9 @@ export class MemoryRepository implements Repository {
   private roomObjectTemplates = new Map<string, RoomObjectTemplate & { archivedAt?: string }>();
   private roomObjects = new Map<string, RoomObject>();
   private buildPieces = new Map<string, BuildPiece>();
+  private logicPieces = new Map<string, BuildLogicPiece>();
+  private logicStates = new Map<string, LogicState>();
+  private escapeSessions = new Map<string, EscapeSession>();
   private roomEvents = new Map<string, RoomEventRecord>();
   private activeSessions = new Map<string, { roomId: string; participantIdentity: string; lastSeenAt: number }>();
   private dynamicWallAnchors = new Map<string, DynamicWallAnchor>();
@@ -505,6 +546,11 @@ export class MemoryRepository implements Repository {
     for (const [id, piece] of this.buildPieces.entries()) {
       if (piece.roomId === roomId) this.buildPieces.delete(id);
     }
+    for (const [id, piece] of this.logicPieces.entries()) {
+      if (piece.roomId === roomId) this.logicPieces.delete(id);
+    }
+    this.logicStates.delete(roomId);
+    this.escapeSessions.delete(roomId);
     this.classroomStates.delete(roomId);
     for (const [id, event] of this.roomEvents.entries()) {
       if (event.roomId === roomId) this.roomEvents.delete(id);
@@ -924,6 +970,169 @@ export class MemoryRepository implements Repository {
     for (const [id, piece] of this.buildPieces.entries()) {
       if (piece.roomId === roomId) this.buildPieces.delete(id);
     }
+  }
+
+  private logicPieceKey(roomId: string, id: string) {
+    return `${roomId}\u0000${id}`;
+  }
+
+  async listLogicPiecesForRoom(roomId: string) {
+    return Array.from(this.logicPieces.values())
+      .filter((piece) => piece.roomId === roomId)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  async createLogicPiece(input: {
+    roomId: string;
+    kind: LogicPieceKind;
+    cell: { ix: number; iz: number };
+    level: number;
+    edge?: BuildPieceEdge | undefined;
+    rotation: BuildPieceRotation;
+    channelId?: string | undefined;
+    linkId?: string | undefined;
+    config?: BuildLogicPiece["config"] | undefined;
+    createdByUserId: string;
+  }) {
+    const time = nowIso();
+    const id = logicPieceStableId({
+      kind: input.kind,
+      cell: input.cell,
+      level: input.level,
+      edge: input.edge
+    });
+    const key = this.logicPieceKey(input.roomId, id);
+    const existing = this.logicPieces.get(key);
+    const record: BuildLogicPiece = {
+      id,
+      roomId: input.roomId,
+      kind: input.kind,
+      cell: input.cell,
+      level: input.level,
+      ...(input.edge ? { edge: input.edge } : {}),
+      rotation: input.rotation,
+      ...(input.channelId ?? existing?.channelId ? { channelId: input.channelId ?? existing?.channelId } : {}),
+      ...(input.linkId ?? existing?.linkId ? { linkId: input.linkId ?? existing?.linkId } : {}),
+      config: input.config ?? existing?.config ?? defaultLogicConfig(),
+      createdByUserId: existing?.createdByUserId ?? input.createdByUserId,
+      createdAt: existing?.createdAt ?? time
+    };
+    this.logicPieces.set(key, record);
+    return record;
+  }
+
+  async updateLogicPiece(
+    roomId: string,
+    pieceId: string,
+    patch: { channelId?: string | undefined; linkId?: string | undefined; config?: BuildLogicPiece["config"] | undefined }
+  ) {
+    const existing = await this.getLogicPiece(roomId, pieceId);
+    if (!existing) throw notFound("Logic piece not found");
+    const record: BuildLogicPiece = {
+      ...existing,
+      ...(patch.channelId !== undefined ? { channelId: patch.channelId } : {}),
+      ...(patch.linkId !== undefined ? { linkId: patch.linkId } : {}),
+      ...(patch.config !== undefined ? { config: patch.config } : {})
+    };
+    this.logicPieces.set(this.logicPieceKey(roomId, pieceId), record);
+    return record;
+  }
+
+  async getLogicPiece(roomId: string, pieceId: string) {
+    return this.logicPieces.get(this.logicPieceKey(roomId, pieceId));
+  }
+
+  async removeLogicPiece(roomId: string, pieceId: string) {
+    const existing = await this.getLogicPiece(roomId, pieceId);
+    if (!existing) throw notFound("Logic piece not found");
+    this.logicPieces.delete(this.logicPieceKey(roomId, pieceId));
+    return existing;
+  }
+
+  async countLogicPiecesForRoom(roomId: string) {
+    return Array.from(this.logicPieces.values()).filter((piece) => piece.roomId === roomId).length;
+  }
+
+  async countLogicPiecesForUser(roomId: string, userId: string) {
+    return Array.from(this.logicPieces.values()).filter(
+      (piece) => piece.roomId === roomId && piece.createdByUserId === userId
+    ).length;
+  }
+
+  async deleteAllLogicPiecesForRoom(roomId: string) {
+    for (const [key, piece] of this.logicPieces.entries()) {
+      if (piece.roomId === roomId) this.logicPieces.delete(key);
+    }
+  }
+
+  async getLogicState(roomId: string) {
+    const existing = this.logicStates.get(roomId);
+    if (existing) return existing;
+    const state: LogicState = { roomId, channels: {}, nodes: {}, updatedAt: nowIso() };
+    this.logicStates.set(roomId, state);
+    return state;
+  }
+
+  async patchLogicState(
+    roomId: string,
+    patch: { channels?: LogicState["channels"] | undefined; nodes?: LogicState["nodes"] | undefined }
+  ) {
+    const current = await this.getLogicState(roomId);
+    const state: LogicState = {
+      roomId,
+      channels:
+        patch.channels !== undefined ? { ...current.channels, ...patch.channels } : current.channels,
+      nodes: patch.nodes !== undefined ? { ...current.nodes, ...patch.nodes } : current.nodes,
+      updatedAt: nowIso()
+    };
+    this.logicStates.set(roomId, state);
+    return state;
+  }
+
+  async resetLogicState(roomId: string) {
+    const state: LogicState = { roomId, channels: {}, nodes: {}, updatedAt: nowIso() };
+    this.logicStates.set(roomId, state);
+    return state;
+  }
+
+  private defaultEscapeSession(roomId: string): EscapeSession {
+    return { roomId, status: "idle", startedAt: null, durationSec: 900, endedAt: null };
+  }
+
+  async getEscapeSession(roomId: string) {
+    return this.escapeSessions.get(roomId) ?? this.defaultEscapeSession(roomId);
+  }
+
+  async startEscapeSession(roomId: string, durationSec?: number) {
+    const current = await this.getEscapeSession(roomId);
+    if (current.status === "running") throw escapeSessionAlreadyRunning();
+    const session: EscapeSession = {
+      roomId,
+      status: "running",
+      startedAt: nowIso(),
+      durationSec: durationSec ?? current.durationSec,
+      endedAt: null
+    };
+    this.escapeSessions.set(roomId, session);
+    return session;
+  }
+
+  async resetEscapeSession(roomId: string) {
+    const session = this.defaultEscapeSession(roomId);
+    this.escapeSessions.set(roomId, session);
+    return session;
+  }
+
+  async markEscapeSessionWon(roomId: string) {
+    const current = await this.getEscapeSession(roomId);
+    if (current.status !== "running") throw escapeSessionNotRunning();
+    const session: EscapeSession = {
+      ...current,
+      status: "won",
+      endedAt: nowIso()
+    };
+    this.escapeSessions.set(roomId, session);
+    return session;
   }
 
   async recordRoomEvent(input: { roomId: string; type: string; payload: Record<string, unknown>; createdByUserId: string }) {

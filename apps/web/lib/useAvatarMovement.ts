@@ -1,7 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
-import type { AvatarStateMessage, BuildPiece, Role, RoomManifest, Vector3, ViewMode } from "@3dspace/contracts";
+import type {
+  AvatarStateMessage,
+  BuildLogicPiece,
+  BuildPiece,
+  LogicState,
+  Role,
+  RoomManifest,
+  Vector3,
+  ViewMode
+} from "@3dspace/contracts";
 import {
   BUILD_ENABLE_EASED_FALL,
   BUILD_FALL_GRAVITY,
@@ -34,6 +43,8 @@ export function useAvatarMovement(input: {
   lockedPosition?: Vector3 | null;
   walkSpeedMultiplier?: number;
   buildPiecesRef?: MutableRefObject<BuildPiece[]>;
+  logicPiecesRef?: MutableRefObject<BuildLogicPiece[]>;
+  logicNodesRef?: MutableRefObject<LogicState["nodes"]>;
 }) {
   const [avatarState, setAvatarState] = useState<AvatarStateMessage | null>(null);
   const keys = useRef(new Set<string>());
@@ -306,6 +317,26 @@ export function useAvatarMovement(input: {
     [input.manifest, input.cameraYawRef, input.buildPiecesRef]
   );
 
+  const teleportToPosition = useCallback(
+    (point: { x: number; y: number; z: number }) => {
+      if (!input.manifest || !stateRef.current || lockedPositionRef.current) return;
+      const pieces = input.buildPiecesRef?.current ?? [];
+      const position = applyGroundHeight(input.manifest, pieces, point, "teleport");
+      verticalVelocityRef.current = 0;
+      const next = {
+        ...stateRef.current,
+        position,
+        sentAt: Date.now(),
+        movement: "idle" as const,
+        viewMode: input.viewMode,
+        media: mediaRef.current
+      };
+      stateRef.current = next;
+      setAvatarState(next);
+    },
+    [input.manifest, input.buildPiecesRef, input.viewMode]
+  );
+
   const returnToSpawn = useCallback(() => {
     if (!input.manifest || !stateRef.current || lockedPositionRef.current) return;
     const current = stateRef.current;
@@ -366,6 +397,8 @@ export function useAvatarMovement(input: {
         manifest: input.manifest,
         pieces,
         cache: collisionWallsCache,
+        logicPieces: input.logicPiecesRef?.current ?? [],
+        logicNodes: input.logicNodesRef?.current ?? {},
         oldPos,
         newPos: requested,
         avatarBaseY: current.position.y
@@ -387,6 +420,7 @@ export function useAvatarMovement(input: {
     moveTo3DPoint,
     returnToSpawn,
     getAvatarState,
-    tryMoveDelta
+    tryMoveDelta,
+    teleportToPosition
   };
 }

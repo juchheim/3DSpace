@@ -25,7 +25,7 @@ export async function buildTestApp(overrides: BuildTestAppOptions = {}) {
 export async function createClassAndRoom(
   app: TestApp,
   teacherId = "teacher-wall",
-  roomType: "classroom" | "workforce-training" | "free-for-all" = "classroom"
+  roomType: "classroom" | "workforce-training" | "free-for-all" | "escape-room" = "classroom"
 ) {
   const classResponse = await app.inject({
     method: "POST",

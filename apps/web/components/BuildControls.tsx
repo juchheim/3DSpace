@@ -1,14 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { BuildPieceMaterial } from "@3dspace/contracts";
 import { BUILD_MATERIAL_OPTIONS } from "./buildMaterials";
+import { BUILTIN_BUILD_STAMPS } from "../lib/buildStamps";
 import type { BuildModeController, BuildTool } from "../lib/useBuildMode";
+
+const BUILD_COACHMARK_KEY = "3dspace-build-coachmark-dismissed";
 
 const TOOL_OPTIONS: Array<{ id: BuildTool; label: string; shortcut: string }> = [
   { id: "wall", label: "Wall", shortcut: "1" },
   { id: "floor", label: "Floor", shortcut: "2" },
   { id: "ramp", label: "Ramp", shortcut: "3" },
+  { id: "doorway", label: "Door", shortcut: "5" },
+  { id: "window", label: "Window", shortcut: "6" },
+  { id: "light", label: "Light", shortcut: "7" },
   { id: "destroy", label: "Destroy", shortcut: "4" }
 ];
 
@@ -17,27 +23,63 @@ export function BuildControls({
   pieceCount,
   error = "",
   compact = false,
+  emptyCanvasHint = false,
   onClearAll,
   onReturnToSpawn,
   onPlaceAhead,
-  placeAheadDisabled = false
+  placeAheadDisabled = false,
+  onUndo,
+  onRedo
 }: {
   buildMode: BuildModeController;
   pieceCount: number;
   error?: string;
   compact?: boolean;
+  /** Escape-room empty canvas nudge. */
+  emptyCanvasHint?: boolean;
   onClearAll(): Promise<void>;
   onReturnToSpawn?(): void;
   onPlaceAhead?(): void;
   placeAheadDisabled?: boolean;
+  onUndo?(): void;
+  onRedo?(): void;
 }) {
   const [clearing, setClearing] = useState(false);
+  const [showCoachmark, setShowCoachmark] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setShowCoachmark(!window.localStorage.getItem(BUILD_COACHMARK_KEY));
+  }, []);
+
+  function dismissCoachmark() {
+    window.localStorage.setItem(BUILD_COACHMARK_KEY, "1");
+    setShowCoachmark(false);
+  }
 
   return (
     <div
       className={`build-controls-dock${compact ? " build-controls-dock--compact" : ""}`}
       aria-label="Build controls"
     >
+      {showCoachmark && buildMode.enabled ? (
+        <div className="build-controls-dock__coachmark" role="status">
+          <p>
+            <strong>Build:</strong> 1 Wall · 2 Floor · 3 Ramp · 4 Destroy · 5 Door · 6 Window · 7 Light · R rotate ·
+            drag to paint · Stamps below · ⌘Z undo
+          </p>
+          <button type="button" className="hud-btn" onClick={dismissCoachmark}>
+            Got it
+          </button>
+        </div>
+      ) : null}
+
+      {emptyCanvasHint && pieceCount === 0 && buildMode.enabled ? (
+        <p className="build-controls-dock__empty-hint">
+          Build walls to make your first room, or drop a Room stamp.
+        </p>
+      ) : null}
+
       <div className="build-controls-dock__bar">
         <button
           type="button"
@@ -54,12 +96,35 @@ export function BuildControls({
                 <button
                   key={tool.id}
                   type="button"
-                  className={`build-controls-dock__tool hud-btn${buildMode.tool === tool.id ? " build-controls-dock__tool--active" : ""}`}
-                  aria-pressed={buildMode.tool === tool.id}
+                  className={`build-controls-dock__tool hud-btn${
+                    !buildMode.selectedStampId && buildMode.tool === tool.id
+                      ? " build-controls-dock__tool--active"
+                      : ""
+                  }`}
+                  aria-pressed={!buildMode.selectedStampId && buildMode.tool === tool.id}
                   onClick={() => buildMode.setTool(tool.id)}
                   title={`${tool.label} (${tool.shortcut})`}
                 >
                   {tool.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="build-controls-dock__stamps" role="toolbar" aria-label="Build stamps">
+              {BUILTIN_BUILD_STAMPS.map((stamp) => (
+                <button
+                  key={stamp.id}
+                  type="button"
+                  className={`build-controls-dock__tool hud-btn${
+                    buildMode.selectedStampId === stamp.id ? " build-controls-dock__tool--active" : ""
+                  }`}
+                  aria-pressed={buildMode.selectedStampId === stamp.id}
+                  onClick={() =>
+                    buildMode.selectStamp(buildMode.selectedStampId === stamp.id ? null : stamp.id)
+                  }
+                  title={stamp.description}
+                >
+                  {stamp.label}
                 </button>
               ))}
             </div>
@@ -90,7 +155,9 @@ export function BuildControls({
 
             <button
               type="button"
-              className={`build-controls-dock__tool hud-btn build-controls-dock__mobile-only${buildMode.tool === "destroy" ? " build-controls-dock__tool--active" : ""}`}
+              className={`build-controls-dock__tool hud-btn build-controls-dock__mobile-only${
+                buildMode.tool === "destroy" ? " build-controls-dock__tool--active" : ""
+              }`}
               aria-pressed={buildMode.tool === "destroy"}
               onClick={() => buildMode.setTool("destroy")}
               title="Destroy (4)"
@@ -102,11 +169,22 @@ export function BuildControls({
               <button
                 type="button"
                 className="build-controls-dock__place-ahead hud-btn build-controls-dock__mobile-only"
-                disabled={placeAheadDisabled || buildMode.tool === "destroy"}
+                disabled={placeAheadDisabled || buildMode.tool === "destroy" || Boolean(buildMode.selectedStampId)}
                 onClick={onPlaceAhead}
                 title="Place in the cell ahead of you"
               >
                 Place ahead
+              </button>
+            ) : null}
+
+            {onUndo ? (
+              <button type="button" className="build-controls-dock__undo hud-btn" onClick={onUndo} title="Undo (⌘Z)">
+                Undo
+              </button>
+            ) : null}
+            {onRedo ? (
+              <button type="button" className="build-controls-dock__redo hud-btn" onClick={onRedo} title="Redo (⌘⇧Z)">
+                Redo
               </button>
             ) : null}
 

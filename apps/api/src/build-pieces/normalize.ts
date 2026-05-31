@@ -1,8 +1,9 @@
 import type { BuildPiece } from "@3dspace/contracts";
+import { buildPieceRequiresEdge } from "@3dspace/room-engine";
 
 /** Strip invalid `edge` values so persisted Mongo docs pass `BuildPieceSchema`. */
 export function normalizeBuildPiece(piece: BuildPiece): BuildPiece {
-  if (piece.kind === "wall") {
+  if (buildPieceRequiresEdge(piece.kind)) {
     return piece;
   }
   if (piece.edge === undefined) {

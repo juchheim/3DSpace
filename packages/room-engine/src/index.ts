@@ -11,6 +11,19 @@ import type {
 } from "@3dspace/contracts";
 import { RoomManifestSchema } from "@3dspace/contracts";
 import { buildWallRunSharesSegment, resolveBuildWallBoardRun } from "./build.js";
+import {
+  ESCAPE_ROOM_HALF_EXTENT,
+  ESCAPE_ROOM_MANIFEST_FEATURE,
+  ESCAPE_ROOM_WALL_HEIGHT,
+  isEscapeRoomManifest
+} from "./escape-room.js";
+
+export {
+  ESCAPE_ROOM_HALF_EXTENT,
+  ESCAPE_ROOM_MANIFEST_FEATURE,
+  ESCAPE_ROOM_WALL_HEIGHT,
+  isEscapeRoomManifest
+};
 
 export {
   BUILD_CELL_SIZE,
@@ -27,7 +40,13 @@ export {
   BUILD_PLACEMENT_RATE_LIMIT_MS,
   BUILD_WALL_HEIGHT,
   BUILD_WALL_THICKNESS,
+  BUILD_DOORWAY_PASSABLE_TOP,
+  BUILD_EDGE_PIECE_KINDS,
+  BUILD_MAX_ACTIVE_LIGHTS,
+  BUILD_WINDOW_LINTEL_BASE,
+  BUILD_WINDOW_SILL_HEIGHT,
   boardPlacementWalls,
+  buildPieceRequiresEdge,
   buildCellFootprint,
   buildPieceColliders,
   buildPieceStableId,
@@ -39,6 +58,8 @@ export {
   rampClimbFromRotation,
   cellToWorldCenter,
   collectCollisionWalls,
+  wallColliderForEdge,
+  wallSegmentForEdge,
   freeForAllBuildMask,
   isBuildAllowedAt,
   isAngleWithinFreeForAllExitArc,
@@ -51,6 +72,51 @@ export {
   type RampSurface,
   type WallCollider
 } from "./build.js";
+export {
+  applyChannelPulse,
+  applyChannelSetLatched,
+  applyChannelToggle,
+  consumerChannelIds,
+  consumerFieldForKind,
+  isChannelActive,
+  LOGIC_PULSE_FRESH_MS,
+  patchDiff,
+  resolveAllConsumerNodes,
+  resolveConsumerNodeState,
+  type ConsumerField
+} from "./channel-bus.js";
+export {
+  avatarCellFromPosition,
+  findNearestInteractableLogicPiece,
+  findProximityZonesContaining,
+  collectLogicDoorColliders,
+  doorCollider,
+  findStepOnLogicPieces,
+  footprintForZone,
+  isDoorOpen,
+  isLogicLightOn,
+  isTeleporterArmed,
+  logicChannelColor,
+  logicChannelsForPiece,
+  logicChannelsFromPieces,
+  logicPadCenter,
+  primaryChannelForPiece,
+  teleportLandingPosition,
+  teleportTarget,
+  isInteractLogicKind,
+  isLogicPlacementAllowed,
+  isStepOnLogicKind,
+  logicPieceOccupiesCell,
+  logicPieceRequiresEdge,
+  pointInLogicFootprint,
+  type LogicAvatarCell,
+  logicPieceStableId,
+  logicRoleForKind,
+  LOGIC_EDGE_KINDS,
+  LOGIC_ID_PREFIX,
+  LOGIC_MAX_PIECES_PER_ROOM,
+  LOGIC_MAX_PIECES_PER_USER
+} from "./logic.js";
 
 export {
   AVATAR_STAND_HEIGHT,
@@ -1073,6 +1139,78 @@ export function createFreeForAllManifest(input: {
           maxActiveLiveShares: 4,
           supportedTypes: ["image.file", "video.file", "audio.file", "camera.live", "microphone.live", "screen.live", "browser-tab.live", "web.link", "note", "poll", "timer"]
         }
+      }
+    ],
+    createdAt: input.createdAt ?? new Date().toISOString()
+  };
+
+  return RoomManifestSchema.parse(manifest);
+}
+
+function buildEscapeRoomSpawnPoints(): SpawnPoint[] {
+  const author: SpawnPoint = {
+    id: "spawn-author",
+    label: "Author spawn",
+    position: { x: 0, y: 0, z: 0 },
+    rotation: { y: 0 }
+  };
+  const playerSpawns: Array<{ id: string; label: string; position: { x: number; y: number; z: number } }> = [
+    { id: "spawn-player-1", label: "Player 1", position: { x: -4, y: 0, z: 0 } },
+    { id: "spawn-player-2", label: "Player 2", position: { x: 4, y: 0, z: 0 } },
+    { id: "spawn-player-3", label: "Player 3", position: { x: 0, y: 0, z: 4 } }
+  ];
+  return [
+    author,
+    ...playerSpawns.map((spawn) => ({
+      ...spawn,
+      rotation: { y: Math.atan2(-spawn.position.x, -spawn.position.z) }
+    }))
+  ];
+}
+
+export function createEscapeRoomManifest(input: {
+  id?: string;
+  roomId: string;
+  name?: string;
+  version?: number;
+  createdAt?: string;
+  config?: Partial<RoomEngineConfig>;
+}): RoomManifest {
+  const config: RoomEngineConfig = {
+    ...DEFAULT_ROOM_ENGINE_CONFIG,
+    ...input.config,
+    spatialAudio: { ...DEFAULT_SPATIAL_AUDIO, ...input.config?.spatialAudio }
+  };
+
+  const half = ESCAPE_ROOM_HALF_EXTENT;
+  const manifest: RoomManifest = {
+    id: input.id ?? `${input.roomId}:manifest:v${input.version ?? 1}`,
+    roomId: input.roomId,
+    version: input.version ?? 1,
+    name: input.name ?? "Escape Room",
+    dimensions: {
+      width: half * 2,
+      depth: half * 2,
+      height: ESCAPE_ROOM_WALL_HEIGHT
+    },
+    bounds: {
+      minX: -half,
+      maxX: half,
+      minZ: -half,
+      maxZ: half
+    },
+    tiers: [],
+    spawnPoints: buildEscapeRoomSpawnPoints(),
+    walls: [],
+    wallAnchors: [],
+    projection: { kind: "top-down-v1", scale: 1, origin: { x: 0, y: 0 } },
+    capabilities: createRoomCapabilities(config),
+    spatialAudio: config.spatialAudio,
+    features: [
+      {
+        key: ESCAPE_ROOM_MANIFEST_FEATURE,
+        enabled: true,
+        config: {}
       }
     ],
     createdAt: input.createdAt ?? new Date().toISOString()

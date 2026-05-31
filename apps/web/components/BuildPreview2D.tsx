@@ -20,7 +20,7 @@ export function BuildPreview2D({
   if (!preview) return null;
 
   if (preview.mode === "destroy") {
-    if (preview.piece.kind === "wall") {
+    if (preview.piece.kind === "wall" || preview.piece.kind === "doorway" || preview.piece.kind === "window") {
       const segment = wallFootprintSegment(manifest, preview.piece);
       if (!segment) return null;
       return (
@@ -58,7 +58,7 @@ export function BuildPreview2D({
   const stroke = valid ? "#6dff9a" : "#ff6b6b";
   const fillOpacity = valid ? 0.32 : 0.38;
 
-  if (preview.target.kind === "wall") {
+  if (preview.target.kind === "wall" || preview.target.kind === "doorway" || preview.target.kind === "window") {
     const segment = wallFootprintSegment(manifest, piece);
     if (!segment) return null;
     return (

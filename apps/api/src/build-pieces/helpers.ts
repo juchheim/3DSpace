@@ -1,6 +1,7 @@
 import {
   getRoomTypeFeatureFlags,
   type BuildPiece,
+  type RoomType,
   type BuildPieceEdge,
   type BuildPieceKind,
   type BuildPieceMaterial,
@@ -53,17 +54,26 @@ export function matchesBuildPiecePlacement(piece: BuildPiece, placement: BuildPi
   );
 }
 
+function buildingEnvEnabled(config: AppConfig, roomType: RoomType | string | null | undefined) {
+  if (roomType === "free-for-all") return config.tuning.enableFreeForAllBuilding;
+  if (roomType === "escape-room") return config.tuning.enableEscapeRoom;
+  return false;
+}
+
 export function assertBuildingEnabled(
   config: AppConfig,
   room: { type?: string | null; settings: RoomSettings }
 ) {
-  if (!config.tuning.enableFreeForAllBuilding) {
+  if (!buildingEnvEnabled(config, room.type)) {
     throw buildDisabled();
   }
   if (!getRoomTypeFeatureFlags(room.type).building) {
     throw buildDisabled();
   }
   if (!room.settings.buildingEnabled) {
+    throw buildDisabled();
+  }
+  if (room.settings.playModeEnabled) {
     throw buildDisabled();
   }
 }
@@ -151,7 +161,7 @@ export async function assertBuildWallHasNoBoards(
   piece: BuildPiece,
   manifest: RoomManifest
 ) {
-  if (piece.kind !== "wall") return;
+  if (piece.kind !== "wall" && piece.kind !== "doorway" && piece.kind !== "window") return;
   const anchors = await repository.listDynamicWallAnchorsForRoom(roomId);
   if (anchors.length === 0) return;
 

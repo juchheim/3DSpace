@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   applyDefaultWallAnchorDimensions,
   createDefaultRoomManifest,
+  createEscapeRoomManifest,
   createFreeForAllManifest,
   createWorkforceTrainingManifest
 } from "@3dspace/room-engine";
@@ -27,7 +28,7 @@ import { newId } from "../repository.js";
 import { mintLiveKitToken } from "../services/livekit.js";
 import { createDownloadTarget, createUploadTarget, storageKeyFor } from "../services/storage.js";
 import { assertFreeForAllPassword } from "../free-for-all/password.js";
-import { roomSettings } from "../rooms-core/settings.js";
+import { escapeRoomSettings, roomSettings } from "../rooms-core/settings.js";
 import {
   actorIsRoomTeacher,
   assertWallObjectsEnabled,
@@ -60,6 +61,9 @@ export async function registerRoomsCoreRoutes(app: FastifyInstance, ctx: AppCont
     if (roomType === "free-for-all" && !config.tuning.enableFreeForAll) {
       throw forbidden("Free-for-All rooms are disabled in this environment");
     }
+    if (roomType === "escape-room" && !config.tuning.enableEscapeRoom) {
+      throw forbidden("Escape Room is disabled in this environment");
+    }
     if (roomType === "free-for-all") {
       assertFreeForAllPassword(config, body.freeForAllPassword);
     }
@@ -77,6 +81,7 @@ export async function registerRoomsCoreRoutes(app: FastifyInstance, ctx: AppCont
     const manifestFactory =
       roomType === "workforce-training" ? createWorkforceTrainingManifest :
       roomType === "free-for-all"       ? createFreeForAllManifest :
+      roomType === "escape-room"        ? createEscapeRoomManifest :
       createDefaultRoomManifest;
     const manifest = manifestFactory({ roomId, name: body.name, config: manifestConfig });
 
@@ -85,7 +90,7 @@ export async function registerRoomsCoreRoutes(app: FastifyInstance, ctx: AppCont
         classId: body.classId,
         name: body.name,
         type: roomType,
-        settings: roomSettings(config),
+        settings: roomType === "escape-room" ? escapeRoomSettings(config) : roomSettings(config),
         manifest
       })
     );

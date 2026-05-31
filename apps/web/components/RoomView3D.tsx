@@ -48,6 +48,10 @@ import type { ParticipantView } from "./RoomClient";
 import { BlockyAvatar } from "./BlockyAvatar";
 import { RoomObjectsLayer } from "./RoomObjectsLayer";
 import { BuildPlacementController } from "./BuildPlacementController";
+import { LogicLayer } from "./LogicLayer";
+import { LogicPlacementController } from "./LogicPlacementController";
+import type { LogicModeController } from "../lib/useLogicMode";
+import type { BuildLogicPiece, LogicConfigInput } from "@3dspace/contracts";
 import type { BuildModeController } from "../lib/useBuildMode";
 import { WallObjectCard } from "./WallObjectCard";
 import { SharedBrowserWallSurface } from "./SharedBrowser/SharedBrowserWallSurface";
@@ -139,6 +143,37 @@ type BuildSceneConfig = {
     destroy(pieceId: string): Promise<unknown>;
   };
   onStatus?(message: string): void;
+};
+
+type LogicPlayLayerConfig = {
+  pieces: BuildLogicPiece[];
+  nodeStates: Record<string, Record<string, unknown>>;
+  pulseAtByPieceId: Record<string, number>;
+  onPieceClick: (piece: BuildLogicPiece) => void;
+};
+
+type LogicSceneConfig = {
+  manifest: RoomManifest;
+  logicMode: LogicModeController;
+  pieces: BuildLogicPiece[];
+  piecesById: Record<string, BuildLogicPiece>;
+  nodeStates: Record<string, Record<string, unknown>>;
+  pulseAtByPieceId: Record<string, number>;
+  selectedPieceId?: string | null;
+  localAvatarPosition: { x: number; y: number; z: number };
+  actions: {
+    place(
+      kind: BuildLogicPiece["kind"],
+      cell: { ix: number; iz: number },
+      level: number,
+      edge?: BuildLogicPiece["edge"],
+      channelId?: string,
+      options?: { config?: LogicConfigInput | undefined; linkId?: string | undefined }
+    ): Promise<unknown>;
+    destroy(pieceId: string): Promise<unknown>;
+  };
+  onPieceClick?: (piece: BuildLogicPiece) => void;
+  onStatus?: (message: string) => void;
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -318,7 +353,9 @@ export function RoomView3D({
   selectedRoomObjectId,
   onSelectRoomObject,
   roomObjectActions,
-  buildScene
+  buildScene,
+  logicScene,
+  logicPlayLayer
 }: {
   manifest: RoomManifest;
   dynamicWallAnchors?: Anchor[];
@@ -392,6 +429,8 @@ export function RoomView3D({
     setParameters(objectId: string, parameters: Record<string, unknown>): void;
   };
   buildScene?: BuildSceneConfig | null | undefined;
+  logicScene?: LogicSceneConfig | null | undefined;
+  logicPlayLayer?: LogicPlayLayerConfig | null | undefined;
 }) {
   const dpr = quality === "high" ? 1.8 : quality === "medium" ? 1.4 : 1;
   const [canvasElement, setCanvasElement] = useState<HTMLCanvasElement | null>(null);
@@ -486,6 +525,29 @@ export function RoomView3D({
             actions={buildScene.actions}
             boardPlacementPassthrough={Boolean(dynamicBoardPlacement?.active)}
             {...(buildScene.onStatus ? { onStatus: buildScene.onStatus } : {})}
+          />
+        ) : null}
+        {logicScene ? (
+          <LogicPlacementController
+            manifest={logicScene.manifest}
+            logicMode={logicScene.logicMode}
+            pieces={logicScene.pieces}
+            piecesById={logicScene.piecesById}
+            nodeStates={logicScene.nodeStates}
+            pulseAtByPieceId={logicScene.pulseAtByPieceId}
+            selectedPieceId={logicScene.selectedPieceId ?? null}
+            localAvatarPosition={logicScene.localAvatarPosition}
+            actions={logicScene.actions}
+            {...(logicScene.onPieceClick ? { onPieceClick: logicScene.onPieceClick } : {})}
+            {...(logicScene.onStatus ? { onStatus: logicScene.onStatus } : {})}
+          />
+        ) : null}
+        {logicPlayLayer ? (
+          <LogicLayer
+            pieces={logicPlayLayer.pieces}
+            nodeStates={logicPlayLayer.nodeStates}
+            pulseAtByPieceId={logicPlayLayer.pulseAtByPieceId}
+            onPieceClick={(piece) => logicPlayLayer.onPieceClick(piece)}
           />
         ) : null}
         <WallObjectLayer

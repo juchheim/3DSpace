@@ -15,6 +15,7 @@ import { clearRoomObjectParameterDebounceForTests } from "./room-objects/realtim
 import { MeetingNotesAudioStore } from "./meeting-notes/audio-buffer.js";
 import { SessionRateLimiter } from "./rooms-core/session-rate-limit.js";
 import { BuildPlacementRateLimiter } from "./build-pieces/placement-rate-limit.js";
+import { LogicTimerScheduler } from "./logic-pieces/timer-scheduler.js";
 import { connectMongo, MongoRepository } from "./models/mongoose.js";
 import { MemoryRepository, type Repository } from "./repository.js";
 import { startAiObjectRetentionReaper } from "./ai-objects/index.js";
@@ -72,6 +73,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   const meetingNotesAudioStore = options.meetingNotesAudioStore ?? new MeetingNotesAudioStore();
   const sessionRateLimiter = new SessionRateLimiter(config);
   const buildPlacementRateLimiter = new BuildPlacementRateLimiter(config);
+  const logicTimerScheduler = options.logicTimerScheduler ?? new LogicTimerScheduler(repository);
 
   const app = fastify({
     logger: config.nodeEnv !== "test",
@@ -115,7 +117,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     sharedBrowserOrchestrator,
     meetingNotesAudioStore,
     sessionRateLimiter,
-    buildPlacementRateLimiter
+    buildPlacementRateLimiter,
+    logicTimerScheduler
   } as const;
 
   app.addContentTypeParser(
@@ -176,6 +179,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     sharedBrowserOccupancyReaper?.stop();
     if (sharedBrowserDriver?.close) await sharedBrowserDriver.close();
     clearRoomObjectParameterDebounceForTests();
+    logicTimerScheduler.clearForTests();
     await repository.close();
   });
 

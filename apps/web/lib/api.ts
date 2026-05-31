@@ -22,8 +22,16 @@ import type {
   MeetingNotesSessionListResponse,
   PlaceAiObjectRequest,
   Role,
+  BuildLogicPiece,
   BuildPiece,
+  CreateLogicPieceRequestSchema,
+  UpdateLogicPieceRequestSchema,
+  EscapeSession,
+  LogicSignalKind,
+  LogicState,
   RoomBuildRealtimeMessage,
+  RoomLogicRealtimeMessage,
+  RoomSessionRealtimeMessage,
   RoomObject,
   RoomSessionResponse,
   RoomType,
@@ -727,6 +735,143 @@ export function clearBuildPieces(identity: ApiIdentity, roomId: string) {
     method: "DELETE",
     identity
   }).then(normalizeBuildPieceDeleteMutationResult);
+}
+
+function normalizeLogicPieceMutationResult(response: {
+  piece: BuildLogicPiece;
+  realtimeMessages?: RoomLogicRealtimeMessage[];
+}) {
+  return {
+    piece: response.piece,
+    realtimeMessages: response.realtimeMessages ?? []
+  };
+}
+
+function normalizeLogicPieceDeleteMutationResult(response: {
+  realtimeMessages?: RoomLogicRealtimeMessage[];
+}) {
+  return { realtimeMessages: response.realtimeMessages ?? [] };
+}
+
+export function listLogicPieces(identity: ApiIdentity, roomId: string) {
+  return apiFetch<{ pieces: BuildLogicPiece[] }>(`/v1/rooms/${roomId}/logic-pieces`, { identity }).then(
+    (response) => response.pieces
+  );
+}
+
+export function getLogicState(identity: ApiIdentity, roomId: string) {
+  return apiFetch<{ state: LogicState }>(`/v1/rooms/${roomId}/logic-state`, { identity }).then(
+    (response) => response.state
+  );
+}
+
+export function createLogicPiece(
+  identity: ApiIdentity,
+  roomId: string,
+  input: z.input<typeof CreateLogicPieceRequestSchema>
+) {
+  return apiFetch<{ piece: BuildLogicPiece; realtimeMessages?: RoomLogicRealtimeMessage[] }>(
+    `/v1/rooms/${roomId}/logic-pieces`,
+    { method: "POST", identity, body: input }
+  ).then(normalizeLogicPieceMutationResult);
+}
+
+export function updateLogicPiece(
+  identity: ApiIdentity,
+  roomId: string,
+  pieceId: string,
+  patch: z.input<typeof UpdateLogicPieceRequestSchema>
+) {
+  return apiFetch<{ piece: BuildLogicPiece; realtimeMessages?: RoomLogicRealtimeMessage[] }>(
+    `/v1/rooms/${roomId}/logic-pieces/${pieceId}`,
+    { method: "PATCH", identity, body: patch }
+  ).then(normalizeLogicPieceMutationResult);
+}
+
+export function deleteLogicPiece(identity: ApiIdentity, roomId: string, pieceId: string) {
+  return apiFetch<{ realtimeMessages?: RoomLogicRealtimeMessage[] }>(
+    `/v1/rooms/${roomId}/logic-pieces/${pieceId}`,
+    { method: "DELETE", identity }
+  ).then(normalizeLogicPieceDeleteMutationResult);
+}
+
+export function clearLogicPieces(identity: ApiIdentity, roomId: string) {
+  return apiFetch<{ realtimeMessages?: RoomLogicRealtimeMessage[] }>(`/v1/rooms/${roomId}/logic-pieces`, {
+    method: "DELETE",
+    identity
+  }).then(normalizeLogicPieceDeleteMutationResult);
+}
+
+export function patchLogicPieceNodeState(
+  identity: ApiIdentity,
+  roomId: string,
+  pieceId: string,
+  patch: { open?: boolean; on?: boolean; armed?: boolean }
+) {
+  return apiFetch<{ state: LogicState; realtimeMessages?: RoomLogicRealtimeMessage[] }>(
+    `/v1/rooms/${roomId}/logic-pieces/${pieceId}/state`,
+    { method: "PATCH", identity, body: patch }
+  ).then((response) => ({
+    state: response.state,
+    realtimeMessages: response.realtimeMessages ?? []
+  }));
+}
+
+export function signalLogicPiece(identity: ApiIdentity, roomId: string, pieceId: string, kind: LogicSignalKind) {
+  return apiFetch<{
+    ok: true;
+    pieceId: string;
+    kind: LogicSignalKind;
+    state?: LogicState;
+    realtimeMessages?: RoomLogicRealtimeMessage[];
+    teleportTo?: { x: number; y: number; z: number };
+  }>(`/v1/rooms/${roomId}/logic-pieces/${pieceId}/signal`, { method: "POST", identity, body: { kind } }).then(
+    (response) => ({
+      ok: response.ok,
+      pieceId: response.pieceId,
+      kind: response.kind,
+      state: response.state,
+      realtimeMessages: response.realtimeMessages ?? [],
+      teleportTo: response.teleportTo
+    })
+  );
+}
+
+function normalizeEscapeSessionMutationResult(response: {
+  session: EscapeSession;
+  realtimeMessages?: Array<RoomSessionRealtimeMessage | RoomLogicRealtimeMessage>;
+}) {
+  return {
+    session: response.session,
+    realtimeMessages: response.realtimeMessages ?? []
+  };
+}
+
+export function getEscapeSession(identity: ApiIdentity, roomId: string) {
+  return apiFetch<{ session: EscapeSession }>(`/v1/rooms/${roomId}/escape-session`, { identity }).then(
+    (response) => response.session
+  );
+}
+
+export function startEscapeSession(identity: ApiIdentity, roomId: string, durationSec?: number) {
+  return apiFetch<{ session: EscapeSession; realtimeMessages?: Array<RoomSessionRealtimeMessage | RoomLogicRealtimeMessage> }>(
+    `/v1/rooms/${roomId}/escape-session/start`,
+    { method: "POST", identity, body: durationSec !== undefined ? { durationSec } : {} }
+  ).then(normalizeEscapeSessionMutationResult);
+}
+
+export function resetEscapeSession(identity: ApiIdentity, roomId: string) {
+  return apiFetch<{ session: EscapeSession; realtimeMessages?: Array<RoomSessionRealtimeMessage | RoomLogicRealtimeMessage> }>(
+    `/v1/rooms/${roomId}/escape-session/reset`,
+    { method: "POST", identity, body: {} }
+  ).then(normalizeEscapeSessionMutationResult);
+}
+
+export function winEscapeSession(identity: ApiIdentity, roomId: string) {
+  return apiFetch<{ session: EscapeSession; realtimeMessages?: Array<RoomSessionRealtimeMessage | RoomLogicRealtimeMessage> }>(
+    `/v1/rooms/${roomId}/escape-session/win`,
+    { method: "POST", identity, body: {} }
+  ).then(normalizeEscapeSessionMutationResult);
 }
 
 export function getClassroomState(identity: ApiIdentity, roomId: string) {

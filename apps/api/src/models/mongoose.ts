@@ -11,11 +11,15 @@ import type {
   MeetingNotesSession,
   Role,
   RoomManifest,
+  BuildLogicPiece,
   BuildPiece,
   BuildPieceEdge,
   BuildPieceKind,
   BuildPieceMaterial,
   BuildPieceRotation,
+  LogicPieceKind,
+  LogicState,
+  EscapeSession,
   RoomObject,
   RoomObjectStatus,
   RoomObjectTemplate,
@@ -30,10 +34,12 @@ import type {
   WhiteboardStroke,
   WorldSkin
 } from "@3dspace/contracts";
-import { buildPieceStableId } from "@3dspace/room-engine";
+import { buildPieceStableId, logicPieceRequiresEdge, logicPieceStableId } from "@3dspace/room-engine";
 import { normalizeBuildPiece } from "../build-pieces/normalize.js";
+import { normalizeLogicPiece } from "../logic-pieces/normalize.js";
+import { defaultLogicConfig } from "../logic-pieces/helpers.js";
 import type { AuthContext } from "../auth.js";
-import { conflict, notFound } from "../errors.js";
+import { conflict, escapeSessionAlreadyRunning, escapeSessionNotRunning, notFound } from "../errors.js";
 import {
   avatarFor,
   createDefaultClassroomState,
@@ -64,6 +70,9 @@ type Models = {
   RoomObjectTemplate: Model<any>;
   RoomObject: Model<any>;
   BuildPiece: Model<any>;
+  LogicPiece: Model<any>;
+  LogicState: Model<any>;
+  EscapeSession: Model<any>;
   RoomEvent: Model<any>;
   RoomSession: Model<any>;
   DynamicWallAnchor: Model<any>;
@@ -145,7 +154,7 @@ export function createModels(connection: Connection): Models {
     id: { type: String, required: true, unique: true },
     classId: { type: String, required: true, index: true },
     name: { type: String, required: true },
-    type: { type: String, enum: ["classroom", "workforce-training", "free-for-all"], default: "classroom" },
+    type: { type: String, enum: ["classroom", "workforce-training", "free-for-all", "escape-room"], default: "classroom" },
     activeManifestVersion: Number,
     settings: Schema.Types.Mixed,
     createdAt: String,
@@ -329,6 +338,45 @@ export function createModels(connection: Connection): Models {
     { roomId: 1, kind: 1, "cell.ix": 1, "cell.iz": 1, level: 1, edge: 1 },
     { unique: true }
   );
+
+  const logicPieceSchema = new Schema({
+    id: { type: String, required: true },
+    roomId: { type: String, required: true },
+    kind: { type: String, required: true },
+    cell: {
+      ix: { type: Number, required: true },
+      iz: { type: Number, required: true }
+    },
+    level: { type: Number, required: true },
+    edge: { type: String },
+    rotation: { type: Number, default: 0 },
+    channelId: { type: String },
+    linkId: { type: String },
+    config: { type: Schema.Types.Mixed, default: {} },
+    createdByUserId: { type: String, required: true },
+    createdAt: { type: String, required: true }
+  });
+  logicPieceSchema.index({ roomId: 1 });
+  logicPieceSchema.index({ roomId: 1, id: 1 }, { unique: true });
+  logicPieceSchema.index(
+    { roomId: 1, kind: 1, "cell.ix": 1, "cell.iz": 1, level: 1, edge: 1 },
+    { unique: true }
+  );
+
+  const logicStateSchema = new Schema({
+    roomId: { type: String, required: true, unique: true },
+    channels: { type: Schema.Types.Mixed, default: {} },
+    nodes: { type: Schema.Types.Mixed, default: {} },
+    updatedAt: { type: String, required: true }
+  });
+
+  const escapeSessionSchema = new Schema({
+    roomId: { type: String, required: true, unique: true },
+    status: { type: String, required: true, default: "idle" },
+    startedAt: { type: String, default: null },
+    durationSec: { type: Number, required: true, default: 900 },
+    endedAt: { type: String, default: null }
+  });
 
   const classroomStateSchema = new Schema({
     roomId: { type: String, required: true, unique: true },
@@ -520,6 +568,9 @@ export function createModels(connection: Connection): Models {
     RoomObjectTemplate: connection.model("RoomObjectTemplate", roomObjectTemplateSchema),
     RoomObject: connection.model("RoomObject", roomObjectSchema),
     BuildPiece: connection.model("BuildPiece", buildPieceSchema),
+    LogicPiece: connection.model("LogicPiece", logicPieceSchema),
+    LogicState: connection.model("LogicState", logicStateSchema),
+    EscapeSession: connection.model("EscapeSession", escapeSessionSchema),
     RoomEvent: connection.model("RoomEvent", eventSchema),
     RoomSession: connection.model("RoomSession", sessionSchema),
     DynamicWallAnchor: connection.model("DynamicWallAnchor", dynamicWallAnchorSchema, "dynamic_wall_anchors"),
@@ -877,6 +928,9 @@ export class MongoRepository implements Repository {
       this.models.WhiteboardSnapshot.deleteMany({ roomId }),
       this.models.RoomObject.deleteMany({ roomId }),
       this.models.BuildPiece.deleteMany({ roomId }),
+      this.models.LogicPiece.deleteMany({ roomId }),
+      this.models.LogicState.deleteMany({ roomId }),
+      this.models.EscapeSession.deleteMany({ roomId }),
       this.models.RoomEvent.deleteMany({ roomId }),
       this.models.RoomSession.deleteMany({ roomId }),
       this.models.MeetingNotesSession.deleteMany({ roomId }),
@@ -1321,7 +1375,7 @@ export class MongoRepository implements Repository {
       });
       lastRecord = record;
       const update: { $set: BuildPiece; $unset?: { edge: "" } } = { $set: record };
-      if (input.kind !== "wall") {
+      if (input.kind !== "wall" && input.kind !== "doorway" && input.kind !== "window") {
         update.$unset = { edge: "" };
       }
       try {
@@ -1381,6 +1435,238 @@ export class MongoRepository implements Repository {
 
   async deleteAllBuildPiecesForRoom(roomId: string) {
     await this.models.BuildPiece.deleteMany({ roomId });
+  }
+
+  private logicPiecePlacementFilter(
+    roomId: string,
+    placement: {
+      kind: LogicPieceKind;
+      cell: { ix: number; iz: number };
+      level: number;
+      edge?: BuildPieceEdge | undefined;
+    }
+  ) {
+    return {
+      roomId,
+      kind: placement.kind,
+      "cell.ix": placement.cell.ix,
+      "cell.iz": placement.cell.iz,
+      level: placement.level,
+      edge: placement.edge ?? null
+    };
+  }
+
+  private logicPieceRecordFromInput(input: {
+    roomId: string;
+    kind: LogicPieceKind;
+    cell: { ix: number; iz: number };
+    level: number;
+    edge?: BuildPieceEdge | undefined;
+    rotation: BuildPieceRotation;
+    channelId?: string | undefined;
+    linkId?: string | undefined;
+    config?: BuildLogicPiece["config"] | undefined;
+    createdByUserId: string;
+    createdAt?: string;
+  }): BuildLogicPiece {
+    const id = logicPieceStableId({
+      kind: input.kind,
+      cell: input.cell,
+      level: input.level,
+      edge: input.edge
+    });
+    return {
+      id,
+      roomId: input.roomId,
+      kind: input.kind,
+      cell: input.cell,
+      level: input.level,
+      ...(input.edge ? { edge: input.edge } : {}),
+      rotation: input.rotation,
+      ...(input.channelId ? { channelId: input.channelId } : {}),
+      ...(input.linkId ? { linkId: input.linkId } : {}),
+      config: input.config ?? defaultLogicConfig(),
+      createdByUserId: input.createdByUserId,
+      createdAt: input.createdAt ?? nowIso()
+    };
+  }
+
+  private toLogicPiece(doc: unknown): BuildLogicPiece {
+    return normalizeLogicPiece(entity<BuildLogicPiece>(doc));
+  }
+
+  async listLogicPiecesForRoom(roomId: string) {
+    const docs = await this.models.LogicPiece.find({ roomId }).sort({ createdAt: 1 }).lean();
+    return docs.map((doc) => this.toLogicPiece(doc));
+  }
+
+  async createLogicPiece(input: {
+    roomId: string;
+    kind: LogicPieceKind;
+    cell: { ix: number; iz: number };
+    level: number;
+    edge?: BuildPieceEdge | undefined;
+    rotation: BuildPieceRotation;
+    channelId?: string | undefined;
+    linkId?: string | undefined;
+    config?: BuildLogicPiece["config"] | undefined;
+    createdByUserId: string;
+  }) {
+    const filter = this.logicPiecePlacementFilter(input.roomId, input);
+    let lastRecord: BuildLogicPiece | undefined;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const existingDoc = await this.models.LogicPiece.findOne(filter).lean();
+      const existing = existingDoc ? this.toLogicPiece(existingDoc) : undefined;
+      const time = existing?.createdAt ?? nowIso();
+      const record = this.logicPieceRecordFromInput({
+        ...input,
+        createdAt: time,
+        createdByUserId: existing?.createdByUserId ?? input.createdByUserId,
+        channelId: input.channelId ?? existing?.channelId,
+        linkId: input.linkId ?? existing?.linkId,
+        config: input.config ?? existing?.config
+      });
+      lastRecord = record;
+      const update: { $set: BuildLogicPiece; $unset?: { edge: "" } } = { $set: record };
+      if (!logicPieceRequiresEdge(input.kind)) {
+        update.$unset = { edge: "" };
+      }
+      try {
+        await this.models.LogicPiece.findOneAndUpdate(filter, update, {
+          upsert: true,
+          new: true,
+          setDefaultsOnInsert: true
+        });
+        break;
+      } catch (err) {
+        const code = (err as { code?: number } | null)?.code;
+        if (code === 11000 && attempt === 0) continue;
+        throw err;
+      }
+    }
+    return normalizeLogicPiece(lastRecord!);
+  }
+
+  async updateLogicPiece(
+    roomId: string,
+    pieceId: string,
+    patch: { channelId?: string | undefined; linkId?: string | undefined; config?: BuildLogicPiece["config"] | undefined }
+  ) {
+    const existing = await this.getLogicPiece(roomId, pieceId);
+    if (!existing) throw notFound("Logic piece not found");
+    const record: BuildLogicPiece = {
+      ...existing,
+      ...(patch.channelId !== undefined ? { channelId: patch.channelId } : {}),
+      ...(patch.linkId !== undefined ? { linkId: patch.linkId } : {}),
+      ...(patch.config !== undefined ? { config: patch.config } : {})
+    };
+    await this.models.LogicPiece.findOneAndUpdate({ roomId, id: pieceId }, { $set: record });
+    return normalizeLogicPiece(record);
+  }
+
+  async getLogicPiece(roomId: string, pieceId: string) {
+    const doc = await this.models.LogicPiece.findOne({ roomId, id: pieceId }).lean();
+    return doc ? this.toLogicPiece(doc) : undefined;
+  }
+
+  async removeLogicPiece(roomId: string, pieceId: string) {
+    const existing = await this.getLogicPiece(roomId, pieceId);
+    if (!existing) throw notFound("Logic piece not found");
+    await this.models.LogicPiece.deleteOne({ roomId, id: pieceId });
+    return existing;
+  }
+
+  async countLogicPiecesForRoom(roomId: string) {
+    return this.models.LogicPiece.countDocuments({ roomId });
+  }
+
+  async countLogicPiecesForUser(roomId: string, userId: string) {
+    return this.models.LogicPiece.countDocuments({ roomId, createdByUserId: userId });
+  }
+
+  async deleteAllLogicPiecesForRoom(roomId: string) {
+    await this.models.LogicPiece.deleteMany({ roomId });
+  }
+
+  private defaultLogicState(roomId: string): LogicState {
+    return { roomId, channels: {}, nodes: {}, updatedAt: nowIso() };
+  }
+
+  async getLogicState(roomId: string) {
+    const doc = await this.models.LogicState.findOne({ roomId }).lean();
+    if (!doc) {
+      const state = this.defaultLogicState(roomId);
+      await this.models.LogicState.create(state);
+      return state;
+    }
+    return entity<LogicState>(doc);
+  }
+
+  async patchLogicState(
+    roomId: string,
+    patch: {
+      channels?: LogicState["channels"] | undefined;
+      nodes?: LogicState["nodes"] | undefined;
+    }
+  ) {
+    const current = await this.getLogicState(roomId);
+    const state: LogicState = {
+      roomId,
+      channels:
+        patch.channels !== undefined ? { ...current.channels, ...patch.channels } : current.channels,
+      nodes: patch.nodes !== undefined ? { ...current.nodes, ...patch.nodes } : current.nodes,
+      updatedAt: nowIso()
+    };
+    await this.models.LogicState.findOneAndUpdate({ roomId }, { $set: state }, { upsert: true });
+    return state;
+  }
+
+  async resetLogicState(roomId: string) {
+    const state = this.defaultLogicState(roomId);
+    await this.models.LogicState.findOneAndUpdate({ roomId }, { $set: state }, { upsert: true });
+    return state;
+  }
+
+  private defaultEscapeSession(roomId: string): EscapeSession {
+    return { roomId, status: "idle", startedAt: null, durationSec: 900, endedAt: null };
+  }
+
+  async getEscapeSession(roomId: string) {
+    const doc = await this.models.EscapeSession.findOne({ roomId }).lean();
+    if (!doc) return this.defaultEscapeSession(roomId);
+    return entity<EscapeSession>(doc);
+  }
+
+  async startEscapeSession(roomId: string, durationSec?: number) {
+    const current = await this.getEscapeSession(roomId);
+    if (current.status === "running") throw escapeSessionAlreadyRunning();
+    const session: EscapeSession = {
+      roomId,
+      status: "running",
+      startedAt: nowIso(),
+      durationSec: durationSec ?? current.durationSec,
+      endedAt: null
+    };
+    await this.models.EscapeSession.findOneAndUpdate({ roomId }, { $set: session }, { upsert: true });
+    return session;
+  }
+
+  async resetEscapeSession(roomId: string) {
+    const session = this.defaultEscapeSession(roomId);
+    await this.models.EscapeSession.findOneAndUpdate({ roomId }, { $set: session }, { upsert: true });
+    return session;
+  }
+
+  async markEscapeSessionWon(roomId: string) {
+    const current = await this.getEscapeSession(roomId);
+    if (current.status !== "running") throw escapeSessionNotRunning();
+    const session: EscapeSession = {
+      ...current,
+      status: "won",
+      endedAt: nowIso()
+    };
+    await this.models.EscapeSession.findOneAndUpdate({ roomId }, { $set: session }, { upsert: true });
+    return session;
   }
 
   async recordRoomEvent(input: { roomId: string; type: string; payload: Record<string, unknown>; createdByUserId: string }) {

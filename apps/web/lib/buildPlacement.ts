@@ -73,15 +73,18 @@ export function alignWallEdgeToNeighbors(
   piecesById: Record<string, BuildPiece>
 ): BuildPieceEdge {
   const { ix, iz } = cell;
-  const hasWall = (cix: number, ciz: number, edge: BuildPieceEdge) =>
-    Boolean(piecesById[buildPieceStableId({ kind: "wall", cell: { ix: cix, iz: ciz }, level, edge })]);
+  const edgeKinds: BuildPieceKind[] = ["wall", "doorway", "window"];
+  const hasEdgePiece = (cix: number, ciz: number, edge: BuildPieceEdge) =>
+    edgeKinds.some((kind) =>
+      Boolean(piecesById[buildPieceStableId({ kind, cell: { ix: cix, iz: ciz }, level, edge })])
+    );
 
   const suggestions = new Set<BuildPieceEdge>();
   for (const edge of ["n", "s"] as const) {
-    if (hasWall(ix - 1, iz, edge) || hasWall(ix + 1, iz, edge)) suggestions.add(edge);
+    if (hasEdgePiece(ix - 1, iz, edge) || hasEdgePiece(ix + 1, iz, edge)) suggestions.add(edge);
   }
   for (const edge of ["e", "w"] as const) {
-    if (hasWall(ix, iz - 1, edge) || hasWall(ix, iz + 1, edge)) suggestions.add(edge);
+    if (hasEdgePiece(ix, iz - 1, edge) || hasEdgePiece(ix, iz + 1, edge)) suggestions.add(edge);
   }
 
   if (suggestions.has(cursorEdge)) return cursorEdge;
@@ -167,16 +170,26 @@ export function resolveBuildPlacementTarget(input: {
 }): BuildPlacementTarget {
   const cell = worldToCell(input.hitX, input.hitZ);
   const baseLevel = input.baseLevel ?? 0;
-  if (input.tool === "wall") {
+  if (input.tool === "wall" || input.tool === "doorway" || input.tool === "window") {
     const level = wallLevelFromSurface(input.hitY, input.surfacePiece, baseLevel);
     const cursorEdge = nearestWallEdge(input.hitX, input.hitZ, cell.ix, cell.iz);
     return {
-      kind: "wall",
+      kind: input.tool,
       cell,
       level,
       edge: input.existingPieces
         ? alignWallEdgeToNeighbors(cell, level, cursorEdge, input.existingPieces)
         : cursorEdge,
+      rotation: input.rotation,
+      materialId: input.materialId
+    };
+  }
+
+  if (input.tool === "light") {
+    return {
+      kind: "light",
+      cell,
+      level: inferPlacementLevel(input.hitY, input.surfacePiece, baseLevel),
       rotation: input.rotation,
       materialId: input.materialId
     };
@@ -281,6 +294,22 @@ export function buildPlacementStatusMessage(reason: string | undefined): string 
       return "Build piece limit reached for this room";
     case "user-cap":
       return "Build piece limit reached for this user";
+    case "spawn-keep-out":
+      return "Too close to a spawn point";
+    case "out-of-bounds":
+      return "Outside the build area";
+    case "level-cap":
+      return "Maximum build height reached";
+    case "hall-keep-out":
+      return "Cannot build in the hall";
+    case "exit-keep-out":
+      return "Cannot build in the exit wedge";
+    case "board-keep-out":
+      return "Cannot build over a board zone";
+    case "slot-occupied":
+      return "That slot is already filled";
+    case "invalid-piece":
+      return "Invalid piece placement";
     default:
       return `Build placement rejected: ${reason}`;
   }
@@ -381,15 +410,22 @@ export function findSurfacePieceAtCell(
 export function findBuildPieceForDestroy(pieces: BuildPiece[], hitX: number, hitZ: number): BuildPiece | null {
   const cell = worldToCell(hitX, hitZ);
   const edge = nearestWallEdge(hitX, hitZ, cell.ix, cell.iz);
-  const walls = pieces.filter(
+  const edgePieces = pieces.filter(
     (piece) =>
-      piece.kind === "wall" &&
+      (piece.kind === "wall" || piece.kind === "doorway" || piece.kind === "window") &&
       piece.cell.ix === cell.ix &&
       piece.cell.iz === cell.iz &&
       piece.edge === edge
   );
-  if (walls.length > 0) {
-    return walls.sort((a, b) => b.level - a.level)[0] ?? null;
+  if (edgePieces.length > 0) {
+    return edgePieces.sort((a, b) => b.level - a.level)[0] ?? null;
+  }
+
+  const lights = pieces.filter(
+    (piece) => piece.kind === "light" && piece.cell.ix === cell.ix && piece.cell.iz === cell.iz
+  );
+  if (lights.length > 0) {
+    return lights.sort((a, b) => b.level - a.level)[0] ?? null;
   }
 
   const surfaces = pieces.filter(

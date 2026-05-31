@@ -76,6 +76,57 @@ describe("buildPieceColliders", () => {
     // A ramp is a walkable surface only — no collision barriers, so an avatar can walk off any edge.
     expect(rampColliders.walls).toHaveLength(0);
   });
+
+  it("doorway emits no impassable colliders (walk-through)", () => {
+    const piece = BuildPieceSchema.parse({
+      id: `${BUILD_ID_PREFIX}doorway:2,2:0:n`,
+      roomId: "room-1",
+      kind: "doorway",
+      cell: { ix: 2, iz: 2 },
+      level: 0,
+      edge: "n",
+      rotation: 0,
+      materialId: "wood",
+      createdByUserId: "u1",
+      createdAt: "2026-05-30T12:00:00.000Z"
+    });
+    expect(buildPieceColliders(piece).walls).toHaveLength(0);
+  });
+
+  it("window blocks at feet with sill and lintel segments", () => {
+    const piece = BuildPieceSchema.parse({
+      id: `${BUILD_ID_PREFIX}window:2,2:0:e`,
+      roomId: "room-1",
+      kind: "window",
+      cell: { ix: 2, iz: 2 },
+      level: 0,
+      edge: "e",
+      rotation: 0,
+      materialId: "glass",
+      createdByUserId: "u1",
+      createdAt: "2026-05-30T12:00:00.000Z"
+    });
+    const { walls } = buildPieceColliders(piece);
+    expect(walls).toHaveLength(2);
+    expect(walls[0]!.baseY).toBe(0);
+    expect(walls[0]!.height).toBeLessThanOrEqual(1.01);
+    expect(walls[1]!.baseY).toBeGreaterThanOrEqual(1.39);
+  });
+
+  it("light piece is non-colliding", () => {
+    const piece = BuildPieceSchema.parse({
+      id: `${BUILD_ID_PREFIX}light:1,1:0`,
+      roomId: "room-1",
+      kind: "light",
+      cell: { ix: 1, iz: 1 },
+      level: 0,
+      rotation: 0,
+      materialId: "neon",
+      createdByUserId: "u1",
+      createdAt: "2026-05-30T12:00:00.000Z"
+    });
+    expect(buildPieceColliders(piece).walls).toHaveLength(0);
+  });
 });
 
 describe("boardPlacementWalls", () => {

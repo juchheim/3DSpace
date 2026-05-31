@@ -30,6 +30,21 @@ export const BUILD_MAX_PIECES_PER_ROOM = 1000;
 export const BUILD_MAX_PIECES_PER_USER = 400;
 export const BUILD_ID_PREFIX = "build:";
 
+/** Wall-edge piece kinds (share slot ids and board placement with `wall`). */
+export const BUILD_EDGE_PIECE_KINDS = ["wall", "doorway", "window"] as const;
+
+export function buildPieceRequiresEdge(kind: BuildPiece["kind"]): boolean {
+  return (BUILD_EDGE_PIECE_KINDS as readonly string[]).includes(kind);
+}
+
+/** Doorway opening: avatar-height band is open (no colliders). */
+export const BUILD_DOORWAY_PASSABLE_TOP = 2.2;
+/** Window sill blocks feet; gap above sill is too low to walk through. */
+export const BUILD_WINDOW_SILL_HEIGHT = 1.0;
+export const BUILD_WINDOW_LINTEL_BASE = 1.4;
+
+export const BUILD_MAX_ACTIVE_LIGHTS = 8;
+
 export {
   BUILD_SPAWN_KEEP_OUT_RADIUS,
   freeForAllBuildMask,
@@ -111,7 +126,7 @@ function impassableWall(
   return { ...wall, passable: false };
 }
 
-function wallSegmentForEdge(
+export function wallSegmentForEdge(
   ix: number,
   iz: number,
   edge: NonNullable<BuildPiece["edge"]>,
@@ -140,6 +155,28 @@ function wallSegmentForEdge(
         end: { x: b.minX, y: baseY, z: b.maxZ }
       };
   }
+}
+
+/** Full-height impassable segment on a cell edge (build walls, logic doors). */
+export function wallColliderForEdge(input: {
+  id: string;
+  label: string;
+  ix: number;
+  iz: number;
+  edge: NonNullable<BuildPiece["edge"]>;
+  level: number;
+}): WallCollider {
+  const baseY = levelToY(input.level);
+  const segment = wallSegmentForEdge(input.ix, input.iz, input.edge, baseY);
+  return impassableWall({
+    id: input.id,
+    label: input.label,
+    ...segment,
+    height: BUILD_WALL_HEIGHT,
+    thickness: BUILD_WALL_THICKNESS,
+    anchorIds: [],
+    baseY
+  });
 }
 
 export function rampClimbFromRotation(rotation: BuildPiece["rotation"]): {
@@ -181,6 +218,48 @@ export function buildPieceColliders(piece: BuildPiece): BuildPieceColliders {
         })
       ]
     };
+  }
+
+  if (piece.kind === "doorway") {
+    if (!piece.edge) {
+      throw new Error("build doorway requires edge");
+    }
+    // Walk-through opening: no impassable segments in the avatar band (see AVATAR_STAND_HEIGHT).
+    return { walls: [] };
+  }
+
+  if (piece.kind === "window") {
+    if (!piece.edge) {
+      throw new Error("build window requires edge");
+    }
+    const segment = wallSegmentForEdge(piece.cell.ix, piece.cell.iz, piece.edge, baseY);
+    const lintelHeight = Math.max(BUILD_WALL_HEIGHT - BUILD_WINDOW_LINTEL_BASE, 0.1);
+    return {
+      walls: [
+        impassableWall({
+          id: `${stableId}:sill`,
+          label: "build-window-sill",
+          ...segment,
+          height: BUILD_WINDOW_SILL_HEIGHT,
+          thickness: BUILD_WALL_THICKNESS,
+          anchorIds: [],
+          baseY
+        }),
+        impassableWall({
+          id: `${stableId}:lintel`,
+          label: "build-window-lintel",
+          ...segment,
+          height: lintelHeight,
+          thickness: BUILD_WALL_THICKNESS,
+          anchorIds: [],
+          baseY: baseY + BUILD_WINDOW_LINTEL_BASE
+        })
+      ]
+    };
+  }
+
+  if (piece.kind === "light") {
+    return { walls: [] };
   }
 
   if (piece.kind === "floor") {
@@ -269,7 +348,7 @@ export function isBuildAllowedAt(
       if (footprintOverlapsExitWedge(cellCorners)) {
         return { ok: false, reason: "exit-keep-out" };
       }
-      if (piece.kind === "wall" && footprintOverlapsAnyRect(cellFootprint, mask.boardZones)) {
+      if (buildPieceRequiresEdge(piece.kind) && footprintOverlapsAnyRect(cellFootprint, mask.boardZones)) {
         return { ok: false, reason: "board-keep-out" };
       }
     }
@@ -288,16 +367,17 @@ export function collectCollisionWalls(manifest: RoomManifest, buildPieces: Build
 
 type BoardPlacementWall = RoomManifest["walls"][number];
 
-const BUILD_WALL_PIECE_ID_RE = /^build:wall:(-?\d+),(-?\d+):(\d+):(n|s|e|w)$/;
+const BUILD_WALL_PIECE_ID_RE = /^build:(wall|doorway|window):(-?\d+),(-?\d+):(\d+):(n|s|e|w)$/;
 
 function parseBuildWallPieceId(id: string) {
   const match = id.match(BUILD_WALL_PIECE_ID_RE);
   if (!match) return null;
   return {
-    ix: Number(match[1]),
-    iz: Number(match[2]),
-    level: Number(match[3]),
-    edge: match[4] as NonNullable<BuildPiece["edge"]>
+    kind: match[1] as BuildPiece["kind"],
+    ix: Number(match[2]),
+    iz: Number(match[3]),
+    level: Number(match[4]),
+    edge: match[5] as NonNullable<BuildPiece["edge"]>
   };
 }
 
@@ -436,7 +516,7 @@ export function boardPlacementWalls(
   buildPieces: BuildPiece[]
 ): RoomManifest["walls"] {
   const buildWalls = buildPieces
-    .filter((piece) => piece.kind === "wall")
+    .filter((piece) => buildPieceRequiresEdge(piece.kind))
     .flatMap((piece) => buildPieceColliders(piece).walls);
   const mergedBuildWalls = mergeAdjacentBuildWallSegments(buildWalls);
   return [...manifest.walls, ...mergedBuildWalls];

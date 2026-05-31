@@ -806,7 +806,8 @@
                         "enum": [
                           "classroom",
                           "workforce-training",
-                          "free-for-all"
+                          "free-for-all",
+                          "escape-room"
                         ],
                         "default": "classroom"
                       },
@@ -1354,7 +1355,8 @@
                     "enum": [
                       "classroom",
                       "workforce-training",
-                      "free-for-all"
+                      "free-for-all",
+                      "escape-room"
                     ]
                   },
                   "freeForAllPassword": {
@@ -1396,7 +1398,8 @@
                           "enum": [
                             "classroom",
                             "workforce-training",
-                            "free-for-all"
+                            "free-for-all",
+                            "escape-room"
                           ],
                           "default": "classroom"
                         },
@@ -2977,7 +2980,8 @@
                       "enum": [
                         "classroom",
                         "workforce-training",
-                        "free-for-all"
+                        "free-for-all",
+                        "escape-room"
                       ],
                       "default": "classroom"
                     },
@@ -4148,7 +4152,8 @@
                           "enum": [
                             "classroom",
                             "workforce-training",
-                            "free-for-all"
+                            "free-for-all",
+                            "escape-room"
                           ],
                           "default": "classroom"
                         },
@@ -21333,7 +21338,8 @@
                               "enum": [
                                 "classroom",
                                 "workforce-training",
-                                "free-for-all"
+                                "free-for-all",
+                                "escape-room"
                               ]
                             },
                             "minItems": 1,
@@ -21700,7 +21706,8 @@
                             "enum": [
                               "classroom",
                               "workforce-training",
-                              "free-for-all"
+                              "free-for-all",
+                              "escape-room"
                             ]
                           },
                           "minItems": 1,
@@ -22021,7 +22028,8 @@
                         "enum": [
                           "classroom",
                           "workforce-training",
-                          "free-for-all"
+                          "free-for-all",
+                          "escape-room"
                         ]
                       },
                       "minItems": 1,
@@ -22237,7 +22245,8 @@
                         "enum": [
                           "classroom",
                           "workforce-training",
-                          "free-for-all"
+                          "free-for-all",
+                          "escape-room"
                         ]
                       },
                       "minItems": 1,

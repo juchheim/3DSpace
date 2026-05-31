@@ -13,6 +13,7 @@ import {
   rampClimbFromRotation
 } from "@3dspace/room-engine";
 import { buildMaterialProps } from "./buildMaterials";
+import { edgeOpeningFrameParts } from "../lib/buildEdgeOpeningMesh";
 import { wallMeshTransform } from "../lib/buildWallMesh";
 
 function RampClimbIndicator({ rotation }: { rotation: BuildPieceRotation }) {
@@ -87,6 +88,7 @@ export function BuildPieceMesh({
   valid = true,
   highlighted = false,
   interactive = false,
+  emitRealLight = false,
   pointerEventsPassThrough = false,
   onPointerMove,
   onPointerOut,
@@ -99,6 +101,8 @@ export function BuildPieceMesh({
   valid?: boolean;
   highlighted?: boolean;
   interactive?: boolean;
+  /** When true, mount a real point light (budgeted by BuildLayer). */
+  emitRealLight?: boolean;
   pointerEventsPassThrough?: boolean;
   onPointerMove?: (event: ThreeEvent<PointerEvent>) => void;
   onPointerOut?: (event: ThreeEvent<PointerEvent>) => void;
@@ -138,6 +142,55 @@ export function BuildPieceMesh({
         <meshStandardMaterial {...materialProps} />
         {ghost ? <Edges color={valid ? "#6dff9a" : "#ff6b6b"} linewidth={2} /> : null}
       </mesh>
+    );
+  }
+
+  if (piece.kind === "doorway" || piece.kind === "window") {
+    const parts = edgeOpeningFrameParts(piece);
+    const glass = piece.kind === "window";
+    return (
+      <group userData={{ buildPieceId: piece.id, buildPiece: piece }} {...pointerProps}>
+        {parts.map((part, index) => (
+          <mesh key={`${piece.id}-${index}`} position={part.position}>
+            <boxGeometry args={part.size} />
+            <meshStandardMaterial
+              {...materialProps}
+              {...(glass && index === 2
+                ? { transparent: true, opacity: ghost ? 0.35 : 0.45, roughness: 0.05, metalness: 0.1 }
+                : {})}
+            />
+          </mesh>
+        ))}
+        {ghost ? (
+          <mesh position={parts[0]?.position ?? [0, 0, 0]}>
+            <boxGeometry args={[0.01, 0.01, 0.01]} />
+            <Edges color={valid ? "#6dff9a" : "#ff6b6b"} linewidth={2} />
+          </mesh>
+        ) : null}
+      </group>
+    );
+  }
+
+  if (piece.kind === "light") {
+    const footprint = buildCellFootprint(piece.cell.ix, piece.cell.iz);
+    const centerX = (footprint.minX + footprint.maxX) / 2;
+    const centerZ = (footprint.minZ + footprint.maxZ) / 2;
+    const y = piece.level * BUILD_LEVEL_HEIGHT + 0.55;
+    return (
+      <group position={[centerX, y, centerZ]} userData={{ buildPieceId: piece.id, buildPiece: piece }} {...pointerProps}>
+        <mesh>
+          <cylinderGeometry args={[0.18, 0.22, 0.5, 10]} />
+          <meshStandardMaterial {...materialProps} emissive="#ffdd99" emissiveIntensity={0.6} />
+        </mesh>
+        <mesh position={[0, 0.35, 0]}>
+          <sphereGeometry args={[0.12, 10, 10]} />
+          <meshStandardMaterial color="#fff8e8" emissive="#ffe8b0" emissiveIntensity={ghost ? 0.8 : 1.2} />
+        </mesh>
+        {emitRealLight && !ghost ? (
+          <pointLight position={[0, 0.35, 0]} intensity={0.85} distance={8} decay={2} color="#ffe8c8" />
+        ) : null}
+        {ghost ? <Edges color={valid ? "#6dff9a" : "#ff6b6b"} linewidth={2} /> : null}
+      </group>
     );
   }
 

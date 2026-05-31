@@ -4,6 +4,7 @@ import type { Repository } from "./repository.js";
 import type { RoomObjectGrabLock } from "./room-objects/grab-lock.js";
 import type { SessionRateLimiter } from "./rooms-core/session-rate-limit.js";
 import type { BuildPlacementRateLimiter } from "./build-pieces/placement-rate-limit.js";
+import type { LogicTimerScheduler } from "./logic-pieces/timer-scheduler.js";
 import type { SharedBrowserOrchestrator } from "./shared-browser/orchestrator.js";
 
 export type BuildAppOptions = {
@@ -12,6 +13,7 @@ export type BuildAppOptions = {
   roomObjectGrabLock?: RoomObjectGrabLock;
   sharedBrowserOrchestrator?: SharedBrowserOrchestrator;
   meetingNotesAudioStore?: MeetingNotesAudioStore;
+  logicTimerScheduler?: LogicTimerScheduler;
 };
 
 export type AppContext = {
@@ -22,4 +24,5 @@ export type AppContext = {
   meetingNotesAudioStore: MeetingNotesAudioStore;
   sessionRateLimiter: SessionRateLimiter;
   buildPlacementRateLimiter: BuildPlacementRateLimiter;
+  logicTimerScheduler: LogicTimerScheduler;
 };

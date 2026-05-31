@@ -822,6 +822,85 @@ label {
   word-break: break-word;
 }
 
+.play-mode-dock {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 22;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: min(520px, calc(100vw - 24px));
+  padding: 8px 12px;
+  background: var(--hud-bg);
+  border: 1px solid var(--hud-bd);
+  border-radius: 5px;
+  backdrop-filter: blur(22px);
+  font-size: 12px;
+  color: var(--hud-tx);
+}
+
+.play-mode-dock strong {
+  color: var(--hud-tx-hi);
+}
+
+.escape-timer-hud {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--hud-bd);
+}
+
+.escape-timer-hud__time {
+  font-variant-numeric: tabular-nums;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--hud-tx-hi);
+}
+
+.escape-timer-hud__time--won {
+  color: #6dff9a;
+}
+
+.escape-timer-hud__actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.logic-debug-hud {
+  flex: 1 1 100%;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--hud-bd);
+  font-size: 11px;
+}
+
+.logic-debug-hud ul {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: 96px;
+  overflow-y: auto;
+}
+
+.logic-debug-hud li {
+  font-family: ui-monospace, monospace;
+  opacity: 0.9;
+}
+
+.logic-debug-empty {
+  display: block;
+  margin-top: 4px;
+  opacity: 0.75;
+}
+
 .build-controls-dock {
   position: absolute;
   bottom: 6px;
@@ -858,10 +937,379 @@ label {
 }
 
 .build-controls-dock__tools,
+.build-controls-dock__stamps,
 .build-controls-dock__materials {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-wrap: wrap;
+}
+
+.build-controls-dock__coachmark {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  border-radius: 8px;
+  background: rgba(12, 24, 18, 0.92);
+  border: 1px solid rgba(56, 144, 96, 0.35);
+  font-size: 11px;
+  color: var(--hud-tx);
+  max-width: min(720px, calc(100vw - 24px));
+}
+
+.build-controls-dock__coachmark p {
+  margin: 0;
+  flex: 1;
+}
+
+.build-controls-dock__empty-hint {
+  margin: 0 0 6px;
+  font-size: 11px;
+  color: #b8ffe0;
+  text-align: center;
+}
+
+.logic-controls-dock {
+  position: absolute;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-width: min(900px, calc(100vw - 16px));
+  pointer-events: none;
+}
+
+.logic-controls-dock > * {
+  pointer-events: auto;
+}
+
+.logic-controls-dock__bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(18, 12, 32, 0.92);
+  border: 1px solid rgba(184, 154, 255, 0.35);
+}
+
+.logic-controls-dock__toggle--on {
+  background: rgba(120, 80, 200, 0.22);
+  border-color: rgba(184, 154, 255, 0.45);
+  color: #e8d4ff;
+}
+
+.logic-controls-dock__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.logic-controls-dock__tool--active {
+  background: rgba(120, 80, 200, 0.22);
+  border-color: rgba(184, 154, 255, 0.45);
+  color: #e8d4ff;
+}
+
+.logic-controls-dock__channel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--hud-tx-m);
+}
+
+.logic-controls-dock__channel-input {
+  width: 72px;
+  font-size: 10px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  border: 1px solid rgba(184, 154, 255, 0.35);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--hud-tx);
+}
+
+.logic-controls-dock__hint,
+.logic-controls-dock__status {
+  margin: 0;
+  font-size: 10px;
+  color: var(--hud-tx-m);
+}
+
+.logic-controls-dock__count {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--hud-tx-m);
+}
+
+.logic-controls-dock__swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  display: inline-block;
+}
+
+.logic-controls-dock__opt {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--hud-tx-m);
+}
+
+.logic-controls-dock__opt--check {
+  gap: 3px;
+}
+
+.logic-controls-dock__opt-select,
+.logic-controls-dock__opt-input {
+  font-size: 10px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  border: 1px solid rgba(184, 154, 255, 0.35);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--hud-tx);
+}
+
+.logic-controls-dock__opt-input {
+  width: 64px;
+}
+
+.logic-controls-dock__starter {
+  border-color: rgba(184, 154, 255, 0.45);
+  color: #e8d4ff;
+}
+
+/* Logic inspector (author) */
+.logic-inspector {
+  position: absolute;
+  top: 132px;
+  right: 12px;
+  z-index: 13;
+  width: 248px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(18, 12, 32, 0.95);
+  border: 1px solid rgba(184, 154, 255, 0.4);
+  color: var(--hud-tx);
+  font-size: 11px;
+}
+
+.logic-inspector__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logic-inspector__head strong {
+  font-size: 13px;
+}
+
+.logic-inspector__role {
+  margin-left: 6px;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--hud-tx-m);
+}
+
+.logic-inspector__close {
+  padding: 0 6px;
+  line-height: 1.6;
+}
+
+.logic-inspector__grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  margin: 0;
+  color: var(--hud-tx-m);
+}
+
+.logic-inspector__grid dt {
+  font-weight: 600;
+}
+
+.logic-inspector__grid dd {
+  margin: 0;
+  color: var(--hud-tx);
+}
+
+.logic-inspector__mono,
+.logic-inspector__field input,
+.logic-inspector__field select {
+  font-size: 10px;
+}
+
+.logic-inspector__field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--hud-tx-m);
+}
+
+.logic-inspector__field--check {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  color: var(--hud-tx);
+}
+
+.logic-inspector__field-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.logic-inspector__field input[type="text"],
+.logic-inspector__field input[type="number"],
+.logic-inspector__field select {
+  width: 100%;
+  padding: 3px 5px;
+  border-radius: 4px;
+  border: 1px solid rgba(184, 154, 255, 0.35);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--hud-tx);
+}
+
+.logic-inspector__section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid rgba(184, 154, 255, 0.18);
+  padding-top: 6px;
+}
+
+.logic-inspector__section-title {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--hud-tx-m);
+}
+
+.logic-inspector__state,
+.logic-inspector__peers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.logic-inspector__muted {
+  color: var(--hud-tx-m);
+}
+
+.logic-inspector__chip,
+.logic-inspector__channel-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.logic-inspector__channel-row {
+  justify-content: space-between;
+}
+
+.logic-inspector__swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  display: inline-block;
+}
+
+.logic-inspector__peer {
+  background: rgba(120, 80, 200, 0.18);
+  border: 1px solid rgba(184, 154, 255, 0.3);
+  border-radius: 4px;
+  color: #e8d4ff;
+  padding: 2px 6px;
+  font-size: 10px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+
+.logic-inspector__remove {
+  border-color: rgba(255, 107, 107, 0.4);
+  color: #ff9a9a;
+}
+
+/* Logic debug overlay (author, play mode) */
+.logic-debug-overlay {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(18, 12, 32, 0.9);
+  border: 1px solid rgba(184, 154, 255, 0.3);
+  font-size: 10px;
+  max-width: 240px;
+}
+
+.logic-debug-overlay__group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.logic-debug-overlay__label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--hud-tx-m);
+}
+
+.logic-debug-overlay__channels,
+.logic-debug-overlay__nodes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.logic-debug-overlay__channels li,
+.logic-debug-overlay__nodes li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.logic-debug-overlay__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.logic-debug-overlay__channel--fresh {
+  color: #ffe8b0;
+}
+
+.logic-debug-overlay__pulse {
+  color: #6dff9a;
+  font-weight: 600;
+}
+
+.logic-debug-overlay__muted {
+  color: var(--hud-tx-m);
+  margin-left: auto;
 }
 
 .build-controls-dock__tool--active {

@@ -67,6 +67,7 @@ export type AppConfig = {
     enableWorkforceTraining: boolean;
     enableFreeForAll: boolean;
     enableFreeForAllBuilding: boolean;
+    enableEscapeRoom: boolean;
     buildPlacementRateLimitPerMinute: number;
     enableAiMeetingNotes: boolean;
     openAiTranscriptionModel: string;
@@ -300,6 +301,7 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       enableWorkforceTraining: envBoolean(raw, "ENABLE_WORKFORCE_TRAINING", false),
       enableFreeForAll: envBoolean(raw, "ENABLE_FREE_FOR_ALL", false),
       enableFreeForAllBuilding: envBoolean(raw, "ENABLE_FREE_FOR_ALL_BUILDING", false),
+      enableEscapeRoom: envBoolean(raw, "ENABLE_ESCAPE_ROOM", false),
       buildPlacementRateLimitPerMinute: envNumber(raw, "BUILD_PLACEMENT_RATE_LIMIT_PER_MINUTE", 600),
       enableAiMeetingNotes: envBoolean(raw, "ENABLE_AI_MEETING_NOTES", false),
       openAiTranscriptionModel: envString(raw, "OPENAI_TRANSCRIPTION_MODEL") ?? "gpt-4o-transcribe",

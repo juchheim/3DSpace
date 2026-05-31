@@ -18,6 +18,7 @@ export const CLIENT_TUNING = {
   enableWorkforceTraining: process.env.NEXT_PUBLIC_ENABLE_WORKFORCE_TRAINING === "true",
   enableFreeForAll: process.env.NEXT_PUBLIC_ENABLE_FREE_FOR_ALL === "true",
   enableFreeForAllBuilding: process.env.NEXT_PUBLIC_ENABLE_FREE_FOR_ALL_BUILDING === "true",
+  enableEscapeRoom: process.env.NEXT_PUBLIC_ENABLE_ESCAPE_ROOM === "true",
   enableAiMeetingNotes: process.env.NEXT_PUBLIC_ENABLE_AI_MEETING_NOTES === "true",
   enableLiveCaptions: process.env.NEXT_PUBLIC_ENABLE_LIVE_CAPTIONS === "true",
   enableAiObjectGeneration: process.env.NEXT_PUBLIC_ENABLE_AI_OBJECT_GENERATION === "true",
@@ -27,3 +28,10 @@ export const CLIENT_TUNING = {
   /** When true, Hyperbeam buffers frames for smoother motion (higher latency). */
   sharedBrowserHyperbeamPlayoutDelay: process.env.NEXT_PUBLIC_SHARED_BROWSER_HYPERBEAM_PLAYOUT_DELAY === "true"
 };
+
+/** Mirrors API `buildingEnvEnabled` — world-building env gate per room type. */
+export function buildingEnvEnabled(roomType: string | null | undefined): boolean {
+  if (roomType === "free-for-all") return CLIENT_TUNING.enableFreeForAllBuilding;
+  if (roomType === "escape-room") return CLIENT_TUNING.enableEscapeRoom;
+  return false;
+}

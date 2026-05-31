@@ -340,7 +340,7 @@ export const RoomObjectTouchPolicySchema = z.enum(["teacher-only", "granted", "a
 export const RoomObjectStatusSchema = z.enum(["active", "locked", "archived"]);
 export const RoomObjectSourceSchema = z.enum(["builtin", "custom", "partner", "ai-generated"]);
 export const RoomObjectRendererSchema = z.enum(["gltf", "procedural"]);
-export const RoomTypeSchema = z.enum(["classroom", "workforce-training", "free-for-all"]);
+export const RoomTypeSchema = z.enum(["classroom", "workforce-training", "free-for-all", "escape-room"]);
 export type RoomType = z.infer<typeof RoomTypeSchema>;
 export const RoomObjectCategorySchema = z.enum(["math", "science", "geography", "ela", "art", "custom"]);
 
@@ -770,7 +770,7 @@ export const RoomObjectResetResponseSchema = z.object({
 /** Canonical max build height level (shared with `@3dspace/room-engine`). */
 export const BUILD_MAX_LEVEL = 4;
 
-export const BuildPieceKindSchema = z.enum(["wall", "floor", "ramp"]);
+export const BuildPieceKindSchema = z.enum(["wall", "floor", "ramp", "doorway", "window", "light"]);
 export const BuildPieceEdgeSchema = z.enum(["n", "e", "s", "w"]);
 export const BuildPieceRotationSchema = z.union([
   z.literal(0),
@@ -795,11 +795,12 @@ export const BuildPieceSchema = z
     createdAt: z.string()
   })
   .superRefine((piece, ctx) => {
-    if (piece.kind === "wall") {
+    const edgeKinds = ["wall", "doorway", "window"] as const;
+    if (edgeKinds.includes(piece.kind as (typeof edgeKinds)[number])) {
       if (!piece.edge) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "wall pieces require edge",
+          message: `${piece.kind} pieces require edge`,
           path: ["edge"]
         });
       }
@@ -808,7 +809,7 @@ export const BuildPieceSchema = z
     if (piece.edge !== undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "only wall pieces may set edge",
+        message: "only edge-aligned pieces may set edge",
         path: ["edge"]
       });
     }
@@ -824,17 +825,18 @@ export const CreateBuildPieceRequestSchema = z
     materialId: BuildPieceMaterialSchema.optional()
   })
   .superRefine((piece, ctx) => {
-    if (piece.kind === "wall" && !piece.edge) {
+    const edgeKinds = ["wall", "doorway", "window"] as const;
+    if (edgeKinds.includes(piece.kind as (typeof edgeKinds)[number]) && !piece.edge) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "wall pieces require edge",
+        message: `${piece.kind} pieces require edge`,
         path: ["edge"]
       });
     }
-    if (piece.kind !== "wall" && piece.edge !== undefined) {
+    if (!edgeKinds.includes(piece.kind as (typeof edgeKinds)[number]) && piece.edge !== undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "only wall pieces may set edge",
+        message: "only edge-aligned pieces may set edge",
         path: ["edge"]
       });
     }
@@ -896,6 +898,239 @@ export const ClearBuildPiecesResponseSchema = z.object({
   realtimeMessages: z.array(RoomBuildRealtimeMessageSchema).default([])
 });
 
+// ── Escape room logic pieces ───────────────────────────────────────────────────
+
+export const LogicPieceKindSchema = z.enum([
+  "button",
+  "pressurePlate",
+  "proximityZone",
+  "timer",
+  "door",
+  "light",
+  "teleporter"
+]);
+
+export const LogicRoleSchema = z.enum(["emitter", "consumer"]);
+
+export const LogicConfigSchema = z
+  .object({
+    fireMode: z.enum(["pulse", "toggle", "whileHeld"]).default("pulse"),
+    listenMode: z.enum(["momentary", "toggle", "latch"]).default("latch"),
+    requireAll: z.array(z.string()).default([]),
+    delayMs: z.number().int().min(0).max(600000).default(0),
+    intervalMs: z.number().int().min(0).max(600000).default(0),
+    triggerChannelId: z.string().max(64).optional(),
+    debounceMs: z.number().int().min(0).max(10000).default(250),
+    isExit: z.boolean().default(false),
+    initialState: z.record(z.unknown()).default({})
+  })
+  .default({});
+
+export const BuildLogicPieceSchema = z
+  .object({
+    id: z.string(),
+    roomId: z.string(),
+    kind: LogicPieceKindSchema,
+    cell: z.object({ ix: z.number().int(), iz: z.number().int() }),
+    level: z.number().int().min(0).max(BUILD_MAX_LEVEL),
+    edge: BuildPieceEdgeSchema.optional(),
+    rotation: BuildPieceRotationSchema.default(0),
+    channelId: z.string().max(64).optional(),
+    linkId: z.string().max(64).optional(),
+    config: LogicConfigSchema,
+    createdByUserId: z.string(),
+    createdAt: z.string()
+  })
+  .superRefine((piece, ctx) => {
+    const edgeKinds = ["door", "button"] as const;
+    if (edgeKinds.includes(piece.kind as (typeof edgeKinds)[number])) {
+      if (!piece.edge) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `${piece.kind} logic pieces require edge`,
+          path: ["edge"]
+        });
+      }
+      return;
+    }
+    if (piece.edge !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "only edge-aligned logic pieces may set edge",
+        path: ["edge"]
+      });
+    }
+  });
+
+export const CreateLogicPieceRequestSchema = z
+  .object({
+    kind: LogicPieceKindSchema,
+    cell: z.object({ ix: z.number().int(), iz: z.number().int() }),
+    level: z.number().int().min(0).max(BUILD_MAX_LEVEL),
+    edge: BuildPieceEdgeSchema.optional(),
+    rotation: BuildPieceRotationSchema.optional(),
+    channelId: z.string().max(64).optional(),
+    linkId: z.string().max(64).optional(),
+    config: LogicConfigSchema.optional()
+  })
+  .superRefine((piece, ctx) => {
+    const edgeKinds = ["door", "button"] as const;
+    if (edgeKinds.includes(piece.kind as (typeof edgeKinds)[number]) && !piece.edge) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `${piece.kind} logic pieces require edge`,
+        path: ["edge"]
+      });
+    }
+    if (!edgeKinds.includes(piece.kind as (typeof edgeKinds)[number]) && piece.edge !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "only edge-aligned logic pieces may set edge",
+        path: ["edge"]
+      });
+    }
+  });
+
+export const UpdateLogicPieceRequestSchema = z.object({
+  channelId: z.string().max(64).optional(),
+  linkId: z.string().max(64).optional(),
+  config: LogicConfigSchema.optional()
+});
+
+export const ListLogicPiecesResponseSchema = z.object({
+  pieces: z.array(BuildLogicPieceSchema)
+});
+
+export const LogicChannelStateSchema = z.object({
+  latched: z.boolean(),
+  lastPulseAt: z.number().int()
+});
+
+export const LogicStateSchema = z.object({
+  roomId: z.string(),
+  channels: z.record(z.string(), LogicChannelStateSchema).default({}),
+  nodes: z.record(z.string(), z.record(z.unknown())).default({}),
+  updatedAt: z.string()
+});
+
+export const RoomLogicUpsertMessageV1Schema = z.object({
+  type: z.literal("room.logic.upsert.v1"),
+  roomId: z.string(),
+  piece: BuildLogicPieceSchema,
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const RoomLogicRemoveMessageV1Schema = z.object({
+  type: z.literal("room.logic.remove.v1"),
+  roomId: z.string(),
+  pieceId: z.string(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const RoomLogicStateMessageV1Schema = z.object({
+  type: z.literal("room.logic.state.v1"),
+  roomId: z.string(),
+  channels: z.record(z.string(), LogicChannelStateSchema).optional(),
+  nodes: z.record(z.string(), z.record(z.unknown())).optional(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const RoomLogicRealtimeMessageSchema = z.discriminatedUnion("type", [
+  RoomLogicUpsertMessageV1Schema,
+  RoomLogicRemoveMessageV1Schema,
+  RoomLogicStateMessageV1Schema
+]);
+
+export const PatchLogicPieceNodeStateRequestSchema = z.object({
+  open: z.boolean().optional(),
+  on: z.boolean().optional(),
+  armed: z.boolean().optional()
+});
+
+export const PatchLogicPieceNodeStateResponseSchema = z.object({
+  state: LogicStateSchema,
+  realtimeMessages: z.array(RoomLogicRealtimeMessageSchema).default([])
+});
+
+export const CreateLogicPieceResponseSchema = z.object({
+  piece: BuildLogicPieceSchema,
+  realtimeMessages: z.array(RoomLogicRealtimeMessageSchema).default([])
+});
+
+export const UpdateLogicPieceResponseSchema = z.object({
+  piece: BuildLogicPieceSchema,
+  realtimeMessages: z.array(RoomLogicRealtimeMessageSchema).default([])
+});
+
+export const DeleteLogicPieceResponseSchema = z.object({
+  realtimeMessages: z.array(RoomLogicRealtimeMessageSchema).default([])
+});
+
+export const ClearLogicPiecesResponseSchema = z.object({
+  realtimeMessages: z.array(RoomLogicRealtimeMessageSchema).default([])
+});
+
+export const GetLogicStateResponseSchema = z.object({
+  state: LogicStateSchema
+});
+
+export const LogicSignalKindSchema = z.enum([
+  "interact",
+  "stepOn",
+  "stepOff",
+  "proximityEnter",
+  "proximityExit"
+]);
+
+export const LogicPieceSignalRequestSchema = z.object({
+  kind: LogicSignalKindSchema
+});
+
+export const LogicPieceSignalResponseSchema = z.object({
+  ok: z.literal(true),
+  pieceId: z.string(),
+  kind: LogicSignalKindSchema,
+  state: LogicStateSchema.optional(),
+  realtimeMessages: z.array(RoomLogicRealtimeMessageSchema).default([]),
+  teleportTo: z.object({ x: z.number(), y: z.number(), z: z.number() }).optional()
+});
+
+export const EscapeSessionStatusSchema = z.enum(["idle", "running", "won", "ended"]);
+
+export const EscapeSessionSchema = z.object({
+  roomId: z.string(),
+  status: EscapeSessionStatusSchema.default("idle"),
+  startedAt: z.string().nullable().default(null),
+  durationSec: z.number().int().positive().max(7200).default(900),
+  endedAt: z.string().nullable().default(null)
+});
+
+export const RoomSessionMessageV1Schema = z.object({
+  type: z.literal("room.session.v1"),
+  roomId: z.string(),
+  session: EscapeSessionSchema,
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const GetEscapeSessionResponseSchema = z.object({
+  session: EscapeSessionSchema
+});
+
+export const StartEscapeSessionRequestSchema = z.object({
+  durationSec: z.number().int().positive().max(7200).optional()
+});
+
+export const EscapeSessionMutationResponseSchema = z.object({
+  session: EscapeSessionSchema,
+  realtimeMessages: z
+    .array(z.union([RoomSessionMessageV1Schema, RoomLogicRealtimeMessageSchema]))
+    .default([])
+});
+
 /** Durable room-event types emitted by build-piece mutations (see `recordRoomEvent`). */
 export const BUILD_ROOM_EVENT_TYPES = {
   piecePlaced: "build.piece.placed.v1",
@@ -944,7 +1179,13 @@ export const ApiErrorCodeSchema = z.enum([
   "build-cap-exceeded",
   "build-destroy-denied",
   "build-not-found",
-  "build-wall-has-boards"
+  "build-wall-has-boards",
+  "logic-disabled",
+  "logic-rejected",
+  "logic-cap-exceeded",
+  "logic-destroy-denied",
+  "logic-not-found",
+  "logic-slot-occupied"
 ]);
 
 export function parseRoomObjectParameterSchemaJson(json: string) {
@@ -985,6 +1226,7 @@ export type RoomTypeFeatureFlags = {
   sharedBrowsers: boolean;
   liveCaptions: boolean;
   building: boolean;
+  logic: boolean;
 };
 
 const NON_CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
@@ -1006,7 +1248,8 @@ const NON_CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freez
   whiteboards: true,
   sharedBrowsers: false,
   liveCaptions: false,
-  building: false
+  building: false,
+  logic: false
 });
 
 const CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
@@ -1028,7 +1271,8 @@ const CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
   whiteboards: true,
   sharedBrowsers: false,
   liveCaptions: false,
-  building: false
+  building: false,
+  logic: false
 });
 
 const FREE_FOR_ALL_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
@@ -1050,7 +1294,31 @@ const FREE_FOR_ALL_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze
   whiteboards: true,
   sharedBrowsers: true,
   liveCaptions: true,
-  building: true
+  building: true,
+  logic: false
+});
+
+const ESCAPE_ROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
+  classroomState: false,
+  peoplePanelTeacherControls: false,
+  lessons: false,
+  privateChecks: false,
+  groups: false,
+  focus: false,
+  hallPass: false,
+  whisper: false,
+  breakoutPods: false,
+  studentMediaControls: false,
+  worldSkins: true,
+  dynamicBoards: true,
+  openJoin: false,
+  aiMeetingNotes: false,
+  aiObjects: true,
+  whiteboards: true,
+  sharedBrowsers: false,
+  liveCaptions: false,
+  building: true,
+  logic: true
 });
 
 /**
@@ -1062,6 +1330,8 @@ export function getRoomTypeFeatureFlags(roomType: RoomType | string | null | und
       return CLASSROOM_ROOM_TYPE_FEATURE_FLAGS;
     case "free-for-all":
       return FREE_FOR_ALL_ROOM_TYPE_FEATURE_FLAGS;
+    case "escape-room":
+      return ESCAPE_ROOM_ROOM_TYPE_FEATURE_FLAGS;
     default:
       return NON_CLASSROOM_ROOM_TYPE_FEATURE_FLAGS;
   }
@@ -1199,7 +1469,11 @@ export const RoomSettingsSchema = z.object({
     hyperbeamFramerate: 30
   }),
   buildingEnabled: z.boolean().default(true),
-  buildDestroyPolicy: BuildDestroyPolicySchema.default("anyone")
+  buildDestroyPolicy: BuildDestroyPolicySchema.default("anyone"),
+  /** When true, structural edits are blocked server-side (escape-room play test). */
+  playModeEnabled: z.boolean().default(false),
+  /** When true, logic/trigger pieces may be authored (escape rooms). */
+  logicEnabled: z.boolean().default(true)
 });
 
 /** Apply {@link RoomSettingsSchema} defaults to persisted room settings (e.g. `roomObjects` opt-in). */
@@ -2854,6 +3128,15 @@ export const RoomSkinMessageSchema = z.object({
 });
 export type RoomSkinMessage = z.infer<typeof RoomSkinMessageSchema>;
 
+export const RoomPlayModeMessageSchema = z.object({
+  type: z.literal("room.play-mode.v1"),
+  roomId: z.string(),
+  playModeEnabled: z.boolean(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+export type RoomPlayModeMessage = z.infer<typeof RoomPlayModeMessageSchema>;
+
 export const RoomEventRequestSchema = z.object({
   type: z.string().min(1).max(120),
   payload: z.record(z.unknown()).default({})
@@ -2940,6 +3223,18 @@ export type RoomObjectParameterSchemaMap = z.infer<typeof RoomObjectParameterSch
 export type RoomObjectTemplate = z.infer<typeof RoomObjectTemplateSchema>;
 export type RoomObject = z.infer<typeof RoomObjectSchema>;
 export type BuildPieceKind = z.infer<typeof BuildPieceKindSchema>;
+export type LogicPieceKind = z.infer<typeof LogicPieceKindSchema>;
+export type LogicRole = z.infer<typeof LogicRoleSchema>;
+export type LogicConfig = z.infer<typeof LogicConfigSchema>;
+export type LogicConfigInput = z.input<typeof LogicConfigSchema>;
+export type BuildLogicPiece = z.infer<typeof BuildLogicPieceSchema>;
+export type LogicChannelState = z.infer<typeof LogicChannelStateSchema>;
+export type LogicState = z.infer<typeof LogicStateSchema>;
+export type RoomLogicRealtimeMessage = z.infer<typeof RoomLogicRealtimeMessageSchema>;
+export type LogicSignalKind = z.infer<typeof LogicSignalKindSchema>;
+export type EscapeSession = z.infer<typeof EscapeSessionSchema>;
+export type EscapeSessionStatus = z.infer<typeof EscapeSessionStatusSchema>;
+export type RoomSessionRealtimeMessage = z.infer<typeof RoomSessionMessageV1Schema>;
 export type BuildPieceEdge = z.infer<typeof BuildPieceEdgeSchema>;
 export type BuildPieceRotation = z.infer<typeof BuildPieceRotationSchema>;
 export type BuildPieceMaterial = z.infer<typeof BuildPieceMaterialSchema>;

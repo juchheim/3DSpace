@@ -74,6 +74,31 @@ export function roomSettings(config: AppConfig) {
       hyperbeamFramerate: config.tuning.sharedBrowserHyperbeamFramerate
     },
     buildingEnabled: true,
-    buildDestroyPolicy: "anyone" as const
+    buildDestroyPolicy: "anyone" as const,
+    logicEnabled: true,
+    playModeEnabled: false
+  };
+}
+
+export function escapeRoomSettings(config: AppConfig) {
+  const base = roomSettings(config);
+  return {
+    ...base,
+    buildDestroyPolicy: "owner-or-teacher" as const,
+    wallObjectCreation: "teacher-only" as const,
+    hallpass: { ...base.hallpass, enabled: false },
+    pods: { ...base.pods, enabled: false },
+    roomObjects: {
+      ...base.roomObjects,
+      defaultTouchPolicy: "teacher-only" as const
+    },
+    worldSkins: {
+      ...base.worldSkins,
+      enabled: true,
+      skinDayNightMode: "night" as const
+    },
+    aiMeetingNotes: { ...base.aiMeetingNotes, enabled: false },
+    sharedBrowsers: { ...base.sharedBrowsers, enabled: false },
+    logicEnabled: true
   };
 }

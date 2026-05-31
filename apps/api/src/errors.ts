@@ -119,3 +119,44 @@ export function buildNotFound() {
 export function buildWallHasBoards() {
   return new HttpError(409, "Remove the board before destroying this wall.", "build-wall-has-boards");
 }
+
+export function logicDisabled() {
+  return new HttpError(404, "Logic is disabled for this room", "logic-disabled");
+}
+
+export function logicRejected(reason: string) {
+  return new HttpError(422, `Logic placement rejected: ${reason}`, "logic-rejected", { reason });
+}
+
+export function logicCapExceeded(scope: "room" | "user") {
+  return new HttpError(
+    422,
+    scope === "room" ? "Logic piece limit reached for this room" : "Logic piece limit reached for this user",
+    "logic-cap-exceeded",
+    { scope }
+  );
+}
+
+export function logicDestroyDenied() {
+  return new HttpError(403, "You do not have permission to remove this logic piece", "logic-destroy-denied");
+}
+
+export function logicNotFound() {
+  return new HttpError(404, "Logic piece not found", "logic-not-found");
+}
+
+export function escapeSessionAlreadyRunning() {
+  return new HttpError(409, "An escape session is already running", "escape-session-already-running");
+}
+
+export function escapeSessionNotRunning() {
+  return new HttpError(422, "No escape session is running", "escape-session-not-running");
+}
+
+export function logicTeleporterDisarmed() {
+  return new HttpError(422, "Teleporter pad is not armed", "logic-teleporter-disarmed");
+}
+
+export function logicTeleporterNoTarget() {
+  return new HttpError(422, "No paired teleporter found for this linkId", "logic-teleporter-no-target");
+}

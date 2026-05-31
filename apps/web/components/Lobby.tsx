@@ -16,18 +16,20 @@ import { CopyRoomInviteButton } from "./CopyRoomInviteButton";
 // ── Room type registry ──────────────────────────────────────────────────────
 // To add a new room type: (1) extend the union, (2) add an entry to ROOM_TYPES,
 // (3) add a case to renderRoomTypeSteps() below.
-type RoomType = "classroom" | "workforce-training" | "free-for-all";
+type RoomType = "classroom" | "workforce-training" | "free-for-all" | "escape-room";
 
 const ROOM_TYPES: { value: RoomType; label: string; description: string }[] = [
   { value: "classroom",          label: "Classroom",          description: "Live 3D sessions with students and a shareable invite code." },
   { value: "workforce-training", label: "Workforce Training", description: "Immersive training sessions for teams and organizations." },
   { value: "free-for-all",       label: "Free-for-All",       description: "Open, social rooms. Shared password to create or join." },
+  { value: "escape-room",        label: "Escape Room",        description: "Build puzzle rooms on an empty canvas. Share an invite for players to join." },
 ];
 
 const ROOM_TYPE_FORM_DEFAULTS: Record<RoomType, { className: string; roomName: string }> = {
   classroom: { className: "Physics 101", roomName: "Wave Lab" },
   "workforce-training": { className: "Acme Field Ops", roomName: "Compliance Refresher" },
   "free-for-all": { className: "Open Space", roomName: "Hangout" },
+  "escape-room": { className: "Puzzle Lab", roomName: "The Locked Study" },
 };
 
 const ROOM_TYPE_JOIN_COPY: Record<
@@ -37,6 +39,7 @@ const ROOM_TYPE_JOIN_COPY: Record<
   classroom: { guestSingular: "student", hostSingular: "teacher", joinButtonLabel: "Join class room" },
   "workforce-training": { guestSingular: "trainee", hostSingular: "instructor", joinButtonLabel: "Join training" },
   "free-for-all": { guestSingular: "participant", hostSingular: "host", joinButtonLabel: "Browse rooms" },
+  "escape-room": { guestSingular: "player", hostSingular: "author", joinButtonLabel: "Join escape room" },
 };
 
 const DEFAULT_ROOM_TYPE: RoomType = CLIENT_TUNING.enableFreeForAll ? "free-for-all" : "classroom";
@@ -610,6 +613,128 @@ export function Lobby() {
           </div>
         );
 
+      case "escape-room":
+        return (
+          <div className="lb-steps-grid">
+
+            <div className="lb-step-col">
+              <div className="lb-step-hd">
+                <div className={`lb-step-badge${hasRoom ? " lb-step-badge-done" : ""}`}>
+                  {hasRoom ? "✓" : "1"}
+                </div>
+                <div>
+                  <p className="lb-step-title">Create</p>
+                  <p className="lb-step-desc">Name your lab and escape room</p>
+                </div>
+              </div>
+              <div className="lb-step-body">
+                <div className="lb-field">
+                  <label className="lb-label" htmlFor="lb-escape-class-name">Lab name</label>
+                  <input
+                    id="lb-escape-class-name"
+                    className="lb-inp"
+                    value={className}
+                    onChange={(e) => setClassName(e.target.value)}
+                    placeholder="e.g. Puzzle Lab"
+                  />
+                </div>
+                <div className="lb-field">
+                  <label className="lb-label" htmlFor="lb-escape-room-name">Room name</label>
+                  <input
+                    id="lb-escape-room-name"
+                    className="lb-inp"
+                    value={roomName}
+                    onChange={(e) => setRoomName(e.target.value)}
+                    placeholder="e.g. The Locked Study"
+                  />
+                </div>
+                <button
+                  className="lb-btn lb-btn-pri"
+                  disabled={busy || authDisabled}
+                  onClick={() => void createRoomOfType("escape-room")}
+                >
+                  {busy ? "Creating…" : "Create escape room"}
+                </button>
+              </div>
+            </div>
+
+            <div className="lb-step-vsep" />
+
+            <div className={`lb-step-col${hasRoom ? " lb-lit" : " lb-pending"}`} aria-live="polite">
+              <div className="lb-step-hd">
+                <div className={`lb-step-badge${!hasRoom ? " lb-step-badge-dim" : ""}`}>2</div>
+                <div>
+                  <p className="lb-step-title">Share</p>
+                  <p className="lb-step-desc">Send the invite to players</p>
+                </div>
+              </div>
+              <div className="lb-step-body">
+                {hasRoom && createdInvite ? (
+                  <>
+                    <div className="lb-invite-code" aria-label="Invite code">
+                      {createdInvite.code}
+                    </div>
+                    <div className="lb-btn-row">
+                      <button
+                        className="lb-btn lb-btn-pri lb-btn-sm"
+                        style={{ flex: 1 }}
+                        onClick={() => void copyInvite("code")}
+                      >
+                        {copyStatus === "code" ? "✓ Copied!" : "Copy code"}
+                      </button>
+                      <button
+                        className="lb-btn lb-btn-sec lb-btn-sm"
+                        style={{ flex: 1 }}
+                        onClick={() => void copyInvite("link")}
+                      >
+                        {copyStatus === "link" ? "✓ Copied!" : "Copy link"}
+                      </button>
+                    </div>
+                    <div className="lb-field">
+                      <span className="lb-label">Join link</span>
+                      <input
+                        className="lb-inp"
+                        readOnly
+                        value={inviteJoinUrl(createdInvite.roomId!, createdInvite.code)}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="lb-placeholder">Invite code appears here after step 1</div>
+                )}
+              </div>
+            </div>
+
+            <div className="lb-step-vsep" />
+
+            <div className={`lb-step-col${hasRoom ? " lb-lit" : " lb-pending"}`}>
+              <div className="lb-step-hd">
+                <div className={`lb-step-badge${!hasRoom ? " lb-step-badge-dim" : ""}`}>3</div>
+                <div>
+                  <p className="lb-step-title">Enter</p>
+                  <p className="lb-step-desc">Open your escape room in 3D</p>
+                </div>
+              </div>
+              <div className="lb-step-body">
+                {hasRoom ? (
+                  <>
+                    <Link
+                      className="lb-btn lb-btn-pri lb-btn-full"
+                      href={`/rooms/${createdInvite!.roomId}`}
+                    >
+                      Enter escape room →
+                    </Link>
+                    <p className="lb-join-hint" style={{ textAlign: "center" }}>Room is live — build your puzzle layout</p>
+                  </>
+                ) : (
+                  <div className="lb-placeholder">Enter button appears here after step 1</div>
+                )}
+              </div>
+            </div>
+
+          </div>
+        );
+
       case "free-for-all":
         return (
           <div className="lb-steps-grid">
@@ -749,6 +874,7 @@ export function Lobby() {
                     .filter((rt) => {
                       if (rt.value === "workforce-training") return CLIENT_TUNING.enableWorkforceTraining;
                       if (rt.value === "free-for-all") return CLIENT_TUNING.enableFreeForAll;
+                      if (rt.value === "escape-room") return CLIENT_TUNING.enableEscapeRoom;
                       return true;
                     })
                     .map((rt) => (

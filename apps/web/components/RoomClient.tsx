@@ -10,8 +10,16 @@ import {
   DYNAMIC_WALL_ANCHOR_MIN_HEIGHT_M,
   DYNAMIC_WALL_ANCHOR_MIN_WIDTH_M
 } from "@3dspace/contracts";
-import { AvatarAppearanceMessageSchema, AvatarReactionMessageSchema, getRoomTypeFeatureFlags, ParticipantAudioModeMessageSchema, parseRoomSettings, RoomSkinMessageSchema } from "@3dspace/contracts";
-import { computeGroupMemberPosition, createAvatarState, floorYFromZ, unprojectPointFrom2D } from "@3dspace/room-engine";
+import {
+  AvatarAppearanceMessageSchema,
+  AvatarReactionMessageSchema,
+  getRoomTypeFeatureFlags,
+  ParticipantAudioModeMessageSchema,
+  parseRoomSettings,
+  RoomPlayModeMessageSchema,
+  RoomSkinMessageSchema
+} from "@3dspace/contracts";
+import { computeGroupMemberPosition, createAvatarState, floorYFromZ, isEscapeRoomManifest, logicChannelsFromPieces, unprojectPointFrom2D, worldToCell } from "@3dspace/room-engine";
 import {
   archiveRoomObjectTemplate,
   heartbeatRoomSession,
@@ -23,7 +31,7 @@ import {
   postRoomEvent,
   uploadRoomObjectGlb
 } from "../lib/api";
-import { CLIENT_TUNING } from "../lib/config";
+import { buildingEnvEnabled, CLIENT_TUNING } from "../lib/config";
 import { pickDisplayName } from "../lib/displayName";
 import { useAvatarMovement } from "../lib/useAvatarMovement";
 import { useAvatarAppearance } from "../lib/useAvatarAppearance";
@@ -39,6 +47,7 @@ import { useWhiteboards } from "../lib/useWhiteboards";
 import { useSharedBrowser } from "../lib/useSharedBrowser";
 import { useRoomObjects } from "../lib/useRoomObjects";
 import { useBuildPieces } from "../lib/useBuildPieces";
+import { useBuildHistory } from "../lib/useBuildHistory";
 import { useBuildMode } from "../lib/useBuildMode";
 import type { Build2DPreview } from "./BuildPreview2D";
 import {
@@ -89,6 +98,17 @@ import { useLiveCaptions } from "../lib/useLiveCaptions";
 import { MeetingNotesPanel } from "./MeetingNotesPanel";
 import { LiveCaptionsDock } from "./LiveCaptionsDock";
 import { BuildControls } from "./BuildControls";
+import { LogicControls } from "./LogicControls";
+import { LogicInspector } from "./LogicInspector";
+import { LogicDebugOverlay } from "./LogicDebugOverlay";
+import { useLogicMode } from "../lib/useLogicMode";
+import { ESCAPE_STARTER_KIT, roomStampToTargets } from "../lib/buildStamps";
+import { useLogicPieces } from "../lib/useLogicPieces";
+import { useLogicDetection, type LogicDetectionEvent } from "../lib/useLogicDetection";
+import { useEscapeSession } from "../lib/useEscapeSession";
+import { EscapeTimerHud } from "./EscapeTimerHud";
+import { signalLogicPiece } from "../lib/api";
+import type { BuildLogicPiece } from "@3dspace/contracts";
 import { useAiObjectGenerator } from "../lib/useAiObjectGenerator";
 import { AiObjectPanel } from "./AiObjectPanel";
 import { DYNAMIC_BOARD_DEFAULT_HEIGHT, DYNAMIC_BOARD_DEFAULT_WIDTH } from "./RoomView3D";
@@ -258,6 +278,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         return { hostSingular: "Instructor", hostInitial: "I", guestSingular: "Trainee", guestPlural: "Trainees" };
       case "free-for-all":
         return { hostSingular: "Participant", hostInitial: "P", guestSingular: "Participant", guestPlural: "Participants" };
+      case "escape-room":
+        return { hostSingular: "Author", hostInitial: "A", guestSingular: "Player", guestPlural: "Players" };
       default:
         return { hostSingular: "Teacher", hostInitial: "T", guestSingular: "Student", guestPlural: "Students" };
     }
@@ -266,6 +288,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const roomTypeLabel =
     session?.room.type === "workforce-training" ? "Workforce Training" :
     session?.room.type === "free-for-all" ? "Free-for-All" :
+    session?.room.type === "escape-room" ? "Escape Room" :
     "Classroom";
   const dynamicBoards = useDynamicWallAnchors({
     identity,
@@ -356,7 +379,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   // until the workforce-training room gets its own skin assets.
   const activeSkinForRoom = useMemo(() => {
     if (
-      (session?.room.type !== "workforce-training" && session?.room.type !== "free-for-all") ||
+      (session?.room.type !== "workforce-training" &&
+        session?.room.type !== "free-for-all" &&
+        session?.room.type !== "escape-room") ||
       skinId !== null ||
       !activeSkin.skin
     ) {
@@ -433,18 +458,94 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     enabled: roomObjectsEnabled,
     publish: publishRealtime
   });
-  const buildPiecesEnabled =
+  const playModeEnabled = parsedRoomSettings?.playModeEnabled ?? false;
+  const buildingFeatureEnabled =
     roomTypeFeatures.building &&
-    CLIENT_TUNING.enableFreeForAllBuilding &&
+    buildingEnvEnabled(session?.room.type) &&
     (parsedRoomSettings?.buildingEnabled ?? true) &&
     Boolean(session);
+  const buildPiecesEnabled = buildingFeatureEnabled && !playModeEnabled;
   const buildPieces = useBuildPieces({
     identity,
     roomId: session?.room.id ?? roomId,
-    enabled: buildPiecesEnabled,
+    enabled: buildingFeatureEnabled,
     publish: publishRealtime
   });
   const buildMode = useBuildMode();
+  const logicFeatureEnabled =
+    roomTypeFeatures.logic &&
+    CLIENT_TUNING.enableEscapeRoom &&
+    (parsedRoomSettings?.logicEnabled ?? true) &&
+    Boolean(session);
+  const logicAuthoringEnabled = logicFeatureEnabled && role === "teacher" && !playModeEnabled;
+  const logicPlayEnabled = logicFeatureEnabled && playModeEnabled;
+  const logicPieces = useLogicPieces({
+    identity,
+    roomId: session?.room.id ?? roomId,
+    enabled: logicFeatureEnabled,
+    publish: publishRealtime
+  });
+  const logicMode = useLogicMode();
+  const [selectedLogicPieceId, setSelectedLogicPieceId] = useState<string | null>(null);
+  const onExitStepOnRef = useRef<(() => void) | null>(null);
+  const movementTeleportRef = useRef<((position: { x: number; y: number; z: number }) => void) | null>(null);
+  const [logicDebugEvents, setLogicDebugEvents] = useState<LogicDetectionEvent[]>([]);
+  const appendLogicDebugEvent = useCallback((event: LogicDetectionEvent) => {
+    setLogicDebugEvents((current) => [event, ...current].slice(0, 12));
+  }, []);
+  const [logicPulseAtByPieceId, setLogicPulseAtByPieceId] = useState<Record<string, number>>({});
+  const reportLogicSignal = useCallback(
+    async (pieceId: string, kind: LogicDetectionEvent["kind"]) => {
+      if (!session?.room.id) return;
+      try {
+        const result = await signalLogicPiece(identity, session.room.id, pieceId, kind);
+        for (const message of result.realtimeMessages) {
+          logicPieces.handleRealtimeMessage(message);
+          publishRealtime(message);
+        }
+        if (result.teleportTo) {
+          movementTeleportRef.current?.(result.teleportTo);
+        }
+        if (kind === "stepOn" && logicPieces.piecesById[pieceId]?.config?.isExit === true) {
+          onExitStepOnRef.current?.();
+        }
+        if (kind === "interact") {
+          setLogicPulseAtByPieceId((current) => ({ ...current, [pieceId]: Date.now() }));
+        }
+      } catch {
+        // Local HUD still records detection; server may reject outside play mode.
+      }
+    },
+    [identity, logicPieces, publishRealtime, session?.room.id]
+  );
+  const buildHistory = useBuildHistory(buildPieces.actions, () => buildPieces.piecesById, {
+    onConflict: (message) => buildMode.setStatusMessage(message)
+  });
+  const buildActionsWithHistory = useMemo(
+    () => ({
+      place: async (
+        ...args: Parameters<typeof buildPieces.actions.place>
+      ) => {
+        const piece = await buildPieces.actions.place(...args);
+        buildHistory.recordPlace(piece);
+        return piece;
+      },
+      placeBatch: async (...args: Parameters<typeof buildPieces.actions.placeBatch>) => {
+        const pieces = await buildPieces.actions.placeBatch(...args);
+        buildHistory.recordPlaceBatch(pieces);
+        return pieces;
+      },
+      destroy: async (pieceId: string) => {
+        const previous = buildPieces.piecesById[pieceId];
+        if (previous) {
+          buildHistory.recordDestroy(previous);
+        }
+        await buildPieces.actions.destroy(pieceId);
+      },
+      clearAll: buildPieces.actions.clearAll
+    }),
+    [buildHistory, buildPieces.actions, buildPieces.piecesById]
+  );
   const buildScene = useMemo(
     () =>
       buildPiecesEnabled && manifest && session
@@ -454,13 +555,13 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             buildMode,
             pieces: buildPieces.pieces,
             piecesById: buildPieces.piecesById,
-            actions: buildPieces.actions,
+            actions: buildActionsWithHistory,
             onStatus: buildMode.setStatusMessage
           }
         : null,
     [
+      buildActionsWithHistory,
       buildMode,
-      buildPieces.actions,
       buildPieces.pieces,
       buildPieces.piecesById,
       buildPiecesEnabled,
@@ -469,10 +570,60 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       session
     ]
   );
+  const [playModeBusy, setPlayModeBusy] = useState(false);
+  const togglePlayMode = useCallback(async () => {
+    if (!session?.room.id || role !== "teacher") return;
+    const next = !playModeEnabled;
+    setPlayModeBusy(true);
+    try {
+      const updated = await patchRoom(identity, session.room.id, { settings: { playModeEnabled: next } });
+      const nextSettings = parseRoomSettings(updated.settings);
+      setSession((current) =>
+        current?.room.id === session.room.id
+          ? { ...current, room: { ...current.room, settings: { ...current.room.settings, ...nextSettings } } }
+          : current
+      );
+      publishRealtime(
+        RoomPlayModeMessageSchema.parse({
+          type: "room.play-mode.v1",
+          roomId: session.room.id,
+          playModeEnabled: next,
+          sentAt: Date.now(),
+          senderId: identity.userId
+        })
+      );
+      if (next) {
+        buildMode.setEnabled(false);
+        buildHistory.clear();
+      }
+    } catch (err) {
+      buildMode.setStatusMessage(err instanceof Error ? err.message : "Unable to update play mode.");
+    } finally {
+      setPlayModeBusy(false);
+    }
+  }, [buildHistory, buildMode, identity, playModeEnabled, publishRealtime, role, session?.room.id]);
+
+  useEffect(() => {
+    buildHistory.clear();
+  }, [buildHistory, session?.room.id]);
   useEffect(() => {
     if (!buildPiecesEnabled) return;
     function onKeyDown(e: KeyboardEvent) {
       if (isKeyboardOwnedTarget(e.target)) return;
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (e.shiftKey) {
+          void buildHistory.redo().then((did) => {
+            if (did) buildMode.setStatusMessage("Redid.");
+          });
+        } else {
+          void buildHistory.undo().then((did) => {
+            if (did) buildMode.setStatusMessage("Undid.");
+          });
+        }
+        return;
+      }
       if (e.code === "KeyB" && !dynamicBoardPlacementActive) {
         e.preventDefault();
         buildMode.toggle();
@@ -488,10 +639,13 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       if (e.code === "Digit2") buildMode.setTool("floor");
       if (e.code === "Digit3") buildMode.setTool("ramp");
       if (e.code === "Digit4") buildMode.setTool("destroy");
+      if (e.code === "Digit5") buildMode.setTool("doorway");
+      if (e.code === "Digit6") buildMode.setTool("window");
+      if (e.code === "Digit7") buildMode.setTool("light");
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [buildMode, buildPiecesEnabled, dynamicBoardPlacementActive]);
+  }, [buildHistory, buildMode, buildPiecesEnabled, dynamicBoardPlacementActive]);
   useEffect(() => {
     if (dynamicBoardPlacementActive && buildMode.enabled) {
       buildMode.setEnabled(false);
@@ -541,6 +695,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   roomObjectsRealtimeHandlerRef.current = roomObjects.handleRealtimeMessage;
   const buildPiecesRealtimeHandlerRef = useRef(buildPieces.handleRealtimeMessage);
   buildPiecesRealtimeHandlerRef.current = buildPieces.handleRealtimeMessage;
+  const logicPiecesRealtimeHandlerRef = useRef(logicPieces.handleRealtimeMessage);
+  logicPiecesRealtimeHandlerRef.current = logicPieces.handleRealtimeMessage;
   const classroomRealtimeHandlerRef = useRef(classroom.handleRealtimeMessage);
   classroomRealtimeHandlerRef.current = classroom.handleRealtimeMessage;
   const dynamicBoardsRealtimeHandlerRef = useRef(dynamicBoards.handleRealtimeMessage);
@@ -639,6 +795,10 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const walkSpeedMultiplier = activeSkinForRoom?.overrides.walkSpeedMultiplier ?? 1;
   const buildPiecesForMovementRef = useRef<BuildPiece[]>([]);
   buildPiecesForMovementRef.current = buildPiecesEnabled ? buildPieces.pieces : [];
+  const logicPiecesForMovementRef = useRef<BuildLogicPiece[]>([]);
+  logicPiecesForMovementRef.current = logicFeatureEnabled ? logicPieces.pieces : [];
+  const logicNodesForMovementRef = useRef<Record<string, Record<string, unknown>>>({});
+  logicNodesForMovementRef.current = logicFeatureEnabled ? (logicPieces.logicState?.nodes ?? {}) : {};
   const lastBuildPlaceAtRef = useRef(0);
   const [build2dPreview, setBuild2dPreview] = useState<Build2DPreview>(null);
   const movement = useAvatarMovement({
@@ -655,8 +815,162 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     },
     lockedPosition,
     walkSpeedMultiplier,
-    buildPiecesRef: buildPiecesForMovementRef
+    buildPiecesRef: buildPiecesForMovementRef,
+    logicPiecesRef: logicPiecesForMovementRef,
+    logicNodesRef: logicNodesForMovementRef
   });
+  movementTeleportRef.current = movement.teleportToPosition;
+  const logicDetection = useLogicDetection({
+    enabled: logicPlayEnabled,
+    pieces: logicPieces.pieces,
+    getAvatarState: movement.getAvatarState,
+    onEvent: appendLogicDebugEvent,
+    onSignal: reportLogicSignal
+  });
+  useEffect(() => {
+    if (!logicPlayEnabled) {
+      setLogicDebugEvents([]);
+    }
+  }, [logicPlayEnabled, session?.room.id]);
+  useEffect(() => {
+    if (!logicPlayEnabled) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (isKeyboardOwnedTarget(e.target)) return;
+      if (e.code !== "KeyE" || e.repeat) return;
+      e.preventDefault();
+      logicDetection.tryInteract();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [logicDetection.tryInteract, logicPlayEnabled]);
+  const handleLogicPieceClick = useCallback(
+    (piece: BuildLogicPiece) => {
+      if (piece.kind === "button") {
+        logicDetection.interactPiece(piece.id);
+        return;
+      }
+      if (piece.kind === "door" && role === "teacher") {
+        const open = logicPieces.logicState?.nodes[piece.id]?.open === true;
+        void logicPieces.actions.patchNodeState(piece.id, { open: !open });
+      }
+    },
+    [logicDetection.interactPiece, logicPieces.actions, logicPieces.logicState?.nodes, role]
+  );
+  const selectLogicPiece = useCallback((piece: BuildLogicPiece) => {
+    setSelectedLogicPieceId(piece.id);
+  }, []);
+  const existingLogicChannels = useMemo(
+    () => logicChannelsFromPieces(logicPieces.pieces),
+    [logicPieces.pieces]
+  );
+  const logicNodeStates = logicPieces.logicState?.nodes ?? {};
+  const logicPlayLayer = useMemo(
+    () =>
+      logicPlayEnabled
+        ? {
+            pieces: logicPieces.pieces,
+            nodeStates: logicNodeStates,
+            pulseAtByPieceId: logicPulseAtByPieceId,
+            onPieceClick: handleLogicPieceClick
+          }
+        : null,
+    [handleLogicPieceClick, logicNodeStates, logicPlayEnabled, logicPieces.pieces, logicPulseAtByPieceId]
+  );
+  const escapeSession = useEscapeSession({
+    identity,
+    roomId: session?.room.id ?? roomId,
+    enabled: logicFeatureEnabled,
+    publish: publishRealtime,
+    onReset: () => movement.returnToSpawn(),
+    onRealtimeMessages: (messages) => {
+      for (const message of messages) {
+        if (message.type.startsWith("room.logic.")) {
+          logicPieces.handleRealtimeMessage(message);
+        }
+      }
+    }
+  });
+  const escapeSessionRealtimeHandlerRef = useRef(escapeSession.handleRealtimeMessage);
+  escapeSessionRealtimeHandlerRef.current = escapeSession.handleRealtimeMessage;
+  onExitStepOnRef.current = () => {
+    void escapeSession.actions.win();
+  };
+  const logicScene = useMemo(
+    () =>
+      logicAuthoringEnabled && manifest && session && movement.avatarState
+        ? {
+            manifest,
+            logicMode,
+            pieces: logicPieces.pieces,
+            piecesById: logicPieces.piecesById,
+            nodeStates: logicNodeStates,
+            pulseAtByPieceId: logicPulseAtByPieceId,
+            selectedPieceId: selectedLogicPieceId,
+            localAvatarPosition: movement.avatarState.position,
+            actions: logicPieces.actions,
+            onPieceClick: selectLogicPiece,
+            onStatus: logicMode.setStatusMessage
+          }
+        : null,
+    [
+      logicAuthoringEnabled,
+      logicMode,
+      logicNodeStates,
+      logicPieces.actions,
+      logicPieces.pieces,
+      logicPieces.piecesById,
+      logicPulseAtByPieceId,
+      manifest,
+      movement.avatarState,
+      selectLogicPiece,
+      selectedLogicPieceId,
+      session
+    ]
+  );
+  const applyStarterKit = useCallback(async () => {
+    if (!session?.room.id || !movement.avatarState) return;
+    const anchor = worldToCell(movement.avatarState.position.x, movement.avatarState.position.z);
+    const { buildTargets, logicTargets } = roomStampToTargets(
+      ESCAPE_STARTER_KIT,
+      anchor,
+      0,
+      buildMode.materialId
+    );
+    if (buildTargets.length > 0) {
+      await buildActionsWithHistory.placeBatch(buildTargets);
+    }
+    for (const target of logicTargets) {
+      try {
+        await logicPieces.actions.place(
+          target.kind,
+          target.cell,
+          target.level,
+          target.edge,
+          target.channelId,
+          { config: target.config, linkId: target.linkId }
+        );
+      } catch {
+        // Skip slots already occupied; keep stamping the rest.
+      }
+    }
+    logicMode.setStatusMessage("Starter escape stamped — switch to Play test to try it.");
+  }, [
+    buildActionsWithHistory,
+    buildMode.materialId,
+    logicMode,
+    logicPieces.actions,
+    movement.avatarState,
+    session?.room.id
+  ]);
+  useEffect(() => {
+    if (!logicAuthoringEnabled) {
+      setSelectedLogicPieceId(null);
+      return;
+    }
+    if (selectedLogicPieceId && !logicPieces.piecesById[selectedLogicPieceId]) {
+      setSelectedLogicPieceId(null);
+    }
+  }, [logicAuthoringEnabled, logicPieces.piecesById, selectedLogicPieceId]);
   const handlePlaceAhead = useCallback(() => {
     if (!manifest || !session || !buildMode.enabled || buildMode.tool === "destroy") return;
     const avatar = movement.avatarState;
@@ -1076,6 +1390,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       if (whiteboardRealtimeHandlerRef.current(message)) return;
       if (roomObjectsRealtimeHandlerRef.current(message)) return;
       if (buildPiecesRealtimeHandlerRef.current(message)) return;
+      if (logicPiecesRealtimeHandlerRef.current(message)) return;
+      if (escapeSessionRealtimeHandlerRef.current(message)) return;
       if (classroomRealtimeHandlerRef.current(message)) return;
       if (dynamicBoardsRealtimeHandlerRef.current(message)) return;
       if (meetingNotesRealtimeHandlerRef.current(message)) return;
@@ -1087,6 +1403,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       if (message.type.startsWith("room.shared-browser.")) return;
       if (message.type.startsWith("room.object.")) return;
       if (message.type.startsWith("room.build.")) return;
+      if (message.type.startsWith("room.logic.")) return;
+      if (message.type.startsWith("room.session.")) return;
       if (message.type.startsWith("room.board.")) return;
       if (message.type.startsWith("room.meeting-notes.")) return;
       if (message.type.startsWith("room.captions.")) return;
@@ -1176,6 +1494,27 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         if (parsed.success) {
           setTargetSkinId(parsed.data.skinId);
           setTargetDayNightMode(parsed.data.dayNight);
+        }
+        return;
+      }
+
+      if (message.type === "room.play-mode.v1") {
+        const parsed = RoomPlayModeMessageSchema.safeParse(message);
+        if (parsed.success && parsed.data.roomId === roomId) {
+          setSession((current) =>
+            current
+              ? {
+                  ...current,
+                  room: {
+                    ...current.room,
+                    settings: {
+                      ...current.room.settings,
+                      playModeEnabled: parsed.data.playModeEnabled
+                    }
+                  }
+                }
+              : current
+          );
         }
         return;
       }
@@ -1912,8 +2251,30 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     publishAudioMode("normal");
   }, [publishAudioMode, role, session, studentHasBroadcastGrant]);
 
+  const showPlayModeToggle =
+    role === "teacher" && buildingFeatureEnabled && session?.room.type === "escape-room";
+  const showPlayModeDock = playModeEnabled && Boolean(session) && manifest && isEscapeRoomManifest(manifest);
+
   const leftHudControls = (
     <>
+      {showPlayModeToggle ? (
+        <div className="hud-panel">
+          <button
+            type="button"
+            className="hud-btn hud-btn-pri"
+            disabled={playModeBusy}
+            onClick={() => void togglePlayMode()}
+          >
+            {playModeBusy ? "…" : playModeEnabled ? "Edit layout" : "Play test"}
+          </button>
+          {playModeEnabled ? (
+            <p className="hud-ctx-sub" style={{ marginTop: "0.35rem" }}>
+              Play mode — walking only. Players cannot edit structure.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       {/* Teacher: spotlight active indicator */}
       {roomTypeFeatures.focus && role === "teacher" && spotlightActive ? (
         <div className="hud-panel hud-ctx-panel">
@@ -2225,6 +2586,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
                 }
               : {})}
             buildScene={buildScene}
+            logicScene={logicScene}
+            logicPlayLayer={logicPlayLayer}
           />
         ) : (
           <RoomView2D
@@ -2871,15 +3234,90 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           selfParticipantId={session.participantId}
         />
       ) : null}
+      {showPlayModeDock ? (
+        <div className="play-mode-dock" role="status" aria-live="polite">
+          <strong>Play test</strong>
+          <span>
+            Explore the puzzle — you can&apos;t edit walls while play mode is on.
+            {logicPlayEnabled
+              ? role === "teacher"
+                ? " Press E near a button, click buttons, or click doors to toggle them."
+                : " Press E near a button or click it to interact."
+              : ""}
+          </span>
+          {logicPlayEnabled ? (
+            <EscapeTimerHud
+              session={escapeSession.session}
+              isAuthor={role === "teacher"}
+              busy={escapeSession.busy}
+              onStart={() => void escapeSession.actions.start()}
+              onReset={() => void escapeSession.actions.reset()}
+            />
+          ) : null}
+          <button type="button" className="hud-btn" onClick={movement.returnToSpawn}>
+            Return to spawn
+          </button>
+          {logicPlayEnabled ? (
+            <div className="logic-debug-hud" aria-label="Logic detection events">
+              <strong>Logic signals</strong>
+              {logicDebugEvents.length === 0 ? (
+                <span className="logic-debug-empty">Step on plates, enter zones, or press E near buttons.</span>
+              ) : (
+                <ul>
+                  {logicDebugEvents.map((event) => (
+                    <li key={`${event.pieceId}-${event.kind}-${event.at}`}>
+                      <code>{event.kind}</code> · {event.pieceKind} · {event.pieceId.slice(-12)}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ) : null}
+          {logicPlayEnabled && role === "teacher" ? (
+            <LogicDebugOverlay pieces={logicPieces.pieces} logicState={logicPieces.logicState} />
+          ) : null}
+        </div>
+      ) : null}
+      {logicAuthoringEnabled && session ? (
+        <>
+          <LogicControls
+            logicMode={logicMode}
+            pieceCount={logicPieces.pieces.length}
+            existingChannels={existingLogicChannels}
+            canApplyStarterKit={session.room.type === "escape-room"}
+            onApplyStarterKit={applyStarterKit}
+            onClearAll={logicPieces.actions.clearAll}
+          />
+          {selectedLogicPieceId && logicPieces.piecesById[selectedLogicPieceId] ? (
+            <LogicInspector
+              piece={logicPieces.piecesById[selectedLogicPieceId]!}
+              pieces={logicPieces.pieces}
+              logicState={logicPieces.logicState}
+              onUpdate={logicPieces.actions.update}
+              onRemove={async (pieceId) => {
+                await logicPieces.actions.destroy(pieceId);
+                setSelectedLogicPieceId(null);
+              }}
+              onSelect={setSelectedLogicPieceId}
+              onClose={() => setSelectedLogicPieceId(null)}
+            />
+          ) : null}
+        </>
+      ) : null}
       {buildPiecesEnabled && session ? (
         <BuildControls
           buildMode={buildMode}
           pieceCount={buildPieces.pieces.length}
           error={buildPieces.error}
-          onClearAll={buildPieces.actions.clearAll}
+          emptyCanvasHint={session?.room.type === "escape-room"}
+          onClearAll={buildActionsWithHistory.clearAll}
           onReturnToSpawn={movement.returnToSpawn}
           onPlaceAhead={handlePlaceAhead}
-          placeAheadDisabled={!buildMode.enabled || buildMode.tool === "destroy"}
+          placeAheadDisabled={
+            !buildMode.enabled || buildMode.tool === "destroy" || Boolean(buildMode.selectedStampId)
+          }
+          onUndo={() => void buildHistory.undo().then((did) => did && buildMode.setStatusMessage("Undid."))}
+          onRedo={() => void buildHistory.redo().then((did) => did && buildMode.setStatusMessage("Redid."))}
         />
       ) : null}
     </main>
