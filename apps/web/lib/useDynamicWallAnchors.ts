@@ -77,7 +77,7 @@ export function useDynamicWallAnchors(input: {
       normal: body.normal,
       width: body.width,
       height: body.height,
-      metadata: { accepts: body.accepts },
+      metadata: { accepts: body.accepts, hideSurface: true, hideObjectHeader: true },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };

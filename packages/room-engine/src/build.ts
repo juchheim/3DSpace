@@ -435,4 +435,62 @@ export function boardPlacementWalls(
   return [...manifest.walls, ...mergedBuildWalls];
 }
 
+/** Outward-facing normal for a build wall, chosen to point toward `reference`. */
+export function buildWallFacingNormal(
+  wall: Pick<BoardPlacementWall, "id" | "start" | "end">,
+  reference: { x: number; z: number }
+): { x: number; y: number; z: number } | null {
+  const parsed = parseBuildWallPieceId(wall.id);
+  if (!parsed) return null;
+
+  const wallMidX = (wall.start.x + wall.end.x) / 2;
+  const wallMidZ = (wall.start.z + wall.end.z) / 2;
+  const toReferenceX = reference.x - wallMidX;
+  const toReferenceZ = reference.z - wallMidZ;
+
+  const candidates: Record<
+    NonNullable<BuildPiece["edge"]>,
+    [{ x: number; y: number; z: number }, { x: number; y: number; z: number }]
+  > = {
+    n: [
+      { x: 0, y: 0, z: 1 },
+      { x: 0, y: 0, z: -1 }
+    ],
+    s: [
+      { x: 0, y: 0, z: -1 },
+      { x: 0, y: 0, z: 1 }
+    ],
+    e: [
+      { x: 1, y: 0, z: 0 },
+      { x: -1, y: 0, z: 0 }
+    ],
+    w: [
+      { x: -1, y: 0, z: 0 },
+      { x: 1, y: 0, z: 0 }
+    ]
+  };
+  const [n1, n2] = candidates[parsed.edge];
+  const d1 = n1.x * toReferenceX + n1.z * toReferenceZ;
+  const d2 = n2.x * toReferenceX + n2.z * toReferenceZ;
+  return d1 >= d2 ? n1 : n2;
+}
+
+/** Axis-aligned hit target for a build wall (thickness axis matches the piece edge). */
+export function buildWallPlacementTargetLayout(
+  wall: Pick<BoardPlacementWall, "id" | "start" | "end" | "height" | "thickness">
+): { boxSize: [number, number, number]; rotationY: number } | null {
+  const parsed = parseBuildWallPieceId(wall.id);
+  if (!parsed) return null;
+
+  const dx = wall.end.x - wall.start.x;
+  const dz = wall.end.z - wall.start.z;
+  const length = Math.hypot(dx, dz) || 1;
+  const thickness = Math.max(wall.thickness ?? 0.08, 0.45);
+
+  if (parsed.edge === "e" || parsed.edge === "w") {
+    return { boxSize: [thickness, wall.height, length], rotationY: 0 };
+  }
+  return { boxSize: [length, wall.height, thickness], rotationY: 0 };
+}
+
 export { buildWallRunSharesSegment };

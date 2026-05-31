@@ -2209,6 +2209,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             sharedBrowserIdentity={identity}
             sharedBrowserRoomId={session.room.id}
             dynamicBoardPlacement={dynamicBoardPlacement}
+            placementHighlightAnchorId={focusAnchorId}
             {...(roomObjectsEnabled && manifest
               ? {
                   roomObjects: roomObjects.objects,

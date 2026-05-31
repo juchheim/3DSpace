@@ -5,6 +5,8 @@ import { createFreeForAllManifest } from "../src/index.js";
 import {
   boardPlacementWalls,
   buildPieceColliders,
+  buildWallFacingNormal,
+  buildWallPlacementTargetLayout,
   BUILD_CELL_SIZE,
   BUILD_ID_PREFIX,
   BUILD_MAX_LEVEL,
@@ -186,6 +188,42 @@ describe("mergeAdjacentBuildWallSegments", () => {
     const pieces = [wallBuildPiece(15, 15, 0, "e", createdAt), wallBuildPiece(15, 16, 1, "e", createdAt)];
     const buildWalls = pieces.flatMap((piece) => buildPieceColliders(piece).walls);
     expect(mergeAdjacentBuildWallSegments(buildWalls)).toHaveLength(2);
+  });
+});
+
+describe("buildWallFacingNormal", () => {
+  const createdAt = "2026-05-30T12:00:00.000Z";
+
+  it("faces a north build wall toward a reference on the south side", () => {
+    const wall = buildPieceColliders(wallBuildPiece(5, 5, 0, "n", createdAt)).walls[0]!;
+    const normal = buildWallFacingNormal(wall, { x: wall.start.x + 1, z: wall.start.z - 2 });
+    expect(normal).toEqual({ x: 0, y: 0, z: -1 });
+  });
+
+  it("faces an east build wall toward a reference on the west side", () => {
+    const wall = buildPieceColliders(wallBuildPiece(5, 5, 0, "e", createdAt)).walls[0]!;
+    const normal = buildWallFacingNormal(wall, { x: wall.start.x - 2, z: wall.start.z + 1 });
+    expect(normal).toEqual({ x: -1, y: 0, z: 0 });
+  });
+});
+
+describe("buildWallPlacementTargetLayout", () => {
+  const createdAt = "2026-05-30T12:00:00.000Z";
+
+  it("aligns thickness on X for east/west build walls", () => {
+    const wall = buildPieceColliders(wallBuildPiece(5, 5, 0, "e", createdAt)).walls[0]!;
+    const layout = buildWallPlacementTargetLayout(wall);
+    expect(layout).not.toBeNull();
+    expect(layout!.boxSize[0]).toBeLessThan(layout!.boxSize[2]);
+    expect(layout!.rotationY).toBe(0);
+  });
+
+  it("aligns thickness on Z for north/south build walls", () => {
+    const wall = buildPieceColliders(wallBuildPiece(5, 5, 0, "n", createdAt)).walls[0]!;
+    const layout = buildWallPlacementTargetLayout(wall);
+    expect(layout).not.toBeNull();
+    expect(layout!.boxSize[0]).toBeGreaterThan(layout!.boxSize[2]);
+    expect(layout!.rotationY).toBe(0);
   });
 });
 

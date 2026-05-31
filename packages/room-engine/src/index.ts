@@ -31,6 +31,8 @@ export {
   buildCellFootprint,
   buildPieceColliders,
   buildPieceStableId,
+  buildWallFacingNormal,
+  buildWallPlacementTargetLayout,
   buildWallRunSharesSegment,
   mergeAdjacentBuildWallSegments,
   resolveBuildWallBoardRun,

@@ -59,7 +59,16 @@ import {
   WALL_OBJECT_DISTANCE_FACTOR,
   wallObjectSurfacePixelSize
 } from "../lib/wallObjectSurface";
-import { boardPlacementWalls, FFA_MAIN_RADIUS, FFA_WALL_HEIGHT, FFA_WALL_THICKNESS, FFA_EXIT_HALF_ARC, FFA_PERIMETER_SEGMENTS } from "@3dspace/room-engine";
+import {
+  boardPlacementWalls,
+  buildWallFacingNormal,
+  buildWallPlacementTargetLayout,
+  FFA_MAIN_RADIUS,
+  FFA_WALL_HEIGHT,
+  FFA_WALL_THICKNESS,
+  FFA_EXIT_HALF_ARC,
+  FFA_PERIMETER_SEGMENTS
+} from "@3dspace/room-engine";
 
 type Wall = z.infer<typeof WallPlaneSchema>;
 type Anchor = z.infer<typeof WallAnchorSchema>;
@@ -184,6 +193,8 @@ function wallIntersectionTOnLineOfSight(from: Vector3, to: Vector3, wall: Wall) 
 function wallBlocksOverlayLineOfSight(from: Vector3, to: Vector3, anchor: Anchor, wall: Wall) {
   if (wall.passable) return false;
   if (wall.anchorIds.includes(anchor.id)) return false;
+  const wallId = (anchor as Anchor & { wallId?: string }).wallId;
+  if (wallId && (wall.id === wallId || wall.anchorIds.includes(wallId))) return false;
 
   const selfOcclusionDistanceSq = WALL_SURFACE_SELF_OCCLUSION_DISTANCE * WALL_SURFACE_SELF_OCCLUSION_DISTANCE;
   if (pointToWallSegmentDistanceSq(to, wall) <= selfOcclusionDistanceSq) return false;
@@ -294,6 +305,7 @@ export function RoomView3D({
   sharedBrowserIdentity,
   sharedBrowserRoomId,
   dynamicBoardPlacement,
+  placementHighlightAnchorId,
   hallpassZone,
   dynamicWallAnchors,
   roomObjects,
@@ -354,6 +366,7 @@ export function RoomView3D({
   sharedBrowserIdentity?: ApiIdentity;
   sharedBrowserRoomId?: string;
   dynamicBoardPlacement?: DynamicBoardPlacementConfig | null | undefined;
+  placementHighlightAnchorId?: string | null | undefined;
   hallpassZone?: RoomManifest["hallpassHoldingZone"];
   roomObjects?: RoomObject[];
   roomObjectTemplatesById?: Record<string, RoomObjectTemplate>;
@@ -431,7 +444,7 @@ export function RoomView3D({
           manifest={mergedManifest}
           onMoveToPoint={onMoveToPoint}
           wallObjects={wallObjects}
-          spotlightAnchorId={spotlight?.anchorId}
+          spotlightAnchorId={spotlight?.anchorId ?? placementHighlightAnchorId ?? undefined}
           dynamicBoardPlacement={dynamicBoardPlacement}
           boardPlacementWalls={boardWalls}
           overlayOcclusionWalls={boardPlacementWallSet}
@@ -471,6 +484,7 @@ export function RoomView3D({
             piecesById={buildScene.piecesById}
             localAvatarPosition={localParticipantPosition ?? { x: 0, y: 0, z: 0 }}
             actions={buildScene.actions}
+            boardPlacementPassthrough={Boolean(dynamicBoardPlacement?.active)}
             {...(buildScene.onStatus ? { onStatus: buildScene.onStatus } : {})}
           />
         ) : null}
@@ -1904,6 +1918,10 @@ function wallSpan(wall: Wall) {
 }
 
 function normalFacingReference(wall: Wall, reference: Vector3) {
+  const buildNormal = buildWallFacingNormal(wall, reference);
+  if (buildNormal) {
+    return new Vector3(buildNormal.x, buildNormal.y, buildNormal.z);
+  }
   const span = wallSpan(wall);
   const wallMidX = (wall.start.x + wall.end.x) / 2;
   const wallMidZ = (wall.start.z + wall.end.z) / 2;
@@ -1980,8 +1998,16 @@ function DynamicBoardPlacementTarget({
   const { camera } = useThree();
   const [preview, setPreview] = useState<CreateDynamicWallAnchorRequest | null>(null);
   const span = useMemo(() => wallSpan(wall), [wall]);
-  const yaw = useMemo(() => Math.atan2(-span.dz, span.dx), [span.dx, span.dz]);
+  const buildLayout = useMemo(() => buildWallPlacementTargetLayout(wall), [wall]);
   const targetThickness = Math.max(wall.thickness ?? 0.08, 0.45);
+  const boxSize = useMemo<[number, number, number]>(
+    () => buildLayout?.boxSize ?? [span.length, wall.height, targetThickness],
+    [buildLayout, span.length, targetThickness, wall.height]
+  );
+  const yaw = useMemo(
+    () => buildLayout?.rotationY ?? Math.atan2(-span.dz, span.dx),
+    [buildLayout, span.dz, span.dx]
+  );
   const position = useMemo<[number, number, number]>(() => {
     const baseY = Math.min(wall.start.y, wall.end.y);
     return [
@@ -2020,7 +2046,7 @@ function DynamicBoardPlacementTarget({
         }}
         onClick={placeBoard}
       >
-        <boxGeometry args={[span.length, wall.height, targetThickness]} />
+        <boxGeometry args={boxSize} />
         <meshBasicMaterial
           color="#f1c40f"
           transparent

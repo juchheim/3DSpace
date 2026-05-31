@@ -66,7 +66,8 @@ export function BuildPlacementController({
   piecesById,
   localAvatarPosition,
   actions,
-  onStatus
+  onStatus,
+  boardPlacementPassthrough = false
 }: {
   manifest: RoomManifest;
   roomId: string;
@@ -77,6 +78,7 @@ export function BuildPlacementController({
   localAvatarPosition: { x: number; y: number; z: number };
   actions: BuildActions;
   onStatus?(message: string): void;
+  boardPlacementPassthrough?: boolean;
 }) {
   const [ghost, setGhost] = useState<{ piece: BuildPiece; valid: boolean; reason?: string } | null>(null);
   const [ghostTrail, setGhostTrail] = useState<BuildPiece[]>([]);
@@ -350,7 +352,7 @@ export function BuildPlacementController({
   );
 
   if (!buildMode.enabled) {
-    return <BuildLayer pieces={pieces} />;
+    return <BuildLayer pieces={pieces} pointerEventsPassThrough={boardPlacementPassthrough} />;
   }
 
   return (

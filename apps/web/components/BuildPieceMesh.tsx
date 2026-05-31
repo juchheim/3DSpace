@@ -107,6 +107,7 @@ export function BuildPieceMesh({
   valid = true,
   highlighted = false,
   interactive = false,
+  pointerEventsPassThrough = false,
   onPointerMove,
   onPointerOut,
   onPointerDown,
@@ -118,6 +119,7 @@ export function BuildPieceMesh({
   valid?: boolean;
   highlighted?: boolean;
   interactive?: boolean;
+  pointerEventsPassThrough?: boolean;
   onPointerMove?: (event: ThreeEvent<PointerEvent>) => void;
   onPointerOut?: (event: ThreeEvent<PointerEvent>) => void;
   onPointerDown?: (event: ThreeEvent<PointerEvent>) => void;
@@ -149,6 +151,7 @@ export function BuildPieceMesh({
         position={position}
         rotation={[0, rotationY, 0]}
         userData={{ buildPieceId: piece.id, buildPiece: piece }}
+        raycast={pointerEventsPassThrough ? () => null : undefined}
         {...pointerProps}
       >
         <boxGeometry args={size} />

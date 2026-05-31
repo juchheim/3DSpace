@@ -8,6 +8,7 @@ export function BuildLayer({
   pieces,
   interactive = false,
   highlightedPieceId = null,
+  pointerEventsPassThrough = false,
   onPiecePointerMove,
   onPiecePointerOut,
   onPiecePointerDown,
@@ -16,6 +17,7 @@ export function BuildLayer({
   pieces: BuildPiece[];
   interactive?: boolean;
   highlightedPieceId?: string | null;
+  pointerEventsPassThrough?: boolean;
   onPiecePointerMove?: (piece: BuildPiece, event: ThreeEvent<PointerEvent>) => void;
   onPiecePointerOut?: (piece: BuildPiece, event: ThreeEvent<PointerEvent>) => void;
   onPiecePointerDown?: (piece: BuildPiece, event: ThreeEvent<PointerEvent>) => void;
@@ -28,6 +30,7 @@ export function BuildLayer({
           key={piece.id}
           piece={piece}
           interactive={interactive}
+          pointerEventsPassThrough={pointerEventsPassThrough}
           highlighted={highlightedPieceId === piece.id}
           {...(onPiecePointerMove ? { onPointerMove: (event) => onPiecePointerMove(piece, event) } : {})}
           {...(onPiecePointerOut ? { onPointerOut: (event) => onPiecePointerOut(piece, event) } : {})}
