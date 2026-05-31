@@ -9,13 +9,11 @@ import {
   BUILD_CELL_SIZE,
   BUILD_FLOOR_THICKNESS,
   BUILD_LEVEL_HEIGHT,
-  BUILD_WALL_HEIGHT,
-  BUILD_WALL_THICKNESS,
   buildCellFootprint,
-  buildPieceColliders,
   rampClimbFromRotation
 } from "@3dspace/room-engine";
 import { buildMaterialProps } from "./buildMaterials";
+import { wallMeshTransform } from "../lib/buildWallMesh";
 
 function RampClimbIndicator({ rotation }: { rotation: BuildPieceRotation }) {
   const { climbAxis, climbSign } = rampClimbFromRotation(rotation);
@@ -80,24 +78,6 @@ function RampGeometry({ rotation }: { rotation: BuildPieceRotation }) {
   }, [rotation]);
 
   return <primitive object={geometry} attach="geometry" />;
-}
-
-function wallMeshTransform(piece: BuildPiece) {
-  const wall = buildPieceColliders(piece).walls[0]!;
-  const baseY = piece.level * BUILD_LEVEL_HEIGHT;
-  const midX = (wall.start.x + wall.end.x) / 2;
-  const midZ = (wall.start.z + wall.end.z) / 2;
-  const edge = piece.edge!;
-  const rotationY = edge === "e" || edge === "w" ? Math.PI / 2 : 0;
-  const size: [number, number, number] =
-    edge === "e" || edge === "w"
-      ? [BUILD_WALL_THICKNESS, BUILD_WALL_HEIGHT, BUILD_CELL_SIZE]
-      : [BUILD_CELL_SIZE, BUILD_WALL_HEIGHT, BUILD_WALL_THICKNESS];
-  return {
-    position: [midX, baseY + BUILD_WALL_HEIGHT / 2, midZ] as [number, number, number],
-    rotationY,
-    size
-  };
 }
 
 export function BuildPieceMesh({

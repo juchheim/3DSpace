@@ -81,12 +81,15 @@ Remaining refactor candidates: `packages/contracts/src/index.ts`, `RoomClient.ts
 - `buildPieceColliders(wall)` emits the same wall shape as `manifest.walls` (+ `baseY` on collider); `collectCollisionWalls` unions them for movement.
 - Board placement validates via `validateDynamicBoardPlacement({ walls }, …)` — includes build walls. Destroying a build wall with a board returns 409 (`build-wall-has-boards`).
 - `DynamicWallAnchor` stores absolute `position`/`normal`; `wallId` is for placement validation only.
+- Build piece `id` (`build:wall:ix,iz:level:edge`) is **unique per room only** (no roomId in the id) — DB/in-memory stores must key by `{roomId,id}`, never `id` alone.
+- Build wall render (`wallMeshTransform`) must stay coplanar with its collider (`wallSegmentForEdge`): e/w run along Z, n/s along X, `rotationY: 0`.
 - Wall objects / anchors: classroom uses manifest anchors; FFA merges dynamic anchors for create + render.
 
 ---
 
 ## Recent work
 
+- **2026-05-31:** Fixed two build bugs. (1) **Walls not placing (500s):** `buildPieceStableId` is room-agnostic but the `buildpieces.id` index was globally `unique` → the first room to claim a grid slot blocked every other room (room-scoped upsert misses the foreign doc, insert collides on `id_1` E11000 forever; retry loop couldn't help). Fix: `id` no longer globally unique; uniqueness is `{roomId,id}` + existing `{roomId,kind,cell,level,edge}`; `MongoRepository.migrateBuildPieceIndexes()` drops legacy `id_1` on startup (called in `buildApp`→`buildRepository`); also fixed the room-agnostic key in `MemoryRepository.buildPieces` (now `buildPieceKey(roomId,id)`), and cleared the dup `roomId` index warning. (2) **Boards perpendicular to build walls:** `wallMeshTransform` (extracted to `apps/web/lib/buildWallMesh.ts`) rotated e/w walls by `π/2` *on top of* an already world-oriented size, drawing the visible wall along X while the collider + board target ran along Z. Fix: `rotationY: 0` always; regression test `apps/web/tests/buildWallMesh.test.ts`.
 - **2026-05-31:** `hitStrikesFacingFace` in `DynamicBoardPlacementTarget` — reject padded build-wall hits on end-caps/top/bottom so corner rays don't place boards on perpendicular walls.
 - **2026-05-31:** Fixed board placement regression on merged build walls — edge-based normals, build mesh raycast passthrough during placement, occlusion skip for dynamic anchor wallId.
 - **2026-05-31:** Boards-on-build-walls Phase 3 — client threads `boardPlacementWalls` into `DynamicBoardPlacementTargets`; baseY fix for hit target + vertical clamp.

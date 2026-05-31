@@ -40,7 +40,9 @@ async function buildRepository(config: AppConfig) {
     return new MemoryRepository();
   }
   const connection = await connectMongo(config.mongoUri, config.mongoDbName);
-  return new MongoRepository(connection);
+  const repository = new MongoRepository(connection);
+  await repository.migrateBuildPieceIndexes();
+  return repository;
 }
 
 export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {

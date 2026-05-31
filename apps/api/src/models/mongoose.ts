@@ -304,8 +304,13 @@ export function createModels(connection: Connection): Models {
   roomObjectSchema.index({ roomId: 1, status: 1 });
 
   const buildPieceSchema = new Schema({
-    id: { type: String, required: true, unique: true },
-    roomId: { type: String, required: true, index: true },
+    // NOT globally unique: buildPieceStableId() is derived from kind/cell/level/edge only,
+    // so the same grid slot in two different rooms produces the same id. A global unique
+    // index ({id:1}) therefore lets the first room to claim a slot block every other room
+    // from ever placing a piece there — the upsert's room-scoped findOne misses the foreign
+    // doc, then the insert collides on id_1 (E11000) forever. Uniqueness is per-room only.
+    id: { type: String, required: true },
+    roomId: { type: String, required: true },
     kind: { type: String, required: true },
     cell: {
       ix: { type: Number, required: true },
@@ -319,6 +324,7 @@ export function createModels(connection: Connection): Models {
     createdAt: { type: String, required: true }
   });
   buildPieceSchema.index({ roomId: 1 });
+  buildPieceSchema.index({ roomId: 1, id: 1 }, { unique: true });
   buildPieceSchema.index(
     { roomId: 1, kind: 1, "cell.ix": 1, "cell.iz": 1, level: 1, edge: 1 },
     { unique: true }
@@ -670,6 +676,25 @@ export class MongoRepository implements Repository {
 
   async close() {
     await this.connection.close();
+  }
+
+  /**
+   * One-time cleanup for databases created before build-piece ids were scoped per room.
+   * The legacy global-unique `id_1` index made the same grid slot un-placeable across
+   * rooms (the room-scoped upsert misses the foreign doc, then the insert collides on
+   * id_1 with an E11000 and the whole batch 500s). We drop it and let the per-room
+   * indexes (defined on the schema) take over. Idempotent and safe on a fresh DB.
+   */
+  async migrateBuildPieceIndexes() {
+    const collection = this.models.BuildPiece.collection;
+    try {
+      await collection.dropIndex("id_1");
+    } catch (err) {
+      const code = (err as { code?: number } | null)?.code;
+      // 26 = NamespaceNotFound (collection not created yet), 27 = IndexNotFound (already migrated).
+      if (code !== 26 && code !== 27) throw err;
+    }
+    await this.models.BuildPiece.createIndexes();
   }
 
   async ensureUser(auth: AuthContext): Promise<User> {

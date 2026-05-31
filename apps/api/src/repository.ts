@@ -812,6 +812,13 @@ export class MemoryRepository implements Repository {
     return this.updateRoomObject(roomId, objectId, { status: "archived" });
   }
 
+  // Build piece ids (build:wall:ix,iz:level:edge) are only unique per room, so the map
+  // must be keyed per room — otherwise the same grid slot in a second room clobbers (or
+  // is blocked by) the first room's piece, mirroring the Mongo id_1 collision bug.
+  private buildPieceKey(roomId: string, id: string) {
+    return `${roomId}\u0000${id}`;
+  }
+
   async listBuildPiecesForRoom(roomId: string) {
     return Array.from(this.buildPieces.values())
       .filter((piece) => piece.roomId === roomId)
@@ -855,7 +862,8 @@ export class MemoryRepository implements Repository {
       level: input.level,
       edge: input.edge
     });
-    const existing = this.buildPieces.get(id);
+    const key = this.buildPieceKey(input.roomId, id);
+    const existing = this.buildPieces.get(key);
     const record: BuildPiece = {
       id,
       roomId: input.roomId,
@@ -868,7 +876,7 @@ export class MemoryRepository implements Repository {
       createdByUserId: existing?.createdByUserId ?? input.createdByUserId,
       createdAt: existing?.createdAt ?? time
     };
-    this.buildPieces.set(id, record);
+    this.buildPieces.set(key, record);
     return record;
   }
 
@@ -892,14 +900,13 @@ export class MemoryRepository implements Repository {
   }
 
   async getBuildPiece(roomId: string, pieceId: string) {
-    const piece = this.buildPieces.get(pieceId);
-    return piece?.roomId === roomId ? piece : undefined;
+    return this.buildPieces.get(this.buildPieceKey(roomId, pieceId));
   }
 
   async removeBuildPiece(roomId: string, pieceId: string) {
     const existing = await this.getBuildPiece(roomId, pieceId);
     if (!existing) throw notFound("Build piece not found");
-    this.buildPieces.delete(pieceId);
+    this.buildPieces.delete(this.buildPieceKey(roomId, pieceId));
     return existing;
   }
 
