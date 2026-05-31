@@ -87,6 +87,7 @@ Remaining refactor candidates: `packages/contracts/src/index.ts`, `RoomClient.ts
 
 ## Recent work
 
+- **2026-05-31:** `hitStrikesFacingFace` in `DynamicBoardPlacementTarget` — reject padded build-wall hits on end-caps/top/bottom so corner rays don't place boards on perpendicular walls.
 - **2026-05-31:** Fixed board placement regression on merged build walls — edge-based normals, build mesh raycast passthrough during placement, occlusion skip for dynamic anchor wallId.
 - **2026-05-31:** Boards-on-build-walls Phase 3 — client threads `boardPlacementWalls` into `DynamicBoardPlacementTargets`; baseY fix for hit target + vertical clamp.
 - **2026-05-31:** Boards-on-build-walls Phase 2 — server validates dynamic board placement against `boardPlacementWalls` (build + manifest walls); 6 API route tests.
