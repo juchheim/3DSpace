@@ -2031,17 +2031,13 @@ function DynamicBoardPlacementTarget({
     event.stopPropagation();
     if (placement.busy) return;
     const request = placementRequest(event as unknown as ThreeEvent<PointerEvent>);
+    // Flat string so it's copyable from the console without expanding the object.
     // eslint-disable-next-line no-console
-    console.log("[board-place] committing", {
-      wallId: request.wallId,
-      isBuildWall: Boolean(buildLayout),
-      wallStart: wall.start,
-      wallEnd: wall.end,
-      normal: request.normal,
-      center: request.center,
-      width: request.width,
-      faceNormal: event.face ? { x: event.face.normal.x, y: event.face.normal.y, z: event.face.normal.z } : null
-    });
+    console.log(
+      `[board-place] wallId=${request.wallId} build=${Boolean(buildLayout)} ` +
+        `wall=(${wall.start.x},${wall.start.z})->(${wall.end.x},${wall.end.z}) ` +
+        `normal=(${request.normal.x},${request.normal.z}) width=${request.width}`
+    );
     void placement.onPlace(request);
   }
 

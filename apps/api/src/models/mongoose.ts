@@ -1280,24 +1280,39 @@ export class MongoRepository implements Repository {
     createdByUserId: string;
   }) {
     const filter = this.buildPiecePlacementFilter(input.roomId, input);
-    const existingDoc = await this.models.BuildPiece.findOne(filter).lean();
-    const existing = existingDoc ? this.toBuildPiece(existingDoc) : undefined;
-    const time = existing?.createdAt ?? nowIso();
-    const record = this.buildPieceRecordFromInput({
-      ...input,
-      createdAt: time,
-      createdByUserId: existing?.createdByUserId ?? input.createdByUserId
-    });
-    const update: { $set: BuildPiece; $unset?: { edge: "" } } = { $set: record };
-    if (input.kind !== "wall") {
-      update.$unset = { edge: "" };
+    // Two concurrent batches placing the same slot can both miss the findOne and both attempt
+    // an insert; the loser hits the unique index ({roomId,kind,cell,level,edge} / id) with an
+    // E11000. That is benign — the slot now exists — so retry once and the second pass takes the
+    // update branch. Without this the whole batch request 500s, so no pieces get saved.
+    let lastRecord: BuildPiece | undefined;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const existingDoc = await this.models.BuildPiece.findOne(filter).lean();
+      const existing = existingDoc ? this.toBuildPiece(existingDoc) : undefined;
+      const time = existing?.createdAt ?? nowIso();
+      const record = this.buildPieceRecordFromInput({
+        ...input,
+        createdAt: time,
+        createdByUserId: existing?.createdByUserId ?? input.createdByUserId
+      });
+      lastRecord = record;
+      const update: { $set: BuildPiece; $unset?: { edge: "" } } = { $set: record };
+      if (input.kind !== "wall") {
+        update.$unset = { edge: "" };
+      }
+      try {
+        await this.models.BuildPiece.findOneAndUpdate(filter, update, {
+          upsert: true,
+          new: true,
+          setDefaultsOnInsert: true
+        });
+        break;
+      } catch (err) {
+        const code = (err as { code?: number } | null)?.code;
+        if (code === 11000 && attempt === 0) continue;
+        throw err;
+      }
     }
-    await this.models.BuildPiece.findOneAndUpdate(filter, update, {
-      upsert: true,
-      new: true,
-      setDefaultsOnInsert: true
-    });
-    return normalizeBuildPiece(record);
+    return normalizeBuildPiece(lastRecord!);
   }
 
   async createBuildPiecesBatch(
