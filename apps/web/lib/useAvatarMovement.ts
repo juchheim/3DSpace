@@ -52,6 +52,10 @@ function physicsAirborneState(grounded: boolean, vy: number) {
   return vy > 0.05 ? ("jumping" as const) : ("falling" as const);
 }
 
+function samePosition(a: Vector3, b: Vector3) {
+  return a.x === b.x && a.y === b.y && a.z === b.z;
+}
+
 export function useAvatarMovement(input: {
   manifest: RoomManifest | null;
   participantId: string;
@@ -159,7 +163,9 @@ export function useAvatarMovement(input: {
         physicsControllerRef.current = controller;
         physicsColliderSyncKeyRef.current = key;
         const latestPosition = stateRef.current?.position ?? current.position;
-        controller.setPosition(latestPosition);
+        if (!samePosition(latestPosition, current.position)) {
+          controller.setPosition(latestPosition);
+        }
       })
       .finally(() => {
         if (physicsControllerGenerationRef.current === generation) {
