@@ -3301,7 +3301,23 @@ button.hud-heading-btn:hover {
   opacity: 0.85;
 }
 
+/* drei Html with `center` collapses wrapper width — size the portal chain to content. */
+.world-host-bubble-html {
+  pointer-events: none;
+  overflow: visible;
+}
+
+.world-host-bubble-html > div,
+.world-host-bubble-html > div > div,
+.world-host-bubble-html > div > div > div {
+  width: max-content;
+  max-width: 13rem;
+}
+
 .world-host-bubble {
+  box-sizing: border-box;
+  width: max-content;
+  min-width: 10rem;
   max-width: 13rem;
   padding: 0.45rem 0.65rem;
   border-radius: 12px;
@@ -3313,9 +3329,19 @@ button.hud-heading-btn:hover {
   font-size: 0.72rem;
   line-height: 1.32;
   text-align: left;
+  white-space: normal;
+  overflow-wrap: break-word;
   pointer-events: none;
   position: relative;
   animation: world-host-bubble-pop 0.16s ease-out;
+}
+
+.world-host-bubble--typing {
+  display: inline-flex;
+  gap: 0.28rem;
+  align-items: center;
+  min-width: 0;
+  padding: 0.5rem 0.7rem;
 }
 
 /* Little tail pointing down toward the robot. */
@@ -3338,13 +3364,6 @@ button.hud-heading-btn:hover {
 
 .world-host-bubble--thinking::after {
   border-color: rgba(255, 79, 216, 0.5);
-}
-
-.world-host-bubble--typing {
-  display: inline-flex;
-  gap: 0.28rem;
-  align-items: center;
-  padding: 0.5rem 0.7rem;
 }
 
 .world-host-bubble--typing span {

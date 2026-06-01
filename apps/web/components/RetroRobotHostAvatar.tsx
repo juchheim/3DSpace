@@ -287,7 +287,7 @@ export function RetroRobotHostAvatar({
       {/* Speech bubble (viewer-local). */}
       {!ghost && bubble ? (
         <Billboard position={[0, 2.42, 0]}>
-          <Html center distanceFactor={9} style={{ pointerEvents: "none" }}>
+          <Html center distanceFactor={9} className="world-host-bubble-html" style={{ pointerEvents: "none" }}>
             <div className={`world-host-bubble${thinking ? " world-host-bubble--thinking" : ""}`} data-testid="ai-host-bubble">
               {bubble.length > BUBBLE_MAX ? `${bubble.slice(0, BUBBLE_MAX)}…` : bubble}
             </div>
@@ -298,7 +298,7 @@ export function RetroRobotHostAvatar({
       {/* Thinking indicator on the bubble anchor when there is no reply yet. */}
       {!ghost && !bubble && thinking ? (
         <Billboard position={[0, 2.32, 0]}>
-          <Html center distanceFactor={9} style={{ pointerEvents: "none" }}>
+          <Html center distanceFactor={9} className="world-host-bubble-html" style={{ pointerEvents: "none" }}>
             <div className="world-host-bubble world-host-bubble--thinking world-host-bubble--typing" aria-label="Guide is thinking">
               <span />
               <span />
