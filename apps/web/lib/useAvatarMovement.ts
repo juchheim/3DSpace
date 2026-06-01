@@ -37,6 +37,16 @@ import {
 import { isKeyboardOwnedTarget } from "./isKeyboardOwnedTarget";
 import { PhysicsController } from "./physics/PhysicsController";
 
+/** Radians per second while Q (left) or E (right) is held. */
+export const AVATAR_KEYBOARD_TURN_SPEED_RAD_PER_SEC = 2.75;
+
+export function keyboardYawDelta(keys: ReadonlySet<string>, deltaSeconds: number): number {
+  const turnLeft = keys.has("KeyQ");
+  const turnRight = keys.has("KeyE");
+  if (turnLeft === turnRight) return 0;
+  return (turnLeft ? 1 : -1) * AVATAR_KEYBOARD_TURN_SPEED_RAD_PER_SEC * deltaSeconds;
+}
+
 function physicsAirborneState(grounded: boolean, vy: number) {
   if (grounded) return "grounded" as const;
   return vy > 0.05 ? ("jumping" as const) : ("falling" as const);
@@ -223,7 +233,11 @@ export function useAvatarMovement(input: {
         }
         return;
       }
-      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyW", "KeyA", "KeyS", "KeyD"].includes(event.code)) {
+      if (
+        ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyW", "KeyA", "KeyS", "KeyD", "KeyQ", "KeyE"].includes(
+          event.code
+        )
+      ) {
         keys.current.add(event.code);
         event.preventDefault();
       }
@@ -299,8 +313,18 @@ export function useAvatarMovement(input: {
         if (keys.current.has("ArrowRight") || keys.current.has("KeyD")) localX += 1;
         if (keys.current.has("ArrowUp") || keys.current.has("KeyW")) localZ -= 1;
         if (keys.current.has("ArrowDown") || keys.current.has("KeyS")) localZ += 1;
-        const movementYaw =
+
+        let avatarYaw =
           input.viewMode === "3d" && input.cameraYawRef ? input.cameraYawRef.current : current.rotation.y;
+        const turnDelta = keyboardYawDelta(keys.current, deltaSeconds);
+        if (turnDelta !== 0) {
+          avatarYaw += turnDelta;
+          if (input.cameraYawRef) {
+            input.cameraYawRef.current = avatarYaw;
+          }
+        }
+        const movementYaw = avatarYaw;
+        const keyboardTurning = turnDelta !== 0;
         const worldDelta = transformLocalMovementToWorld(movementYaw, { x: localX, z: localZ });
         const magnitude = Math.hypot(worldDelta.x, worldDelta.z);
         const moving = magnitude > 0;
@@ -331,10 +355,7 @@ export function useAvatarMovement(input: {
               ...current,
               sentAt: Date.now(),
               position: out.position,
-              rotation:
-                input.viewMode === "3d" && input.cameraYawRef
-                  ? { y: input.cameraYawRef.current }
-                  : current.rotation,
+              rotation: { y: avatarYaw },
               movement: moving ? ("walking" as const) : ("idle" as const),
               airborneState: physicsAirborneState(out.grounded, out.vy),
               viewMode: input.viewMode,
@@ -392,10 +413,8 @@ export function useAvatarMovement(input: {
         } else if (buildSurfacesChanged) {
           verticalVelocityRef.current = 0;
         }
-        let nextRotation = current.rotation;
-        if (input.viewMode === "3d" && input.cameraYawRef) {
-          nextRotation = { y: input.cameraYawRef.current };
-        } else if (moving && input.viewMode === "2d") {
+        let nextRotation = { y: avatarYaw };
+        if (!keyboardTurning && moving && input.viewMode === "2d") {
           nextRotation = { y: Math.atan2(worldDelta.x, worldDelta.z) };
         }
         const next = {
