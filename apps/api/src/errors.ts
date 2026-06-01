@@ -160,3 +160,15 @@ export function logicTeleporterDisarmed() {
 export function logicTeleporterNoTarget() {
   return new HttpError(422, "No paired teleporter found for this linkId", "logic-teleporter-no-target");
 }
+
+export function aiHostDisabled() {
+  return new HttpError(404, "AI world host is disabled in this environment", "ai-host-disabled");
+}
+
+export function aiHostNotFound() {
+  return new HttpError(404, "AI world host not found for this room", "ai-host-not-found");
+}
+
+export function aiHostExists() {
+  return new HttpError(409, "An AI world host already exists for this room", "ai-host-exists");
+}

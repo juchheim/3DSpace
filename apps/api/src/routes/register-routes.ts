@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type { AppContext } from "../app-context.js";
+import { registerAiHostRoutes } from "./ai-host.js";
 import { registerAiObjectRoutes } from "./ai-objects.js";
 import { registerBuildPieceRoutes } from "./build-pieces.js";
 import { registerEscapeSessionRoutes } from "./escape-session.js";
@@ -40,4 +41,5 @@ export async function registerRoutes(app: FastifyInstance, ctx: AppContext) {
   await registerLogicPieceRoutes(app, ctx);
   await registerEscapeSessionRoutes(app, ctx);
   await registerAiObjectRoutes(app, ctx);
+  await registerAiHostRoutes(app, ctx);
 }

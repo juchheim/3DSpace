@@ -20,6 +20,7 @@ import type {
   LogicPieceKind,
   LogicState,
   EscapeSession,
+  RoomAiHost,
   RoomObject,
   RoomObjectStatus,
   RoomObjectTemplate,
@@ -80,6 +81,7 @@ type Models = {
   MeetingNotesSegment: Model<any>;
   AiObjectJob: Model<any>;
   SharedBrowserSession: Model<any>;
+  RoomAiHost: Model<any>;
 };
 
 function entity<T>(doc: unknown) {
@@ -378,6 +380,27 @@ export function createModels(connection: Connection): Models {
     endedAt: { type: String, default: null }
   });
 
+  const roomAiHostSchema = new Schema({
+    id: { type: String, required: true, unique: true },
+    roomId: { type: String, required: true, unique: true },
+    displayName: { type: String, required: true },
+    position: {
+      type: new Schema(
+        {
+          x: { type: Number, required: true },
+          y: { type: Number, required: true },
+          z: { type: Number, required: true }
+        },
+        { _id: false }
+      ),
+      required: true
+    },
+    rotationY: { type: Number, required: true, default: 0 },
+    createdByUserId: { type: String, required: true },
+    createdAt: { type: String, required: true },
+    updatedAt: { type: String, required: true }
+  });
+
   const classroomStateSchema = new Schema({
     roomId: { type: String, required: true, unique: true },
     version: { type: Number, required: true },
@@ -577,7 +600,22 @@ export function createModels(connection: Connection): Models {
     MeetingNotesSession: connection.model("MeetingNotesSession", meetingNotesSessionSchema, "meeting_notes_sessions"),
     MeetingNotesSegment: connection.model("MeetingNotesSegment", meetingNotesSegmentSchema, "meeting_notes_segments"),
     AiObjectJob: connection.model("AiObjectJob", aiObjectJobSchema, "ai_object_jobs"),
-    SharedBrowserSession: connection.model("SharedBrowserSession", sharedBrowserSessionSchema, "shared_browser_sessions")
+    SharedBrowserSession: connection.model("SharedBrowserSession", sharedBrowserSessionSchema, "shared_browser_sessions"),
+    RoomAiHost: connection.model("RoomAiHost", roomAiHostSchema, "room_ai_hosts")
+  };
+}
+
+function docToRoomAiHost(doc: Record<string, unknown>): RoomAiHost {
+  const position = doc.position as { x: number; y: number; z: number };
+  return {
+    id: doc.id as string,
+    roomId: doc.roomId as string,
+    displayName: doc.displayName as string,
+    position: { x: position.x, y: position.y, z: position.z },
+    rotationY: doc.rotationY as number,
+    createdByUserId: doc.createdByUserId as string,
+    createdAt: doc.createdAt as string,
+    updatedAt: doc.updatedAt as string
   };
 }
 
@@ -936,6 +974,7 @@ export class MongoRepository implements Repository {
       this.models.MeetingNotesSession.deleteMany({ roomId }),
       this.models.MeetingNotesSegment.deleteMany({ roomId }),
       this.models.SharedBrowserSession.deleteMany({ roomId }),
+      this.models.RoomAiHost.deleteMany({ roomId }),
       this.models.Invite.deleteMany({ roomId })
     ]);
   }
@@ -1942,5 +1981,35 @@ export class MongoRepository implements Repository {
       status: { $in: ["starting", "active"] }
     }).lean() as Record<string, unknown>[];
     return docs.map(docToSharedBrowserSession);
+  }
+
+  async getAiHostByRoomId(roomId: string): Promise<RoomAiHost | null> {
+    const doc = await this.models.RoomAiHost.findOne({ roomId }).lean() as Record<string, unknown> | null;
+    return doc ? docToRoomAiHost(doc) : null;
+  }
+
+  async createAiHost(host: RoomAiHost): Promise<RoomAiHost> {
+    try {
+      await this.models.RoomAiHost.create(host);
+      return host;
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && (error as { code?: number }).code === 11000) {
+        throw conflict("An AI world host already exists for this room");
+      }
+      throw error;
+    }
+  }
+
+  async updateAiHost(roomId: string, host: RoomAiHost): Promise<RoomAiHost> {
+    const doc = await this.models.RoomAiHost.findOneAndUpdate({ roomId }, { $set: host }, { new: true, lean: true }) as
+      | Record<string, unknown>
+      | null;
+    if (!doc) throw notFound("AI world host not found");
+    return docToRoomAiHost(doc);
+  }
+
+  async deleteAiHost(roomId: string, _opts?: { deleteFiles?: boolean | undefined }): Promise<void> {
+    const result = await this.models.RoomAiHost.deleteOne({ roomId });
+    if (result.deletedCount === 0) throw notFound("AI world host not found");
   }
 }

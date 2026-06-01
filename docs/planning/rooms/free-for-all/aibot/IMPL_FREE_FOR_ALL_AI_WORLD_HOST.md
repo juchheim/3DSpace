@@ -9,7 +9,7 @@ Last updated: 2026-06-01
 
 ## Status / Scope
 
-**Status:** Phase 1 complete (contracts + feature flags). Phases 2+ not started.
+**Status:** Phases 1–2 complete (contracts + API host CRUD). Phases 3+ not started.
 
 This doc implements the AI World Host described in the PLAN. It is **additive to Free-for-All Phase 1** and assumes **world building** (`ENABLE_FREE_FOR_ALL_BUILDING`) is available in the environments where build-help is tested — the tutor is still useful without building enabled (explains the feature), but E2E build answers need the build flag on.
 
@@ -121,8 +121,8 @@ Goal: summon, rename, reposition, dismiss; broadcast updates.
 
 **Checkpoint:**
 
-- [ ] `npm run typecheck -w @3dspace/api`
-- [ ] `npm run test -- apps/api/tests/routes/ai-host-host.test.ts`
+- [x] `npm run typecheck -w @3dspace/api`
+- [x] `npm run test -- apps/api/tests/routes/ai-host-host.test.ts`
 
 ---
 

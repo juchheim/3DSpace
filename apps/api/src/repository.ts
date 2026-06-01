@@ -28,6 +28,7 @@ import {
   type BuildPieceRotation,
   type LogicPieceKind,
   type EscapeSession,
+  type RoomAiHost,
   type LogicState,
   type RoomObject,
   type RoomObjectStatus,
@@ -265,6 +266,10 @@ export type Repository = {
   deleteSharedBrowserSession(id: string): Promise<void>;
   listStaleSharedBrowserSessions(olderThanIso: string): Promise<SharedBrowserSession[]>;
   listLiveSharedBrowserSessions(): Promise<SharedBrowserSession[]>;
+  getAiHostByRoomId(roomId: string): Promise<RoomAiHost | null>;
+  createAiHost(host: RoomAiHost): Promise<RoomAiHost>;
+  updateAiHost(roomId: string, host: RoomAiHost): Promise<RoomAiHost>;
+  deleteAiHost(roomId: string, opts?: { deleteFiles?: boolean | undefined }): Promise<void>;
 };
 
 /** How long after the last heartbeat a room participant still counts as present. */
@@ -320,6 +325,7 @@ export class MemoryRepository implements Repository {
   private meetingNotesSegments = new Map<string, MeetingNotesSegment>();
   private aiObjectJobs = new Map<string, AiObjectJob>();
   private sharedBrowserSessions = new Map<string, SharedBrowserSession>();
+  private aiHostsByRoom = new Map<string, RoomAiHost>();
 
   async close() {
     return;
@@ -564,6 +570,27 @@ export class MemoryRepository implements Repository {
     for (const [id, session] of this.sharedBrowserSessions.entries()) {
       if (session.roomId === roomId) this.sharedBrowserSessions.delete(id);
     }
+    this.aiHostsByRoom.delete(roomId);
+  }
+
+  async getAiHostByRoomId(roomId: string) {
+    return this.aiHostsByRoom.get(roomId) ?? null;
+  }
+
+  async createAiHost(host: RoomAiHost) {
+    if (this.aiHostsByRoom.has(host.roomId)) throw conflict("An AI world host already exists for this room");
+    this.aiHostsByRoom.set(host.roomId, host);
+    return host;
+  }
+
+  async updateAiHost(roomId: string, host: RoomAiHost) {
+    if (!this.aiHostsByRoom.has(roomId)) throw notFound("AI world host not found");
+    this.aiHostsByRoom.set(roomId, host);
+    return host;
+  }
+
+  async deleteAiHost(roomId: string, _opts?: { deleteFiles?: boolean | undefined }) {
+    if (!this.aiHostsByRoom.delete(roomId)) throw notFound("AI world host not found");
   }
 
   async getActiveManifest(roomId: string) {
@@ -1379,3 +1406,4 @@ export class MemoryRepository implements Repository {
     return Array.from(this.sharedBrowserSessions.values()).filter((s) => live.has(s.status));
   }
 }
+

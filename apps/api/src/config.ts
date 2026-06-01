@@ -75,6 +75,10 @@ export type AppConfig = {
     openAiSummaryModel: string;
     aiMeetingNotesMaxDurationMinutes: number;
     aiMeetingNotesStoragePrefix: string;
+    enableAiWorldHost: boolean;
+    openAiAiHostModel: string;
+    openAiAiHostModelLarge: string;
+    aiWorldHostStoragePrefix: string;
     enableWhiteboards: boolean;
     whiteboardCompactionTickSeconds: number;
     whiteboardSnapshotAtStrokes: number;
@@ -228,6 +232,10 @@ function requiredInProduction(config: AppConfig, raw: NodeJS.ProcessEnv) {
     required.push("OPENAI_API_KEY");
   }
 
+  if (config.tuning.enableAiWorldHost) {
+    required.push("OPENAI_API_KEY");
+  }
+
   if (config.tuning.enableAiObjectGeneration) {
     required.push("OPENAI_API_KEY");
   }
@@ -324,6 +332,10 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       openAiSummaryModel: envString(raw, "OPENAI_SUMMARY_MODEL") ?? "gpt-4.1",
       aiMeetingNotesMaxDurationMinutes: envNumber(raw, "AI_MEETING_NOTES_MAX_DURATION_MINUTES", 120),
       aiMeetingNotesStoragePrefix: envString(raw, "AI_MEETING_NOTES_STORAGE_PREFIX") ?? "meeting-notes/",
+      enableAiWorldHost: envBoolean(raw, "ENABLE_AI_WORLD_HOST", false),
+      openAiAiHostModel: envString(raw, "OPENAI_AI_HOST_MODEL") ?? "gpt-4.1-mini",
+      openAiAiHostModelLarge: envString(raw, "OPENAI_AI_HOST_MODEL_LARGE") ?? "gpt-4.1",
+      aiWorldHostStoragePrefix: envString(raw, "AI_WORLD_HOST_STORAGE_PREFIX") ?? "ai-host/",
       enableWhiteboards: envBoolean(raw, "ENABLE_WHITEBOARDS", true),
       whiteboardCompactionTickSeconds: envNumber(raw, "WHITEBOARD_COMPACTION_TICK_SECONDS", 30),
       whiteboardSnapshotAtStrokes: envNumber(raw, "WHITEBOARD_SNAPSHOT_AT_STROKES", 500),
