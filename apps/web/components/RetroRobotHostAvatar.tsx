@@ -200,9 +200,11 @@ export function RetroRobotHostAvatar({
         <group position={[0, 0, 0]}>
           <mesh geometry={geo.treadHousing} material={mat.body} position={[0, 0.33, 0]} />
           <mesh geometry={geo.grille} material={mat.dark} position={[0, 0.27, 0.34]} />
-          {/* Side wheels + hubcaps (lathe discs, axis rotated to roll forward). */}
+          {/* Side wheels + hubcaps (lathe discs, axis rotated to roll forward).
+              Mounted outboard of the trapezoid housing (bottom half-width ≈0.43)
+              so the tyre sits beside the body instead of poking through it. */}
           {([-1, 1] as const).map((side) => (
-            <group key={`wheel-${side}`} position={[0.42 * side, 0.26, 0]} scale={0.94}>
+            <group key={`wheel-${side}`} position={[0.56 * side, 0.26, 0]} scale={0.94}>
               <mesh geometry={geo.wheel} material={mat.tire} rotation={[0, 0, Math.PI / 2]} />
               <mesh
                 geometry={geo.hubcap}
