@@ -152,7 +152,20 @@ export class PhysicsController {
 
     controller.setTuning(input.tuning);
     controller.syncColliders(input.spec, input.cacheKey ?? "");
+    controller.seedPosition(input.initialPosition ?? { x: 0, y: 0, z: 0 });
+    controller.step({ moveX: 0, moveZ: 0, dtSeconds: FIXED_TIMESTEP_SECONDS });
     return controller;
+  }
+
+  private applyBodyPosition(position: Vector3) {
+    const center = toRapierVector(this.RAPIER, {
+      x: position.x,
+      y: capsuleCenterY(position.y, this.tuning),
+      z: position.z
+    });
+    this.capsuleBody.setTranslation(center, true);
+    this.capsuleBody.setNextKinematicTranslation(center);
+    this.world.propagateModifiedBodyPositionsToColliders();
   }
 
   private buildCollider(spec: ColliderSpec) {
@@ -333,15 +346,13 @@ export class PhysicsController {
     this.jumpQueued = true;
   }
 
+  seedPosition(position: Vector3) {
+    this.applyBodyPosition(position);
+    this.accumulatorSeconds = 0;
+  }
+
   setPosition(position: Vector3) {
-    const center = toRapierVector(this.RAPIER, {
-      x: position.x,
-      y: capsuleCenterY(position.y, this.tuning),
-      z: position.z
-    });
-    this.capsuleBody.setTranslation(center, true);
-    this.capsuleBody.setNextKinematicTranslation(center);
-    this.world.propagateModifiedBodyPositionsToColliders();
+    this.applyBodyPosition(position);
     this.verticalVelocity = 0;
     this.accumulatorSeconds = 0;
     this.grounded = false;

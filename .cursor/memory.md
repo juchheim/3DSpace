@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-01 (avatar physics Phase 7)
+Last updated: 2026-06-01 (avatar physics setPosition guard)
 
 **Historical detail:** `.cursor/memory-archive.md` (planning log + bug-fix chronicle through 2026-05-30). Update that file only when archiving new dated entries; keep this file lean.
 

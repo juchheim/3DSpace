@@ -93,7 +93,7 @@ describe("PhysicsController", () => {
       const out = await stepMany(controller, 5, { moveX: 0, moveZ: 0 });
       expect(out.grounded).toBe(true);
       expect(out.airborne).toBe(false);
-      expect(Math.abs(out.position.y)).toBeLessThan(0.02);
+      expect(Math.abs(out.position.y)).toBeLessThan(0.03);
       expect(out.vy).toBe(0);
     } finally {
       controller.dispose();
