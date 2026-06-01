@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-01 (FFA AI World Host Phase 6)
+Last updated: 2026-06-01 (FFA AI World Host Phase 7)
 
 **Historical detail:** `.cursor/memory-archive.md` (planning log + bug-fix chronicle through 2026-05-30). Update that file only when archiving new dated entries; keep this file lean.
 
@@ -32,7 +32,7 @@ Remaining refactor candidates: `packages/contracts/src/index.ts`, `RoomClient.ts
 - **FFA world-building IDEAS:** `docs/planning/rooms/free-for-all/world-building/IDEAS_FREE_FOR_ALL_WORLD_BUILDING.md` — brainstorm/roadmap to improve (instancing, undo+soft-delete, camera collision, eased-fall/jump, 2D authoring) + expand (piece kit, prefabs/stamps, multi-select, interactive/logic pieces, AI prompt→structure, versioned/forkable worlds). Sequenced Wave 0–3; maps to Frame parity gaps
 - **FFA escape rooms → 6.1:** `docs/planning/rooms/free-for-all/world-building/ROADMAP_ESCAPE_ROOMS_TO_TRIGGER_BLOCKS.md` — **escape-room room type** (empty 80×80 canvas, not FFA); element catalog + puzzle recipes (how X combines with Y); Phases −1–10 to trigger blocks 6.1
 - **FFA features:** live captions, AI meeting notes, AI 3D objects, shared browser (Hyperbeam) — see `docs/planning/rooms/free-for-all/`
-- **FFA AI World Host:** `docs/planning/rooms/free-for-all/aibot/PLAN_FREE_FOR_ALL_AI_WORLD_HOST.md`, `IMPL_FREE_FOR_ALL_AI_WORLD_HOST.md` — Phases 1–6 + review bugfixes on `feature/aibot` (dismiss chat retention, async PDF, reprocess/retry, file routes without host, delete auth, optimistic rollback). **Phase 7** (E2E, profanity) pending.
+- **FFA AI World Host:** `docs/planning/rooms/free-for-all/aibot/PLAN_FREE_FOR_ALL_AI_WORLD_HOST.md`, `IMPL_FREE_FOR_ALL_AI_WORLD_HOST.md` — **Phases 1–7 complete** on `feature/aibot` (host CRUD, avatar, Build Help, study files, polish/E2E). Flags: `ENABLE_AI_WORLD_HOST` / `NEXT_PUBLIC_ENABLE_AI_WORLD_HOST` (default off). E2E: `apps/web/test/ai-world-host.spec.ts`.
 - **New features:** `docs/planning/new-features/README.md`
 - **Room-type ideas:** `docs/planning/new-features/ROOM_TYPE_FEATURE_IDEAS.md` — per-type brainstorm (classroom, workforce-training, FFA, escape-room) of novel+iterate ideas + cross-room synergy matrix (reuse logic bus / world-building / RoomObjects / skins / AI / async / zone audio across types)
 

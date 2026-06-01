@@ -21,12 +21,8 @@ import {
 import type { AppContext } from "../app-context.js";
 import { assertAiHostPresent, assertAiWorldHostAvailable } from "../ai-host/guards.js";
 import { createAiHostRecord, patchAiHostRecord } from "../ai-host/host-service.js";
-import {
-  countRecentUserMessages,
-  createAiHostChatMessageRecord,
-  secondsUntilRateLimitResets,
-  toChatHistory
-} from "../ai-host/chat-message-service.js";
+import { createAiHostChatMessageRecord, toChatHistory } from "../ai-host/chat-message-service.js";
+import { assertAiHostChatRateLimit } from "../ai-host/rate-limit.js";
 import { streamChatCompletion } from "../ai-host/chat-service.js";
 import {
   assertAiHostFileUploadAllowed,
@@ -50,7 +46,6 @@ import {
   aiHostFileNotFound,
   aiHostFileNotReady,
   aiHostNotFound,
-  aiHostRateLimited
 } from "../errors.js";
 import { requireUser } from "../http/auth-guards.js";
 import { parseBody, parseParams, parseQuery } from "../http/parse.js";
@@ -302,9 +297,7 @@ export async function registerAiHostRoutes(app: FastifyInstance, ctx: AppContext
       fileId: body.fileId,
       limit: maxContextMessages
     });
-    if (countRecentUserMessages(priorMessages) >= maxPerHour) {
-      throw aiHostRateLimited(secondsUntilRateLimitResets(priorMessages));
-    }
+    assertAiHostChatRateLimit(priorMessages, maxPerHour);
 
     if (body.mode === "build-help") {
       await assertAiHostPresent(repository, params.roomId);

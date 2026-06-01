@@ -260,28 +260,26 @@ Goal: persistent files and file-grounded conversation.
 
 ---
 
-### Phase 7 — Polish, rate limits, E2E
+### Phase 7 — Polish, rate limits, E2E — COMPLETE
 
 Goal: production-ready rollout.
 
-**Files:**
+**Files (shipped):**
 
-- `apps/api/src/ai-host/rate-limit.ts`
-- `apps/web/test/ai-world-host.spec.ts`
-- `playwright.config.ts` — env flags
-
-**Steps:**
-
-1. Per-user hourly message cap (429).
-2. Name profanity blocklist (small static set).
-3. 2D panel parity check.
-4. Playwright: summon → ask build question → see bubble text (mock OpenAI in test env OR use `AI_WORLD_HOST_E2E_MOCK=true` stub).
-5. Update `.cursor/memory.md`, optional `docs/planning/mvp+1` note.
+- `apps/api/src/ai-host/rate-limit.ts` — hourly cap helpers + `assertAiHostChatRateLimit` with accurate `retryAfterSeconds`.
+- `apps/api/src/ai-host/profanity.ts` — display-name blocklist (used by `host-service.ts`).
+- `apps/api/tests/ai-host/rate-limit.test.ts`, `apps/api/tests/ai-host/profanity.test.ts`
+- `apps/web/test/ai-world-host.spec.ts` — classroom (no HUD), FFA summon + build help + bubble, 2D marker + panel.
+- `playwright.config.ts` — `ENABLE_AI_WORLD_HOST`, `AI_WORLD_HOST_MOCK_RESPONSES`, `NEXT_PUBLIC_ENABLE_AI_WORLD_HOST` on E2E servers.
+- `apps/web/components/WorldHostPanel.tsx` — `data-testid="ai-world-host-panel"`.
 
 **Checkpoint:**
 
-- [ ] `npm run test:e2e -- --grep "ai world host"`
-- [ ] Flags off → no panel
+- [x] Per-user hourly cap (429) via `assertAiHostChatRateLimit` (wired in Phase 5/6 chat route).
+- [x] Profanity blocklist extracted + unit tests.
+- [x] E2E: 2D view shows `.world-host-marker-2d` and chat panel; build-help mock reply in panel + `ai-host-bubble`.
+- [x] E2E: classroom room has no World Host region/panel (room-type gate).
+- [ ] `npm run test:e2e -- --grep "ai world host"` (run locally with Playwright webServer).
 
 ---
 

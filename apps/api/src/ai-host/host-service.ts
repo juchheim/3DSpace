@@ -1,15 +1,9 @@
 import { RoomAiHostSchema, type RoomAiHost } from "@3dspace/contracts";
 import { badRequest } from "../errors.js";
 import { newId, nowIso } from "../repository.js";
+import { displayNameContainsProfanity } from "./profanity.js";
 
 const DISPLAY_NAME_PATTERN = /^[\p{L}\p{N}](?:[\p{L}\p{N}\s-]*[\p{L}\p{N}])?$/u;
-
-const PROFANITY_BLOCKLIST = new Set([
-  "ass",
-  "damn",
-  "fuck",
-  "shit"
-]);
 
 export function normalizeAiHostDisplayName(raw: string): string {
   const trimmed = raw.trim().replace(/\s+/g, " ");
@@ -21,12 +15,8 @@ export function normalizeAiHostDisplayName(raw: string): string {
       "Display name may only contain letters, numbers, spaces, and hyphens, and must start and end with a letter or number"
     );
   }
-  const lowered = trimmed.toLowerCase();
-  for (const word of PROFANITY_BLOCKLIST) {
-    const pattern = new RegExp(`(?:^|[^\\p{L}\\p{N}])${word}(?:[^\\p{L}\\p{N}]|$)`, "iu");
-    if (pattern.test(lowered)) {
-      throw badRequest("Display name is not allowed");
-    }
+  if (displayNameContainsProfanity(trimmed)) {
+    throw badRequest("Display name is not allowed");
   }
   return trimmed;
 }

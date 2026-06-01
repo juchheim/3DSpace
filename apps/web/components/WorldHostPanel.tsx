@@ -96,7 +96,7 @@ export function WorldHostPanel({
   const canDeleteFile = (file: RoomAiHostFile) => file.uploadedByUserId === currentUserId;
 
   return (
-    <section className="hud-card ai-world-host-panel" aria-label={`${panelTitle} chat`}>
+    <section className="hud-card ai-world-host-panel" data-testid="ai-world-host-panel" aria-label={`${panelTitle} chat`}>
       <header className="ai-world-host-panel__header">
         <h3 className="hud-heading">{panelTitle}</h3>
         <span className="ai-world-host-panel__subtitle">
