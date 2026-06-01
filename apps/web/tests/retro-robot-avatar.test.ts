@@ -45,8 +45,11 @@ describe("buildRetroRobotKit", () => {
       // (two eyes, two wheels, two arms with three fingers each).
       const g = kit.geo;
       const doubled =
-        geometryTriangles(g.eyeSocket) +
+        geometryTriangles(g.eyeBezel) +
         geometryTriangles(g.eyeLens) +
+        geometryTriangles(g.eyeIris) +
+        geometryTriangles(g.eyePupil) +
+        geometryTriangles(g.eyeCatchlight) +
         geometryTriangles(g.earCap) +
         geometryTriangles(g.wheel) +
         geometryTriangles(g.hubcap) +
@@ -60,8 +63,9 @@ describe("buildRetroRobotKit", () => {
         geometryTriangles(g.finger) * 3;
       const single = Object.values(g).reduce((sum, geo) => sum + geometryTriangles(geo as BufferGeometry), 0);
       const approxSceneTriangles = single + doubled; // generous upper bound
-      // Hard ceiling well under what a single NPC should cost on the GPU.
-      expect(approxSceneTriangles).toBeLessThan(20000);
+      // Hard ceiling well under what a single NPC should cost on the GPU
+      // (headroom for the detailed layered eyes).
+      expect(approxSceneTriangles).toBeLessThan(26000);
       expect(approxSceneTriangles).toBeGreaterThan(1500); // genuinely modeled, not a few boxes
     } finally {
       kit.dispose();

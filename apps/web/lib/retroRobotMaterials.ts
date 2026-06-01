@@ -303,8 +303,11 @@ export type RetroRobotKit = {
     dome: BufferGeometry;
     visor: BufferGeometry;
     brow: BufferGeometry;
-    eyeSocket: BufferGeometry;
+    eyeBezel: BufferGeometry;
     eyeLens: BufferGeometry;
+    eyeIris: BufferGeometry;
+    eyePupil: BufferGeometry;
+    eyeCatchlight: BufferGeometry;
     earCap: BufferGeometry;
     antennaStalk: BufferGeometry;
     antennaBall: BufferGeometry;
@@ -332,6 +335,8 @@ export type RetroRobotKit = {
     tire: MeshStandardMaterial;
     glass: MeshStandardMaterial;
     eye: MeshStandardMaterial;
+    eyePupil: MeshStandardMaterial;
+    catchlight: MeshBasicMaterial;
     screen: MeshStandardMaterial;
     antennaTip: MeshStandardMaterial;
     shadow: MeshBasicMaterial;
@@ -389,13 +394,28 @@ export function buildRetroRobotKit(): RetroRobotKit {
     metalness: 0.1,
     roughness: 0.18
   });
+  // Iris — the glowing eye. Base colour is the glow colour too (so it reads
+  // bright from both the lit + emissive terms), double-sided and un-tonemapped
+  // so it never washes out to black against the dark visor.
   const eye = new MeshStandardMaterial({
-    color: "#0a1416",
+    color: RETRO_ROBOT_PALETTE.eyeIdle,
     emissive: new Color(RETRO_ROBOT_PALETTE.eyeIdle),
-    emissiveIntensity: 2.4,
+    emissiveIntensity: 2.8,
     metalness: 0,
+    roughness: 0.2,
+    side: DoubleSide,
+    toneMapped: false
+  });
+  // Pupil — a dark focal disc that gives the eye a "looking at you" read.
+  const eyePupil = new MeshStandardMaterial({
+    color: "#02060b",
+    emissive: new Color("#06283f"),
+    emissiveIntensity: 0.5,
+    metalness: 0.3,
     roughness: 0.25
   });
+  // Catchlight — a tiny always-bright sparkle that makes the eye feel alive.
+  const catchlight = new MeshBasicMaterial({ color: "#ffffff", toneMapped: false });
   const screen = new MeshStandardMaterial({
     color: "#05080c",
     emissive: new Color("#ffffff"),
@@ -436,18 +456,35 @@ export function buildRetroRobotKit(): RetroRobotKit {
   // Wrap-around dark visor band that holds the eyes.
   const visor = shellGeometry(0.5, 0.18, 0.12, 0.08);
   const brow = chevronGeometry(0.34, 0.045, 0.05, 0.05);
-  const eyeSocket = latheGeometry([
-    v2(0.0, 0.0),
-    v2(0.075, 0.0),
-    v2(0.082, 0.018),
-    v2(0.06, 0.03)
-  ]);
+  // Expressive eyes — layered, all turned to face +Z so they stack toward the
+  // viewer and sit clearly proud of the dark visor:
+  //   coral bezel ring → dark lens glass → bright glowing iris → dark pupil → catchlight
+  const eyeBezel = new TorusGeometry(0.092, 0.018, 14, 30);
   const eyeLens = latheGeometry([
-    v2(0.0, 0.058),
-    v2(0.028, 0.052),
-    v2(0.05, 0.032),
+    v2(0.0, 0.024),
+    v2(0.04, 0.021),
+    v2(0.066, 0.012),
+    v2(0.078, 0.0)
+  ]);
+  eyeLens.rotateX(Math.PI / 2);
+  const eyeIris = latheGeometry([
+    v2(0.0, 0.018),
+    v2(0.032, 0.016),
+    v2(0.052, 0.009),
     v2(0.062, 0.0)
   ]);
+  eyeIris.rotateX(Math.PI / 2);
+  const eyePupilGeo = latheGeometry([
+    v2(0.0, 0.013),
+    v2(0.018, 0.011),
+    v2(0.028, 0.0)
+  ]);
+  eyePupilGeo.rotateX(Math.PI / 2);
+  const eyeCatchlight = latheGeometry(
+    [v2(0.0, 0.009), v2(0.008, 0.006), v2(0.013, 0.0)],
+    16
+  );
+  eyeCatchlight.rotateX(Math.PI / 2);
   const earCap = latheGeometry([
     v2(0.0, 0.05),
     v2(0.04, 0.05),
@@ -455,11 +492,16 @@ export function buildRetroRobotKit(): RetroRobotKit {
     v2(0.065, 0.0)
   ]);
 
-  // Antenna: curved stalk + glowing teardrop tip.
+  // Antenna: long curved stalk + glowing teardrop tip.
   const antennaStalk = tubeGeometry(
-    [new Vector3(0, 0, 0), new Vector3(0.015, 0.12, 0.01), new Vector3(0.05, 0.24, 0.03)],
-    0.014,
-    20,
+    [
+      new Vector3(0, 0, 0),
+      new Vector3(0.02, 0.16, 0.01),
+      new Vector3(0.055, 0.33, 0.025),
+      new Vector3(0.085, 0.5, 0.045)
+    ],
+    0.013,
+    28,
     10
   );
   const antennaBall = latheGeometry([
@@ -579,8 +621,11 @@ export function buildRetroRobotKit(): RetroRobotKit {
       dome,
       visor,
       brow,
-      eyeSocket,
+      eyeBezel,
       eyeLens,
+      eyeIris,
+      eyePupil: eyePupilGeo,
+      eyeCatchlight,
       earCap,
       antennaStalk,
       antennaBall,
@@ -600,7 +645,7 @@ export function buildRetroRobotKit(): RetroRobotKit {
       grille,
       shadow: shadowGeo
     },
-    mat: { body, accent, secondary, dark, tire, glass, eye, screen, antennaTip, shadow },
+    mat: { body, accent, secondary, dark, tire, glass, eye, eyePupil, catchlight, screen, antennaTip, shadow },
     screen: { texture: screenTexture, ctx: screenCtx },
     dispose() {
       const geos = Object.values(this.geo) as BufferGeometry[];

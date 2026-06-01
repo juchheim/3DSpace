@@ -51,11 +51,13 @@ describe("useLogicDetection teleporter landing", () => {
         enabled: true,
         pieces: [padA, padB],
         getAvatarState: () => ({
+          type: "avatar.state.v1" as const,
           participantId: "p1",
           position,
+          rotation: { y: 0 },
           sentAt: Date.now(),
-          movement: "idle",
-          viewMode: "3d",
+          movement: "idle" as const,
+          viewMode: "3d" as const,
           media: { cameraEnabled: false, microphoneEnabled: false, speaking: false }
         }),
         onEvent: () => {},

@@ -67,7 +67,7 @@ async function stepMany(
     moveX: input.moveX,
     moveZ: input.moveZ,
     dtSeconds: input.dtSeconds ?? 1 / 60,
-    sprinting: input.sprinting
+    ...(input.sprinting !== undefined ? { sprinting: input.sprinting } : {})
   };
   let last = controller.step(stepInput);
 

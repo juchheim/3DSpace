@@ -26,6 +26,7 @@ describe("applyAiHostRealtimeMessage", () => {
     const dismissed = applyAiHostRealtimeMessage(updated, {
       type: "room.ai-host.dismissed.v1",
       roomId: "room-1",
+      deleteFiles: false,
       sentAt: 2,
       senderId: "user-2"
     });

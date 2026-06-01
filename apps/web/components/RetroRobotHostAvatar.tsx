@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Billboard, Html } from "@react-three/drei";
-import { Color, MathUtils, type Group, type Material } from "three";
+import { Color, MathUtils, type Group, type Material, type Mesh } from "three";
 import {
   buildRetroRobotKit,
   drawRobotScreen,
@@ -73,6 +73,8 @@ export function RetroRobotHostAvatar({
   const headRef = useRef<Group>(null);
   const antennaRef = useRef<Group>(null);
   const eyesRef = useRef<Group>(null);
+  const leftPupilRef = useRef<Mesh>(null);
+  const rightPupilRef = useRef<Mesh>(null);
   const leftClawRef = useRef<Group>(null);
   const rightClawRef = useRef<Group>(null);
   const screenAccum = useRef(0);
@@ -104,24 +106,40 @@ export function RetroRobotHostAvatar({
     }
 
     if (!ghost) {
-      // Eyes — emissive colour + pulse by state.
+      // Eyes — iris colour (diffuse + emissive) + pulse by state.
       const eye = kit.mat.eye;
+      let openness = 1; // resting lid aperture per mood
       if (thinking) {
         const pulse = 0.5 + 0.5 * Math.sin(t * 1.2 * TWO_PI); // 1.2 Hz (PLAN §3.2)
+        eye.color.copy(eyeThinking);
         eye.emissive.copy(eyeThinking);
-        eye.emissiveIntensity = 1.5 + pulse * 1.9;
+        eye.emissiveIntensity = 1.8 + pulse * 2.0;
+        openness = 0.86; // slight pondering squint
       } else if (speaking) {
-        eye.emissive.copy(Math.sin(t * 6) > 0 ? eyeSpeakA : eyeSpeakB);
-        eye.emissiveIntensity = 2.6;
+        const flick = Math.sin(t * 6) > 0 ? eyeSpeakA : eyeSpeakB;
+        eye.color.copy(flick);
+        eye.emissive.copy(flick);
+        eye.emissiveIntensity = 3.0;
+        openness = 1.08; // bright and wide
       } else {
+        eye.color.copy(eyeIdle);
         eye.emissive.copy(eyeIdle);
-        eye.emissiveIntensity = 2.2;
+        eye.emissiveIntensity = 2.6;
       }
 
-      // Soft blink every ~3.4 s.
+      // Soft blink every ~3.4 s, combined with the mood openness.
       const blinkPhase = t % 3.4;
       const blink = blinkPhase < 0.13 ? Math.sin((blinkPhase / 0.13) * Math.PI) : 0;
-      if (eyesRef.current) eyesRef.current.scale.y = 1 - blink * 0.82;
+      if (eyesRef.current) {
+        eyesRef.current.scale.y = MathUtils.lerp(eyesRef.current.scale.y, openness * (1 - blink * 0.85), delta * 12);
+      }
+
+      // Living gaze — pupils drift together; a touch more roving while thinking.
+      const gazeRange = thinking ? 0.02 : 0.012;
+      const gx = (Math.sin(t * 0.6) * 0.6 + Math.sin(t * 0.27) * 0.4) * gazeRange;
+      const gy = Math.sin(t * 0.43) * gazeRange * 0.6 + (thinking ? 0.012 : 0);
+      if (leftPupilRef.current) leftPupilRef.current.position.set(gx, gy, 0.03);
+      if (rightPupilRef.current) rightPupilRef.current.position.set(gx, gy, 0.03);
 
       // Antenna tip glow.
       kit.mat.antennaTip.emissiveIntensity =
@@ -227,9 +245,9 @@ export function RetroRobotHostAvatar({
         <group ref={headRef} position={[0, 1.52, 0]}>
           <mesh geometry={geo.head} material={mat.body} />
           <mesh geometry={geo.dome} material={mat.secondary} position={[0, 0.2, 0]} />
-          {/* Dark visor band holding the eyes. */}
+          {/* Dark visor band recessed behind the eyes. */}
           <mesh geometry={geo.visor} material={mat.dark} position={[0, 0.02, 0.18]} />
-          <mesh geometry={geo.brow} material={mat.accent} position={[0, 0.11, 0.25]} />
+          <mesh geometry={geo.brow} material={mat.accent} position={[0, 0.16, 0.21]} />
           {/* Side "ear" caps. */}
           {([-1, 1] as const).map((side) => (
             <mesh
@@ -240,40 +258,53 @@ export function RetroRobotHostAvatar({
               rotation={[0, 0, (Math.PI / 2) * side]}
             />
           ))}
-          {/* LED eyes. */}
-          <group ref={eyesRef}>
+          {/* Expressive LED eyes — big, layered, proud of the visor. */}
+          <group ref={eyesRef} position={[0, 0.035, 0.25]}>
             {([-1, 1] as const).map((side) => (
-              <group key={`eye-${side}`} position={[0.12 * side, 0.02, 0.24]} rotation={[Math.PI / 2, 0, 0]}>
-                <mesh geometry={geo.eyeSocket} material={mat.dark} />
-                <mesh geometry={geo.eyeLens} material={mat.eye} />
+              <group key={`eye-${side}`} position={[0.14 * side, 0, 0]}>
+                {/* coral bezel ring */}
+                <mesh geometry={geo.eyeBezel} material={mat.accent} position={[0, 0, 0.01]} />
+                {/* dark lens glass */}
+                <mesh geometry={geo.eyeLens} material={mat.glass} />
+                {/* bright glowing iris */}
+                <mesh geometry={geo.eyeIris} material={mat.eye} position={[0, 0, 0.016]} />
+                {/* dark pupil — drifts for a living gaze */}
+                <mesh
+                  ref={side === -1 ? leftPupilRef : rightPupilRef}
+                  geometry={geo.eyePupil}
+                  material={mat.eyePupil}
+                  position={[0, 0, 0.03]}
+                />
+                {/* fixed white catchlight, upper-left */}
+                <mesh geometry={geo.eyeCatchlight} material={mat.catchlight} position={[-0.024, 0.03, 0.046]} />
               </group>
             ))}
           </group>
-          {/* Antenna. */}
+          {/* Antenna — long curved stalk + glowing tip. */}
           <group ref={antennaRef} position={[0, 0.22, 0]}>
             <mesh geometry={geo.antennaStalk} material={mat.dark} />
-            <mesh geometry={geo.antennaBall} material={mat.antennaTip} position={[0.05, 0.24, 0.03]} />
+            <mesh geometry={geo.antennaBall} material={mat.antennaTip} position={[0.085, 0.5, 0.045]} />
           </group>
         </group>
 
-        {/* ── Arms ── */}
+        {/* ── Arms ── splayed outward so they clear the torso silhouette ── */}
         <RobotArm
           kit={kit}
           side={-1}
-          rotation={[0.12, 0, 0.18]}
+          rotation={[0.06, 0, -0.13]} // relaxed at side, angled away from body
           clawRef={leftClawRef}
         />
         <RobotArm
           kit={kit}
           side={1}
-          rotation={[-1.0, 0.12, -0.12]} // raised "ready to help"
+          rotation={[-0.85, 0.06, 0.13]} // raised "ready to help", angled outward
           clawRef={rightClawRef}
         />
       </group>
 
       {/* Nameplate. */}
       {ghost ? null : (
-        <Billboard position={[0, 2.02, 0]}>
+        <Billboard position={[0, 2.42, 0]}>
           <Html center distanceFactor={nameplateDistanceFactor} style={{ pointerEvents: "none" }}>
             <div className="world-host-nameplate" data-testid="ai-host-nameplate">
               <span className="world-host-nameplate__name">{displayName}</span>
@@ -285,7 +316,7 @@ export function RetroRobotHostAvatar({
 
       {/* Speech bubble (viewer-local). */}
       {!ghost && bubble ? (
-        <Billboard position={[0, 2.42, 0]}>
+        <Billboard position={[0, 2.78, 0]}>
           <Html center distanceFactor={9} className="world-host-bubble-html" style={{ pointerEvents: "none" }}>
             <div className={`world-host-bubble${thinking ? " world-host-bubble--thinking" : ""}`} data-testid="ai-host-bubble">
               {bubble}
@@ -296,7 +327,7 @@ export function RetroRobotHostAvatar({
 
       {/* Thinking indicator on the bubble anchor when there is no reply yet. */}
       {!ghost && !bubble && thinking ? (
-        <Billboard position={[0, 2.32, 0]}>
+        <Billboard position={[0, 2.68, 0]}>
           <Html center distanceFactor={9} className="world-host-bubble-html" style={{ pointerEvents: "none" }}>
             <div className="world-host-bubble world-host-bubble--thinking world-host-bubble--typing" aria-label="Guide is thinking">
               <span />
@@ -325,7 +356,7 @@ function RobotArm({
 }) {
   const { geo, mat } = kit;
   return (
-    <group position={[0.5 * side, 1.12, 0.02]} rotation={rotation}>
+    <group position={[0.55 * side, 1.12, 0.02]} rotation={rotation}>
       <mesh geometry={geo.shoulder} material={mat.accent} rotation={[0, 0, (Math.PI / 2) * side]} />
       <mesh geometry={geo.upperArm} material={mat.body} position={[0, -0.05, 0]} />
       <mesh geometry={geo.armRib} material={mat.dark} position={[0, -0.12, 0.01]} rotation={[Math.PI / 2, 0, 0]} />

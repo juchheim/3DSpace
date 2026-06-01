@@ -104,7 +104,8 @@ export function WorldHostPanel({
         </span>
       </header>
 
-      <div className="ai-world-host-panel__tabs" role="tablist">
+      <div className="hud-card-body ai-world-host-panel__content">
+        <div className="ai-world-host-panel__tabs" role="tablist">
         <button
           type="button"
           role="tab"
@@ -357,6 +358,7 @@ export function WorldHostPanel({
           ) : null}
         </div>
       )}
+      </div>
     </section>
   );
 }

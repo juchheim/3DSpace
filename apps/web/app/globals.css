@@ -7908,8 +7908,28 @@ body.lobby-dark::before {
 }
 
 /* AI World Host HUD (Phase 4) — robot/speech styles are Phase 3 `.world-host-*` */
+.ai-world-host-card > .hud-heading {
+  padding: 6px 9px 4px;
+}
+
 .ai-world-host-card__body {
-  gap: 8px;
+  gap: 10px;
+}
+
+.ai-world-host-card__active,
+.ai-world-host-card__summon,
+.ai-world-host-card__empty,
+.ai-world-host-card__placement {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ai-world-host-card__hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--hud-tx-m);
 }
 
 .ai-world-host-card__error {
@@ -7940,14 +7960,15 @@ body.lobby-dark::before {
 .ai-world-host-card__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 .ai-world-host-card__button {
   border: 1px solid var(--hud-bd);
   border-radius: 6px;
-  padding: 5px 10px;
-  font-size: 10px;
+  padding: 6px 10px;
+  min-height: 28px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   background: rgba(255, 255, 255, 0.06);
@@ -7985,10 +8006,20 @@ body.lobby-dark::before {
 
 .ai-world-host-card__checkbox {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  align-items: flex-start;
+  gap: 8px;
   font-size: 10px;
+  line-height: 1.45;
   color: var(--hud-tx-m);
+}
+
+.ai-world-host-card__checkbox input {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.ai-world-host-card__dismiss {
+  align-self: flex-start;
 }
 
 .ai-world-host-card__placement p {
@@ -8004,8 +8035,14 @@ body.lobby-dark::before {
 /* ── World Host chat panel (Build Help / Study Files) ── */
 .ai-world-host-panel__header {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 6px 9px 4px;
+}
+
+.ai-world-host-panel__content {
+  gap: 10px;
 }
 
 .ai-world-host-panel__subtitle {
@@ -8017,16 +8054,17 @@ body.lobby-dark::before {
 
 .ai-world-host-panel__tabs {
   display: flex;
-  gap: 4px;
-  margin: 8px 0;
+  gap: 6px;
+  margin: 0;
 }
 
 .ai-world-host-panel__tab {
   flex: 1;
   border: 1px solid var(--hud-bd);
   border-radius: 6px;
-  padding: 5px 8px;
-  font-size: 10px;
+  padding: 6px 8px;
+  min-height: 28px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   background: transparent;
@@ -8042,21 +8080,22 @@ body.lobby-dark::before {
 .ai-world-host-panel__body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .ai-world-host-panel__messages {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   max-height: 260px;
   overflow-y: auto;
-  padding-right: 4px;
+  padding-right: 2px;
 }
 
 .ai-world-host-panel__hint {
   margin: 0;
   font-size: 11px;
+  line-height: 1.45;
   color: var(--hud-tx-m);
 }
 
@@ -8095,15 +8134,19 @@ body.lobby-dark::before {
 
 .ai-world-host-panel__chips {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .ai-world-host-panel__chip {
+  width: 100%;
+  box-sizing: border-box;
   border: 1px solid var(--hud-bd);
-  border-radius: 999px;
-  padding: 4px 9px;
-  font-size: 10px;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: left;
   cursor: pointer;
   background: rgba(255, 255, 255, 0.05);
   color: var(--hud-tx-m);
@@ -8117,12 +8160,14 @@ body.lobby-dark::before {
 .ai-world-host-panel__composer {
   display: flex;
   gap: 6px;
+  align-items: stretch;
 }
 
 .ai-world-host-panel__input {
   flex: 1;
+  min-width: 0;
   box-sizing: border-box;
-  padding: 6px 8px;
+  padding: 7px 9px;
   border-radius: 6px;
   border: 1px solid var(--hud-bd);
   background: rgba(0, 0, 0, 0.25);
@@ -8131,10 +8176,12 @@ body.lobby-dark::before {
 }
 
 .ai-world-host-panel__send {
+  flex-shrink: 0;
   border: 1px solid rgba(45, 212, 191, 0.45);
   border-radius: 6px;
-  padding: 5px 12px;
-  font-size: 10px;
+  padding: 6px 10px;
+  min-height: 32px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   background: rgba(45, 212, 191, 0.18);
@@ -8154,9 +8201,9 @@ body.lobby-dark::before {
 .ai-world-host-panel__privacy {
   margin: 0;
   font-size: 10px;
-  line-height: 1.35;
+  line-height: 1.45;
   color: var(--hud-tx-m);
-  padding: 6px 8px;
+  padding: 8px 10px;
   border-radius: 6px;
   border: 1px solid rgba(251, 191, 36, 0.35);
   background: rgba(251, 191, 36, 0.08);
@@ -8178,7 +8225,7 @@ body.lobby-dark::before {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .ai-world-host-panel__file-row {
