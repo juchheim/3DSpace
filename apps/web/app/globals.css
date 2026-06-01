@@ -8006,16 +8006,31 @@ body.lobby-dark::before {
 
 .ai-world-host-card__checkbox {
   display: flex;
+  flex-direction: row;
   align-items: flex-start;
   gap: 8px;
-  font-size: 10px;
-  line-height: 1.45;
+  width: 100%;
+  margin: 0;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1.4;
   color: var(--hud-tx-m);
 }
 
 .ai-world-host-card__checkbox input {
-  margin-top: 2px;
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  margin: 1px 0 0;
   flex-shrink: 0;
+  accent-color: var(--hud-acc, #5da689);
+  cursor: pointer;
+}
+
+.ai-world-host-card__checkbox-label {
+  flex: 1;
+  min-width: 0;
+  color: var(--hud-tx);
 }
 
 .ai-world-host-card__dismiss {
@@ -8035,10 +8050,39 @@ body.lobby-dark::before {
 /* ── World Host chat panel (Build Help / Study Files) ── */
 .ai-world-host-panel__header {
   display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 9px 4px;
+}
+
+.ai-world-host-panel__header-text {
+  display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
-  padding: 6px 9px 4px;
+  min-width: 0;
+}
+
+.ai-world-host-panel__close {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--hud-bd);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--hud-tx-m);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ai-world-host-panel__close:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--hud-tx);
 }
 
 .ai-world-host-panel__content {

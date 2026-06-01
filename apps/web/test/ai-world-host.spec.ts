@@ -81,11 +81,12 @@ async function joinFfaRoom(page: Page, roomId: string, roomName: string) {
   await expect(page.locator(".room-hud-name")).toContainText(roomName, { timeout: 15_000 });
 }
 
-async function summonGuideAtHub(page: Page, name = "Chip") {
+async function summonGuideInFront(page: Page, name = "Chip") {
   await page.getByRole("button", { name: /summon guide/i }).click();
   await page.getByLabel(/guide name/i).fill(name);
-  await page.getByRole("button", { name: /place at hub/i }).click();
+  await page.getByRole("button", { name: /place in front of me/i }).click();
   await expect(page.getByTestId("ai-host-nameplate")).toContainText(name, { timeout: 20_000 });
+  await expect(page.getByTestId("ai-world-host-panel")).toBeVisible({ timeout: 10_000 });
 }
 
 test.describe("ai world host", () => {
@@ -103,7 +104,7 @@ test.describe("ai world host", () => {
     await joinFfaRoom(page, room.id, room.name);
 
     await expect(page.getByRole("region", { name: "World Host" })).toBeVisible();
-    await summonGuideAtHub(page);
+    await summonGuideInFront(page);
 
     await page.getByRole("button", { name: "How do I undo?" }).click();
 
@@ -115,7 +116,7 @@ test.describe("ai world host", () => {
   test("shows guide marker and chat panel in 2D view", async ({ page, request }) => {
     const room = await createFfaRoom(request);
     await joinFfaRoom(page, room.id, room.name);
-    await summonGuideAtHub(page);
+    await summonGuideInFront(page);
 
     await page.getByRole("button", { name: "2D" }).click();
     await expect(page.getByRole("img", { name: /top-down 2d analog/i })).toBeVisible({ timeout: 15_000 });

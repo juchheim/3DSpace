@@ -2363,7 +2363,12 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     roomObjectsEnabled &&
     role === "teacher" &&
     Boolean(selectedRoomObject && selectedRoomObjectTemplate);
-  const roomObjectInspectorStacked = helpDetailPanelOpen || lessonScriptDockOpen;
+  const aiWorldHostGuidePanelOpen =
+    aiWorldHostEnabled &&
+    aiWorldHost.panelOpen &&
+    Boolean(aiWorldHost.host || aiWorldHost.hasStudyFiles);
+  const roomObjectInspectorStacked =
+    helpDetailPanelOpen || lessonScriptDockOpen || aiWorldHostGuidePanelOpen;
   const avatarEditorLocked =
     classroom.state?.lessonRun?.status === "running" &&
     classroom.state?.avatarEditorLocked === true;
@@ -3169,16 +3174,6 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               localAvatarRotationY={movement.avatarState?.rotation.y ?? 0}
             />
           ) : null}
-          {aiWorldHostEnabled && session && (aiWorldHost.host || aiWorldHost.hasStudyFiles) ? (
-            <WorldHostPanel
-              controller={aiWorldHost}
-              buildHelpContext={{
-                buildModeEnabled: buildMode.enabled,
-                selectedTool: buildMode.enabled ? buildMode.tool : null,
-                pieceCount: buildPieces.pieces.length
-              }}
-            />
-          ) : null}
           {aiObjectsEnabled && session ? (
             <AiObjectPanel controller={{
               ...aiObjectGenerator,
@@ -3257,6 +3252,24 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           ) : null}
         </div>
       </aside>
+      {aiWorldHostGuidePanelOpen && session ? (
+        <aside
+          className="room-hud-right-secondary ai-world-host-guide-dock"
+          aria-label="AI guide chat"
+          data-testid="ai-world-host-guide-dock"
+        >
+          <div className="hud-panel">
+            <WorldHostPanel
+              controller={aiWorldHost}
+              buildHelpContext={{
+                buildModeEnabled: buildMode.enabled,
+                selectedTool: buildMode.enabled ? buildMode.tool : null,
+                pieceCount: buildPieces.pieces.length
+              }}
+            />
+          </div>
+        </aside>
+      ) : null}
       {roomObjectInspectorDockOpen && selectedRoomObject && selectedRoomObjectTemplate ? (
         <aside
           className={`room-hud-right-secondary room-object-inspector-dock${roomObjectInspectorStacked ? " room-hud-right-secondary--stacked" : ""}`}
@@ -3282,7 +3295,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       ) : null}
       {roomTypeFeatures.lessons && CLIENT_TUNING.enableClassroomLessons && role === "teacher" && lesson.run ? (
         <aside
-          className={`room-hud-right-secondary${helpDetailPanelOpen ? " room-hud-right-secondary--stacked" : ""}`}
+          className={`room-hud-right-secondary${helpDetailPanelOpen || aiWorldHostGuidePanelOpen ? " room-hud-right-secondary--stacked" : ""}`}
           aria-label="Lesson script"
           data-testid="lesson-script-dock"
         >

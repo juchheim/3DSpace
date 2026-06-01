@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { RoomManifest } from "@3dspace/contracts";
 import { floorYFromZ } from "@3dspace/room-engine";
-import { aiHostHubPlacementPosition, aiHostPlacementInFrontOfAvatar } from "../lib/useAiWorldHost";
+import { aiHostPlacementInFrontOfAvatar } from "../lib/useAiWorldHost";
 import type { useAiWorldHost } from "../lib/useAiWorldHost";
 import type { BuildPiece } from "@3dspace/contracts";
 
@@ -32,7 +32,6 @@ export function AiWorldHostControls({
     studyFiles,
     setPanelOpen,
     actions,
-    beginSummonPlacement,
     beginReposition,
     cancelPlacement
   } = controller;
@@ -51,11 +50,6 @@ export function AiWorldHostControls({
   }, [host]);
 
   const placing = placementMode !== "idle";
-  const hubPosition = aiHostHubPlacementPosition(
-    manifest,
-    buildPieces,
-    floorYFromZ(manifest, 0)
-  );
   const fallbackY = floorYFromZ(manifest, 0);
 
   return (
@@ -142,7 +136,7 @@ export function AiWorldHostControls({
           />
         ) : summonOpen ? (
           <div className="ai-world-host-card__summon">
-            <p className="ai-world-host-card__hint">Name your guide, then choose where to place them.</p>
+            <p className="ai-world-host-card__hint">Name your guide, then place them in front of you.</p>
             <label className="ai-world-host-card__label">
               Guide name
               <input
@@ -174,22 +168,6 @@ export function AiWorldHostControls({
                 }}
               >
                 Place in front of me
-              </button>
-              <button
-                type="button"
-                className="ai-world-host-card__button ai-world-host-card__button--ghost"
-                disabled={busy || displayName.trim().length < 3}
-                onClick={() => void actions.summon(displayName.trim(), hubPosition, 0).then(() => setSummonOpen(false))}
-              >
-                Place at hub
-              </button>
-              <button
-                type="button"
-                className="ai-world-host-card__button ai-world-host-card__button--ghost"
-                disabled={busy || displayName.trim().length < 3}
-                onClick={() => beginSummonPlacement({ position: hubPosition, rotationY: 0 })}
-              >
-                Place on ground…
               </button>
             </div>
             <button
@@ -310,7 +288,7 @@ function HostActiveCard({
           disabled={busy}
           onChange={(event) => onDeleteFilesChange(event.target.checked)}
         />
-        Delete study files when dismissing
+        <span className="ai-world-host-card__checkbox-label">Delete study files on dismiss</span>
       </label>
       <button type="button" className="ai-world-host-card__button ai-world-host-card__button--ghost ai-world-host-card__dismiss" disabled={busy} onClick={onDismiss}>
         Dismiss guide

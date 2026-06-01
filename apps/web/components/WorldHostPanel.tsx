@@ -52,7 +52,8 @@ export function WorldHostPanel({
     activeFileId,
     setActiveFileId,
     fileChatMessages,
-    actions
+    actions,
+    setPanelOpen
   } = controller;
 
   const [tab, setTab] = useState<WorldHostTab>(host ? "build-help" : "study-files");
@@ -98,10 +99,20 @@ export function WorldHostPanel({
   return (
     <section className="hud-card ai-world-host-panel" data-testid="ai-world-host-panel" aria-label={`${panelTitle} chat`}>
       <header className="ai-world-host-panel__header">
-        <h3 className="hud-heading">{panelTitle}</h3>
-        <span className="ai-world-host-panel__subtitle">
-          {host ? "AI guide" : "Summon the guide for build help"}
-        </span>
+        <div className="ai-world-host-panel__header-text">
+          <h3 className="hud-heading">{panelTitle}</h3>
+          <span className="ai-world-host-panel__subtitle">
+            {host ? "AI guide" : "Summon the guide for build help"}
+          </span>
+        </div>
+        <button
+          type="button"
+          className="ai-world-host-panel__close"
+          aria-label="Close guide panel"
+          onClick={() => setPanelOpen(false)}
+        >
+          ×
+        </button>
       </header>
 
       <div className="hud-card-body ai-world-host-panel__content">
