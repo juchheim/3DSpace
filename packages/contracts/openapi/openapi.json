@@ -1199,6 +1199,67 @@
                               "defaultPolycountTarget": 15000
                             }
                           },
+                          "aiWorldHost": {
+                            "type": "object",
+                            "properties": {
+                              "enabled": {
+                                "type": "boolean",
+                                "default": true
+                              },
+                              "maxFilesPerRoom": {
+                                "type": "integer",
+                                "exclusiveMinimum": true,
+                                "minimum": 0,
+                                "maximum": 50,
+                                "default": 10
+                              },
+                              "maxFileSizeBytes": {
+                                "type": "integer",
+                                "exclusiveMinimum": true,
+                                "minimum": 0,
+                                "maximum": 20000000,
+                                "default": 5000000
+                              },
+                              "maxMessagesPerUserPerHour": {
+                                "type": "integer",
+                                "exclusiveMinimum": true,
+                                "minimum": 0,
+                                "maximum": 500,
+                                "default": 60
+                              },
+                              "maxContextMessages": {
+                                "type": "integer",
+                                "exclusiveMinimum": true,
+                                "minimum": 0,
+                                "maximum": 50,
+                                "default": 20
+                              },
+                              "allowedMimeTypes": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "default": [
+                                  "application/pdf",
+                                  "text/plain",
+                                  "text/markdown"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false,
+                            "default": {
+                              "enabled": true,
+                              "maxFilesPerRoom": 10,
+                              "maxFileSizeBytes": 5000000,
+                              "maxMessagesPerUserPerHour": 60,
+                              "maxContextMessages": 20,
+                              "allowedMimeTypes": [
+                                "application/pdf",
+                                "text/plain",
+                                "text/markdown"
+                              ]
+                            }
+                          },
                           "sharedBrowsers": {
                             "type": "object",
                             "properties": {
@@ -1878,6 +1939,67 @@
                                 "allowMeshy": false,
                                 "meshyRefineTextures": true,
                                 "defaultPolycountTarget": 15000
+                              }
+                            },
+                            "aiWorldHost": {
+                              "type": "object",
+                              "properties": {
+                                "enabled": {
+                                  "type": "boolean",
+                                  "default": true
+                                },
+                                "maxFilesPerRoom": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 50,
+                                  "default": 10
+                                },
+                                "maxFileSizeBytes": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 20000000,
+                                  "default": 5000000
+                                },
+                                "maxMessagesPerUserPerHour": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 500,
+                                  "default": 60
+                                },
+                                "maxContextMessages": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 50,
+                                  "default": 20
+                                },
+                                "allowedMimeTypes": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "default": [
+                                    "application/pdf",
+                                    "text/plain",
+                                    "text/markdown"
+                                  ]
+                                }
+                              },
+                              "additionalProperties": false,
+                              "default": {
+                                "enabled": true,
+                                "maxFilesPerRoom": 10,
+                                "maxFileSizeBytes": 5000000,
+                                "maxMessagesPerUserPerHour": 60,
+                                "maxContextMessages": 20,
+                                "allowedMimeTypes": [
+                                  "application/pdf",
+                                  "text/plain",
+                                  "text/markdown"
+                                ]
                               }
                             },
                             "sharedBrowsers": {
@@ -3031,6 +3153,67 @@
                           "defaultPolycountTarget": 15000
                         }
                       },
+                      "aiWorldHost": {
+                        "type": "object",
+                        "properties": {
+                          "enabled": {
+                            "type": "boolean",
+                            "default": true
+                          },
+                          "maxFilesPerRoom": {
+                            "type": "integer",
+                            "exclusiveMinimum": true,
+                            "minimum": 0,
+                            "maximum": 50,
+                            "default": 10
+                          },
+                          "maxFileSizeBytes": {
+                            "type": "integer",
+                            "exclusiveMinimum": true,
+                            "minimum": 0,
+                            "maximum": 20000000,
+                            "default": 5000000
+                          },
+                          "maxMessagesPerUserPerHour": {
+                            "type": "integer",
+                            "exclusiveMinimum": true,
+                            "minimum": 0,
+                            "maximum": 500,
+                            "default": 60
+                          },
+                          "maxContextMessages": {
+                            "type": "integer",
+                            "exclusiveMinimum": true,
+                            "minimum": 0,
+                            "maximum": 50,
+                            "default": 20
+                          },
+                          "allowedMimeTypes": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "default": [
+                              "application/pdf",
+                              "text/plain",
+                              "text/markdown"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false,
+                        "default": {
+                          "enabled": true,
+                          "maxFilesPerRoom": 10,
+                          "maxFileSizeBytes": 5000000,
+                          "maxMessagesPerUserPerHour": 60,
+                          "maxContextMessages": 20,
+                          "allowedMimeTypes": [
+                            "application/pdf",
+                            "text/plain",
+                            "text/markdown"
+                          ]
+                        }
+                      },
                       "sharedBrowsers": {
                         "type": "object",
                         "properties": {
@@ -3638,6 +3821,67 @@
                             "allowMeshy": false,
                             "meshyRefineTextures": true,
                             "defaultPolycountTarget": 15000
+                          }
+                        },
+                        "aiWorldHost": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean",
+                              "default": true
+                            },
+                            "maxFilesPerRoom": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0,
+                              "maximum": 50,
+                              "default": 10
+                            },
+                            "maxFileSizeBytes": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0,
+                              "maximum": 20000000,
+                              "default": 5000000
+                            },
+                            "maxMessagesPerUserPerHour": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0,
+                              "maximum": 500,
+                              "default": 60
+                            },
+                            "maxContextMessages": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0,
+                              "maximum": 50,
+                              "default": 20
+                            },
+                            "allowedMimeTypes": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "default": [
+                                "application/pdf",
+                                "text/plain",
+                                "text/markdown"
+                              ]
+                            }
+                          },
+                          "additionalProperties": false,
+                          "default": {
+                            "enabled": true,
+                            "maxFilesPerRoom": 10,
+                            "maxFileSizeBytes": 5000000,
+                            "maxMessagesPerUserPerHour": 60,
+                            "maxContextMessages": 20,
+                            "allowedMimeTypes": [
+                              "application/pdf",
+                              "text/plain",
+                              "text/markdown"
+                            ]
                           }
                         },
                         "sharedBrowsers": {
@@ -4899,6 +5143,67 @@
                                 "allowMeshy": false,
                                 "meshyRefineTextures": true,
                                 "defaultPolycountTarget": 15000
+                              }
+                            },
+                            "aiWorldHost": {
+                              "type": "object",
+                              "properties": {
+                                "enabled": {
+                                  "type": "boolean",
+                                  "default": true
+                                },
+                                "maxFilesPerRoom": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 50,
+                                  "default": 10
+                                },
+                                "maxFileSizeBytes": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 20000000,
+                                  "default": 5000000
+                                },
+                                "maxMessagesPerUserPerHour": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 500,
+                                  "default": 60
+                                },
+                                "maxContextMessages": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 50,
+                                  "default": 20
+                                },
+                                "allowedMimeTypes": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "default": [
+                                    "application/pdf",
+                                    "text/plain",
+                                    "text/markdown"
+                                  ]
+                                }
+                              },
+                              "additionalProperties": false,
+                              "default": {
+                                "enabled": true,
+                                "maxFilesPerRoom": 10,
+                                "maxFileSizeBytes": 5000000,
+                                "maxMessagesPerUserPerHour": 60,
+                                "maxContextMessages": 20,
+                                "allowedMimeTypes": [
+                                  "application/pdf",
+                                  "text/plain",
+                                  "text/markdown"
+                                ]
                               }
                             },
                             "sharedBrowsers": {
@@ -16247,6 +16552,2239 @@
                   },
                   "required": [
                     "session"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{roomId}/ai-host": {
+      "get": {
+        "summary": "Get the AI world host for a room (or null)",
+        "tags": [
+          "ai-host"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "host": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "roomId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "displayName": {
+                          "type": "string",
+                          "minLength": 3,
+                          "maxLength": 24
+                        },
+                        "position": {
+                          "type": "object",
+                          "properties": {
+                            "x": {
+                              "type": "number"
+                            },
+                            "y": {
+                              "type": "number"
+                            },
+                            "z": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "x",
+                            "y",
+                            "z"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "rotationY": {
+                          "type": "number"
+                        },
+                        "createdByUserId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "roomId",
+                        "displayName",
+                        "position",
+                        "rotationY",
+                        "createdByUserId",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false,
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "host"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Summon the AI world host",
+        "tags": [
+          "ai-host"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "displayName": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 24
+                  },
+                  "position": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number"
+                      },
+                      "y": {
+                        "type": "number"
+                      },
+                      "z": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y",
+                      "z"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "rotationY": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "displayName",
+                  "position"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "host": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "roomId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "displayName": {
+                          "type": "string",
+                          "minLength": 3,
+                          "maxLength": 24
+                        },
+                        "position": {
+                          "type": "object",
+                          "properties": {
+                            "x": {
+                              "type": "number"
+                            },
+                            "y": {
+                              "type": "number"
+                            },
+                            "z": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "x",
+                            "y",
+                            "z"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "rotationY": {
+                          "type": "number"
+                        },
+                        "createdByUserId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "roomId",
+                        "displayName",
+                        "position",
+                        "rotationY",
+                        "createdByUserId",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "realtimeMessages": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.ai-host.updated.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "host": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "roomId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "displayName": {
+                                    "type": "string",
+                                    "minLength": 3,
+                                    "maxLength": 24
+                                  },
+                                  "position": {
+                                    "type": "object",
+                                    "properties": {
+                                      "x": {
+                                        "type": "number"
+                                      },
+                                      "y": {
+                                        "type": "number"
+                                      },
+                                      "z": {
+                                        "type": "number"
+                                      }
+                                    },
+                                    "required": [
+                                      "x",
+                                      "y",
+                                      "z"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "rotationY": {
+                                    "type": "number"
+                                  },
+                                  "createdByUserId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "updatedAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "roomId",
+                                  "displayName",
+                                  "position",
+                                  "rotationY",
+                                  "createdByUserId",
+                                  "createdAt",
+                                  "updatedAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "host",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.ai-host.dismissed.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.ai-host.file.updated.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "file": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "roomId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "uploadedByUserId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "originalFileName": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "contentType": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "sizeBytes": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "storageKey": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "extractedTextStorageKey": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "uploading",
+                                      "processing",
+                                      "ready",
+                                      "failed"
+                                    ]
+                                  },
+                                  "errorMessage": {
+                                    "type": "string"
+                                  },
+                                  "pageCount": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "charCount": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "updatedAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "roomId",
+                                  "uploadedByUserId",
+                                  "originalFileName",
+                                  "contentType",
+                                  "sizeBytes",
+                                  "storageKey",
+                                  "status",
+                                  "createdAt",
+                                  "updatedAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "file",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.ai-host.file.removed.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "fileId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "fileId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "default": []
+                    }
+                  },
+                  "required": [
+                    "host"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Rename or reposition the AI world host",
+        "tags": [
+          "ai-host"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "displayName": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 24
+                  },
+                  "position": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number"
+                      },
+                      "y": {
+                        "type": "number"
+                      },
+                      "z": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y",
+                      "z"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "rotationY": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "host": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "roomId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "displayName": {
+                          "type": "string",
+                          "minLength": 3,
+                          "maxLength": 24
+                        },
+                        "position": {
+                          "type": "object",
+                          "properties": {
+                            "x": {
+                              "type": "number"
+                            },
+                            "y": {
+                              "type": "number"
+                            },
+                            "z": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "x",
+                            "y",
+                            "z"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "rotationY": {
+                          "type": "number"
+                        },
+                        "createdByUserId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "roomId",
+                        "displayName",
+                        "position",
+                        "rotationY",
+                        "createdByUserId",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "realtimeMessages": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.ai-host.updated.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "host": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "roomId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "displayName": {
+                                    "type": "string",
+                                    "minLength": 3,
+                                    "maxLength": 24
+                                  },
+                                  "position": {
+                                    "type": "object",
+                                    "properties": {
+                                      "x": {
+                                        "type": "number"
+                                      },
+                                      "y": {
+                                        "type": "number"
+                                      },
+                                      "z": {
+                                        "type": "number"
+                                      }
+                                    },
+                                    "required": [
+                                      "x",
+                                      "y",
+                                      "z"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "rotationY": {
+                                    "type": "number"
+                                  },
+                                  "createdByUserId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "updatedAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "roomId",
+                                  "displayName",
+                                  "position",
+                                  "rotationY",
+                                  "createdByUserId",
+                                  "createdAt",
+                                  "updatedAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "host",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.ai-host.dismissed.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.ai-host.file.updated.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "file": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "roomId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "uploadedByUserId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "originalFileName": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "contentType": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "sizeBytes": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "storageKey": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "extractedTextStorageKey": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "uploading",
+                                      "processing",
+                                      "ready",
+                                      "failed"
+                                    ]
+                                  },
+                                  "errorMessage": {
+                                    "type": "string"
+                                  },
+                                  "pageCount": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "charCount": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "updatedAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "roomId",
+                                  "uploadedByUserId",
+                                  "originalFileName",
+                                  "contentType",
+                                  "sizeBytes",
+                                  "storageKey",
+                                  "status",
+                                  "createdAt",
+                                  "updatedAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "file",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.ai-host.file.removed.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "fileId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "fileId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "default": []
+                    }
+                  },
+                  "required": [
+                    "host"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Dismiss the AI world host (?deleteFiles=false keeps study files)",
+        "tags": [
+          "ai-host"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dismissed": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "realtimeMessages": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.ai-host.updated.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "host": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "roomId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "displayName": {
+                                    "type": "string",
+                                    "minLength": 3,
+                                    "maxLength": 24
+                                  },
+                                  "position": {
+                                    "type": "object",
+                                    "properties": {
+                                      "x": {
+                                        "type": "number"
+                                      },
+                                      "y": {
+                                        "type": "number"
+                                      },
+                                      "z": {
+                                        "type": "number"
+                                      }
+                                    },
+                                    "required": [
+                                      "x",
+                                      "y",
+                                      "z"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "rotationY": {
+                                    "type": "number"
+                                  },
+                                  "createdByUserId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "updatedAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "roomId",
+                                  "displayName",
+                                  "position",
+                                  "rotationY",
+                                  "createdByUserId",
+                                  "createdAt",
+                                  "updatedAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "host",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.ai-host.dismissed.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.ai-host.file.updated.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "file": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "roomId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "uploadedByUserId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "originalFileName": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "contentType": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "sizeBytes": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "storageKey": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "extractedTextStorageKey": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "uploading",
+                                      "processing",
+                                      "ready",
+                                      "failed"
+                                    ]
+                                  },
+                                  "errorMessage": {
+                                    "type": "string"
+                                  },
+                                  "pageCount": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "charCount": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "updatedAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "roomId",
+                                  "uploadedByUserId",
+                                  "originalFileName",
+                                  "contentType",
+                                  "sizeBytes",
+                                  "storageKey",
+                                  "status",
+                                  "createdAt",
+                                  "updatedAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "file",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.ai-host.file.removed.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "fileId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "fileId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "default": []
+                    }
+                  },
+                  "required": [
+                    "dismissed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{roomId}/ai-host/files": {
+      "get": {
+        "summary": "List study files for the AI world host",
+        "tags": [
+          "ai-host"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "files": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "roomId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "uploadedByUserId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "originalFileName": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "contentType": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "sizeBytes": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "storageKey": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "extractedTextStorageKey": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "uploading",
+                              "processing",
+                              "ready",
+                              "failed"
+                            ]
+                          },
+                          "errorMessage": {
+                            "type": "string"
+                          },
+                          "pageCount": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "charCount": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "roomId",
+                          "uploadedByUserId",
+                          "originalFileName",
+                          "contentType",
+                          "sizeBytes",
+                          "storageKey",
+                          "status",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "default": []
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Register an uploaded study file and queue text extraction",
+        "tags": [
+          "ai-host"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fileId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "storageKey": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "originalFileName": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "contentType": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "sizeBytes": {
+                    "type": "integer",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "fileId",
+                  "storageKey",
+                  "originalFileName",
+                  "contentType",
+                  "sizeBytes"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "file": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "roomId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "uploadedByUserId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "originalFileName": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "contentType": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "sizeBytes": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "storageKey": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "extractedTextStorageKey": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "uploading",
+                            "processing",
+                            "ready",
+                            "failed"
+                          ]
+                        },
+                        "errorMessage": {
+                          "type": "string"
+                        },
+                        "pageCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "charCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "roomId",
+                        "uploadedByUserId",
+                        "originalFileName",
+                        "contentType",
+                        "sizeBytes",
+                        "storageKey",
+                        "status",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "realtimeMessages": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.ai-host.updated.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "host": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "roomId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "displayName": {
+                                    "type": "string",
+                                    "minLength": 3,
+                                    "maxLength": 24
+                                  },
+                                  "position": {
+                                    "type": "object",
+                                    "properties": {
+                                      "x": {
+                                        "type": "number"
+                                      },
+                                      "y": {
+                                        "type": "number"
+                                      },
+                                      "z": {
+                                        "type": "number"
+                                      }
+                                    },
+                                    "required": [
+                                      "x",
+                                      "y",
+                                      "z"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "rotationY": {
+                                    "type": "number"
+                                  },
+                                  "createdByUserId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "updatedAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "roomId",
+                                  "displayName",
+                                  "position",
+                                  "rotationY",
+                                  "createdByUserId",
+                                  "createdAt",
+                                  "updatedAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "host",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.ai-host.dismissed.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.ai-host.file.updated.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "file": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "roomId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "uploadedByUserId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "originalFileName": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "contentType": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "sizeBytes": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "storageKey": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "extractedTextStorageKey": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "uploading",
+                                      "processing",
+                                      "ready",
+                                      "failed"
+                                    ]
+                                  },
+                                  "errorMessage": {
+                                    "type": "string"
+                                  },
+                                  "pageCount": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "charCount": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "updatedAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "roomId",
+                                  "uploadedByUserId",
+                                  "originalFileName",
+                                  "contentType",
+                                  "sizeBytes",
+                                  "storageKey",
+                                  "status",
+                                  "createdAt",
+                                  "updatedAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "file",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.ai-host.file.removed.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "fileId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "fileId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "default": []
+                    }
+                  },
+                  "required": [
+                    "file"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{roomId}/ai-host/files/upload-target": {
+      "post": {
+        "summary": "Create a signed upload target for an AI world host study file",
+        "tags": [
+          "ai-host"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fileName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255
+                  },
+                  "contentType": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "sizeBytes": {
+                    "type": "integer",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "fileName",
+                  "contentType",
+                  "sizeBytes"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "fileId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "storageKey": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "upload": {
+                      "type": "object",
+                      "properties": {
+                        "url": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "method": {
+                          "type": "string",
+                          "enum": [
+                            "PUT"
+                          ]
+                        },
+                        "headers": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "default": {}
+                        }
+                      },
+                      "required": [
+                        "url",
+                        "method"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "fileId",
+                    "storageKey",
+                    "upload"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{roomId}/ai-host/files/{fileId}": {
+      "delete": {
+        "summary": "Delete a study file",
+        "tags": [
+          "ai-host"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "realtimeMessages": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.ai-host.updated.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "host": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "roomId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "displayName": {
+                                    "type": "string",
+                                    "minLength": 3,
+                                    "maxLength": 24
+                                  },
+                                  "position": {
+                                    "type": "object",
+                                    "properties": {
+                                      "x": {
+                                        "type": "number"
+                                      },
+                                      "y": {
+                                        "type": "number"
+                                      },
+                                      "z": {
+                                        "type": "number"
+                                      }
+                                    },
+                                    "required": [
+                                      "x",
+                                      "y",
+                                      "z"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "rotationY": {
+                                    "type": "number"
+                                  },
+                                  "createdByUserId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "updatedAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "roomId",
+                                  "displayName",
+                                  "position",
+                                  "rotationY",
+                                  "createdByUserId",
+                                  "createdAt",
+                                  "updatedAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "host",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.ai-host.dismissed.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.ai-host.file.updated.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "file": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "roomId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "uploadedByUserId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "originalFileName": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "contentType": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "sizeBytes": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "storageKey": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "extractedTextStorageKey": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "uploading",
+                                      "processing",
+                                      "ready",
+                                      "failed"
+                                    ]
+                                  },
+                                  "errorMessage": {
+                                    "type": "string"
+                                  },
+                                  "pageCount": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "charCount": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "updatedAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "roomId",
+                                  "uploadedByUserId",
+                                  "originalFileName",
+                                  "contentType",
+                                  "sizeBytes",
+                                  "storageKey",
+                                  "status",
+                                  "createdAt",
+                                  "updatedAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "file",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "room.ai-host.file.removed.v1"
+                                ]
+                              },
+                              "roomId": {
+                                "type": "string"
+                              },
+                              "fileId": {
+                                "type": "string"
+                              },
+                              "sentAt": {
+                                "type": "integer"
+                              },
+                              "senderId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "roomId",
+                              "fileId",
+                              "sentAt",
+                              "senderId"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "default": []
+                    }
+                  },
+                  "required": [
+                    "deleted"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rooms/{roomId}/ai-host/chat": {
+      "get": {
+        "summary": "List private AI world host chat messages for the current user",
+        "tags": [
+          "ai-host"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "messages": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "roomId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "userId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "mode": {
+                            "type": "string",
+                            "enum": [
+                              "build-help",
+                              "file-study"
+                            ]
+                          },
+                          "fileId": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string",
+                            "enum": [
+                              "user",
+                              "assistant",
+                              "system"
+                            ]
+                          },
+                          "content": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "roomId",
+                          "userId",
+                          "mode",
+                          "role",
+                          "content",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "default": []
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Send a message to the AI world host (streaming response)",
+        "tags": [
+          "ai-host"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "build-help",
+                      "file-study"
+                    ]
+                  },
+                  "fileId": {
+                    "type": "string"
+                  },
+                  "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8000
+                  },
+                  "buildHelpContext": {
+                    "type": "object",
+                    "properties": {
+                      "buildModeEnabled": {
+                        "type": "boolean"
+                      },
+                      "selectedTool": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "pieceCount": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "lastBuildRejectionReason": {
+                        "type": "string",
+                        "nullable": true
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "mode",
+                  "content"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accepted": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "accepted"
                   ],
                   "additionalProperties": false
                 }

@@ -1189,7 +1189,12 @@ export const ApiErrorCodeSchema = z.enum([
   "logic-cap-exceeded",
   "logic-destroy-denied",
   "logic-not-found",
-  "logic-slot-occupied"
+  "logic-slot-occupied",
+  "ai-host-disabled",
+  "ai-host-not-found",
+  "ai-host-exists",
+  "ai-host-file-not-found",
+  "ai-host-file-rejected"
 ]);
 
 export function parseRoomObjectParameterSchemaJson(json: string) {
@@ -1226,6 +1231,7 @@ export type RoomTypeFeatureFlags = {
   openJoin: boolean;
   aiMeetingNotes: boolean;
   aiObjects: boolean;
+  aiWorldHost: boolean;
   whiteboards: boolean;
   sharedBrowsers: boolean;
   liveCaptions: boolean;
@@ -1250,6 +1256,7 @@ const NON_CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freez
   openJoin: false,
   aiMeetingNotes: false,
   aiObjects: false,
+  aiWorldHost: false,
   whiteboards: true,
   sharedBrowsers: false,
   liveCaptions: false,
@@ -1274,6 +1281,7 @@ const CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
   openJoin: false,
   aiMeetingNotes: false,
   aiObjects: false,
+  aiWorldHost: false,
   whiteboards: true,
   sharedBrowsers: false,
   liveCaptions: false,
@@ -1298,6 +1306,7 @@ const FREE_FOR_ALL_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze
   openJoin: true,
   aiMeetingNotes: true,
   aiObjects: true,
+  aiWorldHost: true,
   whiteboards: true,
   sharedBrowsers: true,
   liveCaptions: true,
@@ -1322,6 +1331,7 @@ const ESCAPE_ROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze(
   openJoin: false,
   aiMeetingNotes: false,
   aiObjects: true,
+  aiWorldHost: false,
   whiteboards: true,
   sharedBrowsers: false,
   liveCaptions: false,
@@ -1469,6 +1479,25 @@ export const RoomSettingsSchema = z.object({
     meshyRefineTextures: true,
     defaultPolycountTarget: 15000
   }),
+  aiWorldHost: z.object({
+    enabled: z.boolean().default(true),
+    maxFilesPerRoom: z.number().int().positive().max(50).default(10),
+    maxFileSizeBytes: z.number().int().positive().max(20_000_000).default(5_000_000),
+    maxMessagesPerUserPerHour: z.number().int().positive().max(500).default(60),
+    maxContextMessages: z.number().int().positive().max(50).default(20),
+    allowedMimeTypes: z.array(z.string()).default([
+      "application/pdf",
+      "text/plain",
+      "text/markdown"
+    ])
+  }).default({
+    enabled: true,
+    maxFilesPerRoom: 10,
+    maxFileSizeBytes: 5_000_000,
+    maxMessagesPerUserPerHour: 60,
+    maxContextMessages: 20,
+    allowedMimeTypes: ["application/pdf", "text/plain", "text/markdown"]
+  }),
   sharedBrowsers: z.object({
     enabled: z.boolean().default(true),
     maxActivePerRoom: z.number().int().min(0).max(4).default(2),
@@ -1606,6 +1635,218 @@ export const UploadMeetingNotesAudioChunkResponseSchema = z.object({
   accepted: z.boolean(),
   segment: MeetingNotesSegmentSchema.optional(),
   realtimeMessages: z.array(z.unknown()).default([])
+});
+
+// ─── AI World Host (Free-for-All) ───────────────────────────────────────────
+
+export const RoomAiHostDisplayNameSchema = z.string().min(3).max(24);
+
+export const RoomAiHostSchema = z.object({
+  id: z.string().min(1),
+  roomId: z.string().min(1),
+  displayName: RoomAiHostDisplayNameSchema,
+  position: Vector3Schema,
+  rotationY: z.number(),
+  createdByUserId: z.string().min(1),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime()
+});
+
+export const RoomAiHostFileStatusSchema = z.enum(["uploading", "processing", "ready", "failed"]);
+
+export const RoomAiHostFileSchema = z.object({
+  id: z.string().min(1),
+  roomId: z.string().min(1),
+  uploadedByUserId: z.string().min(1),
+  originalFileName: z.string().min(1),
+  contentType: z.string().min(1),
+  sizeBytes: z.number().int().nonnegative(),
+  storageKey: z.string().min(1),
+  extractedTextStorageKey: z.string().optional(),
+  status: RoomAiHostFileStatusSchema,
+  errorMessage: z.string().optional(),
+  pageCount: z.number().int().nonnegative().optional(),
+  charCount: z.number().int().nonnegative().optional(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime()
+});
+
+export const RoomAiHostFileChunkSchema = z.object({
+  id: z.string().min(1),
+  fileId: z.string().min(1),
+  roomId: z.string().min(1),
+  index: z.number().int().nonnegative(),
+  text: z.string()
+});
+
+export const RoomAiHostChatModeSchema = z.enum(["build-help", "file-study"]);
+
+export const RoomAiHostChatRoleSchema = z.enum(["user", "assistant", "system"]);
+
+function requireRoomAiHostFileIdWhenFileStudy(
+  data: { mode: z.infer<typeof RoomAiHostChatModeSchema>; fileId?: string | undefined },
+  ctx: z.RefinementCtx
+) {
+  if (data.mode === "file-study" && !data.fileId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "fileId is required when mode is file-study",
+      path: ["fileId"]
+    });
+  }
+}
+
+export const RoomAiHostChatMessageSchema = z
+  .object({
+    id: z.string().min(1),
+    roomId: z.string().min(1),
+    userId: z.string().min(1),
+    mode: RoomAiHostChatModeSchema,
+    fileId: z.string().optional(),
+    role: RoomAiHostChatRoleSchema,
+    content: z.string(),
+    createdAt: z.string().datetime()
+  })
+  .superRefine(requireRoomAiHostFileIdWhenFileStudy);
+
+export const AiHostBuildHelpContextSchema = z.object({
+  buildModeEnabled: z.boolean().optional(),
+  selectedTool: z.string().nullable().optional(),
+  pieceCount: z.number().int().nonnegative().optional(),
+  lastBuildRejectionReason: z.string().nullable().optional()
+});
+
+export const GetRoomAiHostResponseSchema = z.object({
+  host: RoomAiHostSchema.nullable()
+});
+
+export const CreateRoomAiHostRequestSchema = z.object({
+  displayName: RoomAiHostDisplayNameSchema,
+  position: Vector3Schema,
+  rotationY: z.number().optional()
+});
+
+export const PatchRoomAiHostRequestSchema = z
+  .object({
+    displayName: RoomAiHostDisplayNameSchema.optional(),
+    position: Vector3Schema.optional(),
+    rotationY: z.number().optional()
+  })
+  .refine(
+    (value) =>
+      value.displayName !== undefined ||
+      value.position !== undefined ||
+      value.rotationY !== undefined,
+    { message: "At least one of displayName, position, or rotationY is required" }
+  );
+
+export const DismissRoomAiHostQuerySchema = z.object({
+  deleteFiles: z.coerce.boolean().optional().default(false)
+});
+
+export const ListRoomAiHostFilesResponseSchema = z.object({
+  files: z.array(RoomAiHostFileSchema).default([])
+});
+
+export const CreateRoomAiHostFileUploadTargetRequestSchema = z.object({
+  fileName: z.string().min(1).max(255),
+  contentType: z.string().min(1),
+  sizeBytes: z.number().int().positive()
+});
+
+export const CreateRoomAiHostFileUploadTargetResponseSchema = z.object({
+  fileId: z.string().min(1),
+  storageKey: z.string().min(1),
+  upload: z.object({
+    url: z.string().url(),
+    method: z.literal("PUT"),
+    headers: z.record(z.string(), z.string()).default({})
+  })
+});
+
+export const RegisterRoomAiHostFileRequestSchema = z.object({
+  fileId: z.string().min(1),
+  storageKey: z.string().min(1),
+  originalFileName: z.string().min(1),
+  contentType: z.string().min(1),
+  sizeBytes: z.number().int().positive()
+});
+
+export const ListRoomAiHostChatQuerySchema = z.object({
+  mode: RoomAiHostChatModeSchema.optional(),
+  fileId: z.string().optional(),
+  limit: z.coerce.number().int().positive().max(100).optional()
+});
+
+export const ListRoomAiHostChatResponseSchema = z.object({
+  messages: z.array(RoomAiHostChatMessageSchema).default([])
+});
+
+export const SendRoomAiHostChatRequestSchema = z
+  .object({
+    mode: RoomAiHostChatModeSchema,
+    fileId: z.string().optional(),
+    content: z.string().min(1).max(8000),
+    buildHelpContext: AiHostBuildHelpContextSchema.optional()
+  })
+  .superRefine(requireRoomAiHostFileIdWhenFileStudy);
+
+export const RoomAiHostUpdatedMessageV1Schema = z.object({
+  type: z.literal("room.ai-host.updated.v1"),
+  roomId: z.string(),
+  host: RoomAiHostSchema,
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const RoomAiHostDismissedMessageV1Schema = z.object({
+  type: z.literal("room.ai-host.dismissed.v1"),
+  roomId: z.string(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const RoomAiHostFileUpdatedMessageV1Schema = z.object({
+  type: z.literal("room.ai-host.file.updated.v1"),
+  roomId: z.string(),
+  file: RoomAiHostFileSchema,
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const RoomAiHostFileRemovedMessageV1Schema = z.object({
+  type: z.literal("room.ai-host.file.removed.v1"),
+  roomId: z.string(),
+  fileId: z.string(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const RoomAiHostRealtimeMessageSchema = z.discriminatedUnion("type", [
+  RoomAiHostUpdatedMessageV1Schema,
+  RoomAiHostDismissedMessageV1Schema,
+  RoomAiHostFileUpdatedMessageV1Schema,
+  RoomAiHostFileRemovedMessageV1Schema
+]);
+
+export const RoomAiHostMutationResponseSchema = z.object({
+  host: RoomAiHostSchema,
+  realtimeMessages: z.array(RoomAiHostRealtimeMessageSchema).default([])
+});
+
+export const DismissRoomAiHostResponseSchema = z.object({
+  dismissed: z.literal(true),
+  realtimeMessages: z.array(RoomAiHostRealtimeMessageSchema).default([])
+});
+
+export const RegisterRoomAiHostFileResponseSchema = z.object({
+  file: RoomAiHostFileSchema,
+  realtimeMessages: z.array(RoomAiHostRealtimeMessageSchema).default([])
+});
+
+export const DeleteRoomAiHostFileResponseSchema = z.object({
+  deleted: z.literal(true),
+  realtimeMessages: z.array(RoomAiHostRealtimeMessageSchema).default([])
 });
 
 export const MeetingNotesDownloadFormatSchema = z.enum(["txt", "vtt", "srt", "md"]);
@@ -2455,6 +2696,10 @@ export type MeetingNotesEndedMessageV1 = z.infer<typeof MeetingNotesEndedMessage
 export type MeetingNotesSummaryReadyMessageV1 = z.infer<typeof MeetingNotesSummaryReadyMessageV1Schema>;
 export type MeetingNotesErrorMessageV1 = z.infer<typeof MeetingNotesErrorMessageV1Schema>;
 export type MeetingNotesSegmentMessageV1 = z.infer<typeof MeetingNotesSegmentMessageV1Schema>;
+export type RoomAiHostUpdatedMessageV1 = z.infer<typeof RoomAiHostUpdatedMessageV1Schema>;
+export type RoomAiHostDismissedMessageV1 = z.infer<typeof RoomAiHostDismissedMessageV1Schema>;
+export type RoomAiHostFileUpdatedMessageV1 = z.infer<typeof RoomAiHostFileUpdatedMessageV1Schema>;
+export type RoomAiHostFileRemovedMessageV1 = z.infer<typeof RoomAiHostFileRemovedMessageV1Schema>;
 export type LiveCaptionsChunkMessageV1 = z.infer<typeof LiveCaptionsChunkMessageV1Schema>;
 export type LiveCaptionsInterimMessageV1 = z.infer<typeof LiveCaptionsInterimMessageV1Schema>;
 export type LiveCaptionsContributorMessageV1 = z.infer<typeof LiveCaptionsContributorMessageV1Schema>;
@@ -3529,6 +3774,16 @@ export type AiObjectRealtimeMessage =
   | AiObjectCancelledMessageV1
   | AiObjectDeletedMessageV1;
 
+export type RoomAiHost = z.infer<typeof RoomAiHostSchema>;
+export type RoomAiHostFile = z.infer<typeof RoomAiHostFileSchema>;
+export type RoomAiHostFileChunk = z.infer<typeof RoomAiHostFileChunkSchema>;
+export type RoomAiHostChatMessage = z.infer<typeof RoomAiHostChatMessageSchema>;
+export type RoomAiHostChatMode = z.infer<typeof RoomAiHostChatModeSchema>;
+export type RoomAiHostFileStatus = z.infer<typeof RoomAiHostFileStatusSchema>;
+export type AiHostBuildHelpContext = z.infer<typeof AiHostBuildHelpContextSchema>;
+
+export type RoomAiHostRealtimeMessage = z.infer<typeof RoomAiHostRealtimeMessageSchema>;
+
 export const FreeForAllRoomSummarySchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -3601,6 +3856,36 @@ export const apiRoutes: ApiRoute[] = [
   { method: "delete", path: "/v1/rooms/{roomId}/meeting-notes/sessions/{sessionId}", summary: "Delete a meeting notes session", tags: ["meeting-notes"], response: z.object({ deleted: z.boolean() }) },
   { method: "post", path: "/v1/rooms/{roomId}/meeting-notes/sessions/{sessionId}/audio-chunks", summary: "Upload a recorded audio chunk for transcription", tags: ["meeting-notes"], request: UploadMeetingNotesAudioChunkRequestSchema, response: UploadMeetingNotesAudioChunkResponseSchema },
   { method: "post", path: "/v1/rooms/{roomId}/meeting-notes/sessions/{sessionId}/summary", summary: "Regenerate a meeting notes summary", tags: ["meeting-notes"], request: UpdateMeetingNotesSummaryRequestSchema, response: StartMeetingNotesSessionResponseSchema },
+  { method: "get", path: "/v1/rooms/{roomId}/ai-host", summary: "Get the AI world host for a room (or null)", tags: ["ai-host"], response: GetRoomAiHostResponseSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/ai-host", summary: "Summon the AI world host", tags: ["ai-host"], request: CreateRoomAiHostRequestSchema, response: RoomAiHostMutationResponseSchema },
+  { method: "patch", path: "/v1/rooms/{roomId}/ai-host", summary: "Rename or reposition the AI world host", tags: ["ai-host"], request: PatchRoomAiHostRequestSchema, response: RoomAiHostMutationResponseSchema },
+  {
+    method: "delete",
+    path: "/v1/rooms/{roomId}/ai-host",
+    summary: "Dismiss the AI world host (?deleteFiles=false keeps study files)",
+    tags: ["ai-host"],
+    response: DismissRoomAiHostResponseSchema
+  },
+  { method: "get", path: "/v1/rooms/{roomId}/ai-host/files", summary: "List study files for the AI world host", tags: ["ai-host"], response: ListRoomAiHostFilesResponseSchema },
+  {
+    method: "post",
+    path: "/v1/rooms/{roomId}/ai-host/files/upload-target",
+    summary: "Create a signed upload target for an AI world host study file",
+    tags: ["ai-host"],
+    request: CreateRoomAiHostFileUploadTargetRequestSchema,
+    response: CreateRoomAiHostFileUploadTargetResponseSchema
+  },
+  {
+    method: "post",
+    path: "/v1/rooms/{roomId}/ai-host/files",
+    summary: "Register an uploaded study file and queue text extraction",
+    tags: ["ai-host"],
+    request: RegisterRoomAiHostFileRequestSchema,
+    response: RegisterRoomAiHostFileResponseSchema
+  },
+  { method: "delete", path: "/v1/rooms/{roomId}/ai-host/files/{fileId}", summary: "Delete a study file", tags: ["ai-host"], response: DeleteRoomAiHostFileResponseSchema },
+  { method: "get", path: "/v1/rooms/{roomId}/ai-host/chat", summary: "List private AI world host chat messages for the current user", tags: ["ai-host"], response: ListRoomAiHostChatResponseSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/ai-host/chat", summary: "Send a message to the AI world host (streaming response)", tags: ["ai-host"], request: SendRoomAiHostChatRequestSchema, response: z.object({ accepted: z.literal(true) }) },
   { method: "get", path: "/v1/rooms/{roomId}/classroom", summary: "Get classroom state visible to the current user", tags: ["classroom"], response: ClassroomStateSchema },
   { method: "post", path: "/v1/rooms/{roomId}/classroom/actions", summary: "Run a classroom state action", tags: ["classroom"], request: ClassroomActionSchema, response: ClassroomStateSchema },
   { method: "post", path: "/v1/rooms/{roomId}/events", summary: "Persist optional durable room events", tags: ["rooms"], request: RoomEventRequestSchema, response: RoomEventResponseSchema },

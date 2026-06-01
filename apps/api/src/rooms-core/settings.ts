@@ -60,6 +60,14 @@ export function roomSettings(config: AppConfig) {
       meshyRefineTextures: config.tuning.aiObjectMeshyRefineTextures,
       defaultPolycountTarget: 10000
     },
+    aiWorldHost: {
+      enabled: true,
+      maxFilesPerRoom: 10,
+      maxFileSizeBytes: 5_000_000,
+      maxMessagesPerUserPerHour: 60,
+      maxContextMessages: 20,
+      allowedMimeTypes: ["application/pdf", "text/plain", "text/markdown"]
+    },
     sharedBrowsers: {
       enabled: config.tuning.enableSharedBrowsers,
       maxActivePerRoom: config.tuning.sharedBrowserMaxActivePerRoom,
@@ -112,6 +120,7 @@ export function escapeRoomSettings(config: AppConfig) {
       skinDayNightMode: "night" as const
     },
     aiMeetingNotes: { ...base.aiMeetingNotes, enabled: false },
+    aiWorldHost: { ...base.aiWorldHost, enabled: false },
     sharedBrowsers: { ...base.sharedBrowsers, enabled: false },
     logicEnabled: true
   };
