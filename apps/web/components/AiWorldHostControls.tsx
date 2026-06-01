@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { RoomManifest } from "@3dspace/contracts";
 import { floorYFromZ } from "@3dspace/room-engine";
-import { aiHostHubPlacementPosition } from "../lib/useAiWorldHost";
+import { aiHostHubPlacementPosition, aiHostPlacementInFrontOfAvatar } from "../lib/useAiWorldHost";
 import type { useAiWorldHost } from "../lib/useAiWorldHost";
 import type { BuildPiece } from "@3dspace/contracts";
 
@@ -56,6 +56,7 @@ export function AiWorldHostControls({
     buildPieces,
     floorYFromZ(manifest, 0)
   );
+  const fallbackY = floorYFromZ(manifest, 0);
 
   return (
     <section className="hud-card ai-world-host-card" aria-label="World Host">
@@ -160,12 +161,19 @@ export function AiWorldHostControls({
                 disabled={busy || displayName.trim().length < 3 || !localAvatarPosition}
                 onClick={() => {
                   if (!localAvatarPosition) return;
+                  const placement = aiHostPlacementInFrontOfAvatar(
+                    manifest,
+                    localAvatarPosition,
+                    localAvatarRotationY,
+                    buildPieces,
+                    fallbackY
+                  );
                   void actions
-                    .summon(displayName.trim(), localAvatarPosition, localAvatarRotationY)
+                    .summon(displayName.trim(), placement.position, placement.rotationY)
                     .then(() => setSummonOpen(false));
                 }}
               >
-                Place here
+                Place in front of me
               </button>
               <button
                 type="button"

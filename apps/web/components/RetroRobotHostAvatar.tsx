@@ -20,7 +20,7 @@ export type RetroRobotHostAvatarProps = {
   thinking?: boolean;
   /** Drives the speaking animation (head nod, equalizer screen, eye flicker). */
   speaking?: boolean;
-  /** Viewer-local last reply; truncated into a billboard speech bubble. */
+  /** Viewer-local last reply shown in a billboard speech bubble. */
   bubbleText?: string | null;
   /** Semi-transparent placement preview that follows the cursor. */
   ghost?: boolean;
@@ -30,7 +30,6 @@ export type RetroRobotHostAvatarProps = {
   scale?: number;
 };
 
-const BUBBLE_MAX = 120;
 const TWO_PI = Math.PI * 2;
 
 function setCursor(value: string) {
@@ -289,7 +288,7 @@ export function RetroRobotHostAvatar({
         <Billboard position={[0, 2.42, 0]}>
           <Html center distanceFactor={9} className="world-host-bubble-html" style={{ pointerEvents: "none" }}>
             <div className={`world-host-bubble${thinking ? " world-host-bubble--thinking" : ""}`} data-testid="ai-host-bubble">
-              {bubble.length > BUBBLE_MAX ? `${bubble.slice(0, BUBBLE_MAX)}…` : bubble}
+              {bubble}
             </div>
           </Html>
         </Billboard>

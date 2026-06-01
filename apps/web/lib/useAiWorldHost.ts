@@ -27,12 +27,8 @@ import {
   uploadAiHostStudyFile
 } from "./api";
 
-const SPEECH_BUBBLE_MAX_CHARS = 120;
-
-function speechBubbleSnippet(text: string): string {
-  const collapsed = text.replace(/\s+/g, " ").trim();
-  if (collapsed.length <= SPEECH_BUBBLE_MAX_CHARS) return collapsed;
-  return `${collapsed.slice(0, SPEECH_BUBBLE_MAX_CHARS).trimEnd()}…`;
+function formatSpeechBubbleText(text: string): string {
+  return text.trim().replace(/\n{3,}/g, "\n\n");
 }
 import type { ApiIdentity } from "./identity";
 import type { RealtimeMessage } from "./realtime";
@@ -473,7 +469,7 @@ export function useAiWorldHost(input: {
             onDelta: (text) => {
               acc += text;
               setStreamingReply(acc);
-              setSpeechBubbleText(speechBubbleSnippet(acc));
+              setSpeechBubbleText(formatSpeechBubbleText(acc));
               setAnimationState("speaking");
             },
             onError: (payload) => {
@@ -484,7 +480,7 @@ export function useAiWorldHost(input: {
         );
         if (finalMessage) {
           setChatMessages((prev) => [...prev.filter((m) => m.id !== optimisticId), finalMessage]);
-          setSpeechBubbleText(speechBubbleSnippet(finalMessage.content));
+          setSpeechBubbleText(formatSpeechBubbleText(finalMessage.content));
         } else if (streamFailed) {
           setChatMessages((prev) => prev.filter((m) => m.id !== optimisticId));
         }
@@ -537,7 +533,7 @@ export function useAiWorldHost(input: {
             onDelta: (text) => {
               acc += text;
               setStreamingReply(acc);
-              setSpeechBubbleText(speechBubbleSnippet(acc));
+              setSpeechBubbleText(formatSpeechBubbleText(acc));
               setAnimationState("speaking");
             },
             onError: (payload) => {
@@ -548,7 +544,7 @@ export function useAiWorldHost(input: {
         );
         if (finalMessage) {
           setFileChatMessages((prev) => [...prev.filter((m) => m.id !== optimisticId), finalMessage]);
-          setSpeechBubbleText(speechBubbleSnippet(finalMessage.content));
+          setSpeechBubbleText(formatSpeechBubbleText(finalMessage.content));
         } else if (streamFailed) {
           setFileChatMessages((prev) => prev.filter((m) => m.id !== optimisticId));
         }
@@ -736,4 +732,24 @@ export function aiHostHubPlacementPosition(
   fallbackY: number
 ): Vector3 {
   return aiHostPlacementPosition(manifest, 0, 0, buildPieces, fallbackY);
+}
+
+/** Default distance when summoning the guide in front of the local avatar. */
+export const AI_HOST_SUMMON_DISTANCE_M = 2;
+
+/** Place the guide one step ahead of the avatar, facing back toward them. */
+export function aiHostPlacementInFrontOfAvatar(
+  manifest: RoomManifest,
+  avatarPosition: { x: number; y: number; z: number },
+  avatarRotationY: number,
+  buildPieces: BuildPiece[],
+  fallbackY: number,
+  distanceMeters = AI_HOST_SUMMON_DISTANCE_M
+): { position: Vector3; rotationY: number } {
+  const x = avatarPosition.x + Math.sin(avatarRotationY) * distanceMeters;
+  const z = avatarPosition.z + Math.cos(avatarRotationY) * distanceMeters;
+  return {
+    position: aiHostPlacementPosition(manifest, x, z, buildPieces, fallbackY),
+    rotationY: avatarRotationY + Math.PI
+  };
 }

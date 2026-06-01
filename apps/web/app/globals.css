@@ -3311,25 +3311,25 @@ button.hud-heading-btn:hover {
 .world-host-bubble-html > div > div,
 .world-host-bubble-html > div > div > div {
   width: max-content;
-  max-width: 13rem;
+  max-width: 26rem;
 }
 
 .world-host-bubble {
   box-sizing: border-box;
   width: max-content;
-  min-width: 10rem;
-  max-width: 13rem;
-  padding: 0.45rem 0.65rem;
+  min-width: 18rem;
+  max-width: 26rem;
+  padding: 0.5rem 0.75rem;
   border-radius: 12px;
   border: 1px solid rgba(125, 249, 255, 0.4);
   color: #f4fbff;
   background: rgba(13, 27, 33, 0.92);
   box-shadow: 0 3px 14px rgba(0, 0, 0, 0.4);
   font-family: "Trebuchet MS", sans-serif;
-  font-size: 0.72rem;
-  line-height: 1.32;
+  font-size: 0.62rem;
+  line-height: 1.38;
   text-align: left;
-  white-space: normal;
+  white-space: pre-wrap;
   overflow-wrap: break-word;
   pointer-events: none;
   position: relative;
