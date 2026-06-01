@@ -40,7 +40,7 @@ import { PhysicsController } from "./physics/PhysicsController";
 /** Radians per second while Q (left) or E (right) is held past {@link AVATAR_KEYBOARD_TURN_HOLD_MS}. */
 export const AVATAR_KEYBOARD_TURN_SPEED_RAD_PER_SEC = 2.75;
 /** Hold Q/E this long before rotation starts (short taps stay interact-only for E in play mode). */
-export const AVATAR_KEYBOARD_TURN_HOLD_MS = 200;
+export const AVATAR_KEYBOARD_TURN_HOLD_MS = 100;
 
 export type TurnKeyCode = "KeyQ" | "KeyE";
 
