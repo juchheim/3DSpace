@@ -336,7 +336,7 @@ export type RetroRobotKit = {
     glass: MeshStandardMaterial;
     sclera: MeshStandardMaterial;
     eye: MeshStandardMaterial;
-    eyePupil: MeshStandardMaterial;
+    eyePupil: MeshBasicMaterial;
     catchlight: MeshBasicMaterial;
     screen: MeshStandardMaterial;
     antennaTip: MeshStandardMaterial;
@@ -414,13 +414,9 @@ export function buildRetroRobotKit(): RetroRobotKit {
     roughness: 0.3,
     side: DoubleSide
   });
-  // Pupil — a clearly black focal centre.
-  const eyePupil = new MeshStandardMaterial({
-    color: "#05080d",
-    emissive: new Color("#000000"),
-    metalness: 0.25,
-    roughness: 0.18
-  });
+  // Pupil — a big, pure-black centre. MeshBasic so it is unlit and can never
+  // wash out to white regardless of scene lighting / tone mapping.
+  const eyePupil = new MeshBasicMaterial({ color: "#070709" });
   // Catchlight — a tiny always-bright sparkle that makes the eye feel alive.
   const catchlight = new MeshBasicMaterial({ color: "#ffffff", toneMapped: false });
   const screen = new MeshStandardMaterial({
