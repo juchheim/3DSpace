@@ -825,6 +825,7 @@ export function signalLogicPiece(identity: ApiIdentity, roomId: string, pieceId:
     state?: LogicState;
     realtimeMessages?: RoomLogicRealtimeMessage[];
     teleportTo?: { x: number; y: number; z: number };
+    teleportTargetPieceId?: string;
   }>(`/v1/rooms/${roomId}/logic-pieces/${pieceId}/signal`, { method: "POST", identity, body: { kind } }).then(
     (response) => ({
       ok: response.ok,
@@ -832,7 +833,8 @@ export function signalLogicPiece(identity: ApiIdentity, roomId: string, pieceId:
       kind: response.kind,
       state: response.state,
       realtimeMessages: response.realtimeMessages ?? [],
-      teleportTo: response.teleportTo
+      teleportTo: response.teleportTo,
+      teleportTargetPieceId: response.teleportTargetPieceId
     })
   );
 }

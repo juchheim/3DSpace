@@ -36,5 +36,7 @@ describe("applyTeleporterSignal", () => {
     const result = await applyTeleporterSignal(repository, roomId, manifest, padA, "stepOn");
     expect(result.teleportTo).toBeTruthy();
     expect(result.teleportTo!.x).not.toBe(0);
+    expect(result.teleportTargetPieceId).toBeTruthy();
+    expect(result.teleportTargetPieceId).not.toBe(padA.id);
   });
 });

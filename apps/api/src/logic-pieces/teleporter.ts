@@ -12,6 +12,7 @@ const teleporterDebounceAt = new Map<string, number>();
 
 export type ApplyTeleporterSignalResult = ApplyLogicSignalResult & {
   teleportTo?: { x: number; y: number; z: number };
+  teleportTargetPieceId?: string;
 };
 
 export async function applyTeleporterSignal(
@@ -59,6 +60,7 @@ export async function applyTeleporterSignal(
     state: current,
     channelPatch: {},
     nodePatch: {},
-    teleportTo
+    teleportTo,
+    teleportTargetPieceId: target.id
   };
 }

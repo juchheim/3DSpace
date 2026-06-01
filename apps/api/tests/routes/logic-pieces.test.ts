@@ -216,6 +216,7 @@ describe("logic-pieces (API)", () => {
     expect(signalRes.statusCode).toBe(200);
     expect(signalRes.json().teleportTo).toBeTruthy();
     expect(signalRes.json().teleportTo.x).not.toBe(0);
+    expect(signalRes.json().teleportTargetPieceId).toBe(padBId);
 
     const disarmedRes = await app.inject({
       method: "PATCH",

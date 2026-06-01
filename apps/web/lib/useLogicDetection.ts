@@ -7,7 +7,8 @@ import {
   findNearestInteractableLogicPiece,
   findProximityZonesContaining,
   findStepOnLogicPieces,
-  isInteractLogicKind
+  isInteractLogicKind,
+  teleportTarget
 } from "@3dspace/room-engine";
 
 export type LogicDetectionEvent = {
@@ -16,6 +17,9 @@ export type LogicDetectionEvent = {
   pieceKind: BuildLogicPiece["kind"];
   at: number;
 };
+
+/** After landing from a teleporter, ignore step-on until the player leaves the pad. */
+export const TELEPORTER_LANDING_SUPPRESS_MS = 750;
 
 function debounceMsFor(piece: BuildLogicPiece) {
   return piece.config?.debounceMs ?? 250;
@@ -38,18 +42,36 @@ export function useLogicDetection(input: {
   onSignalRef.current = input.onSignal;
   onNearestRef.current = input.onNearestInteractableChange;
 
-  const emit = useCallback((piece: BuildLogicPiece, kind: LogicSignalKind) => {
-    const event: LogicDetectionEvent = {
-      pieceId: piece.id,
-      kind,
-      pieceKind: piece.kind,
-      at: Date.now()
-    };
-    onEventRef.current(event);
-    void onSignalRef.current?.(piece.id, kind);
+  const lastFireAtRef = useRef(new Map<string, number>());
+  const stepOnActiveRef = useRef(new Set<string>());
+  const stepOnSuppressUntilRef = useRef(new Map<string, number>());
+
+  /** Treat pads as already stepped-on (no stepOn signal) until `ms` elapses or the player leaves. */
+  const suppressStepOn = useCallback((pieceIds: string[], ms = TELEPORTER_LANDING_SUPPRESS_MS) => {
+    const until = Date.now() + ms;
+    for (const id of pieceIds) {
+      stepOnSuppressUntilRef.current.set(id, until);
+      stepOnActiveRef.current.add(id);
+    }
   }, []);
 
-  const lastFireAtRef = useRef(new Map<string, number>());
+  const emit = useCallback(
+    (piece: BuildLogicPiece, kind: LogicSignalKind) => {
+      if (piece.kind === "teleporter" && kind === "stepOn") {
+        const target = teleportTarget(piece, piecesRef.current);
+        if (target) suppressStepOn([target.id]);
+      }
+      const event: LogicDetectionEvent = {
+        pieceId: piece.id,
+        kind,
+        pieceKind: piece.kind,
+        at: Date.now()
+      };
+      onEventRef.current(event);
+      void onSignalRef.current?.(piece.id, kind);
+    },
+    [suppressStepOn]
+  );
 
   const fireIfAllowed = useCallback(
     (piece: BuildLogicPiece, kind: LogicSignalKind) => {
@@ -89,7 +111,7 @@ export function useLogicDetection(input: {
       onNearestRef.current?.(null);
       return;
     }
-    const stepOnActive = new Set<string>();
+    const stepOnActive = stepOnActiveRef.current;
     const proximityActive = new Set<string>();
     let nearestId: string | null = null;
     const fire = (piece: BuildLogicPiece, kind: LogicSignalKind) => {
@@ -111,19 +133,25 @@ export function useLogicDetection(input: {
 
         const onPieces = findStepOnLogicPieces(piecesRef.current, cell);
         const onIds = new Set(onPieces.map((piece) => piece.id));
+        const now = Date.now();
 
         for (const id of [...stepOnActive]) {
           if (!onIds.has(id)) {
             stepOnActive.delete(id);
+            stepOnSuppressUntilRef.current.delete(id);
             const piece = piecesRef.current.find((p) => p.id === id);
             if (piece) fire(piece, "stepOff");
           }
         }
         for (const piece of onPieces) {
-          if (!stepOnActive.has(piece.id)) {
+          if (stepOnActive.has(piece.id)) continue;
+          const suppressUntil = stepOnSuppressUntilRef.current.get(piece.id) ?? 0;
+          if (now < suppressUntil) {
             stepOnActive.add(piece.id);
-            fire(piece, "stepOn");
+            continue;
           }
+          stepOnActive.add(piece.id);
+          fire(piece, "stepOn");
         }
 
         const zones = findProximityZonesContaining(piecesRef.current, x, z, cell.level);
@@ -148,11 +176,12 @@ export function useLogicDetection(input: {
     return () => {
       cancelAnimationFrame(frame);
       stepOnActive.clear();
+      stepOnSuppressUntilRef.current.clear();
       proximityActive.clear();
       lastFireAtRef.current.clear();
       onNearestRef.current?.(null);
     };
   }, [fireIfAllowed, input.enabled, input.getAvatarState]);
 
-  return { tryInteract, interactPiece };
+  return { tryInteract, interactPiece, suppressStepOn };
 }

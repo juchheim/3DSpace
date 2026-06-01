@@ -1097,7 +1097,9 @@ export const LogicPieceSignalResponseSchema = z.object({
   kind: LogicSignalKindSchema,
   state: LogicStateSchema.optional(),
   realtimeMessages: z.array(RoomLogicRealtimeMessageSchema).default([]),
-  teleportTo: z.object({ x: z.number(), y: z.number(), z: z.number() }).optional()
+  teleportTo: z.object({ x: z.number(), y: z.number(), z: z.number() }).optional(),
+  /** Destination pad id — client suppresses step-on there until the player leaves (avoids bounce loops). */
+  teleportTargetPieceId: z.string().optional()
 });
 
 export const EscapeSessionStatusSchema = z.enum(["idle", "running", "won", "ended"]);

@@ -197,7 +197,8 @@ export async function registerLogicPieceRoutes(app: FastifyInstance, ctx: AppCon
         kind: body.kind,
         state: result.state,
         realtimeMessages: [],
-        ...(result.teleportTo ? { teleportTo: result.teleportTo } : {})
+        ...(result.teleportTo ? { teleportTo: result.teleportTo } : {}),
+        ...(result.teleportTargetPieceId ? { teleportTargetPieceId: result.teleportTargetPieceId } : {})
       });
     }
 

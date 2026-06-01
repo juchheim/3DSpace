@@ -510,6 +510,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   );
   const onExitStepOnRef = useRef<(() => void) | null>(null);
   const movementTeleportRef = useRef<((position: { x: number; y: number; z: number }) => void) | null>(null);
+  const logicDetectionSuppressRef = useRef<((pieceIds: string[]) => void) | null>(null);
   const [logicDebugEvents, setLogicDebugEvents] = useState<LogicDetectionEvent[]>([]);
   const appendLogicDebugEvent = useCallback((event: LogicDetectionEvent) => {
     setLogicDebugEvents((current) => [event, ...current].slice(0, 12));
@@ -526,6 +527,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         }
         if (result.teleportTo) {
           movementTeleportRef.current?.(result.teleportTo);
+          if (result.teleportTargetPieceId) {
+            logicDetectionSuppressRef.current?.([result.teleportTargetPieceId]);
+          }
         }
         if (kind === "stepOn" && logicPieces.piecesById[pieceId]?.config?.isExit === true) {
           onExitStepOnRef.current?.();
@@ -931,6 +935,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     onSignal: reportLogicSignal,
     onNearestInteractableChange: setNearestInteractable
   });
+  logicDetectionSuppressRef.current = logicDetection.suppressStepOn;
   useEffect(() => {
     if (!logicPlayEnabled) {
       setLogicDebugEvents([]);
