@@ -23,6 +23,8 @@ import type {
   RoomAiHost,
   RoomAiHostChatMessage,
   RoomAiHostChatMode,
+  RoomAiHostFile,
+  RoomAiHostFileChunk,
   RoomObject,
   RoomObjectStatus,
   RoomObjectTemplate,
@@ -85,6 +87,8 @@ type Models = {
   SharedBrowserSession: Model<any>;
   RoomAiHost: Model<any>;
   RoomAiHostChatMessage: Model<any>;
+  RoomAiHostFile: Model<any>;
+  RoomAiHostFileChunk: Model<any>;
 };
 
 function entity<T>(doc: unknown) {
@@ -417,6 +421,33 @@ export function createModels(connection: Connection): Models {
   roomAiHostChatMessageSchema.index({ roomId: 1, userId: 1, createdAt: 1 });
   roomAiHostChatMessageSchema.index({ roomId: 1, fileId: 1 });
 
+  const roomAiHostFileSchema = new Schema({
+    id: { type: String, required: true, unique: true },
+    roomId: { type: String, required: true },
+    uploadedByUserId: { type: String, required: true },
+    originalFileName: { type: String, required: true },
+    contentType: { type: String, required: true },
+    sizeBytes: { type: Number, required: true },
+    storageKey: { type: String, required: true },
+    extractedTextStorageKey: { type: String },
+    status: { type: String, required: true },
+    errorMessage: { type: String },
+    pageCount: { type: Number },
+    charCount: { type: Number },
+    createdAt: { type: String, required: true },
+    updatedAt: { type: String, required: true }
+  });
+  roomAiHostFileSchema.index({ roomId: 1, createdAt: 1 });
+
+  const roomAiHostFileChunkSchema = new Schema({
+    id: { type: String, required: true, unique: true },
+    fileId: { type: String, required: true },
+    roomId: { type: String, required: true },
+    index: { type: Number, required: true },
+    text: { type: String, required: true }
+  });
+  roomAiHostFileChunkSchema.index({ roomId: 1, fileId: 1, index: 1 });
+
   const classroomStateSchema = new Schema({
     roomId: { type: String, required: true, unique: true },
     version: { type: Number, required: true },
@@ -622,6 +653,12 @@ export function createModels(connection: Connection): Models {
       "RoomAiHostChatMessage",
       roomAiHostChatMessageSchema,
       "room_ai_host_chat_messages"
+    ),
+    RoomAiHostFile: connection.model("RoomAiHostFile", roomAiHostFileSchema, "room_ai_host_files"),
+    RoomAiHostFileChunk: connection.model(
+      "RoomAiHostFileChunk",
+      roomAiHostFileChunkSchema,
+      "room_ai_host_file_chunks"
     )
   };
 }
@@ -637,6 +674,37 @@ function docToRoomAiHost(doc: Record<string, unknown>): RoomAiHost {
     createdByUserId: doc.createdByUserId as string,
     createdAt: doc.createdAt as string,
     updatedAt: doc.updatedAt as string
+  };
+}
+
+function docToRoomAiHostFile(doc: Record<string, unknown>): RoomAiHostFile {
+  return {
+    id: doc.id as string,
+    roomId: doc.roomId as string,
+    uploadedByUserId: doc.uploadedByUserId as string,
+    originalFileName: doc.originalFileName as string,
+    contentType: doc.contentType as string,
+    sizeBytes: doc.sizeBytes as number,
+    storageKey: doc.storageKey as string,
+    ...(doc.extractedTextStorageKey ? { extractedTextStorageKey: doc.extractedTextStorageKey as string } : {}),
+    status: doc.status as RoomAiHostFile["status"],
+    ...(doc.errorMessage ? { errorMessage: doc.errorMessage as string } : {}),
+    ...(doc.pageCount !== undefined && doc.pageCount !== null
+      ? { pageCount: doc.pageCount as number }
+      : {}),
+    ...(doc.charCount !== undefined && doc.charCount !== null ? { charCount: doc.charCount as number } : {}),
+    createdAt: doc.createdAt as string,
+    updatedAt: doc.updatedAt as string
+  };
+}
+
+function docToRoomAiHostFileChunk(doc: Record<string, unknown>): RoomAiHostFileChunk {
+  return {
+    id: doc.id as string,
+    fileId: doc.fileId as string,
+    roomId: doc.roomId as string,
+    index: doc.index as number,
+    text: doc.text as string
   };
 }
 
@@ -1010,6 +1078,8 @@ export class MongoRepository implements Repository {
       this.models.SharedBrowserSession.deleteMany({ roomId }),
       this.models.RoomAiHost.deleteMany({ roomId }),
       this.models.RoomAiHostChatMessage.deleteMany({ roomId }),
+      this.models.RoomAiHostFile.deleteMany({ roomId }),
+      this.models.RoomAiHostFileChunk.deleteMany({ roomId }),
       this.models.Invite.deleteMany({ roomId })
     ]);
   }
@@ -2043,10 +2113,9 @@ export class MongoRepository implements Repository {
     return docToRoomAiHost(doc);
   }
 
-  async deleteAiHost(roomId: string, _opts?: { deleteFiles?: boolean | undefined }): Promise<void> {
+  async deleteAiHost(roomId: string): Promise<void> {
     const result = await this.models.RoomAiHost.deleteOne({ roomId });
     if (result.deletedCount === 0) throw notFound("AI world host not found");
-    await this.models.RoomAiHostChatMessage.deleteMany({ roomId });
   }
 
   async appendAiHostChatMessage(message: RoomAiHostChatMessage): Promise<RoomAiHostChatMessage> {
@@ -2069,5 +2138,74 @@ export class MongoRepository implements Repository {
       return messages.slice(messages.length - opts.limit);
     }
     return messages;
+  }
+
+  async deleteAiHostChatMessagesForFile(roomId: string, fileId: string): Promise<void> {
+    await this.models.RoomAiHostChatMessage.deleteMany({ roomId, fileId });
+  }
+
+  async listAiHostFiles(roomId: string): Promise<RoomAiHostFile[]> {
+    const docs = (await this.models.RoomAiHostFile.find({ roomId }).sort({ createdAt: 1 }).lean()) as Record<
+      string,
+      unknown
+    >[];
+    return docs.map(docToRoomAiHostFile);
+  }
+
+  async getAiHostFile(roomId: string, fileId: string): Promise<RoomAiHostFile | null> {
+    const doc = (await this.models.RoomAiHostFile.findOne({ roomId, id: fileId }).lean()) as
+      | Record<string, unknown>
+      | null;
+    return doc ? docToRoomAiHostFile(doc) : null;
+  }
+
+  async createAiHostFile(file: RoomAiHostFile): Promise<RoomAiHostFile> {
+    await this.models.RoomAiHostFile.create(file);
+    return file;
+  }
+
+  async updateAiHostFile(roomId: string, fileId: string, file: RoomAiHostFile): Promise<RoomAiHostFile> {
+    const doc = (await this.models.RoomAiHostFile.findOneAndUpdate(
+      { roomId, id: fileId },
+      { $set: file },
+      { new: true, lean: true }
+    )) as Record<string, unknown> | null;
+    if (!doc) throw notFound("Study file not found");
+    return docToRoomAiHostFile(doc);
+  }
+
+  async deleteAiHostFile(roomId: string, fileId: string): Promise<void> {
+    const result = await this.models.RoomAiHostFile.deleteOne({ roomId, id: fileId });
+    if (result.deletedCount === 0) throw notFound("Study file not found");
+    await this.models.RoomAiHostFileChunk.deleteMany({ roomId, fileId });
+  }
+
+  async deleteAiHostFilesForRoom(roomId: string): Promise<void> {
+    const files = await this.listAiHostFiles(roomId);
+    if (files.length === 0) return;
+    await this.models.RoomAiHostFileChunk.deleteMany({ roomId });
+    await this.models.RoomAiHostChatMessage.deleteMany({
+      roomId,
+      fileId: { $in: files.map((file) => file.id) }
+    });
+    await this.models.RoomAiHostFile.deleteMany({ roomId });
+  }
+
+  async replaceAiHostFileChunks(
+    roomId: string,
+    fileId: string,
+    chunks: RoomAiHostFileChunk[]
+  ): Promise<void> {
+    await this.models.RoomAiHostFileChunk.deleteMany({ roomId, fileId });
+    if (chunks.length > 0) {
+      await this.models.RoomAiHostFileChunk.insertMany(chunks);
+    }
+  }
+
+  async listAiHostFileChunks(roomId: string, fileId: string): Promise<RoomAiHostFileChunk[]> {
+    const docs = (await this.models.RoomAiHostFileChunk.find({ roomId, fileId })
+      .sort({ index: 1 })
+      .lean()) as Record<string, unknown>[];
+    return docs.map(docToRoomAiHostFileChunk);
   }
 }

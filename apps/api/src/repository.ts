@@ -31,6 +31,8 @@ import {
   type RoomAiHost,
   type RoomAiHostChatMessage,
   type RoomAiHostChatMode,
+  type RoomAiHostFile,
+  type RoomAiHostFileChunk,
   type LogicState,
   type RoomObject,
   type RoomObjectStatus,
@@ -271,13 +273,22 @@ export type Repository = {
   getAiHostByRoomId(roomId: string): Promise<RoomAiHost | null>;
   createAiHost(host: RoomAiHost): Promise<RoomAiHost>;
   updateAiHost(roomId: string, host: RoomAiHost): Promise<RoomAiHost>;
-  deleteAiHost(roomId: string, opts?: { deleteFiles?: boolean | undefined }): Promise<void>;
+  deleteAiHost(roomId: string): Promise<void>;
   appendAiHostChatMessage(message: RoomAiHostChatMessage): Promise<RoomAiHostChatMessage>;
   listAiHostChatMessages(
     roomId: string,
     userId: string,
     opts?: { mode?: RoomAiHostChatMode | undefined; fileId?: string | undefined; limit?: number | undefined }
   ): Promise<RoomAiHostChatMessage[]>;
+  deleteAiHostChatMessagesForFile(roomId: string, fileId: string): Promise<void>;
+  listAiHostFiles(roomId: string): Promise<RoomAiHostFile[]>;
+  getAiHostFile(roomId: string, fileId: string): Promise<RoomAiHostFile | null>;
+  createAiHostFile(file: RoomAiHostFile): Promise<RoomAiHostFile>;
+  updateAiHostFile(roomId: string, fileId: string, file: RoomAiHostFile): Promise<RoomAiHostFile>;
+  deleteAiHostFile(roomId: string, fileId: string): Promise<void>;
+  deleteAiHostFilesForRoom(roomId: string): Promise<void>;
+  replaceAiHostFileChunks(roomId: string, fileId: string, chunks: RoomAiHostFileChunk[]): Promise<void>;
+  listAiHostFileChunks(roomId: string, fileId: string): Promise<RoomAiHostFileChunk[]>;
 };
 
 /** How long after the last heartbeat a room participant still counts as present. */
@@ -335,6 +346,8 @@ export class MemoryRepository implements Repository {
   private sharedBrowserSessions = new Map<string, SharedBrowserSession>();
   private aiHostsByRoom = new Map<string, RoomAiHost>();
   private aiHostChatMessages: RoomAiHostChatMessage[] = [];
+  private aiHostFilesByRoom = new Map<string, Map<string, RoomAiHostFile>>();
+  private aiHostFileChunks = new Map<string, RoomAiHostFileChunk[]>();
 
   async close() {
     return;
@@ -580,6 +593,10 @@ export class MemoryRepository implements Repository {
       if (session.roomId === roomId) this.sharedBrowserSessions.delete(id);
     }
     this.aiHostsByRoom.delete(roomId);
+    this.aiHostFilesByRoom.delete(roomId);
+    for (const key of [...this.aiHostFileChunks.keys()]) {
+      if (key.startsWith(`${roomId}:`)) this.aiHostFileChunks.delete(key);
+    }
   }
 
   async getAiHostByRoomId(roomId: string) {
@@ -598,9 +615,8 @@ export class MemoryRepository implements Repository {
     return host;
   }
 
-  async deleteAiHost(roomId: string, _opts?: { deleteFiles?: boolean | undefined }) {
+  async deleteAiHost(roomId: string) {
     if (!this.aiHostsByRoom.delete(roomId)) throw notFound("AI world host not found");
-    this.aiHostChatMessages = this.aiHostChatMessages.filter((message) => message.roomId !== roomId);
   }
 
   async appendAiHostChatMessage(message: RoomAiHostChatMessage) {
@@ -625,6 +641,70 @@ export class MemoryRepository implements Repository {
       return ordered.slice(ordered.length - opts.limit);
     }
     return ordered;
+  }
+
+  async deleteAiHostChatMessagesForFile(roomId: string, fileId: string) {
+    this.aiHostChatMessages = this.aiHostChatMessages.filter(
+      (message) => !(message.roomId === roomId && message.fileId === fileId)
+    );
+  }
+
+  private aiHostFileChunkKey(roomId: string, fileId: string) {
+    return `${roomId}:${fileId}`;
+  }
+
+  async listAiHostFiles(roomId: string) {
+    const byId = this.aiHostFilesByRoom.get(roomId);
+    if (!byId) return [];
+    return [...byId.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  async getAiHostFile(roomId: string, fileId: string) {
+    return this.aiHostFilesByRoom.get(roomId)?.get(fileId) ?? null;
+  }
+
+  async createAiHostFile(file: RoomAiHostFile) {
+    let byId = this.aiHostFilesByRoom.get(file.roomId);
+    if (!byId) {
+      byId = new Map();
+      this.aiHostFilesByRoom.set(file.roomId, byId);
+    }
+    if (byId.has(file.id)) throw conflict("Study file already registered");
+    byId.set(file.id, file);
+    return file;
+  }
+
+  async updateAiHostFile(roomId: string, fileId: string, file: RoomAiHostFile) {
+    const byId = this.aiHostFilesByRoom.get(roomId);
+    if (!byId?.has(fileId)) throw notFound("Study file not found");
+    byId.set(fileId, file);
+    return file;
+  }
+
+  async deleteAiHostFile(roomId: string, fileId: string) {
+    const byId = this.aiHostFilesByRoom.get(roomId);
+    if (!byId?.delete(fileId)) throw notFound("Study file not found");
+    this.aiHostFileChunks.delete(this.aiHostFileChunkKey(roomId, fileId));
+  }
+
+  async deleteAiHostFilesForRoom(roomId: string) {
+    const byId = this.aiHostFilesByRoom.get(roomId);
+    if (!byId) return;
+    for (const fileId of byId.keys()) {
+      this.aiHostFileChunks.delete(this.aiHostFileChunkKey(roomId, fileId));
+      this.aiHostChatMessages = this.aiHostChatMessages.filter(
+        (message) => !(message.roomId === roomId && message.fileId === fileId)
+      );
+    }
+    this.aiHostFilesByRoom.delete(roomId);
+  }
+
+  async replaceAiHostFileChunks(roomId: string, fileId: string, chunks: RoomAiHostFileChunk[]) {
+    this.aiHostFileChunks.set(this.aiHostFileChunkKey(roomId, fileId), chunks);
+  }
+
+  async listAiHostFileChunks(roomId: string, fileId: string) {
+    return this.aiHostFileChunks.get(this.aiHostFileChunkKey(roomId, fileId)) ?? [];
   }
 
   async getActiveManifest(roomId: string) {

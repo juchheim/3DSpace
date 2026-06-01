@@ -3169,7 +3169,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               localAvatarRotationY={movement.avatarState?.rotation.y ?? 0}
             />
           ) : null}
-          {aiWorldHostEnabled && session && aiWorldHost.host ? (
+          {aiWorldHostEnabled && session && (aiWorldHost.host || aiWorldHost.hasStudyFiles) ? (
             <WorldHostPanel
               controller={aiWorldHost}
               buildHelpContext={{

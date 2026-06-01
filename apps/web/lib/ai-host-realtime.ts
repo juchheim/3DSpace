@@ -1,4 +1,18 @@
-import type { RoomAiHost, RoomAiHostRealtimeMessage } from "@3dspace/contracts";
+import type { RoomAiHost, RoomAiHostFile, RoomAiHostRealtimeMessage } from "@3dspace/contracts";
+
+export function buildAiHostFileUpdatedMessage(input: {
+  roomId: string;
+  file: RoomAiHostFile;
+  senderId: string;
+}): Extract<RoomAiHostRealtimeMessage, { type: "room.ai-host.file.updated.v1" }> {
+  return {
+    type: "room.ai-host.file.updated.v1",
+    roomId: input.roomId,
+    file: input.file,
+    sentAt: Date.now(),
+    senderId: input.senderId
+  };
+}
 
 export function applyAiHostRealtimeMessage(
   host: RoomAiHost | null,

@@ -1194,6 +1194,7 @@ export const ApiErrorCodeSchema = z.enum([
   "ai-host-not-found",
   "ai-host-exists",
   "ai-host-file-not-found",
+  "ai-host-file-not-ready",
   "ai-host-file-rejected",
   "ai-host-unavailable",
   "ai-host-rate-limited"
@@ -1804,6 +1805,7 @@ export const RoomAiHostUpdatedMessageV1Schema = z.object({
 export const RoomAiHostDismissedMessageV1Schema = z.object({
   type: z.literal("room.ai-host.dismissed.v1"),
   roomId: z.string(),
+  deleteFiles: z.boolean().default(false),
   sentAt: z.number().int(),
   senderId: z.string()
 });

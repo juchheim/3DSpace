@@ -6,13 +6,26 @@ import type {
   BuildPiece,
   RoomAiHost,
   RoomAiHostChatMessage,
+  RoomAiHostFile,
   RoomAiHostRealtimeMessage,
   RoomManifest,
   Vector3
 } from "@3dspace/contracts";
 import { createGroundHeightContext, groundHeightAt } from "@3dspace/room-engine";
-import { applyAiHostRealtimeMessage } from "./ai-host-realtime";
-import { ApiError, createAiHost, dismissAiHost, getAiHost, listAiHostChat, patchAiHost, streamAiHostChat } from "./api";
+import { applyAiHostRealtimeMessage, buildAiHostFileUpdatedMessage } from "./ai-host-realtime";
+import {
+  ApiError,
+  createAiHost,
+  deleteAiHostFile,
+  dismissAiHost,
+  getAiHost,
+  listAiHostChat,
+  listAiHostFiles,
+  patchAiHost,
+  reprocessAiHostFile,
+  streamAiHostChat,
+  uploadAiHostStudyFile
+} from "./api";
 
 const SPEECH_BUBBLE_MAX_CHARS = 120;
 
@@ -25,6 +38,12 @@ import type { ApiIdentity } from "./identity";
 import type { RealtimeMessage } from "./realtime";
 
 const REFRESH_INTERVAL_MS = 30_000;
+const FILE_PROCESSING_POLL_MS = 2_000;
+const FILE_PROCESSING_MAX_POLLS = 90;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export type AiWorldHostPlacementMode = "idle" | "summon" | "reposition";
 
@@ -73,6 +92,12 @@ export function useAiWorldHost(input: {
   const [chatStreaming, setChatStreaming] = useState(false);
   const [streamingReply, setStreamingReply] = useState("");
   const [chatError, setChatError] = useState("");
+  const [studyFiles, setStudyFiles] = useState<RoomAiHostFile[]>([]);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const [filesError, setFilesError] = useState("");
+  const [filesBusy, setFilesBusy] = useState(false);
+  const [activeFileId, setActiveFileId] = useState<string | null>(null);
+  const [fileChatMessages, setFileChatMessages] = useState<RoomAiHostChatMessage[]>([]);
   const placementModeRef = useRef<AiWorldHostPlacementMode>("idle");
   placementModeRef.current = placementMode;
 
@@ -89,19 +114,44 @@ export function useAiWorldHost(input: {
     (message: RoomAiHostRealtimeMessage) => {
       if (!input.enabled || !input.roomId || message.roomId !== input.roomId) return false;
       setHost((current) => applyAiHostRealtimeMessage(current, message));
+      if (message.type === "room.ai-host.file.updated.v1") {
+        setStudyFiles((current) => {
+          const rest = current.filter((file) => file.id !== message.file.id);
+          return [...rest, message.file].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+        });
+        return true;
+      }
+      if (message.type === "room.ai-host.file.removed.v1") {
+        setStudyFiles((current) => current.filter((file) => file.id !== message.fileId));
+        setActiveFileId((current) => (current === message.fileId ? null : current));
+        setFileChatMessages((current) =>
+          current.filter((entry) => entry.fileId !== message.fileId)
+        );
+        return true;
+      }
       if (message.type === "room.ai-host.dismissed.v1") {
         applyHost(null, { clearPlacement: true });
-        setPanelOpen(false);
         setSpeechBubbleText(null);
         setAnimationState("idle");
-        setChatMessages([]);
         setStreamingReply("");
         setChatError("");
+        if (message.deleteFiles) {
+          setStudyFiles([]);
+          setActiveFileId(null);
+          setFileChatMessages([]);
+          setFilesError("");
+          setPanelOpen(false);
+        } else if (input.roomId) {
+          void listAiHostFiles(input.identity, input.roomId).then((files) => {
+            setStudyFiles(files);
+            if (files.length > 0) setPanelOpen(true);
+          });
+        }
         return true;
       }
       return true;
     },
-    [applyHost, input.enabled, input.roomId]
+    [applyHost, input.enabled, input.identity, input.roomId]
   );
 
   const refresh = useCallback(
@@ -271,6 +321,18 @@ export function useAiWorldHost(input: {
         const result = await dismissAiHost(input.identity, input.roomId, deleteFiles);
         applyHost(null, { clearPlacement: true });
         publishMessages(input.publish, result.realtimeMessages);
+        setSpeechBubbleText(null);
+        setAnimationState("idle");
+        if (deleteFiles) {
+          setStudyFiles([]);
+          setActiveFileId(null);
+          setFileChatMessages([]);
+          setPanelOpen(false);
+        } else {
+          const files = await listAiHostFiles(input.identity, input.roomId);
+          setStudyFiles(files);
+          if (files.length > 0) setPanelOpen(true);
+        }
       } catch (err) {
         const message =
           err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Unable to dismiss AI guide.";
@@ -283,7 +345,65 @@ export function useAiWorldHost(input: {
     [applyHost, host, input.identity, input.publish, input.roomId]
   );
 
+  const pollStudyFileUntilSettled = useCallback(
+    async (fileId: string) => {
+      if (!input.roomId) return null;
+      for (let attempt = 0; attempt < FILE_PROCESSING_MAX_POLLS; attempt += 1) {
+        const files = await listAiHostFiles(input.identity, input.roomId);
+        const match = files.find((entry) => entry.id === fileId);
+        if (match && match.status !== "processing") {
+          setStudyFiles(files);
+          publishMessages(input.publish, [
+            buildAiHostFileUpdatedMessage({
+              roomId: input.roomId,
+              file: match,
+              senderId: input.identity.userId
+            })
+          ]);
+          return match;
+        }
+        await sleep(FILE_PROCESSING_POLL_MS);
+      }
+      return null;
+    },
+    [input.identity, input.publish, input.roomId]
+  );
+
+  const refreshFiles = useCallback(async () => {
+    if (!input.enabled || !input.roomId) {
+      setStudyFiles([]);
+      return [];
+    }
+    setFilesLoading(true);
+    setFilesError("");
+    try {
+      const files = await listAiHostFiles(input.identity, input.roomId);
+      setStudyFiles(files);
+      return files;
+    } catch (err) {
+      setFilesError(err instanceof ApiError ? err.message : "Unable to load study files.");
+      return [];
+    } finally {
+      setFilesLoading(false);
+    }
+  }, [input.enabled, input.identity, input.roomId]);
+
   const hostId = host?.id ?? null;
+  const hasStudyFiles = studyFiles.length > 0;
+
+  useEffect(() => {
+    void refreshFiles();
+  }, [refreshFiles]);
+
+  useEffect(() => {
+    if (!input.enabled || !input.roomId) return;
+    if (!studyFiles.some((file) => file.status === "processing")) return;
+    const interval = window.setInterval(() => {
+      void refreshFiles();
+    }, FILE_PROCESSING_POLL_MS);
+    return () => window.clearInterval(interval);
+  }, [input.enabled, input.roomId, refreshFiles, studyFiles]);
+
   useEffect(() => {
     if (!input.enabled || !input.roomId || !hostId) {
       setChatMessages([]);
@@ -302,6 +422,24 @@ export function useAiWorldHost(input: {
     };
   }, [hostId, input.enabled, input.identity, input.roomId]);
 
+  useEffect(() => {
+    if (!input.enabled || !input.roomId || !activeFileId) {
+      setFileChatMessages([]);
+      return;
+    }
+    let cancelled = false;
+    listAiHostChat(input.identity, input.roomId, { mode: "file-study", fileId: activeFileId, limit: 50 })
+      .then((messages) => {
+        if (!cancelled) setFileChatMessages(messages);
+      })
+      .catch(() => {
+        if (!cancelled) setFileChatMessages([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeFileId, input.enabled, input.identity, input.roomId]);
+
   const sendBuildHelp = useCallback(
     async (content: string, buildHelpContext?: AiHostBuildHelpContext) => {
       const trimmed = content.trim();
@@ -312,8 +450,9 @@ export function useAiWorldHost(input: {
       setAnimationState("thinking");
       setPanelOpen(true);
 
+      const optimisticId = `local_${Date.now()}`;
       const optimisticUser: RoomAiHostChatMessage = {
-        id: `local_${Date.now()}`,
+        id: optimisticId,
         roomId: input.roomId,
         userId: input.identity.userId,
         mode: "build-help",
@@ -324,6 +463,7 @@ export function useAiWorldHost(input: {
       setChatMessages((prev) => [...prev, optimisticUser]);
 
       let acc = "";
+      let streamFailed = false;
       try {
         const finalMessage = await streamAiHostChat(
           input.identity,
@@ -337,18 +477,23 @@ export function useAiWorldHost(input: {
               setAnimationState("speaking");
             },
             onError: (payload) => {
+              streamFailed = true;
               setChatError(payload.message || "The guide is taking a break. Try again in a moment.");
             }
           }
         );
         if (finalMessage) {
-          setChatMessages((prev) => [...prev, finalMessage]);
+          setChatMessages((prev) => [...prev.filter((m) => m.id !== optimisticId), finalMessage]);
           setSpeechBubbleText(speechBubbleSnippet(finalMessage.content));
+        } else if (streamFailed) {
+          setChatMessages((prev) => prev.filter((m) => m.id !== optimisticId));
         }
       } catch (err) {
+        streamFailed = true;
         const message =
           err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Unable to reach the AI guide.";
         setChatError(message);
+        setChatMessages((prev) => prev.filter((m) => m.id !== optimisticId));
       } finally {
         setChatStreaming(false);
         setStreamingReply("");
@@ -356,6 +501,155 @@ export function useAiWorldHost(input: {
       }
     },
     [input.identity, input.roomId]
+  );
+
+  const sendFileStudy = useCallback(
+    async (fileId: string, content: string) => {
+      const trimmed = content.trim();
+      if (!trimmed || !input.roomId) return;
+      setChatError("");
+      setChatStreaming(true);
+      setStreamingReply("");
+      setAnimationState("thinking");
+      setPanelOpen(true);
+
+      const optimisticId = `local_${Date.now()}`;
+      const optimisticUser: RoomAiHostChatMessage = {
+        id: optimisticId,
+        roomId: input.roomId,
+        userId: input.identity.userId,
+        mode: "file-study",
+        fileId,
+        role: "user",
+        content: trimmed,
+        createdAt: new Date().toISOString()
+      };
+      setFileChatMessages((prev) => [...prev, optimisticUser]);
+
+      let acc = "";
+      let streamFailed = false;
+      try {
+        const finalMessage = await streamAiHostChat(
+          input.identity,
+          input.roomId,
+          { mode: "file-study", fileId, content: trimmed },
+          {
+            onDelta: (text) => {
+              acc += text;
+              setStreamingReply(acc);
+              setSpeechBubbleText(speechBubbleSnippet(acc));
+              setAnimationState("speaking");
+            },
+            onError: (payload) => {
+              streamFailed = true;
+              setChatError(payload.message || "The guide is taking a break. Try again in a moment.");
+            }
+          }
+        );
+        if (finalMessage) {
+          setFileChatMessages((prev) => [...prev.filter((m) => m.id !== optimisticId), finalMessage]);
+          setSpeechBubbleText(speechBubbleSnippet(finalMessage.content));
+        } else if (streamFailed) {
+          setFileChatMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+        }
+      } catch (err) {
+        streamFailed = true;
+        const message =
+          err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Unable to reach the AI guide.";
+        setChatError(message);
+        setFileChatMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+      } finally {
+        setChatStreaming(false);
+        setStreamingReply("");
+        setAnimationState("idle");
+      }
+    },
+    [input.identity, input.roomId]
+  );
+
+  const uploadStudyFile = useCallback(
+    async (file: File) => {
+      if (!input.roomId) throw new Error("Room is not ready.");
+      setFilesBusy(true);
+      setFilesError("");
+      try {
+        const result = await uploadAiHostStudyFile(input.identity, input.roomId, file);
+        publishMessages(input.publish, result.realtimeMessages);
+        let settled = result.file;
+        if (settled.status === "processing") {
+          const polled = await pollStudyFileUntilSettled(settled.id);
+          if (polled) settled = polled;
+        }
+        setStudyFiles((current) => {
+          const rest = current.filter((entry) => entry.id !== settled.id);
+          return [...rest, settled].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+        });
+        setActiveFileId(settled.id);
+        return settled;
+      } catch (err) {
+        const message =
+          err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Unable to upload file.";
+        setFilesError(message);
+        throw err;
+      } finally {
+        setFilesBusy(false);
+      }
+    },
+    [input.identity, input.publish, input.roomId, pollStudyFileUntilSettled]
+  );
+
+  const retryStudyFile = useCallback(
+    async (fileId: string) => {
+      if (!input.roomId) return;
+      setFilesBusy(true);
+      setFilesError("");
+      try {
+        const result = await reprocessAiHostFile(input.identity, input.roomId, fileId);
+        publishMessages(input.publish, result.realtimeMessages);
+        let settled = result.file;
+        if (settled.status === "processing") {
+          const polled = await pollStudyFileUntilSettled(fileId);
+          if (polled) settled = polled;
+        }
+        setStudyFiles((current) => {
+          const rest = current.filter((entry) => entry.id !== settled.id);
+          return [...rest, settled].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+        });
+        setActiveFileId(settled.id);
+        return settled;
+      } catch (err) {
+        const message =
+          err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Unable to retry file processing.";
+        setFilesError(message);
+        throw err;
+      } finally {
+        setFilesBusy(false);
+      }
+    },
+    [input.identity, input.publish, input.roomId, pollStudyFileUntilSettled]
+  );
+
+  const deleteStudyFile = useCallback(
+    async (fileId: string) => {
+      if (!input.roomId) return;
+      setFilesBusy(true);
+      setFilesError("");
+      try {
+        const result = await deleteAiHostFile(input.identity, input.roomId, fileId);
+        publishMessages(input.publish, result.realtimeMessages);
+        setStudyFiles((current) => current.filter((file) => file.id !== fileId));
+        if (activeFileId === fileId) setActiveFileId(null);
+        setFileChatMessages((current) => current.filter((entry) => entry.fileId !== fileId));
+      } catch (err) {
+        const message =
+          err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Unable to delete file.";
+        setFilesError(message);
+        throw err;
+      } finally {
+        setFilesBusy(false);
+      }
+    },
+    [activeFileId, input.identity, input.publish, input.roomId]
   );
 
   const scene = useMemo<AiWorldHostSceneConfig>(
@@ -387,8 +681,18 @@ export function useAiWorldHost(input: {
     chatStreaming,
     streamingReply,
     chatError,
+    studyFiles,
+    hasStudyFiles,
+    currentUserId: input.identity.userId,
+    filesLoading,
+    filesError,
+    filesBusy,
+    activeFileId,
+    setActiveFileId,
+    fileChatMessages,
     scene,
     refresh,
+    refreshFiles,
     handleRealtimeMessage: (message: RealtimeMessage) => {
       if (!message.type.startsWith("room.ai-host.")) return false;
       return applyRealtimeMessage(message as RoomAiHostRealtimeMessage);
@@ -403,7 +707,11 @@ export function useAiWorldHost(input: {
       confirmPlacement,
       rename,
       dismiss,
-      sendBuildHelp
+      sendBuildHelp,
+      sendFileStudy,
+      uploadStudyFile,
+      retryStudyFile,
+      deleteStudyFile
     }
   };
 }

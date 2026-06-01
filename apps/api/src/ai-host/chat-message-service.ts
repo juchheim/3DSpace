@@ -47,3 +47,14 @@ export function countRecentUserMessages(messages: RoomAiHostChatMessage[], now =
     (message) => message.role === "user" && new Date(message.createdAt).getTime() >= cutoff
   ).length;
 }
+
+/** Seconds until the oldest user message in the trailing hour falls outside the window. */
+export function secondsUntilRateLimitResets(messages: RoomAiHostChatMessage[], now = Date.now()): number {
+  const cutoff = now - 3_600_000;
+  const recent = messages
+    .filter((message) => message.role === "user" && new Date(message.createdAt).getTime() >= cutoff)
+    .map((message) => new Date(message.createdAt).getTime());
+  if (recent.length === 0) return 0;
+  const oldest = Math.min(...recent);
+  return Math.max(1, Math.ceil((oldest + 3_600_000 - now) / 1000));
+}

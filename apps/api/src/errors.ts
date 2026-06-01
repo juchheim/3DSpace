@@ -181,6 +181,14 @@ export function aiHostFileNotFound() {
   return new HttpError(404, "Study file not found", "ai-host-file-not-found");
 }
 
+export function aiHostFileRejected(message: string, details?: Record<string, unknown>) {
+  return new HttpError(400, message, "ai-host-file-rejected", details);
+}
+
+export function aiHostFileNotReady(message = "Study file is not ready for chat yet") {
+  return new HttpError(422, message, "ai-host-file-not-ready");
+}
+
 export function aiHostRateLimited(retryAfterSeconds: number) {
   return new HttpError(
     429,

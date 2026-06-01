@@ -32,7 +32,10 @@ import type {
   RoomAiHost,
   RoomAiHostChatMessage,
   RoomAiHostChatMode,
+  RoomAiHostFile,
   RoomAiHostRealtimeMessage,
+  CreateRoomAiHostFileUploadTargetRequestSchema,
+  RegisterRoomAiHostFileRequestSchema,
   RoomBuildRealtimeMessage,
   RoomLogicRealtimeMessage,
   RoomSessionRealtimeMessage,
@@ -935,6 +938,103 @@ export function dismissAiHost(identity: ApiIdentity, roomId: string, deleteFiles
     { method: "DELETE", identity }
   ).then((response) => ({
     dismissed: true as const,
+    realtimeMessages: response.realtimeMessages ?? []
+  }));
+}
+
+export function listAiHostFiles(identity: ApiIdentity, roomId: string) {
+  return apiFetch<{ files: RoomAiHostFile[] }>(`/v1/rooms/${roomId}/ai-host/files`, { identity }).then(
+    (response) => response.files
+  );
+}
+
+export function createAiHostFileUploadTarget(
+  identity: ApiIdentity,
+  roomId: string,
+  input: z.infer<typeof CreateRoomAiHostFileUploadTargetRequestSchema>
+) {
+  return apiFetch<{
+    fileId: string;
+    storageKey: string;
+    upload: { url: string; method: "PUT"; headers: Record<string, string> };
+  }>(`/v1/rooms/${roomId}/ai-host/files/upload-target`, {
+    method: "POST",
+    identity,
+    body: input
+  });
+}
+
+export function registerAiHostFile(
+  identity: ApiIdentity,
+  roomId: string,
+  input: z.infer<typeof RegisterRoomAiHostFileRequestSchema>
+) {
+  return apiFetch<{ file: RoomAiHostFile; realtimeMessages?: RoomAiHostRealtimeMessage[] }>(
+    `/v1/rooms/${roomId}/ai-host/files`,
+    { method: "POST", identity, body: input }
+  ).then((response) => ({
+    file: response.file,
+    realtimeMessages: response.realtimeMessages ?? []
+  }));
+}
+
+function aiHostStudyFileContentType(file: File): string {
+  if (file.type && file.type !== "application/octet-stream") return file.type;
+  const lower = file.name.toLowerCase();
+  if (lower.endsWith(".pdf")) return "application/pdf";
+  if (lower.endsWith(".md")) return "text/markdown";
+  if (lower.endsWith(".txt")) return "text/plain";
+  return file.type || "application/octet-stream";
+}
+
+export async function uploadAiHostStudyFile(
+  identity: ApiIdentity,
+  roomId: string,
+  file: File
+) {
+  const contentType = aiHostStudyFileContentType(file);
+  const target = await createAiHostFileUploadTarget(identity, roomId, {
+    fileName: file.name,
+    contentType,
+    sizeBytes: file.size
+  });
+  const uploadHeaders = { ...target.upload.headers };
+  if (!uploadHeaders["content-type"] && file.type) {
+    uploadHeaders["content-type"] = file.type;
+  }
+  const uploadResponse = await fetch(target.upload.url, {
+    method: target.upload.method,
+    headers: uploadHeaders,
+    body: file
+  });
+  if (!uploadResponse.ok) {
+    throw new ApiError(uploadResponse.status, `Upload failed (${uploadResponse.status})`);
+  }
+  return registerAiHostFile(identity, roomId, {
+    fileId: target.fileId,
+    storageKey: target.storageKey,
+    originalFileName: file.name,
+    contentType,
+    sizeBytes: file.size
+  });
+}
+
+export function reprocessAiHostFile(identity: ApiIdentity, roomId: string, fileId: string) {
+  return apiFetch<{ file: RoomAiHostFile; realtimeMessages?: RoomAiHostRealtimeMessage[] }>(
+    `/v1/rooms/${roomId}/ai-host/files/${fileId}/reprocess`,
+    { method: "POST", identity }
+  ).then((response) => ({
+    file: response.file,
+    realtimeMessages: response.realtimeMessages ?? []
+  }));
+}
+
+export function deleteAiHostFile(identity: ApiIdentity, roomId: string, fileId: string) {
+  return apiFetch<{ deleted: true; realtimeMessages?: RoomAiHostRealtimeMessage[] }>(
+    `/v1/rooms/${roomId}/ai-host/files/${fileId}`,
+    { method: "DELETE", identity }
+  ).then((response) => ({
+    deleted: true as const,
     realtimeMessages: response.realtimeMessages ?? []
   }));
 }

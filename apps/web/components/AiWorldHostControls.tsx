@@ -22,8 +22,20 @@ export function AiWorldHostControls({
   localAvatarPosition: { x: number; y: number; z: number } | null;
   localAvatarRotationY: number;
 }) {
-  const { host, busy, loading, error, placementMode, actions, beginSummonPlacement, beginReposition, cancelPlacement } =
-    controller;
+  const {
+    host,
+    busy,
+    loading,
+    error,
+    placementMode,
+    hasStudyFiles,
+    studyFiles,
+    setPanelOpen,
+    actions,
+    beginSummonPlacement,
+    beginReposition,
+    cancelPlacement
+  } = controller;
   const [summonOpen, setSummonOpen] = useState(false);
   const [displayName, setDisplayName] = useState(host?.displayName ?? "Chip");
   const [deleteFilesOnDismiss, setDeleteFilesOnDismiss] = useState(false);
@@ -113,7 +125,9 @@ export function AiWorldHostControls({
             }}
             onReposition={beginReposition}
             onDismiss={() => {
-              const keepFilesNote = deleteFilesOnDismiss ? " Study files will be deleted." : " Study files will stay in this room.";
+              const keepFilesNote = deleteFilesOnDismiss
+                ? " Study files and their chat will be deleted."
+                : " Study files and chat history will stay in this room.";
               if (
                 !window.confirm(
                   `Dismiss ${host.displayName}? The guide will disappear for everyone.${keepFilesNote}`
@@ -182,14 +196,31 @@ export function AiWorldHostControls({
         ) : (
           <div className="ai-world-host-card__empty">
             <p className="ai-world-host-card__hint">No guide in this room yet.</p>
-            <button
-              type="button"
-              className="ai-world-host-card__button ai-world-host-card__button--primary"
-              disabled={busy || loading}
-              onClick={() => setSummonOpen(true)}
-            >
-              Summon guide
-            </button>
+            {hasStudyFiles ? (
+              <p className="ai-world-host-card__hint">
+                {studyFiles.length} study file{studyFiles.length === 1 ? "" : "s"} remain in this room. Chat history
+                is kept until you delete files.
+              </p>
+            ) : null}
+            <div className="ai-world-host-card__actions">
+              <button
+                type="button"
+                className="ai-world-host-card__button ai-world-host-card__button--primary"
+                disabled={busy || loading}
+                onClick={() => setSummonOpen(true)}
+              >
+                Summon guide
+              </button>
+              {hasStudyFiles ? (
+                <button
+                  type="button"
+                  className="ai-world-host-card__button ai-world-host-card__button--ghost"
+                  onClick={() => setPanelOpen(true)}
+                >
+                  Open study files
+                </button>
+              ) : null}
+            </div>
           </div>
         )}
       </div>

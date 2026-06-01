@@ -192,10 +192,12 @@ describe("AI World Host (contracts)", () => {
     const dismissed = RoomAiHostDismissedMessageV1Schema.parse({
       type: "room.ai-host.dismissed.v1",
       roomId: "room-1",
+      deleteFiles: true,
       sentAt: 2,
       senderId: "user-1"
     });
     expect(dismissed.type).toBe("room.ai-host.dismissed.v1");
+    expect(dismissed.deleteFiles).toBe(true);
 
     const fileUpdated = RoomAiHostFileUpdatedMessageV1Schema.parse({
       type: "room.ai-host.file.updated.v1",
