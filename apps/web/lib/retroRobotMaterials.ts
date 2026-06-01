@@ -14,6 +14,7 @@
 import {
   CatmullRomCurve3,
   CanvasTexture,
+  CircleGeometry,
   Color,
   DoubleSide,
   ExtrudeGeometry,
@@ -334,7 +335,7 @@ export type RetroRobotKit = {
     dark: MeshStandardMaterial;
     tire: MeshStandardMaterial;
     glass: MeshStandardMaterial;
-    sclera: MeshStandardMaterial;
+    sclera: MeshBasicMaterial;
     eye: MeshStandardMaterial;
     eyePupil: MeshBasicMaterial;
     catchlight: MeshBasicMaterial;
@@ -395,29 +396,26 @@ export function buildRetroRobotKit(): RetroRobotKit {
     metalness: 0.1,
     roughness: 0.18
   });
-  // Sclera — the white of the eye. Slightly emissive so it stays bright white
-  // (not grey) in shadow, but tone-mapped so it never blows out the iris/pupil.
-  const sclera = new MeshStandardMaterial({
-    color: "#f3f9ff",
-    emissive: new Color("#cfe6f2"),
-    emissiveIntensity: 0.32,
-    metalness: 0,
-    roughness: 0.28
-  });
-  // Iris — a *moderate* cyan tint ring (kept tone-mapped + lower intensity so it
-  // reads as a colour, not a white blob like the first pass).
+  // Sclera — the white of the eye. Unlit MeshBasic so it is always a clean,
+  // even white disc behind the iris (no shading gradient, no glow to merge into
+  // the iris). Tone-mapped so it sits at paper-white, not blown out.
+  const sclera = new MeshBasicMaterial({ color: "#f4f9ff" });
+  // Iris — a cyan ring around the pupil. Mostly diffuse colour with only a
+  // gentle emissive lift so it reads as a saturated CYAN, never a white blob
+  // (the previous version blew out under bloom). Tone-mapped on purpose.
   const eye = new MeshStandardMaterial({
     color: RETRO_ROBOT_PALETTE.eyeIdle,
     emissive: new Color(RETRO_ROBOT_PALETTE.eyeIdle),
-    emissiveIntensity: 1.0,
+    emissiveIntensity: 0.45,
     metalness: 0,
-    roughness: 0.3,
+    roughness: 0.4,
     side: DoubleSide
   });
-  // Pupil — a big, pure-black centre. MeshBasic so it is unlit and can never
-  // wash out to white regardless of scene lighting / tone mapping.
-  const eyePupil = new MeshBasicMaterial({ color: "#070709" });
-  // Catchlight — a tiny always-bright sparkle that makes the eye feel alive.
+  // Pupil — a pure-black centre. MeshBasic so it is unlit and can never wash
+  // out to white regardless of scene lighting / tone mapping.
+  const eyePupil = new MeshBasicMaterial({ color: "#050608" });
+  // Catchlight — a tiny always-bright sparkle in the upper-left that makes the
+  // eye feel alive.
   const catchlight = new MeshBasicMaterial({ color: "#ffffff", toneMapped: false });
   const screen = new MeshStandardMaterial({
     color: "#05080c",
@@ -459,37 +457,17 @@ export function buildRetroRobotKit(): RetroRobotKit {
   // Wrap-around dark visor band that holds the eyes.
   const visor = shellGeometry(0.5, 0.18, 0.12, 0.08);
   const brow = chevronGeometry(0.34, 0.045, 0.05, 0.05);
-  // Eyes — built like a real eye so they read clearly, all turned to face +Z
-  // and stacked toward the viewer:
-  //   coral bezel ring → WHITE sclera → cyan iris → BLACK pupil → white catchlight
-  // The big white sclera + distinct black pupil are what make it read as an eye
-  // rather than a glowing blob; the cyan iris is a moderate (not blown-out) tint.
-  const eyeBezel = new TorusGeometry(0.092, 0.018, 14, 30);
-  const eyeSclera = latheGeometry([
-    v2(0.0, 0.016),
-    v2(0.035, 0.014),
-    v2(0.06, 0.008),
-    v2(0.073, 0.0)
-  ]);
-  eyeSclera.rotateX(Math.PI / 2);
-  const eyeIris = latheGeometry([
-    v2(0.0, 0.01),
-    v2(0.024, 0.009),
-    v2(0.04, 0.005),
-    v2(0.047, 0.0)
-  ]);
-  eyeIris.rotateX(Math.PI / 2);
-  const eyePupilGeo = latheGeometry([
-    v2(0.0, 0.008),
-    v2(0.015, 0.007),
-    v2(0.025, 0.0)
-  ]);
-  eyePupilGeo.rotateX(Math.PI / 2);
-  const eyeCatchlight = latheGeometry(
-    [v2(0.0, 0.008), v2(0.007, 0.006), v2(0.011, 0.0)],
-    16
-  );
-  eyeCatchlight.rotateX(Math.PI / 2);
+  // Eyes — flat concentric discs stacked toward the viewer (+Z) with clear gaps
+  // so they never Z-fight or merge into one white circle:
+  //   coral bezel ring → WHITE sclera → CYAN iris → BLACK pupil → white catchlight
+  // CircleGeometry already lies in the XY plane facing +Z, so no rotation needed.
+  // The distinct big white sclera, saturated cyan iris and pure-black pupil are
+  // what make this read as an eye rather than a glowing blob.
+  const eyeBezel = new TorusGeometry(0.082, 0.016, 16, 32);
+  const eyeSclera = new CircleGeometry(0.078, 40);
+  const eyeIris = new CircleGeometry(0.046, 36);
+  const eyePupilGeo = new CircleGeometry(0.023, 28);
+  const eyeCatchlight = new CircleGeometry(0.0095, 16);
   const earCap = latheGeometry([
     v2(0.0, 0.05),
     v2(0.04, 0.05),

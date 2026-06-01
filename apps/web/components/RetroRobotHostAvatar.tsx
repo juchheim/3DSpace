@@ -138,8 +138,8 @@ export function RetroRobotHostAvatar({
       const gazeRange = thinking ? 0.02 : 0.012;
       const gx = (Math.sin(t * 0.6) * 0.6 + Math.sin(t * 0.27) * 0.4) * gazeRange;
       const gy = Math.sin(t * 0.43) * gazeRange * 0.6 + (thinking ? 0.012 : 0);
-      if (leftPupilRef.current) leftPupilRef.current.position.set(gx, gy, 0.024);
-      if (rightPupilRef.current) rightPupilRef.current.position.set(gx, gy, 0.024);
+      if (leftPupilRef.current) leftPupilRef.current.position.set(gx, gy, 0.01);
+      if (rightPupilRef.current) rightPupilRef.current.position.set(gx, gy, 0.01);
 
       // Antenna tip glow.
       kit.mat.antennaTip.emissiveIntensity =
@@ -260,25 +260,26 @@ export function RetroRobotHostAvatar({
               rotation={[0, 0, (Math.PI / 2) * side]}
             />
           ))}
-          {/* Eyes — white sclera, cyan iris, black pupil, white catchlight. */}
+          {/* Eyes — flat concentric discs: white sclera, cyan iris, black pupil,
+              white catchlight. Stacked toward the viewer with clear Z gaps. */}
           <group ref={eyesRef} position={[0, 0.035, 0.25]}>
             {([-1, 1] as const).map((side) => (
               <group key={`eye-${side}`} position={[0.14 * side, 0, 0]}>
-                {/* coral bezel ring */}
-                <mesh geometry={geo.eyeBezel} material={mat.accent} position={[0, 0, 0.008]} />
+                {/* coral bezel ring hugging the sclera */}
+                <mesh geometry={geo.eyeBezel} material={mat.accent} position={[0, 0, 0.001]} />
                 {/* white sclera (the white of the eye) */}
-                <mesh geometry={geo.eyeSclera} material={mat.sclera} />
-                {/* cyan iris ring */}
-                <mesh geometry={geo.eyeIris} material={mat.eye} position={[0, 0, 0.012]} />
+                <mesh geometry={geo.eyeSclera} material={mat.sclera} position={[0, 0, 0.002]} />
+                {/* cyan iris */}
+                <mesh geometry={geo.eyeIris} material={mat.eye} position={[0, 0, 0.006]} />
                 {/* black pupil — drifts for a living gaze */}
                 <mesh
                   ref={side === -1 ? leftPupilRef : rightPupilRef}
                   geometry={geo.eyePupil}
                   material={mat.eyePupil}
-                  position={[0, 0, 0.024]}
+                  position={[0, 0, 0.01]}
                 />
-                {/* fixed white catchlight on the upper-left of the pupil */}
-                <mesh geometry={geo.eyeCatchlight} material={mat.catchlight} position={[-0.014, 0.016, 0.034]} />
+                {/* fixed white catchlight on the upper-left */}
+                <mesh geometry={geo.eyeCatchlight} material={mat.catchlight} position={[-0.016, 0.018, 0.014]} />
               </group>
             ))}
           </group>
