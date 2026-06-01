@@ -61,20 +61,18 @@ function thinFloorSpec(centerY = 4.05): ColliderSpec {
 async function stepMany(
   controller: PhysicsController,
   steps: number,
-  input: { moveX: number; moveZ: number; dtSeconds?: number }
+  input: { moveX: number; moveZ: number; dtSeconds?: number; sprinting?: boolean }
 ) {
-  let last = controller.step({
+  const stepInput = {
     moveX: input.moveX,
     moveZ: input.moveZ,
-    dtSeconds: input.dtSeconds ?? 1 / 60
-  });
+    dtSeconds: input.dtSeconds ?? 1 / 60,
+    sprinting: input.sprinting
+  };
+  let last = controller.step(stepInput);
 
   for (let index = 1; index < steps; index += 1) {
-    last = controller.step({
-      moveX: input.moveX,
-      moveZ: input.moveZ,
-      dtSeconds: input.dtSeconds ?? 1 / 60
-    });
+    last = controller.step(stepInput);
   }
 
   return last;
@@ -162,6 +160,60 @@ describe("PhysicsController", () => {
 
       const blocked = await stepMany(controller, 60, { moveX: 0, moveZ: 1 });
       expect(blocked.position.z).toBeLessThanOrEqual(1.51);
+    } finally {
+      controller.dispose();
+    }
+  });
+
+  it("moves faster while sprinting", async () => {
+    const controller = await PhysicsController.create({
+      tuning,
+      spec: [groundSpec()],
+      cacheKey: "ground",
+      initialPosition: { x: 0, y: 0, z: 0 }
+    });
+
+    try {
+      await stepMany(controller, 5, { moveX: 0, moveZ: 0 });
+      const walk = await stepMany(controller, 30, { moveX: 0, moveZ: 1 });
+      const walkDelta = walk.position.z;
+      const sprint = await stepMany(controller, 30, { moveX: 0, moveZ: 1, sprinting: true });
+      const sprintDelta = sprint.position.z - walk.position.z;
+      expect(sprintDelta).toBeGreaterThan(walkDelta * 1.4);
+    } finally {
+      controller.dispose();
+    }
+  });
+
+  it("sprint jumps farther horizontally than a standing jump", async () => {
+    const controller = await PhysicsController.create({
+      tuning,
+      spec: [groundSpec()],
+      cacheKey: "ground",
+      initialPosition: { x: 0, y: 0, z: 0 }
+    });
+
+    try {
+      await stepMany(controller, 5, { moveX: 0, moveZ: 0 });
+      controller.requestJump(false);
+      let standZ = 0;
+      for (let index = 0; index < 90; index += 1) {
+        const out = controller.step({ moveX: 0, moveZ: 1, dtSeconds: 1 / 60 });
+        standZ = Math.max(standZ, out.position.z);
+        if (out.grounded && index > 30) break;
+      }
+
+      controller.setPosition({ x: 0, y: 0, z: 0 });
+      await stepMany(controller, 5, { moveX: 0, moveZ: 0 });
+      controller.requestJump(true);
+      let sprintZ = 0;
+      for (let index = 0; index < 90; index += 1) {
+        const out = controller.step({ moveX: 0, moveZ: 1, dtSeconds: 1 / 60, sprinting: true });
+        sprintZ = Math.max(sprintZ, out.position.z);
+        if (out.grounded && index > 30) break;
+      }
+
+      expect(sprintZ).toBeGreaterThan(standZ * 1.15);
     } finally {
       controller.dispose();
     }

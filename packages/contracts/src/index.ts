@@ -1623,7 +1623,7 @@ export const DeleteRoomResponseSchema = z.object({
   deleted: z.literal(true)
 });
 
-export const AvatarMovementSchema = z.enum(["idle", "walking"]);
+export const AvatarMovementSchema = z.enum(["idle", "walking", "running"]);
 export const AvatarAirborneStateSchema = z.enum(["grounded", "jumping", "falling"]);
 
 export const AvatarStateMessageSchema = z.object({

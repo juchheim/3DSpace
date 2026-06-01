@@ -59,6 +59,17 @@ describe("avatar physics contracts", () => {
     expect(parsed.movement).toBe("walking");
     expect(parsed.airborneState).toBeUndefined();
     expect(AvatarAirborneStateSchema.parse("falling")).toBe("falling");
+    expect(
+      AvatarStateMessageSchema.parse({
+        type: "avatar.state.v1",
+        sentAt: 123,
+        participantId: "p1",
+        position: { x: 0, y: 0, z: 0 },
+        rotation: { y: 0 },
+        movement: "running",
+        viewMode: "3d"
+      }).movement
+    ).toBe("running");
   });
 
   it("allows world skins to tune gravity and jump multipliers", () => {

@@ -8,6 +8,7 @@ import {
   type RampColliderSpec
 } from "@3dspace/room-engine";
 
+import { AVATAR_SPRINT_JUMP_HEIGHT_MULTIPLIER, AVATAR_SPRINT_SPEED_MULTIPLIER } from "../avatarSprint";
 import { loadRapier } from "./rapier";
 
 const FIXED_TIMESTEP_SECONDS = 1 / 60;
@@ -19,6 +20,8 @@ export type PhysicsStepInput = {
   moveX: number;
   moveZ: number;
   dtSeconds: number;
+  /** Shift sprint while moving horizontally. */
+  sprinting?: boolean;
 };
 
 export type PhysicsStepOutput = {
@@ -106,7 +109,8 @@ export class PhysicsController {
     private verticalVelocity: number,
     private grounded: boolean,
     private coyoteTimeRemainingSeconds: number,
-    private jumpQueued: boolean
+    private jumpQueued: boolean,
+    private jumpSprintQueued: boolean
   ) {}
 
   static async create(input: {
@@ -147,6 +151,7 @@ export class PhysicsController {
       0,
       false,
       0,
+      false,
       false
     );
 
@@ -230,7 +235,7 @@ export class PhysicsController {
     };
   }
 
-  private substep(moveX: number, moveZ: number) {
+  private substep(moveX: number, moveZ: number, sprinting: boolean) {
     const normalized = clampHorizontalInput(moveX, moveZ);
     const wasGrounded = this.grounded;
     const coyoteSeconds = this.tuning.coyoteTimeMs / 1000;
@@ -247,7 +252,10 @@ export class PhysicsController {
     this.jumpQueued = false;
 
     if (jumpTriggered) {
-      this.verticalVelocity = Math.sqrt(2 * this.tuning.gravity * this.tuning.jumpHeight);
+      const jumpHeight =
+        this.tuning.jumpHeight * (this.jumpSprintQueued ? AVATAR_SPRINT_JUMP_HEIGHT_MULTIPLIER : 1);
+      this.jumpSprintQueued = false;
+      this.verticalVelocity = Math.sqrt(2 * this.tuning.gravity * jumpHeight);
       this.grounded = false;
       this.coyoteTimeRemainingSeconds = 0;
     } else {
@@ -258,11 +266,13 @@ export class PhysicsController {
     }
 
     const horizontalControl = wasGrounded ? 1 : this.tuning.airControl;
+    const moveSpeed =
+      this.tuning.moveSpeed * (sprinting ? AVATAR_SPRINT_SPEED_MULTIPLIER : 1) * horizontalControl;
 
     const desired = toRapierVector(this.RAPIER, {
-      x: normalized.x * this.tuning.moveSpeed * horizontalControl * FIXED_TIMESTEP_SECONDS,
+      x: normalized.x * moveSpeed * FIXED_TIMESTEP_SECONDS,
       y: this.verticalVelocity * FIXED_TIMESTEP_SECONDS,
-      z: normalized.z * this.tuning.moveSpeed * horizontalControl * FIXED_TIMESTEP_SECONDS
+      z: normalized.z * moveSpeed * FIXED_TIMESTEP_SECONDS
     });
 
     this.characterController.computeColliderMovement(this.capsuleCollider, desired);
@@ -332,18 +342,20 @@ export class PhysicsController {
 
   step(input: PhysicsStepInput): PhysicsStepOutput {
     this.accumulatorSeconds += Math.max(0, input.dtSeconds);
+    const sprinting = input.sprinting ?? false;
     let last = this.currentOutput(this.grounded);
 
     while (this.accumulatorSeconds >= FIXED_TIMESTEP_SECONDS) {
-      last = this.substep(input.moveX, input.moveZ);
+      last = this.substep(input.moveX, input.moveZ, sprinting);
       this.accumulatorSeconds -= FIXED_TIMESTEP_SECONDS;
     }
 
     return this.currentOutput(last.grounded);
   }
 
-  requestJump() {
+  requestJump(sprinting = false) {
     this.jumpQueued = true;
+    this.jumpSprintQueued = sprinting;
   }
 
   seedPosition(position: Vector3) {
@@ -358,6 +370,7 @@ export class PhysicsController {
     this.grounded = false;
     this.coyoteTimeRemainingSeconds = 0;
     this.jumpQueued = false;
+    this.jumpSprintQueued = false;
   }
 
   position() {

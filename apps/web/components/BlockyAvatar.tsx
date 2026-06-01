@@ -120,8 +120,8 @@ export function BlockyAvatar({
     const rl = rightLegPivotRef.current;
     if (!la || !ra || !ll || !rl) return;
 
-    // Walk blend — lerps smoothly between 0 (idle) and 1 (walking)
-    const targetBlend = movement === "walking" ? 1 : 0;
+    // Walk blend — lerps smoothly between 0 (idle) and 1 (walking/running)
+    const targetBlend = movement === "walking" || movement === "running" ? 1 : 0;
     walkBlendRef.current = MathUtils.lerp(walkBlendRef.current, targetBlend, delta * 8);
     const blend = walkBlendRef.current;
     const targetAirborneBlend = airborneState === "grounded" ? 0 : 1;
@@ -129,7 +129,7 @@ export function BlockyAvatar({
     const airborneBlend = airborneBlendRef.current;
 
     // Walk cycle
-    const WALK_FREQ = 2.5;
+    const WALK_FREQ = movement === "running" ? 3.6 : 2.5;
     const WALK_AMP  = Math.PI / 6;
     const rawSwing  = Math.sin(t * WALK_FREQ * Math.PI * 2) * WALK_AMP;
     const swing     = rawSwing * blend;

@@ -34,6 +34,11 @@ import {
   resolveAvatarXZWithWalls,
   type CollisionWallsCache
 } from "./avatar-movement-collision";
+import {
+  AVATAR_SPRINT_SPEED_MULTIPLIER,
+  isSprinting,
+  wantsSprintJump
+} from "./avatarSprint";
 import { isKeyboardOwnedTarget } from "./isKeyboardOwnedTarget";
 import { PhysicsController } from "./physics/PhysicsController";
 
@@ -110,6 +115,7 @@ export function useAvatarMovement(input: {
   const physicsWorldSpecRef = useRef<ColliderSpec[]>([]);
   const physicsColliderSyncKeyRef = useRef<string | null>(null);
   const jumpRequestedRef = useRef(false);
+  const jumpSprintRef = useRef(false);
 
   function getBuildPieces() {
     return input.buildPiecesRef?.current ?? [];
@@ -245,10 +251,15 @@ export function useAvatarMovement(input: {
       if (event.code === "Space") {
         if (!event.repeat && physicsEnabled()) {
           jumpRequestedRef.current = true;
+          jumpSprintRef.current = wantsSprintJump(keys.current, touchVector.current);
         }
         if (physicsEnabled()) {
           event.preventDefault();
         }
+        return;
+      }
+      if (event.code === "ShiftLeft" || event.code === "ShiftRight") {
+        keys.current.add(event.code);
         return;
       }
       if (
@@ -352,6 +363,7 @@ export function useAvatarMovement(input: {
         const worldDelta = transformLocalMovementToWorld(movementYaw, { x: localX, z: localZ });
         const magnitude = Math.hypot(worldDelta.x, worldDelta.z);
         const moving = magnitude > 0;
+        const sprinting = isSprinting(keys.current, touchVector.current, moving);
         const pieces = getBuildPieces();
         const logicPieces = getLogicPieces();
         const logicNodes = getLogicNodes();
@@ -367,13 +379,15 @@ export function useAvatarMovement(input: {
               physicsColliderSyncKeyRef.current = key;
             }
             if (jumpRequestedRef.current) {
-              physicsControllerRef.current.requestJump();
+              physicsControllerRef.current.requestJump(jumpSprintRef.current);
               jumpRequestedRef.current = false;
+              jumpSprintRef.current = false;
             }
             const out = physicsControllerRef.current.step({
               moveX: worldDelta.x,
               moveZ: worldDelta.z,
-              dtSeconds: deltaSeconds
+              dtSeconds: deltaSeconds,
+              sprinting
             });
             const nextPosition = out.grounded
               ? applyGroundHeight(input.manifest!, pieces, out.position, "walk")
@@ -383,7 +397,7 @@ export function useAvatarMovement(input: {
               sentAt: Date.now(),
               position: nextPosition,
               rotation: { y: avatarYaw },
-              movement: moving ? ("walking" as const) : ("idle" as const),
+              movement: moving ? (sprinting ? ("running" as const) : ("walking" as const)) : ("idle" as const),
               airborneState: physicsAirborneState(out.grounded, out.vy),
               viewMode: input.viewMode,
               media: mediaRef.current
@@ -396,7 +410,8 @@ export function useAvatarMovement(input: {
         }
         // walkSpeedMultiplierRef: skin-driven multiplier (e.g. 0.38 for Mars low-gravity).
         // NOT applied to moveTo3DPoint teleports — teleporting slowly on Mars is wrong UX.
-        const speed = 3.2 * walkSpeedMultiplierRef.current;
+        const speed =
+          3.2 * walkSpeedMultiplierRef.current * (sprinting ? AVATAR_SPRINT_SPEED_MULTIPLIER : 1);
         const { keyChanged: buildSurfacesChanged } = syncGroundHeightContext(input.manifest!, pieces);
         const rawNext = moving
           ? (() => {
@@ -449,7 +464,7 @@ export function useAvatarMovement(input: {
           sentAt: Date.now(),
           position: nextPosition,
           rotation: nextRotation,
-          movement: moving ? ("walking" as const) : ("idle" as const),
+          movement: moving ? (sprinting ? ("running" as const) : ("walking" as const)) : ("idle" as const),
           airborneState: undefined,
           viewMode: input.viewMode,
           media: mediaRef.current
