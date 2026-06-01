@@ -47,6 +47,13 @@ export function useLogicPieces(input: {
   roomId?: string | undefined;
   enabled: boolean;
   publish?: PublishLogicMessage | undefined;
+  /**
+   * Poll cadence for the authoritative logic state. Defaults to 30s. Pass a
+   * shorter value (e.g. while a play session is running) so server-driven
+   * effects without an acting client — timer fires — converge quickly. The
+   * realtime data channel is client-republished, so timers have no other path.
+   */
+  pollIntervalMs?: number | undefined;
 }) {
   const [piecesById, setPiecesById] = useState<Record<string, BuildLogicPiece>>({});
   const [logicState, setLogicState] = useState<LogicState | null>(null);
@@ -126,14 +133,15 @@ export function useLogicPieces(input: {
     void refresh();
   }, [refresh]);
 
+  const pollIntervalMs = input.pollIntervalMs ?? REFRESH_INTERVAL_MS;
   useEffect(() => {
     if (!input.enabled || !input.roomId) return;
     const interval = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
       void refresh({ showLoading: false });
-    }, REFRESH_INTERVAL_MS);
+    }, pollIntervalMs);
     return () => window.clearInterval(interval);
-  }, [input.enabled, input.roomId, refresh]);
+  }, [input.enabled, input.roomId, pollIntervalMs, refresh]);
 
   const place = useCallback(
     async (

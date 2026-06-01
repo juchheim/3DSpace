@@ -107,7 +107,7 @@ import { useLogicPieces } from "../lib/useLogicPieces";
 import { useLogicDetection, type LogicDetectionEvent } from "../lib/useLogicDetection";
 import { useEscapeSession } from "../lib/useEscapeSession";
 import { EscapeTimerHud } from "./EscapeTimerHud";
-import { signalLogicPiece } from "../lib/api";
+import { ApiError, signalLogicPiece } from "../lib/api";
 import type { BuildLogicPiece } from "@3dspace/contracts";
 import { useAiObjectGenerator } from "../lib/useAiObjectGenerator";
 import { AiObjectPanel } from "./AiObjectPanel";
@@ -479,14 +479,32 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     Boolean(session);
   const logicAuthoringEnabled = logicFeatureEnabled && role === "teacher" && !playModeEnabled;
   const logicPlayEnabled = logicFeatureEnabled && playModeEnabled;
+  const [logicSessionRunning, setLogicSessionRunning] = useState(false);
   const logicPieces = useLogicPieces({
     identity,
     roomId: session?.room.id ?? roomId,
     enabled: logicFeatureEnabled,
-    publish: publishRealtime
+    publish: publishRealtime,
+    // Timer fires mutate server state with no acting client to republish, so a
+    // running session polls the authoritative logic state every few seconds.
+    pollIntervalMs: logicSessionRunning ? 3000 : undefined
   });
   const logicMode = useLogicMode();
   const [selectedLogicPieceId, setSelectedLogicPieceId] = useState<string | null>(null);
+  const [nearestInteractable, setNearestInteractable] = useState<BuildLogicPiece | null>(null);
+  const [playStatusMessage, setPlayStatusMessage] = useState("");
+  const playStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flashPlayStatus = useCallback((message: string) => {
+    setPlayStatusMessage(message);
+    if (playStatusTimerRef.current) clearTimeout(playStatusTimerRef.current);
+    playStatusTimerRef.current = setTimeout(() => setPlayStatusMessage(""), 3500);
+  }, []);
+  useEffect(
+    () => () => {
+      if (playStatusTimerRef.current) clearTimeout(playStatusTimerRef.current);
+    },
+    []
+  );
   const onExitStepOnRef = useRef<(() => void) | null>(null);
   const movementTeleportRef = useRef<((position: { x: number; y: number; z: number }) => void) | null>(null);
   const [logicDebugEvents, setLogicDebugEvents] = useState<LogicDetectionEvent[]>([]);
@@ -512,11 +530,19 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         if (kind === "interact") {
           setLogicPulseAtByPieceId((current) => ({ ...current, [pieceId]: Date.now() }));
         }
-      } catch {
+      } catch (err) {
         // Local HUD still records detection; server may reject outside play mode.
+        // Teleporters fail loudly so players know why nothing happened.
+        if (logicPieces.piecesById[pieceId]?.kind === "teleporter" && kind === "stepOn" && err instanceof ApiError) {
+          if (err.code === "logic-teleporter-no-target") {
+            flashPlayStatus("This pad isn't linked yet — pair it with another pad's Link ID.");
+          } else if (err.code === "logic-teleporter-disarmed") {
+            flashPlayStatus("This pad is powered off — solve its puzzle to activate it.");
+          }
+        }
       }
     },
-    [identity, logicPieces, publishRealtime, session?.room.id]
+    [flashPlayStatus, identity, logicPieces, publishRealtime, session?.room.id]
   );
   const buildHistory = useBuildHistory(buildPieces.actions, () => buildPieces.piecesById, {
     onConflict: (message) => buildMode.setStatusMessage(message)
@@ -825,7 +851,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     pieces: logicPieces.pieces,
     getAvatarState: movement.getAvatarState,
     onEvent: appendLogicDebugEvent,
-    onSignal: reportLogicSignal
+    onSignal: reportLogicSignal,
+    onNearestInteractableChange: setNearestInteractable
   });
   useEffect(() => {
     if (!logicPlayEnabled) {
@@ -863,6 +890,16 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     () => logicChannelsFromPieces(logicPieces.pieces),
     [logicPieces.pieces]
   );
+  const playVerbs = useMemo(() => {
+    const kinds = new Set(logicPieces.pieces.map((piece) => piece.kind));
+    return {
+      hasButton: kinds.has("button"),
+      hasPlate: kinds.has("pressurePlate"),
+      hasZone: kinds.has("proximityZone"),
+      hasTeleporter: kinds.has("teleporter"),
+      hasExit: logicPieces.pieces.some((piece) => piece.config?.isExit === true)
+    };
+  }, [logicPieces.pieces]);
   const logicNodeStates = logicPieces.logicState?.nodes ?? {};
   const logicPlayLayer = useMemo(
     () =>
@@ -892,6 +929,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   });
   const escapeSessionRealtimeHandlerRef = useRef(escapeSession.handleRealtimeMessage);
   escapeSessionRealtimeHandlerRef.current = escapeSession.handleRealtimeMessage;
+  useEffect(() => {
+    setLogicSessionRunning(escapeSession.session?.status === "running");
+  }, [escapeSession.session?.status]);
   onExitStepOnRef.current = () => {
     void escapeSession.actions.win();
   };
@@ -3234,17 +3274,36 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           selfParticipantId={session.participantId}
         />
       ) : null}
+      {logicPlayEnabled && nearestInteractable?.kind === "button" ? (
+        <div className="hud-interaction-prompt" role="status" aria-live="polite">
+          <kbd>E</kbd> use button
+        </div>
+      ) : null}
       {showPlayModeDock ? (
         <div className="play-mode-dock" role="status" aria-live="polite">
           <strong>Play test</strong>
-          <span>
-            Explore the puzzle — you can&apos;t edit walls while play mode is on.
-            {logicPlayEnabled
-              ? role === "teacher"
-                ? " Press E near a button, click buttons, or click doors to toggle them."
-                : " Press E near a button or click it to interact."
-              : ""}
-          </span>
+          {logicPlayEnabled ? (
+            <ul className="play-mode-dock__how">
+              {playVerbs.hasExit ? (
+                <li>🎯 Reach the exit pad before the timer runs out.</li>
+              ) : (
+                <li>🎯 Solve the puzzle to open the locked doors.</li>
+              )}
+              {playVerbs.hasButton ? <li><kbd>E</kbd> (or click) a button to trigger it.</li> : null}
+              {playVerbs.hasPlate ? <li>Stand on a pressure plate to hold its signal.</li> : null}
+              {playVerbs.hasZone ? <li>Walk into a glowing zone to trip it.</li> : null}
+              {playVerbs.hasTeleporter ? <li>Step onto a glowing pad to teleport to its linked pad.</li> : null}
+              <li>Closed doors are locked until their channel is powered.</li>
+              {role === "teacher" ? <li>Author: click a door to force it open/closed.</li> : null}
+            </ul>
+          ) : (
+            <span>Explore the layout — you can&apos;t edit walls while play mode is on.</span>
+          )}
+          {playStatusMessage ? (
+            <span className="play-mode-dock__toast" role="alert">
+              {playStatusMessage}
+            </span>
+          ) : null}
           {logicPlayEnabled ? (
             <EscapeTimerHud
               session={escapeSession.session}

@@ -846,6 +846,66 @@ label {
   color: var(--hud-tx-hi);
 }
 
+.play-mode-dock__how {
+  flex: 1 1 100%;
+  margin: 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.4;
+}
+
+.play-mode-dock__how li {
+  list-style: none;
+  margin-left: -8px;
+}
+
+.play-mode-dock__how kbd,
+.hud-interaction-prompt kbd {
+  display: inline-block;
+  min-width: 16px;
+  padding: 1px 5px;
+  border: 1px solid var(--hud-bd);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--hud-tx-hi);
+}
+
+.play-mode-dock__toast {
+  flex: 1 1 100%;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(255, 196, 84, 0.16);
+  border: 1px solid rgba(255, 196, 84, 0.4);
+  color: var(--hud-tx-hi);
+  font-weight: 500;
+}
+
+.hud-interaction-prompt {
+  position: absolute;
+  bottom: 150px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 23;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--hud-bg);
+  border: 1px solid var(--hud-bd);
+  border-radius: 999px;
+  backdrop-filter: blur(22px);
+  font-size: 12px;
+  color: var(--hud-tx);
+  pointer-events: none;
+}
+
 .escape-timer-hud {
   flex: 1 1 100%;
   display: flex;
@@ -1043,6 +1103,19 @@ label {
   color: var(--hud-tx-m);
 }
 
+.logic-controls-dock__guide {
+  margin: 0;
+  max-width: 640px;
+  padding: 4px 8px;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--hud-tx);
+  background: var(--hud-bg);
+  border: 1px solid var(--hud-bd);
+  border-radius: 5px;
+  backdrop-filter: blur(22px);
+}
+
 .logic-controls-dock__count {
   margin-left: auto;
   font-size: 10px;
@@ -1210,6 +1283,31 @@ label {
 
 .logic-inspector__muted {
   color: var(--hud-tx-m);
+}
+
+.logic-inspector__note {
+  margin: 0 0 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--hud-tx-m);
+}
+
+.logic-inspector__hint {
+  margin: -2px 0 6px;
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: var(--hud-tx-m);
+}
+
+.logic-inspector__warn {
+  margin: 0 0 8px;
+  padding: 5px 7px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  line-height: 1.35;
+  background: rgba(255, 196, 84, 0.14);
+  border: 1px solid rgba(255, 196, 84, 0.38);
+  color: var(--hud-tx-hi);
 }
 
 .logic-inspector__chip,

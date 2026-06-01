@@ -26,10 +26,12 @@ Toggle **Logic on**, then pick a tool:
 | **Plate** | emitter | Fires while a player stands on it (`while held`) or as a pulse. |
 | **Zone** | emitter | Fires when a player enters/leaves a proximity area. |
 | **Timer** | emitter | Fires its channel after a delay (and optionally repeats). |
-| **Door** | consumer | Opens when its channel is active. Mounts on a wall edge. |
+| **Door** | consumer | Locked (blocks the wall edge) until its channel is active. Mounts on a wall edge. |
 | **Light** | consumer | Turns on when its channel is active. |
-| **Teleport** | consumer | Warps the player to its paired pad (matched by **Link ID**). |
+| **Teleport** | consumer | A player who **steps onto** the pad warps to the pad sharing its **Link ID**. Place two pads with the same Link ID. |
 | **Remove** | — | Click a node to delete it. |
+
+Players interact in **Play test**: press `E` (or click) near a button, **stand on** a plate, **walk into** a zone, and **step onto** a glowing teleport pad. The play-mode dock lists these verbs live based on what you placed.
 
 ### Channels — the wires
 
@@ -53,7 +55,15 @@ in-world.
 
 Click any node (logic on, not play mode) to open the **inspector**: kind, channel,
 config, live runtime state, and linked peers (click a peer to jump to it). Edit the
-channel, mode, link, delay, or win-exit here, or remove the node.
+channel, mode, link, delay, or win-exit here, or remove the node. The inspector is
+also where you set the advanced wiring:
+
+- **Requires all (AND)** (door/light): space-separated channels — the consumer
+  activates only when *every* listed channel is active (recipe §5 two-key).
+- **Trigger channel** (timer): the channel that arms the timer; blank = arms at
+  session start (recipe §4 delayed unlock).
+- A teleporter with no paired pad shows a warning until you add a second pad with
+  the same Link ID.
 
 ### Debug overlay (play mode, author only)
 

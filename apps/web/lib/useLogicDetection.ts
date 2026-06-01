@@ -27,13 +27,16 @@ export function useLogicDetection(input: {
   getAvatarState: () => AvatarStateMessage | null;
   onEvent: (event: LogicDetectionEvent) => void;
   onSignal?: ((pieceId: string, kind: LogicSignalKind) => void | Promise<void>) | undefined;
+  onNearestInteractableChange?: ((piece: BuildLogicPiece | null) => void) | undefined;
 }) {
   const piecesRef = useRef(input.pieces);
   const onEventRef = useRef(input.onEvent);
   const onSignalRef = useRef(input.onSignal);
+  const onNearestRef = useRef(input.onNearestInteractableChange);
   piecesRef.current = input.pieces;
   onEventRef.current = input.onEvent;
   onSignalRef.current = input.onSignal;
+  onNearestRef.current = input.onNearestInteractableChange;
 
   const emit = useCallback((piece: BuildLogicPiece, kind: LogicSignalKind) => {
     const event: LogicDetectionEvent = {
@@ -82,9 +85,13 @@ export function useLogicDetection(input: {
   );
 
   useEffect(() => {
-    if (!input.enabled) return;
+    if (!input.enabled) {
+      onNearestRef.current?.(null);
+      return;
+    }
     const stepOnActive = new Set<string>();
     const proximityActive = new Set<string>();
+    let nearestId: string | null = null;
     const fire = (piece: BuildLogicPiece, kind: LogicSignalKind) => {
       fireIfAllowed(piece, kind);
     };
@@ -95,6 +102,13 @@ export function useLogicDetection(input: {
       if (state) {
         const { x, y, z } = state.position;
         const cell = avatarCellFromPosition(x, y, z);
+
+        const nearest = findNearestInteractableLogicPiece(piecesRef.current, state.position);
+        if ((nearest?.id ?? null) !== nearestId) {
+          nearestId = nearest?.id ?? null;
+          onNearestRef.current?.(nearest ?? null);
+        }
+
         const onPieces = findStepOnLogicPieces(piecesRef.current, cell);
         const onIds = new Set(onPieces.map((piece) => piece.id));
 
@@ -136,6 +150,7 @@ export function useLogicDetection(input: {
       stepOnActive.clear();
       proximityActive.clear();
       lastFireAtRef.current.clear();
+      onNearestRef.current?.(null);
     };
   }, [fireIfAllowed, input.enabled, input.getAvatarState]);
 

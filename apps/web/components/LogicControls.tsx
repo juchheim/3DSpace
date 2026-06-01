@@ -27,6 +27,17 @@ const LISTEN_MODES: Array<{ id: "momentary" | "toggle" | "latch"; label: string 
   { id: "latch", label: "Latch" }
 ];
 
+const TOOL_GUIDE: Record<LogicTool, string> = {
+  button: "Emitter — set a Channel, then give a door or light the same Channel to wire them. Players press E or click to fire it.",
+  pressurePlate: "Emitter — fires while a player stands on it. Pair a “While held” plate with a “Momentary” door to hold it open.",
+  proximityZone: "Emitter — fires when a player walks into its area. Set a Channel to drive a consumer.",
+  timer: "Emitter — fires its Channel after a delay. Set a trigger channel in the inspector to start it from a button.",
+  door: "Consumer — place on a wall edge. Stays locked until its Channel is powered by a matching emitter.",
+  light: "Consumer — lights up while its Channel is active. Great for revealing a clue in a dark room.",
+  teleporter: "Place two pads with the SAME Link ID — a player who steps on one warps to the other.",
+  destroy: "Click any logic node to remove it."
+};
+
 function ToolOptions({ logicMode }: { logicMode: LogicModeController }) {
   const tool = logicMode.tool;
   if (tool === "destroy") return null;
@@ -228,6 +239,9 @@ export function LogicControls({
         )}
         <span className="logic-controls-dock__count">{pieceCount}</span>
       </div>
+      {logicMode.enabled ? (
+        <p className="logic-controls-dock__guide">{TOOL_GUIDE[logicMode.tool]}</p>
+      ) : null}
       {logicMode.statusMessage ? <p className="logic-controls-dock__status">{logicMode.statusMessage}</p> : null}
     </div>
   );

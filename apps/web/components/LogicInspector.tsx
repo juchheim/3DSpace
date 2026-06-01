@@ -18,6 +18,16 @@ const KIND_LABELS: Record<BuildLogicPiece["kind"], string> = {
   teleporter: "Teleporter"
 };
 
+const KIND_HELP: Record<BuildLogicPiece["kind"], string> = {
+  button: "Fires its channel when a player presses E (or clicks) nearby.",
+  pressurePlate: "Fires while a player stands on it (While held) or once per step (Pulse).",
+  proximityZone: "Fires when a player enters its area (covers the cell + 1 cell of padding).",
+  timer: "Fires its channel after the delay — at session start, or when its trigger channel pulses.",
+  door: "Blocks its wall edge until a consumer channel powers it open.",
+  light: "Turns on while its channel is active — pair with a dark room to reveal a clue.",
+  teleporter: "Warps a player who steps on it to the pad sharing its Link ID."
+};
+
 function ChannelChip({ channel }: { channel: string }) {
   return (
     <span className="logic-inspector__chip">
@@ -83,16 +93,25 @@ export function LogicInspector({
         <dd className="logic-inspector__mono">{piece.id.slice(-18)}</dd>
       </dl>
 
+      <p className="logic-inspector__note">{KIND_HELP[piece.kind]}</p>
+
       {piece.kind === "teleporter" ? (
-        <label className="logic-inspector__field">
-          Link ID
-          <input
-            type="text"
-            value={piece.linkId ?? ""}
-            maxLength={64}
-            onChange={(e) => void onUpdate(piece.id, { linkId: e.target.value })}
-          />
-        </label>
+        <>
+          <label className="logic-inspector__field">
+            Link ID
+            <input
+              type="text"
+              value={piece.linkId ?? ""}
+              maxLength={64}
+              onChange={(e) => void onUpdate(piece.id, { linkId: e.target.value })}
+            />
+          </label>
+          {peers.length === 0 ? (
+            <p className="logic-inspector__warn">
+              No paired pad yet — place a second teleporter and give it the same Link ID so players warp between them.
+            </p>
+          ) : null}
+        </>
       ) : (
         <label className="logic-inspector__field">
           Channel
@@ -127,17 +146,33 @@ export function LogicInspector({
       ) : null}
 
       {role === "consumer" && piece.kind !== "teleporter" ? (
-        <label className="logic-inspector__field">
-          Reacts
-          <select
-            value={piece.config.listenMode}
-            onChange={(e) => patchConfig({ listenMode: e.target.value as BuildLogicPiece["config"]["listenMode"] })}
-          >
-            <option value="momentary">Momentary</option>
-            <option value="toggle">Toggle</option>
-            <option value="latch">Latch</option>
-          </select>
-        </label>
+        <>
+          <label className="logic-inspector__field">
+            Reacts
+            <select
+              value={piece.config.listenMode}
+              onChange={(e) => patchConfig({ listenMode: e.target.value as BuildLogicPiece["config"]["listenMode"] })}
+            >
+              <option value="momentary">Momentary</option>
+              <option value="toggle">Toggle</option>
+              <option value="latch">Latch</option>
+            </select>
+          </label>
+          <label className="logic-inspector__field">
+            Requires all (AND)
+            <input
+              type="text"
+              value={(piece.config.requireAll ?? []).join(" ")}
+              placeholder="key-a key-b"
+              onChange={(e) =>
+                patchConfig({ requireAll: e.target.value.split(/\s+/).filter(Boolean) })
+              }
+            />
+          </label>
+          <p className="logic-inspector__hint">
+            Opens only when every listed channel is active. Leave blank to use the single Channel above.
+          </p>
+        </>
       ) : null}
 
       {piece.kind === "pressurePlate" || piece.kind === "proximityZone" ? (
@@ -153,6 +188,21 @@ export function LogicInspector({
 
       {piece.kind === "timer" ? (
         <>
+          <label className="logic-inspector__field">
+            Trigger channel
+            <input
+              type="text"
+              value={piece.config.triggerChannelId ?? ""}
+              maxLength={64}
+              placeholder="(starts at session start)"
+              onChange={(e) =>
+                patchConfig({ triggerChannelId: e.target.value.trim() || undefined })
+              }
+            />
+          </label>
+          <p className="logic-inspector__hint">
+            Channel that arms this timer (e.g. a button on “start-timer”). Blank = arms when the session starts.
+          </p>
           <label className="logic-inspector__field">
             Delay (ms)
             <input
