@@ -46,7 +46,7 @@ describe("buildRetroRobotKit", () => {
       const g = kit.geo;
       const doubled =
         geometryTriangles(g.eyeBezel) +
-        geometryTriangles(g.eyeLens) +
+        geometryTriangles(g.eyeSclera) +
         geometryTriangles(g.eyeIris) +
         geometryTriangles(g.eyePupil) +
         geometryTriangles(g.eyeCatchlight) +

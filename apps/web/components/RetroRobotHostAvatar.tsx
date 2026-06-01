@@ -113,18 +113,18 @@ export function RetroRobotHostAvatar({
         const pulse = 0.5 + 0.5 * Math.sin(t * 1.2 * TWO_PI); // 1.2 Hz (PLAN §3.2)
         eye.color.copy(eyeThinking);
         eye.emissive.copy(eyeThinking);
-        eye.emissiveIntensity = 1.8 + pulse * 2.0;
+        eye.emissiveIntensity = 0.6 + pulse * 0.7;
         openness = 0.86; // slight pondering squint
       } else if (speaking) {
         const flick = Math.sin(t * 6) > 0 ? eyeSpeakA : eyeSpeakB;
         eye.color.copy(flick);
         eye.emissive.copy(flick);
-        eye.emissiveIntensity = 3.0;
+        eye.emissiveIntensity = 1.3;
         openness = 1.08; // bright and wide
       } else {
         eye.color.copy(eyeIdle);
         eye.emissive.copy(eyeIdle);
-        eye.emissiveIntensity = 2.6;
+        eye.emissiveIntensity = 1.0;
       }
 
       // Soft blink every ~3.4 s, combined with the mood openness.
@@ -138,8 +138,8 @@ export function RetroRobotHostAvatar({
       const gazeRange = thinking ? 0.02 : 0.012;
       const gx = (Math.sin(t * 0.6) * 0.6 + Math.sin(t * 0.27) * 0.4) * gazeRange;
       const gy = Math.sin(t * 0.43) * gazeRange * 0.6 + (thinking ? 0.012 : 0);
-      if (leftPupilRef.current) leftPupilRef.current.position.set(gx, gy, 0.03);
-      if (rightPupilRef.current) rightPupilRef.current.position.set(gx, gy, 0.03);
+      if (leftPupilRef.current) leftPupilRef.current.position.set(gx, gy, 0.024);
+      if (rightPupilRef.current) rightPupilRef.current.position.set(gx, gy, 0.024);
 
       // Antenna tip glow.
       kit.mat.antennaTip.emissiveIntensity =
@@ -260,32 +260,32 @@ export function RetroRobotHostAvatar({
               rotation={[0, 0, (Math.PI / 2) * side]}
             />
           ))}
-          {/* Expressive LED eyes — big, layered, proud of the visor. */}
+          {/* Eyes — white sclera, cyan iris, black pupil, white catchlight. */}
           <group ref={eyesRef} position={[0, 0.035, 0.25]}>
             {([-1, 1] as const).map((side) => (
               <group key={`eye-${side}`} position={[0.14 * side, 0, 0]}>
                 {/* coral bezel ring */}
-                <mesh geometry={geo.eyeBezel} material={mat.accent} position={[0, 0, 0.01]} />
-                {/* dark lens glass */}
-                <mesh geometry={geo.eyeLens} material={mat.glass} />
-                {/* bright glowing iris */}
-                <mesh geometry={geo.eyeIris} material={mat.eye} position={[0, 0, 0.016]} />
-                {/* dark pupil — drifts for a living gaze */}
+                <mesh geometry={geo.eyeBezel} material={mat.accent} position={[0, 0, 0.008]} />
+                {/* white sclera (the white of the eye) */}
+                <mesh geometry={geo.eyeSclera} material={mat.sclera} />
+                {/* cyan iris ring */}
+                <mesh geometry={geo.eyeIris} material={mat.eye} position={[0, 0, 0.012]} />
+                {/* black pupil — drifts for a living gaze */}
                 <mesh
                   ref={side === -1 ? leftPupilRef : rightPupilRef}
                   geometry={geo.eyePupil}
                   material={mat.eyePupil}
-                  position={[0, 0, 0.03]}
+                  position={[0, 0, 0.024]}
                 />
-                {/* fixed white catchlight, upper-left */}
-                <mesh geometry={geo.eyeCatchlight} material={mat.catchlight} position={[-0.024, 0.03, 0.046]} />
+                {/* fixed white catchlight on the upper-left of the pupil */}
+                <mesh geometry={geo.eyeCatchlight} material={mat.catchlight} position={[-0.014, 0.016, 0.034]} />
               </group>
             ))}
           </group>
-          {/* Antenna — long curved stalk + glowing tip. */}
+          {/* Antenna — curved stalk + glowing tip. */}
           <group ref={antennaRef} position={[0, 0.22, 0]}>
             <mesh geometry={geo.antennaStalk} material={mat.dark} />
-            <mesh geometry={geo.antennaBall} material={mat.antennaTip} position={[0.085, 0.5, 0.045]} />
+            <mesh geometry={geo.antennaBall} material={mat.antennaTip} position={[0.05, 0.24, 0.03]} />
           </group>
         </group>
 
@@ -306,7 +306,7 @@ export function RetroRobotHostAvatar({
 
       {/* Nameplate. */}
       {ghost ? null : (
-        <Billboard position={[0, 2.42, 0]}>
+        <Billboard position={[0, 2.04, 0]}>
           <Html center distanceFactor={nameplateDistanceFactor} style={{ pointerEvents: "none" }}>
             <div className="world-host-nameplate" data-testid="ai-host-nameplate">
               <span className="world-host-nameplate__name">{displayName}</span>
@@ -318,7 +318,7 @@ export function RetroRobotHostAvatar({
 
       {/* Speech bubble (viewer-local). */}
       {!ghost && bubble ? (
-        <Billboard position={[0, 2.78, 0]}>
+        <Billboard position={[0, 2.44, 0]}>
           <Html center distanceFactor={9} className="world-host-bubble-html" style={{ pointerEvents: "none" }}>
             <div className={`world-host-bubble${thinking ? " world-host-bubble--thinking" : ""}`} data-testid="ai-host-bubble">
               {bubble}
@@ -329,7 +329,7 @@ export function RetroRobotHostAvatar({
 
       {/* Thinking indicator on the bubble anchor when there is no reply yet. */}
       {!ghost && !bubble && thinking ? (
-        <Billboard position={[0, 2.68, 0]}>
+        <Billboard position={[0, 2.34, 0]}>
           <Html center distanceFactor={9} className="world-host-bubble-html" style={{ pointerEvents: "none" }}>
             <div className="world-host-bubble world-host-bubble--thinking world-host-bubble--typing" aria-label="Guide is thinking">
               <span />
