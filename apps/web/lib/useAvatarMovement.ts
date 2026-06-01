@@ -37,12 +37,23 @@ import {
 import { isKeyboardOwnedTarget } from "./isKeyboardOwnedTarget";
 import { PhysicsController } from "./physics/PhysicsController";
 
-/** Radians per second while Q (left) or E (right) is held. */
+/** Radians per second while Q (left) or E (right) is held past {@link AVATAR_KEYBOARD_TURN_HOLD_MS}. */
 export const AVATAR_KEYBOARD_TURN_SPEED_RAD_PER_SEC = 2.75;
+/** Hold Q/E this long before rotation starts (short taps stay interact-only for E in play mode). */
+export const AVATAR_KEYBOARD_TURN_HOLD_MS = 200;
 
-export function keyboardYawDelta(keys: ReadonlySet<string>, deltaSeconds: number): number {
-  const turnLeft = keys.has("KeyQ");
-  const turnRight = keys.has("KeyE");
+export type TurnKeyCode = "KeyQ" | "KeyE";
+
+export function keyboardYawDelta(
+  keys: ReadonlySet<string>,
+  deltaSeconds: number,
+  nowMs: number,
+  turnKeyDownAtMs: Readonly<Partial<Record<TurnKeyCode, number>>> = {}
+): number {
+  const turnLeft =
+    keys.has("KeyQ") && nowMs - (turnKeyDownAtMs.KeyQ ?? nowMs) >= AVATAR_KEYBOARD_TURN_HOLD_MS;
+  const turnRight =
+    keys.has("KeyE") && nowMs - (turnKeyDownAtMs.KeyE ?? nowMs) >= AVATAR_KEYBOARD_TURN_HOLD_MS;
   if (turnLeft === turnRight) return 0;
   return (turnLeft ? 1 : -1) * AVATAR_KEYBOARD_TURN_SPEED_RAD_PER_SEC * deltaSeconds;
 }
@@ -73,6 +84,7 @@ export function useAvatarMovement(input: {
 }) {
   const [avatarState, setAvatarState] = useState<AvatarStateMessage | null>(null);
   const keys = useRef(new Set<string>());
+  const turnKeyDownAtMsRef = useRef<Partial<Record<TurnKeyCode, number>>>({});
   const touchVector = useRef({ x: 0, z: 0 });
   const stateRef = useRef<AvatarStateMessage | null>(null);
   const mediaRef = useRef(input.media);
@@ -245,6 +257,9 @@ export function useAvatarMovement(input: {
         )
       ) {
         keys.current.add(event.code);
+        if ((event.code === "KeyQ" || event.code === "KeyE") && !event.repeat) {
+          turnKeyDownAtMsRef.current[event.code] = performance.now();
+        }
         event.preventDefault();
       }
     }
@@ -252,6 +267,9 @@ export function useAvatarMovement(input: {
     function up(event: KeyboardEvent) {
       if (isKeyboardOwnedTarget(event.target)) return;
       keys.current.delete(event.code);
+      if (event.code === "KeyQ" || event.code === "KeyE") {
+        delete turnKeyDownAtMsRef.current[event.code];
+      }
     }
 
     window.addEventListener("keydown", down);
@@ -322,7 +340,7 @@ export function useAvatarMovement(input: {
 
         let avatarYaw =
           input.viewMode === "3d" && input.cameraYawRef ? input.cameraYawRef.current : current.rotation.y;
-        const turnDelta = keyboardYawDelta(keys.current, deltaSeconds);
+        const turnDelta = keyboardYawDelta(keys.current, deltaSeconds, now, turnKeyDownAtMsRef.current);
         if (turnDelta !== 0) {
           avatarYaw += turnDelta;
           if (input.cameraYawRef) {
@@ -357,10 +375,13 @@ export function useAvatarMovement(input: {
               moveZ: worldDelta.z,
               dtSeconds: deltaSeconds
             });
+            const nextPosition = out.grounded
+              ? applyGroundHeight(input.manifest!, pieces, out.position, "walk")
+              : out.position;
             const next = {
               ...current,
               sentAt: Date.now(),
-              position: out.position,
+              position: nextPosition,
               rotation: { y: avatarYaw },
               movement: moving ? ("walking" as const) : ("idle" as const),
               airborneState: physicsAirborneState(out.grounded, out.vy),
