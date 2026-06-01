@@ -5,6 +5,7 @@ Brainstorm + implementation docs for features not yet on a committed roadmap.
 ## Documents
 
 - [`LEARNING_FEATURE_IDEAS.md`](./LEARNING_FEATURE_IDEAS.md) — full brainstorm: 7 small ideas (2 deprioritized), 4 big ideas, 2 alternate seeds, Sequence A/B recommendations.
+- [`ROOM_TYPE_FEATURE_IDEAS.md`](./ROOM_TYPE_FEATURE_IDEAS.md) — per-room-type brainstorm across all four types (Classroom, Workforce Training, Free-for-All, Escape Room): novel + iterate ideas tagged effort/impact, a cross-room synergy matrix (logic bus, world-building, RoomObjects, skins, AI, async, zone audio), and quick-win sequencing. **Brainstorm.**
 - [`PLAN_CLASSROOM_MEDIA_PERMISSIONS.md`](./PLAN_CLASSROOM_MEDIA_PERMISSIONS.md) — teacher-managed student camera/microphone policy: room-wide toggles plus per-student enable overrides in the existing right-side People panel above board access. **Planned**.
 
 ### Big-idea concept docs
