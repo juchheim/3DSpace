@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { BuildAppOptions } from "./app-context.js";
 import { loadConfig, type AppConfig } from "./config.js";
 import { HttpError } from "./errors.js";
+import { originAllowed } from "./http/cors.js";
 import { seedBuiltinRoomObjectTemplates } from "./room-objects/builtin-catalog.js";
 import { seedBuiltinWorldSkins } from "./world-skins/builtin-catalog.js";
 import { RoomObjectGrabLock } from "./room-objects/grab-lock.js";
@@ -22,19 +23,6 @@ import { startAiObjectRetentionReaper } from "./ai-objects/index.js";
 import { registerRoutes } from "./routes/register-routes.js";
 
 export type { BuildAppOptions } from "./app-context.js";
-
-function normalizeRequestOrigin(origin: string) {
-  return origin.trim().replace(/\/+$/, "");
-}
-
-function originAllowed(origin: string, allowedOrigins: AppConfig["corsAllowedOrigins"]) {
-  const normalizedOrigin = normalizeRequestOrigin(origin);
-  return allowedOrigins.some((allowedOrigin) =>
-    typeof allowedOrigin === "string"
-      ? normalizeRequestOrigin(allowedOrigin) === normalizedOrigin
-      : allowedOrigin.test(normalizedOrigin)
-  );
-}
 
 async function buildRepository(config: AppConfig) {
   if (!config.mongoUri) {
@@ -145,6 +133,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     // do not trigger an OPTIONS round-trip before every POST.
     maxAge: 86400,
     allowedHeaders: [
+      "Accept",
       "Content-Type",
       "Authorization",
       "x-dev-user-id",

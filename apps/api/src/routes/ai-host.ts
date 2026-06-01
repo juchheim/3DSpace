@@ -48,6 +48,7 @@ import {
   aiHostNotFound,
 } from "../errors.js";
 import { requireUser } from "../http/auth-guards.js";
+import { corsHeadersForRequest } from "../http/cors.js";
 import { parseBody, parseParams, parseQuery } from "../http/parse.js";
 
 const ParamsWithRoomId = z.object({ roomId: z.string() });
@@ -86,6 +87,7 @@ async function streamAiHostChatReply(input: {
   input.reply.hijack();
   const raw = input.reply.raw;
   raw.writeHead(200, {
+    ...corsHeadersForRequest(input.request, input.config),
     "content-type": "text/event-stream; charset=utf-8",
     "cache-control": "no-cache, no-transform",
     connection: "keep-alive",

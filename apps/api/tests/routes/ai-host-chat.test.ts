@@ -81,6 +81,32 @@ describe("AI world host chat (build help)", () => {
     await app.close();
   });
 
+  it("includes Access-Control-Allow-Origin on hijacked SSE chat responses", async () => {
+    const repository = new MemoryRepository();
+    const config = aiHostConfig({
+      CORS_ALLOWED_ORIGINS: "https://3d-space-seven.vercel.app,http://localhost:3000"
+    });
+    const app = await buildApp({ config, repository });
+    const { roomWithManifest } = await createClassAndRoom(app, "teacher-cors", "free-for-all");
+    const roomId = roomWithManifest.room.id;
+    await summonHost(app, roomId, "teacher-cors", "Chip");
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/ai-host/chat`,
+      headers: {
+        ...authHeaders("teacher-cors", "Ms. Rivera"),
+        origin: "https://3d-space-seven.vercel.app",
+        accept: "text/event-stream"
+      },
+      payload: { mode: "build-help", content: "How do I undo?" }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["access-control-allow-origin"]).toBe("https://3d-space-seven.vercel.app");
+    await app.close();
+  });
+
   it("answers what key 3 does (ramp) from the corpus", async () => {
     const repository = new MemoryRepository();
     const app = await buildApp({ config: aiHostConfig(), repository });
