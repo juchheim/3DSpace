@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createAiHostRecord } from "../../src/ai-host/host-service.js";
 import { buildApp } from "../../src/app";
 import { loadConfig } from "../../src/config";
 import { MemoryRepository } from "../../src/repository";
@@ -193,5 +194,104 @@ describe("AI world host routes", () => {
     expect(patchMissing.json().error).toBe("ai-host-not-found");
 
     await app.close();
+  });
+
+  it("rejects when room settings disable aiWorldHost", async () => {
+    const repository = new MemoryRepository();
+    const app = await buildApp({ config: aiHostConfig(), repository });
+    const { roomWithManifest } = await createFfaRoom(app);
+    const roomId = roomWithManifest.room.id;
+
+    const patchRoom = await app.inject({
+      method: "PATCH",
+      url: `/v1/rooms/${roomId}`,
+      headers: authHeaders("teacher-aihost", "Ms. Rivera"),
+      payload: {
+        settings: {
+          aiWorldHost: {
+            enabled: false,
+            maxFilesPerRoom: 10,
+            maxFileSizeBytes: 5_000_000,
+            maxMessagesPerUserPerHour: 60,
+            maxContextMessages: 20,
+            allowedMimeTypes: ["application/pdf", "text/plain", "text/markdown"]
+          }
+        }
+      }
+    });
+    expect(patchRoom.statusCode).toBe(200);
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/ai-host`,
+      headers: authHeaders("teacher-aihost", "Ms. Rivera"),
+      payload: {
+        displayName: "Guide Bot",
+        position: { x: 0, y: 0, z: 0 }
+      }
+    });
+    expect(response.statusCode).toBe(403);
+    await app.close();
+  });
+
+  it("allows display names that only contain blocked words as substrings", async () => {
+    const repository = new MemoryRepository();
+    const app = await buildApp({ config: aiHostConfig(), repository });
+    const { roomWithManifest } = await createFfaRoom(app);
+    const roomId = roomWithManifest.room.id;
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/ai-host`,
+      headers: authHeaders("teacher-aihost", "Ms. Rivera"),
+      payload: {
+        displayName: "Classic",
+        position: { x: 0, y: 0, z: 0 }
+      }
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().host.displayName).toBe("Classic");
+    await app.close();
+  });
+
+  it("accepts deleteFiles query on dismiss (file cascade deferred to Phase 6)", async () => {
+    const repository = new MemoryRepository();
+    const app = await buildApp({ config: aiHostConfig(), repository });
+    const { roomWithManifest } = await createFfaRoom(app);
+    const roomId = roomWithManifest.room.id;
+
+    await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/ai-host`,
+      headers: authHeaders("teacher-aihost", "Ms. Rivera"),
+      payload: {
+        displayName: "Chip",
+        position: { x: 0, y: 0, z: 0 }
+      }
+    });
+
+    const dismiss = await app.inject({
+      method: "DELETE",
+      url: `/v1/rooms/${roomId}/ai-host?deleteFiles=true`,
+      headers: authHeaders("teacher-aihost", "Ms. Rivera")
+    });
+    expect(dismiss.statusCode).toBe(200);
+    expect(dismiss.json().dismissed).toBe(true);
+    await app.close();
+  });
+
+  it("repository createAiHost throws ai-host-exists on duplicate", async () => {
+    const repository = new MemoryRepository();
+    const host = createAiHostRecord({
+      roomId: "room-dup",
+      displayName: "Chip",
+      position: { x: 0, y: 0, z: 0 },
+      createdByUserId: "user-1"
+    });
+    await repository.createAiHost(host);
+    await expect(repository.createAiHost(host)).rejects.toMatchObject({
+      statusCode: 409,
+      code: "ai-host-exists"
+    });
   });
 });

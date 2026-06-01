@@ -23,7 +23,8 @@ export function normalizeAiHostDisplayName(raw: string): string {
   }
   const lowered = trimmed.toLowerCase();
   for (const word of PROFANITY_BLOCKLIST) {
-    if (lowered.includes(word)) {
+    const pattern = new RegExp(`(?:^|[^\\p{L}\\p{N}])${word}(?:[^\\p{L}\\p{N}]|$)`, "iu");
+    if (pattern.test(lowered)) {
       throw badRequest("Display name is not allowed");
     }
   }

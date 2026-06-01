@@ -41,7 +41,7 @@ import { buildPieceStableId, logicPieceStableId } from "@3dspace/room-engine";
 import { defaultLogicConfig } from "./logic-pieces/helpers.js";
 import type { z } from "zod";
 import type { AuthContext } from "./auth.js";
-import { conflict, escapeSessionAlreadyRunning, escapeSessionNotRunning, notFound } from "./errors.js";
+import { aiHostExists, conflict, escapeSessionAlreadyRunning, escapeSessionNotRunning, notFound } from "./errors.js";
 
 export type RoomSettings = z.infer<typeof RoomSettingsSchema>;
 
@@ -578,7 +578,7 @@ export class MemoryRepository implements Repository {
   }
 
   async createAiHost(host: RoomAiHost) {
-    if (this.aiHostsByRoom.has(host.roomId)) throw conflict("An AI world host already exists for this room");
+    if (this.aiHostsByRoom.has(host.roomId)) throw aiHostExists();
     this.aiHostsByRoom.set(host.roomId, host);
     return host;
   }

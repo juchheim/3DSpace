@@ -40,7 +40,7 @@ import { normalizeBuildPiece } from "../build-pieces/normalize.js";
 import { normalizeLogicPiece } from "../logic-pieces/normalize.js";
 import { defaultLogicConfig } from "../logic-pieces/helpers.js";
 import type { AuthContext } from "../auth.js";
-import { conflict, escapeSessionAlreadyRunning, escapeSessionNotRunning, notFound } from "../errors.js";
+import { aiHostExists, conflict, escapeSessionAlreadyRunning, escapeSessionNotRunning, notFound } from "../errors.js";
 import {
   avatarFor,
   createDefaultClassroomState,
@@ -1994,7 +1994,7 @@ export class MongoRepository implements Repository {
       return host;
     } catch (error) {
       if (error && typeof error === "object" && "code" in error && (error as { code?: number }).code === 11000) {
-        throw conflict("An AI world host already exists for this room");
+        throw aiHostExists();
       }
       throw error;
     }

@@ -55,6 +55,7 @@ describe("escape-room room type (API)", () => {
     expect(body.room.settings.buildDestroyPolicy).toBe("owner-or-teacher");
     expect(body.room.settings.worldSkins.skinDayNightMode).toBe("night");
     expect(body.room.settings.aiMeetingNotes.enabled).toBe(false);
+    expect(body.room.settings.aiWorldHost.enabled).toBe(false);
     expect(body.room.settings.sharedBrowsers.enabled).toBe(false);
     expect(body.room.settings.hallpass.enabled).toBe(false);
     expect(body.room.settings.pods.enabled).toBe(false);
