@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import type {
+  PhysicsTuning,
   AvatarStateMessage,
   BuildLogicPiece,
   BuildPiece,
@@ -14,14 +15,17 @@ import type {
 import {
   BUILD_ENABLE_EASED_FALL,
   BUILD_FALL_GRAVITY,
+  buildPhysicsWorldSpec,
   clampXZToBounds,
   createAvatarState,
   createGroundHeightContext,
   floorYFromZ,
   groundHeightAt,
+  physicsWorldSpecCacheKey,
   selectSpawnPoint,
   transformLocalMovementToWorld,
   unprojectPointFrom2D,
+  type ColliderSpec,
   type GroundHeightContext,
   type WallCollider
 } from "@3dspace/room-engine";
@@ -31,6 +35,12 @@ import {
   type CollisionWallsCache
 } from "./avatar-movement-collision";
 import { isKeyboardOwnedTarget } from "./isKeyboardOwnedTarget";
+import { PhysicsController } from "./physics/PhysicsController";
+
+function physicsAirborneState(grounded: boolean, vy: number) {
+  if (grounded) return "grounded" as const;
+  return vy > 0.05 ? ("jumping" as const) : ("falling" as const);
+}
 
 export function useAvatarMovement(input: {
   manifest: RoomManifest | null;
@@ -42,6 +52,7 @@ export function useAvatarMovement(input: {
   media: { cameraEnabled: boolean; microphoneEnabled: boolean; speaking: boolean };
   lockedPosition?: Vector3 | null;
   walkSpeedMultiplier?: number;
+  physicsTuning?: PhysicsTuning | undefined;
   buildPiecesRef?: MutableRefObject<BuildPiece[]>;
   logicPiecesRef?: MutableRefObject<BuildLogicPiece[]>;
   logicNodesRef?: MutableRefObject<LogicState["nodes"]>;
@@ -66,6 +77,86 @@ export function useAvatarMovement(input: {
   const groundHeightKeyRef = useRef("");
   const groundHeightContextRef = useRef<GroundHeightContext | null>(null);
   const verticalVelocityRef = useRef(0);
+  const physicsControllerRef = useRef<PhysicsController | null>(null);
+  const physicsControllerInitRef = useRef<Promise<void> | null>(null);
+  const physicsControllerGenerationRef = useRef(0);
+  const physicsWorldSpecKeyRef = useRef("");
+  const physicsWorldSpecRef = useRef<ColliderSpec[]>([]);
+  const physicsColliderSyncKeyRef = useRef<string | null>(null);
+  const jumpRequestedRef = useRef(false);
+
+  function getBuildPieces() {
+    return input.buildPiecesRef?.current ?? [];
+  }
+
+  function getLogicPieces() {
+    return input.logicPiecesRef?.current ?? [];
+  }
+
+  function getLogicNodes() {
+    return input.logicNodesRef?.current ?? {};
+  }
+
+  function syncPhysicsWorldSpec(
+    manifest: NonNullable<typeof input.manifest>,
+    pieces: BuildPiece[],
+    logicPieces: BuildLogicPiece[],
+    logicNodes: LogicState["nodes"]
+  ) {
+    const key = physicsWorldSpecCacheKey(manifest, pieces, { pieces: logicPieces, nodes: logicNodes });
+    if (key !== physicsWorldSpecKeyRef.current) {
+      physicsWorldSpecKeyRef.current = key;
+      physicsWorldSpecRef.current = buildPhysicsWorldSpec(manifest, pieces, { pieces: logicPieces, nodes: logicNodes });
+    }
+    return { key, spec: physicsWorldSpecRef.current };
+  }
+
+  function physicsEnabled() {
+    return Boolean(input.physicsTuning?.enabled) && input.viewMode === "3d";
+  }
+
+  function disposePhysicsController() {
+    physicsControllerGenerationRef.current += 1;
+    physicsControllerInitRef.current = null;
+    physicsControllerRef.current?.dispose();
+    physicsControllerRef.current = null;
+    physicsColliderSyncKeyRef.current = null;
+    jumpRequestedRef.current = false;
+  }
+
+  function ensurePhysicsController(
+    manifest: NonNullable<typeof input.manifest>,
+    current: AvatarStateMessage,
+    tuning: PhysicsTuning
+  ) {
+    if (physicsControllerRef.current || physicsControllerInitRef.current) return;
+    const generation = physicsControllerGenerationRef.current;
+    const pieces = getBuildPieces();
+    const logicPieces = getLogicPieces();
+    const logicNodes = getLogicNodes();
+    const { spec, key } = syncPhysicsWorldSpec(manifest, pieces, logicPieces, logicNodes);
+    physicsControllerInitRef.current = PhysicsController.create({
+      tuning,
+      spec,
+      cacheKey: key,
+      initialPosition: current.position
+    })
+      .then((controller) => {
+        if (physicsControllerGenerationRef.current !== generation) {
+          controller.dispose();
+          return;
+        }
+        physicsControllerRef.current = controller;
+        physicsColliderSyncKeyRef.current = key;
+        const latestPosition = stateRef.current?.position ?? current.position;
+        controller.setPosition(latestPosition);
+      })
+      .finally(() => {
+        if (physicsControllerGenerationRef.current === generation) {
+          physicsControllerInitRef.current = null;
+        }
+      });
+  }
 
   function syncGroundHeightContext(manifest: NonNullable<typeof input.manifest>, pieces: BuildPiece[]) {
     const key = buildCollisionWallsCacheKey(manifest, pieces);
@@ -123,6 +214,15 @@ export function useAvatarMovement(input: {
   useEffect(() => {
     function down(event: KeyboardEvent) {
       if (isKeyboardOwnedTarget(event.target)) return;
+      if (event.code === "Space") {
+        if (!event.repeat && physicsEnabled()) {
+          jumpRequestedRef.current = true;
+        }
+        if (physicsEnabled()) {
+          event.preventDefault();
+        }
+        return;
+      }
       if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyW", "KeyA", "KeyS", "KeyD"].includes(event.code)) {
         keys.current.add(event.code);
         event.preventDefault();
@@ -140,7 +240,18 @@ export function useAvatarMovement(input: {
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
     };
-  }, []);
+  }, [input.physicsTuning?.enabled, input.viewMode]);
+
+  useEffect(() => {
+    if (!input.manifest || !physicsEnabled()) {
+      disposePhysicsController();
+      return;
+    }
+
+    return () => {
+      disposePhysicsController();
+    };
+  }, [input.manifest, input.viewMode, input.physicsTuning?.enabled]);
 
   useEffect(() => {
     if (!input.manifest) return;
@@ -155,6 +266,13 @@ export function useAvatarMovement(input: {
         const locked = lockedPositionRef.current;
         if (locked) {
           const lockedPos = { x: locked.x, y: floorYFromZ(input.manifest!, locked.z), z: locked.z };
+          if (physicsEnabled() && input.physicsTuning) {
+            if (physicsControllerRef.current) {
+              physicsControllerRef.current.setPosition(lockedPos);
+            } else {
+              ensurePhysicsController(input.manifest!, current, input.physicsTuning);
+            }
+          }
           if (
             current.position.x !== lockedPos.x ||
             current.position.z !== lockedPos.z ||
@@ -165,6 +283,7 @@ export function useAvatarMovement(input: {
               sentAt: Date.now(),
               position: lockedPos,
               movement: "idle" as const,
+              airborneState: "grounded" as const,
               viewMode: input.viewMode,
               media: mediaRef.current
             };
@@ -185,10 +304,51 @@ export function useAvatarMovement(input: {
         const worldDelta = transformLocalMovementToWorld(movementYaw, { x: localX, z: localZ });
         const magnitude = Math.hypot(worldDelta.x, worldDelta.z);
         const moving = magnitude > 0;
+        const pieces = getBuildPieces();
+        const logicPieces = getLogicPieces();
+        const logicNodes = getLogicNodes();
+
+        if (physicsEnabled() && input.physicsTuning) {
+          if (!physicsControllerRef.current) {
+            ensurePhysicsController(input.manifest!, current, input.physicsTuning);
+          } else {
+            const { spec, key } = syncPhysicsWorldSpec(input.manifest!, pieces, logicPieces, logicNodes);
+            physicsControllerRef.current.setTuning(input.physicsTuning);
+            if (physicsColliderSyncKeyRef.current !== key) {
+              physicsControllerRef.current.syncColliders(spec, key);
+              physicsColliderSyncKeyRef.current = key;
+            }
+            if (jumpRequestedRef.current) {
+              physicsControllerRef.current.requestJump();
+              jumpRequestedRef.current = false;
+            }
+            const out = physicsControllerRef.current.step({
+              moveX: worldDelta.x,
+              moveZ: worldDelta.z,
+              dtSeconds: deltaSeconds
+            });
+            const next = {
+              ...current,
+              sentAt: Date.now(),
+              position: out.position,
+              rotation:
+                input.viewMode === "3d" && input.cameraYawRef
+                  ? { y: input.cameraYawRef.current }
+                  : current.rotation,
+              movement: moving ? ("walking" as const) : ("idle" as const),
+              airborneState: physicsAirborneState(out.grounded, out.vy),
+              viewMode: input.viewMode,
+              media: mediaRef.current
+            };
+            stateRef.current = next;
+            setAvatarState(next);
+            frame = requestAnimationFrame(tick);
+            return;
+          }
+        }
         // walkSpeedMultiplierRef: skin-driven multiplier (e.g. 0.38 for Mars low-gravity).
         // NOT applied to moveTo3DPoint teleports — teleporting slowly on Mars is wrong UX.
         const speed = 3.2 * walkSpeedMultiplierRef.current;
-        const pieces = input.buildPiecesRef?.current ?? [];
         const { keyChanged: buildSurfacesChanged } = syncGroundHeightContext(input.manifest!, pieces);
         const rawNext = moving
           ? (() => {
@@ -206,6 +366,8 @@ export function useAvatarMovement(input: {
             manifest: input.manifest!,
             pieces,
             cache: collisionWallsCache,
+            logicPieces,
+            logicNodes,
             oldPos: { x: current.position.x, z: current.position.z },
             newPos: { x: rawNext.x, z: rawNext.z },
             avatarBaseY: current.position.y
@@ -242,6 +404,7 @@ export function useAvatarMovement(input: {
           position: nextPosition,
           rotation: nextRotation,
           movement: moving ? ("walking" as const) : ("idle" as const),
+          airborneState: undefined,
           viewMode: input.viewMode,
           media: mediaRef.current
         };
@@ -253,7 +416,14 @@ export function useAvatarMovement(input: {
 
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [input.manifest, input.viewMode, input.cameraYawRef, input.media.cameraEnabled, input.media.microphoneEnabled]);
+  }, [
+    input.manifest,
+    input.viewMode,
+    input.cameraYawRef,
+    input.media.cameraEnabled,
+    input.media.microphoneEnabled,
+    input.physicsTuning
+  ]);
 
   const setTouchVector = useCallback((vector: { x: number; z: number }) => {
     touchVector.current = vector;
@@ -270,7 +440,8 @@ export function useAvatarMovement(input: {
         position: nextPosition,
         rotation: { y: Math.atan2(nextPosition.x - stateRef.current.position.x, nextPosition.z - stateRef.current.position.z) },
         sentAt: Date.now(),
-        movement: "walking" as const
+        movement: "walking" as const,
+        airborneState: undefined
       };
       stateRef.current = next;
       setAvatarState(next);
@@ -288,6 +459,8 @@ export function useAvatarMovement(input: {
         manifest: input.manifest,
         pieces,
         cache: collisionWallsCache,
+        logicPieces: input.logicPiecesRef?.current ?? [],
+        logicNodes: input.logicNodesRef?.current ?? {},
         oldPos: { x: current.position.x, z: current.position.z },
         newPos: { x: boundedX, z: boundedZ },
         avatarBaseY: current.position.y
@@ -309,12 +482,16 @@ export function useAvatarMovement(input: {
         position: nextPosition,
         rotation: { y: nextRotationY },
         sentAt: Date.now(),
-        movement: "walking" as const
+        movement: "walking" as const,
+        airborneState: physicsEnabled() ? "grounded" as const : undefined
       };
+      if (physicsEnabled() && physicsControllerRef.current) {
+        physicsControllerRef.current.setPosition(nextPosition);
+      }
       stateRef.current = next;
       setAvatarState(next);
     },
-    [input.manifest, input.cameraYawRef, input.buildPiecesRef]
+    [input.manifest, input.cameraYawRef, input.buildPiecesRef, input.viewMode, input.physicsTuning?.enabled]
   );
 
   const teleportToPosition = useCallback(
@@ -323,18 +500,23 @@ export function useAvatarMovement(input: {
       const pieces = input.buildPiecesRef?.current ?? [];
       const position = applyGroundHeight(input.manifest, pieces, point, "teleport");
       verticalVelocityRef.current = 0;
+      jumpRequestedRef.current = false;
       const next = {
         ...stateRef.current,
         position,
         sentAt: Date.now(),
         movement: "idle" as const,
+        airborneState: physicsEnabled() ? "grounded" as const : undefined,
         viewMode: input.viewMode,
         media: mediaRef.current
       };
+      if (physicsEnabled() && physicsControllerRef.current) {
+        physicsControllerRef.current.setPosition(position);
+      }
       stateRef.current = next;
       setAvatarState(next);
     },
-    [input.manifest, input.buildPiecesRef, input.viewMode]
+    [input.manifest, input.buildPiecesRef, input.viewMode, input.physicsTuning?.enabled]
   );
 
   const returnToSpawn = useCallback(() => {
@@ -351,6 +533,8 @@ export function useAvatarMovement(input: {
       manifest: input.manifest,
       pieces,
       cache: collisionWallsCache,
+      logicPieces: input.logicPiecesRef?.current ?? [],
+      logicNodes: input.logicNodesRef?.current ?? {},
       oldPos: { x: current.position.x, z: current.position.z },
       newPos: { x: spawn.position.x, z: spawn.position.z },
       avatarBaseY: current.position.y
@@ -362,16 +546,21 @@ export function useAvatarMovement(input: {
       "snap"
     );
     verticalVelocityRef.current = 0;
+    jumpRequestedRef.current = false;
     const next = {
       ...stateRef.current,
       position,
       rotation: spawn.rotation,
       sentAt: Date.now(),
       movement: "idle" as const,
+      airborneState: physicsEnabled() ? "grounded" as const : undefined,
       viewMode: input.viewMode,
       media: mediaRef.current
     };
     if (input.cameraYawRef) input.cameraYawRef.current = spawn.rotation.y;
+    if (physicsEnabled() && physicsControllerRef.current) {
+      physicsControllerRef.current.setPosition(position);
+    }
     stateRef.current = next;
     setAvatarState(next);
   }, [
@@ -381,10 +570,16 @@ export function useAvatarMovement(input: {
     input.occupiedPositions,
     input.participantId,
     input.role,
-    input.viewMode
+    input.viewMode,
+    input.physicsTuning?.enabled
   ]);
 
   const getAvatarState = useCallback(() => stateRef.current, []);
+
+  const requestJump = useCallback(() => {
+    if (!physicsEnabled()) return;
+    jumpRequestedRef.current = true;
+  }, [input.physicsTuning?.enabled, input.viewMode]);
 
   const tryMoveDelta = useCallback(
     (dx: number, dz: number) => {
@@ -421,6 +616,7 @@ export function useAvatarMovement(input: {
     returnToSpawn,
     getAvatarState,
     tryMoveDelta,
-    teleportToPosition
+    teleportToPosition,
+    requestJump
   };
 }

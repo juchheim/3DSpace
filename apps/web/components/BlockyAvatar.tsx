@@ -94,6 +94,7 @@ export function BlockyAvatar({
 }: BlockyAvatarProps) {
   const position = participant.state.position;
   const movement = participant.state.movement;
+  const airborneState = participant.state.airborneState ?? "grounded";
   const media    = participant.state.media;
 
   // ── Animation group refs ───────────────────────────────────────────────
@@ -106,6 +107,7 @@ export function BlockyAvatar({
 
   // ── Persistent animation state (refs — no re-renders) ─────────────────
   const walkBlendRef  = useRef(0);
+  const airborneBlendRef = useRef(0);
   const wavePhaseRef  = useRef(0);
   const waveActiveRef = useRef(false);
 
@@ -122,6 +124,9 @@ export function BlockyAvatar({
     const targetBlend = movement === "walking" ? 1 : 0;
     walkBlendRef.current = MathUtils.lerp(walkBlendRef.current, targetBlend, delta * 8);
     const blend = walkBlendRef.current;
+    const targetAirborneBlend = airborneState === "grounded" ? 0 : 1;
+    airborneBlendRef.current = MathUtils.lerp(airborneBlendRef.current, targetAirborneBlend, delta * 10);
+    const airborneBlend = airborneBlendRef.current;
 
     // Walk cycle
     const WALK_FREQ = 2.5;
@@ -133,11 +138,31 @@ export function BlockyAvatar({
     const rightArmWalk = -swing;
     const leftLegWalk  = -swing;
     const rightLegWalk =  swing;
+    const jumpPose =
+      airborneState === "jumping"
+        ? {
+            leftArm: -Math.PI / 3,
+            rightArm: -Math.PI / 3,
+            leftLeg: Math.PI / 6,
+            rightLeg: Math.PI / 6,
+            bodyOffsetY: 0.012
+          }
+        : {
+            leftArm: Math.PI / 6,
+            rightArm: Math.PI / 6,
+            leftLeg: -Math.PI / 7,
+            rightLeg: -Math.PI / 7,
+            bodyOffsetY: -0.01
+          };
+    const leftArmPose = MathUtils.lerp(leftArmWalk, jumpPose.leftArm, airborneBlend);
+    const rightArmPose = MathUtils.lerp(rightArmWalk, jumpPose.rightArm, airborneBlend);
+    const leftLegPose = MathUtils.lerp(leftLegWalk, jumpPose.leftLeg, airborneBlend);
+    const rightLegPose = MathUtils.lerp(rightLegWalk, jumpPose.rightLeg, airborneBlend);
 
     // Idle body bob — fades out while walking
     const body = bodyGroupRef.current;
     if (body) {
-      body.position.y = 0.77 + Math.sin(t * 0.8 * Math.PI * 2) * 0.004 * (1 - blend);
+      body.position.y = 0.77 + Math.sin(t * 0.8 * Math.PI * 2) * 0.004 * (1 - blend) + jumpPose.bodyOffsetY * airborneBlend;
     }
 
     // Speaking head bob
@@ -169,10 +194,10 @@ export function BlockyAvatar({
     const waveProgress = wavePhaseRef.current;
 
     // Apply rotations — priority: wave > raise hand > walk
-    la.rotation.x = leftArmWalk;
+    la.rotation.x = leftArmPose;
     la.rotation.z = 0;
-    ll.rotation.x = leftLegWalk;
-    rl.rotation.x = rightLegWalk;
+    ll.rotation.x = leftLegPose;
+    rl.rotation.x = rightLegPose;
 
     if (waveActiveRef.current) {
       const envelope    = Math.sin(waveProgress * Math.PI);
@@ -183,7 +208,7 @@ export function BlockyAvatar({
       ra.rotation.x = MathUtils.lerp(ra.rotation.x, -Math.PI * 0.80, delta * 6);
       ra.rotation.z = MathUtils.lerp(ra.rotation.z, 0, delta * 6);
     } else {
-      ra.rotation.x = MathUtils.lerp(ra.rotation.x, rightArmWalk, delta * 8);
+      ra.rotation.x = MathUtils.lerp(ra.rotation.x, rightArmPose, delta * 8);
       ra.rotation.z = MathUtils.lerp(ra.rotation.z, 0, delta * 8);
     }
   });

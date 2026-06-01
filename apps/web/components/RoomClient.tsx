@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AvatarAppearance, AvatarReactionMessage, AvatarReactionSlug, AvatarStateMessage, BuildPiece, CreateDynamicWallAnchorRequest, Role, RoomManifest, RoomObjectTemplate, RoomSessionResponse, ViewMode, WallObject, WorldSkinDayNightMode } from "@3dspace/contracts";
+import type { AvatarAppearance, AvatarReactionMessage, AvatarReactionSlug, AvatarStateMessage, BuildPiece, CreateDynamicWallAnchorRequest, PhysicsTuning, Role, RoomManifest, RoomObjectTemplate, RoomSessionResponse, ViewMode, WallObject, WorldSkinDayNightMode } from "@3dspace/contracts";
 import {
   DYNAMIC_WALL_ANCHOR_MAX_HEIGHT_M,
   DYNAMIC_WALL_ANCHOR_MAX_WIDTH_M,
@@ -19,7 +19,7 @@ import {
   RoomPlayModeMessageSchema,
   RoomSkinMessageSchema
 } from "@3dspace/contracts";
-import { computeGroupMemberPosition, createAvatarState, floorYFromZ, isEscapeRoomManifest, logicChannelsFromPieces, unprojectPointFrom2D, worldToCell } from "@3dspace/room-engine";
+import { computeGroupMemberPosition, createAvatarState, floorYFromZ, isEscapeRoomManifest, logicChannelsFromPieces, resolvePhysicsTuning, unprojectPointFrom2D, worldToCell } from "@3dspace/room-engine";
 import {
   archiveRoomObjectTemplate,
   heartbeatRoomSession,
@@ -31,7 +31,7 @@ import {
   postRoomEvent,
   uploadRoomObjectGlb
 } from "../lib/api";
-import { buildingEnvEnabled, CLIENT_TUNING } from "../lib/config";
+import { buildingEnvEnabled, CLIENT_TUNING, physicsEnvEnabled } from "../lib/config";
 import { pickDisplayName } from "../lib/displayName";
 import { useAvatarMovement } from "../lib/useAvatarMovement";
 import { useAvatarAppearance } from "../lib/useAvatarAppearance";
@@ -92,6 +92,7 @@ import { RoomObjectsToolbar } from "./RoomObjectsToolbar";
 import { RoomObjectInspector } from "./RoomObjectInspector";
 import { buildSpawnPoseInFront } from "../lib/roomObjectInteraction";
 import { EnvironmentCard } from "./EnvironmentCard";
+import { PhysicsCard } from "./PhysicsCard";
 import { useDynamicWallAnchors } from "../lib/useDynamicWallAnchors";
 import { useMeetingNotes } from "../lib/useMeetingNotes";
 import { useLiveCaptions } from "../lib/useLiveCaptions";
@@ -393,6 +394,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   // Local ambient gain: teacher slider gives immediate audio feedback while patchRoom debounces.
   const [localAmbientGain, setLocalAmbientGain] = useState<number | null>(null);
   const ambientDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const physicsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const physicsPatchGenerationRef = useRef(0);
 
   const roomObjectCustomUploadsEnabled = roomObjectsEnabled && roomObjectsSettings?.customUploadsEnabled === true;
   const roomObjectsTeacherToolbarVisible = CLIENT_TUNING.enableRoomObjects && role === "teacher" && Boolean(manifest);
@@ -819,6 +822,79 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   }
 
   const walkSpeedMultiplier = activeSkinForRoom?.overrides.walkSpeedMultiplier ?? 1;
+  const physicsRoomOverrides = useMemo<Partial<PhysicsTuning> | undefined>(() => {
+    const physics = parsedRoomSettings?.physics;
+    if (!physics) return undefined;
+    const next: Partial<PhysicsTuning> = {};
+    if (physics.enabled !== undefined) next.enabled = physics.enabled;
+    if (physics.gravity !== undefined) next.gravity = physics.gravity;
+    if (physics.moveSpeed !== undefined) next.moveSpeed = physics.moveSpeed;
+    if (physics.jumpHeight !== undefined) next.jumpHeight = physics.jumpHeight;
+    if (physics.maxFallSpeed !== undefined) next.maxFallSpeed = physics.maxFallSpeed;
+    if (physics.airControl !== undefined) next.airControl = physics.airControl;
+    if (physics.coyoteTimeMs !== undefined) next.coyoteTimeMs = physics.coyoteTimeMs;
+    if (physics.capsuleRadius !== undefined) next.capsuleRadius = physics.capsuleRadius;
+    if (physics.capsuleHeight !== undefined) next.capsuleHeight = physics.capsuleHeight;
+    if (physics.maxSlopeClimbDeg !== undefined) next.maxSlopeClimbDeg = physics.maxSlopeClimbDeg;
+    if (physics.autoStepHeight !== undefined) next.autoStepHeight = physics.autoStepHeight;
+    if (physics.snapToGroundDist !== undefined) next.snapToGroundDist = physics.snapToGroundDist;
+    return Object.keys(next).length > 0 ? next : undefined;
+  }, [parsedRoomSettings?.physics]);
+  const physicsTuning = useMemo(() => {
+    if (!session) return undefined;
+    return resolvePhysicsTuning({
+      defaults: {
+        enabled: CLIENT_TUNING.physics.enablePhysics,
+        gravity: CLIENT_TUNING.physics.gravity,
+        moveSpeed: CLIENT_TUNING.physics.moveSpeed,
+        jumpHeight: CLIENT_TUNING.physics.jumpHeight,
+        maxFallSpeed: CLIENT_TUNING.physics.maxFallSpeed,
+        airControl: CLIENT_TUNING.physics.airControl,
+        coyoteTimeMs: CLIENT_TUNING.physics.coyoteTimeMs,
+        capsuleRadius: CLIENT_TUNING.physics.capsuleRadius,
+        capsuleHeight: CLIENT_TUNING.physics.capsuleHeight,
+        maxSlopeClimbDeg: CLIENT_TUNING.physics.maxSlopeClimbDeg,
+        autoStepHeight: CLIENT_TUNING.physics.autoStepHeight,
+        snapToGroundDist: CLIENT_TUNING.physics.snapToGroundDist
+      },
+      skin: activeSkinForRoom?.overrides,
+      room: physicsRoomOverrides,
+      featureEnabled: physicsEnvEnabled(session.room.type) && roomTypeFeatures.physics
+    });
+  }, [activeSkinForRoom?.overrides, physicsRoomOverrides, roomTypeFeatures.physics, session]);
+  const persistRoomPhysicsSettings = useCallback(
+    (nextPhysics: Partial<PhysicsTuning>) => {
+      if (!session?.room.id) return;
+      const activeRoomId = session.room.id;
+      const generation = ++physicsPatchGenerationRef.current;
+      void patchRoom(identity, activeRoomId, {
+        settings: {
+          physics: nextPhysics
+        }
+      }).then((updated) => {
+        if (physicsPatchGenerationRef.current !== generation) return;
+        const nextSettings = parseRoomSettings(updated.settings);
+        setSession((current) =>
+          current?.room.id === activeRoomId
+            ? { ...current, room: { ...current.room, settings: { ...current.room.settings, ...nextSettings } } }
+            : current
+        );
+      }).catch(() => undefined);
+    },
+    [identity, session?.room.id]
+  );
+  const scheduleRoomPhysicsSettings = useCallback(
+    (nextPhysics: Partial<PhysicsTuning>) => {
+      if (physicsDebounceRef.current) clearTimeout(physicsDebounceRef.current);
+      physicsDebounceRef.current = setTimeout(() => {
+        persistRoomPhysicsSettings(nextPhysics);
+      }, 250);
+    },
+    [persistRoomPhysicsSettings]
+  );
+  useEffect(() => () => {
+    if (physicsDebounceRef.current) clearTimeout(physicsDebounceRef.current);
+  }, []);
   const buildPiecesForMovementRef = useRef<BuildPiece[]>([]);
   buildPiecesForMovementRef.current = buildPiecesEnabled ? buildPieces.pieces : [];
   const logicPiecesForMovementRef = useRef<BuildLogicPiece[]>([]);
@@ -841,6 +917,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     },
     lockedPosition,
     walkSpeedMultiplier,
+    physicsTuning,
     buildPiecesRef: buildPiecesForMovementRef,
     logicPiecesRef: logicPiecesForMovementRef,
     logicNodesRef: logicNodesForMovementRef
@@ -1233,9 +1310,13 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       avatarState: movement.avatarState,
       getAvatarState: movement.getAvatarState,
       moveTo3DPoint: movement.moveTo3DPoint,
+      teleportToPosition: movement.teleportToPosition,
+      setTouchVector: movement.setTouchVector,
       tryMoveDelta: movement.tryMoveDelta,
-      returnToSpawn: movement.returnToSpawn
+      returnToSpawn: movement.returnToSpawn,
+      requestJump: movement.requestJump
     };
+    debugWindow.__debug.participants = participants;
     debugWindow.__debug.worldSkin = activeSkin;
     debugWindow.__debug.dynamicBoards = {
       enabled: roomTypeFeatures.dynamicBoards && Boolean(session),
@@ -1247,6 +1328,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
         delete debugWindow.__debug.roomObjects;
         delete debugWindow.__debug.buildPieces;
         delete debugWindow.__debug.movement;
+        delete debugWindow.__debug.participants;
         delete debugWindow.__debug.worldSkin;
         delete debugWindow.__debug.dynamicBoards;
       }
@@ -2500,7 +2582,10 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
 
       {/* D-pad */}
       <div className="hud-panel dpad-card">
-        <MovementPad onVector={movement.setTouchVector} />
+        <MovementPad
+          onVector={movement.setTouchVector}
+          onJump={physicsTuning?.enabled && viewMode === "3d" ? movement.requestJump : undefined}
+        />
       </div>
     </>
   );
@@ -3091,6 +3176,20 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
                     }
                   });
                 }, 400);
+              }}
+            />
+          ) : null}
+          {roomTypeFeatures.physics && role === "teacher" && session && physicsTuning ? (
+            <PhysicsCard
+              effectiveTuning={physicsTuning}
+              roomOverride={physicsRoomOverrides}
+              featureGateEnabled={physicsEnvEnabled(session.room.type) && roomTypeFeatures.physics}
+              onChange={(nextPhysics) => {
+                scheduleRoomPhysicsSettings(nextPhysics);
+              }}
+              onReset={() => {
+                if (physicsDebounceRef.current) clearTimeout(physicsDebounceRef.current);
+                persistRoomPhysicsSettings({});
               }}
             />
           ) : null}

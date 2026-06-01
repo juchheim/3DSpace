@@ -83,9 +83,11 @@ describe("world skins builtin catalog", () => {
     expect(skin.overrides.avatarScale).toBeLessThan(1);
   });
 
-  it("mars-surface has walkSpeedMultiplier < 1 for low gravity", () => {
+  it("mars-surface carries gravity, jump, and walk multipliers for moon-jump tuning", () => {
     const mars = catalog.find((s) => (s as Record<string, unknown>).slug === "mars-surface");
     const skin = WorldSkinSchema.parse(mars);
+    expect(skin.overrides.gravityMultiplier).toBeCloseTo(0.38);
+    expect(skin.overrides.jumpMultiplier).toBeGreaterThan(1);
     expect(skin.overrides.walkSpeedMultiplier).toBeLessThan(1);
   });
 

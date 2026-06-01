@@ -32,7 +32,7 @@ Adds **Rapier** (`@dimforge/rapier3d-compat`) as a client-side physics engine th
 | Room overrides | `RoomSettingsSchema` (`buildingEnabled`, `logicEnabled`, `playModeEnabled`) | `RoomSettingsSchema.physics` (partial) |
 | Environment overrides | `WorldSkinOverridesSchema.walkSpeedMultiplier` (Mars precedent) | `gravityMultiplier`, `jumpMultiplier` |
 | Room-type gate | `getRoomTypeFeatureFlags(type)`, `isFreeForAllManifest` | `RoomTypeFeatureFlags.physics` |
-| Wire message | `AvatarStateMessageSchema`, `AvatarMovementSchema` (`idle`/`walking`) | `+ "jumping"`, `+ "falling"` (additive) |
+| Wire message | `AvatarStateMessageSchema`, `AvatarMovementSchema` (`idle`/`walking`) | keep `AvatarMovementSchema` unchanged; add optional `AvatarAirborneStateSchema` for remote animation |
 | Mount point | `RoomClient.tsx` (`useAvatarMovement({... walkSpeedMultiplier, buildPiecesRef ...})`, `activeSkinForRoom`) | pass resolved `PhysicsTuning` |
 
 **Invariant carried from build/logic:** only the **local owner** simulates; observers render remote avatars at broadcast `position.y`. Physics must not change this. The server is non-authoritative for movement.
@@ -77,13 +77,25 @@ gravityMultiplier: z.number().positive().max(4).optional(),  // Mars ≈ 0.38
 jumpMultiplier: z.number().positive().max(4).optional()
 ```
 
-### `AvatarMovementSchema` (additive; verify back-compat parse)
+### `AvatarMovementSchema` + airborne specificity
+
+`AvatarMovementSchema` already carries a specific meaning in the wire format: **horizontal locomotion**. Keep that meaning stable.
 
 ```ts
-export const AvatarMovementSchema = z.enum(["idle", "walking", "jumping", "falling"]);
+export const AvatarMovementSchema = z.enum(["idle", "walking"]);
+export const AvatarAirborneStateSchema = z.enum(["grounded", "jumping", "falling"]);
 ```
 
-> Older clients only emit `idle`/`walking`; newer clients must tolerate those. New states are produced **only** by the owner and consumed **only** for remote animation — never to move a remote avatar.
+Add an optional field on `AvatarStateMessage`, for example:
+
+```ts
+airborneState: AvatarAirborneStateSchema.optional()
+```
+
+- Older clients continue to emit and consume `movement: "idle" | "walking"` unchanged.
+- Newer clients may emit `airborneState`, and older clients can ignore that field safely.
+- `airborneState` is produced **only** by the owner and consumed **only** for remote animation — never to move a remote avatar.
+- `grounded` is optional on the wire; omitting the field is acceptable when not airborne. If included, it is purely explicit state, not a different movement mode.
 
 ### `RoomTypeFeatureFlags` (add `physics`)
 
@@ -98,9 +110,9 @@ After any contract change: rebuild OpenAPI (`packages/contracts/openapi/openapi.
 
 ## Phase 0 — Vendor, flags, contracts (no behavior)
 
-**Dependency:** add `@dimforge/rapier3d-compat` to `apps/web` (`npm i @dimforge/rapier3d-compat` in `apps/web`). Confirm Next 16 / webpack handles the WASM asset (compat package ships async `init()`; no top-level await). Add to bundle-analysis note if needed.
+**Dependency:** add `@dimforge/rapier3d-compat` to `apps/web` (`npm i @dimforge/rapier3d-compat` in `apps/web`). Confirm Next 16 / webpack handles the WASM asset (compat package ships async `init()`; no top-level await). Add a minimal smoke check in Phase 0 that dynamic-imports the package and awaits `init()` in the web test/build environment so bundler/WASM breakage is caught before any controller work. Add to bundle-analysis note if needed.
 
-**Contracts:** `PhysicsTuningSchema`, `PhysicsRoomOverrideSchema`, `RoomSettings.physics`, `WorldSkinOverrides.gravity/jumpMultiplier`, `AvatarMovementSchema` new states, `RoomTypeFeatureFlags.physics`. OpenAPI rebuild. Unit test: defaults parse; FFA flag true; `AvatarMovementSchema.parse("walking")` still valid.
+**Contracts:** `PhysicsTuningSchema`, `PhysicsRoomOverrideSchema`, `RoomSettings.physics`, `WorldSkinOverrides.gravity/jumpMultiplier`, `AvatarAirborneStateSchema` + optional `AvatarStateMessage.airborneState`, `RoomTypeFeatureFlags.physics`. OpenAPI rebuild. Unit test: defaults parse; FFA flag true; `AvatarMovementSchema.parse("walking")` still valid; `airborneState` is optional and parses when present.
 
 **Env (api `config.ts`):**
 - `tuning.physics`: `enablePhysics: envBoolean(raw, "ENABLE_PHYSICS", false)` plus `physicsGravity`, `physicsMoveSpeed`, `physicsJumpHeight`, `physicsMaxFallSpeed`, `physicsAirControl`, `physicsCoyoteTimeMs`, `physicsMaxSlopeClimbDeg`, `physicsAutoStepHeight`, `physicsSnapToGroundDist` via `envNumber` with the schema defaults. No `requiredInProduction` additions (no secret).
@@ -208,7 +220,7 @@ Branch the loop; **do not** delete the existing path.
 - A `physicsActive = !!physicsTuning?.enabled && input.viewMode === "3d"` gate.
 - On activation: `loadRapier()` → `PhysicsController.create(tuning, buildPhysicsWorldSpec(...))`; seed capsule at current `stateRef.position`. Hold in a ref. Show no spawn hitch (init before first move; spawn already async).
 - In `tick(now)`:
-  - If `physicsActive` and controller ready: compute `localX/localZ` + camera-yaw world transform **exactly as today**; call `controller.syncColliders(spec, key)` (diff); `const out = controller.step({ moveX, moveZ, dtSeconds })`; `nextPosition = out.position`; `movement` = derive from horizontal speed + `out.airborne`/`vy` (Phase 4 adds jump states; here just `walking`/`idle`, `falling` when `airborne && vy<0`).
+  - If `physicsActive` and controller ready: compute `localX/localZ` + camera-yaw world transform **exactly as today**; call `controller.syncColliders(spec, key)` (diff); `const out = controller.step({ moveX, moveZ, dtSeconds })`; `nextPosition = out.position`; `movement` remains `walking`/`idle` from horizontal speed; `airborneState` is omitted in this phase.
   - Else: current `resolveAvatarXZWithWalls` + `applyGroundHeight` path verbatim.
 - `moveTo3DPoint` / `teleportToPosition` / `returnToSpawn`: when physics active, set the capsule translation (`rigidBody.setNextKinematicTranslation` / teleport) and zero `vy`, then read back; otherwise current behavior.
 - Lifecycle: dispose controller on unmount / when `physicsActive` flips false; rebuild on manifest change.
@@ -225,9 +237,9 @@ Branch the loop; **do not** delete the existing path.
 
 **Controller:** `requestJump()` sets a `jumpQueued` flag; in `step`, if `jumpQueued && (grounded || withinCoyote)` → `vy = sqrt(2 * gravity * jumpHeight)`, clear coyote, clear flag. Track `lastGroundedAt` for `coyoteTimeMs`. While airborne, scale horizontal input by `airControl`.
 
-**Movement states:** owner sets `movement = "jumping"` while `vy>0` airborne, `"falling"` while `vy<0` airborne, else `walking`/`idle`. Broadcast as-is.
+**Movement states:** owner keeps `movement = "walking"`/`"idle"` based on horizontal motion. Owner additionally sets `airborneState = "jumping"` while `vy>0` airborne, `"falling"` while `vy<0` airborne, and either omits the field or sets `"grounded"` when grounded. Broadcast as-is.
 
-**Remote animation (`RoomView3D.tsx` / avatar render):** map `jumping`/`falling` to the existing avatar animation/pose (or a simple vertical offset already implied by broadcast `y`). Never simulate — purely visual.
+**Remote animation (`RoomView3D.tsx` / avatar render):** map `airborneState` `jumping`/`falling` to the existing avatar animation/pose (or a simple vertical offset already implied by broadcast `y`). Never simulate — purely visual.
 
 **Tests:** jump from ground reaches ≈ `jumpHeight` then lands; can't double-jump in air (no coyote after first); coyote lets a jump fire within the window after walking off an edge; headroom blocks the rise (jump under a low floor doesn't clip up).
 
@@ -284,7 +296,7 @@ Mostly wiring (schemas exist from Phase 0/1).
 - Tests: `packages/room-engine/tests/physics-spec.test.ts`, `physics-tuning.test.ts`; `apps/web/test/avatar-physics.spec.ts`
 
 **Modified**
-- `packages/contracts/src/index.ts` — `PhysicsTuningSchema`, `PhysicsRoomOverrideSchema`, `RoomSettings.physics`, `WorldSkinOverrides.gravity/jumpMultiplier`, `AvatarMovementSchema` (+`jumping`/`falling`), `RoomTypeFeatureFlags.physics`; OpenAPI regen
+- `packages/contracts/src/index.ts` — `PhysicsTuningSchema`, `PhysicsRoomOverrideSchema`, `RoomSettings.physics`, `WorldSkinOverrides.gravity/jumpMultiplier`, `AvatarAirborneStateSchema` + optional `AvatarStateMessage.airborneState`, `RoomTypeFeatureFlags.physics`; OpenAPI regen
 - `packages/room-engine/src/index.ts` — export new helpers
 - `apps/api/src/config.ts` — `tuning.physics*` env reads
 - `apps/web/lib/config.ts` — `CLIENT_TUNING.physics*` + `physicsEnvEnabled`
@@ -306,21 +318,29 @@ Mostly wiring (schemas exist from Phase 0/1).
 | Tuning resolver (pure) | env passthrough; skin multipliers; room partial overrides skin+env; `enabled` ANDs flags; clamp after multiply |
 | Controller | grounded stays; walk off edge → falls; wall blocks XZ; lands on ground; jump reaches ~`jumpHeight`; no double-jump; coyote window; headroom blocks rise; `maxFallSpeed` clamp; no tunneling |
 | Movement integration | walk/collide parity with flag off; fall replaces snap with flag on; teleport/spawn re-seed capsule; 2D path unchanged |
-| Networking | owner emits `position`+state; observer renders broadcast `y` (no re-sim); `jumping`/`falling` parse on old+new clients |
+| Networking | owner emits `position` + `movement` + optional `airborneState`; observer renders broadcast `y` (no re-sim); old clients ignore `airborneState`, new clients parse it |
 | Tuning surfaces | env shift; Mars moon-jump; room override pin/disable; live `setTuning` without collider rebuild |
 
 ---
 
 ## Validation evidence (fill in after implementation)
 
-- [ ] Phase 0: dep vendored, flags read both sides, contracts parse (incl. old `AvatarMovement` values).
-- [ ] Phase 1: `buildPhysicsWorldSpec` + `resolvePhysicsTuning` unit tests green.
-- [ ] Phase 2: capsule walks/collides/falls in harness (no jump).
-- [ ] Phase 3: FFA flag-on walk+fall parity; flag-off identical; two-tab fall via broadcast `y`.
-- [ ] Phase 4: jump arc + coyote + headroom; remote jump animation.
-- [ ] Phase 5: env/skin/room precedence demonstrated; Mars moon-jump.
-- [ ] Phase 6: live build-edit refresh, door swap, 2D parity, no tunneling.
-- [ ] Phase 7: E2E green; `.env.example` ×3 synced; `npm run build` + API `tsc` clean.
+- `npx vitest run packages/contracts/tests/avatar-physics.test.ts packages/room-engine/tests/physics-spec.test.ts packages/room-engine/tests/physics-tuning.test.ts apps/web/tests/rapier-loader.test.ts apps/web/tests/physics-controller.test.ts apps/web/tests/useAvatarMovement.physics.test.ts` — pass.
+- `npm run typecheck -w @3dspace/contracts` — pass.
+- `npm run typecheck -w @3dspace/room-engine` — pass.
+- `npm run typecheck -w @3dspace/api` — pass.
+- `npm run typecheck -w @3dspace/web` — pass.
+- `npm run build -w @3dspace/web` — pass.
+- `npx playwright test apps/web/test/avatar-physics.spec.ts` — pass.
+
+- [x] Phase 0: dep vendored, Rapier import/init smoke check passes, flags read both sides, contracts parse (incl. old `AvatarMovement` values and optional `airborneState`).
+- [x] Phase 1: `buildPhysicsWorldSpec` + `resolvePhysicsTuning` unit tests green.
+- [x] Phase 2: capsule walks/collides/falls in harness (no jump).
+- [x] Phase 3: FFA flag-on walk+fall parity; flag-off identical; two-tab fall via broadcast `y`.
+- [x] Phase 4: jump arc + coyote + headroom; remote jump animation.
+- [x] Phase 5: env/skin/room precedence demonstrated; Mars moon-jump.
+- [x] Phase 6: live build-edit refresh, door swap, 2D parity, no tunneling.
+- [x] Phase 7: E2E green; `.env.example` ×3 synced; `npm run build` + API `tsc` clean.
 
 ---
 

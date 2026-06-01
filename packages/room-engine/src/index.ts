@@ -140,6 +140,15 @@ export {
   type GroundHeightContext,
   type GroundHeightMode
 } from "./ground-height.js";
+export {
+  buildPhysicsWorldSpec,
+  physicsWorldSpecCacheKey,
+  type ColliderSpec,
+  type CuboidColliderSpec,
+  type GroundColliderSpec,
+  type RampColliderSpec
+} from "./physics-spec.js";
+export { resolvePhysicsTuning } from "./physics-tuning.js";
 
 type WallPlane = RoomManifest["walls"][number];
 type WallAnchor = RoomManifest["wallAnchors"][number];

@@ -1,6 +1,6 @@
 # MVP+1 Implementation Status
 
-Last updated: 2026-05-23
+Last updated: 2026-06-01
 Branch: `mvp-plus-one`
 
 ## Objective
@@ -168,6 +168,32 @@ Rollout note:
 - Operator must upload five v1 asset packs to R2 (`world-skins/<slug>/v1/...`) before flipping the flag in production.
 - Existing rooms are unaffected on flag-on: `room.settings.worldSkins.skinId` defaults `null` (default theater).
 - `room.settings.worldSkins.enabled` defaults `true`; per-room opt-out via the setting is available if needed.
+
+## Avatar Physics
+
+Plan: [`docs/planning/new-features/PLAN_AVATAR_PHYSICS.md`](../new-features/PLAN_AVATAR_PHYSICS.md) and [`docs/planning/new-features/IMPL_AVATAR_PHYSICS.md`](../new-features/IMPL_AVATAR_PHYSICS.md)
+
+Status: **complete locally** behind `ENABLE_PHYSICS` / `NEXT_PUBLIC_ENABLE_PHYSICS` (default `false`). Scope is intentionally limited to **Free-for-All** rooms; classroom, workforce-training, and escape-room stay on the legacy kinematic path.
+
+Completed:
+
+- Phases 0–1: Rapier vendoring, env/config/contract wiring, `PhysicsTuningSchema`, `RoomSettings.physics`, `AvatarAirborneStateSchema`, pure `buildPhysicsWorldSpec`, and `resolvePhysicsTuning`.
+- Phases 2–4: client-side `PhysicsController`, fixed-timestep gravity/fall/jump, coyote time, touch jump button, and owner-only airborne wire state for remote animation.
+- Phases 5–6: env → world-skin → room tuning precedence, teacher `Physics` HUD card, Mars `gravityMultiplier` / `jumpMultiplier`, live collider refresh on build edits and logic-door state changes, 2D parity, and CCD/no-tunneling coverage.
+- Phase 7: Playwright coverage for jump arc, observer broadcast `y`, walk-off-edge fall over multiple frames, and room-level physics disable.
+
+Validation:
+
+- `npx vitest run packages/contracts/tests/avatar-physics.test.ts packages/room-engine/tests/physics-spec.test.ts packages/room-engine/tests/physics-tuning.test.ts apps/web/tests/rapier-loader.test.ts apps/web/tests/physics-controller.test.ts apps/web/tests/useAvatarMovement.physics.test.ts` — pass.
+- `npm run typecheck -w @3dspace/api` — pass.
+- `npm run typecheck -w @3dspace/web` — pass.
+- `npm run build -w @3dspace/web` — pass.
+- `npx playwright test apps/web/test/avatar-physics.spec.ts` — pass with Playwright-managed dev servers.
+
+Rollout note:
+
+- Planned staging rollout date: **2026-06-01**, with `ENABLE_PHYSICS=true` and `NEXT_PUBLIC_ENABLE_PHYSICS=true` in staging only.
+- Production default remains off until a final feel pass on gravity / jump / air-control and a two-tab observer sanity check are signed off in staging.
 
 ## Workforce Training Room Type
 

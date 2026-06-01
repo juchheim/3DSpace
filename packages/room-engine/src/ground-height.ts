@@ -117,6 +117,22 @@ export class BuildSurfaceIndex {
     ramps.sort((a, b) => a.id.localeCompare(b.id));
     return { floors, ramps };
   }
+
+  /** Deterministic full-surface listing for systems that need to rebuild a static world spec. */
+  allSurfaces(): CellSurfaces {
+    const floors: FloorTop[] = [];
+    const ramps: RampSurface[] = [];
+    const orderedCells = [...this.cells.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+
+    for (const [, cell] of orderedCells) {
+      floors.push(...cell.floors);
+      ramps.push(...cell.ramps);
+    }
+
+    floors.sort((a, b) => a.id.localeCompare(b.id));
+    ramps.sort((a, b) => a.id.localeCompare(b.id));
+    return { floors, ramps };
+  }
 }
 
 export function buildGroundHeightContext(

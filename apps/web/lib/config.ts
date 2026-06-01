@@ -1,4 +1,12 @@
-import { QualityLevelSchema, ViewModeSchema } from "@3dspace/contracts";
+import { PhysicsTuningSchema, QualityLevelSchema, ViewModeSchema } from "@3dspace/contracts";
+
+function envNumber(value: string | undefined, fallback: number) {
+  if (!value) return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+const physicsDefaults = PhysicsTuningSchema.parse({});
 
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8080").replace(/\/$/, "");
 export const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000";
@@ -26,12 +34,32 @@ export const CLIENT_TUNING = {
   enableSharedBrowsers: process.env.NEXT_PUBLIC_ENABLE_SHARED_BROWSERS === "true",
   sharedBrowserHyperbeamRegion: process.env.NEXT_PUBLIC_SHARED_BROWSER_HYPERBEAM_REGION?.trim() || undefined,
   /** When true, Hyperbeam buffers frames for smoother motion (higher latency). */
-  sharedBrowserHyperbeamPlayoutDelay: process.env.NEXT_PUBLIC_SHARED_BROWSER_HYPERBEAM_PLAYOUT_DELAY === "true"
+  sharedBrowserHyperbeamPlayoutDelay: process.env.NEXT_PUBLIC_SHARED_BROWSER_HYPERBEAM_PLAYOUT_DELAY === "true",
+  physics: {
+    enablePhysics: process.env.NEXT_PUBLIC_ENABLE_PHYSICS === "true",
+    gravity: envNumber(process.env.NEXT_PUBLIC_PHYSICS_GRAVITY, physicsDefaults.gravity),
+    moveSpeed: envNumber(process.env.NEXT_PUBLIC_PHYSICS_MOVE_SPEED, physicsDefaults.moveSpeed),
+    jumpHeight: envNumber(process.env.NEXT_PUBLIC_PHYSICS_JUMP_HEIGHT, physicsDefaults.jumpHeight),
+    maxFallSpeed: envNumber(process.env.NEXT_PUBLIC_PHYSICS_MAX_FALL_SPEED, physicsDefaults.maxFallSpeed),
+    airControl: envNumber(process.env.NEXT_PUBLIC_PHYSICS_AIR_CONTROL, physicsDefaults.airControl),
+    coyoteTimeMs: envNumber(process.env.NEXT_PUBLIC_PHYSICS_COYOTE_TIME_MS, physicsDefaults.coyoteTimeMs),
+    capsuleRadius: envNumber(process.env.NEXT_PUBLIC_PHYSICS_CAPSULE_RADIUS, physicsDefaults.capsuleRadius),
+    capsuleHeight: envNumber(process.env.NEXT_PUBLIC_PHYSICS_CAPSULE_HEIGHT, physicsDefaults.capsuleHeight),
+    maxSlopeClimbDeg: envNumber(process.env.NEXT_PUBLIC_PHYSICS_MAX_SLOPE_CLIMB_DEG, physicsDefaults.maxSlopeClimbDeg),
+    autoStepHeight: envNumber(process.env.NEXT_PUBLIC_PHYSICS_AUTO_STEP_HEIGHT, physicsDefaults.autoStepHeight),
+    snapToGroundDist: envNumber(process.env.NEXT_PUBLIC_PHYSICS_SNAP_TO_GROUND_DIST, physicsDefaults.snapToGroundDist)
+  }
 };
 
 /** Mirrors API `buildingEnvEnabled` — world-building env gate per room type. */
 export function buildingEnvEnabled(roomType: string | null | undefined): boolean {
   if (roomType === "free-for-all") return CLIENT_TUNING.enableFreeForAllBuilding;
   if (roomType === "escape-room") return CLIENT_TUNING.enableEscapeRoom;
+  return false;
+}
+
+/** Physics is Phase 0 gated to Free-for-All only. */
+export function physicsEnvEnabled(roomType: string | null | undefined): boolean {
+  if (roomType === "free-for-all") return CLIENT_TUNING.physics.enablePhysics;
   return false;
 }

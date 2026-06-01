@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-05-31 (escape-room logic Phase 9)
+Last updated: 2026-06-01 (avatar physics Phase 7)
 
 **Historical detail:** `.cursor/memory-archive.md` (planning log + bug-fix chronicle through 2026-05-30). Update that file only when archiving new dated entries; keep this file lean.
 
@@ -91,7 +91,7 @@ Remaining refactor candidates: `packages/contracts/src/index.ts`, `RoomClient.ts
 
 ## Recent work
 
-- **2026-06-01:** Drafted **avatar physics** docs in `docs/planning/new-features/`: `PLAN_AVATAR_PHYSICS.md` + `IMPL_AVATAR_PHYSICS.md`. Adds a real physics engine (**Rapier** `@dimforge/rapier3d-compat`, kinematic capsule + `KinematicCharacterController`) for the **local player** in **Free-for-All only**, behind `ENABLE_PHYSICS`/`NEXT_PUBLIC_ENABLE_PHYSICS` (default off). Gives jump + real fall off ramp/floor/tower edges (replaces `groundHeightAt` snap). Key arch: `room-engine` stays pure (`buildPhysicsWorldSpec` collider specs from `collectCollisionWalls`/`BuildSurfaceIndex` + `physicsWorldSpecCacheKey` diff + `resolvePhysicsTuning`); Rapier quarantined in new `apps/web/lib/physics/` (`PhysicsController`, lazy WASM, fixed-timestep). **Owner-authoritative networking unchanged** — only local owner simulates; observers render broadcast `position.y`; server non-authoritative. **3-layer tuning:** env vars (`PHYSICS_*` in `config.ts`/`CLIENT_TUNING`) → world-skin overrides (`WorldSkinOverrides.gravity/jumpMultiplier`, Mars moon-jump) → room overrides (`RoomSettings.physics` partial). `AvatarMovementSchema` gains additive `jumping`/`falling`. 2D analog keeps existing kinematic path. 8 phases (0 vendor/flags/contracts → 7 E2E/rollout).
+- **2026-06-01:** **Avatar physics complete locally (Phases 0–7)** behind `ENABLE_PHYSICS` / `NEXT_PUBLIC_ENABLE_PHYSICS` (default off), Free-for-All only. Contracts/config: `PhysicsTuningSchema`, `RoomSettings.physics`, `AvatarAirborneStateSchema`, world-skin `gravityMultiplier` / `jumpMultiplier`, env docs/playwright flags updated. Engine/web: `buildPhysicsWorldSpec`, `resolvePhysicsTuning`, Rapier `PhysicsController`, `useAvatarMovement` physics branch with jump/coyote/air-control, teacher `Physics` card, Mars moon-jump, collider refresh on build/logic changes, 2D parity, debug hooks for `requestJump` / `teleportToPosition` / participants. Validation: unit/integration suites green, `npm run typecheck -w @3dspace/api`, `npm run typecheck -w @3dspace/web`, `npm run build -w @3dspace/web`, and `npx playwright test apps/web/test/avatar-physics.spec.ts` all pass.
 - **2026-05-31:** **Build hardening:** API `tsc` + full `npm run build` green — Mongoose `Models` includes `LogicPiece`/`LogicState`/`EscapeSession`; `playModeEnabled: false` in `roomSettings()`; `defaultLogicConfig()` via `LogicConfigSchema.parse({})` in memory + Mongo repos (replaces invalid `config ?? {}`).
 - **2026-05-31:** Escape-room **logic Phase 10 (authoring product 6.1) DONE**: channel picker, `LogicInspector`, mode options, debug overlay, starter kit stamp, win-zone, author guide + E2E. Contracts: `LogicChannelState` + `LogicConfigInput`.
 - **2026-05-31:** Escape-room **logic Phase 6**: `channel-bus.ts` (pulse/toggle/whileHeld + latch/momentary/toggle consumers), signal route drives channel→door, client applies `room.logic.state.v1` + button emissive pulse. Next: Phase 7 teleporter.

@@ -136,6 +136,8 @@
         "hemisphereGroundColor": "#d09050",
         "hemisphereIntensity": 2.4
       },
+      "gravityMultiplier": 0.38,
+      "jumpMultiplier": 1.5,
       "walkSpeedMultiplier": 0.38,
       "avatarScale": 1.0,
       "ambient": {

@@ -1873,7 +1873,7 @@ button.hud-heading-btn:hover {
 
 .dpad {
   display: grid;
-  grid-template-areas: ". fwd ." "lft . rgt" ". bk .";
+  grid-template-areas: ". fwd ." "lft jmp rgt" ". bk .";
   gap: 2px;
 }
 
@@ -1909,6 +1909,13 @@ button.hud-heading-btn:hover {
 
 .dpad-fwd  { grid-area: fwd; }
 .dpad-left { grid-area: lft; }
+.dpad-jump {
+  grid-area: jmp;
+  width: 34px;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 .dpad-back { grid-area: bk; }
 .dpad-right { grid-area: rgt; }
 
@@ -2859,6 +2866,62 @@ button.hud-heading-btn:hover {
   text-align: right;
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
+}
+
+/* ── PhysicsCard (teacher HUD) ─────────────────────────────────────────── */
+
+.physics-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.physics-card__note {
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: var(--hud-tx-m);
+}
+
+.physics-card__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.physics-card__field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--hud-tx-m);
+}
+
+.physics-card__field-row > span:first-child {
+  width: 52px;
+  flex-shrink: 0;
+}
+
+.physics-card__field-row--check {
+  color: var(--hud-tx);
+}
+
+.physics-card__slider {
+  flex: 1;
+  accent-color: var(--hud-accent, #5da689);
+  cursor: pointer;
+}
+
+.physics-card__slider-val {
+  width: 42px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.physics-card__actions {
+  display: flex;
+  gap: 6px;
 }
 
 /* ── EnvironmentPicker modal ─────────────────────────────────────────────── */

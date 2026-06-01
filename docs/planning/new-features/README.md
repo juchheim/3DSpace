@@ -36,7 +36,7 @@ Planning + implementation docs for the two `LEARNING_FEATURE_IDEAS.md` "Alternat
 | --- | --- | --- | --- |
 | [`PLAN_BREAKOUT_PODS.md`](./PLAN_BREAKOUT_PODS.md) + [`IMPL_BREAKOUT_PODS.md`](./IMPL_BREAKOUT_PODS.md) | Breakout pods with per-pod audio islands (Alternate B) | ~3–5 weeks | **Planned** |
 | [`PLAN_ROOM_OBJECTS.md`](./PLAN_ROOM_OBJECTS.md) + [`IMPL_ROOM_OBJECTS.md`](./IMPL_ROOM_OBJECTS.md) + [`ROOM_OBJECT_DEMO_SCRIPT.md`](./ROOM_OBJECT_DEMO_SCRIPT.md) | 3D manipulatives — RoomObject library (Alternate A); hero **water-molecule** | Phases 0–7 implemented locally; Phase 8+ import & rollout | **In progress** (Phases 0–7) |
-| [`PLAN_AVATAR_PHYSICS.md`](./PLAN_AVATAR_PHYSICS.md) + [`IMPL_AVATAR_PHYSICS.md`](./IMPL_AVATAR_PHYSICS.md) | Real physics engine (Rapier) for avatar movement — jump + real fall off ledges; Free-for-All first, behind `ENABLE_PHYSICS`; tunable via env → world-skin → room overrides | ~2–3 weeks | **Planned** |
+| [`PLAN_AVATAR_PHYSICS.md`](./PLAN_AVATAR_PHYSICS.md) + [`IMPL_AVATAR_PHYSICS.md`](./IMPL_AVATAR_PHYSICS.md) | Real physics engine (Rapier) for avatar movement — jump + real fall off ledges; Free-for-All first, behind `ENABLE_PHYSICS`; tunable via env → world-skin → room overrides | ~2–3 weeks | **Complete** (all 8 phases; ships behind `ENABLE_PHYSICS`) |
 
 `PLAN_*` docs spell out functionality, design decisions, and overlap migration; `IMPL_*` docs are the phase-by-phase build plan.
 

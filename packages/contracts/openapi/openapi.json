@@ -1283,6 +1283,87 @@
                               "hyperbeamFramerate": 30
                             }
                           },
+                          "physics": {
+                            "type": "object",
+                            "properties": {
+                              "enabled": {
+                                "type": "boolean",
+                                "default": false
+                              },
+                              "gravity": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100,
+                                "default": 24
+                              },
+                              "moveSpeed": {
+                                "type": "number",
+                                "exclusiveMinimum": true,
+                                "minimum": 0,
+                                "maximum": 20,
+                                "default": 3.2
+                              },
+                              "jumpHeight": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 10,
+                                "default": 1.3
+                              },
+                              "maxFallSpeed": {
+                                "type": "number",
+                                "exclusiveMinimum": true,
+                                "minimum": 0,
+                                "maximum": 200,
+                                "default": 40
+                              },
+                              "airControl": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1,
+                                "default": 0.6
+                              },
+                              "coyoteTimeMs": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 500,
+                                "default": 120
+                              },
+                              "capsuleRadius": {
+                                "type": "number",
+                                "exclusiveMinimum": true,
+                                "minimum": 0,
+                                "maximum": 2,
+                                "default": 0.4
+                              },
+                              "capsuleHeight": {
+                                "type": "number",
+                                "exclusiveMinimum": true,
+                                "minimum": 0,
+                                "maximum": 4,
+                                "default": 1.6
+                              },
+                              "maxSlopeClimbDeg": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 89,
+                                "default": 50
+                              },
+                              "autoStepHeight": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 2,
+                                "default": 0.6
+                              },
+                              "snapToGroundDist": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 2,
+                                "default": 0.3
+                              }
+                            },
+                            "additionalProperties": false,
+                            "default": {}
+                          },
                           "buildingEnabled": {
                             "type": "boolean",
                             "default": true
@@ -1294,6 +1375,14 @@
                               "owner-or-teacher"
                             ],
                             "default": "anyone"
+                          },
+                          "playModeEnabled": {
+                            "type": "boolean",
+                            "default": false
+                          },
+                          "logicEnabled": {
+                            "type": "boolean",
+                            "default": true
                           }
                         },
                         "required": [
@@ -1875,6 +1964,87 @@
                                 "hyperbeamFramerate": 30
                               }
                             },
+                            "physics": {
+                              "type": "object",
+                              "properties": {
+                                "enabled": {
+                                  "type": "boolean",
+                                  "default": false
+                                },
+                                "gravity": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 100,
+                                  "default": 24
+                                },
+                                "moveSpeed": {
+                                  "type": "number",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 20,
+                                  "default": 3.2
+                                },
+                                "jumpHeight": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 10,
+                                  "default": 1.3
+                                },
+                                "maxFallSpeed": {
+                                  "type": "number",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 200,
+                                  "default": 40
+                                },
+                                "airControl": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 1,
+                                  "default": 0.6
+                                },
+                                "coyoteTimeMs": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 500,
+                                  "default": 120
+                                },
+                                "capsuleRadius": {
+                                  "type": "number",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 2,
+                                  "default": 0.4
+                                },
+                                "capsuleHeight": {
+                                  "type": "number",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 4,
+                                  "default": 1.6
+                                },
+                                "maxSlopeClimbDeg": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 89,
+                                  "default": 50
+                                },
+                                "autoStepHeight": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 2,
+                                  "default": 0.6
+                                },
+                                "snapToGroundDist": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 2,
+                                  "default": 0.3
+                                }
+                              },
+                              "additionalProperties": false,
+                              "default": {}
+                            },
                             "buildingEnabled": {
                               "type": "boolean",
                               "default": true
@@ -1886,6 +2056,14 @@
                                 "owner-or-teacher"
                               ],
                               "default": "anyone"
+                            },
+                            "playModeEnabled": {
+                              "type": "boolean",
+                              "default": false
+                            },
+                            "logicEnabled": {
+                              "type": "boolean",
+                              "default": true
                             }
                           },
                           "required": [
@@ -2937,6 +3115,87 @@
                           "hyperbeamFramerate": 30
                         }
                       },
+                      "physics": {
+                        "type": "object",
+                        "properties": {
+                          "enabled": {
+                            "type": "boolean",
+                            "default": false
+                          },
+                          "gravity": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 100,
+                            "default": 24
+                          },
+                          "moveSpeed": {
+                            "type": "number",
+                            "exclusiveMinimum": true,
+                            "minimum": 0,
+                            "maximum": 20,
+                            "default": 3.2
+                          },
+                          "jumpHeight": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10,
+                            "default": 1.3
+                          },
+                          "maxFallSpeed": {
+                            "type": "number",
+                            "exclusiveMinimum": true,
+                            "minimum": 0,
+                            "maximum": 200,
+                            "default": 40
+                          },
+                          "airControl": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1,
+                            "default": 0.6
+                          },
+                          "coyoteTimeMs": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 500,
+                            "default": 120
+                          },
+                          "capsuleRadius": {
+                            "type": "number",
+                            "exclusiveMinimum": true,
+                            "minimum": 0,
+                            "maximum": 2,
+                            "default": 0.4
+                          },
+                          "capsuleHeight": {
+                            "type": "number",
+                            "exclusiveMinimum": true,
+                            "minimum": 0,
+                            "maximum": 4,
+                            "default": 1.6
+                          },
+                          "maxSlopeClimbDeg": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 89,
+                            "default": 50
+                          },
+                          "autoStepHeight": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 2,
+                            "default": 0.6
+                          },
+                          "snapToGroundDist": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 2,
+                            "default": 0.3
+                          }
+                        },
+                        "additionalProperties": false,
+                        "default": {}
+                      },
                       "buildingEnabled": {
                         "type": "boolean",
                         "default": true
@@ -2948,6 +3207,14 @@
                           "owner-or-teacher"
                         ],
                         "default": "anyone"
+                      },
+                      "playModeEnabled": {
+                        "type": "boolean",
+                        "default": false
+                      },
+                      "logicEnabled": {
+                        "type": "boolean",
+                        "default": true
                       }
                     },
                     "additionalProperties": false
@@ -3457,6 +3724,87 @@
                             "hyperbeamFramerate": 30
                           }
                         },
+                        "physics": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean",
+                              "default": false
+                            },
+                            "gravity": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 100,
+                              "default": 24
+                            },
+                            "moveSpeed": {
+                              "type": "number",
+                              "exclusiveMinimum": true,
+                              "minimum": 0,
+                              "maximum": 20,
+                              "default": 3.2
+                            },
+                            "jumpHeight": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 10,
+                              "default": 1.3
+                            },
+                            "maxFallSpeed": {
+                              "type": "number",
+                              "exclusiveMinimum": true,
+                              "minimum": 0,
+                              "maximum": 200,
+                              "default": 40
+                            },
+                            "airControl": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1,
+                              "default": 0.6
+                            },
+                            "coyoteTimeMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 500,
+                              "default": 120
+                            },
+                            "capsuleRadius": {
+                              "type": "number",
+                              "exclusiveMinimum": true,
+                              "minimum": 0,
+                              "maximum": 2,
+                              "default": 0.4
+                            },
+                            "capsuleHeight": {
+                              "type": "number",
+                              "exclusiveMinimum": true,
+                              "minimum": 0,
+                              "maximum": 4,
+                              "default": 1.6
+                            },
+                            "maxSlopeClimbDeg": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 89,
+                              "default": 50
+                            },
+                            "autoStepHeight": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 2,
+                              "default": 0.6
+                            },
+                            "snapToGroundDist": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 2,
+                              "default": 0.3
+                            }
+                          },
+                          "additionalProperties": false,
+                          "default": {}
+                        },
                         "buildingEnabled": {
                           "type": "boolean",
                           "default": true
@@ -3468,6 +3816,14 @@
                             "owner-or-teacher"
                           ],
                           "default": "anyone"
+                        },
+                        "playModeEnabled": {
+                          "type": "boolean",
+                          "default": false
+                        },
+                        "logicEnabled": {
+                          "type": "boolean",
+                          "default": true
                         }
                       },
                       "required": [
@@ -4629,6 +4985,87 @@
                                 "hyperbeamFramerate": 30
                               }
                             },
+                            "physics": {
+                              "type": "object",
+                              "properties": {
+                                "enabled": {
+                                  "type": "boolean",
+                                  "default": false
+                                },
+                                "gravity": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 100,
+                                  "default": 24
+                                },
+                                "moveSpeed": {
+                                  "type": "number",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 20,
+                                  "default": 3.2
+                                },
+                                "jumpHeight": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 10,
+                                  "default": 1.3
+                                },
+                                "maxFallSpeed": {
+                                  "type": "number",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 200,
+                                  "default": 40
+                                },
+                                "airControl": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 1,
+                                  "default": 0.6
+                                },
+                                "coyoteTimeMs": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 500,
+                                  "default": 120
+                                },
+                                "capsuleRadius": {
+                                  "type": "number",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 2,
+                                  "default": 0.4
+                                },
+                                "capsuleHeight": {
+                                  "type": "number",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 4,
+                                  "default": 1.6
+                                },
+                                "maxSlopeClimbDeg": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 89,
+                                  "default": 50
+                                },
+                                "autoStepHeight": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 2,
+                                  "default": 0.6
+                                },
+                                "snapToGroundDist": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 2,
+                                  "default": 0.3
+                                }
+                              },
+                              "additionalProperties": false,
+                              "default": {}
+                            },
                             "buildingEnabled": {
                               "type": "boolean",
                               "default": true
@@ -4640,6 +5077,14 @@
                                 "owner-or-teacher"
                               ],
                               "default": "anyone"
+                            },
+                            "playModeEnabled": {
+                              "type": "boolean",
+                              "default": false
+                            },
+                            "logicEnabled": {
+                              "type": "boolean",
+                              "default": true
                             }
                           },
                           "required": [
@@ -24274,7 +24719,10 @@
                             "enum": [
                               "wall",
                               "floor",
-                              "ramp"
+                              "ramp",
+                              "doorway",
+                              "window",
+                              "light"
                             ]
                           },
                           "cell": {
@@ -24394,7 +24842,10 @@
                     "enum": [
                       "wall",
                       "floor",
-                      "ramp"
+                      "ramp",
+                      "doorway",
+                      "window",
+                      "light"
                     ]
                   },
                   "cell": {
@@ -24498,7 +24949,10 @@
                           "enum": [
                             "wall",
                             "floor",
-                            "ramp"
+                            "ramp",
+                            "doorway",
+                            "window",
+                            "light"
                           ]
                         },
                         "cell": {
@@ -24619,7 +25073,10 @@
                                     "enum": [
                                       "wall",
                                       "floor",
-                                      "ramp"
+                                      "ramp",
+                                      "doorway",
+                                      "window",
+                                      "light"
                                     ]
                                   },
                                   "cell": {
@@ -24785,7 +25242,10 @@
                                       "enum": [
                                         "wall",
                                         "floor",
-                                        "ramp"
+                                        "ramp",
+                                        "doorway",
+                                        "window",
+                                        "light"
                                       ]
                                     },
                                     "cell": {
@@ -24951,7 +25411,10 @@
                                     "enum": [
                                       "wall",
                                       "floor",
-                                      "ramp"
+                                      "ramp",
+                                      "doorway",
+                                      "window",
+                                      "light"
                                     ]
                                   },
                                   "cell": {
@@ -25117,7 +25580,10 @@
                                       "enum": [
                                         "wall",
                                         "floor",
-                                        "ramp"
+                                        "ramp",
+                                        "doorway",
+                                        "window",
+                                        "light"
                                       ]
                                     },
                                     "cell": {
@@ -25261,7 +25727,10 @@
                           "enum": [
                             "wall",
                             "floor",
-                            "ramp"
+                            "ramp",
+                            "doorway",
+                            "window",
+                            "light"
                           ]
                         },
                         "cell": {
@@ -25376,7 +25845,10 @@
                             "enum": [
                               "wall",
                               "floor",
-                              "ramp"
+                              "ramp",
+                              "doorway",
+                              "window",
+                              "light"
                             ]
                           },
                           "cell": {
@@ -25498,7 +25970,10 @@
                                     "enum": [
                                       "wall",
                                       "floor",
-                                      "ramp"
+                                      "ramp",
+                                      "doorway",
+                                      "window",
+                                      "light"
                                     ]
                                   },
                                   "cell": {
@@ -25664,7 +26139,10 @@
                                       "enum": [
                                         "wall",
                                         "floor",
-                                        "ramp"
+                                        "ramp",
+                                        "doorway",
+                                        "window",
+                                        "light"
                                       ]
                                     },
                                     "cell": {
@@ -25832,7 +26310,10 @@
                                     "enum": [
                                       "wall",
                                       "floor",
-                                      "ramp"
+                                      "ramp",
+                                      "doorway",
+                                      "window",
+                                      "light"
                                     ]
                                   },
                                   "cell": {
@@ -25998,7 +26479,10 @@
                                       "enum": [
                                         "wall",
                                         "floor",
-                                        "ramp"
+                                        "ramp",
+                                        "doorway",
+                                        "window",
+                                        "light"
                                       ]
                                     },
                                     "cell": {
@@ -26820,6 +27304,18 @@
                                   }
                                 },
                                 "additionalProperties": false
+                              },
+                              "gravityMultiplier": {
+                                "type": "number",
+                                "exclusiveMinimum": true,
+                                "minimum": 0,
+                                "maximum": 4
+                              },
+                              "jumpMultiplier": {
+                                "type": "number",
+                                "exclusiveMinimum": true,
+                                "minimum": 0,
+                                "maximum": 4
                               },
                               "walkSpeedMultiplier": {
                                 "type": "number",
@@ -27655,6 +28151,18 @@
                             }
                           },
                           "additionalProperties": false
+                        },
+                        "gravityMultiplier": {
+                          "type": "number",
+                          "exclusiveMinimum": true,
+                          "minimum": 0,
+                          "maximum": 4
+                        },
+                        "jumpMultiplier": {
+                          "type": "number",
+                          "exclusiveMinimum": true,
+                          "minimum": 0,
+                          "maximum": 4
                         },
                         "walkSpeedMultiplier": {
                           "type": "number",

@@ -125,7 +125,8 @@ This is the part most likely to break, so it is designed first.
 - Physics simulates **only the local player's** capsule. The output is still just a transform we drop into `AvatarStateMessage.position`. Remote avatars are **not** physics bodies on observers — they continue to render at broadcast `y` and interpolate (`AVATAR_INTERPOLATION_MS`).
 - The server remains **non-authoritative** for movement. No server-side physics, no reconciliation, no rollback. (Anti-cheat is a non-goal for an educational sandbox.)
 - We **extend** `AvatarStateMessage` additively so remote *animation* can reflect vertical state without re-simulating:
-  - `AvatarMovementSchema` gains `"jumping"` and `"falling"` (back-compat: optional/defaulted; old clients ignore unknown values gracefully — verify the enum parse path).
+  - `AvatarMovementSchema` stays narrowly scoped to **horizontal locomotion**: `"idle" | "walking"`. Do **not** overload it with airborne states; too many parse paths already assume it is a small stable enum.
+  - Add a separate optional field (for example `airborneState?: "grounded" | "jumping" | "falling"`) so old clients can ignore it safely while new clients gain the extra animation signal.
   - Optionally a small `vy` (vertical velocity) hint for blending the fall/land animation. Pure cosmetic; never used to move a remote avatar.
 - **Send rate unchanged** (`avatarSendHz`, default 12). A jump arc at 12 Hz interpolated over 120 ms reads fine for a third party (this is the same fidelity walking already has). We do **not** raise the rate for physics.
 
@@ -198,7 +199,7 @@ Build pieces change at runtime. We **diff** the world spec using the same finger
 - **Slopes / auto-step / ground-snap** via the controller.
 - Three-layer tuning (env → world-skin → room) + pure resolver.
 - World-skin **gravity/jump multipliers** (Mars moon-jump).
-- Additive `AvatarMovementSchema` states (`jumping`, `falling`) for remote animation only.
+- Additive remote-animation signal via a separate optional airborne field; `AvatarMovementSchema` remains `idle`/`walking`.
 - Clean **fallback**: flag off → byte-for-byte the current movement path.
 - 2D analog handling (see §7).
 
@@ -243,11 +244,11 @@ The product requires a 2D top-down analog (`enable2DAnalog`). Gravity and jump h
 
 ## 9. Phasing (summary — see IMPL for detail)
 
-0. **Vendor + flags + contracts** — add Rapier dep, `ENABLE_PHYSICS` env (api + web mirror), `PhysicsTuningSchema`, no behavior.
+0. **Vendor + flags + contracts** — add Rapier dep, `ENABLE_PHYSICS` env (api + web mirror), `PhysicsTuningSchema`, and a Rapier import/init smoke check; no movement behavior.
 1. **Pure engine** — `buildPhysicsWorldSpec` (colliders from manifest/build/doors) + `resolvePhysicsTuning` + cache key, fully unit-tested.
 2. **PhysicsController** — `apps/web/lib/physics/`: lazy Rapier world, static colliders, kinematic capsule + KCC, fixed-timestep `step()`. Gravity + ground only (**no jump**); walking off an edge falls.
 3. **Wire into movement** — branch in `useAvatarMovement`; FFA + flag → physics path; parity for walk/collide; fallback identical when off.
-4. **Jump** — spacebar + touch button, coyote time, grounded gating, air control; `AvatarMovementSchema` `jumping`/`falling` (additive).
+4. **Jump** — spacebar + touch button, coyote time, grounded gating, air control; optional airborne wire state for remote animation.
 5. **Tuning surfaces** — env vars wired through `config.ts` (api) + `CLIENT_TUNING` (web); `RoomSettings.physics`; `WorldSkinOverrides` gravity/jump multipliers (Mars).
 6. **Polish + perf + 2D** — collider diff/refresh on build edits + door swap; 2D analog branch; remote fall/land animation from broadcast state.
 7. **Validation** — feel pass, E2E (jump arc, fall off tower, Mars moon-jump, room override pins gravity), `.env.example` sync, docs.

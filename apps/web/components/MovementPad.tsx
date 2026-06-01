@@ -2,9 +2,10 @@
 
 type MovementPadProps = {
   onVector(vector: { x: number; z: number }): void;
+  onJump?: (() => void) | undefined;
 };
 
-export function MovementPad({ onVector }: MovementPadProps) {
+export function MovementPad({ onVector, onJump }: MovementPadProps) {
   const stop = () => onVector({ x: 0, z: 0 });
 
   function btn(label: string, symbol: string, vector: { x: number; z: number }, area: string) {
@@ -27,6 +28,16 @@ export function MovementPad({ onVector }: MovementPadProps) {
     <div className="dpad" aria-label="Movement controls">
       {btn("Forward", "↑", { x: 0, z: -1 }, "fwd")}
       {btn("Left",    "←", { x: -1, z: 0 }, "left")}
+      {onJump ? (
+        <button
+          type="button"
+          aria-label="Jump"
+          className="dpad-btn dpad-jump"
+          onClick={onJump}
+        >
+          Jump
+        </button>
+      ) : null}
       {btn("Back",    "↓", { x: 0, z: 1 },  "back")}
       {btn("Right",   "→", { x: 1, z: 0 },  "right")}
     </div>

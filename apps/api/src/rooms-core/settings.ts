@@ -73,6 +73,20 @@ export function roomSettings(config: AppConfig) {
       hyperbeamQuality: config.tuning.sharedBrowserHyperbeamQuality,
       hyperbeamFramerate: config.tuning.sharedBrowserHyperbeamFramerate
     },
+    physics: {
+      enabled: config.tuning.physics.enablePhysics,
+      gravity: config.tuning.physics.gravity,
+      moveSpeed: config.tuning.physics.moveSpeed,
+      jumpHeight: config.tuning.physics.jumpHeight,
+      maxFallSpeed: config.tuning.physics.maxFallSpeed,
+      airControl: config.tuning.physics.airControl,
+      coyoteTimeMs: config.tuning.physics.coyoteTimeMs,
+      capsuleRadius: config.tuning.physics.capsuleRadius,
+      capsuleHeight: config.tuning.physics.capsuleHeight,
+      maxSlopeClimbDeg: config.tuning.physics.maxSlopeClimbDeg,
+      autoStepHeight: config.tuning.physics.autoStepHeight,
+      snapToGroundDist: config.tuning.physics.snapToGroundDist
+    },
     buildingEnabled: true,
     buildDestroyPolicy: "anyone" as const,
     logicEnabled: true,

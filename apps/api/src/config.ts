@@ -1,5 +1,6 @@
 import {
   DistanceModelSchema,
+  PhysicsTuningSchema,
   QualityLevelSchema,
   SharedBrowserHyperbeamQualitySchema,
   ViewModeSchema,
@@ -106,6 +107,20 @@ export type AppConfig = {
     sharedBrowserHyperbeamFramerate: number;
     sharedBrowserHyperbeamRegion: string | undefined;
     enableStudentMediaPermissions: boolean;
+    physics: {
+      enablePhysics: boolean;
+      gravity: number;
+      moveSpeed: number;
+      jumpHeight: number;
+      maxFallSpeed: number;
+      airControl: number;
+      coyoteTimeMs: number;
+      capsuleRadius: number;
+      capsuleHeight: number;
+      maxSlopeClimbDeg: number;
+      autoStepHeight: number;
+      snapToGroundDist: number;
+    };
     spatialAudio: SpatialAudioConfig;
     media: {
       defaultCameraEnabled: boolean;
@@ -236,6 +251,7 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
   const distanceModel = DistanceModelSchema.parse(envString(raw, "SPATIAL_AUDIO_DISTANCE_MODEL") ?? "inverse");
   const defaultViewMode = ViewModeSchema.parse(envString(raw, "DEFAULT_VIEW_MODE") ?? "3d");
   const defaultQuality = QualityLevelSchema.parse(envString(raw, "DEFAULT_3D_QUALITY") ?? "low");
+  const physicsDefaults = PhysicsTuningSchema.parse({});
   const apiPublicUrl = envString(raw, "API_PUBLIC_URL") ?? "http://127.0.0.1:8080";
   const corsAllowedOrigins = (envString(raw, "CORS_ALLOWED_ORIGINS") ?? "http://127.0.0.1:3000,http://localhost:3000")
     .split(",")
@@ -352,6 +368,20 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       })(),
       sharedBrowserHyperbeamRegion: envString(raw, "SHARED_BROWSER_HYPERBEAM_REGION"),
       enableStudentMediaPermissions: envBoolean(raw, "ENABLE_STUDENT_MEDIA_PERMISSIONS", false),
+      physics: {
+        enablePhysics: envBoolean(raw, "ENABLE_PHYSICS", physicsDefaults.enabled),
+        gravity: envNumber(raw, "PHYSICS_GRAVITY", physicsDefaults.gravity),
+        moveSpeed: envNumber(raw, "PHYSICS_MOVE_SPEED", physicsDefaults.moveSpeed),
+        jumpHeight: envNumber(raw, "PHYSICS_JUMP_HEIGHT", physicsDefaults.jumpHeight),
+        maxFallSpeed: envNumber(raw, "PHYSICS_MAX_FALL_SPEED", physicsDefaults.maxFallSpeed),
+        airControl: envNumber(raw, "PHYSICS_AIR_CONTROL", physicsDefaults.airControl),
+        coyoteTimeMs: envNumber(raw, "PHYSICS_COYOTE_TIME_MS", physicsDefaults.coyoteTimeMs),
+        capsuleRadius: envNumber(raw, "PHYSICS_CAPSULE_RADIUS", physicsDefaults.capsuleRadius),
+        capsuleHeight: envNumber(raw, "PHYSICS_CAPSULE_HEIGHT", physicsDefaults.capsuleHeight),
+        maxSlopeClimbDeg: envNumber(raw, "PHYSICS_MAX_SLOPE_CLIMB_DEG", physicsDefaults.maxSlopeClimbDeg),
+        autoStepHeight: envNumber(raw, "PHYSICS_AUTO_STEP_HEIGHT", physicsDefaults.autoStepHeight),
+        snapToGroundDist: envNumber(raw, "PHYSICS_SNAP_TO_GROUND_DIST", physicsDefaults.snapToGroundDist)
+      },
       spatialAudio: {
         enabled: envBoolean(raw, "SPATIAL_AUDIO_ENABLED", true),
         distanceModel,

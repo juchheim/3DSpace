@@ -28,3 +28,31 @@ describe("buildingEnvEnabled", () => {
     expect(buildingEnvEnabled("free-for-all")).toBe(false);
   });
 });
+
+describe("physicsEnvEnabled", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  async function loadPhysicsGate() {
+    const mod = await import("../lib/config");
+    return mod.physicsEnvEnabled;
+  }
+
+  it("enables physics only for FFA when NEXT_PUBLIC_ENABLE_PHYSICS is true", async () => {
+    vi.stubEnv("NEXT_PUBLIC_ENABLE_PHYSICS", "true");
+    const physicsEnvEnabled = await loadPhysicsGate();
+
+    expect(physicsEnvEnabled("free-for-all")).toBe(true);
+    expect(physicsEnvEnabled("escape-room")).toBe(false);
+    expect(physicsEnvEnabled("classroom")).toBe(false);
+  });
+
+  it("disables physics when NEXT_PUBLIC_ENABLE_PHYSICS is false", async () => {
+    vi.stubEnv("NEXT_PUBLIC_ENABLE_PHYSICS", "false");
+    const physicsEnvEnabled = await loadPhysicsGate();
+
+    expect(physicsEnvEnabled("free-for-all")).toBe(false);
+  });
+});

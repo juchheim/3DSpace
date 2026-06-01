@@ -582,6 +582,8 @@ export const WorldSkinOverridesSchema = z.object({
     kind: z.enum(["color", "panorama"]).default("color"),
     storageKey: z.string().optional()
   }).optional(),
+  gravityMultiplier: z.number().positive().max(4).optional(),
+  jumpMultiplier: z.number().positive().max(4).optional(),
   walkSpeedMultiplier: z.number().positive().max(2).optional(),
   avatarScale: z.number().positive().max(2).optional(),
   map2dStorageKey: z.string().optional(),
@@ -1227,6 +1229,7 @@ export type RoomTypeFeatureFlags = {
   liveCaptions: boolean;
   building: boolean;
   logic: boolean;
+  physics: boolean;
 };
 
 const NON_CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
@@ -1249,7 +1252,8 @@ const NON_CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freez
   sharedBrowsers: false,
   liveCaptions: false,
   building: false,
-  logic: false
+  logic: false,
+  physics: false
 });
 
 const CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
@@ -1272,7 +1276,8 @@ const CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
   sharedBrowsers: false,
   liveCaptions: false,
   building: false,
-  logic: false
+  logic: false,
+  physics: false
 });
 
 const FREE_FOR_ALL_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
@@ -1295,7 +1300,8 @@ const FREE_FOR_ALL_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze
   sharedBrowsers: true,
   liveCaptions: true,
   building: true,
-  logic: false
+  logic: false,
+  physics: true
 });
 
 const ESCAPE_ROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
@@ -1318,7 +1324,8 @@ const ESCAPE_ROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze(
   sharedBrowsers: false,
   liveCaptions: false,
   building: true,
-  logic: true
+  logic: true,
+  physics: false
 });
 
 /**
@@ -1344,6 +1351,23 @@ export const SharedBrowserHyperbeamSessionSchema = z.object({
   /** Present while the Hyperbeam VM is live; omitted when paused. */
   embedUrl: z.string().url().optional()
 });
+
+export const PhysicsTuningSchema = z.object({
+  enabled: z.boolean().default(false),
+  gravity: z.number().min(0).max(100).default(24),
+  moveSpeed: z.number().positive().max(20).default(3.2),
+  jumpHeight: z.number().min(0).max(10).default(1.3),
+  maxFallSpeed: z.number().positive().max(200).default(40),
+  airControl: z.number().min(0).max(1).default(0.6),
+  coyoteTimeMs: z.number().int().min(0).max(500).default(120),
+  capsuleRadius: z.number().positive().max(2).default(0.4),
+  capsuleHeight: z.number().positive().max(4).default(1.6),
+  maxSlopeClimbDeg: z.number().min(0).max(89).default(50),
+  autoStepHeight: z.number().min(0).max(2).default(0.6),
+  snapToGroundDist: z.number().min(0).max(2).default(0.3)
+});
+
+export const PhysicsRoomOverrideSchema = PhysicsTuningSchema.partial();
 
 export const RoomSettingsSchema = z.object({
   maxParticipants: z.number().int().positive(),
@@ -1468,6 +1492,7 @@ export const RoomSettingsSchema = z.object({
     hyperbeamQuality: "smooth",
     hyperbeamFramerate: 30
   }),
+  physics: PhysicsRoomOverrideSchema.default({}),
   buildingEnabled: z.boolean().default(true),
   buildDestroyPolicy: BuildDestroyPolicySchema.default("anyone"),
   /** When true, structural edits are blocked server-side (escape-room play test). */
@@ -1599,6 +1624,7 @@ export const DeleteRoomResponseSchema = z.object({
 });
 
 export const AvatarMovementSchema = z.enum(["idle", "walking"]);
+export const AvatarAirborneStateSchema = z.enum(["grounded", "jumping", "falling"]);
 
 export const AvatarStateMessageSchema = z.object({
   type: z.literal("avatar.state.v1"),
@@ -1607,6 +1633,7 @@ export const AvatarStateMessageSchema = z.object({
   position: Vector3Schema,
   rotation: RotationSchema,
   movement: AvatarMovementSchema,
+  airborneState: AvatarAirborneStateSchema.optional(),
   viewMode: ViewModeSchema,
   waving: z.boolean().optional(),
   media: z.object({
@@ -3181,7 +3208,10 @@ export type ClassMembership = z.infer<typeof ClassMembershipSchema>;
 export type Invite = z.infer<typeof InviteSchema>;
 export type RoomRecord = z.infer<typeof RoomSchema>;
 export type RoomWithManifest = z.infer<typeof RoomWithManifestSchema>;
+export type PhysicsTuning = z.infer<typeof PhysicsTuningSchema>;
 export type AvatarStateMessage = z.infer<typeof AvatarStateMessageSchema>;
+export type AvatarMovement = z.infer<typeof AvatarMovementSchema>;
+export type AvatarAirborneState = z.infer<typeof AvatarAirborneStateSchema>;
 export type RoomSessionResponse = z.infer<typeof RoomSessionResponseSchema>;
 export type MeetingNotesSessionStatus = z.infer<typeof MeetingNotesSessionStatusSchema>;
 export type MeetingNotesSegment = z.infer<typeof MeetingNotesSegmentSchema>;
