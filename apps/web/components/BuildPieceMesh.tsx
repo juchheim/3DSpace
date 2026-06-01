@@ -9,6 +9,7 @@ import {
   BUILD_CELL_SIZE,
   BUILD_FLOOR_THICKNESS,
   BUILD_LEVEL_HEIGHT,
+  BUILD_RAMP_RISE,
   buildCellFootprint,
   rampClimbFromRotation
 } from "@3dspace/room-engine";
@@ -40,7 +41,7 @@ function RampGeometry({ rotation }: { rotation: BuildPieceRotation }) {
     const { climbAxis, climbSign } = rampClimbFromRotation(rotation);
     const half = BUILD_CELL_SIZE / 2;
     const lowY = 0;
-    const highY = BUILD_LEVEL_HEIGHT;
+    const highY = BUILD_RAMP_RISE;
     const lowCoord = climbSign === 1 ? -half : half;
     const highCoord = climbSign === 1 ? half : -half;
 

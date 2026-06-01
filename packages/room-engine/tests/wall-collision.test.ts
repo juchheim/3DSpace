@@ -141,7 +141,7 @@ describe("build-piece wall collision", () => {
       createdByUserId: "u1",
       createdAt: "2026-05-30T12:00:00.000Z"
     });
-    // Climb +z across the cell (x∈[0,2], z∈[0,2]); surface rises lowY=0 → highY=levelToY(1).
+    // Climb +z across the cell (x∈[0,2], z∈[0,2]); surface rises lowY=0 → crest at floor walkable top.
     const surface = buildPieceColliders(ramp).ramp!;
     const centerX = (ramp.cell.ix + 0.5) * BUILD_CELL_SIZE;
 

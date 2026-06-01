@@ -21,6 +21,8 @@ export const BUILD_LEVEL_HEIGHT = 2.0;
 export const BUILD_WALL_HEIGHT = 2.0;
 export const BUILD_WALL_THICKNESS = 0.2;
 export const BUILD_FLOOR_THICKNESS = 0.3;
+/** Rise from ramp low edge to crest; includes floor slab so crest matches floor walkable top at level+1. */
+export const BUILD_RAMP_RISE = BUILD_LEVEL_HEIGHT + BUILD_FLOOR_THICKNESS;
 export const BUILD_STEP_UP_MAX = 0.6;
 /** When true, avatars ease down instead of snapping when above ground (web movement reads this). */
 export const BUILD_ENABLE_EASED_FALL = false;
@@ -286,7 +288,7 @@ export function buildPieceColliders(piece: BuildPiece): BuildPieceColliders {
     minZ: b.minZ,
     maxZ: b.maxZ,
     lowY: baseY,
-    highY: levelToY(piece.level + 1),
+    highY: baseY + BUILD_RAMP_RISE,
     climbAxis,
     climbSign,
     rotation: piece.rotation

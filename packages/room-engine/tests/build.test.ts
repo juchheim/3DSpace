@@ -8,6 +8,7 @@ import {
   buildWallFacingNormal,
   buildWallPlacementTargetLayout,
   BUILD_CELL_SIZE,
+  BUILD_FLOOR_THICKNESS,
   BUILD_ID_PREFIX,
   BUILD_MAX_LEVEL,
   BUILD_WALL_HEIGHT,
@@ -73,6 +74,9 @@ describe("buildPieceColliders", () => {
     const rampColliders = buildPieceColliders(ramp);
     expect(rampColliders.ramp?.climbAxis).toBe("z");
     expect(rampColliders.ramp?.climbSign).toBe(1);
+    expect(rampColliders.ramp?.highY).toBe(
+      levelToY(1) + BUILD_FLOOR_THICKNESS
+    );
     // A ramp is a walkable surface only — no collision barriers, so an avatar can walk off any edge.
     expect(rampColliders.walls).toHaveLength(0);
   });

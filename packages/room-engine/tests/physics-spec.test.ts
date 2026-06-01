@@ -137,7 +137,7 @@ describe("buildPhysicsWorldSpec", () => {
       minZ: 12,
       maxZ: 14,
       lowY: 0,
-      highY: 2,
+      highY: 2 + BUILD_FLOOR_THICKNESS,
       climbAxis: "x",
       climbSign: -1,
       rotation: 270

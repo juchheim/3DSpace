@@ -523,7 +523,7 @@ export function surfaceHeightForPiece(piece: BuildPiece) {
     return levelToY(piece.level) + BUILD_FLOOR_THICKNESS;
   }
   if (piece.kind === "ramp") {
-    return levelToY(piece.level + 1);
+    return levelToY(piece.level + 1) + BUILD_FLOOR_THICKNESS;
   }
   return levelToY(piece.level);
 }

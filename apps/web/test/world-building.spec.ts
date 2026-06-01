@@ -492,7 +492,7 @@ test.describe("FFA world building", () => {
       .toBeGreaterThan(BUILD_FLOOR_THICKNESS + 0.5);
 
     const highY = (await getAvatarState(observer))?.position.y ?? 0;
-    expect(highY).toBeCloseTo(BUILD_LEVEL_HEIGHT, 0.5);
+    expect(highY).toBeCloseTo(BUILD_LEVEL_HEIGHT + BUILD_FLOOR_THICKNESS, 0.5);
 
     await observerContext.close();
   });
