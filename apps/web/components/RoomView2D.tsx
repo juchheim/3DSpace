@@ -10,7 +10,6 @@ import type {
   ClassroomSpotlight,
   ParticipantAudioMode,
   Role,
-  RoomAiHost,
   RoomManifest,
   RoomObject,
   RoomObjectTemplate,
@@ -18,6 +17,7 @@ import type {
 } from "@3dspace/contracts";
 import { computeGroupMemberPosition, projectAnchorRectTo2D, projectPositionTo2D } from "@3dspace/room-engine";
 import type { ParticipantView } from "./RoomClient";
+import { useAiWorldHostScene } from "../lib/useAiWorldHost";
 import { useWorldSkinContext } from "./worldSkins/SkinLayer";
 import { RoomObjectIcon2D } from "./RoomObjectIcon2D";
 import { canGrabRoomObject, canTouchRoomObject, snapPosition, snapScale, snapYaw } from "../lib/roomObjectInteraction";
@@ -96,9 +96,7 @@ export function RoomView2D({
   sharedBrowserIdentity,
   sharedBrowserRoomId,
   buildPieces = [],
-  buildInteraction,
-  aiHost,
-  onAiHostInteract
+  buildInteraction
 }: {
   manifest: RoomManifest;
   dynamicWallAnchors?: RoomManifest["wallAnchors"];
@@ -142,10 +140,11 @@ export function RoomView2D({
     onPointerMove(point: { x: number; y: number }): void;
     onPointerDown(point: { x: number; y: number }): void;
   };
-  aiHost?: RoomAiHost | null | undefined;
-  onAiHostInteract?: (() => void) | undefined;
 }) {
   const [liveAnnouncement, setLiveAnnouncement] = useState("");
+  // AI World Host (Phase 4 provides this via context; null when feature is off).
+  const aiHostScene = useAiWorldHostScene();
+  const aiHost = aiHostScene?.host ?? null;
   const objectsEnabled = Boolean(
     roomObjectActions &&
       roomObjectRole &&
@@ -583,7 +582,7 @@ export function RoomView2D({
               aria-label={`AI guide ${aiHost.displayName}`}
               onPointerDown={(event) => {
                 event.stopPropagation();
-                onAiHostInteract?.();
+                aiHostScene?.onHostInteract();
               }}
             >
               {/* Glow halo */}

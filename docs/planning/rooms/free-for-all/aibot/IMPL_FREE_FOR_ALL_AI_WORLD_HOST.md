@@ -9,7 +9,7 @@ Last updated: 2026-06-01
 
 ## Status / Scope
 
-**Status:** Phases 1–2 complete (contracts + API host CRUD). Phase 4 complete (client hook + RoomClient wiring). Phase 5 complete (world-building corpus + Build Help streaming chat). Phase 3 (avatar) in progress separately. Phase 6 (file upload/study) not started.
+**Status:** Phases 1–2 complete (contracts + API host CRUD). Phase 3 complete (RetroRobotHostAvatar 3D + 2D, consumed via Phase 4 context). Phase 4 complete (client hook + RoomClient wiring). Phase 5 complete (world-building corpus + Build Help streaming chat). Phase 6 (file upload/study) not started.
 
 This doc implements the AI World Host described in the PLAN. It is **additive to Free-for-All Phase 1** and assumes **world building** (`ENABLE_FREE_FOR_ALL_BUILDING`) is available in the environments where build-help is tested — the tutor is still useful without building enabled (explains the feature), but E2E build answers need the build flag on.
 
@@ -147,10 +147,20 @@ Goal: visible robot with art-direction palette and animations.
 5. Raycast: `onClick` → `onInteract()` to open panel.
 6. **Placement ghost** variant: semi-transparent, follows cursor during reposition mode.
 
+**Implementation notes (done):**
+
+- `RetroRobotHostAvatar.tsx` + `lib/retroRobotMaterials.ts` build a fully custom robot — **no bare box/sphere/cylinder primitives**. Primary masses are `ExtrudeGeometry` rounded+bevelled shells (torso, head, visor, tread housing, brow), `LatheGeometry` revolved profiles (dome, eyes, shoulders, wheels, antenna tip, neck, rivets), and `TubeGeometry` swept curves (arm segments, antenna stalk, claw fingers). `MeshPhysicalMaterial` clearcoat body + emissive LED eyes + animated CRT chest screen (`CanvasTexture`) + ground contact shadow.
+- States `idle` / `thinking` / `speaking` (+ translucent `placement-ghost`) driven by `animationState`; head tilt/nod, antenna sway, eye blink/pulse, claw open-close, equalizer/scope screen, typing-dot bubble.
+- Integrated via the Phase 4 **context** (`useAiWorldHostScene()` / `AiWorldHostSceneContext`), not new RoomView props: `RoomView3D` reads the scene outside the R3F `<Canvas>` and passes it to an in-canvas `AiHostLayer`; `RoomView2D` renders a robot map marker. Bubble/nameplate CSS under `.world-host-*`; 2D marker `.world-host-marker-2d`.
+- Dev harness: `/dev/ai-host-hero` (`RetroRobotHostHarness.tsx`) with state toggles + triangle readout.
+- Scene cost ≈ 13k unique-geo tris (~18–20k instanced) — above the original 2k note by design (per "go the extra mile" direction); negligible for one host/room.
+
 **Checkpoint:**
 
-- [ ] Manual: robot reads as retro-robot, not humanoid
-- [ ] `npm run typecheck -w @3dspace/web`
+- [x] `npm run typecheck -w @3dspace/web` (clean; only pre-existing unrelated test-file errors remain)
+- [x] Headless smoke test `apps/web/tests/retro-robot-avatar.test.ts` (kit builds, finite geometry, triangle budget, dispose, all 3 screen states paint)
+- [x] Dev route SSRs the harness without error (`curl /dev/ai-host-hero`)
+- [ ] Manual: robot reads as retro-robot, not humanoid — open `/dev/ai-host-hero` under `next dev` (live WebGL capture was blocked by the sandbox preview proxy, which only serves the SPA root)
 
 ---
 
@@ -201,7 +211,7 @@ Goal: accurate build tutor with streaming replies.
 - Config: `aiWorldHostMockResponses` (`AI_WORLD_HOST_MOCK_RESPONSES`).
 - `apps/web/lib/api.ts` — `listAiHostChat`, `streamAiHostChat` (SSE reader).
 - `apps/web/lib/useAiWorldHost.ts` — chat state (`chatMessages`, `chatStreaming`, `streamingReply`, `chatError`), `actions.sendBuildHelp`, history load, speech-bubble + animation wiring, dismiss clears chat.
-- `apps/web/components/WorldHostPanel.tsx` — Build Help tab (messages, suggested chips, composer, streaming) + Study Files placeholder; mounted in `RoomClient` when a host exists.
+- `apps/web/components/WorldHostPanel.tsx` — Build Help tab (messages, suggested chips, composer, streaming); mounted in `RoomClient` when a host exists.
 
 **Checkpoint:**
 
@@ -211,40 +221,42 @@ Goal: accurate build tutor with streaming replies.
 - [x] `npm run typecheck -w @3dspace/api`; web typecheck clean except 2 pre-existing unrelated test files
 - [ ] Manual: real OpenAI streaming reply renders token-by-token in the panel
 
-**Deferred to Phase 6:** file-study chat path (retrieval + `fileStudySystemPrompt` are scaffolded but file routes/extraction are Phase 6).
-
 ---
 
-### Phase 6 — File upload, extraction, and Study Files chat
+### Phase 6 — File upload, extraction, and Study Files chat — COMPLETE
 
 Goal: persistent files and file-grounded conversation.
 
-**Files:**
+**Files (shipped):**
 
-- `apps/api/src/ai-host/file-service.ts`
-- `apps/api/src/ai-host/extract-text.ts` — pdf/txt/md
-- `apps/api/src/ai-host/chunker.ts`
-- `apps/api/src/ai-host/retrieval.ts` — keyword scoring v1
-- `apps/api/src/routes/ai-host.ts` — file routes
-- `apps/web/components/WorldHostPanel.tsx` — Study Files tab
-
-**Steps:**
-
-1. `upload-target` → presign; client PUT; `POST files` register → `processing`.
-2. Async extraction (in-request for small txt/md; background for pdf):
-   - On success: chunk, store, `status: ready`, broadcast `file.updated`.
-   - On failure: `failed` + message.
-3. `POST chat` with `{ mode: "file-study", fileId, content }` retrieves chunks, builds prompt, streams answer.
-4. `DELETE files/:id` — R2 delete + chunks + messages for that file optional (v1: keep chat history but mark file deleted, or cascade delete file-scoped messages — **choose cascade** for simplicity).
-5. Upload banner about sensitive data.
-
-**Dependencies:** `pdf-parse` or equivalent in `apps/api/package.json`.
+- `apps/api/src/ai-host/file-service.ts` — upload target, register, in-request extraction (txt/md/pdf), chunk persist, delete with R2 + cascade chat.
+- `apps/api/src/ai-host/extract-text.ts` — txt/md + `pdf-parse` (dynamic import).
+- `apps/api/src/ai-host/chunker.ts` — ~3200 char chunks, 400 overlap.
+- `apps/api/src/ai-host/retrieval.ts` — keyword top-k (default 6) for file-study prompts.
+- `apps/api/src/ai-host/realtime-outbox.ts` — `file.updated` / `file.removed` events.
+- `apps/api/src/routes/ai-host.ts` — `GET/POST .../files`, upload-target, register, delete; `POST .../chat` `mode: "file-study"`.
+- Repository + Mongoose: `room_ai_host_files`, `room_ai_host_file_chunks`; dismiss/room delete cascades files; delete file cascades file-scoped chat messages.
+- `apps/api/package.json` — `pdf-parse`; `apps/api/src/types/pdf-parse.d.ts`.
+- `apps/web/lib/api.ts` — list/upload/delete study file helpers.
+- `apps/web/lib/useAiWorldHost.ts` — `studyFiles`, `uploadStudyFile`, `deleteStudyFile`, `sendFileStudy`, file realtime + per-file chat history.
+- `apps/web/components/WorldHostPanel.tsx` — Study Files tab (privacy banner, upload, list, per-file chat).
+- `apps/web/app/globals.css` — study-files panel styles.
 
 **Checkpoint:**
 
-- [ ] Upload `.txt` → ask question → answer references content
-- [ ] Delete file → list empty; chat returns 404 for fileId
-- [ ] `npm run test -- apps/api/tests/routes/ai-host-files.test.ts`
+- [x] Upload `.txt` → file-study chat (mock mode) answers with retrieval context; delete → 404 on chat
+- [x] `npx vitest run apps/api/tests/routes/ai-host-files.test.ts apps/api/tests/ai-host/chunker.test.ts apps/api/tests/ai-host/retrieval.test.ts` (5 tests)
+- [x] `npm run typecheck -w @3dspace/api`
+- [ ] Manual: upload PDF, wait for ready, quiz-style Q&A
+
+**Phase 6 review fixes (post-ship):**
+
+- Dismiss without `deleteFiles` preserves chat + files; `deleteFiles` on dismissed realtime + per-file `file.removed` events; R2 cleanup on dismiss-with-files.
+- PDF register returns `processing` immediately; client polls + publishes `file.updated` when ready.
+- `POST .../files/:fileId/reprocess` for failed files; Retry in Study Files UI.
+- File routes work without summoned host; panel visible when files remain after dismiss.
+- Delete limited to uploader or teacher; optimistic chat rolled back on stream error.
+- Rate limit `retryAfterSeconds` from oldest message in window.
 
 ---
 

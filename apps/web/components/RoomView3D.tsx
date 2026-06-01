@@ -44,10 +44,10 @@ import type {
   WallPlaneSchema
 } from "@3dspace/contracts";
 import type { z } from "zod";
-import type { RoomAiHost } from "@3dspace/contracts";
 import type { ParticipantView } from "./RoomClient";
 import { BlockyAvatar } from "./BlockyAvatar";
 import { RetroRobotHostAvatar } from "./RetroRobotHostAvatar";
+import { useAiWorldHostScene, type AiWorldHostSceneConfig } from "../lib/useAiWorldHost";
 import { RoomObjectsLayer } from "./RoomObjectsLayer";
 import { BuildPlacementController } from "./BuildPlacementController";
 import { LogicLayer } from "./LogicLayer";
@@ -357,13 +357,7 @@ export function RoomView3D({
   roomObjectActions,
   buildScene,
   logicScene,
-  logicPlayLayer,
-  aiHost,
-  aiHostThinking = false,
-  aiHostSpeaking = false,
-  aiHostBubbleText = null,
-  aiHostGhost,
-  onAiHostInteract
+  logicPlayLayer
 }: {
   manifest: RoomManifest;
   dynamicWallAnchors?: Anchor[];
@@ -439,15 +433,12 @@ export function RoomView3D({
   buildScene?: BuildSceneConfig | null | undefined;
   logicScene?: LogicSceneConfig | null | undefined;
   logicPlayLayer?: LogicPlayLayerConfig | null | undefined;
-  aiHost?: RoomAiHost | null | undefined;
-  aiHostThinking?: boolean;
-  aiHostSpeaking?: boolean;
-  aiHostBubbleText?: string | null | undefined;
-  aiHostGhost?: { position: { x: number; y: number; z: number }; rotationY: number } | null | undefined;
-  onAiHostInteract?: (() => void) | undefined;
 }) {
   const dpr = quality === "high" ? 1.8 : quality === "medium" ? 1.4 : 1;
   const [canvasElement, setCanvasElement] = useState<HTMLCanvasElement | null>(null);
+  // AI World Host (Phase 4 provides this via context; null when feature is off).
+  // Read outside the R3F <Canvas> reconciler, then pass into the scene as a prop.
+  const aiHostScene = useAiWorldHostScene();
   const activeGroupByParticipantId = useMemo(() => {
     const map = new Map<string, ClassroomGroup>();
     for (const group of classroomGroups) {
@@ -627,15 +618,8 @@ export function RoomView3D({
             );
           });
         })()}
-        {aiHost || aiHostGhost ? (
-          <AiHostLayer
-            {...(aiHost ? { host: aiHost } : {})}
-            thinking={aiHostThinking}
-            speaking={aiHostSpeaking}
-            bubbleText={aiHostBubbleText}
-            {...(aiHostGhost ? { ghost: aiHostGhost } : {})}
-            {...(onAiHostInteract ? { onInteract: onAiHostInteract } : {})}
-          />
+        {aiHostScene && (aiHostScene.host || aiHostScene.ghost) ? (
+          <AiHostLayer scene={aiHostScene} />
         ) : null}
         <FollowLocalAvatarCamera
           participants={participants}
@@ -651,26 +635,14 @@ export function RoomView3D({
 
 /**
  * Renders the AI World Host's retro-robot — the live host and/or a translucent
- * placement ghost during reposition. Reads the world-skin avatar scale so the
- * robot's eye line tracks the participants'.
+ * placement ghost during reposition. Consumes the Phase 4 scene config (passed
+ * in as a prop because R3F's <Canvas> does not bridge outer React context) and
+ * reads the world-skin avatar scale so the robot's eye line tracks participants'.
  */
-function AiHostLayer({
-  host,
-  thinking,
-  speaking,
-  bubbleText,
-  ghost,
-  onInteract
-}: {
-  host?: RoomAiHost;
-  thinking: boolean;
-  speaking: boolean;
-  bubbleText: string | null | undefined;
-  ghost?: { position: { x: number; y: number; z: number }; rotationY: number };
-  onInteract?: () => void;
-}) {
+function AiHostLayer({ scene }: { scene: AiWorldHostSceneConfig }) {
   const { skin } = useWorldSkinContext();
   const avatarScale = skin?.overrides.avatarScale ?? 1;
+  const { host, ghost, animationState, speechBubbleText, onHostInteract } = scene;
   return (
     <>
       {host ? (
@@ -678,11 +650,11 @@ function AiHostLayer({
           position={host.position}
           rotationY={host.rotationY}
           displayName={host.displayName}
-          thinking={thinking}
-          speaking={speaking}
-          bubbleText={bubbleText ?? null}
+          thinking={animationState === "thinking"}
+          speaking={animationState === "speaking"}
+          bubbleText={speechBubbleText}
           scale={avatarScale}
-          {...(onInteract ? { onInteract } : {})}
+          onInteract={onHostInteract}
         />
       ) : null}
       {ghost ? (
