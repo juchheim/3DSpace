@@ -98,6 +98,8 @@ import { useMeetingNotes } from "../lib/useMeetingNotes";
 import { useLiveCaptions } from "../lib/useLiveCaptions";
 import { MeetingNotesPanel } from "./MeetingNotesPanel";
 import { LiveCaptionsDock } from "./LiveCaptionsDock";
+import { AiWorldHostControls } from "./AiWorldHostControls";
+import { WorldHostPanel } from "./WorldHostPanel";
 import { BuildControls } from "./BuildControls";
 import { LogicControls } from "./LogicControls";
 import { LogicInspector } from "./LogicInspector";
@@ -107,6 +109,7 @@ import { ESCAPE_STARTER_KIT, roomStampToTargets } from "../lib/buildStamps";
 import { useLogicPieces } from "../lib/useLogicPieces";
 import { useLogicDetection, type LogicDetectionEvent } from "../lib/useLogicDetection";
 import { useEscapeSession } from "../lib/useEscapeSession";
+import { AiWorldHostSceneContext, aiHostPlacementPosition, useAiWorldHost } from "../lib/useAiWorldHost";
 import { EscapeTimerHud } from "./EscapeTimerHud";
 import { ApiError, signalLogicPiece } from "../lib/api";
 import type { BuildLogicPiece } from "@3dspace/contracts";
@@ -474,6 +477,14 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     enabled: buildingFeatureEnabled,
     publish: publishRealtime
   });
+  const aiWorldHostEnabled =
+    roomTypeFeatures.aiWorldHost && CLIENT_TUNING.enableAiWorldHost && Boolean(session);
+  const aiWorldHost = useAiWorldHost({
+    identity,
+    roomId: session?.room.id ?? roomId,
+    enabled: aiWorldHostEnabled,
+    publish: publishRealtime
+  });
   const buildMode = useBuildMode();
   const logicFeatureEnabled =
     roomTypeFeatures.logic &&
@@ -742,6 +753,8 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   aiObjectsRealtimeHandlerRef.current = aiObjectGenerator.handleRealtimeMessage;
   const sharedBrowserRealtimeHandlerRef = useRef(sharedBrowsers.handleRealtimeMessage);
   sharedBrowserRealtimeHandlerRef.current = sharedBrowsers.handleRealtimeMessage;
+  const aiWorldHostRealtimeHandlerRef = useRef(aiWorldHost.handleRealtimeMessage);
+  aiWorldHostRealtimeHandlerRef.current = aiWorldHost.handleRealtimeMessage;
   camera.lockedRef.current = classroom.state?.spotlight?.mode === "force";
 
   const myActiveHallpass = useMemo(() => {
@@ -1525,6 +1538,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       if (liveCaptionsRealtimeHandlerRef.current(message)) return;
       if (aiObjectsRealtimeHandlerRef.current(message)) return;
       if (sharedBrowserRealtimeHandlerRef.current(message)) return;
+      if (aiWorldHostRealtimeHandlerRef.current(message)) return;
       if (message.type.startsWith("wall.")) return;
       if (message.type.startsWith("room.whiteboard.")) return;
       if (message.type.startsWith("room.shared-browser.")) return;
@@ -1535,6 +1549,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       if (message.type.startsWith("room.board.")) return;
       if (message.type.startsWith("room.meeting-notes.")) return;
       if (message.type.startsWith("room.captions.")) return;
+      if (message.type.startsWith("room.ai-host.")) return;
 
       if (message.type === "participant.leave.v1") {
         dropReaction(message.participantId);
@@ -2601,6 +2616,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
   const muteAmbient = media.microphoneEnabled && role === "teacher";
 
   return (
+    <AiWorldHostSceneContext.Provider value={aiWorldHostEnabled ? aiWorldHost.scene : null}>
     <SkinLayer
       skin={CLIENT_TUNING.enableWorldSkins ? activeSkinForRoom : null}
       dayNightMode={skinDayNightMode}
@@ -2638,6 +2654,15 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             </button>
           </div>
         ) : null}
+        {aiWorldHostEnabled && aiWorldHost.placementMode !== "idle" ? (
+          <div className="dynamic-board-placement-toast ai-world-host-placement-toast" role="status" aria-live="polite">
+            <strong>{aiWorldHost.placementMode === "summon" ? "Place AI guide" : "Reposition AI guide"}</strong>
+            <span>Click the ground in the 3D room, then confirm in the AI guide card.</span>
+            <button type="button" className="dynamic-board-placement-toast__cancel" disabled={aiWorldHost.busy} onClick={aiWorldHost.cancelPlacement}>
+              Cancel
+            </button>
+          </div>
+        ) : null}
         {leaving ? (
           <div className="fallback-view">Leaving...</div>
         ) : !manifest || !session ? (
@@ -2664,6 +2689,12 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             hallpassZone={hallpassZone}
             onMoveToPoint={(point) => {
               if (camera.consumeClickSuppress()) return;
+              if (manifest && aiWorldHostEnabled && aiWorldHost.placementMode !== "idle") {
+                const fallbackY = movement.avatarState?.position.y ?? floorYFromZ(manifest, point.z);
+                const position = aiHostPlacementPosition(manifest, point.x, point.z, buildPieces.pieces, fallbackY);
+                aiWorldHost.handleGroundClick(position);
+                return;
+              }
               if (positioningGroupId) {
                 void classroom.runAction({
                   type: "update-group",
@@ -2726,6 +2757,13 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
             participants={participantList}
             hallpassZone={hallpassZone}
             onMoveToPoint={(point) => {
+              if (manifest && aiWorldHostEnabled && aiWorldHost.placementMode !== "idle" && point.x >= 0) {
+                const world = unprojectPointFrom2D(manifest, point);
+                const fallbackY = movement.avatarState?.position.y ?? floorYFromZ(manifest, world.z);
+                const position = aiHostPlacementPosition(manifest, world.x, world.z, buildPieces.pieces, fallbackY);
+                aiWorldHost.handleGroundClick(position);
+                return;
+              }
               if (positioningGroupId && manifest) {
                 const worldPos = unprojectPointFrom2D(manifest, point);
                 void classroom.runAction({
@@ -3122,6 +3160,25 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
               controller={meetingNotes}
             />
           ) : null}
+          {aiWorldHostEnabled && session && manifest ? (
+            <AiWorldHostControls
+              controller={aiWorldHost}
+              manifest={manifest}
+              buildPieces={buildPieces.pieces}
+              localAvatarPosition={movement.avatarState?.position ?? null}
+              localAvatarRotationY={movement.avatarState?.rotation.y ?? 0}
+            />
+          ) : null}
+          {aiWorldHostEnabled && session && aiWorldHost.host ? (
+            <WorldHostPanel
+              controller={aiWorldHost}
+              buildHelpContext={{
+                buildModeEnabled: buildMode.enabled,
+                selectedTool: buildMode.enabled ? buildMode.tool : null,
+                pieceCount: buildPieces.pieces.length
+              }}
+            />
+          ) : null}
           {aiObjectsEnabled && session ? (
             <AiObjectPanel controller={{
               ...aiObjectGenerator,
@@ -3485,5 +3542,6 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       ) : null}
     </main>
     </SkinLayer>
+    </AiWorldHostSceneContext.Provider>
   );
 }

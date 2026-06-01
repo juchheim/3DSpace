@@ -21,6 +21,8 @@ import type {
   LogicState,
   EscapeSession,
   RoomAiHost,
+  RoomAiHostChatMessage,
+  RoomAiHostChatMode,
   RoomObject,
   RoomObjectStatus,
   RoomObjectTemplate,
@@ -82,6 +84,7 @@ type Models = {
   AiObjectJob: Model<any>;
   SharedBrowserSession: Model<any>;
   RoomAiHost: Model<any>;
+  RoomAiHostChatMessage: Model<any>;
 };
 
 function entity<T>(doc: unknown) {
@@ -401,6 +404,19 @@ export function createModels(connection: Connection): Models {
     updatedAt: { type: String, required: true }
   });
 
+  const roomAiHostChatMessageSchema = new Schema({
+    id: { type: String, required: true, unique: true },
+    roomId: { type: String, required: true },
+    userId: { type: String, required: true },
+    mode: { type: String, required: true },
+    fileId: { type: String },
+    role: { type: String, required: true },
+    content: { type: String, required: true, default: "" },
+    createdAt: { type: String, required: true }
+  });
+  roomAiHostChatMessageSchema.index({ roomId: 1, userId: 1, createdAt: 1 });
+  roomAiHostChatMessageSchema.index({ roomId: 1, fileId: 1 });
+
   const classroomStateSchema = new Schema({
     roomId: { type: String, required: true, unique: true },
     version: { type: Number, required: true },
@@ -601,7 +617,12 @@ export function createModels(connection: Connection): Models {
     MeetingNotesSegment: connection.model("MeetingNotesSegment", meetingNotesSegmentSchema, "meeting_notes_segments"),
     AiObjectJob: connection.model("AiObjectJob", aiObjectJobSchema, "ai_object_jobs"),
     SharedBrowserSession: connection.model("SharedBrowserSession", sharedBrowserSessionSchema, "shared_browser_sessions"),
-    RoomAiHost: connection.model("RoomAiHost", roomAiHostSchema, "room_ai_hosts")
+    RoomAiHost: connection.model("RoomAiHost", roomAiHostSchema, "room_ai_hosts"),
+    RoomAiHostChatMessage: connection.model(
+      "RoomAiHostChatMessage",
+      roomAiHostChatMessageSchema,
+      "room_ai_host_chat_messages"
+    )
   };
 }
 
@@ -617,6 +638,19 @@ function docToRoomAiHost(doc: Record<string, unknown>): RoomAiHost {
     createdAt: doc.createdAt as string,
     updatedAt: doc.updatedAt as string
   };
+}
+
+function docToRoomAiHostChatMessage(doc: Record<string, unknown>): RoomAiHostChatMessage {
+  return {
+    id: doc.id as string,
+    roomId: doc.roomId as string,
+    userId: doc.userId as string,
+    mode: doc.mode as RoomAiHostChatMode,
+    ...(doc.fileId ? { fileId: doc.fileId as string } : {}),
+    role: doc.role as RoomAiHostChatMessage["role"],
+    content: (doc.content as string) ?? "",
+    createdAt: doc.createdAt as string
+  } as RoomAiHostChatMessage;
 }
 
 function docToDynamicWallAnchor(doc: Record<string, unknown>): DynamicWallAnchor {
@@ -975,6 +1009,7 @@ export class MongoRepository implements Repository {
       this.models.MeetingNotesSegment.deleteMany({ roomId }),
       this.models.SharedBrowserSession.deleteMany({ roomId }),
       this.models.RoomAiHost.deleteMany({ roomId }),
+      this.models.RoomAiHostChatMessage.deleteMany({ roomId }),
       this.models.Invite.deleteMany({ roomId })
     ]);
   }
@@ -2011,5 +2046,28 @@ export class MongoRepository implements Repository {
   async deleteAiHost(roomId: string, _opts?: { deleteFiles?: boolean | undefined }): Promise<void> {
     const result = await this.models.RoomAiHost.deleteOne({ roomId });
     if (result.deletedCount === 0) throw notFound("AI world host not found");
+    await this.models.RoomAiHostChatMessage.deleteMany({ roomId });
+  }
+
+  async appendAiHostChatMessage(message: RoomAiHostChatMessage): Promise<RoomAiHostChatMessage> {
+    await this.models.RoomAiHostChatMessage.create(message);
+    return message;
+  }
+
+  async listAiHostChatMessages(
+    roomId: string,
+    userId: string,
+    opts?: { mode?: RoomAiHostChatMode | undefined; fileId?: string | undefined; limit?: number | undefined }
+  ): Promise<RoomAiHostChatMessage[]> {
+    const filter: Record<string, unknown> = { roomId, userId };
+    if (opts?.mode !== undefined) filter.mode = opts.mode;
+    if (opts?.fileId !== undefined) filter.fileId = opts.fileId;
+    const query = this.models.RoomAiHostChatMessage.find(filter).sort({ createdAt: 1 });
+    const docs = (await query.lean()) as Record<string, unknown>[];
+    const messages = docs.map(docToRoomAiHostChatMessage);
+    if (opts?.limit !== undefined && messages.length > opts.limit) {
+      return messages.slice(messages.length - opts.limit);
+    }
+    return messages;
   }
 }

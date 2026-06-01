@@ -44,8 +44,10 @@ import type {
   WallPlaneSchema
 } from "@3dspace/contracts";
 import type { z } from "zod";
+import type { RoomAiHost } from "@3dspace/contracts";
 import type { ParticipantView } from "./RoomClient";
 import { BlockyAvatar } from "./BlockyAvatar";
+import { RetroRobotHostAvatar } from "./RetroRobotHostAvatar";
 import { RoomObjectsLayer } from "./RoomObjectsLayer";
 import { BuildPlacementController } from "./BuildPlacementController";
 import { LogicLayer } from "./LogicLayer";
@@ -355,7 +357,13 @@ export function RoomView3D({
   roomObjectActions,
   buildScene,
   logicScene,
-  logicPlayLayer
+  logicPlayLayer,
+  aiHost,
+  aiHostThinking = false,
+  aiHostSpeaking = false,
+  aiHostBubbleText = null,
+  aiHostGhost,
+  onAiHostInteract
 }: {
   manifest: RoomManifest;
   dynamicWallAnchors?: Anchor[];
@@ -431,6 +439,12 @@ export function RoomView3D({
   buildScene?: BuildSceneConfig | null | undefined;
   logicScene?: LogicSceneConfig | null | undefined;
   logicPlayLayer?: LogicPlayLayerConfig | null | undefined;
+  aiHost?: RoomAiHost | null | undefined;
+  aiHostThinking?: boolean;
+  aiHostSpeaking?: boolean;
+  aiHostBubbleText?: string | null | undefined;
+  aiHostGhost?: { position: { x: number; y: number; z: number }; rotationY: number } | null | undefined;
+  onAiHostInteract?: (() => void) | undefined;
 }) {
   const dpr = quality === "high" ? 1.8 : quality === "medium" ? 1.4 : 1;
   const [canvasElement, setCanvasElement] = useState<HTMLCanvasElement | null>(null);
@@ -613,6 +627,16 @@ export function RoomView3D({
             );
           });
         })()}
+        {aiHost || aiHostGhost ? (
+          <AiHostLayer
+            {...(aiHost ? { host: aiHost } : {})}
+            thinking={aiHostThinking}
+            speaking={aiHostSpeaking}
+            bubbleText={aiHostBubbleText}
+            {...(aiHostGhost ? { ghost: aiHostGhost } : {})}
+            {...(onAiHostInteract ? { onInteract: onAiHostInteract } : {})}
+          />
+        ) : null}
         <FollowLocalAvatarCamera
           participants={participants}
           localParticipantId={localParticipantId}
@@ -622,6 +646,55 @@ export function RoomView3D({
         />
       </Canvas>
     </div>
+  );
+}
+
+/**
+ * Renders the AI World Host's retro-robot — the live host and/or a translucent
+ * placement ghost during reposition. Reads the world-skin avatar scale so the
+ * robot's eye line tracks the participants'.
+ */
+function AiHostLayer({
+  host,
+  thinking,
+  speaking,
+  bubbleText,
+  ghost,
+  onInteract
+}: {
+  host?: RoomAiHost;
+  thinking: boolean;
+  speaking: boolean;
+  bubbleText: string | null | undefined;
+  ghost?: { position: { x: number; y: number; z: number }; rotationY: number };
+  onInteract?: () => void;
+}) {
+  const { skin } = useWorldSkinContext();
+  const avatarScale = skin?.overrides.avatarScale ?? 1;
+  return (
+    <>
+      {host ? (
+        <RetroRobotHostAvatar
+          position={host.position}
+          rotationY={host.rotationY}
+          displayName={host.displayName}
+          thinking={thinking}
+          speaking={speaking}
+          bubbleText={bubbleText ?? null}
+          scale={avatarScale}
+          {...(onInteract ? { onInteract } : {})}
+        />
+      ) : null}
+      {ghost ? (
+        <RetroRobotHostAvatar
+          position={ghost.position}
+          rotationY={ghost.rotationY}
+          displayName=""
+          ghost
+          scale={avatarScale}
+        />
+      ) : null}
+    </>
   );
 }
 

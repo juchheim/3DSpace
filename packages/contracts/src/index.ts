@@ -1194,7 +1194,9 @@ export const ApiErrorCodeSchema = z.enum([
   "ai-host-not-found",
   "ai-host-exists",
   "ai-host-file-not-found",
-  "ai-host-file-rejected"
+  "ai-host-file-rejected",
+  "ai-host-unavailable",
+  "ai-host-rate-limited"
 ]);
 
 export function parseRoomObjectParameterSchemaJson(json: string) {

@@ -29,6 +29,8 @@ import {
   type LogicPieceKind,
   type EscapeSession,
   type RoomAiHost,
+  type RoomAiHostChatMessage,
+  type RoomAiHostChatMode,
   type LogicState,
   type RoomObject,
   type RoomObjectStatus,
@@ -270,6 +272,12 @@ export type Repository = {
   createAiHost(host: RoomAiHost): Promise<RoomAiHost>;
   updateAiHost(roomId: string, host: RoomAiHost): Promise<RoomAiHost>;
   deleteAiHost(roomId: string, opts?: { deleteFiles?: boolean | undefined }): Promise<void>;
+  appendAiHostChatMessage(message: RoomAiHostChatMessage): Promise<RoomAiHostChatMessage>;
+  listAiHostChatMessages(
+    roomId: string,
+    userId: string,
+    opts?: { mode?: RoomAiHostChatMode | undefined; fileId?: string | undefined; limit?: number | undefined }
+  ): Promise<RoomAiHostChatMessage[]>;
 };
 
 /** How long after the last heartbeat a room participant still counts as present. */
@@ -326,6 +334,7 @@ export class MemoryRepository implements Repository {
   private aiObjectJobs = new Map<string, AiObjectJob>();
   private sharedBrowserSessions = new Map<string, SharedBrowserSession>();
   private aiHostsByRoom = new Map<string, RoomAiHost>();
+  private aiHostChatMessages: RoomAiHostChatMessage[] = [];
 
   async close() {
     return;
@@ -591,6 +600,31 @@ export class MemoryRepository implements Repository {
 
   async deleteAiHost(roomId: string, _opts?: { deleteFiles?: boolean | undefined }) {
     if (!this.aiHostsByRoom.delete(roomId)) throw notFound("AI world host not found");
+    this.aiHostChatMessages = this.aiHostChatMessages.filter((message) => message.roomId !== roomId);
+  }
+
+  async appendAiHostChatMessage(message: RoomAiHostChatMessage) {
+    this.aiHostChatMessages.push(message);
+    return message;
+  }
+
+  async listAiHostChatMessages(
+    roomId: string,
+    userId: string,
+    opts?: { mode?: RoomAiHostChatMode | undefined; fileId?: string | undefined; limit?: number | undefined }
+  ) {
+    const filtered = this.aiHostChatMessages.filter(
+      (message) =>
+        message.roomId === roomId &&
+        message.userId === userId &&
+        (opts?.mode === undefined || message.mode === opts.mode) &&
+        (opts?.fileId === undefined || message.fileId === opts.fileId)
+    );
+    const ordered = filtered.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    if (opts?.limit !== undefined && ordered.length > opts.limit) {
+      return ordered.slice(ordered.length - opts.limit);
+    }
+    return ordered;
   }
 
   async getActiveManifest(roomId: string) {

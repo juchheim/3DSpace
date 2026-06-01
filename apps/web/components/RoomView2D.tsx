@@ -10,6 +10,7 @@ import type {
   ClassroomSpotlight,
   ParticipantAudioMode,
   Role,
+  RoomAiHost,
   RoomManifest,
   RoomObject,
   RoomObjectTemplate,
@@ -95,7 +96,9 @@ export function RoomView2D({
   sharedBrowserIdentity,
   sharedBrowserRoomId,
   buildPieces = [],
-  buildInteraction
+  buildInteraction,
+  aiHost,
+  onAiHostInteract
 }: {
   manifest: RoomManifest;
   dynamicWallAnchors?: RoomManifest["wallAnchors"];
@@ -139,6 +142,8 @@ export function RoomView2D({
     onPointerMove(point: { x: number; y: number }): void;
     onPointerDown(point: { x: number; y: number }): void;
   };
+  aiHost?: RoomAiHost | null | undefined;
+  onAiHostInteract?: (() => void) | undefined;
 }) {
   const [liveAnnouncement, setLiveAnnouncement] = useState("");
   const objectsEnabled = Boolean(
@@ -302,6 +307,7 @@ export function RoomView2D({
 
   function handlePointerDown(event: React.PointerEvent<SVGSVGElement>) {
     if ((event.target as Element).closest(".room-object-icon-2d")) return;
+    if ((event.target as Element).closest(".world-host-marker-2d")) return;
     const point = mapPointFromEvent(event);
     if (buildInteraction?.enabled && !positioningMode) {
       event.stopPropagation();
@@ -569,6 +575,35 @@ export function RoomView2D({
             </g>
           );
         })}
+        {aiHost ? (() => {
+          const point = projectPositionTo2D(manifest, aiHost.position);
+          return (
+            <g
+              className="world-host-marker-2d"
+              aria-label={`AI guide ${aiHost.displayName}`}
+              onPointerDown={(event) => {
+                event.stopPropagation();
+                onAiHostInteract?.();
+              }}
+            >
+              {/* Glow halo */}
+              <circle cx={point.x} cy={point.y} r={4.4} fill="#3ecfcc" opacity={0.18} />
+              {/* Rover body */}
+              <rect x={point.x - 2.4} y={point.y - 0.2} width={4.8} height={3} rx={1} fill="#3ecfcc" stroke="#17201a" strokeWidth={0.4} />
+              {/* Head */}
+              <rect x={point.x - 1.9} y={point.y - 2.9} width={3.8} height={2.9} rx={1} fill="#3ecfcc" stroke="#17201a" strokeWidth={0.4} />
+              {/* Eyes */}
+              <circle cx={point.x - 0.8} cy={point.y - 1.5} r={0.62} fill="#0a1416" />
+              <circle cx={point.x + 0.8} cy={point.y - 1.5} r={0.62} fill="#7df9ff" />
+              <circle cx={point.x - 0.8} cy={point.y - 1.5} r={0.32} fill="#7df9ff" />
+              {/* Antenna */}
+              <line x1={point.x} y1={point.y - 2.9} x2={point.x + 0.7} y2={point.y - 4.3} stroke="#17201a" strokeWidth={0.4} />
+              <circle cx={point.x + 0.7} cy={point.y - 4.3} r={0.7} fill="#ffd166" stroke="#17201a" strokeWidth={0.3} />
+              <text x={point.x} y={point.y + 5.4} textAnchor="middle" fontSize="2.2" fill="#17201a">{aiHost.displayName}</text>
+              <text x={point.x} y={point.y + 7.3} textAnchor="middle" fontSize="1.5" fill="#2f6b4f">AI guide</text>
+            </g>
+          );
+        })() : null}
       </svg>
 
       <div className="sr-only" aria-live="polite" aria-atomic="true">

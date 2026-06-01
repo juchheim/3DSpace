@@ -9,7 +9,7 @@ Last updated: 2026-06-01
 
 ## Status / Scope
 
-**Status:** Phases 1–2 complete (contracts + API host CRUD). Phases 3+ not started.
+**Status:** Phases 1–2 complete (contracts + API host CRUD). Phase 4 complete (client hook + RoomClient wiring). Phase 5 complete (world-building corpus + Build Help streaming chat). Phase 3 (avatar) in progress separately. Phase 6 (file upload/study) not started.
 
 This doc implements the AI World Host described in the PLAN. It is **additive to Free-for-All Phase 1** and assumes **world building** (`ENABLE_FREE_FOR_ALL_BUILDING`) is available in the environments where build-help is tested — the tutor is still useful without building enabled (explains the feature), but E2E build answers need the build flag on.
 
@@ -174,36 +174,44 @@ Goal: load host, realtime sync, summon/reposition/dismiss UI.
 
 **Checkpoint:**
 
-- [ ] Two tabs: summon in tab A visible in tab B
-- [ ] Reposition syncs live
+- [x] `npm run typecheck -w @3dspace/web`
+- [x] `npx vitest run apps/web/tests/ai-host-realtime.test.ts apps/web/tests/ai-host-placement.test.ts`
+- [x] Phase 4 review fixes: refresh preserves in-progress placement; dismiss confirm + hub placement; `ApiError` messages; loading state; card title “World Host”
+- [ ] Manual: two tabs — summon in tab A visible in tab B
+- [ ] Manual: reposition syncs live (needs Phase 3 ghost render for full UX)
+
+**Phase 3 handoff:** `useAiWorldHostScene()` / `AiWorldHostSceneContext` exposes `host`, `ghost`, `placementMode`, `animationState`, `speechBubbleText`, `onHostInteract` for `RetroRobotHostAvatar` in `RoomView3D` / `RoomView2D`.
 
 ---
 
-### Phase 5 — World-building corpus + Build Help chat
+### Phase 5 — World-building corpus + Build Help chat — COMPLETE
 
 Goal: accurate build tutor with streaming replies.
 
-**Files:**
+**Files (shipped):**
 
-- `apps/api/src/ai-host/corpus/world-building-guide.md` — **author manually** from BuildControls + PLAN world-building
-- `apps/api/src/ai-host/prompts.ts` — `buildHelpSystemPrompt(corpus, context)`
-- `apps/api/src/ai-host/chat-service.ts` — OpenAI streaming, rate limit, persist messages
-- `apps/api/src/routes/ai-host.ts` — `GET|POST .../chat` with SSE
-- `apps/web/components/WorldHostPanel.tsx` — Build Help tab (initial)
-- `apps/web/lib/api.ts` — `streamAiHostChat`
-
-**Steps:**
-
-1. Write corpus covering: tools 1–7, destroy, rotate R, drag-paint, undo/redo, stamps, materials, caps, FFA destroy policy, boards on build walls, rejection reasons.
-2. `POST chat` body: `{ mode: "build-help", content, context?: BuildHelpContext }`.
-3. Stream tokens to client; save user + assistant messages to `RoomAiHostChatMessage`.
-4. Suggested question chips in UI.
-5. API tests with mocked OpenAI: system prompt contains corpus header; context echoed.
+- `apps/api/src/ai-host/corpus/world-building-guide.md` — thorough corpus authored from `BuildControls`, `buildStamps`, `buildMaterials`, `build.ts`/`free-for-all-build-mask.ts` constants, and `buildPlacementStatusMessage` rejection reasons. ~14.8 KB / <12k tokens.
+- `apps/api/src/ai-host/corpus.ts` — `loadWorldBuildingCorpus()` (reads md via `import.meta.url`, cached) + `estimateCorpusTokens()`. Copied to `dist/ai-host/corpus/` by `scripts/copy-builtin-catalog.mjs`.
+- `apps/api/src/ai-host/prompts.ts` — `buildHelpSystemPrompt({ context })` (persona + corpus + live build context with friendly rejection mapping) and `fileStudySystemPrompt()` (Phase 6-ready, anti-injection).
+- `apps/api/src/ai-host/chat-service.ts` — `streamChatCompletion()` async-generator over OpenAI SSE; `mockChatReply()` / `AI_WORLD_HOST_MOCK_RESPONSES` for tests; `collectChatReply()`.
+- `apps/api/src/ai-host/chat-message-service.ts` — record creation, `toChatHistory` (cap `maxContextMessages`), `countRecentUserMessages` (rate limit).
+- `apps/api/src/routes/ai-host.ts` — `GET .../chat` (private per `userId`), `POST .../chat` SSE (`reply.hijack()` + `event: delta|done|error`). Requires a summoned host; file-study deferred to Phase 6 (`ai-host-file-not-found`); per-user/hour rate limit (`ai-host-rate-limited`).
+- Repository: `appendAiHostChatMessage` / `listAiHostChatMessages` (memory + Mongo `room_ai_host_chat_messages`); chat cascades on host dismiss + room delete.
+- Contracts: `ApiErrorCode` adds `ai-host-unavailable`, `ai-host-rate-limited`.
+- Config: `aiWorldHostMockResponses` (`AI_WORLD_HOST_MOCK_RESPONSES`).
+- `apps/web/lib/api.ts` — `listAiHostChat`, `streamAiHostChat` (SSE reader).
+- `apps/web/lib/useAiWorldHost.ts` — chat state (`chatMessages`, `chatStreaming`, `streamingReply`, `chatError`), `actions.sendBuildHelp`, history load, speech-bubble + animation wiring, dismiss clears chat.
+- `apps/web/components/WorldHostPanel.tsx` — Build Help tab (messages, suggested chips, composer, streaming) + Study Files placeholder; mounted in `RoomClient` when a host exists.
 
 **Checkpoint:**
 
-- [ ] Manual: “How do I undo?” → mentions ⌘Z / Ctrl+Z
-- [ ] Manual: “What does key 3 do?” → Ramp
+- [x] `npx vitest run apps/api/tests/routes/ai-host-chat.test.ts apps/api/tests/ai-host/prompts.test.ts` (12 tests)
+- [x] Mock-mode: “How do I undo?” → reply mentions ⌘Z; “What does key 3 do?” → Ramp
+- [x] Chat is private per user (cross-user GET returns empty); rate limit 429; no-host 404
+- [x] `npm run typecheck -w @3dspace/api`; web typecheck clean except 2 pre-existing unrelated test files
+- [ ] Manual: real OpenAI streaming reply renders token-by-token in the panel
+
+**Deferred to Phase 6:** file-study chat path (retrieval + `fileStudySystemPrompt` are scaffolded but file routes/extraction are Phase 6).
 
 ---
 

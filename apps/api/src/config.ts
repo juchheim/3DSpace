@@ -79,6 +79,7 @@ export type AppConfig = {
     openAiAiHostModel: string;
     openAiAiHostModelLarge: string;
     aiWorldHostStoragePrefix: string;
+    aiWorldHostMockResponses: boolean;
     enableWhiteboards: boolean;
     whiteboardCompactionTickSeconds: number;
     whiteboardSnapshotAtStrokes: number;
@@ -336,6 +337,7 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       openAiAiHostModel: envString(raw, "OPENAI_AI_HOST_MODEL") ?? "gpt-4.1-mini",
       openAiAiHostModelLarge: envString(raw, "OPENAI_AI_HOST_MODEL_LARGE") ?? "gpt-4.1",
       aiWorldHostStoragePrefix: envString(raw, "AI_WORLD_HOST_STORAGE_PREFIX") ?? "ai-host/",
+      aiWorldHostMockResponses: envBoolean(raw, "AI_WORLD_HOST_MOCK_RESPONSES", false),
       enableWhiteboards: envBoolean(raw, "ENABLE_WHITEBOARDS", true),
       whiteboardCompactionTickSeconds: envNumber(raw, "WHITEBOARD_COMPACTION_TICK_SECONDS", 30),
       whiteboardSnapshotAtStrokes: envNumber(raw, "WHITEBOARD_SNAPSHOT_AT_STROKES", 500),

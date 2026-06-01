@@ -172,3 +172,20 @@ export function aiHostNotFound() {
 export function aiHostExists() {
   return new HttpError(409, "An AI world host already exists for this room", "ai-host-exists");
 }
+
+export function aiHostUnavailable() {
+  return new HttpError(503, "The AI guide is taking a break. Try again in a moment.", "ai-host-unavailable");
+}
+
+export function aiHostFileNotFound() {
+  return new HttpError(404, "Study file not found", "ai-host-file-not-found");
+}
+
+export function aiHostRateLimited(retryAfterSeconds: number) {
+  return new HttpError(
+    429,
+    `Slow down — you can send another message in ${retryAfterSeconds} second${retryAfterSeconds === 1 ? "" : "s"}.`,
+    "ai-host-rate-limited",
+    { retryAfterSeconds }
+  );
+}

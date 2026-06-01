@@ -29,9 +29,16 @@ import type {
   EscapeSession,
   LogicSignalKind,
   LogicState,
+  RoomAiHost,
+  RoomAiHostChatMessage,
+  RoomAiHostChatMode,
+  RoomAiHostRealtimeMessage,
   RoomBuildRealtimeMessage,
   RoomLogicRealtimeMessage,
   RoomSessionRealtimeMessage,
+  CreateRoomAiHostRequestSchema,
+  PatchRoomAiHostRequestSchema,
+  SendRoomAiHostChatRequestSchema,
   RoomObject,
   RoomSessionResponse,
   RoomType,
@@ -874,6 +881,159 @@ export function winEscapeSession(identity: ApiIdentity, roomId: string) {
     `/v1/rooms/${roomId}/escape-session/win`,
     { method: "POST", identity, body: {} }
   ).then(normalizeEscapeSessionMutationResult);
+}
+
+export type AiHostMutationResult = {
+  host: RoomAiHost;
+  realtimeMessages: RoomAiHostRealtimeMessage[];
+};
+
+function normalizeAiHostMutationResult(payload: {
+  host: RoomAiHost;
+  realtimeMessages?: RoomAiHostRealtimeMessage[] | undefined;
+}): AiHostMutationResult {
+  return {
+    host: payload.host,
+    realtimeMessages: payload.realtimeMessages ?? []
+  };
+}
+
+export function getAiHost(identity: ApiIdentity, roomId: string) {
+  return apiFetch<{ host: RoomAiHost | null }>(`/v1/rooms/${roomId}/ai-host`, { identity }).then(
+    (response) => response.host
+  );
+}
+
+export function createAiHost(
+  identity: ApiIdentity,
+  roomId: string,
+  input: z.infer<typeof CreateRoomAiHostRequestSchema>
+) {
+  return apiFetch<AiHostMutationResult>(`/v1/rooms/${roomId}/ai-host`, {
+    method: "POST",
+    identity,
+    body: input
+  }).then(normalizeAiHostMutationResult);
+}
+
+export function patchAiHost(
+  identity: ApiIdentity,
+  roomId: string,
+  input: z.infer<typeof PatchRoomAiHostRequestSchema>
+) {
+  return apiFetch<AiHostMutationResult>(`/v1/rooms/${roomId}/ai-host`, {
+    method: "PATCH",
+    identity,
+    body: input
+  }).then(normalizeAiHostMutationResult);
+}
+
+export function dismissAiHost(identity: ApiIdentity, roomId: string, deleteFiles = false) {
+  const query = deleteFiles ? "?deleteFiles=true" : "";
+  return apiFetch<{ dismissed: true; realtimeMessages?: RoomAiHostRealtimeMessage[] }>(
+    `/v1/rooms/${roomId}/ai-host${query}`,
+    { method: "DELETE", identity }
+  ).then((response) => ({
+    dismissed: true as const,
+    realtimeMessages: response.realtimeMessages ?? []
+  }));
+}
+
+export function listAiHostChat(
+  identity: ApiIdentity,
+  roomId: string,
+  opts?: { mode?: RoomAiHostChatMode | undefined; fileId?: string | undefined; limit?: number | undefined }
+) {
+  const params = new URLSearchParams();
+  if (opts?.mode) params.set("mode", opts.mode);
+  if (opts?.fileId) params.set("fileId", opts.fileId);
+  if (opts?.limit) params.set("limit", String(opts.limit));
+  const query = params.toString();
+  return apiFetch<{ messages: RoomAiHostChatMessage[] }>(
+    `/v1/rooms/${roomId}/ai-host/chat${query ? `?${query}` : ""}`,
+    { identity }
+  ).then((response) => response.messages);
+}
+
+export type AiHostChatStreamHandlers = {
+  onDelta?: (text: string) => void;
+  onDone?: (message: RoomAiHostChatMessage) => void;
+  onError?: (payload: { error: string; message: string }) => void;
+  signal?: AbortSignal | undefined;
+};
+
+/**
+ * Streams a Build Help / Study Files reply over SSE. Resolves with the persisted assistant
+ * message when the stream completes, or throws ApiError when the request itself fails.
+ */
+export async function streamAiHostChat(
+  identity: ApiIdentity,
+  roomId: string,
+  body: z.infer<typeof SendRoomAiHostChatRequestSchema>,
+  handlers: AiHostChatStreamHandlers = {}
+): Promise<RoomAiHostChatMessage | null> {
+  const headers: Record<string, string> = {
+    ...identityHeaders(identity),
+    "content-type": "application/json",
+    accept: "text/event-stream"
+  };
+  const token = await identity.getAuthToken?.();
+  if (token) headers.authorization = `Bearer ${token}`;
+
+  const response = await fetch(`${API_URL}/v1/rooms/${roomId}/ai-host/chat`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+    ...(handlers.signal ? { signal: handlers.signal } : {})
+  });
+
+  if (!response.ok || !response.body) {
+    const payload = (await response.json().catch(() => ({ message: response.statusText }))) as Record<string, unknown>;
+    throw new ApiError(
+      response.status,
+      apiErrorMessage(response, payload),
+      typeof payload.error === "string" ? payload.error : undefined,
+      payload
+    );
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let finalMessage: RoomAiHostChatMessage | null = null;
+
+  const handleEvent = (event: string, data: string) => {
+    let parsed: any;
+    try {
+      parsed = JSON.parse(data);
+    } catch {
+      return;
+    }
+    if (event === "delta" && typeof parsed.delta === "string") {
+      handlers.onDelta?.(parsed.delta);
+    } else if (event === "done") {
+      finalMessage = parsed.message as RoomAiHostChatMessage;
+      handlers.onDone?.(finalMessage);
+    } else if (event === "error") {
+      handlers.onError?.({ error: String(parsed.error ?? "ai-host-unavailable"), message: String(parsed.message ?? "") });
+    }
+  };
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const blocks = buffer.split("\n\n");
+    buffer = blocks.pop() ?? "";
+    for (const block of blocks) {
+      const lines = block.split("\n");
+      const event = lines.find((l) => l.startsWith("event:"))?.slice("event:".length).trim() ?? "message";
+      const dataLine = lines.find((l) => l.startsWith("data:"))?.slice("data:".length).trim();
+      if (dataLine) handleEvent(event, dataLine);
+    }
+  }
+
+  return finalMessage;
 }
 
 export function getClassroomState(identity: ApiIdentity, roomId: string) {
