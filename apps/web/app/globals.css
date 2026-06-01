@@ -686,6 +686,11 @@ label {
   max-height: none;
 }
 
+/* When the AI guide chat dock is open, keep captions out of the second right column. */
+.room-captions-dock--reserve-guide-dock {
+  right: calc((var(--hud-pw) * 2) + 24px);
+}
+
 .room-captions-dock--collapsed .room-captions-dock__lines {
   max-height: 4.5rem;
 }

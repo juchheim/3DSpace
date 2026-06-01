@@ -6,6 +6,7 @@ import { floorYFromZ } from "@3dspace/room-engine";
 import { aiHostPlacementInFrontOfAvatar } from "../lib/useAiWorldHost";
 import type { useAiWorldHost } from "../lib/useAiWorldHost";
 import type { BuildPiece } from "@3dspace/contracts";
+import { HudCard } from "./HudCard";
 
 type AiWorldHostController = ReturnType<typeof useAiWorldHost>;
 
@@ -53,9 +54,15 @@ export function AiWorldHostControls({
   const fallbackY = floorYFromZ(manifest, 0);
 
   return (
-    <section className="hud-card ai-world-host-card" aria-label="World Host">
-      <h3 className="hud-heading">World Host</h3>
-      <div className="hud-card-body ai-world-host-card__body">
+    <HudCard
+      title="World Host"
+      ariaLabel="World Host"
+      defaultCollapsed
+      forceExpanded={placing || summonOpen || renameOpen}
+      hasAlert={Boolean(error)}
+      badge={host ? host.displayName : hasStudyFiles ? studyFiles.length : undefined}
+    >
+      <div className="ai-world-host-card__body">
         {loading && !host && !placing ? (
           <p className="ai-world-host-card__hint">Loading guide…</p>
         ) : null}
@@ -210,7 +217,7 @@ export function AiWorldHostControls({
           </div>
         )}
       </div>
-    </section>
+    </HudCard>
   );
 }
 

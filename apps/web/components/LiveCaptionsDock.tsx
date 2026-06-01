@@ -20,11 +20,14 @@ function prefersReducedMotion() {
 export function LiveCaptionsDock({
   controller,
   speakerLabel,
-  selfParticipantId
+  selfParticipantId,
+  reserveGuideDock = false
 }: {
   controller: LiveCaptionsController;
   speakerLabel: (participantId: string) => string;
   selfParticipantId: string;
+  /** Leave horizontal room for the AI guide chat dock (room-hud-right-secondary). */
+  reserveGuideDock?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const linesRef = useRef<HTMLDivElement | null>(null);
@@ -87,9 +90,11 @@ export function LiveCaptionsDock({
     controller.resetDock();
   };
 
+  const dockReserveClass = reserveGuideDock ? " room-captions-dock--reserve-guide-dock" : "";
+
   if (!controller.dockOpen) {
     return (
-      <div className="room-captions-dock room-captions-dock--idle">
+      <div className={`room-captions-dock room-captions-dock--idle${dockReserveClass}`}>
         <button
           type="button"
           className={`room-captions-dock__peek hud-btn${controller.live ? " room-captions-dock__peek--live" : ""}`}
@@ -109,7 +114,7 @@ export function LiveCaptionsDock({
 
   return (
     <section
-      className={`room-captions-dock${expanded ? "" : " room-captions-dock--collapsed"}${controller.live ? " room-captions-dock--live" : ""}`}
+      className={`room-captions-dock${expanded ? "" : " room-captions-dock--collapsed"}${controller.live ? " room-captions-dock--live" : ""}${dockReserveClass}`}
       aria-label="Live captions"
     >
       <div className="room-captions-dock__bar">

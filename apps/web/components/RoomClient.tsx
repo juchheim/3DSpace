@@ -3446,6 +3446,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
           controller={liveCaptions}
           speakerLabel={(id) => participantNameMap[id] ?? id}
           selfParticipantId={session.participantId}
+          reserveGuideDock={aiWorldHostGuidePanelOpen}
         />
       ) : null}
       {logicPlayEnabled && nearestInteractable?.kind === "button" ? (

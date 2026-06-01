@@ -81,7 +81,15 @@ async function joinFfaRoom(page: Page, roomId: string, roomName: string) {
   await expect(page.locator(".room-hud-name")).toContainText(roomName, { timeout: 15_000 });
 }
 
+async function expandWorldHostIfNeeded(page: Page) {
+  const toggle = page.getByRole("button", { name: "World Host" });
+  if ((await toggle.getAttribute("aria-expanded")) === "false") {
+    await toggle.click();
+  }
+}
+
 async function summonGuideInFront(page: Page, name = "Chip") {
+  await expandWorldHostIfNeeded(page);
   await page.getByRole("button", { name: /summon guide/i }).click();
   await page.getByLabel(/guide name/i).fill(name);
   await page.getByRole("button", { name: /place in front of me/i }).click();
@@ -95,7 +103,7 @@ test.describe("ai world host", () => {
     await setIdentity(page, HOST_USER);
     await page.goto(`/rooms/${room.id}`, { waitUntil: "commit", timeout: 90_000 });
     await expect(page.getByTestId(`participant-${HOST_USER.userId}`)).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByRole("region", { name: "World Host" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "World Host" })).toHaveCount(0);
     await expect(page.getByTestId("ai-world-host-panel")).toHaveCount(0);
   });
 
@@ -103,7 +111,7 @@ test.describe("ai world host", () => {
     const room = await createFfaRoom(request);
     await joinFfaRoom(page, room.id, room.name);
 
-    await expect(page.getByRole("region", { name: "World Host" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "World Host" })).toBeVisible();
     await summonGuideInFront(page);
 
     await page.getByRole("button", { name: "How do I undo?" }).click();
