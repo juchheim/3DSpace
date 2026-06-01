@@ -15,7 +15,9 @@ export async function extractTextFromBuffer(
   }
 
   if (baseType === "application/pdf") {
-    const pdfParse = (await import("pdf-parse")).default;
+    // pdf-parse/index.js runs a debug read of ./test/data/05-versions-space.pdf when
+    // loaded without a CJS parent (common under "type": "module" dynamic import).
+    const pdfParse = (await import("pdf-parse/lib/pdf-parse.js")).default;
     const result = await pdfParse(body);
     const text = (result.text ?? "").trim();
     const pageCount = typeof result.numpages === "number" ? result.numpages : undefined;
