@@ -25,19 +25,42 @@ export type BuildStamp = {
   pieces: BuildStampPiece[];
 };
 
+/** Outer-perimeter walls of a `size`×`size` footprint — a complete hollow box, no floor or openings. */
+function perimeterWallPieces(size: number): BuildStampPiece[] {
+  const pieces: BuildStampPiece[] = [];
+  const last = size - 1;
+  for (let i = 0; i < size; i++) {
+    pieces.push({ kind: "wall", cell: { ix: i, iz: 0 }, level: 0, edge: "s", materialId: "stone" });
+    pieces.push({ kind: "wall", cell: { ix: i, iz: last }, level: 0, edge: "n", materialId: "stone" });
+    pieces.push({ kind: "wall", cell: { ix: 0, iz: i }, level: 0, edge: "w", materialId: "stone" });
+    pieces.push({ kind: "wall", cell: { ix: last, iz: i }, level: 0, edge: "e", materialId: "stone" });
+  }
+  return pieces;
+}
+
+/**
+ * A walkable, enclosed `size`×`size` room: a full floor, walls only on the
+ * outer perimeter, and a doorway gap in the middle of the south wall. (Interior
+ * cells are left open so the room is actually enterable.)
+ */
 function roomShellPieces(size: number): BuildStampPiece[] {
-  const pieces: BuildStampPiece[] = [
-    { kind: "floor", cell: { ix: 0, iz: 0 }, level: 0, materialId: "wood" }
-  ];
+  const doorwayIx = Math.floor(size / 2);
+  const pieces: BuildStampPiece[] = [];
+
   for (let ix = 0; ix < size; ix++) {
     for (let iz = 0; iz < size; iz++) {
-      if (ix > 0) pieces.push({ kind: "wall", cell: { ix, iz }, level: 0, edge: "w", materialId: "stone" });
-      if (iz > 0) pieces.push({ kind: "wall", cell: { ix, iz }, level: 0, edge: "s", materialId: "stone" });
-      if (ix < size - 1) pieces.push({ kind: "wall", cell: { ix, iz }, level: 0, edge: "e", materialId: "stone" });
-      if (iz < size - 1) pieces.push({ kind: "wall", cell: { ix, iz }, level: 0, edge: "n", materialId: "stone" });
+      pieces.push({ kind: "floor", cell: { ix, iz }, level: 0, materialId: "wood" });
     }
   }
-  pieces.push({ kind: "doorway", cell: { ix: Math.floor(size / 2), iz: 0 }, level: 0, edge: "s", materialId: "wood" });
+
+  for (const wall of perimeterWallPieces(size)) {
+    if (wall.edge === "s" && wall.cell.iz === 0 && wall.cell.ix === doorwayIx) {
+      pieces.push({ kind: "doorway", cell: wall.cell, level: 0, edge: "s", materialId: "wood" });
+    } else {
+      pieces.push(wall);
+    }
+  }
+
   return pieces;
 }
 
@@ -78,7 +101,7 @@ export const BUILTIN_BUILD_STAMPS: BuildStamp[] = [
     id: "perimeter-5",
     label: "Perimeter 5×5",
     description: "Hollow box — outer walls only",
-    pieces: roomShellPieces(5).filter((piece) => piece.kind !== "doorway")
+    pieces: perimeterWallPieces(5)
   }
 ];
 
@@ -157,16 +180,27 @@ export type LogicPlacementTargetForStamp = {
 };
 
 /**
- * Starter mini-escape (recipe §4.10, trimmed for a first play test):
- * a 5×5 room with a south doorway, a button that opens the north door on
- * channel `exit-door`, a closet button that turns on a light on `study-light`,
- * and an exit plate beyond the door that ends the session (`isExit`).
+ * Starter mini-escape (recipe §4.10, trimmed for a first play test): an
+ * enclosed 5×5 room (cells ix 0–4 west→east, iz 0–4 south→north) you enter
+ * through the south doorway. A button on the east wall opens the locked north
+ * exit `door` (`exit-door`); a second button on the west wall turns on the room
+ * `light` (`study-light`); and a win plate on the exit landing beyond the door
+ * ends the session (`isExit`).
+ *
+ * The north wall has a gap at the door cell so the `door` is the only barrier
+ * there (a build wall would block the edge permanently, open or not).
  */
 export const ESCAPE_STARTER_KIT: RoomStamp = {
   id: "escape-starter",
   label: "Starter escape",
-  description: "Room shell + button→door, light reveal, and a win plate — ready to play test",
-  buildPieces: roomShellPieces(5),
+  description: "Enclosed room you enter via a south doorway, with a button→door, a light, and a win plate — ready to play test",
+  buildPieces: [
+    ...roomShellPieces(5).filter(
+      (piece) =>
+        !(piece.kind === "wall" && piece.edge === "n" && piece.cell.ix === 2 && piece.cell.iz === 4)
+    ),
+    { kind: "floor", cell: { ix: 2, iz: 5 }, level: 0, materialId: "stone" }
+  ],
   logicPieces: [
     {
       kind: "door",
@@ -178,7 +212,7 @@ export const ESCAPE_STARTER_KIT: RoomStamp = {
     },
     {
       kind: "button",
-      cell: { ix: 3, iz: 1 },
+      cell: { ix: 4, iz: 2 },
       level: 0,
       edge: "e",
       channelId: "exit-door",
@@ -186,14 +220,14 @@ export const ESCAPE_STARTER_KIT: RoomStamp = {
     },
     {
       kind: "light",
-      cell: { ix: 1, iz: 1 },
+      cell: { ix: 2, iz: 2 },
       level: 0,
       channelId: "study-light",
       config: { listenMode: "latch", initialState: { on: false } }
     },
     {
       kind: "button",
-      cell: { ix: 1, iz: 2 },
+      cell: { ix: 0, iz: 2 },
       level: 0,
       edge: "w",
       channelId: "study-light",
