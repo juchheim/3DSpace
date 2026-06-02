@@ -44,6 +44,7 @@ describe("buildStamps", () => {
       0,
       "stone"
     );
+    expect(buildTargets.length).toBeGreaterThan(32);
     expect(buildTargets.length).toBeGreaterThan(0);
     const door = logicTargets.find((t) => t.kind === "door");
     const button = logicTargets.find((t) => t.kind === "button" && t.channelId === door?.channelId);

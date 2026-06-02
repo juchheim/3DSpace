@@ -772,6 +772,9 @@ export const RoomObjectResetResponseSchema = z.object({
 /** Canonical max build height level (shared with `@3dspace/room-engine`). */
 export const BUILD_MAX_LEVEL = 4;
 
+/** Max pieces per `POST …/build-pieces/batch` (drag-paint + stamps chunk client-side). */
+export const BUILD_PIECES_BATCH_MAX_SIZE = 32;
+
 export const BuildPieceKindSchema = z.enum(["wall", "floor", "ramp", "doorway", "window", "light"]);
 export const BuildPieceEdgeSchema = z.enum(["n", "e", "s", "w"]);
 export const BuildPieceRotationSchema = z.union([
@@ -845,7 +848,7 @@ export const CreateBuildPieceRequestSchema = z
   });
 
 export const CreateBuildPiecesBatchRequestSchema = z.object({
-  pieces: z.array(CreateBuildPieceRequestSchema).min(1).max(32)
+  pieces: z.array(CreateBuildPieceRequestSchema).min(1).max(BUILD_PIECES_BATCH_MAX_SIZE)
 });
 
 export const ListBuildPiecesResponseSchema = z.object({

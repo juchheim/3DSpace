@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import type { BuildPiece } from "@3dspace/contracts";
+import { BUILD_PIECES_BATCH_MAX_SIZE, type BuildPiece } from "@3dspace/contracts";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "../lib/api";
@@ -140,6 +140,54 @@ describe("useBuildPieces", () => {
 
     expect(handled).toBe(false);
     expect(result.current.pieces).toHaveLength(0);
+  });
+
+  it("placeBatch splits large stamps into API-sized chunks", async () => {
+    const batchSize = BUILD_PIECES_BATCH_MAX_SIZE + 5;
+    const placements = Array.from({ length: batchSize }, (_, index) => ({
+      kind: "floor" as const,
+      cell: { ix: 20 + index, iz: 20 },
+      level: 0,
+      materialId: "stone" as const
+    }));
+    const serverPieces: BuildPiece[] = placements.map((placement, index) => ({
+      ...basePiece,
+      id: `build:floor:${placement.cell.ix},${placement.cell.iz}:0`,
+      cell: placement.cell,
+      createdAt: `2026-01-01T00:00:00.00${index}Z`
+    }));
+    vi.mocked(api.createBuildPiecesBatch)
+      .mockResolvedValueOnce({
+        pieces: serverPieces.slice(0, BUILD_PIECES_BATCH_MAX_SIZE),
+        realtimeMessages: []
+      })
+      .mockResolvedValueOnce({
+        pieces: serverPieces.slice(BUILD_PIECES_BATCH_MAX_SIZE),
+        realtimeMessages: []
+      });
+
+    const { result } = renderHook(() =>
+      useBuildPieces({
+        identity,
+        roomId: "room-1",
+        enabled: true
+      })
+    );
+
+    await waitFor(() => {
+      expect(api.listBuildPieces).toHaveBeenCalled();
+    });
+
+    await act(async () => {
+      await result.current.actions.placeBatch(placements);
+    });
+
+    expect(api.createBuildPiecesBatch).toHaveBeenCalledTimes(2);
+    expect(api.createBuildPiecesBatch.mock.calls[0]?.[2]?.pieces).toHaveLength(
+      BUILD_PIECES_BATCH_MAX_SIZE
+    );
+    expect(api.createBuildPiecesBatch.mock.calls[1]?.[2]?.pieces).toHaveLength(5);
+    expect(result.current.pieces).toHaveLength(batchSize);
   });
 
   it("clears pieces on a remote empty batch message", async () => {

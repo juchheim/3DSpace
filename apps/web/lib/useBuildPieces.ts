@@ -1,14 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type {
-  BuildPiece,
-  BuildPieceEdge,
-  BuildPieceKind,
-  BuildPieceMaterial,
-  BuildPieceRotation,
-  CreateBuildPieceRequestSchema,
-  RoomBuildRealtimeMessage
+import {
+  BUILD_PIECES_BATCH_MAX_SIZE,
+  type BuildPiece,
+  type BuildPieceEdge,
+  type BuildPieceKind,
+  type BuildPieceMaterial,
+  type BuildPieceRotation,
+  type CreateBuildPieceRequestSchema,
+  type RoomBuildRealtimeMessage
 } from "@3dspace/contracts";
 import type { z } from "zod";
 import { buildPieceStableId } from "@3dspace/room-engine";
@@ -280,15 +281,18 @@ export function useBuildPieces(input: {
         );
       }
       try {
-        const result = await createBuildPiecesBatch(input.identity, input.roomId, {
-          pieces: uniquePlacements
-        });
-        for (const piece of result.pieces) {
-          upsertLocal(piece);
+        const createdPieces: BuildPiece[] = [];
+        for (let offset = 0; offset < uniquePlacements.length; offset += BUILD_PIECES_BATCH_MAX_SIZE) {
+          const chunk = uniquePlacements.slice(offset, offset + BUILD_PIECES_BATCH_MAX_SIZE);
+          const result = await createBuildPiecesBatch(input.identity, input.roomId, { pieces: chunk });
+          for (const piece of result.pieces) {
+            upsertLocal(piece);
+            createdPieces.push(piece);
+          }
+          applyRealtimeMessages(result.realtimeMessages);
+          publishMessages(input.publish, result.realtimeMessages);
         }
-        applyRealtimeMessages(result.realtimeMessages);
-        publishMessages(input.publish, result.realtimeMessages);
-        return result.pieces;
+        return createdPieces;
       } catch (err) {
         setPiecesById((current) => {
           const next = { ...current };
