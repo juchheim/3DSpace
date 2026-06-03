@@ -11,6 +11,8 @@ import { chromium } from "playwright";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = process.argv[2] || "/tmp/sprocket-bot.png";
 const AZ = Number(process.argv[3] ?? 22); // camera azimuth in degrees (0 = dead front)
+const DIST = Number(process.argv[4] ?? 3.6); // camera distance
+const TY = Number(process.argv[5] ?? 1.0); // look-at height (for zooming on the head)
 
 const MIME = {
   ".js": "text/javascript",
@@ -41,11 +43,13 @@ const key = new THREE.DirectionalLight("#fff4e6", 2.6); key.position.set(4, 7, 5
 const fill = new THREE.DirectionalLight("#9fc0ff", 0.9); fill.position.set(-5, 3, -2); scene.add(fill);
 const rim = new THREE.DirectionalLight("#ffffff", 0.8); rim.position.set(0, 2, -6); scene.add(rim);
 
-const az = Number(new URLSearchParams(location.search).get("az") || "22") * Math.PI / 180;
-const dist = 3.6;
+const q = new URLSearchParams(location.search);
+const az = Number(q.get("az") || "22") * Math.PI / 180;
+const dist = Number(q.get("dist") || "3.6");
+const ty = Number(q.get("ty") || "1.0");
 const camera = new THREE.PerspectiveCamera(36, W / H, 0.1, 100);
-camera.position.set(Math.sin(az) * dist, 1.4, Math.cos(az) * dist);
-camera.lookAt(0, 1.0, 0);
+camera.position.set(Math.sin(az) * dist, ty + 0.3, Math.cos(az) * dist);
+camera.lookAt(0, ty, 0);
 
 const loader = new GLTFLoader();
 loader.load("/apps/web/public/world-hosts/sprocket-bot.glb", (gltf) => {
@@ -78,7 +82,7 @@ await new Promise((r) => server.listen(8099, r));
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 900, height: 1200 } });
 page.on("console", (m) => console.log("PAGE:", m.text()));
-await page.goto(`http://localhost:8099/?az=${AZ}`, { waitUntil: "load" });
+await page.goto(`http://localhost:8099/?az=${AZ}&dist=${DIST}&ty=${TY}`, { waitUntil: "load" });
 await page.waitForFunction(() => window.__done === true, { timeout: 30000 });
 const error = await page.evaluate(() => window.__error || null);
 if (error) console.log("LOAD ERROR:", error);

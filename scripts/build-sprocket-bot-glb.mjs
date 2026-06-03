@@ -27,6 +27,7 @@ import {
   TubeGeometry,
   LatheGeometry,
   CircleGeometry,
+  PlaneGeometry,
   ExtrudeGeometry,
   Shape,
   Path,
@@ -40,6 +41,7 @@ import {
   Quaternion
 } from "three";
 import { Document, NodeIO } from "@gltf-transform/core";
+import sharp from "sharp";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = resolve(__dirname, "../apps/web/public/world-hosts/sprocket-bot.glb");
@@ -397,75 +399,65 @@ function buildLegs() {
   add(tubeThrough([[0.05, 0.86, 0.21], [0.0, 0.7, 0.27], [-0.06, 0.64, 0.23]], 0.011, { tubular: 40 }), "wireYellow");
 }
 
+// Shared torso dimensions (used by the back pack + shoulders too).
+const TORSO = { cy: 1.14, R: 0.33, H: 0.56 };
+const TORSO_TOP = TORSO.cy + TORSO.H / 2; // 1.42
+const TORSO_BOT = TORSO.cy - TORSO.H / 2; // 0.86
+
 function buildTorso() {
-  const cy = 1.07;
-  const R = 0.4;
-  // main brass barrel
-  add(new CylinderGeometry(R, R * 0.95, 0.7, 56), "brass", { pos: [0, cy, 0] });
-  // blue front panel (proud curved segment across the front)
-  add(new CylinderGeometry(R * 1.01, R * 0.96, 0.56, 56, 1, true, -0.9, 1.8), "steelBlue", { pos: [0, cy, 0] });
-  // brass shoulder deck (domed top) + rivet ring
-  add(new SphereGeometry(R, 56, 26, 0, Math.PI * 2, 0, Math.PI / 2), "brass", { pos: [0, cy + 0.34, 0], scale: [1, 0.5, 1] });
-  rivetRingY(cy + 0.33, R * 0.98, 28, 0.013, "brassDark");
-  // top + bottom flange belts with dense rivets
-  for (const by of [cy + 0.32, cy - 0.33]) {
-    add(new TorusGeometry(R * 0.99, 0.03, 14, 56), "brassDark", { pos: [0, by, 0], rot: [Math.PI / 2, 0, 0] });
-    rivetRingY(by, R * 0.99, 30, 0.012, "brass");
+  const { cy, R, H } = TORSO;
+  const top = TORSO_TOP, bot = TORSO_BOT;
+  // z on the curved front surface for a given x (so instruments hug the barrel)
+  const zAt = (x, off = 0.004) => Math.sqrt(Math.max(0.0004, R * R - x * x)) + off;
+
+  // main brass barrel — compact, slightly waisted toward the bottom
+  add(new CylinderGeometry(R, R * 0.92, H, 60), "brass", { pos: [0, cy, 0] });
+  // blue painted front panel (proud curved segment hugging the barrel)
+  add(new CylinderGeometry(R * 1.012, R * 0.94, H * 0.76, 60, 1, true, -0.8, 1.6), "steelBlue", { pos: [0, cy - 0.01, 0] });
+  // LOW brass shoulder deck — the neck emerges cleanly above it (no longer covers the neck)
+  add(new SphereGeometry(R * 0.92, 48, 22, 0, Math.PI * 2, 0, Math.PI / 2), "brass", { pos: [0, top - 0.015, 0], scale: [1, 0.16, 1] });
+  add(new CylinderGeometry(0.1, 0.13, 0.05, 28), "brass", { pos: [0, top + 0.0, 0] }); // neck collar base
+  // top + bottom flange belts with rivets
+  for (const by of [top - 0.01, bot + 0.01]) {
+    add(new TorusGeometry(R * 0.99, 0.026, 14, 60), "brassDark", { pos: [0, by, 0], rot: [Math.PI / 2, 0, 0] });
+    rivetRingY(by, R * 0.99, 26, 0.011, "brass");
   }
-  // a mid brass border framing the blue panel
-  add(new TorusGeometry(R * 0.99, 0.016, 12, 56), "brass", { pos: [0, cy + 0.04, 0], rot: [Math.PI / 2, 0, 0] });
-  const zF = R * 0.99; // front working plane
+  // mid brass border framing the blue panel
+  add(new TorusGeometry(R * 1.0, 0.013, 12, 60), "brass", { pos: [0, cy + 0.05, 0], rot: [Math.PI / 2, 0, 0] });
 
-  // ── handles on the shoulder deck (brass D-rings) ──
-  for (const side of [-1, 1]) {
-    add(new TorusGeometry(0.05, 0.012, 12, 24, Math.PI), "brass", { pos: [side * 0.12, cy + 0.4, 0.16], rot: [0, 0, 0] });
-  }
+  // handles on the deck (brass D-rings)
+  for (const side of [-1, 1]) add(new TorusGeometry(0.045, 0.011, 12, 24, Math.PI), "brass", { pos: [side * 0.1, top + 0.015, 0.09] });
 
-  // ── big central TUNE-O-METER gauge ──
-  gauge(0.02, cy + 0.12, zF + 0.02, 0.13, { needleDeg: -28, ticks: 11 });
-  // ── two rainbow arc dials (top-left) ──
-  rainbowDial(-0.2, cy + 0.2, zF + 0.02, 0.05);
-  rainbowDial(-0.12, cy + 0.24, zF + 0.02, 0.045);
-  // ── interlocking gears (left of centre) ──
-  add(gearGeometry({ teeth: 14, outer: 0.082, root: 0.064, bore: 0.018, depth: 0.028 }), "brassDark", { pos: [-0.22, cy - 0.02, zF + 0.01], rot: [0, 0, 0.2] });
-  add(gearGeometry({ teeth: 10, outer: 0.05, root: 0.038, bore: 0.012, depth: 0.024 }), "brass", { pos: [-0.12, cy - 0.06, zF + 0.015], rot: [0, 0, -0.3] });
-  add(gearGeometry({ teeth: 8, outer: 0.036, root: 0.028, bore: 0.01, depth: 0.02 }), "copper", { pos: [-0.05, cy + 0.0, zF + 0.02], rot: [0, 0, 0.1] });
-  // ── glowing porthole tube (lower-left) ──
-  porthole(-0.16, cy - 0.16, zF + 0.02, 0.11);
-  // ── jewel indicator lights ──
-  jewel(0.16, cy - 0.05, zF + 0.02, 0.026, "jewelAmber");
-  jewel(0.2, cy - 0.13, zF + 0.02, 0.022, "jewelGreen");
-  jewel(0.2, cy - 0.2, zF + 0.02, 0.022, "jewelRed");
-  // ── big red button (lower-right) ──
-  add(new CylinderGeometry(0.035, 0.04, 0.03, 24), "brassDark", { pos: [0.12, cy - 0.22, zF + 0.01], rot: [Math.PI / 2, 0, 0] });
-  add(new SphereGeometry(0.032, 22, 16, 0, Math.PI * 2, 0, Math.PI / 2), "red", { pos: [0.12, cy - 0.22, zF + 0.025], rot: [-Math.PI / 2, 0, 0] });
-  // ── brass control knob (lower-left) ──
-  add(new CylinderGeometry(0.03, 0.034, 0.04, 18), "brass", { pos: [-0.26, cy - 0.18, zF], rot: [Math.PI / 2, 0, 0] });
-  for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; add(new BoxGeometry(0.006, 0.04, 0.008), "brassDark", { pos: [-0.26 + Math.cos(a) * 0.03, cy - 0.18, zF + Math.sin(a) * 0.03], rot: [Math.PI / 2, -a, 0] }); }
-  // ── looping coloured wires across the panel ──
-  add(tubeThrough([[0.18, cy + 0.02, zF], [0.28, cy - 0.04, zF + 0.04], [0.26, cy - 0.16, zF + 0.02], [0.16, cy - 0.22, zF]], 0.012, { tubular: 50 }), "wireRed");
-  add(tubeThrough([[-0.04, cy - 0.24, zF], [0.04, cy - 0.3, zF + 0.03], [0.12, cy - 0.26, zF]], 0.01, { tubular: 36 }), "wireYellow");
-  // panel corner rivets framing the blue front
-  rivetArcFront(cy + 0.26, R, -52, 52, 9, 0.012, "brass");
-  rivetArcFront(cy - 0.27, R, -52, 52, 9, 0.012, "brass");
-
-  // ── side boiler tank + valve + pipe (robot's left / image right, top) ──
-  const bx = 0.34;
-  add(new CylinderGeometry(0.1, 0.1, 0.22, 28), "gunmetal", { pos: [bx, cy + 0.26, -0.02] });
-  add(new SphereGeometry(0.1, 28, 18, 0, Math.PI * 2, 0, Math.PI / 2), "gunmetal", { pos: [bx, cy + 0.37, -0.02], scale: [1, 0.6, 1] });
-  rivetRingY(cy + 0.26, 0.1, 12, 0.011, "brass");
-  // red valve handwheel on top
-  add(new CylinderGeometry(0.02, 0.02, 0.05, 12), "brass", { pos: [bx, cy + 0.42, -0.02] });
-  add(new TorusGeometry(0.035, 0.01, 10, 20), "red", { pos: [bx, cy + 0.45, -0.02], rot: [Math.PI / 2, 0, 0] });
-  for (let i = 0; i < 3; i++) add(new CylinderGeometry(0.005, 0.005, 0.07, 8), "red", { pos: [bx, cy + 0.45, -0.02], rot: [Math.PI / 2, 0, (i * Math.PI) / 3] });
-  // copper pipe from boiler curving into the torso
-  add(tubeThrough([[bx - 0.05, cy + 0.18, 0.04], [bx - 0.12, cy + 0.26, 0.06], [bx - 0.2, cy + 0.2, 0.18], [bx - 0.26, cy + 0.1, 0.28]], 0.022, { tubular: 50 }), "copper");
-  add(new TorusGeometry(0.03, 0.012, 10, 20), "brass", { pos: [bx - 0.05, cy + 0.18, 0.06], rot: [0, 0, Math.PI / 2] });
+  // ── front instruments — each centred on the curved front via zAt ──
+  gauge(0.05, cy + 0.07, zAt(0.05) + 0.015, 0.1, { needleDeg: -28, ticks: 11 });
+  rainbowDial(-0.14, cy + 0.13, zAt(-0.14) + 0.012, 0.042);
+  rainbowDial(-0.075, cy + 0.16, zAt(-0.075) + 0.012, 0.036);
+  add(gearGeometry({ teeth: 14, outer: 0.058, root: 0.046, bore: 0.014, depth: 0.024 }), "brassDark", { pos: [-0.17, cy - 0.03, zAt(-0.17)], rot: [0, 0, 0.2] });
+  add(gearGeometry({ teeth: 10, outer: 0.04, root: 0.03, bore: 0.01, depth: 0.02 }), "brass", { pos: [-0.1, cy - 0.07, zAt(-0.1) + 0.004], rot: [0, 0, -0.3] });
+  add(gearGeometry({ teeth: 8, outer: 0.03, root: 0.023, bore: 0.008, depth: 0.018 }), "copper", { pos: [-0.045, cy - 0.02, zAt(-0.045) + 0.006], rot: [0, 0, 0.1] });
+  porthole(-0.1, cy - 0.15, zAt(-0.1) + 0.012, 0.082);
+  jewel(0.15, cy - 0.04, zAt(0.15) + 0.008, 0.022, "jewelAmber");
+  jewel(0.18, cy - 0.1, zAt(0.18) + 0.006, 0.018, "jewelGreen");
+  jewel(0.18, cy - 0.15, zAt(0.18) + 0.006, 0.018, "jewelRed");
+  // red button
+  add(new CylinderGeometry(0.03, 0.034, 0.026, 24), "brassDark", { pos: [0.1, cy - 0.19, zAt(0.1)], rot: [Math.PI / 2, 0, 0] });
+  add(new SphereGeometry(0.028, 22, 16, 0, Math.PI * 2, 0, Math.PI / 2), "red", { pos: [0.1, cy - 0.19, zAt(0.1) + 0.012], rot: [-Math.PI / 2, 0, 0] });
+  // knurled brass control knob
+  add(new CylinderGeometry(0.026, 0.03, 0.034, 18), "brass", { pos: [-0.2, cy - 0.14, zAt(-0.2)], rot: [Math.PI / 2, 0, 0] });
+  for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; add(new BoxGeometry(0.005, 0.034, 0.007), "brassDark", { pos: [-0.2 + Math.cos(a) * 0.026, cy - 0.14, zAt(-0.2) + Math.sin(a) * 0.026], rot: [Math.PI / 2, -a, 0] }); }
+  // looping coloured wires across the panel
+  add(tubeThrough([[0.16, cy + 0.0, zAt(0.16)], [0.25, cy - 0.05, zAt(0.16) + 0.05], [0.22, cy - 0.16, zAt(0.16) + 0.02], [0.13, cy - 0.21, zAt(0.13)]], 0.011, { tubular: 48 }), "wireRed");
+  add(tubeThrough([[-0.02, cy - 0.2, zAt(0)], [0.05, cy - 0.27, zAt(0) + 0.04], [0.12, cy - 0.22, zAt(0.12)]], 0.009, { tubular: 36 }), "wireYellow");
+  // panel rivet arcs (follow the curve)
+  rivetArcFront(top - 0.06, R, -46, 46, 9, 0.011, "brass");
+  rivetArcFront(bot + 0.06, R, -46, 46, 9, 0.011, "brass");
+  // lower-back vent grille (visible from behind)
+  for (let i = -2; i <= 2; i++) add(new BoxGeometry(0.18, 0.014, 0.01), "darkSteel", { pos: [0, cy - 0.12 + i * 0.028, -zAt(0) + 0.01] });
 }
 
 function shoulderHub(x, side) {
   // stub from the torso deck out to the shoulder ball
-  beam([side * 0.4, 1.36, 0], [x, 1.34, 0], 0.07, 0.08, "brass", 20);
+  beam([side * TORSO.R, 1.36, 0], [x, 1.34, 0], 0.07, 0.08, "brass", 20);
   add(new SphereGeometry(0.1, 32, 22), "brass", { pos: [x, 1.34, 0.0] });
   add(new TorusGeometry(0.088, 0.022, 14, 30), "copper", { pos: [x, 1.34, 0.0], rot: [0, 0, Math.PI / 2] });
   rivetRingForCircle(x, 1.34, 0.088, 0.072, 8, 0.01, "brass");
@@ -528,15 +520,15 @@ function buildPropeller() {
 }
 
 function buildNeck() {
-  // accordion bellows — stacked rings + dark conduit
+  // accordion bellows bridging the torso deck (1.42) and the head chin (1.54)
+  add(new CylinderGeometry(0.058, 0.082, 0.14, 28), "darkSteel", { pos: [0, 1.47, 0] });
   for (let i = 0; i < 5; i++) {
-    const r = 0.078 - Math.abs(i - 2) * 0.004;
-    add(new TorusGeometry(r, 0.016, 12, 30), "gunmetal", { pos: [0, 1.46 + i * 0.026, 0], rot: [Math.PI / 2, 0, 0] });
+    const r = 0.075 - Math.abs(i - 2) * 0.004;
+    add(new TorusGeometry(r, 0.015, 12, 30), "gunmetal", { pos: [0, 1.42 + i * 0.026, 0], rot: [Math.PI / 2, 0, 0] });
   }
-  add(new CylinderGeometry(0.06, 0.085, 0.13, 28), "darkSteel", { pos: [0, 1.48, 0] });
   // colourful wires running up the neck into the head
-  add(tubeThrough([[0.03, 1.44, 0.05], [0.05, 1.52, 0.07], [0.03, 1.6, 0.06]], 0.008, { tubular: 24 }), "wireRed");
-  add(tubeThrough([[-0.03, 1.44, 0.05], [-0.05, 1.52, 0.07], [-0.03, 1.6, 0.06]], 0.008, { tubular: 24 }), "wireBlue");
+  add(tubeThrough([[0.03, 1.4, 0.05], [0.05, 1.48, 0.07], [0.03, 1.56, 0.06]], 0.008, { tubular: 24 }), "wireRed");
+  add(tubeThrough([[-0.03, 1.4, 0.05], [-0.05, 1.48, 0.07], [-0.03, 1.56, 0.06]], 0.008, { tubular: 24 }), "wireBlue");
 }
 
 function buildHead() {
@@ -591,17 +583,43 @@ function buildTopAntennas() {
   add(new SphereGeometry(0.015, 14, 10), "copper", { pos: [-0.1, ty + 0.19, 0.0] });
 }
 
-function buildFlag() {
-  // SPROCKET-BOT pennant on a thin pole (right of the head/shoulder)
-  const fx = 0.5, fz = -0.04, fy = 1.52;
-  add(new CylinderGeometry(0.006, 0.006, 0.46, 10), "brassDark", { pos: [fx, fy + 0.23, fz] });
-  add(new SphereGeometry(0.014, 12, 10), "brass", { pos: [fx, fy + 0.47, fz] });
-  const pennant = new Shape();
-  pennant.moveTo(0, 0); pennant.lineTo(0.26, 0.04); pennant.lineTo(0.0, 0.08); pennant.lineTo(0, 0);
-  const geo = new ExtrudeGeometry(pennant, { depth: 0.004, bevelEnabled: false });
-  geo.computeVertexNormals();
-  add(geo, "cream", { pos: [fx + 0.012, fy + 0.36, fz - 0.002] });
-  add(new BoxGeometry(0.02, 0.07, 0.006), "red", { pos: [fx + 0.028, fy + 0.4, fz] });
+// Where the textured pennant attaches (set by buildBackPack, used after merge).
+let flagAnchor = { x: 0, y: 1.8, z: -0.4, lean: -0.22 };
+
+function buildBackPack() {
+  // A riveted boiler/tank mounted on the upper back (offset to +X = image right).
+  // The flag pole roots into the top of this tank, so the pennant is no longer
+  // floating. Matches the back/side reference views.
+  const tx = 0.13, tz = -0.42, tankR = 0.12, tankH = 0.44;
+  const tcy = 1.05 + tankH / 2; // tank centre ≈ 1.27
+  add(new CylinderGeometry(tankR, tankR, tankH, 32), "gunmetal", { pos: [tx, tcy, tz] });
+  add(new SphereGeometry(tankR, 32, 18, 0, Math.PI * 2, 0, Math.PI / 2), "gunmetal", { pos: [tx, tcy + tankH / 2, tz], scale: [1, 0.7, 1] });
+  add(new SphereGeometry(tankR, 32, 18, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), "gunmetal", { pos: [tx, tcy - tankH / 2, tz], scale: [1, 0.7, 1] });
+  add(new TorusGeometry(tankR, 0.016, 12, 32), "brass", { pos: [tx, tcy + 0.12, tz], rot: [Math.PI / 2, 0, 0] });
+  add(new TorusGeometry(tankR, 0.016, 12, 32), "brass", { pos: [tx, tcy - 0.12, tz], rot: [Math.PI / 2, 0, 0] });
+  rivetRingY(tcy + 0.12, tankR, 14, 0.011, "brass");
+  rivetRingY(tcy - 0.12, tankR, 14, 0.011, "brass");
+  // mounting brackets to the torso back
+  beam([tx - 0.04, tcy + 0.1, tz + 0.04], [0.02, TORSO_TOP - 0.1, -TORSO.R + 0.02], 0.016, 0.016, "brassDark", 12);
+  beam([tx - 0.04, tcy - 0.1, tz + 0.04], [0.02, TORSO.cy - 0.1, -TORSO.R + 0.02], 0.016, 0.016, "brassDark", 12);
+  // copper pipes from the tank into the torso back
+  add(tubeThrough([[tx - 0.08, tcy + 0.14, tz + 0.04], [tx - 0.18, tcy + 0.08, tz + 0.14], [-0.04, TORSO.cy + 0.12, -TORSO.R + 0.04]], 0.02, { tubular: 48 }), "copper");
+  add(tubeThrough([[tx - 0.06, tcy - 0.14, tz + 0.04], [tx - 0.16, TORSO.cy, tz + 0.14], [0.02, TORSO.cy - 0.06, -TORSO.R + 0.04]], 0.018, { tubular: 48 }), "copper");
+  // red valve/petcock on top of the tank
+  add(new CylinderGeometry(0.018, 0.024, 0.05, 14), "brass", { pos: [tx, tcy + tankH / 2 + 0.05, tz] });
+  add(new TorusGeometry(0.032, 0.009, 10, 20), "red", { pos: [tx, tcy + tankH / 2 + 0.09, tz], rot: [Math.PI / 2, 0, 0] });
+  add(new SphereGeometry(0.02, 16, 12), "red", { pos: [tx, tcy + tankH / 2 + 0.09, tz] });
+
+  // ── flag pole rooted in the tank top, leaning out to +X ──
+  const lean = -0.24;
+  const poleBase = [tx, tcy + tankH / 2 + 0.06, tz];
+  const poleLen = 0.42;
+  const poleTop = [poleBase[0] - Math.sin(lean) * poleLen, poleBase[1] + Math.cos(lean) * poleLen, poleBase[2]];
+  add(new CylinderGeometry(0.008, 0.01, poleLen, 12), "brassDark", {
+    pos: [(poleBase[0] + poleTop[0]) / 2, (poleBase[1] + poleTop[1]) / 2, tz], rot: [0, 0, lean]
+  });
+  add(new SphereGeometry(0.014, 12, 10), "brass", { pos: poleTop });
+  flagAnchor = { x: poleTop[0], y: poleTop[1] - 0.02, z: tz, lean };
 }
 
 function buildBaseShadow() {
@@ -611,13 +629,13 @@ function buildBaseShadow() {
 buildBoots();
 buildLegs();
 buildTorso();
+buildBackPack();
 buildShoulders();
 buildArms();
 buildPropeller();
 buildNeck();
 buildHead();
 buildTopAntennas();
-buildFlag();
 buildBaseShadow();
 
 // Seat the model on the floor: shift every vertex so the lowest sits at y = 0
@@ -675,6 +693,54 @@ for (const [materialKey, group] of byMaterial) {
     .setIndices(doc.createAccessor().setType("SCALAR").setArray(indices).setBuffer(buffer))
     .setMaterial(mat);
   rootNode.addChild(doc.createNode(materialKey).setMesh(doc.createMesh(materialKey).addPrimitive(prim)));
+}
+
+// ── SPROCKET-BOT pennant: a waving banner with an embedded "SPROCKET-BOT"
+//    texture, rooted at the back-pack flag pole. Embedded (no external URI) and
+//    1024×320 (≤2048), so it still passes the room-object upload validator. ──
+{
+  // NB: sharp/resvg ignores SVG textLength, so size the font to fit the width.
+  const TW = 1536, TH = 400;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${TW}" height="${TH}">
+    <rect width="${TW}" height="${TH}" fill="#efe6cf"/>
+    <rect x="14" y="14" width="${TW - 28}" height="${TH - 28}" fill="none" stroke="#b09a5e" stroke-width="9"/>
+    <text x="${TW / 2}" y="${TH / 2 + 8}" font-family="Georgia, 'DejaVu Serif', 'Times New Roman', serif" font-weight="bold" font-size="150" fill="#33506b" text-anchor="middle" dominant-baseline="central">SPROCKET-BOT</text>
+  </svg>`;
+  const png = await sharp(Buffer.from(svg)).png().toBuffer();
+  const tex = doc.createTexture("sprocketBotFlag").setImage(new Uint8Array(png)).setMimeType("image/png");
+  const flagMat = doc.createMaterial("flag")
+    .setBaseColorFactor([1, 1, 1, 1]).setRoughnessFactor(0.7).setMetallicFactor(0.0)
+    .setDoubleSided(true).setBaseColorTexture(tex);
+
+  const bw = 0.5, bh = 0.16;
+  const plane = new PlaneGeometry(bw, bh, 40, 3);
+  const pp = plane.attributes.position;
+  for (let i = 0; i < pp.count; i++) {
+    const u = pp.getX(i) / bw + 0.5; // 0 at hoist → 1 at fly
+    pp.setZ(i, Math.sin(u * Math.PI * 2.4) * 0.024 * u); // gentle wave
+    pp.setY(i, pp.getY(i) * (1 - 0.16 * u)); // slight taper toward the fly
+  }
+  plane.computeVertexNormals();
+
+  // Translate so the hoist edge meets the pole top; match the floor-seat shift.
+  const ax = flagAnchor.x + bw / 2, ay = flagAnchor.y - minY, az = flagAnchor.z;
+  const src = plane.attributes.position.array, nrm = plane.attributes.normal.array;
+  const fpos = new Float32Array(src.length), fnor = new Float32Array(src.length);
+  for (let i = 0; i < src.length; i += 3) {
+    fpos[i] = src[i] + ax; fpos[i + 1] = src[i + 1] + ay; fpos[i + 2] = src[i + 2] + az;
+    fnor[i] = nrm[i]; fnor[i + 1] = nrm[i + 1]; fnor[i + 2] = nrm[i + 2];
+  }
+  const flagPrim = doc.createPrimitive()
+    .setAttribute("POSITION", doc.createAccessor().setType("VEC3").setArray(fpos).setBuffer(buffer))
+    .setAttribute("NORMAL", doc.createAccessor().setType("VEC3").setArray(fnor).setBuffer(buffer))
+    // flip V only (keep U) so the text reads upright + left-to-right on the
+    // front (+Z) face users see
+    .setAttribute("TEXCOORD_0", doc.createAccessor().setType("VEC2").setArray(Float32Array.from(plane.attributes.uv.array, (val, i) => (i % 2 === 0 ? val : 1 - val))).setBuffer(buffer))
+    .setIndices(doc.createAccessor().setType("SCALAR").setArray(Uint32Array.from(plane.index.array)).setBuffer(buffer))
+    .setMaterial(flagMat);
+  rootNode.addChild(doc.createNode("flag").setMesh(doc.createMesh("flag").addPrimitive(flagPrim)));
+  totalTriangles += plane.index.count / 3;
+  plane.dispose();
 }
 
 await mkdir(dirname(OUT_PATH), { recursive: true });
