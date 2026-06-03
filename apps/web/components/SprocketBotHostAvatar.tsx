@@ -16,10 +16,10 @@ import type { RetroRobotHostAvatarProps } from "./RetroRobotHostAvatar";
 /** Served from apps/web/public; built by scripts/build-sprocket-bot-glb.mjs. */
 const SPROCKET_BOT_URL = "/world-hosts/sprocket-bot.glb";
 
-// The GLB stands ~2.10 m tall natively; scale it down so its eye line tracks
-// participants at roughly the same height as the procedural retro-robot host.
-const MODEL_NATIVE_HEIGHT = 2.095;
-const TARGET_HEIGHT = 1.85;
+// The GLB stands ~2.28 m tall natively (feet at y=0, antenna tip at the top);
+// scale it so the head/eye line tracks participants near the retro-robot host.
+const MODEL_NATIVE_HEIGHT = 2.275;
+const TARGET_HEIGHT = 2.0;
 const MODEL_SCALE = TARGET_HEIGHT / MODEL_NATIVE_HEIGHT;
 
 const TWO_PI = Math.PI * 2;
@@ -150,7 +150,7 @@ export function SprocketBotHostAvatar({
       </group>
 
       {ghost ? null : (
-        <Billboard position={[0, 2.0, 0]}>
+        <Billboard position={[0, 2.18, 0]}>
           <Html center distanceFactor={nameplateDistanceFactor} style={{ pointerEvents: "none" }}>
             <div className="world-host-nameplate" data-testid="ai-host-nameplate">
               <span className="world-host-nameplate__name">{displayName}</span>
@@ -161,7 +161,7 @@ export function SprocketBotHostAvatar({
       )}
 
       {!ghost && bubble ? (
-        <Billboard position={[0, 2.4, 0]}>
+        <Billboard position={[0, 2.54, 0]}>
           <Html center distanceFactor={9} className="world-host-bubble-html" style={{ pointerEvents: "none" }}>
             <div className={`world-host-bubble${thinking ? " world-host-bubble--thinking" : ""}`} data-testid="ai-host-bubble">
               {bubble}
@@ -171,7 +171,7 @@ export function SprocketBotHostAvatar({
       ) : null}
 
       {!ghost && !bubble && thinking ? (
-        <Billboard position={[0, 2.3, 0]}>
+        <Billboard position={[0, 2.44, 0]}>
           <Html center distanceFactor={9} className="world-host-bubble-html" style={{ pointerEvents: "none" }}>
             <div className="world-host-bubble world-host-bubble--thinking world-host-bubble--typing" aria-label="Guide is thinking">
               <span />

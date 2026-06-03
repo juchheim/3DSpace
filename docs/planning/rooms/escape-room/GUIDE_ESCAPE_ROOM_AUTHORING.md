@@ -7,7 +7,7 @@ wire them together with **channels**, then hit **Play test** to try the puzzle.
 Everything is server-authoritative and syncs to every player in real time. Only
 the room author can place or edit logic; players only interact during play mode.
 
----
+***
 
 ## The toolbars
 
@@ -20,16 +20,16 @@ Place `floor`, `wall`, `ramp`, `doorway`, `window`, `light` pieces and prefab
 
 Toggle **Logic on**, then pick a tool:
 
-| Tool | Role | What it does |
-| --- | --- | --- |
-| **Button** | emitter | Press `E` (or click) to fire its channel. Mounts on a wall edge. |
-| **Plate** | emitter | Fires while a player stands on it (`while held`) or as a pulse. |
-| **Zone** | emitter | Fires when a player enters/leaves a proximity area. |
-| **Timer** | emitter | Fires its channel after a delay (and optionally repeats). |
-| **Door** | consumer | Locked (blocks the wall edge) until its channel is active. Mounts on a wall edge. |
-| **Light** | consumer | Turns on when its channel is active. |
+| Tool         | Role     | What it does                                                                                                        |
+| ------------ | -------- | ------------------------------------------------------------------------------------------------------------------- |
+| **Button**   | emitter  | Press `E` (or click) to fire its channel. Mounts on a wall edge.                                                    |
+| **Plate**    | emitter  | Fires while a player stands on it (`while held`) or as a pulse.                                                     |
+| **Zone**     | emitter  | Fires when a player enters/leaves a proximity area.                                                                 |
+| **Timer**    | emitter  | Fires its channel after a delay (and optionally repeats).                                                           |
+| **Door**     | consumer | Locked (blocks the wall edge) until its channel is active. Mounts on a wall edge.                                   |
+| **Light**    | consumer | Turns on when its channel is active.                                                                                |
 | **Teleport** | consumer | A player who **steps onto** the pad warps to the pad sharing its **Link ID**. Place two pads with the same Link ID. |
-| **Remove** | — | Click a node to delete it. |
+| **Remove**   | —        | Click a node to delete it.                                                                                          |
 
 Players interact in **Play test**: press `E` (or click) near a button, **stand on** a plate, **walk into** a zone, and **step onto** a glowing teleport pad. The play-mode dock lists these verbs live based on what you placed.
 
@@ -43,13 +43,13 @@ in-world.
 
 ### Modes (next to the channel picker)
 
-- **Fires** (emitters): `Pulse` (a blip), `Toggle` (flip on/off each fire),
+* **Fires** (emitters): `Pulse` (a blip), `Toggle` (flip on/off each fire),
   `While held` (active only while stood on / inside).
-- **Reacts** (consumers): `Momentary` (active only while the channel is fresh),
+* **Reacts** (consumers): `Momentary` (active only while the channel is fresh),
   `Toggle`, `Latch` (stays on once fired).
-- **Win exit** (plate/zone): stepping on it ends the session as a win.
-- **Delay ms** (timer): how long after its trigger before it fires.
-- **Link** (teleporter): pads sharing a Link ID warp to each other.
+* **Win exit** (plate/zone): stepping on it ends the session as a win.
+* **Delay ms** (timer): how long after its trigger before it fires.
+* **Link** (teleporter): pads sharing a Link ID warp to each other.
 
 ### Inspector
 
@@ -58,11 +58,11 @@ config, live runtime state, and linked peers (click a peer to jump to it). Edit 
 channel, mode, link, delay, or win-exit here, or remove the node. The inspector is
 also where you set the advanced wiring:
 
-- **Requires all (AND)** (door/light): space-separated channels — the consumer
+* **Requires all (AND)** (door/light): space-separated channels — the consumer
   activates only when *every* listed channel is active (recipe §5 two-key).
-- **Trigger channel** (timer): the channel that arms the timer; blank = arms at
+* **Trigger channel** (timer): the channel that arms the timer; blank \= arms at
   session start (recipe §4 delayed unlock).
-- A teleporter with no paired pad shows a warning until you add a second pad with
+* A teleporter with no paired pad shows a warning until you add a second pad with
   the same Link ID.
 
 ### Debug overlay (play mode, author only)
@@ -71,7 +71,7 @@ In Play test the author sees a live **logic debug** panel: which channels are
 latched/pulsing right now and the state of every consumer node — the "why didn't
 my door open?" aid.
 
----
+***
 
 ## Quickest start: the starter kit
 
@@ -80,7 +80,7 @@ pre-wired logic (button → door on `exit-door`, a closet button → light on
 `study-light`, and a win plate past the door). Switch to **Play test**, **Start
 session**, and walk it. This is recipe §4.10 trimmed to a first playable loop.
 
----
+***
 
 ## Recipe catalog (combine the elements)
 
@@ -101,7 +101,7 @@ Channel names are shown in quotes. Full reference:
    "arm-secret" to arm, then warps via its Link ID to the paired pad.
 7. **Win** — A plate/zone with **Win exit** on; stepping on it ends the session.
 
----
+***
 
 ## Playtest checklist
 

@@ -10,6 +10,7 @@ import { chromium } from "playwright";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = process.argv[2] || "/tmp/sprocket-bot.png";
+const AZ = Number(process.argv[3] ?? 22); // camera azimuth in degrees (0 = dead front)
 
 const MIME = {
   ".js": "text/javascript",
@@ -40,8 +41,10 @@ const key = new THREE.DirectionalLight("#fff4e6", 2.6); key.position.set(4, 7, 5
 const fill = new THREE.DirectionalLight("#9fc0ff", 0.9); fill.position.set(-5, 3, -2); scene.add(fill);
 const rim = new THREE.DirectionalLight("#ffffff", 0.8); rim.position.set(0, 2, -6); scene.add(rim);
 
-const camera = new THREE.PerspectiveCamera(38, W / H, 0.1, 100);
-camera.position.set(1.7, 1.45, 3.3);
+const az = Number(new URLSearchParams(location.search).get("az") || "22") * Math.PI / 180;
+const dist = 3.6;
+const camera = new THREE.PerspectiveCamera(36, W / H, 0.1, 100);
+camera.position.set(Math.sin(az) * dist, 1.4, Math.cos(az) * dist);
 camera.lookAt(0, 1.0, 0);
 
 const loader = new GLTFLoader();
@@ -54,12 +57,13 @@ loader.load("/apps/web/public/world-hosts/sprocket-bot.glb", (gltf) => {
 
 const server = createServer(async (req, res) => {
   try {
-    if (req.url === "/" || req.url === "/index.html") {
+    const pathname = decodeURIComponent(req.url.split("?")[0]);
+    if (pathname === "/" || pathname === "/index.html") {
       res.writeHead(200, { "content-type": "text/html" });
       res.end(PAGE);
       return;
     }
-    const path = normalize(join(ROOT, decodeURIComponent(req.url.split("?")[0])));
+    const path = normalize(join(ROOT, pathname));
     if (!path.startsWith(ROOT)) { res.writeHead(403); res.end(); return; }
     const data = await readFile(path);
     res.writeHead(200, { "content-type": MIME[extname(path)] || "application/octet-stream" });
@@ -74,7 +78,7 @@ await new Promise((r) => server.listen(8099, r));
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 900, height: 1200 } });
 page.on("console", (m) => console.log("PAGE:", m.text()));
-await page.goto("http://localhost:8099/", { waitUntil: "load" });
+await page.goto(`http://localhost:8099/?az=${AZ}`, { waitUntil: "load" });
 await page.waitForFunction(() => window.__done === true, { timeout: 30000 });
 const error = await page.evaluate(() => window.__error || null);
 if (error) console.log("LOAD ERROR:", error);

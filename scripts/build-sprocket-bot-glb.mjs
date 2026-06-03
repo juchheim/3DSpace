@@ -1,17 +1,17 @@
 // Build the "Sprocket-Bot" world-host GLB — a high-definition stylized model of
-// the brass-and-copper steampunk robot reference image. We assemble it from
-// three.js geometry generators (smooth, high-segment surfaces), bake every
-// part's transform into world-space position/normal arrays, then merge by
-// material and emit a single glTF 2.0 binary with @gltf-transform/core.
+// the brass-and-copper steampunk robot reference image. Pass 2 models each part
+// of the reference painstakingly (goggle eyes with filaments, a TUNE-O-METER
+// gauge, interlocking gears, jewel lights, a side boiler + valve, a propeller,
+// shoulder handles, claw grippers, a gripped light bulb, coil-spring legs with
+// knurled knees, copper-capped boots, the pennant) at dense segment counts.
 //
-// The output is intentionally texture-free and uses only core glTF features
-// (PBR metallic-roughness + emissive, no extensions) so it also passes the
-// custom room-object upload validator (validateCustomRoomObjectAsset):
-//   - triangle-only primitives, POSITION present
-//   - no external buffer/image URIs (single embedded GLB buffer)
-//   - no disallowed glTF extensions, no embedded textures
+// The mesh is assembled from three.js geometry generators, each baked into
+// world-space position/normal arrays, then merged by material into a single
+// glTF 2.0 binary via @gltf-transform/core. It is texture-free (PBR
+// metallic-roughness + emissive, no extensions) so it also passes the custom
+// room-object upload validator and can be imported as a placeable object.
 //
-// Run:  node scripts/build-sprocket-bot-glb.mjs
+// Run:  node scripts/build-sprocket-bot-glb.mjs   (or: npm run build:host-glb)
 // Out:  apps/web/public/world-hosts/sprocket-bot.glb
 
 import { mkdir, writeFile } from "node:fs/promises";
@@ -26,62 +26,70 @@ import {
   ConeGeometry,
   TubeGeometry,
   LatheGeometry,
+  CircleGeometry,
   ExtrudeGeometry,
   Shape,
+  Path,
   Curve,
+  CatmullRomCurve3,
   Vector2,
   Vector3,
   Matrix3,
   Matrix4,
-  Euler
+  Euler,
+  Quaternion
 } from "three";
 import { Document, NodeIO } from "@gltf-transform/core";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = resolve(__dirname, "../apps/web/public/world-hosts/sprocket-bot.glb");
+const DEG = Math.PI / 180;
 
-// ── Material palette (PBR metallic-roughness, baked vertex-free colours) ──────
-// colour is linear-ish sRGB hex; emissive given as [r,g,b] 0..1 (core glTF, no
-// emissive-strength extension so it stays within the upload allow-list).
-// Metalness deliberately kept in the 0.3–0.6 range (like the procedural retro
-// robot): the room scene has no environment map, so fully-metallic surfaces
-// would render near-black. Mid metalness + brighter base colours read well
-// under the room's directional lights while keeping a polished-brass look.
+// ── Material palette (PBR metallic-roughness, baked colours, no textures) ─────
+// Metalness kept in 0.3–0.6: the room scene has no environment map, so fully
+// metallic PBR would render near-black. Emissive given as linear [r,g,b].
 const MATERIALS = {
-  brass: { hex: "#d6ac4e", metalness: 0.5, roughness: 0.38 },
-  brassDark: { hex: "#a07f31", metalness: 0.5, roughness: 0.48 },
-  copper: { hex: "#d77a48", metalness: 0.5, roughness: 0.36 },
-  copperDark: { hex: "#a85a32", metalness: 0.5, roughness: 0.44 },
-  steelBlue: { hex: "#4a82a0", metalness: 0.42, roughness: 0.46 },
-  steelBlueDark: { hex: "#356379", metalness: 0.42, roughness: 0.5 },
-  gunmetal: { hex: "#7c848a", metalness: 0.55, roughness: 0.42 },
-  darkSteel: { hex: "#32383d", metalness: 0.5, roughness: 0.52 },
+  brass: { hex: "#c89b3e", metalness: 0.55, roughness: 0.33 },
+  brassLight: { hex: "#dcb858", metalness: 0.5, roughness: 0.28 },
+  brassDark: { hex: "#8f6d2a", metalness: 0.55, roughness: 0.46 },
+  copper: { hex: "#c16a3a", metalness: 0.55, roughness: 0.3 },
+  copperLight: { hex: "#d98a55", metalness: 0.5, roughness: 0.28 },
+  copperDark: { hex: "#8d4626", metalness: 0.55, roughness: 0.44 },
+  steelBlue: { hex: "#40718b", metalness: 0.45, roughness: 0.4 }, // torso front panel
+  steelBlueDk: { hex: "#2c5066", metalness: 0.45, roughness: 0.5 },
+  headBlue: { hex: "#74858f", metalness: 0.5, roughness: 0.44 }, // head + legs dusty blue-grey
+  gunmetal: { hex: "#7e868c", metalness: 0.6, roughness: 0.38 }, // springs
+  pewter: { hex: "#9aa1a6", metalness: 0.6, roughness: 0.34 },
+  darkSteel: { hex: "#2a2e31", metalness: 0.5, roughness: 0.55 },
   rubber: { hex: "#1b1e22", metalness: 0.1, roughness: 0.85 },
-  cream: { hex: "#f0e7cd", metalness: 0.1, roughness: 0.65 },
-  needleRed: { hex: "#c84334", metalness: 0.25, roughness: 0.55 },
-  valveRed: { hex: "#bb3a30", metalness: 0.3, roughness: 0.48 },
-  dialGreen: { hex: "#37a368", metalness: 0.25, roughness: 0.55 },
-  dialYellow: { hex: "#e2b53e", metalness: 0.25, roughness: 0.55 },
-  glassBulb: { hex: "#fff4cf", metalness: 0, roughness: 0.15, emissive: [1.0, 0.86, 0.5] },
-  // Named "eyeGlow" so the runtime avatar can find + pulse these by material name.
-  eyeGlow: { hex: "#ff8a2e", metalness: 0.2, roughness: 0.25, emissive: [1.0, 0.5, 0.12] },
-  eyeSocket: { hex: "#211a12", metalness: 0.35, roughness: 0.6 },
-  wireRed: { hex: "#c2473a", metalness: 0.2, roughness: 0.7 },
-  wireBlue: { hex: "#3a68c0", metalness: 0.2, roughness: 0.7 },
-  wireYellow: { hex: "#d8aa3c", metalness: 0.2, roughness: 0.7 }
+  cream: { hex: "#efe7d0", metalness: 0.08, roughness: 0.6 }, // gauge faces, flag
+  needle: { hex: "#23262a", metalness: 0.3, roughness: 0.5 },
+  red: { hex: "#b5392c", metalness: 0.25, roughness: 0.5 }, // red button, valve
+  green: { hex: "#2f9e5b", metalness: 0.25, roughness: 0.5 },
+  amber: { hex: "#e0a52e", metalness: 0.25, roughness: 0.5 },
+  wireRed: { hex: "#c0392b", metalness: 0.12, roughness: 0.72 },
+  wireBlue: { hex: "#2f5ab2", metalness: 0.12, roughness: 0.72 },
+  wireYellow: { hex: "#d4a72e", metalness: 0.12, roughness: 0.72 },
+  glassBulb: { hex: "#fff4cf", metalness: 0, roughness: 0.12, emissive: [1.0, 0.82, 0.42] },
+  // "eyeGlow" is found + pulsed by name in SprocketBotHostAvatar. Dark base +
+  // strong amber emissive so it reads as a self-lit lens, not a shiny pale ball.
+  eyeGlow: { hex: "#5e2400", metalness: 0.1, roughness: 0.5, emissive: [1.0, 0.42, 0.06] },
+  filament: { hex: "#ffcf80", metalness: 0, roughness: 0.4, emissive: [1.0, 0.55, 0.18] },
+  socket: { hex: "#1b1611", metalness: 0.4, roughness: 0.6 },
+  jewelGreen: { hex: "#3be07a", metalness: 0.2, roughness: 0.22, emissive: [0.12, 0.8, 0.36] },
+  jewelRed: { hex: "#ff5a44", metalness: 0.2, roughness: 0.22, emissive: [0.9, 0.2, 0.12] },
+  jewelAmber: { hex: "#ffb43e", metalness: 0.2, roughness: 0.22, emissive: [1.0, 0.58, 0.12] }
 };
 
 function hexToLinear(hex) {
   const n = parseInt(hex.slice(1), 16);
   const srgb = [(n >> 16 & 0xff) / 255, (n >> 8 & 0xff) / 255, (n & 0xff) / 255];
-  // approximate sRGB -> linear so baseColorFactor reads correctly in three.js
   return srgb.map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
 }
 
-// ── Part accumulator ─────────────────────────────────────────────────────────
+// ── Part accumulator (bakes each geometry's transform into world space) ───────
 /** @type {Array<{positions:Float32Array,normals:Float32Array,indices:Uint32Array,material:string}>} */
 const parts = [];
-
 const _m4 = new Matrix4();
 const _nm = new Matrix3();
 const _euler = new Euler();
@@ -89,10 +97,6 @@ const _pos = new Vector3();
 const _scl = new Vector3();
 const _v = new Vector3();
 
-/**
- * Bake a three.js geometry into world space and stash it as a part.
- * opts: { pos:[x,y,z], rot:[x,y,z] radians, scale:number|[x,y,z] }
- */
 function add(geometry, material, opts = {}) {
   const pos = opts.pos ?? [0, 0, 0];
   const rot = opts.rot ?? [0, 0, 0];
@@ -102,7 +106,6 @@ function add(geometry, material, opts = {}) {
   _pos.set(pos[0], pos[1], pos[2]);
   _euler.set(rot[0], rot[1], rot[2], "XYZ");
   _scl.set(s[0], s[1], s[2]);
-  // Compose T * R * S into _m4 (rotation then scale columns, then translation).
   _m4.makeRotationFromEuler(_euler);
   _m4.scale(_scl);
   _m4.setPosition(_pos);
@@ -111,7 +114,6 @@ function add(geometry, material, opts = {}) {
   const srcPos = geometry.attributes.position.array;
   const srcNorm = geometry.attributes.normal ? geometry.attributes.normal.array : null;
   const count = srcPos.length / 3;
-
   const outPos = new Float32Array(srcPos.length);
   const outNorm = new Float32Array(srcPos.length);
   for (let i = 0; i < count; i++) {
@@ -120,324 +122,490 @@ function add(geometry, material, opts = {}) {
     if (srcNorm) {
       _v.set(srcNorm[i * 3], srcNorm[i * 3 + 1], srcNorm[i * 3 + 2]).applyMatrix3(_nm).normalize();
       outNorm[i * 3] = _v.x; outNorm[i * 3 + 1] = _v.y; outNorm[i * 3 + 2] = _v.z;
-    } else {
-      outNorm[i * 3 + 1] = 1;
-    }
+    } else outNorm[i * 3 + 1] = 1;
   }
-
   let indices;
-  if (geometry.index) {
-    indices = Uint32Array.from(geometry.index.array);
-  } else {
-    indices = new Uint32Array(count);
-    for (let i = 0; i < count; i++) indices[i] = i;
-  }
+  if (geometry.index) indices = Uint32Array.from(geometry.index.array);
+  else { indices = new Uint32Array(count); for (let i = 0; i < count; i++) indices[i] = i; }
   parts.push({ positions: outPos, normals: outNorm, indices, material });
   geometry.dispose?.();
 }
 
 // ── Geometry helpers ─────────────────────────────────────────────────────────
-const DEG = Math.PI / 180;
 
-/** A toothed gear as an extruded shape. */
-function gearGeometry({ teeth = 12, outer = 0.1, root = 0.082, bore = 0.03, depth = 0.03 }) {
+/** Toothed gear (involute-ish) as an extruded shape with a centre bore. */
+function gearGeometry({ teeth = 12, outer = 0.1, root = 0.082, bore = 0.03, depth = 0.03, twist = 0.0 }) {
   const shape = new Shape();
-  const steps = teeth * 2;
+  const steps = teeth * 4;
   for (let i = 0; i <= steps; i++) {
-    const a = (i / steps) * Math.PI * 2;
-    const r = i % 2 === 0 ? outer : root;
-    const x = Math.cos(a) * r;
-    const y = Math.sin(a) * r;
-    if (i === 0) shape.moveTo(x, y);
-    else shape.lineTo(x, y);
+    const phase = (i % 4) / 4;
+    const a = (i / steps) * Math.PI * 2 + twist;
+    // flat-topped trapezoidal teeth: outer for the tooth tip span, root for the gap
+    const r = phase < 0.5 ? outer : root;
+    const x = Math.cos(a) * r, y = Math.sin(a) * r;
+    if (i === 0) shape.moveTo(x, y); else shape.lineTo(x, y);
   }
   if (bore > 0) {
-    const hole = new Shape();
-    for (let i = 0; i <= 24; i++) {
-      const a = (i / 24) * Math.PI * 2;
+    const hole = new Path();
+    for (let i = 0; i <= 28; i++) {
+      const a = (i / 28) * Math.PI * 2;
       const x = Math.cos(a) * bore, y = Math.sin(a) * bore;
       if (i === 0) hole.moveTo(x, y); else hole.lineTo(x, y);
     }
     shape.holes.push(hole);
   }
-  const geo = new ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: depth * 0.18, bevelSize: depth * 0.18, bevelSegments: 1, steps: 1 });
+  const geo = new ExtrudeGeometry(shape, {
+    depth, bevelEnabled: true, bevelThickness: depth * 0.16, bevelSize: depth * 0.16, bevelSegments: 1, steps: 1
+  });
   geo.translate(0, 0, -depth / 2);
   geo.computeVertexNormals();
   return geo;
 }
 
-/** A coil spring: a tube swept along a helix. */
-function springGeometry({ height = 0.4, coilRadius = 0.07, tubeRadius = 0.018, turns = 5, tubular = 220 }) {
+/** Coil spring: a round tube swept along a vertical helix. */
+function springGeometry({ height = 0.4, coilRadius = 0.07, tubeRadius = 0.018, turns = 5, tubular = 200, radial = 12 }) {
   class Helix extends Curve {
     getPoint(t, target = new Vector3()) {
       const a = turns * Math.PI * 2 * t;
       return target.set(Math.cos(a) * coilRadius, t * height - height / 2, Math.sin(a) * coilRadius);
     }
   }
-  return new TubeGeometry(new Helix(), tubular, tubeRadius, 12, false);
+  return new TubeGeometry(new Helix(), tubular, tubeRadius, radial, false);
 }
 
-/** A bent pipe through a few points. */
-function pipeGeometry(points, tubeRadius = 0.022, tubular = 64) {
-  class P extends Curve {
-    getPoint(t, target = new Vector3()) {
-      // Catmull-ish: sample the polyline smoothly
-      const seg = (points.length - 1) * t;
-      const i = Math.min(points.length - 2, Math.floor(seg));
-      const f = seg - i;
-      const a = points[i], b = points[i + 1];
-      return target.set(a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f);
-    }
-  }
-  return new TubeGeometry(new P(), tubular, tubeRadius, 10, false);
+/** Smooth tube through control points (pipes and wires). */
+function tubeThrough(points, tubeRadius = 0.02, { tubular = 60, radial = 10 } = {}) {
+  const curve = new CatmullRomCurve3(points.map((p) => new Vector3(p[0], p[1], p[2])), false, "catmullrom", 0.5);
+  return new TubeGeometry(curve, tubular, tubeRadius, radial, false);
 }
 
-/** A rounded boot via a lathe profile (sole + upper) — returns a side boot. */
-function bootGeometry() {
-  // profile in XY (x = radius from the heel axis), rough rounded shoe shell
+/** Rounded ankle-boot shell from a revolved profile. */
+function bootShellGeometry() {
   const pts = [
-    new Vector2(0.0, 0.0),
-    new Vector2(0.10, 0.0),
-    new Vector2(0.115, 0.03),
-    new Vector2(0.10, 0.075),
-    new Vector2(0.072, 0.11),
-    new Vector2(0.03, 0.125),
-    new Vector2(0.0, 0.13)
+    new Vector2(0.0, 0.0), new Vector2(0.10, 0.0), new Vector2(0.118, 0.028),
+    new Vector2(0.108, 0.07), new Vector2(0.082, 0.108), new Vector2(0.045, 0.132),
+    new Vector2(0.0, 0.14)
   ];
-  const geo = new LatheGeometry(pts, 28);
+  const geo = new LatheGeometry(pts, 36);
   geo.computeVertexNormals();
   return geo;
 }
 
-// ── Assemble the robot (Y up, faces +Z, feet at y=0, ~1.95 m tall) ───────────
+// ── Detail sub-assemblies ────────────────────────────────────────────────────
+
+const _q = new Quaternion();
+const _up = new Vector3(0, 1, 0);
+const _dir = new Vector3();
+const _qe = new Euler();
+/** Tapered cylinder from p0 to p1 (Y-axis cylinder rotated onto the segment). */
+function beam(p0, p1, r0, r1, mat, segs = 22) {
+  _dir.set(p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]);
+  const len = _dir.length() || 1e-5;
+  _dir.normalize();
+  _q.setFromUnitVectors(_up, _dir);
+  _qe.setFromQuaternion(_q);
+  add(new CylinderGeometry(r1, r0, len, segs), mat, {
+    pos: [(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2, (p0[2] + p1[2]) / 2],
+    rot: [_qe.x, _qe.y, _qe.z]
+  });
+}
+
+function addRivet(x, y, z, r = 0.013, mat = "brass") {
+  add(new SphereGeometry(r, 14, 10), mat, { pos: [x, y, z] });
+}
+
+/** Ring of rivets around a vertical axis at height y, radius `radius`. */
+function rivetRingY(y, radius, count, r = 0.013, mat = "brass", phase = 0) {
+  for (let i = 0; i < count; i++) {
+    const a = phase + (i / count) * Math.PI * 2;
+    addRivet(Math.cos(a) * radius, y, Math.sin(a) * radius, r, mat);
+  }
+}
+
+/** Arc of rivets across the *front* of the torso (centred on +Z), shallow on the barrel. */
+function rivetArcFront(y, radius, fromDeg, toDeg, count, r = 0.012, mat = "brass") {
+  for (let i = 0; i < count; i++) {
+    const a = (fromDeg + (toDeg - fromDeg) * (count === 1 ? 0.5 : i / (count - 1))) * DEG;
+    addRivet(Math.sin(a) * radius, y, Math.cos(a) * radius, r, mat);
+  }
+}
+
+/** Hex bolt head with a slight dome. */
+function hexBolt(x, y, z, r = 0.024, depth = 0.018, rot = [0, 0, 0], mat = "brassDark") {
+  add(new CylinderGeometry(r, r, depth, 6), mat, { pos: [x, y, z], rot });
+  add(new SphereGeometry(r * 0.5, 12, 8), "brass", { pos: [x, y + (rot[0] ? 0 : depth * 0.4), z], rot });
+}
+
+/**
+ * Round analog gauge mounted on the torso front (+Z): brass bezel, cream face,
+ * tick marks, a needle and a centre hub. cx,cy on the front plane at z≈zFront.
+ */
+function gauge(cx, cy, zFront, radius, { needleDeg = -35, ticks = 12, faceMat = "cream" } = {}) {
+  add(new TorusGeometry(radius, radius * 0.16, 16, 40), "brass", { pos: [cx, cy, zFront], rot: [Math.PI / 2, 0, 0] });
+  add(new CylinderGeometry(radius * 0.92, radius * 0.92, radius * 0.18, 40), faceMat, { pos: [cx, cy, zFront - 0.01], rot: [Math.PI / 2, 0, 0] });
+  // tick marks around the dial
+  for (let i = 0; i < ticks; i++) {
+    const a = (-120 + (240 * i) / (ticks - 1)) * DEG;
+    const tx = cx + Math.sin(a) * radius * 0.74;
+    const ty = cy + Math.cos(a) * radius * 0.74;
+    add(new BoxGeometry(0.004, radius * 0.16, 0.004), "needle", { pos: [tx, ty, zFront + 0.02], rot: [0, 0, -a] });
+  }
+  // needle + hub
+  const na = needleDeg * DEG;
+  add(new BoxGeometry(0.006, radius * 0.82, 0.006), "needle", {
+    pos: [cx + Math.sin(na) * radius * 0.32, cy + Math.cos(na) * radius * 0.32, zFront + 0.03], rot: [0, 0, -na]
+  });
+  add(new CylinderGeometry(radius * 0.14, radius * 0.14, 0.02, 16), "brassDark", { pos: [cx, cy, zFront + 0.035], rot: [Math.PI / 2, 0, 0] });
+}
+
+/** Little rainbow arc dial (the pair top-left of the chest). */
+function rainbowDial(cx, cy, zFront, radius) {
+  add(new TorusGeometry(radius, radius * 0.2, 12, 28), "brass", { pos: [cx, cy, zFront], rot: [Math.PI / 2, 0, 0] });
+  add(new CylinderGeometry(radius * 0.85, radius * 0.85, 0.016, 28), "cream", { pos: [cx, cy, zFront - 0.008], rot: [Math.PI / 2, 0, 0] });
+  const bands = ["red", "amber", "green"];
+  for (let i = 0; i < 3; i++) {
+    add(new TorusGeometry(radius * 0.6, radius * 0.12, 8, 14, Math.PI * 0.5), bands[i], {
+      pos: [cx, cy, zFront + 0.004], rot: [Math.PI / 2, 0, (-0.78 + i * 0.52)]
+    });
+  }
+  add(new BoxGeometry(0.004, radius * 0.7, 0.004), "needle", { pos: [cx + 0.006, cy + 0.008, zFront + 0.02], rot: [0, 0, -0.4] });
+}
+
+/** Glowing jewel indicator light: emissive dome in a brass bezel. */
+function jewel(x, y, zFront, r, mat) {
+  add(new TorusGeometry(r * 1.05, r * 0.4, 10, 20), "brassDark", { pos: [x, y, zFront], rot: [Math.PI / 2, 0, 0] });
+  add(new SphereGeometry(r, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2), mat, { pos: [x, y, zFront + 0.004], rot: [-Math.PI / 2, 0, 0], scale: [1, 1.1, 1] });
+}
+
+/** Glowing porthole vacuum tube: copper rim, dark socket, glass + coiled filament. */
+function porthole(cx, cy, zFront, radius) {
+  add(new TorusGeometry(radius * 1.05, radius * 0.26, 16, 36), "copper", { pos: [cx, cy, zFront], rot: [Math.PI / 2, 0, 0] });
+  rivetRingForCircle(cx, cy, zFront + 0.01, radius * 1.18, 12, 0.01, "brass");
+  add(new CylinderGeometry(radius * 0.9, radius * 0.9, 0.05, 32), "socket", { pos: [cx, cy, zFront - 0.02], rot: [Math.PI / 2, 0, 0] });
+  add(new SphereGeometry(radius * 0.78, 28, 20), "eyeGlow", { pos: [cx, cy, zFront + 0.02], scale: [1, 1, 0.55] });
+  // filament coil inside
+  add(new TorusGeometry(radius * 0.34, radius * 0.06, 8, 18), "filament", { pos: [cx, cy, zFront + 0.05], rot: [Math.PI / 2, 0.3, 0] });
+}
+
+/** Place a ring of rivets around a circle on the front plane (+Z facing). */
+function rivetRingForCircle(cx, cy, zFront, radius, count, r, mat) {
+  for (let i = 0; i < count; i++) {
+    const a = (i / count) * Math.PI * 2;
+    addRivet(cx + Math.cos(a) * radius, cy + Math.sin(a) * radius, zFront, r, mat);
+  }
+}
+
+/** Goggle eye: short brass cup so a big glowing lens sits proud, with a filament. */
+function gogglEye(cx, cy, cz, radius, tilt) {
+  // shallow brass eye-cup (kept short so the lens reads, not a deep socket)
+  add(new CylinderGeometry(radius * 1.1, radius * 1.2, 0.05, 30), "brass", { pos: [cx, cy, cz - 0.05], rot: [Math.PI / 2 + tilt, 0, 0] });
+  // raised brass bezel ring + thin dark inner rim (kept small so the lens shows)
+  add(new TorusGeometry(radius * 1.04, radius * 0.16, 14, 34), "brassLight", { pos: [cx, cy, cz], rot: [Math.PI / 2 + tilt, 0, 0] });
+  add(new TorusGeometry(radius * 0.92, radius * 0.06, 12, 28), "socket", { pos: [cx, cy, cz + 0.018], rot: [Math.PI / 2 + tilt, 0, 0] });
+  // big glowing amber lens, proud of the bezel (eyeGlow is pulsed at runtime)
+  add(new SphereGeometry(radius * 0.92, 30, 22), "eyeGlow", { pos: [cx, cy, cz + 0.03], scale: [1, 1, 0.7] });
+  // small glowing filament coil sitting on the lens
+  add(new TorusGeometry(radius * 0.3, radius * 0.05, 8, 18), "filament", { pos: [cx, cy, cz + 0.06], rot: [tilt, 0, 0] });
+  rivetRingForCircle(cx, cy, cz, radius * 1.28, 8, 0.009, "brass");
+}
+
+/** Two-pronged claw gripper. Returns nothing; built at (x,y,z), opening downward. */
+function clawGripper(x, y, z, open = 1, rot = [0, 0, 0], scale = 1) {
+  // wrist coupler + pivot
+  add(new CylinderGeometry(0.03 * scale, 0.035 * scale, 0.05 * scale, 16), "brass", { pos: [x, y + 0.04 * scale, z], rot });
+  add(new SphereGeometry(0.034 * scale, 16, 12), "darkSteel", { pos: [x, y, z], rot });
+  for (const side of [-1, 1]) {
+    const sx = side * 0.03 * open * scale;
+    const pts = [
+      [x + side * 0.02 * scale, y, z],
+      [x + sx, y - 0.05 * scale, z + 0.01 * scale],
+      [x + sx * 1.4, y - 0.1 * scale, z + 0.03 * scale],
+      [x + sx * 0.8, y - 0.14 * scale, z + 0.06 * scale]
+    ];
+    add(tubeThrough(pts, 0.014 * scale, { tubular: 24, radial: 8 }), "gunmetal");
+    add(new ConeGeometry(0.016 * scale, 0.04 * scale, 10), "darkSteel", { pos: pts[3], rot: [Math.PI * 0.85, 0, 0] });
+    hexBolt(x + side * 0.02 * scale, y, z + 0.02 * scale, 0.01 * scale, 0.01 * scale, [Math.PI / 2, 0, 0], "brassDark");
+  }
+}
+
+/** Incandescent light bulb gripped in a claw: brass threaded base, glass, filament. */
+function lightBulb(x, y, z) {
+  // threaded brass base (stacked thin rings)
+  for (let i = 0; i < 4; i++) add(new TorusGeometry(0.026 - i * 0.001, 0.006, 8, 18), "brassDark", { pos: [x, y + i * 0.012, z] });
+  add(new CylinderGeometry(0.018, 0.026, 0.05, 18), "brass", { pos: [x, y + 0.02, z] });
+  // glass envelope (teardrop) + filament
+  add(new SphereGeometry(0.05, 30, 22), "glassBulb", { pos: [x, y + 0.11, z], scale: [1, 1.25, 1] });
+  add(new TorusGeometry(0.014, 0.004, 6, 14), "filament", { pos: [x, y + 0.11, z], rot: [Math.PI / 2, 0, 0] });
+  add(new BoxGeometry(0.004, 0.04, 0.004), "filament", { pos: [x, y + 0.08, z] });
+}
+
+/** Knurled knob knee: dark drum with a ring of vertical ridges. */
+function kneeKnob(x, y, z) {
+  add(new CylinderGeometry(0.075, 0.075, 0.1, 40), "darkSteel", { pos: [x, y, z] });
+  add(new TorusGeometry(0.078, 0.012, 10, 36), "gunmetal", { pos: [x, y + 0.045, z], rot: [Math.PI / 2, 0, 0] });
+  add(new TorusGeometry(0.078, 0.012, 10, 36), "gunmetal", { pos: [x, y - 0.045, z], rot: [Math.PI / 2, 0, 0] });
+  for (let i = 0; i < 28; i++) {
+    const a = (i / 28) * Math.PI * 2;
+    add(new BoxGeometry(0.008, 0.085, 0.012), "gunmetal", { pos: [Math.cos(a) * 0.077 + x, y, Math.sin(a) * 0.077 + z], rot: [0, -a, 0] });
+  }
+  hexBolt(x, y, z + 0.078, 0.022, 0.016, [Math.PI / 2, 0, 0], "brass");
+}
+
+// ── Assemble the robot (Y up, faces +Z, feet at y=0, ~2.0 m tall) ─────────────
 
 function buildBoots() {
   for (const side of [-1, 1]) {
-    const x = side * 0.2;
-    // sole — a flattened, forward-stretched boot shell
-    add(bootGeometry(), "darkSteel", { pos: [x, 0.0, 0.02], scale: [1.15, 1.0, 1.6] });
+    const x = side * 0.21;
+    // boot shell (rounded), stretched forward
+    add(bootShellGeometry(), "headBlue", { pos: [x, 0.0, 0.0], scale: [1.15, 1.05, 1.7] });
+    // sole slab
+    add(new BoxGeometry(0.2, 0.05, 0.34), "darkSteel", { pos: [x, 0.025, 0.06], scale: [1, 1, 1] });
+    add(new CylinderGeometry(0.1, 0.1, 0.34, 20, 1, false, -Math.PI / 2, Math.PI), "darkSteel", { pos: [x, 0.04, 0.06], rot: [Math.PI / 2, 0, 0] });
     // copper toe cap
-    add(new SphereGeometry(0.07, 24, 18, 0, Math.PI * 2, 0, Math.PI / 2), "copper", { pos: [x, 0.03, 0.14], scale: [1.1, 0.7, 1.2] });
-    // heel rim
-    add(new TorusGeometry(0.085, 0.018, 12, 28), "brass", { pos: [x, 0.03, 0.0], rot: [Math.PI / 2, 0, 0], scale: [1.1, 1.0, 1.6] });
-    // ankle bolt
-    add(new CylinderGeometry(0.05, 0.055, 0.07, 20), "gunmetal", { pos: [x, 0.16, 0.0] });
+    add(new SphereGeometry(0.085, 26, 18, 0, Math.PI * 2, 0, Math.PI * 0.6), "copper", { pos: [x, 0.05, 0.18], scale: [1.05, 0.8, 1.15] });
+    add(new TorusGeometry(0.07, 0.014, 12, 28, Math.PI), "copperDark", { pos: [x, 0.05, 0.16], rot: [Math.PI / 2, 0, 0] });
+    // copper heel trim + rivets
+    add(new TorusGeometry(0.085, 0.018, 12, 24, Math.PI), "copper", { pos: [x, 0.05, -0.07], rot: [Math.PI / 2, Math.PI, 0] });
+    for (let i = 0; i < 5; i++) addRivet(x - 0.07 + i * 0.035, 0.075, 0.2, 0.01, "brass");
+    // ankle collar
+    add(new TorusGeometry(0.06, 0.02, 12, 28), "brass", { pos: [x, 0.16, 0.0], rot: [Math.PI / 2, 0, 0] });
+    add(new CylinderGeometry(0.05, 0.055, 0.06, 20), "gunmetal", { pos: [x, 0.18, 0.0] });
   }
 }
 
 function buildLegs() {
   for (const side of [-1, 1]) {
-    const x = side * 0.2;
-    // spring shank
-    add(springGeometry({ height: 0.34, coilRadius: 0.066, tubeRadius: 0.017, turns: 6 }), "gunmetal", { pos: [x, 0.37, 0.0] });
-    // knee joint
-    add(new SphereGeometry(0.07, 24, 18), "brass", { pos: [x, 0.57, 0.0] });
-    add(new CylinderGeometry(0.04, 0.04, 0.09, 18), "copper", { pos: [x, 0.63, 0.0] });
-    // hex nut accents at knee
-    add(new CylinderGeometry(0.052, 0.052, 0.03, 6), "brassDark", { pos: [x, 0.57, 0.07], rot: [Math.PI / 2, 0, 0] });
+    const x = side * 0.21;
+    // shin spring (ankle → knee)
+    add(new CylinderGeometry(0.016, 0.016, 0.26, 10), "darkSteel", { pos: [x, 0.33, 0.0] }); // inner rod
+    add(springGeometry({ height: 0.24, coilRadius: 0.062, tubeRadius: 0.016, turns: 6, tubular: 200 }), "gunmetal", { pos: [x, 0.33, 0.0] });
+    // knee
+    kneeKnob(x, 0.5, 0.0);
+    // thigh spring (knee → hip)
+    add(new CylinderGeometry(0.016, 0.016, 0.16, 10), "darkSteel", { pos: [x, 0.6, 0.0] });
+    add(springGeometry({ height: 0.16, coilRadius: 0.055, tubeRadius: 0.015, turns: 4, tubular: 150 }), "gunmetal", { pos: [x, 0.62, 0.0] });
+    add(new CylinderGeometry(0.05, 0.06, 0.06, 20), "brass", { pos: [x, 0.71, 0.0] }); // hip cap
+    hexBolt(x, 0.71, 0.05, 0.018, 0.014, [Math.PI / 2, 0, 0]);
   }
-  // pelvis block
-  add(new CylinderGeometry(0.2, 0.23, 0.16, 32), "brass", { pos: [0, 0.7, 0] });
-  add(new TorusGeometry(0.21, 0.022, 12, 36), "brassDark", { pos: [0, 0.64, 0], rot: [Math.PI / 2, 0, 0] });
+  // pelvis
+  add(new CylinderGeometry(0.21, 0.25, 0.17, 40), "brass", { pos: [0, 0.78, 0] });
+  add(new TorusGeometry(0.22, 0.024, 12, 40), "brassDark", { pos: [0, 0.71, 0], rot: [Math.PI / 2, 0, 0] });
+  rivetRingY(0.78, 0.255, 18, 0.012, "brassDark");
+  // wire bundle drooping from under the torso between the legs
+  add(tubeThrough([[-0.06, 0.86, 0.22], [-0.1, 0.74, 0.26], [-0.04, 0.66, 0.24], [0.0, 0.7, 0.26]], 0.011, { tubular: 40 }), "wireRed");
+  add(tubeThrough([[0.0, 0.86, 0.22], [0.06, 0.72, 0.27], [0.1, 0.66, 0.24]], 0.011, { tubular: 40 }), "wireBlue");
+  add(tubeThrough([[0.05, 0.86, 0.21], [0.0, 0.7, 0.27], [-0.06, 0.64, 0.23]], 0.011, { tubular: 40 }), "wireYellow");
 }
 
 function buildTorso() {
-  const cy = 1.04; // torso centre
-  // main barrel — brass
-  add(new CylinderGeometry(0.34, 0.32, 0.62, 48), "brass", { pos: [0, cy, 0] });
-  // blue front belly panel (slightly proud, curved) — a shallow segment of a larger cylinder
-  add(new CylinderGeometry(0.345, 0.325, 0.5, 48, 1, true, -0.7, 1.4), "steelBlue", { pos: [0, cy, 0] });
-  // domed shoulder top
-  add(new SphereGeometry(0.34, 48, 24, 0, Math.PI * 2, 0, Math.PI / 2), "brass", { pos: [0, cy + 0.31, 0], scale: [1, 0.55, 1] });
-  // belts top + bottom with rivets
-  for (const by of [cy + 0.3, cy - 0.3]) {
-    add(new TorusGeometry(0.335, 0.028, 14, 48), "brassDark", { pos: [0, by, 0], rot: [Math.PI / 2, 0, 0] });
-    for (let i = 0; i < 20; i++) {
-      const a = (i / 20) * Math.PI * 2;
-      add(new SphereGeometry(0.014, 10, 8), "brass", { pos: [Math.cos(a) * 0.335, by, Math.sin(a) * 0.335] });
-    }
+  const cy = 1.07;
+  const R = 0.4;
+  // main brass barrel
+  add(new CylinderGeometry(R, R * 0.95, 0.7, 56), "brass", { pos: [0, cy, 0] });
+  // blue front panel (proud curved segment across the front)
+  add(new CylinderGeometry(R * 1.01, R * 0.96, 0.56, 56, 1, true, -0.9, 1.8), "steelBlue", { pos: [0, cy, 0] });
+  // brass shoulder deck (domed top) + rivet ring
+  add(new SphereGeometry(R, 56, 26, 0, Math.PI * 2, 0, Math.PI / 2), "brass", { pos: [0, cy + 0.34, 0], scale: [1, 0.5, 1] });
+  rivetRingY(cy + 0.33, R * 0.98, 28, 0.013, "brassDark");
+  // top + bottom flange belts with dense rivets
+  for (const by of [cy + 0.32, cy - 0.33]) {
+    add(new TorusGeometry(R * 0.99, 0.03, 14, 56), "brassDark", { pos: [0, by, 0], rot: [Math.PI / 2, 0, 0] });
+    rivetRingY(by, R * 0.99, 30, 0.012, "brass");
+  }
+  // a mid brass border framing the blue panel
+  add(new TorusGeometry(R * 0.99, 0.016, 12, 56), "brass", { pos: [0, cy + 0.04, 0], rot: [Math.PI / 2, 0, 0] });
+  const zF = R * 0.99; // front working plane
+
+  // ── handles on the shoulder deck (brass D-rings) ──
+  for (const side of [-1, 1]) {
+    add(new TorusGeometry(0.05, 0.012, 12, 24, Math.PI), "brass", { pos: [side * 0.12, cy + 0.4, 0.16], rot: [0, 0, 0] });
   }
 
-  // ── glowing belly porthole ──
-  add(new TorusGeometry(0.105, 0.03, 16, 40), "copper", { pos: [0, cy - 0.05, 0.33], rot: [Math.PI / 2, 0, 0] });
-  add(new CylinderGeometry(0.095, 0.095, 0.03, 32), "eyeSocket", { pos: [0, cy - 0.05, 0.33], rot: [Math.PI / 2, 0, 0] });
-  add(new SphereGeometry(0.075, 28, 20), "eyeGlow", { pos: [0, cy - 0.05, 0.35], scale: [1, 1, 0.5] });
+  // ── big central TUNE-O-METER gauge ──
+  gauge(0.02, cy + 0.12, zF + 0.02, 0.13, { needleDeg: -28, ticks: 11 });
+  // ── two rainbow arc dials (top-left) ──
+  rainbowDial(-0.2, cy + 0.2, zF + 0.02, 0.05);
+  rainbowDial(-0.12, cy + 0.24, zF + 0.02, 0.045);
+  // ── interlocking gears (left of centre) ──
+  add(gearGeometry({ teeth: 14, outer: 0.082, root: 0.064, bore: 0.018, depth: 0.028 }), "brassDark", { pos: [-0.22, cy - 0.02, zF + 0.01], rot: [0, 0, 0.2] });
+  add(gearGeometry({ teeth: 10, outer: 0.05, root: 0.038, bore: 0.012, depth: 0.024 }), "brass", { pos: [-0.12, cy - 0.06, zF + 0.015], rot: [0, 0, -0.3] });
+  add(gearGeometry({ teeth: 8, outer: 0.036, root: 0.028, bore: 0.01, depth: 0.02 }), "copper", { pos: [-0.05, cy + 0.0, zF + 0.02], rot: [0, 0, 0.1] });
+  // ── glowing porthole tube (lower-left) ──
+  porthole(-0.16, cy - 0.16, zF + 0.02, 0.11);
+  // ── jewel indicator lights ──
+  jewel(0.16, cy - 0.05, zF + 0.02, 0.026, "jewelAmber");
+  jewel(0.2, cy - 0.13, zF + 0.02, 0.022, "jewelGreen");
+  jewel(0.2, cy - 0.2, zF + 0.02, 0.022, "jewelRed");
+  // ── big red button (lower-right) ──
+  add(new CylinderGeometry(0.035, 0.04, 0.03, 24), "brassDark", { pos: [0.12, cy - 0.22, zF + 0.01], rot: [Math.PI / 2, 0, 0] });
+  add(new SphereGeometry(0.032, 22, 16, 0, Math.PI * 2, 0, Math.PI / 2), "red", { pos: [0.12, cy - 0.22, zF + 0.025], rot: [-Math.PI / 2, 0, 0] });
+  // ── brass control knob (lower-left) ──
+  add(new CylinderGeometry(0.03, 0.034, 0.04, 18), "brass", { pos: [-0.26, cy - 0.18, zF], rot: [Math.PI / 2, 0, 0] });
+  for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; add(new BoxGeometry(0.006, 0.04, 0.008), "brassDark", { pos: [-0.26 + Math.cos(a) * 0.03, cy - 0.18, zF + Math.sin(a) * 0.03], rot: [Math.PI / 2, -a, 0] }); }
+  // ── looping coloured wires across the panel ──
+  add(tubeThrough([[0.18, cy + 0.02, zF], [0.28, cy - 0.04, zF + 0.04], [0.26, cy - 0.16, zF + 0.02], [0.16, cy - 0.22, zF]], 0.012, { tubular: 50 }), "wireRed");
+  add(tubeThrough([[-0.04, cy - 0.24, zF], [0.04, cy - 0.3, zF + 0.03], [0.12, cy - 0.26, zF]], 0.01, { tubular: 36 }), "wireYellow");
+  // panel corner rivets framing the blue front
+  rivetArcFront(cy + 0.26, R, -52, 52, 9, 0.012, "brass");
+  rivetArcFront(cy - 0.27, R, -52, 52, 9, 0.012, "brass");
 
-  // ── round pressure gauge dial (upper-right of chest) ──
-  const gx = 0.15, gy = cy + 0.12, gz = 0.31;
-  add(new TorusGeometry(0.07, 0.016, 12, 32), "brass", { pos: [gx, gy, gz], rot: [Math.PI / 2, 0, 0] });
-  add(new CylinderGeometry(0.062, 0.062, 0.02, 32), "cream", { pos: [gx, gy, gz], rot: [Math.PI / 2, 0, 0] });
-  add(new BoxGeometry(0.008, 0.052, 0.006), "needleRed", { pos: [gx + 0.012, gy + 0.018, gz + 0.012], rot: [0, 0, -0.5] });
-  add(new SphereGeometry(0.01, 10, 8), "darkSteel", { pos: [gx, gy, gz + 0.012] });
+  // ── side boiler tank + valve + pipe (robot's left / image right, top) ──
+  const bx = 0.34;
+  add(new CylinderGeometry(0.1, 0.1, 0.22, 28), "gunmetal", { pos: [bx, cy + 0.26, -0.02] });
+  add(new SphereGeometry(0.1, 28, 18, 0, Math.PI * 2, 0, Math.PI / 2), "gunmetal", { pos: [bx, cy + 0.37, -0.02], scale: [1, 0.6, 1] });
+  rivetRingY(cy + 0.26, 0.1, 12, 0.011, "brass");
+  // red valve handwheel on top
+  add(new CylinderGeometry(0.02, 0.02, 0.05, 12), "brass", { pos: [bx, cy + 0.42, -0.02] });
+  add(new TorusGeometry(0.035, 0.01, 10, 20), "red", { pos: [bx, cy + 0.45, -0.02], rot: [Math.PI / 2, 0, 0] });
+  for (let i = 0; i < 3; i++) add(new CylinderGeometry(0.005, 0.005, 0.07, 8), "red", { pos: [bx, cy + 0.45, -0.02], rot: [Math.PI / 2, 0, (i * Math.PI) / 3] });
+  // copper pipe from boiler curving into the torso
+  add(tubeThrough([[bx - 0.05, cy + 0.18, 0.04], [bx - 0.12, cy + 0.26, 0.06], [bx - 0.2, cy + 0.2, 0.18], [bx - 0.26, cy + 0.1, 0.28]], 0.022, { tubular: 50 }), "copper");
+  add(new TorusGeometry(0.03, 0.012, 10, 20), "brass", { pos: [bx - 0.05, cy + 0.18, 0.06], rot: [0, 0, Math.PI / 2] });
+}
 
-  // ── two small coloured rainbow dials (upper-left) ──
-  add(new CylinderGeometry(0.038, 0.038, 0.02, 24), "dialGreen", { pos: [-0.16, cy + 0.14, 0.31], rot: [Math.PI / 2, 0, 0] });
-  add(new CylinderGeometry(0.038, 0.038, 0.02, 24), "dialYellow", { pos: [-0.105, cy + 0.16, 0.315], rot: [Math.PI / 2, 0, 0] });
-
-  // ── lower vent grille ──
-  for (let i = -2; i <= 2; i++) {
-    add(new BoxGeometry(0.18, 0.012, 0.01), "darkSteel", { pos: [0, cy - 0.18 + i * 0.022, 0.325] });
-  }
-
-  // ── side copper pipes climbing to the shoulders ──
-  add(pipeGeometry([[0.3, cy - 0.18, 0.06], [0.36, cy - 0.02, 0.02], [0.34, cy + 0.18, 0.0], [0.4, cy + 0.28, -0.02]]), "copper", { });
-  add(pipeGeometry([[-0.3, cy - 0.18, 0.06], [-0.36, cy - 0.02, 0.02], [-0.34, cy + 0.18, 0.0]]), "copper", { });
-
-  // ── pressure valve wheel (right side) ──
-  add(new TorusGeometry(0.06, 0.014, 10, 24), "valveRed", { pos: [0.36, cy + 0.05, 0.16], rot: [0, 0.6, 0] });
-  for (let i = 0; i < 4; i++) {
-    add(new CylinderGeometry(0.008, 0.008, 0.12, 8), "valveRed", { pos: [0.36, cy + 0.05, 0.16], rot: [0, 0.6, (i * Math.PI) / 2] });
-  }
-  add(new CylinderGeometry(0.018, 0.018, 0.05, 12), "brass", { pos: [0.345, cy + 0.05, 0.155], rot: [0, 0, Math.PI / 2] });
-
-  // ── colourful wire bundle looping across the belly ──
-  add(pipeGeometry([[-0.12, cy - 0.26, 0.3], [-0.04, cy - 0.32, 0.33], [0.06, cy - 0.24, 0.32]], 0.01), "wireRed", { });
-  add(pipeGeometry([[-0.1, cy - 0.24, 0.31], [0.0, cy - 0.3, 0.34], [0.1, cy - 0.22, 0.31]], 0.01), "wireBlue", { });
-  add(pipeGeometry([[-0.08, cy - 0.28, 0.31], [0.03, cy - 0.33, 0.33], [0.12, cy - 0.26, 0.3]], 0.01), "wireYellow", { });
-
-  // ── decorative gear on the torso side ──
-  add(gearGeometry({ teeth: 12, outer: 0.075, root: 0.06, bore: 0.022, depth: 0.025 }), "brassDark", { pos: [-0.27, cy - 0.04, 0.2], rot: [0, -0.5, 0] });
+function shoulderHub(x, side) {
+  // stub from the torso deck out to the shoulder ball
+  beam([side * 0.4, 1.36, 0], [x, 1.34, 0], 0.07, 0.08, "brass", 20);
+  add(new SphereGeometry(0.1, 32, 22), "brass", { pos: [x, 1.34, 0.0] });
+  add(new TorusGeometry(0.088, 0.022, 14, 30), "copper", { pos: [x, 1.34, 0.0], rot: [0, 0, Math.PI / 2] });
+  rivetRingForCircle(x, 1.34, 0.088, 0.072, 8, 0.01, "brass");
+  add(gearGeometry({ teeth: 12, outer: 0.062, root: 0.048, bore: 0.014, depth: 0.022 }), "brassDark", { pos: [x, 1.34, 0.092], rot: [0, 0, side * 0.2] });
 }
 
 function buildShoulders() {
-  for (const side of [-1, 1]) {
-    add(new SphereGeometry(0.1, 28, 20), "brass", { pos: [side * 0.42, 1.3, 0.0] });
-    add(new TorusGeometry(0.085, 0.02, 12, 28), "copper", { pos: [side * 0.42, 1.3, 0.0], rot: [0, 0, Math.PI / 2] });
-  }
+  shoulderHub(-0.5, -1);
+  shoulderHub(0.5, 1);
 }
 
-function clawHand(baseX, baseY, baseZ, openAmount = 1) {
-  // palm
-  add(new SphereGeometry(0.05, 20, 16), "brass", { pos: [baseX, baseY, baseZ], scale: [1, 0.8, 1] });
-  for (let i = 0; i < 3; i++) {
-    const a = (i / 3) * Math.PI * 2;
-    const fx = Math.cos(a) * 0.04 * openAmount;
-    const fz = Math.sin(a) * 0.04 * openAmount;
-    add(new CylinderGeometry(0.012, 0.008, 0.09, 10), "gunmetal", {
-      pos: [baseX + fx, baseY - 0.05, baseZ + fz],
-      rot: [0.5 * Math.cos(a), 0, -0.5 * Math.sin(a)]
-    });
-    add(new ConeGeometry(0.012, 0.03, 10), "darkSteel", { pos: [baseX + fx * 1.4, baseY - 0.1, baseZ + fz * 1.4], rot: [Math.PI, 0, 0] });
-  }
+/** Joint detail at an elbow: copper ball + a hex pivot bolt facing forward. */
+function elbow(p) {
+  add(new SphereGeometry(0.05, 24, 18), "copper", { pos: p });
+  hexBolt(p[0], p[1], p[2] + 0.052, 0.016, 0.012, [Math.PI / 2, 0, 0]);
 }
 
 function buildArms() {
-  // ── robot's right arm (image left): raised, holding a glowing light bulb ──
+  // ── robot's right arm = IMAGE LEFT (−X): raised, gripping a glowing bulb ──
   {
-    const sx = 0.42, sy = 1.3;
-    add(new CylinderGeometry(0.05, 0.045, 0.26, 24), "steelBlue", { pos: [sx + 0.05, sy - 0.04, 0.06], rot: [0.5, 0, 0.5] });
-    // arm ribs
-    add(new TorusGeometry(0.05, 0.012, 10, 20), "darkSteel", { pos: [sx + 0.02, sy + 0.02, 0.02], rot: [0.6, 0, 0.5] });
-    add(new SphereGeometry(0.052, 20, 16), "copper", { pos: [sx + 0.11, sy - 0.16, 0.14] }); // elbow
-    add(new CylinderGeometry(0.04, 0.036, 0.22, 24), "brass", { pos: [sx + 0.04, sy - 0.05, 0.27], rot: [1.15, 0, 0.2] });
-    const hx = sx - 0.06, hy = sy - 0.04, hz = 0.42;
-    clawHand(hx, hy, hz, 1.1);
-    // light bulb gripped in the claw
-    add(new CylinderGeometry(0.022, 0.03, 0.04, 16), "brassDark", { pos: [hx, hy + 0.05, hz] }); // screw base
-    add(new SphereGeometry(0.05, 28, 22), "glassBulb", { pos: [hx, hy + 0.11, hz], scale: [1, 1.25, 1] }); // glass
+    const sh = [-0.5, 1.32, 0.02];
+    const el = [-0.58, 1.12, 0.16];
+    const wr = [-0.46, 1.18, 0.4];
+    beam(sh, el, 0.052, 0.046, "headBlue"); // upper arm
+    add(new TorusGeometry(0.05, 0.012, 10, 22), "brass", { pos: [sh[0] - 0.02, sh[1] - 0.06, sh[2] + 0.05], rot: [0.7, 0, 0.4] });
+    elbow(el);
+    beam(el, wr, 0.044, 0.036, "brass"); // forearm
+    add(new TorusGeometry(0.04, 0.01, 10, 20), "brassDark", { pos: [(el[0] + wr[0]) / 2, (el[1] + wr[1]) / 2, (el[2] + wr[2]) / 2], rot: [1.1, 0, 0.2] });
+    clawGripper(wr[0], wr[1] + 0.02, wr[2] + 0.02, 1.2, [-0.5, 0, 0], 1.1);
+    lightBulb(wr[0], wr[1] + 0.05, wr[2] + 0.04);
+    // wires dangling from the wrist
+    add(tubeThrough([[wr[0] - 0.02, wr[1], wr[2]], [wr[0] - 0.07, wr[1] - 0.12, wr[2] + 0.02], [wr[0] - 0.03, wr[1] - 0.22, wr[2] - 0.02]], 0.009, { tubular: 30 }), "wireRed");
+    add(tubeThrough([[wr[0] + 0.02, wr[1], wr[2]], [wr[0] + 0.07, wr[1] - 0.14, wr[2] + 0.02], [wr[0] + 0.02, wr[1] - 0.24, wr[2]]], 0.009, { tubular: 30 }), "wireYellow");
+    add(tubeThrough([[wr[0], wr[1] - 0.01, wr[2] + 0.02], [wr[0], wr[1] - 0.16, wr[2] + 0.05], [wr[0] - 0.03, wr[1] - 0.26, wr[2] + 0.02]], 0.009, { tubular: 30 }), "wireBlue");
   }
-  // ── robot's left arm (image right): lowered, claw + propeller nub ──
+  // ── robot's left arm = IMAGE RIGHT (+X): lowered, open claw ──
   {
-    const sx = -0.42, sy = 1.3;
-    add(new CylinderGeometry(0.05, 0.045, 0.28, 24), "steelBlue", { pos: [sx - 0.03, sy - 0.14, 0.02], rot: [-0.1, 0, -0.25] });
-    add(new SphereGeometry(0.052, 20, 16), "copper", { pos: [sx - 0.08, sy - 0.3, 0.02] }); // elbow
-    add(new CylinderGeometry(0.04, 0.036, 0.24, 24), "brass", { pos: [sx - 0.06, sy - 0.44, 0.04], rot: [0.15, 0, -0.12] });
-    clawHand(sx - 0.09, sy - 0.58, 0.06, 0.9);
+    const sh = [0.5, 1.32, 0.02];
+    const el = [0.56, 1.06, 0.04];
+    const wr = [0.54, 0.82, 0.08];
+    beam(sh, el, 0.052, 0.046, "headBlue");
+    add(new TorusGeometry(0.05, 0.012, 10, 22), "brass", { pos: [sh[0] + 0.0, sh[1] - 0.08, sh[2] + 0.02], rot: [-0.1, 0, -0.2] });
+    elbow(el);
+    beam(el, wr, 0.044, 0.036, "brass");
+    add(new TorusGeometry(0.04, 0.01, 10, 20), "brassDark", { pos: [(el[0] + wr[0]) / 2, (el[1] + wr[1]) / 2, (el[2] + wr[2]) / 2], rot: [0.1, 0, 0] });
+    clawGripper(wr[0], wr[1], wr[2], 1.1, [0.1, 0, 0], 1.05);
   }
 }
 
 function buildPropeller() {
-  // little propeller on the robot's left shoulder/back
-  const px = -0.5, py = 1.34, pz = -0.06;
-  add(new CylinderGeometry(0.016, 0.016, 0.05, 12), "brass", { pos: [px, py, pz], rot: [Math.PI / 2, 0, 0] });
-  add(new SphereGeometry(0.022, 14, 10), "copper", { pos: [px, py, pz - 0.03] });
+  // 3-blade propeller on the robot's left shoulder = IMAGE RIGHT (+X), by the boiler
+  const px = 0.58, py = 1.38, pz = -0.05;
+  add(new CylinderGeometry(0.02, 0.02, 0.06, 16), "brass", { pos: [px, py, pz], rot: [Math.PI / 2, 0, 0] });
+  add(new SphereGeometry(0.026, 16, 12), "copper", { pos: [px, py, pz - 0.04] });
   for (let i = 0; i < 3; i++) {
-    add(new BoxGeometry(0.13, 0.006, 0.03), "gunmetal", { pos: [px, py, pz - 0.03], rot: [0, 0, (i * Math.PI * 2) / 3], scale: [1, 1, 1] });
+    const a = (i * Math.PI * 2) / 3;
+    add(new BoxGeometry(0.18, 0.006, 0.04), "gunmetal", { pos: [px, py, pz - 0.04], rot: [0.35, 0, a] });
+    add(new SphereGeometry(0.012, 10, 8), "brass", { pos: [px + Math.cos(a) * 0.085, py + Math.sin(a) * 0.085, pz - 0.04] });
   }
 }
 
 function buildNeck() {
-  // accordion bellows neck — stacked rings
-  for (let i = 0; i < 4; i++) {
-    add(new TorusGeometry(0.07 - i * 0.002, 0.016, 12, 28), "gunmetal", { pos: [0, 1.38 + i * 0.025, 0], rot: [Math.PI / 2, 0, 0] });
+  // accordion bellows — stacked rings + dark conduit
+  for (let i = 0; i < 5; i++) {
+    const r = 0.078 - Math.abs(i - 2) * 0.004;
+    add(new TorusGeometry(r, 0.016, 12, 30), "gunmetal", { pos: [0, 1.46 + i * 0.026, 0], rot: [Math.PI / 2, 0, 0] });
   }
-  add(new CylinderGeometry(0.06, 0.075, 0.1, 24), "darkSteel", { pos: [0, 1.4, 0] });
+  add(new CylinderGeometry(0.06, 0.085, 0.13, 28), "darkSteel", { pos: [0, 1.48, 0] });
+  // colourful wires running up the neck into the head
+  add(tubeThrough([[0.03, 1.44, 0.05], [0.05, 1.52, 0.07], [0.03, 1.6, 0.06]], 0.008, { tubular: 24 }), "wireRed");
+  add(tubeThrough([[-0.03, 1.44, 0.05], [-0.05, 1.52, 0.07], [-0.03, 1.6, 0.06]], 0.008, { tubular: 24 }), "wireBlue");
 }
 
 function buildHead() {
-  const hy = 1.62;
-  // head barrel
-  add(new CylinderGeometry(0.2, 0.205, 0.26, 40), "gunmetal", { pos: [0, hy, 0] });
-  // riveted brass face plate
-  add(new CylinderGeometry(0.198, 0.2, 0.16, 40, 1, true, -0.85, 1.7), "brass", { pos: [0, hy + 0.01, 0] });
+  const hy = 1.68;
+  // head barrel (dusty blue-grey, riveted)
+  add(new CylinderGeometry(0.21, 0.215, 0.3, 44), "headBlue", { pos: [0, hy, 0] });
+  add(new TorusGeometry(0.214, 0.02, 12, 44), "brass", { pos: [0, hy + 0.14, 0], rot: [Math.PI / 2, 0, 0] }); // top collar
+  add(new TorusGeometry(0.216, 0.02, 12, 44), "brass", { pos: [0, hy - 0.14, 0], rot: [Math.PI / 2, 0, 0] }); // chin collar
+  rivetRingY(hy + 0.1, 0.214, 20, 0.011, "brass");
+  rivetRingY(hy - 0.1, 0.216, 20, 0.011, "brass");
   // copper dome
-  add(new SphereGeometry(0.205, 48, 28, 0, Math.PI * 2, 0, Math.PI / 2), "copper", { pos: [0, hy + 0.13, 0], scale: [1, 0.85, 1] });
-  add(new TorusGeometry(0.205, 0.02, 14, 40), "copperDark", { pos: [0, hy + 0.13, 0], rot: [Math.PI / 2, 0, 0] });
-  // brow band
-  add(new BoxGeometry(0.3, 0.03, 0.02), "copper", { pos: [0, hy + 0.08, 0.19], rot: [0.1, 0, 0] });
+  add(new SphereGeometry(0.215, 56, 30, 0, Math.PI * 2, 0, Math.PI / 2), "copper", { pos: [0, hy + 0.15, 0], scale: [1, 0.92, 1] });
+  add(new TorusGeometry(0.215, 0.022, 14, 44), "copperDark", { pos: [0, hy + 0.15, 0], rot: [Math.PI / 2, 0, 0] });
+  rivetRingY(hy + 0.17, 0.205, 16, 0.01, "brass");
 
-  // ── eyes — glowing orange lenses with brass bezels ──
+  // ── goggle eyes ──
+  gogglEye(-0.085, hy + 0.03, 0.2, 0.062, 0.12);
+  gogglEye(0.085, hy + 0.03, 0.2, 0.062, 0.12);
+  // small brow bolt between the eyes
+  hexBolt(0, hy + 0.09, 0.2, 0.014, 0.01, [Math.PI / 2, 0, 0], "brass");
+
+  // ── copper mouth plate with horizontal slot vents ──
+  add(new BoxGeometry(0.2, 0.11, 0.03), "copper", { pos: [0, hy - 0.085, 0.19], rot: [0.05, 0, 0] });
+  add(new BoxGeometry(0.17, 0.085, 0.02), "socket", { pos: [0, hy - 0.085, 0.205] });
+  for (let i = -2; i <= 2; i++) add(new BoxGeometry(0.16, 0.012, 0.02), "copperDark", { pos: [0, hy - 0.085 + i * 0.02, 0.214] });
+  for (const cx of [-0.09, 0.09]) for (const cyR of [-0.04, 0.04]) addRivet(cx, hy - 0.085 + cyR, 0.205, 0.009, "brass");
+
+  // ── ear bolts + side whisker antennas ──
   for (const side of [-1, 1]) {
-    const ex = side * 0.082, ey = hy + 0.02, ez = 0.18;
-    add(new CylinderGeometry(0.052, 0.052, 0.04, 28), "darkSteel", { pos: [ex, ey, ez], rot: [Math.PI / 2 + 0.15, 0, 0] }); // socket tube
-    add(new TorusGeometry(0.05, 0.014, 12, 28), "brass", { pos: [ex, ey, ez + 0.02], rot: [Math.PI / 2, 0, 0] }); // bezel
-    add(new SphereGeometry(0.042, 26, 20), "eyeGlow", { pos: [ex, ey, ez + 0.03], scale: [1, 1, 0.7] }); // glow lens
-  }
-
-  // ── mouth grille ──
-  add(new BoxGeometry(0.18, 0.07, 0.02), "darkSteel", { pos: [0, hy - 0.07, 0.18] });
-  for (let i = -3; i <= 3; i++) {
-    add(new BoxGeometry(0.008, 0.06, 0.018), "copper", { pos: [i * 0.022, hy - 0.07, 0.192] });
-  }
-
-  // ── ear bolts ──
-  for (const side of [-1, 1]) {
-    add(new CylinderGeometry(0.03, 0.03, 0.05, 18), "brass", { pos: [side * 0.205, hy, 0], rot: [0, 0, Math.PI / 2] });
-    add(new CylinderGeometry(0.034, 0.034, 0.02, 6), "brassDark", { pos: [side * 0.235, hy, 0], rot: [0, 0, Math.PI / 2] });
-    // little antenna whisker
-    add(new CylinderGeometry(0.004, 0.004, 0.12, 8), "gunmetal", { pos: [side * 0.27, hy + 0.05, 0], rot: [0, 0, side * 0.6] });
-    add(new SphereGeometry(0.012, 12, 10), "copper", { pos: [side * 0.33, hy + 0.1, 0] });
+    add(new CylinderGeometry(0.03, 0.03, 0.06, 18), "brass", { pos: [side * 0.215, hy, 0], rot: [0, 0, Math.PI / 2] });
+    add(new CylinderGeometry(0.036, 0.036, 0.02, 6), "brassDark", { pos: [side * 0.245, hy, 0], rot: [0, 0, Math.PI / 2] });
+    add(new SphereGeometry(0.012, 12, 10), "brass", { pos: [side * 0.255, hy, 0] });
+    // angled whisker rod with ball tip
+    add(new CylinderGeometry(0.004, 0.004, 0.16, 8), "gunmetal", { pos: [side * 0.27, hy + 0.07, 0], rot: [0, 0, side * 0.5] });
+    add(new SphereGeometry(0.013, 12, 10), "copper", { pos: [side * 0.33, hy + 0.14, 0] });
   }
 }
 
-function buildTopHat() {
-  const ty = 1.88; // dome top
-  // gear crown on top of the dome
-  add(gearGeometry({ teeth: 14, outer: 0.085, root: 0.066, bore: 0.018, depth: 0.022 }), "brass", { pos: [0, ty, 0], rot: [Math.PI / 2, 0, 0] });
-  // central antenna rod + ball
-  add(new CylinderGeometry(0.008, 0.01, 0.16, 14), "brassDark", { pos: [0, ty + 0.1, 0] });
-  add(new SphereGeometry(0.022, 18, 14), "brass", { pos: [0, ty + 0.19, 0] });
-  // small gear threaded on the rod
-  add(gearGeometry({ teeth: 10, outer: 0.03, root: 0.022, bore: 0.009, depth: 0.012 }), "copper", { pos: [0, ty + 0.06, 0], rot: [0, 0.3, 0] });
+function buildTopAntennas() {
+  const ty = 1.96; // dome top
+  // central rod with a flat brass disc (the "cymbal") and a ball finial
+  add(new CylinderGeometry(0.009, 0.011, 0.2, 14), "brass", { pos: [0, ty + 0.1, 0] });
+  add(new CylinderGeometry(0.05, 0.05, 0.012, 28), "brassLight", { pos: [0, ty + 0.06, 0] }); // disc plate
+  add(new SphereGeometry(0.024, 18, 14), "brass", { pos: [0, ty + 0.21, 0] });
+  // brass gear sitting on the dome top, tilted
+  add(gearGeometry({ teeth: 14, outer: 0.075, root: 0.058, bore: 0.016, depth: 0.02 }), "brass", { pos: [0.07, ty + 0.0, 0.03], rot: [Math.PI / 2 - 0.25, 0, 0.2] });
+  // right tall antenna with a loop tip
+  add(new CylinderGeometry(0.005, 0.005, 0.26, 10), "gunmetal", { pos: [0.12, ty + 0.12, -0.02], rot: [0, 0, -0.18] });
+  add(new TorusGeometry(0.026, 0.005, 8, 20), "brass", { pos: [0.17, ty + 0.25, -0.02], rot: [Math.PI / 2, 0, 0] });
+  // left coiled spring antenna
+  add(springGeometry({ height: 0.16, coilRadius: 0.02, tubeRadius: 0.005, turns: 7, tubular: 120, radial: 8 }), "gunmetal", { pos: [-0.1, ty + 0.1, 0.0] });
+  add(new SphereGeometry(0.015, 14, 10), "copper", { pos: [-0.1, ty + 0.19, 0.0] });
+}
 
-  // spring antenna (left)
-  add(springGeometry({ height: 0.14, coilRadius: 0.018, tubeRadius: 0.006, turns: 6, tubular: 120 }), "gunmetal", { pos: [-0.09, ty + 0.09, 0.02] });
-  add(new SphereGeometry(0.016, 14, 10), "copper", { pos: [-0.09, ty + 0.17, 0.02] });
-
-  // straight antenna with loop tip (right)
-  add(new CylinderGeometry(0.005, 0.005, 0.2, 10), "gunmetal", { pos: [0.1, ty + 0.11, -0.02], rot: [0, 0, -0.2] });
-  add(new TorusGeometry(0.022, 0.005, 8, 18), "brass", { pos: [0.14, ty + 0.21, -0.02], rot: [Math.PI / 2, 0, 0] });
-
-  // ── flag / pennant on a thin pole (right shoulder) ──
-  const fx = 0.46, fz = 0.0, fy = 1.42;
-  add(new CylinderGeometry(0.006, 0.006, 0.4, 10), "brassDark", { pos: [fx, fy + 0.2, fz] });
-  add(new SphereGeometry(0.014, 12, 10), "brass", { pos: [fx, fy + 0.41, fz] });
-  // pennant — a thin extruded triangle
+function buildFlag() {
+  // SPROCKET-BOT pennant on a thin pole (right of the head/shoulder)
+  const fx = 0.5, fz = -0.04, fy = 1.52;
+  add(new CylinderGeometry(0.006, 0.006, 0.46, 10), "brassDark", { pos: [fx, fy + 0.23, fz] });
+  add(new SphereGeometry(0.014, 12, 10), "brass", { pos: [fx, fy + 0.47, fz] });
   const pennant = new Shape();
-  pennant.moveTo(0, 0);
-  pennant.lineTo(0.22, 0.035);
-  pennant.lineTo(0.0, 0.07);
-  pennant.lineTo(0, 0);
-  const pennantGeo = new ExtrudeGeometry(pennant, { depth: 0.004, bevelEnabled: false });
-  pennantGeo.computeVertexNormals();
-  add(pennantGeo, "cream", { pos: [fx + 0.012, fy + 0.34, fz - 0.002] });
-  // red stripe on the pennant hoist
-  add(new BoxGeometry(0.02, 0.06, 0.006), "needleRed", { pos: [fx + 0.025, fy + 0.375, fz] });
+  pennant.moveTo(0, 0); pennant.lineTo(0.26, 0.04); pennant.lineTo(0.0, 0.08); pennant.lineTo(0, 0);
+  const geo = new ExtrudeGeometry(pennant, { depth: 0.004, bevelEnabled: false });
+  geo.computeVertexNormals();
+  add(geo, "cream", { pos: [fx + 0.012, fy + 0.36, fz - 0.002] });
+  add(new BoxGeometry(0.02, 0.07, 0.006), "red", { pos: [fx + 0.028, fy + 0.4, fz] });
 }
 
-function buildShadowContact() {
-  // a flat dark disc to seat the robot on the floor when no ground shadow exists
-  add(new CylinderGeometry(0.34, 0.34, 0.004, 36), "rubber", { pos: [0, 0.002, 0] });
+function buildBaseShadow() {
+  add(new CylinderGeometry(0.38, 0.38, 0.004, 40), "rubber", { pos: [0, 0.002, 0.03] });
 }
 
 buildBoots();
@@ -448,8 +616,19 @@ buildArms();
 buildPropeller();
 buildNeck();
 buildHead();
-buildTopHat();
-buildShadowContact();
+buildTopAntennas();
+buildFlag();
+buildBaseShadow();
+
+// Seat the model on the floor: shift every vertex so the lowest sits at y = 0
+// (the avatar places the host with position.y at the feet).
+let minY = Infinity;
+let maxY = -Infinity;
+for (const p of parts) for (let i = 1; i < p.positions.length; i += 3) if (p.positions[i] < minY) minY = p.positions[i];
+for (const p of parts) for (let i = 1; i < p.positions.length; i += 3) {
+  p.positions[i] -= minY;
+  if (p.positions[i] > maxY) maxY = p.positions[i];
+}
 
 // ── Merge by material → write GLB ────────────────────────────────────────────
 const byMaterial = new Map();
@@ -459,7 +638,7 @@ for (const part of parts) {
 }
 
 const doc = new Document();
-Object.assign(doc.getRoot().getAsset(), { generator: "3DSpace sprocket-bot builder v1" });
+Object.assign(doc.getRoot().getAsset(), { generator: "3DSpace sprocket-bot builder v2" });
 const scene = doc.createScene("Sprocket-Bot");
 const rootNode = doc.createNode("Sprocket-Bot");
 scene.addChild(rootNode);
@@ -467,8 +646,7 @@ const buffer = doc.createBuffer();
 
 let totalTriangles = 0;
 for (const [materialKey, group] of byMaterial) {
-  let vertCount = 0;
-  let idxCount = 0;
+  let vertCount = 0, idxCount = 0;
   for (const p of group) { vertCount += p.positions.length / 3; idxCount += p.indices.length; }
   const positions = new Float32Array(vertCount * 3);
   const normals = new Float32Array(vertCount * 3);
@@ -491,16 +669,12 @@ for (const [materialKey, group] of byMaterial) {
     .setMetallicFactor(def.metalness);
   if (def.emissive) mat.setEmissiveFactor(def.emissive);
 
-  const posAcc = doc.createAccessor().setType("VEC3").setArray(positions).setBuffer(buffer);
-  const normAcc = doc.createAccessor().setType("VEC3").setArray(normals).setBuffer(buffer);
-  const idxAcc = doc.createAccessor().setType("SCALAR").setArray(indices).setBuffer(buffer);
   const prim = doc.createPrimitive()
-    .setAttribute("POSITION", posAcc)
-    .setAttribute("NORMAL", normAcc)
-    .setIndices(idxAcc)
+    .setAttribute("POSITION", doc.createAccessor().setType("VEC3").setArray(positions).setBuffer(buffer))
+    .setAttribute("NORMAL", doc.createAccessor().setType("VEC3").setArray(normals).setBuffer(buffer))
+    .setIndices(doc.createAccessor().setType("SCALAR").setArray(indices).setBuffer(buffer))
     .setMaterial(mat);
-  const mesh = doc.createMesh(materialKey).addPrimitive(prim);
-  rootNode.addChild(doc.createNode(materialKey).setMesh(mesh));
+  rootNode.addChild(doc.createNode(materialKey).setMesh(doc.createMesh(materialKey).addPrimitive(prim)));
 }
 
 await mkdir(dirname(OUT_PATH), { recursive: true });
@@ -508,6 +682,7 @@ const glb = await new NodeIO().writeBinary(doc);
 await writeFile(OUT_PATH, Buffer.from(glb));
 
 console.log(`Wrote ${OUT_PATH}`);
-console.log(`Materials (primitives): ${byMaterial.size}`);
+console.log(`Parts: ${parts.length}  ·  Materials (primitives): ${byMaterial.size}`);
 console.log(`Triangles: ${totalTriangles.toLocaleString()}`);
+console.log(`Height (feet→top): ${maxY.toFixed(3)} m`);
 console.log(`File size: ${(glb.byteLength / 1024).toFixed(1)} KB`);
