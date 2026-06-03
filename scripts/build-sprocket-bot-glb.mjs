@@ -311,22 +311,76 @@ function gogglEye(cx, cy, cz, radius, tilt) {
   rivetRingForCircle(cx, cy, cz, radius * 1.28, 8, 0.009, "brass");
 }
 
-/** Two-pronged claw gripper. Returns nothing; built at (x,y,z), opening downward. */
-function clawGripper(x, y, z, open = 1, rot = [0, 0, 0], scale = 1) {
-  // wrist coupler + pivot
-  add(new CylinderGeometry(0.03 * scale, 0.035 * scale, 0.05 * scale, 16), "brass", { pos: [x, y + 0.04 * scale, z], rot });
-  add(new SphereGeometry(0.034 * scale, 16, 12), "darkSteel", { pos: [x, y, z], rot });
+// A ring (torus) centred at p with its axis along dir — used for copper banding.
+const _zAxis = new Vector3(0, 0, 1);
+function ringAt(p, dir, R, tube, mat) {
+  _dir.set(dir[0], dir[1], dir[2]).normalize();
+  _q.setFromUnitVectors(_zAxis, _dir);
+  _qe.setFromQuaternion(_q);
+  add(new TorusGeometry(R, tube, 10, 22), mat, { pos: p, rot: [_qe.x, _qe.y, _qe.z] });
+}
+
+/** Evenly spaced copper bands wrapping an arm segment between p0 and p1. */
+function armBands(p0, p1, r0, r1, n, mat = "copper") {
+  const d = [p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]];
+  for (let i = 1; i <= n; i++) {
+    const t = i / (n + 1);
+    ringAt([p0[0] + d[0] * t, p0[1] + d[1] * t, p0[2] + d[2] * t], d, r0 + (r1 - r0) * t + 0.006, 0.01, mat);
+  }
+}
+
+/** Cylinder hinge elbow: a spool across the bend axis (X) with copper end discs + bolt caps. */
+function hingeElbow(p, r = 0.05, len = 0.095) {
+  add(new CylinderGeometry(r, r, len, 26), "darkSteel", { pos: p, rot: [0, 0, Math.PI / 2] });
+  for (const s of [-1, 1]) {
+    add(new CylinderGeometry(r * 1.12, r * 1.12, 0.014, 26), "copper", { pos: [p[0] + s * len / 2, p[1], p[2]], rot: [0, 0, Math.PI / 2] });
+    add(new CylinderGeometry(r * 0.46, r * 0.46, 0.03, 6), "brass", { pos: [p[0] + s * (len / 2 + 0.012), p[1], p[2]], rot: [0, 0, Math.PI / 2] }); // hex bolt cap
+    add(new SphereGeometry(r * 0.22, 10, 8), "brassLight", { pos: [p[0] + s * (len / 2 + 0.03), p[1], p[2]] });
+  }
+}
+
+/** Wrist collar shared by both hands. */
+function wristCollar(wr, dy = 0.0) {
+  add(new CylinderGeometry(0.034, 0.04, 0.05, 18), "brass", { pos: [wr[0], wr[1] + dy, wr[2]] });
+  add(new TorusGeometry(0.04, 0.011, 10, 22), "copper", { pos: [wr[0], wr[1] + dy + 0.024, wr[2]] });
+}
+
+/** Bulb-cradling hand: two prongs curl UP around the bulb base, glass pointing up. */
+function bulbHand(wr) {
+  wristCollar(wr, -0.02);
+  const bx = wr[0], by = wr[1] + 0.04, bz = wr[2] + 0.02;
   for (const side of [-1, 1]) {
-    const sx = side * 0.03 * open * scale;
     const pts = [
-      [x + side * 0.02 * scale, y, z],
-      [x + sx, y - 0.05 * scale, z + 0.01 * scale],
-      [x + sx * 1.4, y - 0.1 * scale, z + 0.03 * scale],
-      [x + sx * 0.8, y - 0.14 * scale, z + 0.06 * scale]
+      [bx + side * 0.028, by - 0.02, bz - 0.012],
+      [bx + side * 0.058, by + 0.035, bz + 0.0],
+      [bx + side * 0.052, by + 0.088, bz + 0.02],
+      [bx + side * 0.022, by + 0.122, bz + 0.034] // curl in over the bulb
     ];
-    add(tubeThrough(pts, 0.014 * scale, { tubular: 24, radial: 8 }), "gunmetal");
-    add(new ConeGeometry(0.016 * scale, 0.04 * scale, 10), "darkSteel", { pos: pts[3], rot: [Math.PI * 0.85, 0, 0] });
-    hexBolt(x + side * 0.02 * scale, y, z + 0.02 * scale, 0.01 * scale, 0.01 * scale, [Math.PI / 2, 0, 0], "brassDark");
+    add(tubeThrough(pts, 0.013, { tubular: 28, radial: 8 }), "gunmetal");
+    add(new SphereGeometry(0.015, 12, 10), "darkSteel", { pos: pts[3] });   // fingertip
+    add(new SphereGeometry(0.013, 10, 8), "brass", { pos: pts[0] });        // knuckle bolt
+  }
+  lightBulb(bx, by, bz); // base in the cradle, glass above
+  // colourful wires trailing from the bulb base
+  add(tubeThrough([[bx - 0.02, by - 0.03, bz], [bx - 0.06, by - 0.13, bz + 0.02], [bx - 0.03, by - 0.23, bz - 0.01]], 0.009, { tubular: 28 }), "wireRed");
+  add(tubeThrough([[bx + 0.02, by - 0.03, bz], [bx + 0.06, by - 0.15, bz + 0.02], [bx + 0.02, by - 0.25, bz]], 0.009, { tubular: 28 }), "wireYellow");
+  add(tubeThrough([[bx, by - 0.04, bz + 0.01], [bx, by - 0.17, bz + 0.04], [bx - 0.03, by - 0.27, bz + 0.02]], 0.009, { tubular: 28 }), "wireBlue");
+}
+
+/** Open two-prong pincer (empty hand): prongs curl inward at the tips. */
+function openClaw(wr) {
+  wristCollar(wr, 0.03);
+  add(new SphereGeometry(0.03, 16, 12), "darkSteel", { pos: wr });
+  for (const side of [-1, 1]) {
+    const pts = [
+      [wr[0] + side * 0.026, wr[1] - 0.01, wr[2]],
+      [wr[0] + side * 0.052, wr[1] - 0.06, wr[2] + 0.02],
+      [wr[0] + side * 0.046, wr[1] - 0.11, wr[2] + 0.05],
+      [wr[0] + side * 0.016, wr[1] - 0.142, wr[2] + 0.078] // curl inward
+    ];
+    add(tubeThrough(pts, 0.014, { tubular: 28, radial: 8 }), "gunmetal");
+    add(new ConeGeometry(0.016, 0.036, 10), "darkSteel", { pos: pts[3], rot: [Math.PI * 0.8, 0, 0] });
+    add(new SphereGeometry(0.013, 10, 8), "brass", { pos: pts[0] });
   }
 }
 
@@ -469,41 +523,30 @@ function buildShoulders() {
   shoulderHub(0.5, 1);
 }
 
-/** Joint detail at an elbow: copper ball + a hex pivot bolt facing forward. */
-function elbow(p) {
-  add(new SphereGeometry(0.05, 24, 18), "copper", { pos: p });
-  hexBolt(p[0], p[1], p[2] + 0.052, 0.016, 0.012, [Math.PI / 2, 0, 0]);
-}
-
 function buildArms() {
   // ── robot's right arm = IMAGE LEFT (−X): raised, gripping a glowing bulb ──
   {
     const sh = [-0.5, 1.32, 0.02];
-    const el = [-0.58, 1.12, 0.16];
-    const wr = [-0.46, 1.18, 0.4];
-    beam(sh, el, 0.052, 0.046, "headBlue"); // upper arm
-    add(new TorusGeometry(0.05, 0.012, 10, 22), "brass", { pos: [sh[0] - 0.02, sh[1] - 0.06, sh[2] + 0.05], rot: [0.7, 0, 0.4] });
-    elbow(el);
-    beam(el, wr, 0.044, 0.036, "brass"); // forearm
-    add(new TorusGeometry(0.04, 0.01, 10, 20), "brassDark", { pos: [(el[0] + wr[0]) / 2, (el[1] + wr[1]) / 2, (el[2] + wr[2]) / 2], rot: [1.1, 0, 0.2] });
-    clawGripper(wr[0], wr[1] + 0.02, wr[2] + 0.02, 1.2, [-0.5, 0, 0], 1.1);
-    lightBulb(wr[0], wr[1] + 0.05, wr[2] + 0.04);
-    // wires dangling from the wrist
-    add(tubeThrough([[wr[0] - 0.02, wr[1], wr[2]], [wr[0] - 0.07, wr[1] - 0.12, wr[2] + 0.02], [wr[0] - 0.03, wr[1] - 0.22, wr[2] - 0.02]], 0.009, { tubular: 30 }), "wireRed");
-    add(tubeThrough([[wr[0] + 0.02, wr[1], wr[2]], [wr[0] + 0.07, wr[1] - 0.14, wr[2] + 0.02], [wr[0] + 0.02, wr[1] - 0.24, wr[2]]], 0.009, { tubular: 30 }), "wireYellow");
-    add(tubeThrough([[wr[0], wr[1] - 0.01, wr[2] + 0.02], [wr[0], wr[1] - 0.16, wr[2] + 0.05], [wr[0] - 0.03, wr[1] - 0.26, wr[2] + 0.02]], 0.009, { tubular: 30 }), "wireBlue");
+    const el = [-0.58, 1.1, 0.18];
+    const wr = [-0.45, 1.16, 0.4];
+    beam(sh, el, 0.05, 0.044, "headBlue");      // upper arm
+    armBands(sh, el, 0.05, 0.044, 3, "copper");
+    hingeElbow(el, 0.052, 0.095);               // cylinder hinge
+    beam(el, wr, 0.044, 0.034, "brass");        // forearm
+    armBands(el, wr, 0.044, 0.034, 3, "copper");
+    bulbHand(wr);
   }
   // ── robot's left arm = IMAGE RIGHT (+X): lowered, open claw ──
   {
     const sh = [0.5, 1.32, 0.02];
-    const el = [0.56, 1.06, 0.04];
-    const wr = [0.54, 0.82, 0.08];
-    beam(sh, el, 0.052, 0.046, "headBlue");
-    add(new TorusGeometry(0.05, 0.012, 10, 22), "brass", { pos: [sh[0] + 0.0, sh[1] - 0.08, sh[2] + 0.02], rot: [-0.1, 0, -0.2] });
-    elbow(el);
-    beam(el, wr, 0.044, 0.036, "brass");
-    add(new TorusGeometry(0.04, 0.01, 10, 20), "brassDark", { pos: [(el[0] + wr[0]) / 2, (el[1] + wr[1]) / 2, (el[2] + wr[2]) / 2], rot: [0.1, 0, 0] });
-    clawGripper(wr[0], wr[1], wr[2], 1.1, [0.1, 0, 0], 1.05);
+    const el = [0.57, 1.05, 0.05];
+    const wr = [0.55, 0.82, 0.09];
+    beam(sh, el, 0.05, 0.044, "headBlue");
+    armBands(sh, el, 0.05, 0.044, 3, "copper");
+    hingeElbow(el, 0.052, 0.095);
+    beam(el, wr, 0.044, 0.034, "brass");
+    armBands(el, wr, 0.044, 0.034, 3, "copper");
+    openClaw(wr);
   }
 }
 
