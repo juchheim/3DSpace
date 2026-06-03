@@ -74,9 +74,10 @@ const MATERIALS = {
   wireYellow: { hex: "#d4a72e", metalness: 0.12, roughness: 0.72 },
   glassBulb: { hex: "#fff4cf", metalness: 0, roughness: 0.12, emissive: [1.0, 0.82, 0.42] },
   // "eyeGlow" is found + pulsed by name in SprocketBotHostAvatar. Dark base +
-  // strong amber emissive so it reads as a self-lit lens, not a shiny pale ball.
-  eyeGlow: { hex: "#5e2400", metalness: 0.1, roughness: 0.5, emissive: [1.0, 0.42, 0.06] },
-  filament: { hex: "#ffcf80", metalness: 0, roughness: 0.4, emissive: [1.0, 0.55, 0.18] },
+  // strong amber emissive so it reads as a self-lit warm oil-lamp bulb.
+  eyeGlow: { hex: "#5e2400", metalness: 0.1, roughness: 0.5, emissive: [1.0, 0.44, 0.09] },
+  filament: { hex: "#ffcf80", metalness: 0, roughness: 0.4, emissive: [1.0, 0.58, 0.2] },
+  highlight: { hex: "#fff4d8", metalness: 0.0, roughness: 0.25, emissive: [0.7, 0.62, 0.42] },
   socket: { hex: "#1b1611", metalness: 0.4, roughness: 0.6 },
   jewelGreen: { hex: "#3be07a", metalness: 0.2, roughness: 0.22, emissive: [0.12, 0.8, 0.36] },
   jewelRed: { hex: "#ff5a44", metalness: 0.2, roughness: 0.22, emissive: [0.9, 0.2, 0.12] },
@@ -99,7 +100,7 @@ const _pos = new Vector3();
 const _scl = new Vector3();
 const _v = new Vector3();
 
-function add(geometry, material, opts = {}) {
+function bakePart(geometry, material, opts = {}) {
   const pos = opts.pos ?? [0, 0, 0];
   const rot = opts.rot ?? [0, 0, 0];
   const scale = opts.scale ?? 1;
@@ -129,8 +130,13 @@ function add(geometry, material, opts = {}) {
   let indices;
   if (geometry.index) indices = Uint32Array.from(geometry.index.array);
   else { indices = new Uint32Array(count); for (let i = 0; i < count; i++) indices[i] = i; }
-  parts.push({ positions: outPos, normals: outNorm, indices, material });
   geometry.dispose?.();
+  return { positions: outPos, normals: outNorm, indices, material };
+}
+
+/** Bake + collect a part into the merged static mesh. */
+function add(geometry, material, opts = {}) {
+  parts.push(bakePart(geometry, material, opts));
 }
 
 // ── Geometry helpers ─────────────────────────────────────────────────────────
@@ -297,18 +303,34 @@ function rivetRingForCircle(cx, cy, zFront, radius, count, r, mat) {
   }
 }
 
-/** Goggle eye: short brass cup so a big glowing lens sits proud, with a filament. */
-function gogglEye(cx, cy, cz, radius, tilt) {
-  // shallow brass eye-cup (kept short so the lens reads, not a deep socket)
-  add(new CylinderGeometry(radius * 1.1, radius * 1.2, 0.05, 30), "brass", { pos: [cx, cy, cz - 0.05], rot: [Math.PI / 2 + tilt, 0, 0] });
-  // raised brass bezel ring + thin dark inner rim (kept small so the lens shows)
-  add(new TorusGeometry(radius * 1.04, radius * 0.16, 14, 34), "brassLight", { pos: [cx, cy, cz], rot: [Math.PI / 2 + tilt, 0, 0] });
-  add(new TorusGeometry(radius * 0.92, radius * 0.06, 12, 28), "socket", { pos: [cx, cy, cz + 0.018], rot: [Math.PI / 2 + tilt, 0, 0] });
-  // big glowing amber lens, proud of the bezel (eyeGlow is pulsed at runtime)
-  add(new SphereGeometry(radius * 0.92, 30, 22), "eyeGlow", { pos: [cx, cy, cz + 0.03], scale: [1, 1, 0.7] });
-  // small glowing filament coil sitting on the lens
-  add(new TorusGeometry(radius * 0.3, radius * 0.05, 8, 18), "filament", { pos: [cx, cy, cz + 0.06], rot: [tilt, 0, 0] });
-  rivetRingForCircle(cx, cy, cz, radius * 1.28, 8, 0.009, "brass");
+// Movable iris meshes (one per eye) are emitted as their own nodes after the
+// static merge, so the avatar can dart them around for a lifelike gaze.
+// Each entry: { name, center:[x,y,z], parts:[bakedPart,…] } (parts are local).
+const irisSpecs = [];
+
+/**
+ * Round, layered eye facing +Z (no tilt): a static brass socket (concentric
+ * bezel rings + dark interior, merged) plus a separate movable warm "oil-lamp"
+ * bulb/iris node the runtime gazes around inside the socket.
+ */
+function buildEye(name, cx, cy, cz, R) {
+  // recessed brass housing cup (axis along Z)
+  add(new CylinderGeometry(R * 1.0, R * 1.18, 0.08, 32), "brass", { pos: [cx, cy, cz - 0.05], rot: [Math.PI / 2, 0, 0] });
+  // dark interior the iris sits in
+  add(new SphereGeometry(R * 0.86, 26, 18), "socket", { pos: [cx, cy, cz - 0.015], scale: [1, 1, 0.5] });
+  // layered concentric brass bezel rings (in the XY plane, facing +Z)
+  add(new TorusGeometry(R * 1.06, R * 0.17, 16, 40), "brassLight", { pos: [cx, cy, cz] });
+  add(new TorusGeometry(R * 0.9, R * 0.1, 14, 34), "brass", { pos: [cx, cy, cz + 0.013] });
+  add(new TorusGeometry(R * 0.76, R * 0.055, 12, 30), "brassDark", { pos: [cx, cy, cz + 0.024] });
+  rivetRingForCircle(cx, cy, cz, R * 1.3, 10, 0.009, "brass");
+
+  // ── movable warm bulb / iris (separate node; geometry local-centred) ──
+  const lp = [];
+  lp.push(bakePart(new SphereGeometry(R * 0.5, 28, 22), "eyeGlow", { pos: [0, 0, 0.004], scale: [1, 1, 1.15] }));   // glowing bulb
+  lp.push(bakePart(new TorusGeometry(R * 0.22, R * 0.045, 8, 18), "filament", { pos: [0, 0, 0.03] }));               // filament coil
+  lp.push(bakePart(new BoxGeometry(0.0035, R * 0.5, 0.0035), "filament", { pos: [0, 0, 0.034] }));                   // upright filament
+  lp.push(bakePart(new SphereGeometry(R * 0.12, 12, 10), "highlight", { pos: [-R * 0.22, R * 0.24, 0.05] }));        // catchlight
+  irisSpecs.push({ name, center: [cx, cy, cz + 0.02], parts: lp });
 }
 
 // A ring (torus) centred at p with its axis along dir — used for copper banding.
@@ -587,17 +609,17 @@ function buildHead() {
   add(new TorusGeometry(0.215, 0.022, 14, 44), "copperDark", { pos: [0, hy + 0.15, 0], rot: [Math.PI / 2, 0, 0] });
   rivetRingY(hy + 0.17, 0.205, 16, 0.01, "brass");
 
-  // ── goggle eyes ──
-  gogglEye(-0.085, hy + 0.03, 0.2, 0.062, 0.12);
-  gogglEye(0.085, hy + 0.03, 0.2, 0.062, 0.12);
-  // small brow bolt between the eyes
-  hexBolt(0, hy + 0.09, 0.2, 0.014, 0.01, [Math.PI / 2, 0, 0], "brass");
+  // ── round, layered eyes with movable warm-bulb irises ──
+  const eyeR = 0.067;
+  buildEye("eyeIris_L", -0.088, hy + 0.035, 0.205, eyeR);
+  buildEye("eyeIris_R", 0.088, hy + 0.035, 0.205, eyeR);
 
-  // ── copper mouth plate with horizontal slot vents ──
-  add(new BoxGeometry(0.2, 0.11, 0.03), "copper", { pos: [0, hy - 0.085, 0.19], rot: [0.05, 0, 0] });
-  add(new BoxGeometry(0.17, 0.085, 0.02), "socket", { pos: [0, hy - 0.085, 0.205] });
-  for (let i = -2; i <= 2; i++) add(new BoxGeometry(0.16, 0.012, 0.02), "copperDark", { pos: [0, hy - 0.085 + i * 0.02, 0.214] });
-  for (const cx of [-0.09, 0.09]) for (const cyR of [-0.04, 0.04]) addRivet(cx, hy - 0.085 + cyR, 0.205, 0.009, "brass");
+  // ── copper mouth grille with VERTICAL slots (wide, lower-centre of the face) ──
+  const my = hy - 0.088, mz0 = 0.19;
+  add(new BoxGeometry(0.215, 0.1, 0.03), "copper", { pos: [0, my, mz0], rot: [0.04, 0, 0] });        // surround plate
+  add(new BoxGeometry(0.182, 0.074, 0.025), "socket", { pos: [0, my, mz0 + 0.016] });                 // dark recess
+  for (let i = -3; i <= 3; i++) add(new BoxGeometry(0.014, 0.068, 0.022), "copperDark", { pos: [i * 0.026, my, mz0 + 0.025] }); // 7 vertical bars
+  for (const sx of [-0.094, 0.094]) for (const sy of [-0.038, 0.038]) addRivet(sx, my + sy, mz0 + 0.012, 0.009, "brass");
 
   // ── ear bolts + side whisker antennas ──
   for (const side of [-1, 1]) {
@@ -784,6 +806,46 @@ for (const [materialKey, group] of byMaterial) {
   rootNode.addChild(doc.createNode("flag").setMesh(doc.createMesh("flag").addPrimitive(flagPrim)));
   totalTriangles += plane.index.count / 3;
   plane.dispose();
+}
+
+// ── Movable iris nodes (round glowing eyes the runtime darts around) ──
+{
+  const irisMatCache = new Map();
+  const irisMat = (key) => {
+    if (irisMatCache.has(key)) return irisMatCache.get(key);
+    const def = MATERIALS[key];
+    const [r, g, b] = hexToLinear(def.hex);
+    const m = doc.createMaterial(key).setBaseColorFactor([r, g, b, 1]).setRoughnessFactor(def.roughness).setMetallicFactor(def.metalness);
+    if (def.emissive) m.setEmissiveFactor(def.emissive);
+    irisMatCache.set(key, m);
+    return m;
+  };
+  for (const spec of irisSpecs) {
+    const mesh = doc.createMesh(spec.name);
+    const byMat = new Map();
+    for (const p of spec.parts) {
+      if (!byMat.has(p.material)) byMat.set(p.material, []);
+      byMat.get(p.material).push(p);
+    }
+    for (const [matKey, group] of byMat) {
+      let vc = 0, ic = 0;
+      for (const p of group) { vc += p.positions.length / 3; ic += p.indices.length; }
+      const positions = new Float32Array(vc * 3), normals = new Float32Array(vc * 3), indices = new Uint32Array(ic);
+      let vo = 0, io = 0;
+      for (const p of group) {
+        positions.set(p.positions, vo * 3); normals.set(p.normals, vo * 3);
+        for (let i = 0; i < p.indices.length; i++) indices[io + i] = p.indices[i] + vo;
+        vo += p.positions.length / 3; io += p.indices.length;
+      }
+      totalTriangles += ic / 3;
+      mesh.addPrimitive(doc.createPrimitive()
+        .setAttribute("POSITION", doc.createAccessor().setType("VEC3").setArray(positions).setBuffer(buffer))
+        .setAttribute("NORMAL", doc.createAccessor().setType("VEC3").setArray(normals).setBuffer(buffer))
+        .setIndices(doc.createAccessor().setType("SCALAR").setArray(indices).setBuffer(buffer))
+        .setMaterial(irisMat(matKey)));
+    }
+    rootNode.addChild(doc.createNode(spec.name).setMesh(mesh).setTranslation([spec.center[0], spec.center[1] - minY, spec.center[2]]));
+  }
 }
 
 await mkdir(dirname(OUT_PATH), { recursive: true });

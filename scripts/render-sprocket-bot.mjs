@@ -53,8 +53,11 @@ const camera = new THREE.PerspectiveCamera(36, W / H, 0.1, 100);
 camera.position.set(tx + Math.sin(az) * dist, ty + 0.3, Math.cos(az) * dist);
 camera.lookAt(tx, ty, 0);
 
+// Optional iris offset (ex,ey) to preview the runtime gaze extremes.
+const ex = Number(q.get("ex") || "0"), ey = Number(q.get("ey") || "0");
 const loader = new GLTFLoader();
 loader.load("/apps/web/public/world-hosts/sprocket-bot.glb", (gltf) => {
+  if (ex || ey) gltf.scene.traverse((o) => { if (o.name && o.name.startsWith("eyeIris")) { o.position.x += ex; o.position.y += ey; } });
   scene.add(gltf.scene);
   renderer.render(scene, camera);
   window.__done = true;
@@ -84,7 +87,8 @@ await new Promise((r) => server.listen(8099, r));
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 900, height: 1200 } });
 page.on("console", (m) => console.log("PAGE:", m.text()));
-await page.goto(`http://localhost:8099/?az=${AZ}&dist=${DIST}&ty=${TY}&tx=${TX}`, { waitUntil: "load" });
+const EX = process.argv[7] ?? "0", EY = process.argv[8] ?? "0";
+await page.goto(`http://localhost:8099/?az=${AZ}&dist=${DIST}&ty=${TY}&tx=${TX}&ex=${EX}&ey=${EY}`, { waitUntil: "load" });
 await page.waitForFunction(() => window.__done === true, { timeout: 30000 });
 const error = await page.evaluate(() => window.__error || null);
 if (error) console.log("LOAD ERROR:", error);

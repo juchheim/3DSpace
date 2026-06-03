@@ -87,6 +87,18 @@ export function SprocketBotHostAvatar({
     return mats;
   }, [model]);
 
+  // Movable iris nodes (built as separate "eyeIris_*" nodes in the GLB) so the
+  // gaze can wander; remember each one's base position to offset from.
+  const irisNodes = useMemo(() => {
+    const out: { obj: Object3D; bx: number; by: number; bz: number }[] = [];
+    model.traverse((object) => {
+      if (object.name && object.name.startsWith("eyeIris")) {
+        out.push({ obj: object, bx: object.position.x, by: object.position.y, bz: object.position.z });
+      }
+    });
+    return out;
+  }, [model]);
+
   // Apply the translucent placement-ghost look once.
   useEffect(() => {
     if (!ghost) return;
@@ -123,6 +135,16 @@ export function SprocketBotHostAvatar({
         intensity = Math.sin(t * 7) > 0 ? 2.4 : 1.5; // bright flicker
       }
       for (const material of eyeMaterials) material.emissiveIntensity = intensity;
+    }
+
+    // Lifelike gaze: both irises wander together with a slow drift plus occasional
+    // quicker shifts (a touch more roving while thinking).
+    if (!ghost && irisNodes.length > 0) {
+      const range = thinking ? 0.016 : 0.012;
+      const dart = Math.max(0, Math.sin(t * 0.6 + Math.sin(t * 0.21) * 2.0)) ** 6; // brief look-aways
+      const gx = ((Math.sin(t * 0.33) * 0.55 + Math.sin(t * 0.12 + 1.7) * 0.45) + dart * 0.5) * range;
+      const gy = (Math.sin(t * 0.23 + 0.6) * 0.55 + Math.sin(t * 0.08) * 0.45) * range * 0.7;
+      for (const iris of irisNodes) iris.obj.position.set(iris.bx + gx, iris.by + gy, iris.bz);
     }
   });
 
