@@ -7968,6 +7968,16 @@ body.lobby-dark::before {
   gap: 8px;
 }
 
+.ai-world-host-card__avatar-picker {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.ai-world-host-card__avatar-picker .ai-world-host-card__button {
+  flex: 1 1 0;
+}
+
 .ai-world-host-card__button {
   border: 1px solid var(--hud-bd);
   border-radius: 6px;

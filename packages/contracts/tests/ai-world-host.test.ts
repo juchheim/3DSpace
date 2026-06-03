@@ -76,6 +76,21 @@ describe("AI World Host (contracts)", () => {
       updatedAt: now
     });
     expect(host.displayName).toBe("Chip");
+    // Hosts created before the avatar field default to the retro robot.
+    expect(host.avatar).toBe("retro-robot");
+
+    const sprocket = RoomAiHostSchema.parse({
+      id: "host-2",
+      roomId: "room-2",
+      displayName: "Sprocket",
+      avatar: "sprocket-bot",
+      position: { x: 0, y: 0, z: 0 },
+      rotationY: 0,
+      createdByUserId: "user-1",
+      createdAt: now,
+      updatedAt: now
+    });
+    expect(sprocket.avatar).toBe("sprocket-bot");
 
     const file = RoomAiHostFileSchema.parse({
       id: "file-1",
@@ -109,7 +124,22 @@ describe("AI World Host (contracts)", () => {
       position: { x: 1, y: 0, z: 2 }
     });
 
+    const summonWithAvatar = CreateRoomAiHostRequestSchema.parse({
+      displayName: "Sprocket",
+      avatar: "sprocket-bot",
+      position: { x: 1, y: 0, z: 2 }
+    });
+    expect(summonWithAvatar.avatar).toBe("sprocket-bot");
+
     PatchRoomAiHostRequestSchema.parse({ displayName: "Renamed" });
+    // Avatar alone is a valid patch.
+    expect(PatchRoomAiHostRequestSchema.parse({ avatar: "sprocket-bot" }).avatar).toBe("sprocket-bot");
+    // An unknown avatar variant is rejected.
+    expect(() => CreateRoomAiHostRequestSchema.parse({
+      displayName: "Bad Bot",
+      avatar: "mystery-bot",
+      position: { x: 0, y: 0, z: 0 }
+    })).toThrow();
 
     expect(DismissRoomAiHostQuerySchema.parse({}).deleteFiles).toBe(false);
     expect(DismissRoomAiHostQuerySchema.parse({ deleteFiles: "true" }).deleteFiles).toBe(true);

@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, Grid } from "@react-three/drei";
 import { type Group, type Mesh } from "three";
 import { RetroRobotHostAvatar } from "./RetroRobotHostAvatar";
+import { SprocketBotHostAvatar } from "./SprocketBotHostAvatar";
+
+type AvatarVariant = "retro-robot" | "sprocket-bot";
 
 /**
  * Dev-only authoring harness for the AI World Host's RetroRobotHostAvatar. No
@@ -48,6 +51,7 @@ const PRESET_BUBBLES = [
 
 export function RetroRobotHostHarness() {
   const [animState, setAnimState] = useState<StateName>("idle");
+  const [avatar, setAvatar] = useState<AvatarVariant>("retro-robot");
   const [ghost, setGhost] = useState(false);
   const [bubbleIndex, setBubbleIndex] = useState(0);
   const [autoRotate, setAutoRotate] = useState(true);
@@ -66,6 +70,34 @@ export function RetroRobotHostHarness() {
           <p style={{ margin: 0, fontSize: "0.7rem", letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.6 }}>AI World Host · Phase 3</p>
           <h1 style={{ margin: "0.2rem 0 0", fontSize: "1.25rem" }}>RetroRobotHostAvatar</h1>
         </div>
+
+        <section style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          <h2 style={{ fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.7, margin: 0 }}>Avatar</h2>
+          <div style={{ display: "flex", gap: "0.4rem" }}>
+            {([
+              ["retro-robot", "Retro Robot"],
+              ["sprocket-bot", "Sprocket-Bot"]
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setAvatar(value)}
+                style={{
+                  flex: 1,
+                  padding: "0.45rem 0.2rem",
+                  borderRadius: 8,
+                  border: "1px solid #2b3a4d",
+                  background: avatar === value ? "#3ECFCC" : "#141d28",
+                  color: avatar === value ? "#06222a" : "#cdd7e3",
+                  fontWeight: 600,
+                  cursor: "pointer"
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </section>
 
         <section style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
           <h2 style={{ fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.7, margin: 0 }}>Animation state</h2>
@@ -143,16 +175,31 @@ export function RetroRobotHostHarness() {
           <directionalLight position={[-5, 3, -2]} intensity={0.8} color="#9fc0ff" />
           <directionalLight position={[0, 2, -6]} intensity={0.7} />
 
-          <RetroRobotHostAvatar
-            position={{ x: 0, y: 0, z: 0 }}
-            rotationY={0}
-            displayName="Chip"
-            thinking={animState === "thinking"}
-            speaking={animState === "speaking"}
-            bubbleText={PRESET_BUBBLES[bubbleIndex] ?? null}
-            ghost={ghost}
-            onInteract={() => setClickLabel(new Date().toLocaleTimeString())}
-          />
+          {avatar === "sprocket-bot" ? (
+            <Suspense fallback={null}>
+              <SprocketBotHostAvatar
+                position={{ x: 0, y: 0, z: 0 }}
+                rotationY={0}
+                displayName="Sprocket"
+                thinking={animState === "thinking"}
+                speaking={animState === "speaking"}
+                bubbleText={PRESET_BUBBLES[bubbleIndex] ?? null}
+                ghost={ghost}
+                onInteract={() => setClickLabel(new Date().toLocaleTimeString())}
+              />
+            </Suspense>
+          ) : (
+            <RetroRobotHostAvatar
+              position={{ x: 0, y: 0, z: 0 }}
+              rotationY={0}
+              displayName="Chip"
+              thinking={animState === "thinking"}
+              speaking={animState === "speaking"}
+              bubbleText={PRESET_BUBBLES[bubbleIndex] ?? null}
+              ghost={ghost}
+              onInteract={() => setClickLabel(new Date().toLocaleTimeString())}
+            />
+          )}
 
           <Grid
             args={[20, 20]}

@@ -1647,10 +1647,20 @@ export const UploadMeetingNotesAudioChunkResponseSchema = z.object({
 
 export const RoomAiHostDisplayNameSchema = z.string().min(3).max(24);
 
+/**
+ * Which 3D avatar represents the World Host. Defaults to the original procedural
+ * retro robot; "sprocket-bot" is the high-detail steampunk GLB host. Older hosts
+ * created before this field existed parse as "retro-robot" via the default.
+ */
+export const RoomAiHostAvatarSchema = z
+  .enum(["retro-robot", "sprocket-bot"])
+  .default("retro-robot");
+
 export const RoomAiHostSchema = z.object({
   id: z.string().min(1),
   roomId: z.string().min(1),
   displayName: RoomAiHostDisplayNameSchema,
+  avatar: RoomAiHostAvatarSchema,
   position: Vector3Schema,
   rotationY: z.number(),
   createdByUserId: z.string().min(1),
@@ -1728,6 +1738,7 @@ export const GetRoomAiHostResponseSchema = z.object({
 
 export const CreateRoomAiHostRequestSchema = z.object({
   displayName: RoomAiHostDisplayNameSchema,
+  avatar: RoomAiHostAvatarSchema.optional(),
   position: Vector3Schema,
   rotationY: z.number().optional()
 });
@@ -1735,15 +1746,17 @@ export const CreateRoomAiHostRequestSchema = z.object({
 export const PatchRoomAiHostRequestSchema = z
   .object({
     displayName: RoomAiHostDisplayNameSchema.optional(),
+    avatar: RoomAiHostAvatarSchema.optional(),
     position: Vector3Schema.optional(),
     rotationY: z.number().optional()
   })
   .refine(
     (value) =>
       value.displayName !== undefined ||
+      value.avatar !== undefined ||
       value.position !== undefined ||
       value.rotationY !== undefined,
-    { message: "At least one of displayName, position, or rotationY is required" }
+    { message: "At least one of displayName, avatar, position, or rotationY is required" }
   );
 
 export const DismissRoomAiHostQuerySchema = z.object({

@@ -17,7 +17,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "openapi": "npm run build -w @3dspace/contracts && npm --workspace @3dspace/api run openapi"
+    "openapi": "npm run build -w @3dspace/contracts && npm --workspace @3dspace/api run openapi",
+    "build:host-glb": "node scripts/build-sprocket-bot-glb.mjs",
+    "render:host-glb": "node scripts/render-sprocket-bot.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.44.1",

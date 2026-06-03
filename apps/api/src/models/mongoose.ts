@@ -391,6 +391,7 @@ export function createModels(connection: Connection): Models {
     id: { type: String, required: true, unique: true },
     roomId: { type: String, required: true, unique: true },
     displayName: { type: String, required: true },
+    avatar: { type: String, required: true, default: "retro-robot" },
     position: {
       type: new Schema(
         {
@@ -669,6 +670,7 @@ function docToRoomAiHost(doc: Record<string, unknown>): RoomAiHost {
     id: doc.id as string,
     roomId: doc.roomId as string,
     displayName: doc.displayName as string,
+    avatar: (doc.avatar as RoomAiHost["avatar"]) ?? "retro-robot",
     position: { x: position.x, y: position.y, z: position.z },
     rotationY: doc.rotationY as number,
     createdByUserId: doc.createdByUserId as string,

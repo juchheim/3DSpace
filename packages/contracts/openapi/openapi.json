@@ -16591,6 +16591,14 @@
                           "minLength": 3,
                           "maxLength": 24
                         },
+                        "avatar": {
+                          "type": "string",
+                          "enum": [
+                            "retro-robot",
+                            "sprocket-bot"
+                          ],
+                          "default": "retro-robot"
+                        },
                         "position": {
                           "type": "object",
                           "properties": {
@@ -16668,6 +16676,14 @@
                     "minLength": 3,
                     "maxLength": 24
                   },
+                  "avatar": {
+                    "type": "string",
+                    "enum": [
+                      "retro-robot",
+                      "sprocket-bot"
+                    ],
+                    "default": "retro-robot"
+                  },
                   "position": {
                     "type": "object",
                     "properties": {
@@ -16724,6 +16740,14 @@
                           "type": "string",
                           "minLength": 3,
                           "maxLength": 24
+                        },
+                        "avatar": {
+                          "type": "string",
+                          "enum": [
+                            "retro-robot",
+                            "sprocket-bot"
+                          ],
+                          "default": "retro-robot"
                         },
                         "position": {
                           "type": "object",
@@ -16805,6 +16829,14 @@
                                     "minLength": 3,
                                     "maxLength": 24
                                   },
+                                  "avatar": {
+                                    "type": "string",
+                                    "enum": [
+                                      "retro-robot",
+                                      "sprocket-bot"
+                                    ],
+                                    "default": "retro-robot"
+                                  },
                                   "position": {
                                     "type": "object",
                                     "properties": {
@@ -16880,6 +16912,10 @@
                               },
                               "roomId": {
                                 "type": "string"
+                              },
+                              "deleteFiles": {
+                                "type": "boolean",
+                                "default": false
                               },
                               "sentAt": {
                                 "type": "integer"
@@ -17064,6 +17100,14 @@
                     "minLength": 3,
                     "maxLength": 24
                   },
+                  "avatar": {
+                    "type": "string",
+                    "enum": [
+                      "retro-robot",
+                      "sprocket-bot"
+                    ],
+                    "default": "retro-robot"
+                  },
                   "position": {
                     "type": "object",
                     "properties": {
@@ -17116,6 +17160,14 @@
                           "type": "string",
                           "minLength": 3,
                           "maxLength": 24
+                        },
+                        "avatar": {
+                          "type": "string",
+                          "enum": [
+                            "retro-robot",
+                            "sprocket-bot"
+                          ],
+                          "default": "retro-robot"
                         },
                         "position": {
                           "type": "object",
@@ -17197,6 +17249,14 @@
                                     "minLength": 3,
                                     "maxLength": 24
                                   },
+                                  "avatar": {
+                                    "type": "string",
+                                    "enum": [
+                                      "retro-robot",
+                                      "sprocket-bot"
+                                    ],
+                                    "default": "retro-robot"
+                                  },
                                   "position": {
                                     "type": "object",
                                     "properties": {
@@ -17272,6 +17332,10 @@
                               },
                               "roomId": {
                                 "type": "string"
+                              },
+                              "deleteFiles": {
+                                "type": "boolean",
+                                "default": false
                               },
                               "sentAt": {
                                 "type": "integer"
@@ -17490,6 +17554,14 @@
                                     "minLength": 3,
                                     "maxLength": 24
                                   },
+                                  "avatar": {
+                                    "type": "string",
+                                    "enum": [
+                                      "retro-robot",
+                                      "sprocket-bot"
+                                    ],
+                                    "default": "retro-robot"
+                                  },
                                   "position": {
                                     "type": "object",
                                     "properties": {
@@ -17565,6 +17637,10 @@
                               },
                               "roomId": {
                                 "type": "string"
+                              },
+                              "deleteFiles": {
+                                "type": "boolean",
+                                "default": false
                               },
                               "sentAt": {
                                 "type": "integer"
@@ -17999,6 +18075,14 @@
                                     "minLength": 3,
                                     "maxLength": 24
                                   },
+                                  "avatar": {
+                                    "type": "string",
+                                    "enum": [
+                                      "retro-robot",
+                                      "sprocket-bot"
+                                    ],
+                                    "default": "retro-robot"
+                                  },
                                   "position": {
                                     "type": "object",
                                     "properties": {
@@ -18074,6 +18158,10 @@
                               },
                               "roomId": {
                                 "type": "string"
+                              },
+                              "deleteFiles": {
+                                "type": "boolean",
+                                "default": false
                               },
                               "sentAt": {
                                 "type": "integer"
@@ -18389,6 +18477,14 @@
                                     "minLength": 3,
                                     "maxLength": 24
                                   },
+                                  "avatar": {
+                                    "type": "string",
+                                    "enum": [
+                                      "retro-robot",
+                                      "sprocket-bot"
+                                    ],
+                                    "default": "retro-robot"
+                                  },
                                   "position": {
                                     "type": "object",
                                     "properties": {
@@ -18464,6 +18560,10 @@
                               },
                               "roomId": {
                                 "type": "string"
+                              },
+                              "deleteFiles": {
+                                "type": "boolean",
+                                "default": false
                               },
                               "sentAt": {
                                 "type": "integer"

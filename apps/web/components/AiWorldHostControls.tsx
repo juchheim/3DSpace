@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { RoomManifest } from "@3dspace/contracts";
+import type { RoomAiHost, RoomManifest } from "@3dspace/contracts";
 import { floorYFromZ } from "@3dspace/room-engine";
 import { aiHostPlacementInFrontOfAvatar } from "../lib/useAiWorldHost";
 import type { useAiWorldHost } from "../lib/useAiWorldHost";
@@ -9,6 +9,47 @@ import type { BuildPiece } from "@3dspace/contracts";
 import { HudCard } from "./HudCard";
 
 type AiWorldHostController = ReturnType<typeof useAiWorldHost>;
+
+type AvatarVariant = RoomAiHost["avatar"];
+
+const AVATAR_OPTIONS: { value: AvatarVariant; label: string; hint: string }[] = [
+  { value: "retro-robot", label: "Retro Robot", hint: "Classic tin-rover guide" },
+  { value: "sprocket-bot", label: "Sprocket-Bot", hint: "Steampunk brass robot" }
+];
+
+function AvatarPicker({
+  value,
+  disabled,
+  onChange
+}: {
+  value: AvatarVariant;
+  disabled: boolean;
+  onChange(next: AvatarVariant): void;
+}) {
+  return (
+    <div className="ai-world-host-card__avatar-picker" role="radiogroup" aria-label="Guide appearance">
+      {AVATAR_OPTIONS.map((option) => {
+        const active = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            disabled={disabled}
+            title={option.hint}
+            className={`ai-world-host-card__button ${
+              active ? "ai-world-host-card__button--primary" : "ai-world-host-card__button--ghost"
+            }`}
+            onClick={() => onChange(option.value)}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 export function AiWorldHostControls({
   controller,
@@ -29,6 +70,8 @@ export function AiWorldHostControls({
     loading,
     error,
     placementMode,
+    pendingAvatar,
+    setPendingAvatar,
     hasStudyFiles,
     studyFiles,
     setPanelOpen,
@@ -90,7 +133,7 @@ export function AiWorldHostControls({
                   }
                   if (!controller.ghost) return;
                   void actions
-                    .summon(displayName.trim(), controller.ghost.position, controller.ghost.rotationY)
+                    .summon(displayName.trim(), controller.ghost.position, controller.ghost.rotationY, pendingAvatar)
                     .then(() => setSummonOpen(false));
                 }}
               >
@@ -113,6 +156,9 @@ export function AiWorldHostControls({
           <HostActiveCard
             host={host}
             busy={busy}
+            onSetAvatar={(next) => {
+              void actions.setAvatar(next);
+            }}
             renameOpen={renameOpen}
             renameValue={renameValue}
             deleteFilesOnDismiss={deleteFilesOnDismiss}
@@ -155,6 +201,10 @@ export function AiWorldHostControls({
                 onChange={(event) => setDisplayName(event.target.value)}
               />
             </label>
+            <div className="ai-world-host-card__label">
+              <span>Appearance</span>
+              <AvatarPicker value={pendingAvatar} disabled={busy} onChange={setPendingAvatar} />
+            </div>
             <div className="ai-world-host-card__actions">
               <button
                 type="button"
@@ -170,7 +220,7 @@ export function AiWorldHostControls({
                     fallbackY
                   );
                   void actions
-                    .summon(displayName.trim(), placement.position, placement.rotationY)
+                    .summon(displayName.trim(), placement.position, placement.rotationY, pendingAvatar)
                     .then(() => setSummonOpen(false));
                 }}
               >
@@ -224,6 +274,7 @@ export function AiWorldHostControls({
 function HostActiveCard({
   host,
   busy,
+  onSetAvatar,
   renameOpen,
   renameValue,
   deleteFilesOnDismiss,
@@ -235,8 +286,9 @@ function HostActiveCard({
   onDismiss,
   onDeleteFilesChange
 }: {
-  host: { displayName: string };
+  host: { displayName: string; avatar: AvatarVariant };
   busy: boolean;
+  onSetAvatar(next: AvatarVariant): void;
   renameOpen: boolean;
   renameValue: string;
   deleteFilesOnDismiss: boolean;
@@ -254,6 +306,10 @@ function HostActiveCard({
         <strong>{host.displayName}</strong>
         <span className="ai-world-host-card__badge">AI guide</span>
       </p>
+      <div className="ai-world-host-card__label">
+        <span>Appearance</span>
+        <AvatarPicker value={host.avatar} disabled={busy} onChange={onSetAvatar} />
+      </div>
       {renameOpen ? (
         <div className="ai-world-host-card__rename">
           <input

@@ -24,6 +24,7 @@ export function normalizeAiHostDisplayName(raw: string): string {
 export function createAiHostRecord(input: {
   roomId: string;
   displayName: string;
+  avatar?: RoomAiHost["avatar"] | undefined;
   position: RoomAiHost["position"];
   rotationY?: number | undefined;
   createdByUserId: string;
@@ -33,6 +34,7 @@ export function createAiHostRecord(input: {
     id: newId("aihost"),
     roomId: input.roomId,
     displayName: normalizeAiHostDisplayName(input.displayName),
+    avatar: input.avatar ?? "retro-robot",
     position: input.position,
     rotationY: input.rotationY ?? 0,
     createdByUserId: input.createdByUserId,
@@ -45,6 +47,7 @@ export function patchAiHostRecord(
   host: RoomAiHost,
   patch: {
     displayName?: string | undefined;
+    avatar?: RoomAiHost["avatar"] | undefined;
     position?: RoomAiHost["position"] | undefined;
     rotationY?: number | undefined;
   }
@@ -55,6 +58,7 @@ export function patchAiHostRecord(
     ...(patch.displayName !== undefined
       ? { displayName: normalizeAiHostDisplayName(patch.displayName) }
       : {}),
+    ...(patch.avatar !== undefined ? { avatar: patch.avatar } : {}),
     ...(patch.position !== undefined ? { position: patch.position } : {}),
     ...(patch.rotationY !== undefined ? { rotationY: patch.rotationY } : {}),
     updatedAt

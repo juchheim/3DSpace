@@ -145,6 +145,7 @@ export async function registerAiHostRoutes(app: FastifyInstance, ctx: AppContext
     const host = createAiHostRecord({
       roomId: params.roomId,
       displayName: body.displayName,
+      avatar: body.avatar,
       position: body.position,
       rotationY: body.rotationY,
       createdByUserId: auth.userId

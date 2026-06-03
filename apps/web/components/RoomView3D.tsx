@@ -35,6 +35,7 @@ import type {
   ParticipantAudioMode,
   QualityLevel,
   Role,
+  RoomAiHost,
   RoomManifest,
   RoomObject,
   RoomObjectTemplate,
@@ -46,7 +47,8 @@ import type {
 import type { z } from "zod";
 import type { ParticipantView } from "./RoomClient";
 import { BlockyAvatar } from "./BlockyAvatar";
-import { RetroRobotHostAvatar } from "./RetroRobotHostAvatar";
+import { RetroRobotHostAvatar, type RetroRobotHostAvatarProps } from "./RetroRobotHostAvatar";
+import { SprocketBotHostAvatar } from "./SprocketBotHostAvatar";
 import { useAiWorldHostScene, type AiWorldHostSceneConfig } from "../lib/useAiWorldHost";
 import { RoomObjectsLayer } from "./RoomObjectsLayer";
 import { BuildPlacementController } from "./BuildPlacementController";
@@ -639,14 +641,27 @@ export function RoomView3D({
  * in as a prop because R3F's <Canvas> does not bridge outer React context) and
  * reads the world-skin avatar scale so the robot's eye line tracks participants'.
  */
+/** Picks the avatar component for a host variant. Suspends while a GLB loads. */
+function HostAvatar({ avatar, ...props }: RetroRobotHostAvatarProps & { avatar: RoomAiHost["avatar"] }) {
+  if (avatar === "sprocket-bot") {
+    return (
+      <Suspense fallback={null}>
+        <SprocketBotHostAvatar {...props} />
+      </Suspense>
+    );
+  }
+  return <RetroRobotHostAvatar {...props} />;
+}
+
 function AiHostLayer({ scene }: { scene: AiWorldHostSceneConfig }) {
   const { skin } = useWorldSkinContext();
   const avatarScale = skin?.overrides.avatarScale ?? 1;
-  const { host, ghost, animationState, speechBubbleText, onHostInteract } = scene;
+  const { host, ghost, ghostAvatar, animationState, speechBubbleText, onHostInteract } = scene;
   return (
     <>
       {host ? (
-        <RetroRobotHostAvatar
+        <HostAvatar
+          avatar={host.avatar}
           position={host.position}
           rotationY={host.rotationY}
           displayName={host.displayName}
@@ -658,7 +673,8 @@ function AiHostLayer({ scene }: { scene: AiWorldHostSceneConfig }) {
         />
       ) : null}
       {ghost ? (
-        <RetroRobotHostAvatar
+        <HostAvatar
+          avatar={ghostAvatar}
           position={ghost.position}
           rotationY={ghost.rotationY}
           displayName=""
