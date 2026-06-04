@@ -134,9 +134,20 @@ function bakePart(geometry, material, opts = {}) {
   return { positions: outPos, normals: outNorm, indices, material };
 }
 
-/** Bake + collect a part into the merged static mesh. */
+/** Current hierarchy group every added part is tagged with (see ASSET STRUCTURE). */
+let CUR_GROUP = "Misc";
+function group(name, fn) {
+  const prev = CUR_GROUP;
+  CUR_GROUP = name;
+  fn();
+  CUR_GROUP = prev;
+}
+
+/** Bake + collect a part into the merged static mesh, tagged with its group. */
 function add(geometry, material, opts = {}) {
-  parts.push(bakePart(geometry, material, opts));
+  const p = bakePart(geometry, material, opts);
+  p.group = CUR_GROUP;
+  parts.push(p);
 }
 
 // ── Geometry helpers ─────────────────────────────────────────────────────────
@@ -452,6 +463,7 @@ function kneeKnob(x, y, z) {
 function buildBoots() {
   for (const side of [-1, 1]) {
     const x = side * 0.21;
+    CUR_GROUP = side === -1 ? "Right_Leg" : "Left_Leg"; // robot's right is −X
     // boot shell (rounded), stretched forward
     add(bootShellGeometry(), "headBlue", { pos: [x, 0.0, 0.0], scale: [1.15, 1.05, 1.7] });
     // sole slab
@@ -472,6 +484,7 @@ function buildBoots() {
 function buildLegs() {
   for (const side of [-1, 1]) {
     const x = side * 0.21;
+    CUR_GROUP = side === -1 ? "Right_Leg" : "Left_Leg";
     // shin spring (ankle → knee)
     add(new CylinderGeometry(0.016, 0.016, 0.26, 10), "darkSteel", { pos: [x, 0.33, 0.0] }); // inner rod
     add(springGeometry({ height: 0.24, coilRadius: 0.062, tubeRadius: 0.016, turns: 6, tubular: 200 }), "gunmetal", { pos: [x, 0.33, 0.0] });
@@ -484,10 +497,12 @@ function buildLegs() {
     hexBolt(x, 0.71, 0.05, 0.018, 0.014, [Math.PI / 2, 0, 0]);
   }
   // pelvis
+  CUR_GROUP = "Pelvis";
   add(new CylinderGeometry(0.21, 0.25, 0.17, 40), "brass", { pos: [0, 0.78, 0] });
   add(new TorusGeometry(0.22, 0.024, 12, 40), "brassDark", { pos: [0, 0.71, 0], rot: [Math.PI / 2, 0, 0] });
   rivetRingY(0.78, 0.255, 18, 0.012, "brassDark");
   // wire bundle drooping from under the torso between the legs
+  CUR_GROUP = "Wiring";
   add(tubeThrough([[-0.06, 0.86, 0.22], [-0.1, 0.74, 0.26], [-0.04, 0.66, 0.24], [0.0, 0.7, 0.26]], 0.011, { tubular: 40 }), "wireRed");
   add(tubeThrough([[0.0, 0.86, 0.22], [0.06, 0.72, 0.27], [0.1, 0.66, 0.24]], 0.011, { tubular: 40 }), "wireBlue");
   add(tubeThrough([[0.05, 0.86, 0.21], [0.0, 0.7, 0.27], [-0.06, 0.64, 0.23]], 0.011, { tubular: 40 }), "wireYellow");
@@ -504,6 +519,7 @@ function buildTorso() {
   // z on the curved front surface for a given x (so instruments hug the barrel)
   const zAt = (x, off = 0.004) => Math.sqrt(Math.max(0.0004, R * R - x * x)) + off;
 
+  CUR_GROUP = "Torso";
   // main brass barrel — compact, slightly waisted toward the bottom
   add(new CylinderGeometry(R, R * 0.92, H, 60), "brass", { pos: [0, cy, 0] });
   // blue painted front panel (proud curved segment hugging the barrel)
@@ -523,13 +539,16 @@ function buildTorso() {
   for (const side of [-1, 1]) add(new TorusGeometry(0.045, 0.011, 12, 24, Math.PI), "brass", { pos: [side * 0.1, top + 0.015, 0.09] });
 
   // ── front instruments — each centred on the curved front via zAt ──
+  CUR_GROUP = "Gauges";
   gauge(0.05, cy + 0.07, zAt(0.05) + 0.015, 0.1, { needleDeg: -28, ticks: 11 });
   rainbowDial(-0.14, cy + 0.13, zAt(-0.14) + 0.012, 0.042);
   rainbowDial(-0.075, cy + 0.16, zAt(-0.075) + 0.012, 0.036);
   add(gearGeometry({ teeth: 14, outer: 0.058, root: 0.046, bore: 0.014, depth: 0.024 }), "brassDark", { pos: [-0.17, cy - 0.03, zAt(-0.17)], rot: [0, 0, 0.2] });
   add(gearGeometry({ teeth: 10, outer: 0.04, root: 0.03, bore: 0.01, depth: 0.02 }), "brass", { pos: [-0.1, cy - 0.07, zAt(-0.1) + 0.004], rot: [0, 0, -0.3] });
   add(gearGeometry({ teeth: 8, outer: 0.03, root: 0.023, bore: 0.008, depth: 0.018 }), "copper", { pos: [-0.045, cy - 0.02, zAt(-0.045) + 0.006], rot: [0, 0, 0.1] });
+  CUR_GROUP = "Reactor";
   porthole(-0.1, cy - 0.15, zAt(-0.1) + 0.012, 0.082);
+  CUR_GROUP = "Gauges";
   jewel(0.15, cy - 0.04, zAt(0.15) + 0.008, 0.022, "jewelAmber");
   jewel(0.18, cy - 0.1, zAt(0.18) + 0.006, 0.018, "jewelGreen");
   jewel(0.18, cy - 0.15, zAt(0.18) + 0.006, 0.018, "jewelRed");
@@ -540,9 +559,11 @@ function buildTorso() {
   add(new CylinderGeometry(0.026, 0.03, 0.034, 18), "brass", { pos: [-0.2, cy - 0.14, zAt(-0.2)], rot: [Math.PI / 2, 0, 0] });
   for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; add(new BoxGeometry(0.005, 0.034, 0.007), "brassDark", { pos: [-0.2 + Math.cos(a) * 0.026, cy - 0.14, zAt(-0.2) + Math.sin(a) * 0.026], rot: [Math.PI / 2, -a, 0] }); }
   // looping coloured wires across the panel
+  CUR_GROUP = "Wiring";
   add(tubeThrough([[0.16, cy + 0.0, zAt(0.16)], [0.25, cy - 0.05, zAt(0.16) + 0.05], [0.22, cy - 0.16, zAt(0.16) + 0.02], [0.13, cy - 0.21, zAt(0.13)]], 0.011, { tubular: 48 }), "wireRed");
   add(tubeThrough([[-0.02, cy - 0.2, zAt(0)], [0.05, cy - 0.27, zAt(0) + 0.04], [0.12, cy - 0.22, zAt(0.12)]], 0.009, { tubular: 36 }), "wireYellow");
   // panel rivet arcs (follow the curve)
+  CUR_GROUP = "Torso";
   rivetArcFront(top - 0.06, R, -46, 46, 9, 0.011, "brass");
   rivetArcFront(bot + 0.06, R, -46, 46, 9, 0.011, "brass");
   // lower-back vent grille (visible from behind)
@@ -550,6 +571,7 @@ function buildTorso() {
 }
 
 function shoulderHub(x, side) {
+  CUR_GROUP = x < 0 ? "Right_Arm" : "Left_Arm";
   // stub from the torso deck out to the shoulder ball
   beam([side * TORSO.R, 1.36, 0], [x, 1.34, 0], 0.07, 0.08, "brass", 20);
   add(new SphereGeometry(0.1, 32, 22), "brass", { pos: [x, 1.34, 0.0] });
@@ -566,6 +588,7 @@ function buildShoulders() {
 function buildArms() {
   // ── robot's right arm = IMAGE LEFT (−X): raised, gripping a glowing bulb ──
   {
+    CUR_GROUP = "Right_Arm";
     const sh = [-0.5, 1.32, 0.02];
     const el = [-0.58, 1.1, 0.18];
     const wr = [-0.45, 1.16, 0.4];
@@ -578,6 +601,7 @@ function buildArms() {
   }
   // ── robot's left arm = IMAGE RIGHT (+X): lowered, open claw ──
   {
+    CUR_GROUP = "Left_Arm";
     const sh = [0.5, 1.32, 0.02];
     const el = [0.57, 1.05, 0.05];
     const wr = [0.55, 0.82, 0.09];
@@ -616,6 +640,7 @@ function buildNeck() {
 
 function buildHead() {
   const hy = 1.68;
+  CUR_GROUP = "Head";
   // head barrel (dusty blue-grey, riveted)
   add(new CylinderGeometry(0.21, 0.215, 0.3, 44), "headBlue", { pos: [0, hy, 0] });
   add(new TorusGeometry(0.214, 0.02, 12, 44), "brass", { pos: [0, hy + 0.14, 0], rot: [Math.PI / 2, 0, 0] }); // top collar
@@ -628,11 +653,13 @@ function buildHead() {
   rivetRingY(hy + 0.17, 0.205, 16, 0.01, "brass");
 
   // ── round, layered eyes with movable warm-bulb irises ──
+  CUR_GROUP = "Eyes";
   const eyeR = 0.067;
   buildEye("eyeIris_L", -0.088, hy + 0.035, 0.205, eyeR);
   buildEye("eyeIris_R", 0.088, hy + 0.035, 0.205, eyeR);
 
   // ── copper mouth grille with VERTICAL slots (wide, lower-centre of the face) ──
+  CUR_GROUP = "Mouth";
   const my = hy - 0.088, mz0 = 0.19;
   add(new BoxGeometry(0.215, 0.1, 0.03), "copper", { pos: [0, my, mz0], rot: [0.04, 0, 0] });        // surround plate
   add(new BoxGeometry(0.182, 0.074, 0.025), "socket", { pos: [0, my, mz0 + 0.016] });                 // dark recess
@@ -640,6 +667,7 @@ function buildHead() {
   for (const sx of [-0.094, 0.094]) for (const sy of [-0.038, 0.038]) addRivet(sx, my + sy, mz0 + 0.012, 0.009, "brass");
 
   // ── ear bolts + side whisker antennas ──
+  CUR_GROUP = "Head";
   for (const side of [-1, 1]) {
     add(new CylinderGeometry(0.03, 0.03, 0.06, 18), "brass", { pos: [side * 0.215, hy, 0], rot: [0, 0, Math.PI / 2] });
     add(new CylinderGeometry(0.036, 0.036, 0.02, 6), "brassDark", { pos: [side * 0.245, hy, 0], rot: [0, 0, Math.PI / 2] });
@@ -694,6 +722,7 @@ function buildBackPack() {
   add(new SphereGeometry(0.02, 16, 12), "red", { pos: [tx, tcy + tankH / 2 + 0.09, tz] });
 
   // ── flag pole rooted in the tank top, leaning out to +X ──
+  CUR_GROUP = "Flag";
   const lean = -0.24;
   const poleBase = [tx, tcy + tankH / 2 + 0.06, tz];
   const poleLen = 0.42;
@@ -709,17 +738,17 @@ function buildBaseShadow() {
   add(new CylinderGeometry(0.38, 0.38, 0.004, 40), "rubber", { pos: [0, 0.002, 0.03] });
 }
 
-buildBoots();
-buildLegs();
-buildTorso();
-buildBackPack();
-buildShoulders();
-buildArms();
-buildPropeller();
-buildNeck();
-buildHead();
-buildTopAntennas();
-buildBaseShadow();
+buildBoots();           // tags Left_Leg / Right_Leg per side
+buildLegs();            // tags Left_Leg / Right_Leg, Pelvis, Wiring
+buildTorso();           // tags Torso / Gauges / Reactor / Wiring
+group("Rear_Tank", buildBackPack); // sets Flag inline for the pole
+buildShoulders();       // tags Left_Arm / Right_Arm
+buildArms();            // tags Left_Arm / Right_Arm
+group("Propeller", buildPropeller);
+group("Neck", buildNeck);
+buildHead();            // tags Head / Eyes / Mouth
+group("Antennas", buildTopAntennas);
+group("Base", buildBaseShadow);
 
 // Seat the model on the floor: shift every vertex so the lowest sits at y = 0
 // (the avatar places the host with position.y at the feet).
@@ -731,54 +760,73 @@ for (const p of parts) for (let i = 1; i < p.positions.length; i += 3) {
   if (p.positions[i] > maxY) maxY = p.positions[i];
 }
 
-// ── Merge by material → write GLB ────────────────────────────────────────────
-const byMaterial = new Map();
-for (const part of parts) {
-  if (!byMaterial.has(part.material)) byMaterial.set(part.material, []);
-  byMaterial.get(part.material).push(part);
-}
-
+// ── Build the named hierarchy: Robot_Root → body-part group nodes ────────────
 const doc = new Document();
-Object.assign(doc.getRoot().getAsset(), { generator: "3DSpace sprocket-bot builder v2" });
+Object.assign(doc.getRoot().getAsset(), { generator: "3DSpace sprocket-bot builder v3" });
 const scene = doc.createScene("Sprocket-Bot");
-const rootNode = doc.createNode("Sprocket-Bot");
+const rootNode = doc.createNode("Robot_Root");
 scene.addChild(rootNode);
 const buffer = doc.createBuffer();
-
 let totalTriangles = 0;
-for (const [materialKey, group] of byMaterial) {
-  let vertCount = 0, idxCount = 0;
-  for (const p of group) { vertCount += p.positions.length / 3; idxCount += p.indices.length; }
-  const positions = new Float32Array(vertCount * 3);
-  const normals = new Float32Array(vertCount * 3);
-  const indices = new Uint32Array(idxCount);
-  let vo = 0, io = 0;
-  for (const p of group) {
-    positions.set(p.positions, vo * 3);
-    normals.set(p.normals, vo * 3);
-    for (let i = 0; i < p.indices.length; i++) indices[io + i] = p.indices[i] + vo;
-    vo += p.positions.length / 3;
-    io += p.indices.length;
-  }
-  totalTriangles += idxCount / 3;
 
-  const def = MATERIALS[materialKey];
+// Shared PBR materials, cached by key and reused across every group.
+const matCache = new Map();
+function pbrMaterial(key) {
+  if (matCache.has(key)) return matCache.get(key);
+  const def = MATERIALS[key];
   const [r, g, b] = hexToLinear(def.hex);
   const a = def.alpha ?? 1;
-  const mat = doc.createMaterial(materialKey)
+  const m = doc.createMaterial(key)
     .setBaseColorFactor([r, g, b, a])
     .setRoughnessFactor(def.roughness)
     .setMetallicFactor(def.metalness);
-  if (a < 1) { mat.setAlphaMode("BLEND"); mat.setDoubleSided(true); }
-  if (def.emissive) mat.setEmissiveFactor(def.emissive);
+  if (a < 1) { m.setAlphaMode("BLEND"); m.setDoubleSided(true); }
+  if (def.emissive) m.setEmissiveFactor(def.emissive);
+  matCache.set(key, m);
+  return m;
+}
 
-  const prim = doc.createPrimitive()
+// Merge one bucket of same-material parts into a single primitive.
+function mergedPrimitive(list, materialKey) {
+  let vc = 0, ic = 0;
+  for (const p of list) { vc += p.positions.length / 3; ic += p.indices.length; }
+  const positions = new Float32Array(vc * 3), normals = new Float32Array(vc * 3), indices = new Uint32Array(ic);
+  let vo = 0, io = 0;
+  for (const p of list) {
+    positions.set(p.positions, vo * 3); normals.set(p.normals, vo * 3);
+    for (let i = 0; i < p.indices.length; i++) indices[io + i] = p.indices[i] + vo;
+    vo += p.positions.length / 3; io += p.indices.length;
+  }
+  totalTriangles += ic / 3;
+  return doc.createPrimitive()
     .setAttribute("POSITION", doc.createAccessor().setType("VEC3").setArray(positions).setBuffer(buffer))
     .setAttribute("NORMAL", doc.createAccessor().setType("VEC3").setArray(normals).setBuffer(buffer))
     .setIndices(doc.createAccessor().setType("SCALAR").setArray(indices).setBuffer(buffer))
-    .setMaterial(mat);
-  rootNode.addChild(doc.createNode(materialKey).setMesh(doc.createMesh(materialKey).addPrimitive(prim)));
+    .setMaterial(pbrMaterial(materialKey));
 }
+
+// Bucket parts by group → material (one primitive per material within a group).
+const byGroup = new Map();
+for (const part of parts) {
+  if (!byGroup.has(part.group)) byGroup.set(part.group, new Map());
+  const gm = byGroup.get(part.group);
+  if (!gm.has(part.material)) gm.set(part.material, []);
+  gm.get(part.material).push(part);
+}
+
+const GROUP_ORDER = ["Head", "Eyes", "Mouth", "Antennas", "Neck", "Torso", "Gauges", "Reactor", "Wiring",
+  "Left_Arm", "Right_Arm", "Pelvis", "Left_Leg", "Right_Leg", "Rear_Tank", "Propeller", "Flag", "Base", "Misc"];
+const rank = (g) => { const i = GROUP_ORDER.indexOf(g); return i < 0 ? 999 : i; };
+
+const groupNodes = new Map();
+for (const groupName of [...byGroup.keys()].sort((a, b) => rank(a) - rank(b))) {
+  const mesh = doc.createMesh(groupName);
+  for (const [materialKey, list] of byGroup.get(groupName)) mesh.addPrimitive(mergedPrimitive(list, materialKey));
+  const node = doc.createNode(groupName).setMesh(mesh);
+  groupNodes.set(groupName, node);
+  rootNode.addChild(node);
+}
+const parentFor = (name) => groupNodes.get(name) ?? rootNode;
 
 // ── SPROCKET-BOT pennant: a waving banner with an embedded "SPROCKET-BOT"
 //    texture, rooted at the back-pack flag pole. Embedded (no external URI) and
@@ -823,23 +871,14 @@ for (const [materialKey, group] of byMaterial) {
     .setAttribute("TEXCOORD_0", doc.createAccessor().setType("VEC2").setArray(Float32Array.from(plane.attributes.uv.array, (val, i) => (i % 2 === 0 ? val : 1 - val))).setBuffer(buffer))
     .setIndices(doc.createAccessor().setType("SCALAR").setArray(Uint32Array.from(plane.index.array)).setBuffer(buffer))
     .setMaterial(flagMat);
-  rootNode.addChild(doc.createNode("flag").setMesh(doc.createMesh("flag").addPrimitive(flagPrim)));
+  parentFor("Flag").addChild(doc.createNode("Flag_Pennant").setMesh(doc.createMesh("Flag_Pennant").addPrimitive(flagPrim)));
   totalTriangles += plane.index.count / 3;
   plane.dispose();
 }
 
 // ── Movable iris nodes (round glowing eyes the runtime darts around) ──
+// Parented under the Eyes group node so the gaze offset stays local.
 {
-  const irisMatCache = new Map();
-  const irisMat = (key) => {
-    if (irisMatCache.has(key)) return irisMatCache.get(key);
-    const def = MATERIALS[key];
-    const [r, g, b] = hexToLinear(def.hex);
-    const m = doc.createMaterial(key).setBaseColorFactor([r, g, b, 1]).setRoughnessFactor(def.roughness).setMetallicFactor(def.metalness);
-    if (def.emissive) m.setEmissiveFactor(def.emissive);
-    irisMatCache.set(key, m);
-    return m;
-  };
   for (const spec of irisSpecs) {
     const mesh = doc.createMesh(spec.name);
     const byMat = new Map();
@@ -847,24 +886,8 @@ for (const [materialKey, group] of byMaterial) {
       if (!byMat.has(p.material)) byMat.set(p.material, []);
       byMat.get(p.material).push(p);
     }
-    for (const [matKey, group] of byMat) {
-      let vc = 0, ic = 0;
-      for (const p of group) { vc += p.positions.length / 3; ic += p.indices.length; }
-      const positions = new Float32Array(vc * 3), normals = new Float32Array(vc * 3), indices = new Uint32Array(ic);
-      let vo = 0, io = 0;
-      for (const p of group) {
-        positions.set(p.positions, vo * 3); normals.set(p.normals, vo * 3);
-        for (let i = 0; i < p.indices.length; i++) indices[io + i] = p.indices[i] + vo;
-        vo += p.positions.length / 3; io += p.indices.length;
-      }
-      totalTriangles += ic / 3;
-      mesh.addPrimitive(doc.createPrimitive()
-        .setAttribute("POSITION", doc.createAccessor().setType("VEC3").setArray(positions).setBuffer(buffer))
-        .setAttribute("NORMAL", doc.createAccessor().setType("VEC3").setArray(normals).setBuffer(buffer))
-        .setIndices(doc.createAccessor().setType("SCALAR").setArray(indices).setBuffer(buffer))
-        .setMaterial(irisMat(matKey)));
-    }
-    rootNode.addChild(doc.createNode(spec.name).setMesh(mesh).setTranslation([spec.center[0], spec.center[1] - minY, spec.center[2]]));
+    for (const [matKey, list] of byMat) mesh.addPrimitive(mergedPrimitive(list, matKey));
+    parentFor("Eyes").addChild(doc.createNode(spec.name).setMesh(mesh).setTranslation([spec.center[0], spec.center[1] - minY, spec.center[2]]));
   }
 }
 
@@ -873,7 +896,8 @@ const glb = await new NodeIO().writeBinary(doc);
 await writeFile(OUT_PATH, Buffer.from(glb));
 
 console.log(`Wrote ${OUT_PATH}`);
-console.log(`Parts: ${parts.length}  ·  Materials (primitives): ${byMaterial.size}`);
+console.log(`Parts: ${parts.length}  ·  Groups: ${groupNodes.size}  ·  Materials: ${matCache.size}`);
+console.log(`Hierarchy: Robot_Root → ${[...groupNodes.keys()].join(", ")}`);
 console.log(`Triangles: ${totalTriangles.toLocaleString()}`);
 console.log(`Height (feet→top): ${maxY.toFixed(3)} m`);
 console.log(`File size: ${(glb.byteLength / 1024).toFixed(1)} KB`);
