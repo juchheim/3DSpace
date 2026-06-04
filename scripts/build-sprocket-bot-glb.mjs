@@ -316,8 +316,8 @@ const irisSpecs = [];
 function buildEye(name, cx, cy, cz, R) {
   // recessed brass housing cup (axis along Z)
   add(new CylinderGeometry(R * 1.0, R * 1.18, 0.08, 32), "brass", { pos: [cx, cy, cz - 0.05], rot: [Math.PI / 2, 0, 0] });
-  // dark interior the iris sits in
-  add(new SphereGeometry(R * 0.86, 26, 18), "socket", { pos: [cx, cy, cz - 0.015], scale: [1, 1, 0.5] });
+  // thin dark backing disc (just enough to set off the glow, not a deep well)
+  add(new SphereGeometry(R * 0.78, 26, 18), "socket", { pos: [cx, cy, cz - 0.03], scale: [1, 1, 0.3] });
   // layered concentric brass bezel rings (in the XY plane, facing +Z)
   add(new TorusGeometry(R * 1.06, R * 0.17, 16, 40), "brassLight", { pos: [cx, cy, cz] });
   add(new TorusGeometry(R * 0.9, R * 0.1, 14, 34), "brass", { pos: [cx, cy, cz + 0.013] });
@@ -325,12 +325,14 @@ function buildEye(name, cx, cy, cz, R) {
   rivetRingForCircle(cx, cy, cz, R * 1.3, 10, 0.009, "brass");
 
   // ── movable warm bulb / iris (separate node; geometry local-centred) ──
+  // A shallow dome whose apex sits just inside the bezel front: clearly visible
+  // (not lost in the dark), yet not protruding on a stalk.
   const lp = [];
-  lp.push(bakePart(new SphereGeometry(R * 0.5, 28, 22), "eyeGlow", { pos: [0, 0, 0.004], scale: [1, 1, 1.15] }));   // glowing bulb
-  lp.push(bakePart(new TorusGeometry(R * 0.22, R * 0.045, 8, 18), "filament", { pos: [0, 0, 0.03] }));               // filament coil
-  lp.push(bakePart(new BoxGeometry(0.0035, R * 0.5, 0.0035), "filament", { pos: [0, 0, 0.034] }));                   // upright filament
-  lp.push(bakePart(new SphereGeometry(R * 0.12, 12, 10), "highlight", { pos: [-R * 0.22, R * 0.24, 0.05] }));        // catchlight
-  irisSpecs.push({ name, center: [cx, cy, cz + 0.02], parts: lp });
+  lp.push(bakePart(new SphereGeometry(R * 0.54, 28, 22), "eyeGlow", { pos: [0, 0, 0.0], scale: [1, 1, 0.85] }));     // glowing bulb dome
+  lp.push(bakePart(new TorusGeometry(R * 0.24, R * 0.04, 8, 18), "filament", { pos: [0, 0, 0.024] }));               // filament coil
+  lp.push(bakePart(new BoxGeometry(0.0035, R * 0.52, 0.0035), "filament", { pos: [0, 0, 0.027] }));                  // upright filament
+  lp.push(bakePart(new SphereGeometry(R * 0.11, 12, 10), "highlight", { pos: [-R * 0.22, R * 0.24, 0.03] }));        // catchlight
+  irisSpecs.push({ name, center: [cx, cy, cz - 0.002], parts: lp });
 }
 
 // A ring (torus) centred at p with its axis along dir — used for copper banding.
