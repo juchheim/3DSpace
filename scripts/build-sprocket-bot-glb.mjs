@@ -72,7 +72,7 @@ const MATERIALS = {
   wireRed: { hex: "#c0392b", metalness: 0.12, roughness: 0.72 },
   wireBlue: { hex: "#2f5ab2", metalness: 0.12, roughness: 0.72 },
   wireYellow: { hex: "#d4a72e", metalness: 0.12, roughness: 0.72 },
-  glassBulb: { hex: "#fff4cf", metalness: 0, roughness: 0.12, emissive: [1.0, 0.82, 0.42] },
+  glassBulb: { hex: "#fff4cf", metalness: 0, roughness: 0.12, emissive: [1.0, 0.82, 0.42], alpha: 0.6 },
   // "eyeGlow" is found + pulsed by name in SprocketBotHostAvatar. Dark base +
   // strong amber emissive so it reads as a self-lit warm oil-lamp bulb.
   eyeGlow: { hex: "#5e2400", metalness: 0.1, roughness: 0.5, emissive: [1.0, 0.44, 0.09] },
@@ -408,15 +408,31 @@ function openClaw(wr) {
   }
 }
 
-/** Incandescent light bulb gripped in a claw: brass threaded base, glass, filament. */
+/**
+ * A standard incandescent light bulb (not an egg): a lathe-revolved A-shape glass
+ * envelope on a threaded Edison screw base with insulator + solder contact tip,
+ * a brass seam collar, and an internal filament. y = bottom of the metal base.
+ */
 function lightBulb(x, y, z) {
-  // threaded brass base (stacked thin rings)
-  for (let i = 0; i < 4; i++) add(new TorusGeometry(0.026 - i * 0.001, 0.006, 8, 18), "brassDark", { pos: [x, y + i * 0.012, z] });
-  add(new CylinderGeometry(0.018, 0.026, 0.05, 18), "brass", { pos: [x, y + 0.02, z] });
-  // glass envelope (teardrop) + filament
-  add(new SphereGeometry(0.05, 30, 22), "glassBulb", { pos: [x, y + 0.11, z], scale: [1, 1.25, 1] });
-  add(new TorusGeometry(0.014, 0.004, 6, 14), "filament", { pos: [x, y + 0.11, z], rot: [Math.PI / 2, 0, 0] });
-  add(new BoxGeometry(0.004, 0.04, 0.004), "filament", { pos: [x, y + 0.08, z] });
+  // ── metal Edison screw base ──
+  add(new SphereGeometry(0.0085, 12, 10), "brass", { pos: [x, y + 0.003, z], scale: [1, 0.7, 1] });           // solder contact tip
+  add(new CylinderGeometry(0.012, 0.0085, 0.012, 16), "darkSteel", { pos: [x, y + 0.012, z] });               // black insulator
+  add(new CylinderGeometry(0.022, 0.016, 0.046, 24), "brassDark", { pos: [x, y + 0.04, z] });                 // screw shell
+  add(springGeometry({ height: 0.044, coilRadius: 0.0226, tubeRadius: 0.0035, turns: 6, tubular: 96, radial: 6 }), "brass", { pos: [x, y + 0.04, z] }); // helical thread
+  // ── glass envelope (A-bulb profile, revolved) ──
+  const prof = [
+    [0.02, 0.0], [0.022, 0.008], [0.034, 0.024], [0.044, 0.046],
+    [0.046, 0.072], [0.041, 0.097], [0.027, 0.117], [0.013, 0.131], [0.0, 0.136]
+  ].map(([r, h]) => new Vector2(r, h));
+  const glass = new LatheGeometry(prof, 36);
+  glass.computeVertexNormals();
+  add(glass, "glassBulb", { pos: [x, y + 0.063, z] });
+  // brass collar at the glass/base seam
+  add(new TorusGeometry(0.021, 0.006, 10, 24), "brass", { pos: [x, y + 0.065, z] });
+  // ── internal filament: two support wires + a coil (visible through the glass) ──
+  add(new BoxGeometry(0.0028, 0.028, 0.0028), "filament", { pos: [x - 0.007, y + 0.108, z] });
+  add(new BoxGeometry(0.0028, 0.028, 0.0028), "filament", { pos: [x + 0.007, y + 0.108, z] });
+  add(new TorusGeometry(0.008, 0.0024, 6, 14), "filament", { pos: [x, y + 0.122, z], rot: [Math.PI / 2, 0, 0] });
 }
 
 /** Knurled knob knee: dark drum with a ring of vertical ridges. */
@@ -748,10 +764,12 @@ for (const [materialKey, group] of byMaterial) {
 
   const def = MATERIALS[materialKey];
   const [r, g, b] = hexToLinear(def.hex);
+  const a = def.alpha ?? 1;
   const mat = doc.createMaterial(materialKey)
-    .setBaseColorFactor([r, g, b, 1])
+    .setBaseColorFactor([r, g, b, a])
     .setRoughnessFactor(def.roughness)
     .setMetallicFactor(def.metalness);
+  if (a < 1) { mat.setAlphaMode("BLEND"); mat.setDoubleSided(true); }
   if (def.emissive) mat.setEmissiveFactor(def.emissive);
 
   const prim = doc.createPrimitive()
