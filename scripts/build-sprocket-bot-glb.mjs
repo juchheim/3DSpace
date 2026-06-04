@@ -51,18 +51,20 @@ const DEG = Math.PI / 180;
 // Metalness kept in 0.3–0.6: the room scene has no environment map, so fully
 // metallic PBR would render near-black. Emissive given as linear [r,g,b].
 const MATERIALS = {
-  brass: { hex: "#c89b3e", metalness: 0.55, roughness: 0.33 },
-  brassLight: { hex: "#dcb858", metalness: 0.5, roughness: 0.28 },
-  brassDark: { hex: "#8f6d2a", metalness: 0.55, roughness: 0.46 },
-  copper: { hex: "#c16a3a", metalness: 0.55, roughness: 0.3 },
-  copperLight: { hex: "#d98a55", metalness: 0.5, roughness: 0.28 },
-  copperDark: { hex: "#8d4626", metalness: 0.55, roughness: 0.44 },
-  steelBlue: { hex: "#40718b", metalness: 0.45, roughness: 0.4 }, // torso front panel
-  steelBlueDk: { hex: "#2c5066", metalness: 0.45, roughness: 0.5 },
-  headBlue: { hex: "#74858f", metalness: 0.5, roughness: 0.44 }, // head + legs dusty blue-grey
-  gunmetal: { hex: "#7e868c", metalness: 0.6, roughness: 0.38 }, // springs
-  pewter: { hex: "#9aa1a6", metalness: 0.6, roughness: 0.34 },
-  darkSteel: { hex: "#2a2e31", metalness: 0.5, roughness: 0.55 },
+  // Aged metals: tarnished (rougher) and slightly desaturated. Painted panels use
+  // low metalness + high roughness so they read as worn paint, not chrome.
+  brass: { hex: "#bd9238", metalness: 0.55, roughness: 0.44 },
+  brassLight: { hex: "#d3ad50", metalness: 0.5, roughness: 0.37 },
+  brassDark: { hex: "#856223", metalness: 0.55, roughness: 0.55 },
+  copper: { hex: "#c0744c", metalness: 0.55, roughness: 0.42 }, // warm pinkish polished copper (dome)
+  copperLight: { hex: "#d08a5c", metalness: 0.5, roughness: 0.36 },
+  copperDark: { hex: "#8a4a2a", metalness: 0.55, roughness: 0.52 },
+  steelBlue: { hex: "#46718c", metalness: 0.25, roughness: 0.55 }, // worn painted torso panel
+  steelBlueDk: { hex: "#33586e", metalness: 0.25, roughness: 0.6 },
+  headBlue: { hex: "#6f7d86", metalness: 0.45, roughness: 0.54 }, // weathered grey-blue metal
+  gunmetal: { hex: "#7c848a", metalness: 0.6, roughness: 0.46 }, // springs
+  pewter: { hex: "#9aa1a6", metalness: 0.6, roughness: 0.42 },
+  darkSteel: { hex: "#2a2e31", metalness: 0.5, roughness: 0.58 },
   rubber: { hex: "#1b1e22", metalness: 0.1, roughness: 0.85 },
   cream: { hex: "#efe7d0", metalness: 0.08, roughness: 0.6 }, // gauge faces, flag
   needle: { hex: "#23262a", metalness: 0.3, roughness: 0.5 },
@@ -233,6 +235,18 @@ function addRivet(x, y, z, r = 0.013, mat = "brass") {
   add(new SphereGeometry(r, 14, 10), mat, { pos: [x, y, z] });
 }
 
+/** Low-poly rivet for dense seams/rows (keeps the triangle budget in check). */
+function rivetLP(x, y, z, r = 0.011, mat = "brass") {
+  add(new SphereGeometry(r, 10, 7), mat, { pos: [x, y, z] });
+}
+
+/** A row of thin vent slots centred at (cx,cy,cz). */
+function ventSlots(cx, cy, cz, count, w, h, depth, gap, mat = "darkSteel", rot = [0, 0, 0]) {
+  for (let i = 0; i < count; i++) {
+    add(new BoxGeometry(w, h, depth), mat, { pos: [cx + (i - (count - 1) / 2) * gap, cy, cz], rot });
+  }
+}
+
 /** Ring of rivets around a vertical axis at height y, radius `radius`. */
 function rivetRingY(y, radius, count, r = 0.013, mat = "brass", phase = 0) {
   for (let i = 0; i < count; i++) {
@@ -255,39 +269,64 @@ function hexBolt(x, y, z, r = 0.024, depth = 0.018, rot = [0, 0, 0], mat = "bras
   add(new SphereGeometry(r * 0.5, 12, 8), "brass", { pos: [x, y + (rot[0] ? 0 : depth * 0.4), z], rot });
 }
 
-/**
- * Round analog gauge mounted on the torso front (+Z): brass bezel, cream face,
- * tick marks, a needle and a centre hub. cx,cy on the front plane at z≈zFront.
- */
-function gauge(cx, cy, zFront, radius, { needleDeg = -35, ticks = 12, faceMat = "cream" } = {}) {
-  add(new TorusGeometry(radius, radius * 0.16, 16, 40), "brass", { pos: [cx, cy, zFront], rot: [Math.PI / 2, 0, 0] });
-  add(new CylinderGeometry(radius * 0.92, radius * 0.92, radius * 0.18, 40), faceMat, { pos: [cx, cy, zFront - 0.01], rot: [Math.PI / 2, 0, 0] });
-  // tick marks around the dial
-  for (let i = 0; i < ticks; i++) {
-    const a = (-120 + (240 * i) / (ticks - 1)) * DEG;
-    const tx = cx + Math.sin(a) * radius * 0.74;
-    const ty = cy + Math.cos(a) * radius * 0.74;
-    add(new BoxGeometry(0.004, radius * 0.16, 0.004), "needle", { pos: [tx, ty, zFront + 0.02], rot: [0, 0, -a] });
+// ── Printed instrument faces (embedded-texture PNG decals) ───────────────────
+const decalSpecs = []; // { group, cx, cy, cz, rotY, radius, svg }
+function svgPt(c, r, deg) { const a = deg * Math.PI / 180; return [c + r * Math.cos(a), c - r * Math.sin(a)]; }
+
+/** Classic ammeter face: ticks, numbers, "TUN-O-METER", a red needle. */
+function gaugeFaceSVG({ label = "TUN-O-METER", needleFrac = 0.6 } = {}) {
+  const S = 512, c = 256, R = 226, a0 = 220, a1 = -40, N = 10;
+  let ticks = "", nums = "";
+  for (let i = 0; i <= N; i++) {
+    const a = a0 + (a1 - a0) * (i / N), major = i % 2 === 0;
+    const [x1, y1] = svgPt(c, R, a), [x2, y2] = svgPt(c, R - (major ? 34 : 20), a);
+    ticks += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#2a2a2a" stroke-width="${major ? 6 : 3}"/>`;
+    if (major) { const [nx, ny] = svgPt(c, R - 60, a); nums += `<text x="${nx}" y="${ny + 11}" font-size="30" fill="#333" text-anchor="middle" font-family="Arial, sans-serif">${i * 10}</text>`; }
   }
-  // needle + hub
-  const na = needleDeg * DEG;
-  add(new BoxGeometry(0.006, radius * 0.82, 0.006), "needle", {
-    pos: [cx + Math.sin(na) * radius * 0.32, cy + Math.cos(na) * radius * 0.32, zFront + 0.03], rot: [0, 0, -na]
-  });
-  add(new CylinderGeometry(radius * 0.14, radius * 0.14, 0.02, 16), "brassDark", { pos: [cx, cy, zFront + 0.035], rot: [Math.PI / 2, 0, 0] });
+  const [nx, ny] = svgPt(c, R - 26, a0 + (a1 - a0) * needleFrac);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}">
+    <circle cx="${c}" cy="${c}" r="${R + 24}" fill="#1a1712"/>
+    <circle cx="${c}" cy="${c}" r="${R + 8}" fill="#efe9d6"/>
+    ${ticks}${nums}
+    <text x="${c}" y="${c + 70}" font-size="32" fill="#2a3b52" text-anchor="middle" font-weight="bold" font-family="Georgia, serif">${label}</text>
+    <text x="${c}" y="${c + 104}" font-size="18" fill="#999" text-anchor="middle" font-family="Arial, sans-serif" letter-spacing="3">AMPERES</text>
+    <line x1="${c}" y1="${c}" x2="${nx}" y2="${ny}" stroke="#b5392c" stroke-width="9" stroke-linecap="round"/>
+    <circle cx="${c}" cy="${c}" r="17" fill="#222"/><circle cx="${c}" cy="${c}" r="7" fill="#555"/>
+  </svg>`;
 }
 
-/** Little rainbow arc dial (the pair top-left of the chest). */
+/** Small rainbow-band dial with a needle. */
+function rainbowFaceSVG({ needleDeg = 110 } = {}) {
+  const S = 256, c = 128, R = 102;
+  const bands = ["#cf3b2c", "#e08b2e", "#e6d23a", "#3fae5a", "#3a7bd0"];
+  let arcs = "";
+  for (let i = 0; i < bands.length; i++) {
+    const [x0, y0] = svgPt(c, R, 180 - i * (180 / bands.length));
+    const [x1, y1] = svgPt(c, R, 180 - (i + 1) * (180 / bands.length));
+    arcs += `<path d="M ${x0} ${y0} A ${R} ${R} 0 0 1 ${x1} ${y1}" stroke="${bands[i]}" stroke-width="30" fill="none"/>`;
+  }
+  const [nx, ny] = svgPt(c, R - 6, needleDeg);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}">
+    <circle cx="${c}" cy="${c}" r="${R + 22}" fill="#1a1712"/>
+    <circle cx="${c}" cy="${c}" r="${R + 8}" fill="#efe9d6"/>
+    ${arcs}
+    <line x1="${c}" y1="${c}" x2="${nx}" y2="${ny}" stroke="#222" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="${c}" cy="${c}" r="11" fill="#222"/>
+  </svg>`;
+}
+
+/** Round analog gauge: brass bezel + dark backing + a printed-face PNG decal. */
+function gauge(cx, cy, zFront, radius, opts = {}) {
+  add(new TorusGeometry(radius, radius * 0.16, 16, 40), "brass", { pos: [cx, cy, zFront], rot: [Math.PI / 2, 0, 0] });
+  add(new CylinderGeometry(radius * 0.92, radius * 0.92, 0.03, 40), "darkSteel", { pos: [cx, cy, zFront - 0.02], rot: [Math.PI / 2, 0, 0] });
+  decalSpecs.push({ group: CUR_GROUP, cx, cy, cz: zFront + 0.008, rotY: Math.atan2(cx, TORSO.R), radius: radius * 0.9, svg: gaugeFaceSVG(opts) });
+}
+
+/** Small rainbow arc dial: brass bezel + printed-face PNG decal. */
 function rainbowDial(cx, cy, zFront, radius) {
   add(new TorusGeometry(radius, radius * 0.2, 12, 28), "brass", { pos: [cx, cy, zFront], rot: [Math.PI / 2, 0, 0] });
-  add(new CylinderGeometry(radius * 0.85, radius * 0.85, 0.016, 28), "cream", { pos: [cx, cy, zFront - 0.008], rot: [Math.PI / 2, 0, 0] });
-  const bands = ["red", "amber", "green"];
-  for (let i = 0; i < 3; i++) {
-    add(new TorusGeometry(radius * 0.6, radius * 0.12, 8, 14, Math.PI * 0.5), bands[i], {
-      pos: [cx, cy, zFront + 0.004], rot: [Math.PI / 2, 0, (-0.78 + i * 0.52)]
-    });
-  }
-  add(new BoxGeometry(0.004, radius * 0.7, 0.004), "needle", { pos: [cx + 0.006, cy + 0.008, zFront + 0.02], rot: [0, 0, -0.4] });
+  add(new CylinderGeometry(radius * 0.85, radius * 0.85, 0.02, 28), "darkSteel", { pos: [cx, cy, zFront - 0.014], rot: [Math.PI / 2, 0, 0] });
+  decalSpecs.push({ group: CUR_GROUP, cx, cy, cz: zFront + 0.006, rotY: Math.atan2(cx, TORSO.R), radius: radius * 0.86, svg: rainbowFaceSVG() });
 }
 
 /** Glowing jewel indicator light: emissive dome in a brass bezel. */
@@ -475,6 +514,10 @@ function buildBoots() {
     // copper heel trim + rivets
     add(new TorusGeometry(0.085, 0.018, 12, 24, Math.PI), "copper", { pos: [x, 0.05, -0.07], rot: [Math.PI / 2, Math.PI, 0] });
     for (let i = 0; i < 5; i++) addRivet(x - 0.07 + i * 0.035, 0.075, 0.2, 0.01, "brass");
+    // toe-cap rim rivets (arc across the front of the cap)
+    for (let i = 0; i < 5; i++) { const a = -0.6 + i * 0.3; rivetLP(x + Math.sin(a) * 0.078, 0.045, 0.18 + Math.cos(a) * 0.018, 0.008, "brass"); }
+    // sole welt rivets along both sides
+    for (const sgn of [-1, 1]) for (let i = 0; i < 4; i++) rivetLP(x + sgn * 0.108, 0.022, -0.05 + i * 0.07, 0.007, "copperDark");
     // ankle collar
     add(new TorusGeometry(0.06, 0.02, 12, 28), "brass", { pos: [x, 0.16, 0.0], rot: [Math.PI / 2, 0, 0] });
     add(new CylinderGeometry(0.05, 0.055, 0.06, 20), "gunmetal", { pos: [x, 0.18, 0.0] });
@@ -568,6 +611,21 @@ function buildTorso() {
   rivetArcFront(bot + 0.06, R, -46, 46, 9, 0.011, "brass");
   // lower-back vent grille (visible from behind)
   for (let i = -2; i <= 2; i++) add(new BoxGeometry(0.18, 0.014, 0.01), "darkSteel", { pos: [0, cy - 0.12 + i * 0.028, -zAt(0) + 0.01] });
+
+  // ── vertical riveted panel seams down both front edges of the blue panel ──
+  for (const side of [-1, 1]) {
+    const a = side * 0.8; // panel edge angle (matches the blue segment)
+    const sx = R * Math.sin(a), sz = R * Math.cos(a);
+    add(new CylinderGeometry(0.009, 0.009, H * 0.72, 8), "brass", { pos: [sx, cy, sz] });           // raised seam strip
+    for (let i = 0; i < 7; i++) rivetLP(sx, bot + 0.08 + i * ((H - 0.16) / 6), sz + 0.006, 0.011, "brassDark");
+  }
+  // ── side vent grilles (worn slots on the lower flanks) ──
+  for (const side of [-1, 1]) {
+    add(new BoxGeometry(0.02, 0.16, 0.075), "brassDark", { pos: [side * (R - 0.005), cy - 0.05, 0] }); // recessed surround
+    for (let i = 0; i < 4; i++) add(new BoxGeometry(0.014, 0.12, 0.012), "darkSteel", { pos: [side * (R + 0.006), cy - 0.05, -0.045 + i * 0.03] });
+  }
+  // extra rivet rows framing the gauge cluster
+  rivetArcFront(cy + 0.18, R, -30, 30, 7, 0.009, "brass");
 }
 
 function shoulderHub(x, side) {
@@ -651,6 +709,9 @@ function buildHead() {
   add(new SphereGeometry(0.215, 56, 30, 0, Math.PI * 2, 0, Math.PI / 2), "copper", { pos: [0, hy + 0.15, 0], scale: [1, 0.92, 1] });
   add(new TorusGeometry(0.215, 0.022, 14, 44), "copperDark", { pos: [0, hy + 0.15, 0], rot: [Math.PI / 2, 0, 0] });
   rivetRingY(hy + 0.17, 0.205, 16, 0.01, "brass");
+  // riveted vertical seams down the back + sides of the head barrel
+  for (let i = 0; i < 6; i++) rivetLP(0, hy - 0.1 + i * 0.04, -0.206, 0.009, "brass");
+  for (const side of [-1, 1]) for (let i = 0; i < 5; i++) rivetLP(side * 0.206, hy - 0.08 + i * 0.04, 0.04, 0.008, "brass");
 
   // ── round, layered eyes with movable warm-bulb irises ──
   CUR_GROUP = "Eyes";
@@ -889,6 +950,36 @@ const parentFor = (name) => groupNodes.get(name) ?? rootNode;
     for (const [matKey, list] of byMat) mesh.addPrimitive(mergedPrimitive(list, matKey));
     parentFor("Eyes").addChild(doc.createNode(spec.name).setMesh(mesh).setTranslation([spec.center[0], spec.center[1] - minY, spec.center[2]]));
   }
+}
+
+// ── Printed gauge-face decals (embedded PNG textures, parented to their group) ──
+for (let d = 0; d < decalSpecs.length; d++) {
+  const spec = decalSpecs[d];
+  const png = await sharp(Buffer.from(spec.svg)).png().toBuffer();
+  const tex = doc.createTexture(`gaugeFace_${d}`).setImage(new Uint8Array(png)).setMimeType("image/png");
+  const mat = doc.createMaterial(`gaugeFace_${d}`).setBaseColorFactor([1, 1, 1, 1]).setRoughnessFactor(0.32).setMetallicFactor(0).setBaseColorTexture(tex);
+  const circle = new CircleGeometry(spec.radius, 48);
+  const pos = circle.attributes.position.array, nrm = circle.attributes.normal.array, uv = circle.attributes.uv.array, idx = circle.index.array;
+  const cosY = Math.cos(spec.rotY), sinY = Math.sin(spec.rotY), n = pos.length / 3;
+  const fpos = new Float32Array(pos.length), fnor = new Float32Array(pos.length);
+  for (let i = 0; i < n; i++) {
+    const x = pos[i * 3], y = pos[i * 3 + 1], z = pos[i * 3 + 2];
+    fpos[i * 3] = x * cosY + z * sinY + spec.cx;
+    fpos[i * 3 + 1] = y + (spec.cy - minY);
+    fpos[i * 3 + 2] = -x * sinY + z * cosY + spec.cz;
+    const ax = nrm[i * 3], ay = nrm[i * 3 + 1], az = nrm[i * 3 + 2];
+    fnor[i * 3] = ax * cosY + az * sinY; fnor[i * 3 + 1] = ay; fnor[i * 3 + 2] = -ax * sinY + az * cosY;
+  }
+  const prim = doc.createPrimitive()
+    .setAttribute("POSITION", doc.createAccessor().setType("VEC3").setArray(fpos).setBuffer(buffer))
+    .setAttribute("NORMAL", doc.createAccessor().setType("VEC3").setArray(fnor).setBuffer(buffer))
+    // flip V so the printed face reads upright on the +Z front
+    .setAttribute("TEXCOORD_0", doc.createAccessor().setType("VEC2").setArray(Float32Array.from(uv, (v, i) => (i % 2 === 0 ? v : 1 - v))).setBuffer(buffer))
+    .setIndices(doc.createAccessor().setType("SCALAR").setArray(Uint32Array.from(idx)).setBuffer(buffer))
+    .setMaterial(mat);
+  parentFor(spec.group).addChild(doc.createNode(`GaugeFace_${d}`).setMesh(doc.createMesh(`GaugeFace_${d}`).addPrimitive(prim)));
+  totalTriangles += idx.length / 3;
+  circle.dispose();
 }
 
 await mkdir(dirname(OUT_PATH), { recursive: true });
