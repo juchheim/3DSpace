@@ -331,34 +331,36 @@ function sensorDisc(side, hy) {
   rivetRingY(hy + 0.01, 0.05, 6, 0.007, "steelDark", x + side * 0.006, 0); // around the disc (approx ring on the side)
 }
 
+function norm3(v) { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; }
+
 /**
- * One articulated mechanical finger: 3 tapering phalanges with knuckle joints.
- * `baseAng` is the first phalanx pitch measured from straight-down (−Y) toward
- * +Z (forward). Each joint then FLEXES (angle decreases), curling the fingertip
- * down and back toward the palm — anatomically correct flexion, never the
- * backward hyperextension the previous version produced. `yaw` rotates the whole
- * flex plane about Y so an opposed thumb can press in from the side.
+ * Articulated finger built from a `forward` (point) direction and a `bend`
+ * direction (perpendicular, pointing toward the palm). Each phalanx direction is
+ * `forward` rotated toward `bend` by the running sum of `jointAngles` — every
+ * joint adds a POSITIVE flex, so the curl is monotonic and physically cannot
+ * hyperextend backward. Knuckle spheres sit on the convex (back) side; the tip
+ * tucks toward the palm. Returns the fingertip position.
  */
-function mechFinger(knuckle, baseAng, flex, length, r, mat, group, yaw = 0) {
+function finger(base, forward, bend, segLens, jointAngles, r0, mat, group) {
   CUR_GROUP = group;
-  const segs = 3;
-  const segLen = length / segs;
-  const sy = Math.sin(yaw), cy = Math.cos(yaw);
-  let p = [knuckle[0], knuckle[1], knuckle[2]];
-  let a = baseAng;
+  const fwd = norm3(forward), bnd = norm3(bend);
+  let p = [base[0], base[1], base[2]];
+  let a = 0;
   const pts = [p];
-  for (let i = 0; i < segs; i++) {
-    a -= flex / segs; // flexion: curl toward the palm (tip comes down + back)
-    const horiz = Math.sin(a) * segLen;
-    p = [p[0] + horiz * sy, p[1] - Math.cos(a) * segLen, p[2] + horiz * cy];
+  for (let i = 0; i < segLens.length; i++) {
+    a += jointAngles[i];
+    const ca = Math.cos(a), sa = Math.sin(a);
+    const d = [fwd[0] * ca + bnd[0] * sa, fwd[1] * ca + bnd[1] * sa, fwd[2] * ca + bnd[2] * sa];
+    p = [p[0] + d[0] * segLens[i], p[1] + d[1] * segLens[i], p[2] + d[2] * segLens[i]];
     pts.push(p);
   }
-  for (let i = 0; i < segs; i++) {
-    beam(pts[i], pts[i + 1], r * (1 - i * 0.12), r * (1 - (i + 1) * 0.12), mat, 10);
-    add(new SphereGeometry(r * (1.05 - i * 0.08), 10, 8), "gunmetal", { pos: pts[i] }); // knuckle joint
+  for (let i = 0; i < segLens.length; i++) {
+    const r = r0 * (1 - i * 0.13);
+    add(new SphereGeometry(r * 1.16, 10, 8), "gunmetal", { pos: pts[i] });          // knuckle joint
+    beam(pts[i], pts[i + 1], r, r0 * (1 - (i + 1) * 0.13), mat, 10);                 // phalanx
   }
-  add(new SphereGeometry(r * 0.78, 8, 6), "steelDark", { pos: pts[segs] }); // fingertip pad
-  return pts[segs];
+  add(new SphereGeometry(r0 * 0.6, 8, 6), "steelDark", { pos: pts[pts.length - 1] }); // fingertip pad
+  return pts[pts.length - 1];
 }
 
 /**
@@ -578,53 +580,54 @@ function buildArms() {
   }
 }
 
+// Wrench handle line (robot's LEFT hand grips it); used to seat the wrench too.
+const WRENCH_HAND_X = 0.42;
+const WRENCH_HANDLE_Z = 0.105;
+
 function buildHands() {
-  // Each hand: a palm block + back-of-hand plate, three fingers that flex forward
-  // and curl under (anatomically), and an opposed thumb pressing in from the side.
-  function palmBlock(g, palm) {
+  // Palm chassis: a block with a knuckle row at the front edge, a back-of-hand
+  // plate, and a wrist hub. `front` is +1 if the back of the hand faces +Z.
+  function palmBlock(g, cx, cy, cz) {
     CUR_GROUP = g;
-    add(roundedBoxGeo(0.078, 0.075, 0.07, 0.02, 0.01), "steel", { pos: palm });
-    add(roundedBoxGeo(0.072, 0.06, 0.026, 0.012, 0.008), "steelDark", { pos: [palm[0], palm[1] + 0.006, palm[2] - 0.036] }); // back-of-hand plate
-    add(new CylinderGeometry(0.046, 0.05, 0.04, 18), "gunmetal", { pos: [palm[0], palm[1] + 0.06, palm[2]] }); // wrist knuckle hub
+    add(roundedBoxGeo(0.082, 0.07, 0.072, 0.02, 0.01), "steel", { pos: [cx, cy, cz] });
+    add(roundedBoxGeo(0.076, 0.055, 0.024, 0.012, 0.008), "steelDark", { pos: [cx, cy + 0.004, cz - 0.038] }); // back-of-hand plate
+    add(new CylinderGeometry(0.046, 0.05, 0.045, 18), "gunmetal", { pos: [cx, cy + 0.058, cz] });               // wrist hub
+    add(new BoxGeometry(0.082, 0.018, 0.07), "steelDark", { pos: [cx, cy + 0.036, cz + 0.006] });               // knuckle ridge
   }
 
-  // ── robot's RIGHT hand (−X): closed fist clutching the wrench handle ──
-  {
-    const g = "Right_Hand";
-    const wr = [-0.42, 0.78, 0.04];
-    const palm = [wr[0], 0.70, 0.04];
-    palmBlock(g, palm);
-    // three fingers curling forward over and around the handle
-    for (let i = 0; i < 3; i++) {
-      const fx = wr[0] + (i - 1) * 0.026;
-      mechFinger([fx, 0.735, 0.078], 1.3, 2.35, 0.13, 0.017, "steel", g);
-    }
-    // opposed thumb pressing in from the inner (+X) side toward the handle
-    mechFinger([wr[0] + 0.046, 0.715, 0.062], 1.05, 1.4, 0.08, 0.018, "steel", g, -1.0);
-  }
-  // ── robot's LEFT hand (+X): open, relaxed gripper ──
+  // ── robot's LEFT hand (+X): closed fist clutching the wrench handle ──
+  // Fingers reach forward (+Z) over the handle then curl down and under it; the
+  // opposed thumb presses in from the inner (−X) side. forward→bend flexion only.
   {
     const g = "Left_Hand";
-    const wr = [0.42, 0.78, 0.04];
-    const palm = [wr[0], 0.70, 0.04];
-    palmBlock(g, palm);
-    // fingers hang down with a gentle natural curl
+    const cx = WRENCH_HAND_X;
+    palmBlock(g, cx, 0.705, 0.05);
     for (let i = 0; i < 3; i++) {
-      const fx = wr[0] + (i - 1) * 0.026;
-      mechFinger([fx, 0.735, 0.062], 0.45, 0.95, 0.14, 0.017, "steel", g);
+      const fx = cx + (i - 1) * 0.027;
+      finger([fx, 0.742, 0.084], [0, 0, 1], [0, -1, 0], [0.05, 0.043, 0.037], [0.55, 0.95, 1.05], 0.017, "steel", g);
     }
-    // relaxed opposed thumb on the inner (−X) side
-    mechFinger([wr[0] - 0.046, 0.715, 0.052], 0.7, 0.75, 0.08, 0.018, "steel", g, 1.0);
+    finger([cx - 0.05, 0.722, 0.072], [0.62, 0.1, 0.78], [0, -1, 0.1], [0.046, 0.04], [0.55, 0.85], 0.018, "steel", g);
+  }
+  // ── robot's RIGHT hand (−X): open, relaxed gripper ──
+  // Fingers hang down with a gentle natural curl toward the palm; relaxed thumb.
+  {
+    const g = "Right_Hand";
+    const cx = -0.42;
+    palmBlock(g, cx, 0.705, 0.05);
+    for (let i = 0; i < 3; i++) {
+      const fx = cx + (i - 1) * 0.027;
+      finger([fx, 0.738, 0.07], [0, -0.92, 0.38], [0, -0.38, -0.92], [0.052, 0.045, 0.04], [0.25, 0.4, 0.45], 0.017, "steel", g);
+    }
+    finger([cx + 0.05, 0.722, 0.066], [-0.5, -0.78, 0.38], [0, -0.42, -0.9], [0.046, 0.04], [0.35, 0.45], 0.018, "steel", g);
   }
 }
 
 function buildWrench() {
   CUR_GROUP = "Wrench";
-  // clutched in the robot's right fist: the handle passes vertically through the
-  // grip (level with the wrist) so the curled fingers wrap it, and the open-end
-  // jaw hangs below the hand — matching the reference.
-  const wr = [-0.42, 0.78, 0.04];
-  add(wrenchGeometry(), "wrench", { pos: [wr[0], wr[1] + 0.01, wr[2] + 0.05], rot: [0.1, 0.0, 0.02] });
+  // clutched in the robot's LEFT fist (matches the reference): the handle passes
+  // vertically through the grip so the curled fingers wrap it, and the open-end
+  // jaw hangs below the hand.
+  add(wrenchGeometry(), "wrench", { pos: [WRENCH_HAND_X, 0.80, WRENCH_HANDLE_Z], rot: [0.12, 0.0, -0.02] });
 }
 
 function buildNeck() {
