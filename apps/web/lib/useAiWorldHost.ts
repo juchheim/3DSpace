@@ -83,7 +83,7 @@ export function useAiWorldHost(input: {
   const [busy, setBusy] = useState(false);
   const [placementMode, setPlacementMode] = useState<AiWorldHostPlacementMode>("idle");
   const [ghost, setGhost] = useState<{ position: Vector3; rotationY: number } | null>(null);
-  const [pendingAvatar, setPendingAvatar] = useState<RoomAiHost["avatar"]>("retro-robot");
+  const [pendingAvatar, setPendingAvatar] = useState<RoomAiHost["avatar"]>("model-lp");
   const [panelOpen, setPanelOpen] = useState(false);
   const [animationState, setAnimationState] = useState<AiWorldHostAnimationState>("idle");
   const [speechBubbleText, setSpeechBubbleText] = useState<string | null>(null);
@@ -237,7 +237,7 @@ export function useAiWorldHost(input: {
       displayName: string,
       position: Vector3,
       rotationY = 0,
-      avatar: RoomAiHost["avatar"] = "retro-robot"
+      avatar: RoomAiHost["avatar"] = "model-lp"
     ) => {
       if (!input.roomId) throw new Error("Room is not ready.");
       setBusy(true);

@@ -13,6 +13,7 @@ type AiWorldHostController = ReturnType<typeof useAiWorldHost>;
 type AvatarVariant = RoomAiHost["avatar"];
 
 const AVATAR_OPTIONS: { value: AvatarVariant; label: string; hint: string }[] = [
+  { value: "model-lp", label: "MODEL-LP", hint: "Red-and-steel utility mech" },
   { value: "retro-robot", label: "Retro Robot", hint: "Classic tin-rover guide" },
   { value: "sprocket-bot", label: "Sprocket-Bot", hint: "Steampunk brass robot" }
 ];

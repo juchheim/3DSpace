@@ -86,8 +86,8 @@ describe("AI world host routes", () => {
     expect(summon.statusCode).toBe(200);
     expect(summon.json().host.displayName).toBe("Chip");
     expect(summon.json().host.rotationY).toBe(1.2);
-    // Avatar defaults to the retro robot when not specified.
-    expect(summon.json().host.avatar).toBe("retro-robot");
+    // Avatar defaults to the MODEL-LP mech when not specified.
+    expect(summon.json().host.avatar).toBe("model-lp");
     expect(summon.json().realtimeMessages[0].type).toBe("room.ai-host.updated.v1");
 
     const duplicate = await app.inject({

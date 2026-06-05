@@ -49,6 +49,7 @@ import type { ParticipantView } from "./RoomClient";
 import { BlockyAvatar } from "./BlockyAvatar";
 import { RetroRobotHostAvatar, type RetroRobotHostAvatarProps } from "./RetroRobotHostAvatar";
 import { SprocketBotHostAvatar } from "./SprocketBotHostAvatar";
+import { ModelLpHostAvatar } from "./ModelLpHostAvatar";
 import { useAiWorldHostScene, type AiWorldHostSceneConfig } from "../lib/useAiWorldHost";
 import { RoomObjectsLayer } from "./RoomObjectsLayer";
 import { BuildPlacementController } from "./BuildPlacementController";
@@ -643,6 +644,13 @@ export function RoomView3D({
  */
 /** Picks the avatar component for a host variant. Suspends while a GLB loads. */
 function HostAvatar({ avatar, ...props }: RetroRobotHostAvatarProps & { avatar: RoomAiHost["avatar"] }) {
+  if (avatar === "model-lp") {
+    return (
+      <Suspense fallback={null}>
+        <ModelLpHostAvatar {...props} />
+      </Suspense>
+    );
+  }
   if (avatar === "sprocket-bot") {
     return (
       <Suspense fallback={null}>
