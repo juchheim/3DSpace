@@ -1,27 +1,11 @@
 "use client";
 
-import { useEffect, useRef, type CSSProperties } from "react";
+import { Suspense, useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { useFrame } from "@react-three/fiber";
-import { Billboard, Html } from "@react-three/drei";
+import { Billboard, Html, useGLTF } from "@react-three/drei";
 import { MathUtils, type Group, type Mesh } from "three";
 import type { AvatarAppearance, AvatarReactionSlug, ParticipantAudioMode } from "@3dspace/contracts";
 import type { ParticipantView } from "./RoomClient";
-import {
-  buildHeadMaterials,
-  buildBodyMaterials,
-  buildArmMaterials,
-  buildHandMaterials,
-  buildLegMaterials,
-  buildFootMaterials,
-  updateHeadMaterials,
-  updateBodyMaterials,
-  updateArmMaterials,
-  updateHandMaterials,
-  updateLegMaterials,
-  updateFootMaterials,
-  disposeMaterials,
-  type FaceMaterials,
-} from "../lib/avatarMaterials";
 
 const REACTION_EMOJI: Record<AvatarReactionSlug, string> = {
   "thumbs-up": "👍",
@@ -32,9 +16,40 @@ const REACTION_EMOJI: Record<AvatarReactionSlug, string> = {
   "celebrate": "🎉"
 };
 
+// ── Avatar model ────────────────────────────────────────────────────────────
+// The participant avatar is the modelled IXR female GLB (geometry + a single
+// baked material), served from apps/web/public. It is exported normalised to a
+// 2 m-tall mesh centred on the origin (feet at y=-1), so we scale it to
+// TARGET_HEIGHT and lift it by half so the boots rest on the ground plane (y=0).
+const AVATAR_URL    = "/avatars/ixr-female.glb";
+const NATIVE_HEIGHT = 2.0;
+const TARGET_HEIGHT = 1.7;
+const MODEL_SCALE   = TARGET_HEIGHT / NATIVE_HEIGHT;
+const FEET_OFFSET   = MODEL_SCALE * (NATIVE_HEIGHT / 2); // model centre → feet on ground
+
+useGLTF.preload(AVATAR_URL);
+
+/** Clones the loaded GLB per instance (geometry + material stay shared/cached). */
+function AvatarModel() {
+  const { scene } = useGLTF(AVATAR_URL);
+  const model = useMemo(() => {
+    const root = scene.clone(true);
+    root.traverse((object) => {
+      if ((object as Mesh).isMesh) {
+        object.castShadow = true;
+        object.receiveShadow = true;
+      }
+    });
+    return root;
+  }, [scene]);
+
+  return <primitive object={model} scale={MODEL_SCALE} />;
+}
+
 export type BlockyAvatarProps = {
   participant: ParticipantView;
   groupColor?: string;
+  /** Retained for API/editor compatibility; the GLB avatar is not recoloured. */
   appearance: AvatarAppearance;
   helpRequestActive: boolean;
   waveTriggered: boolean;
@@ -50,6 +65,8 @@ export type BlockyAvatarProps = {
   avatarScale?: number;
 };
 
+// Kept for backwards compatibility — consumed by RoomClient / useAvatarAppearance
+// as the fallback appearance. The GLB avatar ignores these colours.
 export const DEFAULT_APPEARANCE: AvatarAppearance = {
   hairTop:     "#2a1a0e",
   hairFront:   "#2a1a0e",
@@ -79,8 +96,8 @@ export const DEFAULT_APPEARANCE: AvatarAppearance = {
 export function BlockyAvatar({
   participant,
   groupColor,
-  appearance,
-  helpRequestActive,
+  appearance: _appearance,
+  helpRequestActive: _helpRequestActive,
   waveTriggered,
   onWaveComplete,
   onClick,
@@ -94,189 +111,54 @@ export function BlockyAvatar({
 }: BlockyAvatarProps) {
   const position = participant.state.position;
   const movement = participant.state.movement;
-  const airborneState = participant.state.airborneState ?? "grounded";
   const media    = participant.state.media;
 
-  // ── Animation group refs ───────────────────────────────────────────────
-  const headGroupRef     = useRef<Group>(null);
-  const bodyGroupRef     = useRef<Group>(null);
-  const leftArmPivotRef  = useRef<Group>(null);
-  const rightArmPivotRef = useRef<Group>(null);
-  const leftLegPivotRef  = useRef<Group>(null);
-  const rightLegPivotRef = useRef<Group>(null);
-
-  // ── Persistent animation state (refs — no re-renders) ─────────────────
-  const walkBlendRef  = useRef(0);
-  const airborneBlendRef = useRef(0);
-  const wavePhaseRef  = useRef(0);
+  // ── Animation state (refs — no re-renders) ────────────────────────────────
+  // The supplied GLB is a single static mesh (no skeleton / clips), so motion is
+  // conveyed by the root: a step-synced bob while moving, a gentle idle bob, and
+  // a whole-body acknowledgement when the wave emote fires.
+  const bobRef       = useRef<Group>(null);
+  const walkBlendRef = useRef(0);
+  const wavePhaseRef = useRef(0);
   const waveActiveRef = useRef(false);
 
-  // ── Frame loop ─────────────────────────────────────────────────────────
   useFrame((state, delta) => {
-    const t  = state.clock.getElapsedTime();
-    const la = leftArmPivotRef.current;
-    const ra = rightArmPivotRef.current;
-    const ll = leftLegPivotRef.current;
-    const rl = rightLegPivotRef.current;
-    if (!la || !ra || !ll || !rl) return;
+    const g = bobRef.current;
+    if (!g) return;
+    const t = state.clock.getElapsedTime();
 
-    // Walk blend — lerps smoothly between 0 (idle) and 1 (walking/running)
+    // Walk blend — smooth 0 (idle) ↔ 1 (moving)
     const targetBlend = movement === "walking" || movement === "running" ? 1 : 0;
     walkBlendRef.current = MathUtils.lerp(walkBlendRef.current, targetBlend, delta * 8);
     const blend = walkBlendRef.current;
-    const targetAirborneBlend = airborneState === "grounded" ? 0 : 1;
-    airborneBlendRef.current = MathUtils.lerp(airborneBlendRef.current, targetAirborneBlend, delta * 10);
-    const airborneBlend = airborneBlendRef.current;
 
-    // Walk cycle
-    const WALK_FREQ = movement === "running" ? 3.6 : 2.5;
-    const WALK_AMP  = Math.PI / 6;
-    const rawSwing  = Math.sin(t * WALK_FREQ * Math.PI * 2) * WALK_AMP;
-    const swing     = rawSwing * blend;
-
-    const leftArmWalk  =  swing;
-    const rightArmWalk = -swing;
-    const leftLegWalk  = -swing;
-    const rightLegWalk =  swing;
-    const jumpPose =
-      airborneState === "jumping"
-        ? {
-            leftArm: -Math.PI / 3,
-            rightArm: -Math.PI / 3,
-            leftLeg: Math.PI / 6,
-            rightLeg: Math.PI / 6,
-            bodyOffsetY: 0.012
-          }
-        : {
-            leftArm: Math.PI / 6,
-            rightArm: Math.PI / 6,
-            leftLeg: -Math.PI / 7,
-            rightLeg: -Math.PI / 7,
-            bodyOffsetY: -0.01
-          };
-    const leftArmPose = MathUtils.lerp(leftArmWalk, jumpPose.leftArm, airborneBlend);
-    const rightArmPose = MathUtils.lerp(rightArmWalk, jumpPose.rightArm, airborneBlend);
-    const leftLegPose = MathUtils.lerp(leftLegWalk, jumpPose.leftLeg, airborneBlend);
-    const rightLegPose = MathUtils.lerp(rightLegWalk, jumpPose.rightLeg, airborneBlend);
-
-    // Idle body bob — fades out while walking
-    const body = bodyGroupRef.current;
-    if (body) {
-      body.position.y = 0.77 + Math.sin(t * 0.8 * Math.PI * 2) * 0.004 * (1 - blend) + jumpPose.bodyOffsetY * airborneBlend;
-    }
-
-    // Speaking head bob
-    const head = headGroupRef.current;
-    if (head) {
-      head.position.y = 1.22 + ((media?.speaking ?? false)
-        ? Math.sin(t * 4 * Math.PI * 2) * 0.008
-        : 0);
-    }
-
-    // Wave emote — one-shot trigger
+    // Wave emote — one-shot trigger that still notifies completion.
     const WAVE_DURATION = 2.0;
-    const WAVE_FREQ     = 3.5;
-    const WAVE_AMP      = Math.PI / 5;
-    const WAVE_BASE     = -Math.PI / 2;
-
     if (waveTriggered && !waveActiveRef.current) {
       waveActiveRef.current = true;
-      wavePhaseRef.current  = 0;
+      wavePhaseRef.current = 0;
     }
     if (waveActiveRef.current) {
       wavePhaseRef.current += delta / WAVE_DURATION;
       if (wavePhaseRef.current >= 1) {
-        wavePhaseRef.current  = 0;
+        wavePhaseRef.current = 0;
         waveActiveRef.current = false;
         onWaveComplete();
       }
     }
-    const waveProgress = wavePhaseRef.current;
+    const waveEnvelope = waveActiveRef.current ? Math.sin(wavePhaseRef.current * Math.PI) : 0;
 
-    // Apply rotations — priority: wave > raise hand > walk
-    la.rotation.x = leftArmPose;
-    la.rotation.z = 0;
-    ll.rotation.x = leftLegPose;
-    rl.rotation.x = rightLegPose;
+    // Vertical bob: a stride bounce while moving + a faint idle sway + a wave hop.
+    const stepFreq = movement === "running" ? 3.6 : 2.4;
+    const walkBob  = Math.abs(Math.sin(t * stepFreq * Math.PI)) * 0.035 * blend;
+    const idleBob  = Math.sin(t * 0.8 * Math.PI * 2) * 0.005 * (1 - blend);
+    const waveHop  = waveEnvelope * Math.abs(Math.sin(wavePhaseRef.current * Math.PI * 6)) * 0.045;
+    g.position.y = FEET_OFFSET + idleBob + walkBob + waveHop;
 
-    if (waveActiveRef.current) {
-      const envelope    = Math.sin(waveProgress * Math.PI);
-      const oscillation = Math.sin(waveProgress * WAVE_DURATION * WAVE_FREQ * Math.PI * 2) * WAVE_AMP;
-      ra.rotation.x = MathUtils.lerp(ra.rotation.x, WAVE_BASE + oscillation * envelope, delta * 8);
-      ra.rotation.z = MathUtils.lerp(ra.rotation.z, -(Math.PI / 3) * envelope, delta * 8);
-    } else if (helpRequestActive) {
-      ra.rotation.x = MathUtils.lerp(ra.rotation.x, -Math.PI * 0.80, delta * 6);
-      ra.rotation.z = MathUtils.lerp(ra.rotation.z, 0, delta * 6);
-    } else {
-      ra.rotation.x = MathUtils.lerp(ra.rotation.x, rightArmPose, delta * 8);
-      ra.rotation.z = MathUtils.lerp(ra.rotation.z, 0, delta * 8);
-    }
+    // A small side-to-side sway during the wave reads as a friendly greeting.
+    const targetTilt = waveEnvelope * Math.sin(t * 8) * 0.05;
+    g.rotation.z = MathUtils.lerp(g.rotation.z, targetTilt, delta * 10);
   });
-
-  // ── Mesh refs — for imperative material assignment ─────────────────────
-  const headMeshRef      = useRef<Mesh>(null);
-  const bodyMeshRef      = useRef<Mesh>(null);
-  const leftArmMeshRef   = useRef<Mesh>(null);
-  const rightArmMeshRef  = useRef<Mesh>(null);
-  const leftHandMeshRef  = useRef<Mesh>(null);
-  const rightHandMeshRef = useRef<Mesh>(null);
-  const leftLegMeshRef   = useRef<Mesh>(null);
-  const rightLegMeshRef  = useRef<Mesh>(null);
-  const leftFootMeshRef  = useRef<Mesh>(null);
-  const rightFootMeshRef = useRef<Mesh>(null);
-
-  // ── Material arrays — lazy-initialized once, mutated on appearance change
-  const headMatsRef      = useRef<FaceMaterials | null>(null);
-  const bodyMatsRef      = useRef<FaceMaterials | null>(null);
-  const armMatsRef       = useRef<FaceMaterials | null>(null);
-  const handMatsRef      = useRef<FaceMaterials | null>(null);
-  const legMatsRef       = useRef<FaceMaterials | null>(null);
-  const footMatsRef      = useRef<FaceMaterials | null>(null);
-
-  if (headMatsRef.current === null) {
-    headMatsRef.current = buildHeadMaterials(appearance);
-    bodyMatsRef.current = buildBodyMaterials(appearance);
-    armMatsRef.current  = buildArmMaterials(appearance);
-    handMatsRef.current = buildHandMaterials(appearance);
-    legMatsRef.current  = buildLegMaterials(appearance);
-    footMatsRef.current = buildFootMaterials(appearance);
-  }
-
-  // ── Apply material arrays to meshes once after mount ──────────────────
-  useEffect(() => {
-    if (headMeshRef.current)       headMeshRef.current.material       = headMatsRef.current!;
-    if (bodyMeshRef.current)       bodyMeshRef.current.material       = bodyMatsRef.current!;
-    if (leftArmMeshRef.current)    leftArmMeshRef.current.material    = armMatsRef.current!;
-    if (rightArmMeshRef.current)   rightArmMeshRef.current.material   = armMatsRef.current!;
-    if (leftHandMeshRef.current)   leftHandMeshRef.current.material   = handMatsRef.current!;
-    if (rightHandMeshRef.current)  rightHandMeshRef.current.material  = handMatsRef.current!;
-    if (leftLegMeshRef.current)    leftLegMeshRef.current.material    = legMatsRef.current!;
-    if (rightLegMeshRef.current)   rightLegMeshRef.current.material   = legMatsRef.current!;
-    if (leftFootMeshRef.current)   leftFootMeshRef.current.material   = footMatsRef.current!;
-    if (rightFootMeshRef.current)  rightFootMeshRef.current.material  = footMatsRef.current!;
-  }, []);
-
-  // ── Update materials imperatively when appearance changes ──────────────
-  useEffect(() => {
-    updateHeadMaterials(headMatsRef.current!, appearance);
-    updateBodyMaterials(bodyMatsRef.current!, appearance);
-    updateArmMaterials(armMatsRef.current!,   appearance);
-    updateHandMaterials(handMatsRef.current!, appearance);
-    updateLegMaterials(legMatsRef.current!,   appearance);
-    updateFootMaterials(footMatsRef.current!, appearance);
-  }, [appearance]);
-
-  // ── Dispose all GPU resources on unmount ──────────────────────────────
-  useEffect(() => {
-    return () => {
-      disposeMaterials(headMatsRef.current ?? []);
-      disposeMaterials(bodyMatsRef.current ?? []);
-      disposeMaterials(armMatsRef.current  ?? []);
-      disposeMaterials(handMatsRef.current ?? []);
-      disposeMaterials(legMatsRef.current  ?? []);
-      disposeMaterials(footMatsRef.current ?? []);
-    };
-  }, []);
 
   // Compensate nameplate distanceFactor so the plate stays the same on-screen size
   // when the avatar is scaled down (e.g. Cell Interior at 0.6×).
@@ -290,59 +172,11 @@ export function BlockyAvatar({
       visible={!hidden}
       {...(onClick ? { onClick } : {})}
     >
-
-      {/* Head — 0.40 × 0.40 × 0.40, center at y=1.22 */}
-      <group ref={headGroupRef} position={[0, 1.22, 0]}>
-        <mesh ref={headMeshRef}>
-          <boxGeometry args={[0.40, 0.40, 0.40]} />
-        </mesh>
-      </group>
-
-      {/* Body — 0.44 × 0.50 × 0.22, center at y=0.77 */}
-      <group ref={bodyGroupRef} position={[0, 0.77, 0]}>
-        <mesh ref={bodyMeshRef}>
-          <boxGeometry args={[0.44, 0.50, 0.22]} />
-        </mesh>
-      </group>
-
-      {/* Left arm — pivot at shoulder (x=-0.30, y=0.97) */}
-      <group ref={leftArmPivotRef} position={[-0.30, 0.97, 0]}>
-        <mesh ref={leftArmMeshRef} position={[0, -0.22, 0]}>
-          <boxGeometry args={[0.16, 0.44, 0.16]} />
-        </mesh>
-        <mesh ref={leftHandMeshRef} position={[0, -0.50, 0]}>
-          <boxGeometry args={[0.16, 0.12, 0.16]} />
-        </mesh>
-      </group>
-
-      {/* Right arm — pivot at shoulder (x=+0.30, y=0.97) */}
-      <group ref={rightArmPivotRef} position={[0.30, 0.97, 0]}>
-        <mesh ref={rightArmMeshRef} position={[0, -0.22, 0]}>
-          <boxGeometry args={[0.16, 0.44, 0.16]} />
-        </mesh>
-        <mesh ref={rightHandMeshRef} position={[0, -0.50, 0]}>
-          <boxGeometry args={[0.16, 0.12, 0.16]} />
-        </mesh>
-      </group>
-
-      {/* Left leg — pivot at hip (x=-0.11, y=0.52) */}
-      <group ref={leftLegPivotRef} position={[-0.11, 0.52, 0]}>
-        <mesh ref={leftLegMeshRef} position={[0, -0.20, 0]}>
-          <boxGeometry args={[0.18, 0.40, 0.18]} />
-        </mesh>
-        <mesh ref={leftFootMeshRef} position={[0, -0.46, 0.05]}>
-          <boxGeometry args={[0.22, 0.12, 0.32]} />
-        </mesh>
-      </group>
-
-      {/* Right leg — pivot at hip (x=+0.11, y=0.52) */}
-      <group ref={rightLegPivotRef} position={[0.11, 0.52, 0]}>
-        <mesh ref={rightLegMeshRef} position={[0, -0.20, 0]}>
-          <boxGeometry args={[0.18, 0.40, 0.18]} />
-        </mesh>
-        <mesh ref={rightFootMeshRef} position={[0, -0.46, 0.05]}>
-          <boxGeometry args={[0.22, 0.12, 0.32]} />
-        </mesh>
+      {/* Avatar mesh — bob group lifts the centred model so its feet hit y=0 */}
+      <group ref={bobRef} position={[0, FEET_OFFSET, 0]}>
+        <Suspense fallback={null}>
+          <AvatarModel />
+        </Suspense>
       </group>
 
       {/* Whisper floor ring + outer fade band */}
@@ -363,13 +197,13 @@ export function BlockyAvatar({
       {!hidden ? (
         <>
           {reaction ? (
-            <Billboard position={[0, 1.85, 0]}>
+            <Billboard position={[0, 2.15, 0]}>
               <Html center style={{ pointerEvents: "none" }}>
                 <div className="avatar-reaction">{REACTION_EMOJI[reaction]}</div>
               </Html>
             </Billboard>
           ) : null}
-          <Billboard position={[0, 1.52, 0]}>
+          <Billboard position={[0, 1.92, 0]}>
             <Html center distanceFactor={nameplateDistanceFactor} style={{ pointerEvents: "none" }}>
               <div
                 className={`avatar-nameplate${crossPodOutlineColor ? " avatar-nameplate--cross-pod" : ""}`}
@@ -389,7 +223,7 @@ export function BlockyAvatar({
             </Html>
           </Billboard>
           {participant.state.media?.cameraEnabled ? (
-            <Billboard position={[0.9, 1.46, 0]}>
+            <Billboard position={[0.9, 1.74, 0]}>
               <Html center distanceFactor={7}>
                 <AvatarVideoCard
                   stream={participant.cameraStream ?? null}
