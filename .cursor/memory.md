@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-03 (Sprocket-Bot GLB rebuild)
+Last updated: 2026-06-06 (Verse base room types)
 
 **Historical detail:** `.cursor/memory-archive.md` (planning log + bug-fix chronicle through 2026-05-30). Update that file only when archiving new dated entries; keep this file lean.
 
@@ -93,6 +93,7 @@ Remaining refactor candidates: `packages/contracts/src/index.ts`, `RoomClient.ts
 
 ## Recent work
 
+- **2026-06-06:** **Verse base room types** — Dream IXR lobby creates per-verse room types (`skill-verse`, `culture-verse`, `creator-verse`, `food-verse`, `mondi-verse`, `work-verse`) instead of `classroom`. `createVerseRoomManifest()` empty 80×80 canvas (no walls/anchors/tiers/webps); `VERSE_ROOM_TYPE_FEATURE_FLAGS` all off (no teacher/student right HUD). `verses.ts` `verseRoomType()`; Lobby + API `rooms-core` + mongoose enum wired.
 - **2026-06-03:** **Sprocket-Bot GLB** — rebuilt on `feature/aibot`: compact torso, rear gunmetal back-pack tank with flag pole, embedded ~1536×400 SVG→PNG "SPROCKET-BOT" pennant (`sharp`); render script gains `dist`/`ty` camera args. `npm run build:host-glb` / `render:host-glb`; guarded by `sprocket-bot-glb.test.ts`.
 - **2026-06-01:** **FFA AI World Host Phase 5 (Build Help chat)** — thorough world-building corpus `apps/api/src/ai-host/corpus/world-building-guide.md` (tools/shortcuts, materials, stamps, caps, FFA keep-out reasons; <12k tokens) + `corpus.ts` loader (copied to dist by `copy-builtin-catalog.mjs`); `prompts.ts` (`buildHelpSystemPrompt` persona+corpus+live context, `fileStudySystemPrompt`); `chat-service.ts` OpenAI SSE async-gen + `AI_WORLD_HOST_MOCK_RESPONSES` mock; `chat-message-service.ts`; `GET/POST /v1/rooms/:id/ai-host/chat` (SSE via `reply.hijack()`, private per user, per-hour rate limit, host-required, file-study→Phase 6); repo `appendAiHostChatMessage`/`listAiHostChatMessages` (memory+Mongo `room_ai_host_chat_messages`, cascades on dismiss/room-delete); contracts error codes `ai-host-unavailable`/`ai-host-rate-limited`; web `streamAiHostChat`/`listAiHostChat`, hook chat state + `sendBuildHelp` (speech-bubble/animation wiring), `WorldHostPanel` Build Help tab. Tests: `ai-host-chat.test.ts`, `ai-host/prompts.test.ts` (12).
 - **2026-06-01:** **FFA AI World Host Phase 4 review** — fixed refresh clearing summon/reposition (`placementModeRef` + `clearPlacement`); hub placement (`aiHostHubPlacementPosition`); summon flow (empty → “Summon guide” → place here/hub/ground); dismiss `confirm`; `ApiError` surfacing; loading hint; tests `ai-host-placement.test.ts`.

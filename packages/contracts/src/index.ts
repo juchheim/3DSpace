@@ -340,8 +340,43 @@ export const RoomObjectTouchPolicySchema = z.enum(["teacher-only", "granted", "a
 export const RoomObjectStatusSchema = z.enum(["active", "locked", "archived"]);
 export const RoomObjectSourceSchema = z.enum(["builtin", "custom", "partner", "ai-generated"]);
 export const RoomObjectRendererSchema = z.enum(["gltf", "procedural"]);
-export const RoomTypeSchema = z.enum(["classroom", "workforce-training", "free-for-all", "escape-room"]);
+export const VERSE_ROOM_TYPES = [
+  "skill-verse",
+  "culture-verse",
+  "creator-verse",
+  "food-verse",
+  "mondi-verse",
+  "work-verse"
+] as const;
+
+export const RoomTypeSchema = z.enum([
+  "classroom",
+  "workforce-training",
+  "free-for-all",
+  "escape-room",
+  ...VERSE_ROOM_TYPES
+]);
 export type RoomType = z.infer<typeof RoomTypeSchema>;
+export type VerseRoomType = (typeof VERSE_ROOM_TYPES)[number];
+
+const VERSE_ROOM_TYPE_SET = new Set<string>(VERSE_ROOM_TYPES);
+
+/** True for Dream IXR verse base room types (SkillVerse, CultureVerse, etc.). */
+export function isVerseRoomType(roomType: RoomType | string | null | undefined): roomType is VerseRoomType {
+  return typeof roomType === "string" && VERSE_ROOM_TYPE_SET.has(roomType);
+}
+
+/** Map a verse id (`skill`, `culture`, …) to its room type slug. */
+export function verseRoomTypeFromVerseId(verseId: string): VerseRoomType | null {
+  const slug = `${verseId}-verse`;
+  return VERSE_ROOM_TYPE_SET.has(slug) ? (slug as VerseRoomType) : null;
+}
+
+/** Extract the verse id from a verse room type, e.g. `skill-verse` → `skill`. */
+export function verseIdFromRoomType(roomType: RoomType | string | null | undefined): string | null {
+  if (!isVerseRoomType(roomType)) return null;
+  return roomType.slice(0, -"-verse".length);
+}
 export const RoomObjectCategorySchema = z.enum(["math", "science", "geography", "ela", "art", "custom"]);
 
 export const RoomObjectColorTintHexSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
@@ -1346,10 +1381,37 @@ const ESCAPE_ROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze(
   physics: false
 });
 
+/** Blank canvas for Dream IXR verses — no classroom HUD, boards, or build tools until customized. */
+const VERSE_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
+  classroomState: false,
+  peoplePanelTeacherControls: false,
+  lessons: false,
+  privateChecks: false,
+  groups: false,
+  focus: false,
+  hallPass: false,
+  whisper: false,
+  breakoutPods: false,
+  studentMediaControls: false,
+  worldSkins: false,
+  dynamicBoards: false,
+  openJoin: false,
+  aiMeetingNotes: false,
+  aiObjects: false,
+  aiWorldHost: false,
+  whiteboards: false,
+  sharedBrowsers: false,
+  liveCaptions: false,
+  building: false,
+  logic: false,
+  physics: false
+});
+
 /**
  * Future room types should not inherit classroom controls unless they opt in here.
  */
 export function getRoomTypeFeatureFlags(roomType: RoomType | string | null | undefined): RoomTypeFeatureFlags {
+  if (isVerseRoomType(roomType)) return VERSE_ROOM_TYPE_FEATURE_FLAGS;
   switch (roomType) {
     case "classroom":
       return CLASSROOM_ROOM_TYPE_FEATURE_FLAGS;

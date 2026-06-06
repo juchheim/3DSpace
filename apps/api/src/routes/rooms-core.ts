@@ -5,6 +5,7 @@ import {
   createDefaultRoomManifest,
   createEscapeRoomManifest,
   createFreeForAllManifest,
+  createVerseRoomManifest,
   createWorkforceTrainingManifest
 } from "@3dspace/room-engine";
 import {
@@ -18,6 +19,8 @@ import {
   UpdateRoomRequestSchema,
   UpdateWallAttachmentRequestSchema,
   WallAttachmentDownloadResponseSchema,
+  isVerseRoomType,
+  verseIdFromRoomType,
   type RoomType
 } from "@3dspace/contracts";
 import type { AppContext } from "../app-context.js";
@@ -78,12 +81,17 @@ export async function registerRoomsCoreRoutes(app: FastifyInstance, ctx: AppCont
       enableWallAttachments: config.tuning.enableWallAttachments,
       spatialAudio: config.tuning.spatialAudio
     };
-    const manifestFactory =
-      roomType === "workforce-training" ? createWorkforceTrainingManifest :
-      roomType === "free-for-all"       ? createFreeForAllManifest :
-      roomType === "escape-room"        ? createEscapeRoomManifest :
-      createDefaultRoomManifest;
-    const manifest = manifestFactory({ roomId, name: body.name, config: manifestConfig });
+    const manifest =
+      roomType === "workforce-training" ? createWorkforceTrainingManifest({ roomId, name: body.name, config: manifestConfig }) :
+      roomType === "free-for-all"       ? createFreeForAllManifest({ roomId, name: body.name, config: manifestConfig }) :
+      roomType === "escape-room"        ? createEscapeRoomManifest({ roomId, name: body.name, config: manifestConfig }) :
+      isVerseRoomType(roomType)         ? createVerseRoomManifest({
+        roomId,
+        name: body.name,
+        verseId: verseIdFromRoomType(roomType)!,
+        config: manifestConfig
+      }) :
+      createDefaultRoomManifest({ roomId, name: body.name, config: manifestConfig });
 
     return RoomWithManifestSchema.parse(
       await repository.createRoom({

@@ -9,7 +9,7 @@ import { inviteJoinUrl } from "../lib/invite";
 import { usePersistentIdentity } from "../lib/usePersistentIdentity";
 import { CopyRoomInviteButton } from "./CopyRoomInviteButton";
 import { VerseOrb } from "./VerseOrb";
-import { VERSES, verseClassName, verseFromClassName, verseThemeVars, type Verse } from "../lib/verses";
+import { VERSES, verseClassName, verseFromClassName, verseRoomType, verseThemeVars, type Verse } from "../lib/verses";
 
 // Defaults used to decide whether to preserve a user's custom class/room text
 // when they switch verses (mirrors the design's VERSE_DEFAULTS behavior).
@@ -136,7 +136,12 @@ export function Lobby() {
     setError("");
     try {
       const classId = await ensureVerseClass(selectedVerse);
-      const created = await createRoom(identity, classId, roomName.trim() || selectedVerse.defaultRoom, "classroom");
+      const created = await createRoom(
+        identity,
+        classId,
+        roomName.trim() || selectedVerse.defaultRoom,
+        verseRoomType(selectedVerse)
+      );
       const invite = await createInvite(identity, classId, { role: "student", roomId: created.room.id });
       setCreatedInvite(invite);
       setCreatedVerseId(selectedVerse.id);

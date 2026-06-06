@@ -14,10 +14,12 @@ import {
   AvatarAppearanceMessageSchema,
   AvatarReactionMessageSchema,
   getRoomTypeFeatureFlags,
+  isVerseRoomType,
   ParticipantAudioModeMessageSchema,
   parseRoomSettings,
   RoomPlayModeMessageSchema,
-  RoomSkinMessageSchema
+  RoomSkinMessageSchema,
+  verseIdFromRoomType
 } from "@3dspace/contracts";
 import { computeGroupMemberPosition, createAvatarState, floorYFromZ, isEscapeRoomManifest, logicChannelsFromPieces, resolvePhysicsTuning, unprojectPointFrom2D, worldToCell } from "@3dspace/room-engine";
 import {
@@ -294,11 +296,17 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     }
   }, [session?.room.type]);
   const roomRoleLabel = role === "teacher" ? roleLabels.hostSingular : roleLabels.guestSingular;
-  const roomTypeLabel =
-    session?.room.type === "workforce-training" ? "Workforce Training" :
-    session?.room.type === "free-for-all" ? "Free-for-All" :
-    session?.room.type === "escape-room" ? "Escape Room" :
-    "Classroom";
+  const roomTypeLabel = useMemo(() => {
+    const roomType = session?.room.type;
+    if (roomType === "workforce-training") return "Workforce Training";
+    if (roomType === "free-for-all") return "Free-for-All";
+    if (roomType === "escape-room") return "Escape Room";
+    if (isVerseRoomType(roomType)) {
+      const verse = verseById(verseIdFromRoomType(roomType) ?? undefined);
+      return verse?.name ?? "Verse";
+    }
+    return "Classroom";
+  }, [session?.room.type]);
   const dynamicBoards = useDynamicWallAnchors({
     identity,
     roomId: session?.room.id ?? roomId,
@@ -387,13 +395,12 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   // skin would bleed classroom assets (floor and panorama) into the space. Strip them
   // until the workforce-training room gets its own skin assets.
   const activeSkinForRoom = useMemo(() => {
-    if (
-      (session?.room.type !== "workforce-training" &&
-        session?.room.type !== "free-for-all" &&
-        session?.room.type !== "escape-room") ||
-      skinId !== null ||
-      !activeSkin.skin
-    ) {
+    const stripDefaultClassroomAssets =
+      session?.room.type === "workforce-training" ||
+      session?.room.type === "free-for-all" ||
+      session?.room.type === "escape-room" ||
+      isVerseRoomType(session?.room.type);
+    if (!stripDefaultClassroomAssets || skinId !== null || !activeSkin.skin) {
       return activeSkin.skin;
     }
     const { floor: _floor, panoramaWall: _panorama, ...rest } = activeSkin.skin.overrides;
@@ -2333,7 +2340,9 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     );
   }
 
-  const activeVerse = verseById(verseId ?? derivedVerseId ?? undefined);
+  const activeVerse = verseById(
+    verseId ?? derivedVerseId ?? verseIdFromRoomType(session?.room.type) ?? undefined
+  );
   const verseStyle = activeVerse ? (verseRoomThemeVars(activeVerse.hue) as CSSProperties) : undefined;
 
   const avatarColor = role === "teacher" ? "#c07834" : "#389060";

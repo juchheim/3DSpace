@@ -17,12 +17,25 @@ import {
   ESCAPE_ROOM_WALL_HEIGHT,
   isEscapeRoomManifest
 } from "./escape-room.js";
+import {
+  VERSE_ROOM_HALF_EXTENT,
+  VERSE_ROOM_MANIFEST_FEATURE,
+  VERSE_ROOM_WALL_HEIGHT,
+  isVerseRoomManifest
+} from "./verse-room.js";
 
 export {
   ESCAPE_ROOM_HALF_EXTENT,
   ESCAPE_ROOM_MANIFEST_FEATURE,
   ESCAPE_ROOM_WALL_HEIGHT,
   isEscapeRoomManifest
+};
+
+export {
+  VERSE_ROOM_HALF_EXTENT,
+  VERSE_ROOM_MANIFEST_FEATURE,
+  VERSE_ROOM_WALL_HEIGHT,
+  isVerseRoomManifest
 };
 
 export {
@@ -1221,6 +1234,69 @@ export function createEscapeRoomManifest(input: {
         key: ESCAPE_ROOM_MANIFEST_FEATURE,
         enabled: true,
         config: {}
+      }
+    ],
+    createdAt: input.createdAt ?? new Date().toISOString()
+  };
+
+  return RoomManifestSchema.parse(manifest);
+}
+
+function buildVerseRoomSpawnPoints(): SpawnPoint[] {
+  return [
+    {
+      id: "spawn-center",
+      label: "Spawn",
+      position: { x: 0, y: 0, z: 0 },
+      rotation: { y: 0 }
+    }
+  ];
+}
+
+export function createVerseRoomManifest(input: {
+  id?: string;
+  roomId: string;
+  name?: string;
+  verseId: string;
+  version?: number;
+  createdAt?: string;
+  config?: Partial<RoomEngineConfig>;
+}): RoomManifest {
+  const config: RoomEngineConfig = {
+    ...DEFAULT_ROOM_ENGINE_CONFIG,
+    ...input.config,
+    spatialAudio: { ...DEFAULT_SPATIAL_AUDIO, ...input.config?.spatialAudio }
+  };
+
+  const half = VERSE_ROOM_HALF_EXTENT;
+  const manifest: RoomManifest = {
+    id: input.id ?? `${input.roomId}:manifest:v${input.version ?? 1}`,
+    roomId: input.roomId,
+    version: input.version ?? 1,
+    name: input.name ?? "Verse Room",
+    dimensions: {
+      width: half * 2,
+      depth: half * 2,
+      height: VERSE_ROOM_WALL_HEIGHT
+    },
+    bounds: {
+      minX: -half,
+      maxX: half,
+      minZ: -half,
+      maxZ: half
+    },
+    tiers: [],
+    spawnPoints: buildVerseRoomSpawnPoints(),
+    walls: [],
+    wallAnchors: [],
+    projection: { kind: "top-down-v1", scale: 1, origin: { x: 0, y: 0 } },
+    capabilities: createRoomCapabilities(config),
+    spatialAudio: config.spatialAudio,
+    features: [
+      {
+        key: VERSE_ROOM_MANIFEST_FEATURE,
+        enabled: true,
+        config: { verseId: input.verseId }
       }
     ],
     createdAt: input.createdAt ?? new Date().toISOString()

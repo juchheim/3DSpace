@@ -163,7 +163,22 @@ export function createModels(connection: Connection): Models {
     id: { type: String, required: true, unique: true },
     classId: { type: String, required: true, index: true },
     name: { type: String, required: true },
-    type: { type: String, enum: ["classroom", "workforce-training", "free-for-all", "escape-room"], default: "classroom" },
+    type: {
+      type: String,
+      enum: [
+        "classroom",
+        "workforce-training",
+        "free-for-all",
+        "escape-room",
+        "skill-verse",
+        "culture-verse",
+        "creator-verse",
+        "food-verse",
+        "mondi-verse",
+        "work-verse"
+      ],
+      default: "classroom"
+    },
     activeManifestVersion: Number,
     settings: Schema.Types.Mixed,
     createdAt: String,

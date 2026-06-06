@@ -4,6 +4,8 @@
 // galaxy configuration all live here so the lobby and the in-room theming stay in
 // sync. See dream-IXR-verses/Lobby Redesign.html for the original design values.
 
+import { verseRoomTypeFromVerseId, type RoomType } from "@3dspace/contracts";
+
 /** Per-verse galaxy structure for the 3D orb on the verse card. */
 export type VerseGalaxy = {
   arms: number;
@@ -103,6 +105,13 @@ export const VERSES: Verse[] = [
 export function verseById(id: string | null | undefined): Verse | null {
   if (!id) return null;
   return VERSES.find((v) => v.id === id) ?? null;
+}
+
+/** Room type slug for a verse's blank base canvas (e.g. SkillVerse → `skill-verse`). */
+export function verseRoomType(verse: Verse): RoomType {
+  const roomType = verseRoomTypeFromVerseId(verse.id);
+  if (!roomType) throw new Error(`No room type mapped for verse id: ${verse.id}`);
+  return roomType;
 }
 
 /**
