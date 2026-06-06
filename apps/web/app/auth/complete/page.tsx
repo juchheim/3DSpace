@@ -1,20 +1,21 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAppAuth } from "../../../lib/auth";
 
 function AuthCompleteContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const auth = useAppAuth();
+  const { completeSignIn } = useAppAuth();
   const [message, setMessage] = useState("Completing sign-in...");
+  const exchangeStartedRef = useRef<string | null>(null);
+
+  const error = searchParams.get("error");
+  const code = searchParams.get("code");
+  const returnTo = searchParams.get("returnTo") || "/";
 
   useEffect(() => {
-    const error = searchParams.get("error");
-    const code = searchParams.get("code");
-    const returnTo = searchParams.get("returnTo") || "/";
-
     if (error) {
       router.replace(`/sign-in?error=${encodeURIComponent(error)}`);
       return;
@@ -24,6 +25,8 @@ function AuthCompleteContent() {
       router.replace("/sign-in?error=auth-session-expired");
       return;
     }
+    if (exchangeStartedRef.current === code) return;
+    exchangeStartedRef.current = code;
 
     let cancelled = false;
     void (async () => {
@@ -40,7 +43,7 @@ function AuthCompleteContent() {
           return;
         }
         if (!cancelled) {
-          auth.completeSignIn(payload);
+          completeSignIn(payload);
           router.replace(returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/");
         }
       } catch {
@@ -54,7 +57,7 @@ function AuthCompleteContent() {
     return () => {
       cancelled = true;
     };
-  }, [auth, router, searchParams]);
+  }, [code, completeSignIn, error, returnTo, router]);
 
   return (
     <main className="app-shell">
