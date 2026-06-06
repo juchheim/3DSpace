@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-06 (lobby dark background flash fix)
+Last updated: 2026-06-06 (lobby xband note width)
 
 **Historical detail:** `.cursor/memory-archive.md` (planning log + bug-fix chronicle through 2026-05-30). Update that file only when archiving new dated entries; keep this file lean.
 
@@ -93,6 +93,7 @@ Remaining refactor candidates: `packages/contracts/src/index.ts`, `RoomClient.ts
 
 ## Recent work
 
+- **2026-06-06:** **Lobby xband note width** — `.xband-note` max-width 560px → 820px so the mission statement fits on two lines (was spilling "real world" to a third).
 - **2026-06-06:** **Lobby dark background flash** — default `html, body` tan gradient in `globals.css` showed before `Lobby` `useEffect` added `dixr-dark`. Fix: blocking head script on `/` sets `html.dixr-dark` pre-paint; CSS targets `html.dixr-dark body`; `Lobby` manages both `html` + `body` classes for client nav.
 - **2026-06-06:** **Verse base room types** — Dream IXR lobby creates per-verse room types (`skill-verse`, `culture-verse`, `creator-verse`, `food-verse`, `mondi-verse`, `work-verse`) instead of `classroom`. `createVerseRoomManifest()` empty 80×80 canvas (no walls/anchors/tiers/webps); `VERSE_ROOM_TYPE_FEATURE_FLAGS` all off (no teacher/student right HUD). `verses.ts` `verseRoomType()`; Lobby + API `rooms-core` + mongoose enum wired.
 - **2026-06-03:** **Sprocket-Bot GLB** — rebuilt on `feature/aibot`: compact torso, rear gunmetal back-pack tank with flag pole, embedded ~1536×400 SVG→PNG "SPROCKET-BOT" pennant (`sharp`); render script gains `dist`/`ty` camera args. `npm run build:host-glb` / `render:host-glb`; guarded by `sprocket-bot-glb.test.ts`.
