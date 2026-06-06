@@ -2,8 +2,9 @@
 
 import { Suspense, useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { useFrame } from "@react-three/fiber";
-import { Billboard, Html, useGLTF } from "@react-three/drei";
-import { MathUtils, type Group, type Mesh } from "three";
+import { Billboard, Html, useAnimations, useGLTF } from "@react-three/drei";
+import { MathUtils, type Group } from "three";
+import { SkeletonUtils } from "three-stdlib";
 import type { AvatarAppearance, AvatarReactionSlug, ParticipantAudioMode } from "@3dspace/contracts";
 import type { ParticipantView } from "./RoomClient";
 
@@ -17,33 +18,49 @@ const REACTION_EMOJI: Record<AvatarReactionSlug, string> = {
 };
 
 // ── Avatar model ────────────────────────────────────────────────────────────
-// The participant avatar is the modelled IXR female GLB (geometry + a single
-// baked material), served from apps/web/public. It is exported normalised to a
-// 2 m-tall mesh centred on the origin (feet at y=-1), so we scale it to
-// TARGET_HEIGHT and lift it by half so the boots rest on the ground plane (y=0).
-const AVATAR_URL    = "/avatars/ixr-female.glb";
-const NATIVE_HEIGHT = 2.0;
+// The participant avatar is the rigged "Azure Vanguard" GLB (one skinned mesh +
+// a 24-bone skeleton + three baked clips), served from apps/web/public. It is
+// exported feet-on-floor (origin at the soles) at ~1.69 m, so we only scale it
+// to TARGET_HEIGHT — no vertical offset needed. It faces +Z, which is the app's
+// forward axis, so no rotation correction is applied.
+const AVATAR_URL    = "/avatars/azure-vanguard.glb";
+const NATIVE_HEIGHT = 1.69;
 const TARGET_HEIGHT = 1.7;
 const MODEL_SCALE   = TARGET_HEIGHT / NATIVE_HEIGHT;
-const FEET_OFFSET   = MODEL_SCALE * (NATIVE_HEIGHT / 2); // model centre → feet on ground
+
+// Baked clip names (see scripts inspection): a long idle plus a walk + run cycle.
+const CLIP = { idle: "Idle_3", walking: "Walking", running: "Running" } as const;
+type ClipName = (typeof CLIP)[keyof typeof CLIP];
 
 useGLTF.preload(AVATAR_URL);
 
-/** Clones the loaded GLB per instance (geometry + material stay shared/cached). */
-function AvatarModel() {
-  const { scene } = useGLTF(AVATAR_URL);
-  const model = useMemo(() => {
-    const root = scene.clone(true);
-    root.traverse((object) => {
-      if ((object as Mesh).isMesh) {
-        object.castShadow = true;
-        object.receiveShadow = true;
-      }
-    });
-    return root;
-  }, [scene]);
+/**
+ * Per-instance skinned clone of the avatar GLB, cross-fading between the idle /
+ * walk / run clips to match the participant's movement state. SkeletonUtils.clone
+ * gives each instance its own skeleton so participants animate independently
+ * (geometry + material stay shared/cached).
+ */
+function AvatarModel({ clip }: { clip: ClipName }) {
+  const { scene, animations } = useGLTF(AVATAR_URL);
+  const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
+  const groupRef = useRef<Group>(null);
+  const { actions } = useAnimations(animations, groupRef);
 
-  return <primitive object={model} scale={MODEL_SCALE} />;
+  // Cross-fade to the desired clip whenever the movement state changes.
+  useEffect(() => {
+    const action = actions[clip];
+    if (!action) return;
+    action.reset().fadeIn(0.25).play();
+    return () => {
+      action.fadeOut(0.25);
+    };
+  }, [actions, clip]);
+
+  return (
+    <group ref={groupRef}>
+      <primitive object={model} scale={MODEL_SCALE} />
+    </group>
+  );
 }
 
 export type BlockyAvatarProps = {
@@ -111,28 +128,22 @@ export function BlockyAvatar({
 }: BlockyAvatarProps) {
   const position = participant.state.position;
   const movement = participant.state.movement;
-  const media    = participant.state.media;
 
-  // ── Animation state (refs — no re-renders) ────────────────────────────────
-  // The supplied GLB is a single static mesh (no skeleton / clips), so motion is
-  // conveyed by the root: a step-synced bob while moving, a gentle idle bob, and
-  // a whole-body acknowledgement when the wave emote fires.
-  const bobRef       = useRef<Group>(null);
-  const walkBlendRef = useRef(0);
+  // Movement → clip. Idle covers everything that isn't an active stride.
+  const clip: ClipName =
+    movement === "running" ? CLIP.running : movement === "walking" ? CLIP.walking : CLIP.idle;
+
+  // ── Wave emote ────────────────────────────────────────────────────────────
+  // The clips don't include a wave, so the emote is a brief whole-body sway on
+  // the wrapper group; it still completes + notifies so the UI state resets.
+  const waveRef = useRef<Group>(null);
   const wavePhaseRef = useRef(0);
   const waveActiveRef = useRef(false);
 
-  useFrame((state, delta) => {
-    const g = bobRef.current;
+  useFrame((_, delta) => {
+    const g = waveRef.current;
     if (!g) return;
-    const t = state.clock.getElapsedTime();
 
-    // Walk blend — smooth 0 (idle) ↔ 1 (moving)
-    const targetBlend = movement === "walking" || movement === "running" ? 1 : 0;
-    walkBlendRef.current = MathUtils.lerp(walkBlendRef.current, targetBlend, delta * 8);
-    const blend = walkBlendRef.current;
-
-    // Wave emote — one-shot trigger that still notifies completion.
     const WAVE_DURATION = 2.0;
     if (waveTriggered && !waveActiveRef.current) {
       waveActiveRef.current = true;
@@ -146,18 +157,9 @@ export function BlockyAvatar({
         onWaveComplete();
       }
     }
-    const waveEnvelope = waveActiveRef.current ? Math.sin(wavePhaseRef.current * Math.PI) : 0;
-
-    // Vertical bob: a stride bounce while moving + a faint idle sway + a wave hop.
-    const stepFreq = movement === "running" ? 3.6 : 2.4;
-    const walkBob  = Math.abs(Math.sin(t * stepFreq * Math.PI)) * 0.035 * blend;
-    const idleBob  = Math.sin(t * 0.8 * Math.PI * 2) * 0.005 * (1 - blend);
-    const waveHop  = waveEnvelope * Math.abs(Math.sin(wavePhaseRef.current * Math.PI * 6)) * 0.045;
-    g.position.y = FEET_OFFSET + idleBob + walkBob + waveHop;
-
-    // A small side-to-side sway during the wave reads as a friendly greeting.
-    const targetTilt = waveEnvelope * Math.sin(t * 8) * 0.05;
-    g.rotation.z = MathUtils.lerp(g.rotation.z, targetTilt, delta * 10);
+    const envelope = waveActiveRef.current ? Math.sin(wavePhaseRef.current * Math.PI) : 0;
+    const targetTilt = envelope * Math.sin(wavePhaseRef.current * Math.PI * 8) * 0.08;
+    g.rotation.z = MathUtils.lerp(g.rotation.z, targetTilt, delta * 12);
   });
 
   // Compensate nameplate distanceFactor so the plate stays the same on-screen size
@@ -172,10 +174,10 @@ export function BlockyAvatar({
       visible={!hidden}
       {...(onClick ? { onClick } : {})}
     >
-      {/* Avatar mesh — bob group lifts the centred model so its feet hit y=0 */}
-      <group ref={bobRef} position={[0, FEET_OFFSET, 0]}>
+      {/* Avatar mesh — wrapper carries the wave sway; model feet already at y=0 */}
+      <group ref={waveRef}>
         <Suspense fallback={null}>
-          <AvatarModel />
+          <AvatarModel clip={clip} />
         </Suspense>
       </group>
 
