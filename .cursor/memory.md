@@ -33,6 +33,7 @@ Remaining refactor candidates: `packages/contracts/src/index.ts`, `RoomClient.ts
 - **FFA escape rooms → 6.1:** `docs/planning/rooms/free-for-all/world-building/ROADMAP_ESCAPE_ROOMS_TO_TRIGGER_BLOCKS.md` — **escape-room room type** (empty 80×80 canvas, not FFA); element catalog + puzzle recipes (how X combines with Y); Phases −1–10 to trigger blocks 6.1
 - **FFA features:** live captions, AI meeting notes, AI 3D objects, shared browser (Hyperbeam) — see `docs/planning/rooms/free-for-all/`
 - **FFA AI World Host:** `docs/planning/rooms/free-for-all/aibot/PLAN_FREE_FOR_ALL_AI_WORLD_HOST.md`, `IMPL_FREE_FOR_ALL_AI_WORLD_HOST.md` — **Phases 1–7 complete** on `feature/aibot` (host CRUD, avatar, Build Help, study files, polish/E2E). Flags: `ENABLE_AI_WORLD_HOST` / `NEXT_PUBLIC_ENABLE_AI_WORLD_HOST` (default off). E2E: `apps/web/test/ai-world-host.spec.ts`.
+- **Auth (replace Clerk):** `docs/planning/auth/PLAN_REPLACE_CLERK_AUTH.md`, `IMPL_REPLACE_CLERK_AUTH.md` — Google SSO only; `AUTH_ALLOWED_EMAIL_DOMAINS` comma-separated allowlist enforced server-side on verified Google email; first-party JWT sessions; remove Clerk
 - **New features:** `docs/planning/new-features/README.md`
 - **Room-type ideas:** `docs/planning/new-features/ROOM_TYPE_FEATURE_IDEAS.md` — per-type brainstorm (classroom, workforce-training, FFA, escape-room) of novel+iterate ideas + cross-room synergy matrix (reuse logic bus / world-building / RoomObjects / skins / AI / async / zone audio across types)
 
@@ -93,6 +94,7 @@ Remaining refactor candidates: `packages/contracts/src/index.ts`, `RoomClient.ts
 
 ## Recent work
 
+- **2026-06-06:** **Auth planning (replace Clerk)** — `docs/planning/auth/`: Google OAuth SSO only, domain allowlist via `AUTH_ALLOWED_EMAIL_DOMAINS`, API-owned JWT + exchange-code handoff for Vercel/Koyeb split domains; PLAN + IMPL + README.
 - **2026-06-06:** **Lobby xband note width** — `.xband-note` max-width 560px → 820px so the mission statement fits on two lines (was spilling "real world" to a third).
 - **2026-06-06:** **Lobby dark background flash** — default `html, body` tan gradient in `globals.css` showed before `Lobby` `useEffect` added `dixr-dark`. Fix: blocking head script on `/` sets `html.dixr-dark` pre-paint; CSS targets `html.dixr-dark body`; `Lobby` manages both `html` + `body` classes for client nav.
 - **2026-06-06:** **Verse base room types** — Dream IXR lobby creates per-verse room types (`skill-verse`, `culture-verse`, `creator-verse`, `food-verse`, `mondi-verse`, `work-verse`) instead of `classroom`. `createVerseRoomManifest()` empty 80×80 canvas (no walls/anchors/tiers/webps); `VERSE_ROOM_TYPE_FEATURE_FLAGS` all off (no teacher/student right HUD). `verses.ts` `verseRoomType()`; Lobby + API `rooms-core` + mongoose enum wired.
