@@ -33,7 +33,7 @@ export function usePersistentIdentity() {
   }
 
   const effectiveIdentity: ApiIdentity = useMemo(() => {
-    if (appAuth.clerkEnabled && appAuth.signedIn && appAuth.userId) {
+    if (appAuth.authRequired && appAuth.signedIn && appAuth.userId) {
       return {
         userId: appAuth.userId,
         displayName: appAuth.displayName ?? appAuth.userId,
@@ -43,7 +43,7 @@ export function usePersistentIdentity() {
     }
     return identity;
   }, [
-    appAuth.clerkEnabled,
+    appAuth.authRequired,
     appAuth.displayName,
     appAuth.getToken,
     appAuth.signedIn,
@@ -56,7 +56,7 @@ export function usePersistentIdentity() {
     setIdentity,
     setRole,
     loaded: loaded && appAuth.loaded,
-    clerkEnabled: appAuth.clerkEnabled,
+    authRequired: appAuth.authRequired,
     signedIn: appAuth.signedIn
   };
 }

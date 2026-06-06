@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
-// Monorepo: load shared secrets (e.g. CLERK_SECRET_KEY) from the repository root.
+// Monorepo: load shared environment defaults from the repository root.
 nextEnv.loadEnvConfig(repoRoot);
 
 /** @type {import('next').NextConfig} */

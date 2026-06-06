@@ -52,6 +52,9 @@ import {
   newId,
   normalizeRoomRecord,
   nowIso,
+  type AuthExchangeCodeRecord,
+  type AuthRefreshSessionRecord,
+  type OAuthStateRecord,
   ROOM_SESSION_PRESENCE_MS,
   type Repository,
   type RoomEventRecord,
@@ -89,6 +92,9 @@ type Models = {
   RoomAiHostChatMessage: Model<any>;
   RoomAiHostFile: Model<any>;
   RoomAiHostFileChunk: Model<any>;
+  OAuthState: Model<any>;
+  AuthExchangeCode: Model<any>;
+  AuthRefreshSession: Model<any>;
 };
 
 function entity<T>(doc: unknown) {
@@ -97,6 +103,13 @@ function entity<T>(doc: unknown) {
 
 function entities<T>(docs: unknown) {
   return docs as T[];
+}
+
+function mongoAuthRecord<T extends { expiresAt: string }>(doc: Record<string, unknown>) {
+  return {
+    ...doc,
+    expiresAt: doc.expiresAt instanceof Date ? doc.expiresAt.toISOString() : doc.expiresAt
+  } as T;
 }
 
 export async function connectMongo(uri: string, dbName: string) {
@@ -109,6 +122,9 @@ export function createModels(connection: Connection): Models {
     id: { type: String, required: true, unique: true },
     externalAuthId: { type: String, required: true, index: true },
     displayName: { type: String, required: true },
+    email: { type: String, index: true },
+    authProvider: { type: String, enum: ["google", "dev"] },
+    lastLoginAt: String,
     avatar: {
       color: String,
       initials: String,
@@ -126,6 +142,37 @@ export function createModels(connection: Connection): Models {
     createdAt: String,
     updatedAt: String
   });
+
+  const oauthStateSchema = new Schema({
+    state: { type: String, required: true, unique: true },
+    codeVerifier: { type: String, required: true },
+    returnTo: { type: String, required: true },
+    expiresAt: { type: Date, required: true },
+    createdAt: { type: String, required: true }
+  });
+  oauthStateSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
+  const authExchangeCodeSchema = new Schema({
+    code: { type: String, required: true, unique: true },
+    userId: { type: String, required: true, index: true },
+    displayName: { type: String, required: true },
+    email: String,
+    expiresAt: { type: Date, required: true },
+    createdAt: { type: String, required: true },
+    consumedAt: String
+  });
+  authExchangeCodeSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
+  const authRefreshSessionSchema = new Schema({
+    id: { type: String, required: true, unique: true },
+    userId: { type: String, required: true, index: true },
+    tokenHash: { type: String, required: true, unique: true },
+    expiresAt: { type: Date, required: true },
+    createdAt: { type: String, required: true },
+    rotatedFromId: String,
+    revokedAt: String
+  });
+  authRefreshSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
   const classSchema = new Schema({
     id: { type: String, required: true, unique: true },
@@ -675,7 +722,10 @@ export function createModels(connection: Connection): Models {
       "RoomAiHostFileChunk",
       roomAiHostFileChunkSchema,
       "room_ai_host_file_chunks"
-    )
+    ),
+    OAuthState: connection.model("OAuthState", oauthStateSchema, "oauth_states"),
+    AuthExchangeCode: connection.model("AuthExchangeCode", authExchangeCodeSchema, "auth_exchange_codes"),
+    AuthRefreshSession: connection.model("AuthRefreshSession", authRefreshSessionSchema, "auth_sessions")
   };
 }
 
@@ -907,13 +957,20 @@ export class MongoRepository implements Repository {
 
   async ensureUser(auth: AuthContext): Promise<User> {
     const time = nowIso();
+    const set: Record<string, unknown> = {
+      displayName: auth.displayName,
+      authProvider: auth.provider,
+      updatedAt: time
+    };
+    if (auth.email) set.email = auth.email;
+    if (auth.lastLoginAt) set.lastLoginAt = auth.lastLoginAt;
     const user = await this.models.User.findOneAndUpdate(
       { id: auth.userId },
       {
-        $set: { displayName: auth.displayName, updatedAt: time },
+        $set: set,
         $setOnInsert: {
           id: auth.userId,
-          externalAuthId: auth.userId,
+          externalAuthId: auth.provider === "google" ? auth.userId.replace(/^google:/, "") : auth.userId,
           avatar: avatarFor(auth.displayName),
           createdAt: time
         }
@@ -925,6 +982,58 @@ export class MongoRepository implements Repository {
 
   async getUser(userId: string) {
     return entity<User | undefined>(await this.models.User.findOne({ id: userId }).lean());
+  }
+
+  async createOAuthState(record: OAuthStateRecord) {
+    await this.models.OAuthState.findOneAndUpdate(
+      { state: record.state },
+      { ...record, expiresAt: new Date(record.expiresAt) },
+      { upsert: true }
+    );
+  }
+
+  async consumeOAuthState(state: string) {
+    const record = await this.models.OAuthState.findOneAndDelete({
+      state,
+      expiresAt: { $gt: new Date() }
+    }).lean();
+    return record ? mongoAuthRecord<OAuthStateRecord>(record as Record<string, unknown>) : undefined;
+  }
+
+  async createAuthExchangeCode(record: AuthExchangeCodeRecord) {
+    await this.models.AuthExchangeCode.create({ ...record, expiresAt: new Date(record.expiresAt) });
+  }
+
+  async consumeAuthExchangeCode(code: string) {
+    const consumedAt = nowIso();
+    const record = await this.models.AuthExchangeCode.findOneAndUpdate(
+      {
+        code,
+        consumedAt: { $exists: false },
+        expiresAt: { $gt: new Date() }
+      },
+      { $set: { consumedAt } },
+      { new: true, lean: true }
+    );
+    return record ? mongoAuthRecord<AuthExchangeCodeRecord>(record as Record<string, unknown>) : undefined;
+  }
+
+  async createAuthRefreshSession(record: AuthRefreshSessionRecord) {
+    await this.models.AuthRefreshSession.create({ ...record, expiresAt: new Date(record.expiresAt) });
+  }
+
+  async getAuthRefreshSessionByTokenHash(tokenHash: string) {
+    const record = await this.models.AuthRefreshSession.findOne({ tokenHash }).lean();
+    return record ? mongoAuthRecord<AuthRefreshSessionRecord>(record as Record<string, unknown>) : undefined;
+  }
+
+  async revokeAuthRefreshSession(sessionId: string, revokedAt: string) {
+    const record = await this.models.AuthRefreshSession.findOneAndUpdate(
+      { id: sessionId, revokedAt: { $exists: false } },
+      { $set: { revokedAt } },
+      { new: true, lean: true }
+    );
+    return record ? mongoAuthRecord<AuthRefreshSessionRecord>(record as Record<string, unknown>) : undefined;
   }
 
   async updateUserAvatarAppearance(userId: string, appearance: AvatarAppearance): Promise<User> {

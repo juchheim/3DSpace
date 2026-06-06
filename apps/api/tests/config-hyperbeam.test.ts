@@ -4,8 +4,12 @@ import { loadConfig } from "../src/config.js";
 const productionEnv = {
   NODE_ENV: "production",
   API_PUBLIC_URL: "https://api.example.com",
+  APP_URL: "https://app.example.com",
   CORS_ALLOWED_ORIGINS: "https://app.example.com",
-  CLERK_SECRET_KEY: "sk_test",
+  GOOGLE_OAUTH_CLIENT_ID: "google-client",
+  GOOGLE_OAUTH_CLIENT_SECRET: "google-secret",
+  AUTH_JWT_SECRET: "test-jwt-secret",
+  AUTH_ALLOWED_EMAIL_DOMAINS: "example.com",
   MONGODB_URI: "mongodb://localhost",
   LIVEKIT_URL: "wss://livekit.example.com",
   LIVEKIT_API_KEY: "lk",

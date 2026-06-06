@@ -21,6 +21,30 @@ export function forbidden(message = "Not authorized for this action") {
   return new HttpError(403, message, "forbidden");
 }
 
+export function authDomainNotAllowed() {
+  return new HttpError(
+    403,
+    "Sign-in is limited to approved organization accounts. Use your work or school Google account.",
+    "auth-domain-not-allowed"
+  );
+}
+
+export function authEmailNotVerified() {
+  return new HttpError(403, "Your Google email must be verified before you can sign in.", "auth-email-not-verified");
+}
+
+export function authOAuthStateInvalid() {
+  return new HttpError(400, "Sign-in expired. Try again.", "auth-oauth-state-invalid");
+}
+
+export function authSessionExpired() {
+  return new HttpError(401, "Session expired. Sign in again.", "auth-session-expired");
+}
+
+export function authOAuthFailed(message = "Google sign-in failed. Try again.") {
+  return new HttpError(401, message, "auth-oauth-failed");
+}
+
 export function notFound(message = "Resource not found") {
   return new HttpError(404, message, "not_found");
 }

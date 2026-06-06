@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { HealthResponseSchema, createOpenApiDocument } from "@3dspace/contracts";
 import type { AppContext } from "../app-context.js";
-import { livekitConfigured, storageConfigured } from "../config.js";
+import { authConfigured, livekitConfigured, storageConfigured } from "../config.js";
 
 export async function registerOpsRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get("/health", async () =>
@@ -17,8 +17,10 @@ export async function registerOpsRoutes(app: FastifyInstance, ctx: AppContext) {
     const checks = [
       {
         name: "auth",
-        status: ctx.config.clerkSecretKey ? "ok" : ctx.config.nodeEnv === "production" ? "missing" : "degraded",
-        message: ctx.config.clerkSecretKey ? "Clerk secret configured" : "Using development header auth"
+        status: authConfigured(ctx.config) ? "ok" : ctx.config.nodeEnv === "production" ? "missing" : "degraded",
+        message: authConfigured(ctx.config)
+          ? `Google OAuth configured for ${ctx.config.authAllowedEmailDomains.join(", ")}`
+          : "Using development header auth"
       },
       {
         name: "mongodb",

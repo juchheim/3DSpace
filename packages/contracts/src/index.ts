@@ -257,6 +257,9 @@ export const UserSchema = z.object({
   id: z.string(),
   externalAuthId: z.string(),
   displayName: z.string(),
+  email: z.string().email().optional(),
+  authProvider: z.enum(["google", "dev"]).optional(),
+  lastLoginAt: z.string().optional(),
   avatar: z.object({
     color: z.string(),
     initials: z.string(),
@@ -1199,6 +1202,11 @@ export const ApiErrorCodeSchema = z.enum([
   "bad_request",
   "unauthorized",
   "forbidden",
+  "auth-domain-not-allowed",
+  "auth-email-not-verified",
+  "auth-oauth-state-invalid",
+  "auth-session-expired",
+  "auth-oauth-failed",
   "not_found",
   "conflict",
   "unprocessable_entity",
@@ -3525,6 +3533,39 @@ export const ReadinessResponseSchema = z.object({
   checks: z.array(ReadinessCheckSchema)
 });
 
+export const AuthUserSchema = z.object({
+  id: z.string(),
+  displayName: z.string(),
+  email: z.string().email().optional()
+});
+
+export const AuthSessionExchangeRequestSchema = z.object({
+  code: z.string().min(1)
+});
+
+export const AuthSessionExchangeResponseSchema = z.object({
+  accessToken: z.string(),
+  refreshToken: z.string(),
+  expiresAt: z.string(),
+  refreshExpiresAt: z.string(),
+  user: AuthUserSchema
+});
+
+export const AuthSessionRefreshRequestSchema = z.object({
+  refreshToken: z.string().min(1)
+});
+
+export const AuthSessionRefreshResponseSchema = z.object({
+  accessToken: z.string(),
+  refreshToken: z.string(),
+  expiresAt: z.string(),
+  refreshExpiresAt: z.string()
+});
+
+export const AuthMeResponseSchema = z.object({
+  user: AuthUserSchema
+});
+
 export type Role = z.infer<typeof RoleSchema>;
 export type ViewMode = z.infer<typeof ViewModeSchema>;
 export type QualityLevel = z.infer<typeof QualityLevelSchema>;
@@ -3533,6 +3574,7 @@ export type Rotation = z.infer<typeof RotationSchema>;
 export type SpatialAudioConfig = z.infer<typeof SpatialAudioConfigSchema>;
 export type RoomManifest = z.infer<typeof RoomManifestSchema>;
 export type User = z.infer<typeof UserSchema>;
+export type AuthUser = z.infer<typeof AuthUserSchema>;
 export type ClassRecord = z.infer<typeof ClassSchema>;
 export type ClassMembership = z.infer<typeof ClassMembershipSchema>;
 export type Invite = z.infer<typeof InviteSchema>;
@@ -3892,6 +3934,12 @@ type ApiRoute = {
 export const apiRoutes: ApiRoute[] = [
   { method: "get", path: "/health", summary: "Health check", tags: ["system"], response: HealthResponseSchema },
   { method: "get", path: "/ready", summary: "Readiness check", tags: ["system"], response: ReadinessResponseSchema },
+  { method: "get", path: "/v1/auth/google/start", summary: "Start Google OAuth sign-in", tags: ["auth"], response: z.unknown() },
+  { method: "get", path: "/v1/auth/google/callback", summary: "Complete Google OAuth sign-in", tags: ["auth"], response: z.unknown() },
+  { method: "post", path: "/v1/auth/session/exchange", summary: "Exchange one-time sign-in code for a session", tags: ["auth"], request: AuthSessionExchangeRequestSchema, response: AuthSessionExchangeResponseSchema },
+  { method: "post", path: "/v1/auth/session/refresh", summary: "Rotate refresh token and mint a new access token", tags: ["auth"], request: AuthSessionRefreshRequestSchema, response: AuthSessionRefreshResponseSchema },
+  { method: "get", path: "/v1/auth/me", summary: "Get the current authenticated user", tags: ["auth"], response: AuthMeResponseSchema },
+  { method: "post", path: "/v1/auth/logout", summary: "Revoke a refresh session", tags: ["auth"], request: AuthSessionRefreshRequestSchema, response: z.object({ ok: z.literal(true) }) },
   { method: "get", path: "/v1/classes", summary: "List classes visible to the current user", tags: ["classes"], response: z.array(ClassSchema) },
   { method: "post", path: "/v1/classes", summary: "Create a teacher-owned class", tags: ["classes"], request: CreateClassRequestSchema, response: ClassSchema },
   { method: "patch", path: "/v1/classes/{classId}", summary: "Update a teacher-owned class", tags: ["classes"], request: UpdateClassRequestSchema, response: ClassSchema },

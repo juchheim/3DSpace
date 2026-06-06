@@ -183,10 +183,11 @@ describe("useBuildPieces", () => {
     });
 
     expect(api.createBuildPiecesBatch).toHaveBeenCalledTimes(2);
-    expect(api.createBuildPiecesBatch.mock.calls[0]?.[2]?.pieces).toHaveLength(
+    const createBuildPiecesBatchMock = vi.mocked(api.createBuildPiecesBatch);
+    expect(createBuildPiecesBatchMock.mock.calls[0]?.[2]?.pieces).toHaveLength(
       BUILD_PIECES_BATCH_MAX_SIZE
     );
-    expect(api.createBuildPiecesBatch.mock.calls[1]?.[2]?.pieces).toHaveLength(5);
+    expect(createBuildPiecesBatchMock.mock.calls[1]?.[2]?.pieces).toHaveLength(5);
     expect(result.current.pieces).toHaveLength(batchSize);
   });
 

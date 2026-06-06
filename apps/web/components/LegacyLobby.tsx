@@ -182,7 +182,7 @@ function FreeForAllRoomBrowser({
 }
 
 export function LegacyLobby() {
-  const { identity, loaded, clerkEnabled, signedIn } = usePersistentIdentity();
+  const { identity, loaded, authRequired, signedIn } = usePersistentIdentity();
   const [roomType, setRoomType] = useState<RoomType>(DEFAULT_ROOM_TYPE);
   const [className, setClassName] = useState(ROOM_TYPE_FORM_DEFAULTS[DEFAULT_ROOM_TYPE].className);
   const [roomName, setRoomName] = useState(ROOM_TYPE_FORM_DEFAULTS[DEFAULT_ROOM_TYPE].roomName);
@@ -248,9 +248,9 @@ export function LegacyLobby() {
 
   useEffect(() => {
     if (!loaded) return;
-    if (clerkEnabled && !signedIn) return;
+    if (authRequired && !signedIn) return;
     void refresh();
-  }, [identity.userId, loaded, clerkEnabled, signedIn]);
+  }, [identity.userId, loaded, authRequired, signedIn]);
 
   async function createRoomOfType(type: RoomType) {
     if (type === "free-for-all" && !ffaPassword.trim()) {
@@ -357,7 +357,7 @@ export function LegacyLobby() {
   }
 
   const hasRoom = Boolean(createdInvite?.roomId);
-  const authDisabled = clerkEnabled && !signedIn;
+  const authDisabled = authRequired && !signedIn;
   const joinCopy = ROOM_TYPE_JOIN_COPY[roomType];
   // Verse rooms live on the Dream IXR lobby (/); legacy shows only non-verse rooms.
   const legacyRooms = rooms.filter(
@@ -856,8 +856,8 @@ export function LegacyLobby() {
             <p className="lb-sub">The original room types. New spaces now live inside the Dream IXR Verses.</p>
           </header>
 
-          {/* ── Auth (Clerk only) ── */}
-          {clerkEnabled && (
+          {/* ── Auth (Google) ── */}
+          {authRequired && (
             <div className="lb-auth">
               <AuthGate />
             </div>

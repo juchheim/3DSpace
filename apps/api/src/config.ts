@@ -7,15 +7,24 @@ import {
   type SharedBrowserHyperbeamQuality,
   type SpatialAudioConfig
 } from "@3dspace/contracts";
+import { parseAllowedEmailDomains } from "./auth/domains.js";
 
 export type AppConfig = {
   nodeEnv: string;
   host: string;
   port: number;
   apiPublicUrl: string;
+  appUrl: string;
   corsAllowedOrigins: Array<string | RegExp>;
-  clerkSecretKey: string | undefined;
-  clerkWebhookSecret: string | undefined;
+  googleOAuthClientId: string | undefined;
+  googleOAuthClientSecret: string | undefined;
+  authJwtSecret: string | undefined;
+  authAllowedEmailDomains: string[];
+  authJwtTtlSeconds: number;
+  authRefreshTtlSeconds: number;
+  authExchangeTtlSeconds: number;
+  authOAuthStateTtlSeconds: number;
+  authGoogleHostedDomainHint: string | undefined;
   mongoUri: string | undefined;
   mongoDbName: string;
   livekitUrl: string;
@@ -200,7 +209,10 @@ function requiredInProduction(config: AppConfig, raw: NodeJS.ProcessEnv) {
   const required = [
     "API_PUBLIC_URL",
     "CORS_ALLOWED_ORIGINS",
-    "CLERK_SECRET_KEY",
+    "GOOGLE_OAUTH_CLIENT_ID",
+    "GOOGLE_OAUTH_CLIENT_SECRET",
+    "AUTH_JWT_SECRET",
+    "AUTH_ALLOWED_EMAIL_DOMAINS",
     "MONGODB_URI",
     "LIVEKIT_URL",
     "LIVEKIT_API_KEY",
@@ -250,6 +262,9 @@ function requiredInProduction(config: AppConfig, raw: NodeJS.ProcessEnv) {
   }
 
   const missing = required.filter((key) => !envString(raw, key));
+  if (!envString(raw, "APP_URL") && !envString(raw, "NEXT_PUBLIC_APP_URL")) {
+    missing.push("APP_URL");
+  }
   if (missing.length > 0) {
     throw new Error(`Missing required production environment variables: ${missing.join(", ")}`);
   }
@@ -262,6 +277,7 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
   const defaultQuality = QualityLevelSchema.parse(envString(raw, "DEFAULT_3D_QUALITY") ?? "low");
   const physicsDefaults = PhysicsTuningSchema.parse({});
   const apiPublicUrl = envString(raw, "API_PUBLIC_URL") ?? "http://127.0.0.1:8080";
+  const appUrl = (envString(raw, "APP_URL") ?? envString(raw, "NEXT_PUBLIC_APP_URL") ?? "http://127.0.0.1:3000").replace(/\/+$/, "");
   const corsAllowedOrigins = (envString(raw, "CORS_ALLOWED_ORIGINS") ?? "http://127.0.0.1:3000,http://localhost:3000")
     .split(",")
     .map((origin) => compileOriginPattern(origin))
@@ -272,9 +288,17 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
     host: envString(raw, "HOST") ?? (nodeEnv === "production" ? "0.0.0.0" : "127.0.0.1"),
     port: envNumber(raw, "PORT", 8080),
     apiPublicUrl,
+    appUrl,
     corsAllowedOrigins,
-    clerkSecretKey: envString(raw, "CLERK_SECRET_KEY"),
-    clerkWebhookSecret: envString(raw, "CLERK_WEBHOOK_SECRET"),
+    googleOAuthClientId: envString(raw, "GOOGLE_OAUTH_CLIENT_ID"),
+    googleOAuthClientSecret: envString(raw, "GOOGLE_OAUTH_CLIENT_SECRET"),
+    authJwtSecret: envString(raw, "AUTH_JWT_SECRET"),
+    authAllowedEmailDomains: parseAllowedEmailDomains(envString(raw, "AUTH_ALLOWED_EMAIL_DOMAINS")),
+    authJwtTtlSeconds: envNumber(raw, "AUTH_JWT_TTL_SECONDS", 3600),
+    authRefreshTtlSeconds: envNumber(raw, "AUTH_REFRESH_TTL_SECONDS", 60 * 60 * 24 * 30),
+    authExchangeTtlSeconds: envNumber(raw, "AUTH_EXCHANGE_TTL_SECONDS", 60),
+    authOAuthStateTtlSeconds: envNumber(raw, "AUTH_OAUTH_STATE_TTL_SECONDS", 600),
+    authGoogleHostedDomainHint: envString(raw, "AUTH_GOOGLE_HOSTED_DOMAIN_HINT"),
     mongoUri: envString(raw, "MONGODB_URI"),
     mongoDbName: envString(raw, "MONGODB_DB_NAME") ?? "3dspace",
     livekitUrl: normalizeLiveKitUrl(
@@ -428,4 +452,12 @@ export function storageConfigured(config: AppConfig) {
       config.objectStorage.accessKeyId &&
       config.objectStorage.secretAccessKey
   );
+}
+
+export function googleOAuthConfigured(config: AppConfig) {
+  return Boolean(config.googleOAuthClientId && config.googleOAuthClientSecret);
+}
+
+export function authConfigured(config: AppConfig) {
+  return Boolean(googleOAuthConfigured(config) && config.authJwtSecret && config.authAllowedEmailDomains.length > 0);
 }

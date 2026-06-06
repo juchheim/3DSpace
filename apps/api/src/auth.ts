@@ -1,24 +1,15 @@
 import type { FastifyRequest } from "fastify";
-import { verifyToken } from "@clerk/backend";
 import type { AppConfig } from "./config.js";
 import { unauthorized } from "./errors.js";
+import { verifyAccessToken } from "./auth/jwt.js";
 
 export type AuthContext = {
   userId: string;
   displayName: string;
-  provider: "clerk" | "dev";
+  email?: string;
+  provider: "google" | "dev";
+  lastLoginAt?: string;
 };
-
-function displayNameFromClaims(claims: Record<string, unknown> & { sub: string }) {
-  if (typeof claims.name === "string" && claims.name.trim()) return claims.name.trim();
-  const fromParts = [claims.given_name, claims.family_name]
-    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
-    .join(" ")
-    .trim();
-  if (fromParts) return fromParts;
-  if (typeof claims.email === "string" && claims.email.trim()) return claims.email.trim();
-  return claims.sub;
-}
 
 function headerValue(request: FastifyRequest, key: string) {
   const value = request.headers[key.toLowerCase()];
@@ -39,16 +30,17 @@ function hintedDisplayName(request: FastifyRequest) {
 export async function authenticate(request: FastifyRequest, config: AppConfig): Promise<AuthContext> {
   const token = bearerToken(request);
 
-  if (config.clerkSecretKey && token && !token.startsWith("dev-")) {
+  if (config.authJwtSecret && token && !token.startsWith("dev-")) {
     try {
-      const claims = await verifyToken(token, { secretKey: config.clerkSecretKey });
+      const claims = verifyAccessToken(token, config);
       return {
         userId: claims.sub,
-        displayName: hintedDisplayName(request) ?? displayNameFromClaims(claims as Record<string, unknown> & { sub: string }),
-        provider: "clerk"
+        displayName: hintedDisplayName(request) ?? claims.name,
+        ...(claims.email ? { email: claims.email } : {}),
+        provider: claims.provider
       };
     } catch {
-      throw unauthorized("Invalid or expired Clerk session token");
+      throw unauthorized("Invalid or expired session token");
     }
   }
 
@@ -58,6 +50,9 @@ export async function authenticate(request: FastifyRequest, config: AppConfig): 
     return {
       userId,
       displayName,
+      ...(typeof headerValue(request, "x-dev-user-email") === "string"
+        ? { email: headerValue(request, "x-dev-user-email") as string }
+        : {}),
       provider: "dev"
     };
   }

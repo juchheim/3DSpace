@@ -13,4 +13,4 @@ Planning docs for replacing **Clerk** with **first-party Google OAuth**, restric
 - MVP auth rationale (historical): [`../mvp/MVP_IMPLEMENTATION_PLAN.md`](../mvp/MVP_IMPLEMENTATION_PLAN.md) §Chosen MVP Stack
 - Deployment env matrix: [`../mvp/MVP_STATUS.md`](../mvp/MVP_STATUS.md), [`../mvp/DEPLOYMENT_CHECKLIST.md`](../mvp/DEPLOYMENT_CHECKLIST.md)
 
-**Status:** Planning only (not started).
+**Status:** Implemented in app/API code. Historical planning notes remain in PLAN/IMPL for rollout context.

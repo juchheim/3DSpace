@@ -3,6 +3,7 @@ import type { AppContext } from "../app-context.js";
 import { registerAiHostRoutes } from "./ai-host.js";
 import { registerAiObjectRoutes } from "./ai-objects.js";
 import { registerBuildPieceRoutes } from "./build-pieces.js";
+import { registerAuthRoutes } from "./auth.js";
 import { registerEscapeSessionRoutes } from "./escape-session.js";
 import { registerLogicPieceRoutes } from "./logic-pieces.js";
 import { registerClassRoutes } from "./classes.js";
@@ -23,6 +24,7 @@ import { registerWorldSkinRoutes } from "./world-skins.js";
 
 export async function registerRoutes(app: FastifyInstance, ctx: AppContext) {
   await registerOpsRoutes(app, ctx);
+  await registerAuthRoutes(app, ctx);
   await registerDevStorageRoutes(app, ctx);
   await registerWorldSkinRoutes(app, ctx);
   await registerUserRoutes(app, ctx);

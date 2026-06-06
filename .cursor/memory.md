@@ -18,7 +18,7 @@ Remaining refactor candidates: `packages/contracts/src/index.ts`, `RoomClient.ts
 
 3DSpace: browser-based multi-user 3D educational space with required 2D analog. Workspace: `/Users/ejuchheim/Projects/3DSpace/3DSpace`.
 
-**State:** MVP complete in production (Vercel + Koyeb + Atlas + Clerk + LiveKit + R2). MVP+1 wall media + classroom tools implemented locally.
+**State:** MVP complete in production (Vercel + Koyeb + Atlas + Google SSO + LiveKit + R2). MVP+1 wall media + classroom tools implemented locally.
 
 ---
 
@@ -59,7 +59,7 @@ Remaining refactor candidates: `packages/contracts/src/index.ts`, `RoomClient.ts
 | Backend | Fastify 5, Koyeb |
 | DB | MongoDB Atlas + Mongoose |
 | Realtime | LiveKit data channels |
-| Auth | Clerk |
+| Auth | Google SSO + first-party JWT sessions |
 | Storage | Cloudflare R2 |
 
 ---

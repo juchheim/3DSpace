@@ -174,7 +174,7 @@ export type ParticipantView = {
 
 export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; inviteCode?: string; verseId?: string }) {
   const router = useRouter();
-  const { identity, loaded: identityLoaded, clerkEnabled, signedIn } = usePersistentIdentity();
+  const { identity, loaded: identityLoaded, authRequired, signedIn } = usePersistentIdentity();
   // Verse color key for the room HUD: prefer the URL's ?verse, else derive from
   // the room's class name (verse rooms live in a class named after the verse).
   const [derivedVerseId, setDerivedVerseId] = useState<string | null>(null);
@@ -388,7 +388,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     skinId: CLIENT_TUNING.enableWorldSkins ? skinId : null,
     dayNightMode: skinDayNightMode,
     enabled: CLIENT_TUNING.enableWorldSkins,
-    identityReady: identityLoaded && (!clerkEnabled || signedIn)
+    identityReady: identityLoaded && (!authRequired || signedIn)
   });
 
   // When no explicit skin is chosen for a workforce-training room, the default-theater
@@ -1468,7 +1468,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
 
   useEffect(() => {
     if (!identityLoaded) return;
-    if (clerkEnabled && !signedIn) return;
+    if (authRequired && !signedIn) return;
     if (leaving) return;
     const generation = ++joinGenerationRef.current;
     setStatus("Joining room...");
@@ -1491,7 +1491,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     return () => {
       joinGenerationRef.current += 1;
     };
-  }, [identityLoaded, clerkEnabled, signedIn, identity.userId, roomId, inviteCode, leaving, viewMode]);
+  }, [identityLoaded, authRequired, signedIn, identity.userId, roomId, inviteCode, leaving, viewMode]);
 
   useEffect(() => {
     if (!session) return;
@@ -2328,7 +2328,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     );
   }
 
-  if (identityLoaded && clerkEnabled && !signedIn) {
+  if (identityLoaded && authRequired && !signedIn) {
     return (
       <main className="app-shell">
         <div className="panel stack">

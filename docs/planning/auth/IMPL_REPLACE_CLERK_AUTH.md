@@ -15,7 +15,13 @@ Last updated: 2026-06-06
 - **Profile photos:** Deferred — keep generated initials/color avatars only (plan §13).
 - **Dev/E2E:** Preserve header-based dev auth when OAuth env unset or `NEXT_PUBLIC_E2E_DEV_AUTH=true`.
 
-This doc is written for phase-by-phase execution. Each phase is independently testable.
+This doc was written for phase-by-phase execution. Implementation is now in code; notes below remain as rollout context.
+
+### Implementation notes
+
+- Access JWT signing/verification uses Node `crypto` HS256 helpers in `apps/api/src/auth/jwt.ts`; no extra JWT dependency was added.
+- Google ID tokens are verified with Google's `tokeninfo` endpoint after the authorization-code exchange rather than local JWKS verification. This keeps the dependency graph smaller while still asking Google to validate issuer/audience/expiry before the API issues a first-party session.
+- OAuth state, exchange codes, and hashed refresh sessions are repository-backed with Mongo TTL indexes in production and in-memory maps in local/test mode.
 
 ### Locked decisions (from plan §13)
 
@@ -93,12 +99,12 @@ apps/api/src/auth/
   types.ts              # AuthContext extensions
 ```
 
-Suggested dependencies (API):
+Dependencies (API):
 
-- `jose` — JWT sign/verify (or continue manual with `jsonwebtoken` if already present; prefer `jose` for ESM)
-- No `@clerk/backend`
+- No `@clerk/backend`.
+- No new JWT dependency; HS256 access tokens are signed/verified with Node `crypto`.
 
-Google ID token verification: use Google's token endpoint response + `oauth2.googleapis.com/tokeninfo` **or** verify JWT locally with Google JWKS (`https://www.googleapis.com/oauth2/v3/certs`). Prefer **local JWKS verify** (no extra round trip).
+Google ID token verification uses Google's token endpoint response + `oauth2.googleapis.com/tokeninfo`.
 
 ---
 

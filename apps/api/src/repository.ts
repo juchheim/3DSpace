@@ -69,6 +69,34 @@ export type RoomEventRecord = {
   createdAt: string;
 };
 
+export type OAuthStateRecord = {
+  state: string;
+  codeVerifier: string;
+  returnTo: string;
+  expiresAt: string;
+  createdAt: string;
+};
+
+export type AuthExchangeCodeRecord = {
+  code: string;
+  userId: string;
+  displayName: string;
+  email?: string;
+  expiresAt: string;
+  createdAt: string;
+  consumedAt?: string;
+};
+
+export type AuthRefreshSessionRecord = {
+  id: string;
+  userId: string;
+  tokenHash: string;
+  expiresAt: string;
+  createdAt: string;
+  rotatedFromId?: string;
+  revokedAt?: string;
+};
+
 export function createDefaultClassroomState(roomId: string): ClassroomState {
   const time = nowIso();
   return {
@@ -93,6 +121,13 @@ export type Repository = {
   close(): Promise<void>;
   ensureUser(auth: AuthContext): Promise<User>;
   getUser(userId: string): Promise<User | undefined>;
+  createOAuthState(record: OAuthStateRecord): Promise<void>;
+  consumeOAuthState(state: string): Promise<OAuthStateRecord | undefined>;
+  createAuthExchangeCode(record: AuthExchangeCodeRecord): Promise<void>;
+  consumeAuthExchangeCode(code: string): Promise<AuthExchangeCodeRecord | undefined>;
+  createAuthRefreshSession(record: AuthRefreshSessionRecord): Promise<void>;
+  getAuthRefreshSessionByTokenHash(tokenHash: string): Promise<AuthRefreshSessionRecord | undefined>;
+  revokeAuthRefreshSession(sessionId: string, revokedAt: string): Promise<AuthRefreshSessionRecord | undefined>;
   updateUserAvatarAppearance(userId: string, appearance: AvatarAppearance): Promise<User>;
   createClass(input: { name: string; teacher: AuthContext }): Promise<ClassRecord>;
   listClassesForUser(userId: string): Promise<ClassRecord[]>;
@@ -348,6 +383,9 @@ export class MemoryRepository implements Repository {
   private aiHostChatMessages: RoomAiHostChatMessage[] = [];
   private aiHostFilesByRoom = new Map<string, Map<string, RoomAiHostFile>>();
   private aiHostFileChunks = new Map<string, RoomAiHostFileChunk[]>();
+  private oauthStates = new Map<string, OAuthStateRecord>();
+  private authExchangeCodes = new Map<string, AuthExchangeCodeRecord>();
+  private authRefreshSessions = new Map<string, AuthRefreshSessionRecord>();
 
   async close() {
     return;
@@ -356,16 +394,22 @@ export class MemoryRepository implements Repository {
   async ensureUser(auth: AuthContext) {
     const existing = this.users.get(auth.userId);
     const time = nowIso();
+    const authPatch = {
+      ...(auth.email ? { email: auth.email } : {}),
+      authProvider: auth.provider,
+      ...(auth.lastLoginAt ? { lastLoginAt: auth.lastLoginAt } : {})
+    };
     if (existing) {
-      const updated: User = { ...existing, displayName: auth.displayName, updatedAt: time };
+      const updated: User = { ...existing, ...authPatch, displayName: auth.displayName, updatedAt: time };
       this.users.set(auth.userId, updated);
       return updated;
     }
 
     const user: User = {
       id: auth.userId,
-      externalAuthId: auth.userId,
+      externalAuthId: auth.provider === "google" ? auth.userId.replace(/^google:/, "") : auth.userId,
       displayName: auth.displayName,
+      ...authPatch,
       avatar: avatarFor(auth.displayName),
       createdAt: time,
       updatedAt: time
@@ -376,6 +420,48 @@ export class MemoryRepository implements Repository {
 
   async getUser(userId: string) {
     return this.users.get(userId);
+  }
+
+  async createOAuthState(record: OAuthStateRecord) {
+    this.oauthStates.set(record.state, record);
+  }
+
+  async consumeOAuthState(state: string) {
+    const record = this.oauthStates.get(state);
+    this.oauthStates.delete(state);
+    if (!record || new Date(record.expiresAt).getTime() <= Date.now()) return undefined;
+    return record;
+  }
+
+  async createAuthExchangeCode(record: AuthExchangeCodeRecord) {
+    this.authExchangeCodes.set(record.code, record);
+  }
+
+  async consumeAuthExchangeCode(code: string) {
+    const record = this.authExchangeCodes.get(code);
+    if (!record || record.consumedAt || new Date(record.expiresAt).getTime() <= Date.now()) return undefined;
+    const consumed = { ...record, consumedAt: nowIso() };
+    this.authExchangeCodes.set(code, consumed);
+    return consumed;
+  }
+
+  async createAuthRefreshSession(record: AuthRefreshSessionRecord) {
+    this.authRefreshSessions.set(record.id, record);
+  }
+
+  async getAuthRefreshSessionByTokenHash(tokenHash: string) {
+    for (const session of this.authRefreshSessions.values()) {
+      if (session.tokenHash === tokenHash) return session;
+    }
+    return undefined;
+  }
+
+  async revokeAuthRefreshSession(sessionId: string, revokedAt: string) {
+    const existing = this.authRefreshSessions.get(sessionId);
+    if (!existing) return undefined;
+    const updated = { ...existing, revokedAt };
+    this.authRefreshSessions.set(sessionId, updated);
+    return updated;
   }
 
   async updateUserAvatarAppearance(userId: string, appearance: AvatarAppearance): Promise<User> {
@@ -1520,4 +1606,3 @@ export class MemoryRepository implements Repository {
     return Array.from(this.sharedBrowserSessions.values()).filter((s) => live.has(s.status));
   }
 }
-

@@ -306,13 +306,13 @@ function installRtcProbe(
 }
 
 export function LiveKitSafariDebug({ roomId, inviteCode }: LiveKitSafariDebugProps) {
-  const { identity, loaded, clerkEnabled, signedIn, setRole, setIdentity } = usePersistentIdentity();
+  const { identity, loaded, authRequired, signedIn, setRole, setIdentity } = usePersistentIdentity();
   const [running, setRunning] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
   const [status, setStatus] = useState("Idle");
 
-  const canRun = useMemo(() => loaded && (!clerkEnabled || signedIn) && !running, [loaded, clerkEnabled, signedIn, running]);
+  const canRun = useMemo(() => loaded && (!authRequired || signedIn) && !running, [loaded, authRequired, signedIn, running]);
 
   function append(level: "log" | "warn", label: string, value: unknown) {
     const serialized = (() => {
@@ -401,7 +401,7 @@ export function LiveKitSafariDebug({ roomId, inviteCode }: LiveKitSafariDebugPro
 
         <AuthGate />
 
-        {!clerkEnabled ? (
+        {!authRequired ? (
           <div className="cluster">
             <label>
               Role

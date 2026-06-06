@@ -10,7 +10,11 @@ const physicsDefaults = PhysicsTuningSchema.parse({});
 
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8080").replace(/\/$/, "");
 export const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000";
-export const CLERK_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_E2E_DEV_AUTH === "true" ? "" : process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
+export const AUTH_REQUIRED =
+  process.env.NEXT_PUBLIC_E2E_DEV_AUTH !== "true" &&
+  process.env.NEXT_PUBLIC_AUTH_REQUIRED !== "false" &&
+  (process.env.NEXT_PUBLIC_AUTH_REQUIRED === "true" || Boolean(process.env.NEXT_PUBLIC_API_URL));
+export const API_AUTH_START_URL = `${API_URL}/v1/auth/google/start`;
 
 export const CLIENT_TUNING = {
   defaultViewMode: ViewModeSchema.parse(process.env.DEFAULT_VIEW_MODE ?? "3d"),

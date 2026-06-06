@@ -2,7 +2,7 @@
 
 3DSpace is a browser-based educational room MVP with a shared room manifest, a 3D renderer, a 2D analog, Fastify APIs, MongoDB persistence, LiveKit session/token plumbing, and S3-compatible wall attachment readiness.
 
-**Production:** MVP is deployed (Vercel frontend, Koyeb API, MongoDB Atlas, Clerk, LiveKit Cloud, Cloudflare R2). App: https://3d-space-seven.vercel.app — API: https://content-jeanine-juchheim-71a4f131.koyeb.app — see `docs/planning/mvp/MVP_STATUS.md` for full deployment state. Sentry is not configured yet.
+**Production:** MVP is deployed (Vercel frontend, Koyeb API, MongoDB Atlas, Google SSO, LiveKit Cloud, Cloudflare R2). App: https://3d-space-seven.vercel.app — API: https://content-jeanine-juchheim-71a4f131.koyeb.app — see `docs/planning/mvp/MVP_STATUS.md` for full deployment state. Sentry is not configured yet.
 
 ## Local Development
 
@@ -26,7 +26,7 @@ Environment templates:
 - `docs/planning/mvp/MVP_STATUS.md` — authoritative matrix (required/optional, defaults, deployment status)
 - `docs/planning/mvp/DEPLOYMENT_CHECKLIST.md` — production provisioning steps
 
-The API loads `/.env.local` and `/.env` from the repository root when those files exist (`apps/api/src/load-env.ts`). Next.js loads the repository root via `loadEnvConfig` in `apps/web/next.config.mjs`, then applies `apps/web/.env.local` overrides. Clerk middleware needs both `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` in that combined environment.
+The API loads `/.env.local` and `/.env` from the repository root when those files exist (`apps/api/src/load-env.ts`). Next.js loads the repository root via `loadEnvConfig` in `apps/web/next.config.mjs`, then applies `apps/web/.env.local` overrides. Local development can leave Google OAuth variables empty and use the existing development identity headers; production requires Google OAuth, `AUTH_JWT_SECRET`, and `AUTH_ALLOWED_EMAIL_DOMAINS`.
 
 3. Run both apps:
 
@@ -42,7 +42,7 @@ npm run dev:stop
 
 The local backend uses an in-memory repository when `MONGODB_URI` is not set. The room uses a multi-tab `BroadcastChannel` realtime fallback when LiveKit credentials are not set. Production mode fails fast if required backend secrets are missing.
 
-Open the web app at **http://localhost:3000** (not `127.0.0.1`) during local dev — Next.js binds to `localhost` and Clerk/Next proxy will 500 if the host does not match.
+Open the web app at **http://localhost:3000** during local dev.
 
 ## Commands
 

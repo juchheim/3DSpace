@@ -18,7 +18,7 @@ const VERSE_DEFAULTS = new Set(VERSES.flatMap((v) => [v.defaultClass, v.defaultR
 const LOGO_SRC = "/dream-ixr-logo1.png";
 
 export function Lobby() {
-  const { identity, loaded, clerkEnabled, signedIn } = usePersistentIdentity();
+  const { identity, loaded, authRequired, signedIn } = usePersistentIdentity();
 
   const [selectedVerseId, setSelectedVerseId] = useState<string | null>(null);
   const [accessOpen, setAccessOpen] = useState(false);
@@ -39,7 +39,7 @@ export function Lobby() {
 
   const selectedVerse = selectedVerseId ? VERSES.find((v) => v.id === selectedVerseId) ?? null : null;
   const hasRoom = Boolean(createdInvite?.roomId);
-  const authDisabled = clerkEnabled && !signedIn;
+  const authDisabled = authRequired && !signedIn;
 
   // Rooms that belong to a verse (created from this lobby), with their verse resolved.
   const verseRooms = rooms
@@ -78,10 +78,10 @@ export function Lobby() {
 
   useEffect(() => {
     if (!loaded) return;
-    if (clerkEnabled && !signedIn) return;
+    if (authRequired && !signedIn) return;
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [identity.userId, loaded, clerkEnabled, signedIn]);
+  }, [identity.userId, loaded, authRequired, signedIn]);
 
   function scrollToEl(id: string) {
     const el = document.getElementById(id);
@@ -392,8 +392,8 @@ export function Lobby() {
 
             {accessOpen ? (
               <div className="access-region open">
-                {/* Auth (Clerk only) */}
-                {clerkEnabled ? <div className="dixr-auth"><AuthGate /></div> : null}
+                {/* Auth (Google) */}
+                {authRequired ? <div className="dixr-auth"><AuthGate /></div> : null}
 
                 {/* Selected verse banner */}
                 {selectedVerse ? (

@@ -138,6 +138,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       "Authorization",
       "x-dev-user-id",
       "x-dev-user-name",
+      "x-dev-user-email",
       "x-dev-user-role",
       "x-world-skin-uploader-password"
     ]
