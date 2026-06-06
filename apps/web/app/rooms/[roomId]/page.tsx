@@ -5,7 +5,7 @@ export default async function RoomPage({
   searchParams
 }: {
   params: Promise<{ roomId: string }>;
-  searchParams: Promise<{ invite?: string }>;
+  searchParams: Promise<{ invite?: string; verse?: string }>;
 }) {
   const resolvedParams = await params;
   const resolvedSearchParams = await searchParams;
@@ -13,6 +13,7 @@ export default async function RoomPage({
     <RoomClient
       roomId={resolvedParams.roomId}
       {...(resolvedSearchParams.invite ? { inviteCode: resolvedSearchParams.invite } : {})}
+      {...(resolvedSearchParams.verse ? { verseId: resolvedSearchParams.verse } : {})}
     />
   );
 }

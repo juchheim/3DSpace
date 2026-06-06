@@ -88,7 +88,7 @@ test("instructor creates workforce-training room and trainee joins", async ({ co
   // Trainee joins via invite code in a second browser context.
   const traineePage = await context.newPage();
   await setIdentity(traineePage, TRAINEE);
-  await traineePage.goto("/");
+  await traineePage.goto("/legacy");
   await traineePage.getByLabel("Role").selectOption(TRAINEE.userId);
   await traineePage.getByLabel("Invite code").fill(invite.code);
   await traineePage.getByRole("button", { name: /join class room/i }).click();
@@ -116,7 +116,7 @@ test("instructor creates workforce-training room and trainee joins", async ({ co
 });
 
 test("workforce-training lobby step uses Instructor / Trainee copy", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/legacy");
   // Select the Workforce Training room type.
   await page.getByLabel(/room type/i).selectOption("workforce-training");
   // The create button uses workforce-training copy, not classroom copy.

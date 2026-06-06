@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { AvatarAppearance, AvatarReactionMessage, AvatarReactionSlug, AvatarStateMessage, BuildPiece, CreateDynamicWallAnchorRequest, PhysicsTuning, Role, RoomManifest, RoomObjectTemplate, RoomSessionResponse, ViewMode, WallObject, WorldSkinDayNightMode } from "@3dspace/contracts";
 import {
   DYNAMIC_WALL_ANCHOR_MAX_HEIGHT_M,
@@ -25,6 +25,7 @@ import {
   heartbeatRoomSession,
   joinRoom,
   leaveRoomSession,
+  listClasses,
   listClassMembers,
   patchAvatarAppearance,
   patchRoom,
@@ -38,6 +39,7 @@ import { useAvatarAppearance } from "../lib/useAvatarAppearance";
 import { useAvatarReactions } from "../lib/useAvatarReactions";
 import { useAudioModes } from "../lib/useAudioModes";
 import { isKeyboardOwnedTarget } from "../lib/isKeyboardOwnedTarget";
+import { verseById, verseFromClassName, verseRoomThemeVars } from "../lib/verses";
 import { DEFAULT_APPEARANCE } from "./BlockyAvatar";
 import { useThirdPersonCamera } from "../lib/useThirdPersonCamera";
 import { useLocalMedia } from "../lib/useLocalMedia";
@@ -168,9 +170,12 @@ export type ParticipantView = {
   lastSeenAt: number;
 };
 
-export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?: string }) {
+export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; inviteCode?: string; verseId?: string }) {
   const router = useRouter();
   const { identity, loaded: identityLoaded, clerkEnabled, signedIn } = usePersistentIdentity();
+  // Verse color key for the room HUD: prefer the URL's ?verse, else derive from
+  // the room's class name (verse rooms live in a class named after the verse).
+  const [derivedVerseId, setDerivedVerseId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("3d");
   const [firstPerson, setFirstPerson] = useState(false);
   useEffect(() => {
@@ -1506,6 +1511,24 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     };
   }, [session?.room.classId, session?.participantId, identity.userId]);
 
+  // Derive the verse from the room's class when not supplied via ?verse, so a
+  // student who joined by invite code still gets the verse's color key.
+  useEffect(() => {
+    if (verseId || !session) return;
+    let cancelled = false;
+    void listClasses(identity)
+      .then((records) => {
+        if (cancelled) return;
+        const cls = records.find((record) => record.id === session.room.classId);
+        const verse = verseFromClassName(cls?.name);
+        if (verse) setDerivedVerseId(verse.id);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [verseId, session?.room.classId, identity.userId]);
+
   useEffect(() => {
     if (!session || leaving) return;
     const activeRoomId = session.room.id;
@@ -2310,6 +2333,9 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
     );
   }
 
+  const activeVerse = verseById(verseId ?? derivedVerseId ?? undefined);
+  const verseStyle = activeVerse ? (verseRoomThemeVars(activeVerse.hue) as CSSProperties) : undefined;
+
   const avatarColor = role === "teacher" ? "#c07834" : "#389060";
   const initials = identity.displayName
     .split(" ")
@@ -2628,7 +2654,7 @@ export function RoomClient({ roomId, inviteCode }: { roomId: string; inviteCode?
       ambientGainOverride={ambientGainOverride}
       muteAmbient={muteAmbient}
     >
-    <main className="app-shell room-shell">
+    <main className="app-shell room-shell" style={verseStyle}>
       {/* Stage fills the full viewport */}
       <div className="room-stage" aria-label="Shared classroom">
         {/* Walk-speed toast — shown once when entering a skin with non-1× walk multiplier */}

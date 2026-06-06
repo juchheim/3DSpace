@@ -45,8 +45,8 @@ async function createRoomWithInvite(request: APIRequestContext) {
 }
 
 test("teacher can create a room, move, and switch between 3D and 2D", async ({ page }) => {
-  await page.goto("/");
-  await expect(page.getByRole("heading", { name: /class, with depth/i })).toBeVisible();
+  await page.goto("/legacy");
+  await expect(page.getByRole("heading", { name: /legacy rooms/i })).toBeVisible();
   await page.getByRole("button", { name: /^create room$/i }).click();
   await expect(page.getByRole("link", { name: /enter room/i })).toBeVisible({ timeout: 20_000 });
   await page.getByRole("link", { name: /enter room/i }).click();
@@ -81,7 +81,7 @@ test("student can join an invite and share movement and media state with the tea
 
   const studentPage = await context.newPage();
   await setIdentity(studentPage, STUDENT);
-  await studentPage.goto("/");
+  await studentPage.goto("/legacy");
   await studentPage.getByLabel("Role").selectOption("dev-student");
   await studentPage.getByLabel("Invite code").fill(invite.code);
   await studentPage.getByRole("button", { name: /join class room/i }).click();
@@ -129,7 +129,7 @@ test("teacher can add an image wall object and remove it for a joined student", 
 
   const studentPage = await context.newPage();
   await setIdentity(studentPage, STUDENT);
-  await studentPage.goto("/");
+  await studentPage.goto("/legacy");
   await studentPage.getByLabel("Role").selectOption("dev-student");
   await studentPage.getByLabel("Invite code").fill(invite.code);
   await studentPage.getByRole("button", { name: /join class room/i }).click();
@@ -263,8 +263,8 @@ test("room remains usable under a throttled browser profile", async ({ context, 
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
 
   try {
-    await page.goto("/");
-    await expect(page.getByRole("heading", { name: /class, with depth/i })).toBeVisible();
+    await page.goto("/legacy");
+    await expect(page.getByRole("heading", { name: /legacy rooms/i })).toBeVisible();
     const startedAt = Date.now();
     await page.getByRole("button", { name: /^create room$/i }).click();
     await page.getByRole("link", { name: /enter room/i }).click();
