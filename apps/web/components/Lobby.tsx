@@ -51,8 +51,10 @@ export function Lobby() {
     .filter((entry): entry is { room: RoomRecord; verse: Verse } => entry !== null);
 
   useEffect(() => {
+    document.documentElement.classList.add("dixr-dark");
     document.body.classList.add("dixr-dark");
     return () => {
+      document.documentElement.classList.remove("dixr-dark");
       document.body.classList.remove("dixr-dark");
     };
   }, []);

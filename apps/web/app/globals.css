@@ -8392,10 +8392,13 @@ body.lobby-dark::before {
    ════════════════════════════════════════════════════ */
 
 /* Dark scene background + perspective grid for the Dream IXR lobby page. */
+html.dixr-dark,
+html.dixr-dark body,
 body.dixr-dark {
   color: #b8cce8;
   background: #030810;
 }
+html.dixr-dark body::before,
 body.dixr-dark::before {
   background-image:
     linear-gradient(rgba(30, 100, 240, 0.1) 1px, transparent 1px),
