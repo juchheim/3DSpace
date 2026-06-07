@@ -124,22 +124,24 @@ export function AvatarEditorPanel({
             {openSections.has("Accessories") ? (
               <div className="avatar-editor__accessory-list">
                 <p className="avatar-editor__accessory-slot-label">Head</p>
-                <AccessoryOption
-                  label="None"
-                  checked={accessoryEditor.draft.head == null}
-                  disabled={locked}
-                  onSelect={() => accessoryEditor.setHead(null)}
-                />
-                {headCatalog.map((entry) => (
+                <div className="avatar-editor__accessory-options">
                   <AccessoryOption
-                    key={entry.slug}
-                    label={entry.displayName}
-                    checked={accessoryEditor.draft.head === entry.slug}
+                    label="None"
+                    checked={accessoryEditor.draft.head == null}
                     disabled={locked}
-                    onSelect={() => accessoryEditor.setHead(entry.slug)}
-                    {...(entry.thumbnailUrl ? { thumbnailUrl: entry.thumbnailUrl } : {})}
+                    onSelect={() => accessoryEditor.setHead(null)}
                   />
-                ))}
+                  {headCatalog.map((entry) => (
+                    <AccessoryOption
+                      key={entry.slug}
+                      label={entry.displayName}
+                      checked={accessoryEditor.draft.head === entry.slug}
+                      disabled={locked}
+                      onSelect={() => accessoryEditor.setHead(entry.slug)}
+                      {...(entry.thumbnailUrl ? { thumbnailUrl: entry.thumbnailUrl } : {})}
+                    />
+                  ))}
+                </div>
               </div>
             ) : null}
           </div>
