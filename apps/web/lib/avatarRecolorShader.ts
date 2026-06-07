@@ -42,6 +42,14 @@ function syncUniformColors(material: AvatarRecolorMaterial) {
   }
 }
 
+function buildZoneColorLookupShader() {
+  const branches: string[] = [];
+  for (let zoneId = 1; zoneId < AVATAR_ZONE_COUNT; zoneId += 1) {
+    branches.push(`${zoneId === 1 ? "if" : "else if"} (avatarZone == ${zoneId}) { avatarTint = zoneColors[${zoneId}]; }`);
+  }
+  return branches.join("\n    ");
+}
+
 export function applyAvatarRecolorShader(
   material: MeshStandardMaterial,
   textures: AvatarRecolorTextures
@@ -79,9 +87,9 @@ uniform float tintStrength;`
   float avatarZoneId = texture2D(zoneMask, vMapUv).r * 255.0;
   int avatarZone = int(avatarZoneId + 0.5);
   if (avatarZone > 0 && avatarZone < ${AVATAR_ZONE_COUNT}) {
-    vec3 avatarTint = zoneColors[avatarZone];
-    float avatarLuma = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
-    diffuseColor.rgb = mix(diffuseColor.rgb, avatarTint * avatarLuma, tintStrength);
+    vec3 avatarTint = diffuseColor.rgb;
+    ${buildZoneColorLookupShader()}
+    diffuseColor.rgb = mix(diffuseColor.rgb, avatarTint, tintStrength);
   }
 #endif`
     );

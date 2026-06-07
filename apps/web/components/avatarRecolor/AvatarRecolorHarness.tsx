@@ -158,11 +158,19 @@ function AvatarRecolorPreview({
 
       if (showMaskOverlay) {
         material.map = maskPreviewTexture;
+        material.emissiveMap = null;
+        material.emissive.setRGB(0, 0, 0);
+        material.metalness = 0;
+        material.roughness = 0.72;
         material.needsUpdate = true;
         return;
       }
 
       const albedo = useOriginalAlbedo ? (sourceMaterial.map ?? neutralAlbedo) : neutralAlbedo;
+      material.emissiveMap = null;
+      material.emissive.setRGB(0, 0, 0);
+      material.metalness = 0;
+      material.roughness = 0.72;
       applyAvatarRecolorShader(material, { neutralAlbedo: albedo, zoneMask });
       updateAvatarRecolorColors(material, appearance);
       updateAvatarRecolorTintStrength(material, tintStrength);

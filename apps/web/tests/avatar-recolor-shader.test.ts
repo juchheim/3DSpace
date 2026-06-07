@@ -28,6 +28,8 @@ describe("avatar recolor shader", () => {
 
     expect(shader.fragmentShader.match(/uniform sampler2D zoneMask/g)?.length ?? 0).toBe(1);
     expect(shader.fragmentShader.match(/float avatarZoneId =/g)?.length ?? 0).toBe(1);
+    expect(shader.fragmentShader).toContain("else if (avatarZone == 14) { avatarTint = zoneColors[14]; }");
+    expect(shader.fragmentShader).toContain("diffuseColor.rgb = mix(diffuseColor.rgb, avatarTint, tintStrength);");
   });
 
   it("stores and syncs the zone-color uniform payload", () => {

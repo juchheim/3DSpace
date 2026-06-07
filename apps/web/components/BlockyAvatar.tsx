@@ -5,6 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import { Billboard, Html, useAnimations, useGLTF, useTexture } from "@react-three/drei";
 import {
   ClampToEdgeWrapping,
+  Color,
   MathUtils,
   MeshStandardMaterial,
   NearestFilter,
@@ -90,6 +91,10 @@ function configureRecolorTextures(textures: AvatarRecolorTextures) {
 type AvatarRecolorManagedMaterial = MeshStandardMaterial & {
   userData: MeshStandardMaterial["userData"] & {
     avatarBakedMap?: Texture | null;
+    avatarBakedEmissiveMap?: Texture | null;
+    avatarBakedEmissiveColor?: Color;
+    avatarBakedMetalness?: number;
+    avatarBakedRoughness?: number;
   };
 };
 
@@ -174,6 +179,10 @@ function AvatarModel({
       if (!isSkinnedMesh(object)) return;
       const material = object.material as AvatarRecolorManagedMaterial;
       material.userData.avatarBakedMap ??= material.map ?? null;
+      material.userData.avatarBakedEmissiveMap ??= material.emissiveMap ?? null;
+      material.userData.avatarBakedEmissiveColor ??= material.emissive.clone();
+      material.userData.avatarBakedMetalness ??= material.metalness;
+      material.userData.avatarBakedRoughness ??= material.roughness;
       applyAvatarRecolorShader(material, recolorTextures);
     });
   }, [model, recolorTextures]);
@@ -208,6 +217,20 @@ function AvatarModel({
         // Map swap requires program recompilation (USE_MAP define may change).
         material.map = nextMap;
         material.needsUpdate = true;
+      }
+      const nextEmissiveMap = recolorActive ? null : (material.userData.avatarBakedEmissiveMap ?? null);
+      if (material.emissiveMap !== nextEmissiveMap) {
+        material.emissiveMap = nextEmissiveMap;
+        material.needsUpdate = true;
+      }
+      if (recolorActive) {
+        material.emissive.setRGB(0, 0, 0);
+        material.metalness = 0;
+        material.roughness = 0.72;
+      } else if (material.userData.avatarBakedEmissiveColor) {
+        material.emissive.copy(material.userData.avatarBakedEmissiveColor);
+        material.metalness = material.userData.avatarBakedMetalness ?? material.metalness;
+        material.roughness = material.userData.avatarBakedRoughness ?? material.roughness;
       }
       // Uniform value updates do NOT need needsUpdate — they go straight to GPU.
       updateAvatarRecolorColors(material, appearance);

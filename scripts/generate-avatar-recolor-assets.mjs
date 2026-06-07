@@ -183,7 +183,7 @@ function classifyZone({ boneName, x, y, z, nx, ny, color }) {
 
   if (ARM_BONES.has(boneName)) {
     if (isSkin(color) || boneName.endsWith("Hand")) return 15;
-    if (boneName.includes("Shoulder") || ny > 0.55 || y > 1.18) return 13;
+    if (boneName.includes("Shoulder")) return 13;
     return 14;
   }
 
