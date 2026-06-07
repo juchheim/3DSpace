@@ -237,6 +237,8 @@ export const AvatarAccessoryCatalogEntrySchema = z.object({
   localPosition: Vector3Schema,
   localRotation: z.object({ x: z.number(), y: z.number(), z: z.number() }),
   localScale: z.number().positive().default(1),
+  /** Meters represented by one unit of the target skeleton bone's local space (Mixamo/Azure Vanguard ≈ 0.01). */
+  boneSpaceMetersPerUnit: z.number().positive().optional(),
   nativeGroundY: z.number().optional(),
   thumbnailUrl: z.string().optional()
 });

@@ -5,9 +5,10 @@
     "slot": "head",
     "glbUrl": "/avatar-accessories/bowler-hat.glb",
     "attachBone": "Head",
-    "localPosition": { "x": 0, "y": 0.08, "z": 0 },
+    "localPosition": { "x": 0, "y": 0.1, "z": 0 },
     "localRotation": { "x": 0, "y": 0, "z": 0 },
     "localScale": 1,
+    "boneSpaceMetersPerUnit": 0.01,
     "thumbnailUrl": "/avatar-accessories/thumbnails/bowler-hat.png"
   }
 ]

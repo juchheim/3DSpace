@@ -3,17 +3,28 @@
 import { useEffect, useLayoutEffect, useMemo } from "react";
 import { useGLTF } from "@react-three/drei";
 import type { AvatarAccessoryCatalogEntry } from "@3dspace/contracts";
-import { Bone, Group, type Mesh, type MeshStandardMaterial, type Object3D } from "three";
+import { Group, type Mesh, type MeshStandardMaterial, type Object3D, type SkinnedMesh } from "three";
 
 function isMesh(object: Object3D): object is Mesh {
   return (object as Mesh).isMesh === true;
 }
 
-export function findBone(root: Object3D, name: string): Bone | undefined {
-  let found: Bone | undefined;
+export function findBone(root: Object3D, name: string): Object3D | undefined {
+  let skinned: SkinnedMesh | undefined;
   root.traverse((object) => {
-    if ((object as Bone).isBone && object.name === name) {
-      found = object as Bone;
+    if ((object as SkinnedMesh).isSkinnedMesh && !skinned) {
+      skinned = object as SkinnedMesh;
+    }
+  });
+  if (skinned) {
+    const fromSkeleton = skinned.skeleton.bones.find((bone) => bone.name === name);
+    if (fromSkeleton) return fromSkeleton;
+  }
+
+  let found: Object3D | undefined;
+  root.traverse((object) => {
+    if (object.name === name && !found) {
+      found = object;
     }
   });
   return found;
@@ -21,7 +32,7 @@ export function findBone(root: Object3D, name: string): Bone | undefined {
 
 export type AvatarAccessoryGlbProps = {
   entry: AvatarAccessoryCatalogEntry;
-  bone: Bone;
+  bone: Object3D;
 };
 
 /**
@@ -55,19 +66,21 @@ export function AvatarAccessoryGlb({ entry, bone }: AvatarAccessoryGlbProps) {
   const { x: rx, y: ry, z: rz } = entry.localRotation;
   const scale = entry.localScale;
   const groundY = entry.nativeGroundY ?? 0;
+  const boneSpaceScale = entry.boneSpaceMetersPerUnit ? 1 / entry.boneSpaceMetersPerUnit : 1;
 
   useLayoutEffect(() => {
     const mount = new Group();
-    mount.position.set(px, py + (groundY ? -groundY : 0), pz);
+    mount.frustumCulled = false;
+    mount.position.set(px * boneSpaceScale, py * boneSpaceScale + (groundY ? -groundY * boneSpaceScale : 0), pz * boneSpaceScale);
     mount.rotation.set(rx, ry, rz);
-    mount.scale.setScalar(scale);
+    mount.scale.setScalar(scale * boneSpaceScale);
     mount.add(model);
     bone.add(mount);
     return () => {
       bone.remove(mount);
       mount.remove(model);
     };
-  }, [bone, model, px, py, pz, rx, ry, rz, scale, groundY]);
+  }, [bone, model, px, py, pz, rx, ry, rz, scale, groundY, boneSpaceScale]);
 
   return null;
 }

@@ -53,8 +53,7 @@ function AvatarModel({
 }) {
   const { scene, animations } = useGLTF(AVATAR_URL);
   const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
-  const groupRef = useRef<Group>(null);
-  const { actions } = useAnimations(animations, groupRef);
+  const { actions } = useAnimations(animations, model);
 
   // Cross-fade to the desired clip whenever the movement state changes.
   useEffect(() => {
@@ -67,7 +66,7 @@ function AvatarModel({
   }, [actions, clip]);
 
   return (
-    <group ref={groupRef}>
+    <group>
       <primitive object={model} scale={MODEL_SCALE} />
       {showAccessories ? (
         <Suspense fallback={null}>
