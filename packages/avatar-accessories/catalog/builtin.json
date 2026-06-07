@@ -7,7 +7,7 @@
     "attachBone": "Head",
     "localPosition": { "x": 0, "y": 0.165, "z": -0.06 },
     "localRotation": { "x": 0, "y": 0, "z": 0 },
-    "localScale": 2.5,
+    "localScale": 2.85,
     "boneSpaceMetersPerUnit": 0.01,
     "thumbnailUrl": "/avatar-accessories/thumbnails/bowler-hat.png"
   }
