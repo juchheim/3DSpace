@@ -22,7 +22,7 @@ export const ACCESSORY_ADJUSTMENT_LIMITS = {
   position: { min: -0.12, max: 0.12, step: 0.005 },
   scale: { min: -1.2, max: 1.2, step: 0.05 },
   tiltDeg: { min: -35, max: 35, step: 1 },
-  turnDeg: { min: -45, max: 45, step: 1 }
+  turnDeg: { min: -90, max: 90, step: 1 }
 } as const;
 
 export function normalizeAccessoryAdjustment(
