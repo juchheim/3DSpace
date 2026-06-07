@@ -133,7 +133,10 @@ export function GlbHostAvatar({
     const t = state.clock.getElapsedTime();
 
     if (bobRef.current) {
-      bobRef.current.position.y = Math.sin(t * 1.5 * TWO_PI) * 0.02 + (ghost ? 0.04 : 0);
+      // Keep groundYOffset in the bob baseline — useFrame runs every tick and would
+      // otherwise wipe the JSX position that lifts origin-centered GLBs onto the floor.
+      bobRef.current.position.y =
+        groundYOffset + Math.sin(t * 1.5 * TWO_PI) * 0.02 + (ghost ? 0.04 : 0);
       // A subtle "listening" sway while thinking; quicker bob while speaking.
       const swayTarget = thinking ? Math.sin(t * 1.4) * 0.05 : 0;
       bobRef.current.rotation.z = MathUtils.lerp(bobRef.current.rotation.z, swayTarget, delta * 4);
