@@ -29,8 +29,7 @@ const TARGET_HEIGHT = 1.7;
 const MODEL_SCALE   = TARGET_HEIGHT / NATIVE_HEIGHT;
 
 // Baked clip names (see scripts inspection): a long idle plus a walk + run cycle.
-// Meshy-6 export has mislabelled clip names; actual motion matches as follows:
-const CLIP = { idle: "Running", walking: "Idle_02", running: "Walking" } as const;
+const CLIP = { idle: "Idle_12", walking: "Walking", running: "Running" } as const;
 type ClipName = (typeof CLIP)[keyof typeof CLIP];
 
 useGLTF.preload(AVATAR_URL);
