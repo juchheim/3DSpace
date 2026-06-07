@@ -1,5 +1,6 @@
 import type { AvatarAccessoryCatalogEntry } from "@3dspace/contracts";
 import type { Object3D } from "three";
+import type { AnimationMixer } from "three";
 import { findBone } from "./AvatarAccessoryGlb";
 
 export type HairSuppressionRule = {
@@ -30,12 +31,31 @@ export function collectHairSuppressionRules(
 /** Re-apply each frame after the animation mixer updates bone transforms. */
 export function applyHairSuppressionRules(rules: readonly HairSuppressionRule[]): void {
   for (const { bone, scale } of rules) {
+    if (!bone?.parent) continue;
     bone.scale.setScalar(scale);
   }
 }
 
 export function restoreHairSuppressionRules(rules: readonly HairSuppressionRule[]): void {
   for (const { bone } of rules) {
+    if (!bone?.parent) continue;
     bone.scale.setScalar(1);
   }
+}
+
+/** Patch mixer.update so hair suppression runs immediately after each animation tick. */
+export function bindHairSuppressionToMixer(
+  mixer: AnimationMixer,
+  getRules: () => readonly HairSuppressionRule[]
+): () => void {
+  const originalUpdate = mixer.update.bind(mixer);
+  mixer.update = (delta: number) => {
+    const result = originalUpdate(delta);
+    const rules = getRules();
+    if (rules.length > 0) applyHairSuppressionRules(rules);
+    return result;
+  };
+  return () => {
+    mixer.update = originalUpdate;
+  };
 }

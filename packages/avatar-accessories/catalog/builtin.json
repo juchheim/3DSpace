@@ -9,7 +9,7 @@
     "localRotation": { "x": 0, "y": 0, "z": 0 },
     "localScale": 2.85,
     "boneSpaceMetersPerUnit": 0.01,
-    "hairSuppressionBones": [{ "bone": "head_end", "scale": 0.01 }],
+    "hairSuppressionBones": [{ "bone": "head_end", "scale": 0.04 }],
     "thumbnailUrl": "/avatar-accessories/thumbnails/bowler-hat.png"
   }
 ]

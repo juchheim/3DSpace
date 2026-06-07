@@ -1,13 +1,13 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas } from "@react-three/fiber";
 import { OrbitControls, useAnimations, useGLTF } from "@react-three/drei";
 import type { AvatarAccessoryCatalogEntry } from "@3dspace/contracts";
 import { Group } from "three";
 import { SkeletonUtils } from "three-stdlib";
 import { AvatarAccessoryLayer } from "../../components/AvatarAccessoryLayer";
-import { applyHairSuppressionRules, collectHairSuppressionRules, restoreHairSuppressionRules } from "../../components/avatarHairSuppression";
+import { applyHairSuppressionRules, bindHairSuppressionToMixer, collectHairSuppressionRules, restoreHairSuppressionRules } from "../../components/avatarHairSuppression";
 import { BUILTIN_AVATAR_ACCESSORY_CATALOG } from "../../lib/avatarAccessoryCatalog";
 
 const AVATAR_URL = "/avatars/azure-vanguard.glb";
@@ -27,7 +27,7 @@ function AvatarAccessoryPreview({ entry }: { entry: AvatarAccessoryCatalogEntry 
   const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
   const groupRef = useRef<Group>(null);
   const hairSuppressionRulesRef = useRef(collectHairSuppressionRules(model, []));
-  const { actions } = useAnimations(animations, groupRef);
+  const { actions, mixer } = useAnimations(animations, groupRef);
 
   useEffect(() => {
     hairSuppressionRulesRef.current = collectHairSuppressionRules(model, [entry]);
@@ -38,10 +38,10 @@ function AvatarAccessoryPreview({ entry }: { entry: AvatarAccessoryCatalogEntry 
     };
   }, [model, entry]);
 
-  useFrame(() => {
-    if (hairSuppressionRulesRef.current.length === 0) return;
-    applyHairSuppressionRules(hairSuppressionRulesRef.current);
-  }, 1);
+  useEffect(() => {
+    if (!mixer) return;
+    return bindHairSuppressionToMixer(mixer, () => hairSuppressionRulesRef.current);
+  }, [mixer, entry]);
 
   useEffect(() => {
     const action = actions[CLIP_IDLE];

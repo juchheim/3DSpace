@@ -10,7 +10,7 @@ import type { ParticipantView } from "./RoomClient";
 import { CLIENT_TUNING } from "../lib/config";
 import { AvatarAccessoryLayer } from "./AvatarAccessoryLayer";
 import { BUILTIN_AVATAR_ACCESSORY_CATALOG } from "../lib/avatarAccessoryCatalog";
-import { applyHairSuppressionRules, collectHairSuppressionRules, restoreHairSuppressionRules } from "./avatarHairSuppression";
+import { applyHairSuppressionRules, bindHairSuppressionToMixer, collectHairSuppressionRules, restoreHairSuppressionRules } from "./avatarHairSuppression";
 
 const REACTION_EMOJI: Record<AvatarReactionSlug, string> = {
   "thumbs-up": "👍",
@@ -55,7 +55,7 @@ function AvatarModel({
 }) {
   const { scene, animations } = useGLTF(AVATAR_URL);
   const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
-  const { actions } = useAnimations(animations, model);
+  const { actions, mixer } = useAnimations(animations, model);
 
   const equippedHeadEntry = useMemo(() => {
     const slug = accessories.head;
@@ -81,11 +81,10 @@ function AvatarModel({
     };
   }, [model, showAccessories, equippedHeadEntry]);
 
-  // Walk/run clips reset bone scale each frame — re-apply after the mixer updates.
-  useFrame(() => {
-    if (!showAccessories || hairSuppressionRulesRef.current.length === 0) return;
-    applyHairSuppressionRules(hairSuppressionRulesRef.current);
-  }, 1);
+  useEffect(() => {
+    if (!mixer || !showAccessories || !equippedHeadEntry) return;
+    return bindHairSuppressionToMixer(mixer, () => hairSuppressionRulesRef.current);
+  }, [mixer, showAccessories, equippedHeadEntry]);
 
   // Cross-fade to the desired clip whenever the movement state changes.
   useEffect(() => {
