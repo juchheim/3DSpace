@@ -26,6 +26,7 @@ import { shouldApplyAvatarRecolor } from "../lib/avatarRecolorGate";
 import {
   applyAvatarRecolorShader,
   updateAvatarRecolorColors,
+  updateAvatarRecolorTintStrength,
   type AvatarRecolorTextures
 } from "../lib/avatarRecolorShader";
 export { DEFAULT_APPEARANCE } from "../lib/avatarAppearance";
@@ -75,6 +76,12 @@ function configureRecolorTextures(textures: AvatarRecolorTextures) {
   textures.zoneMask.generateMipmaps = false;
 }
 
+type AvatarRecolorManagedMaterial = MeshStandardMaterial & {
+  userData: MeshStandardMaterial["userData"] & {
+    avatarBakedMap?: Texture | null;
+  };
+};
+
 /**
  * Per-instance skinned clone of the avatar GLB, cross-fading between the idle /
  * walk / run clips to match the participant's movement state. SkeletonUtils.clone
@@ -113,13 +120,9 @@ function AvatarModel({
       const sourceMaterial = object.material as MeshStandardMaterial;
       const material = sourceMaterial.clone();
       object.material = material;
-      if (recolorActive) {
-        applyAvatarRecolorShader(material, recolorTextures);
-        updateAvatarRecolorColors(material, appearance);
-      }
     });
     return root;
-  }, [appearance, recolorActive, recolorTextures, scene]);
+  }, [scene]);
   const { actions, mixer } = useAnimations(animations, model);
 
   const equippedHeadEntry = useMemo(() => {
@@ -151,6 +154,15 @@ function AvatarModel({
     return bindHairSuppressionToMixer(mixer, () => hairSuppressionRulesRef.current);
   }, [mixer, showAccessories, equippedHeadEntry]);
 
+  useEffect(() => {
+    model.traverse((object) => {
+      if (!isSkinnedMesh(object)) return;
+      const material = object.material as AvatarRecolorManagedMaterial;
+      material.userData.avatarBakedMap ??= material.map ?? null;
+      applyAvatarRecolorShader(material, recolorTextures);
+    });
+  }, [model, recolorTextures]);
+
   useEffect(
     () => () => {
       model.traverse((object) => {
@@ -173,12 +185,17 @@ function AvatarModel({
   }, [actions, clip]);
 
   useEffect(() => {
-    if (!recolorActive) return;
     model.traverse((object) => {
       if (!isSkinnedMesh(object)) return;
-      updateAvatarRecolorColors(object.material as MeshStandardMaterial, appearance);
+      const material = object.material as AvatarRecolorManagedMaterial;
+      material.map = recolorActive
+        ? recolorTextures.neutralAlbedo
+        : (material.userData.avatarBakedMap ?? null);
+      updateAvatarRecolorColors(material, appearance);
+      updateAvatarRecolorTintStrength(material, recolorActive ? 1 : 0);
+      material.needsUpdate = true;
     });
-  }, [appearance, model, recolorActive]);
+  }, [appearance, model, recolorActive, recolorTextures]);
 
   return (
     <group>
