@@ -1,4 +1,5 @@
 import {
+  AvatarAccessoryAdjustmentSchema,
   AvatarEquippedAccessoriesSchema,
   type AvatarAccessoryCatalogEntry,
   type AvatarEquippedAccessories
@@ -9,13 +10,46 @@ import { badRequest } from "../errors.js";
 
 const ACCESSORY_SLOTS = ["head"] as const;
 
+const ADJUSTMENT_LIMITS = {
+  position: 0.15,
+  rotation: Math.PI,
+  scale: 2
+} as const;
+
 export const PatchUserAvatarAccessoriesBodySchema = z.object({
   accessories: z
     .object({
-      head: z.string().nullable().optional().default(null)
+      head: z.string().nullable().optional().default(null),
+      adjustments: z.record(z.string(), AvatarAccessoryAdjustmentSchema).optional()
     })
     .strict()
 });
+
+function validateAdjustmentValues(slug: string, adjustment: z.infer<typeof AvatarAccessoryAdjustmentSchema>) {
+  const position = adjustment.positionOffset;
+  if (position) {
+    for (const axis of ["x", "y", "z"] as const) {
+      const value = position[axis];
+      if (value != null && Math.abs(value) > ADJUSTMENT_LIMITS.position) {
+        throw badRequest(`Accessory "${slug}" ${axis} offset out of range`);
+      }
+    }
+  }
+
+  const rotation = adjustment.rotationOffset;
+  if (rotation) {
+    for (const axis of ["x", "y", "z"] as const) {
+      const value = rotation[axis];
+      if (value != null && Math.abs(value) > ADJUSTMENT_LIMITS.rotation) {
+        throw badRequest(`Accessory "${slug}" ${axis} rotation out of range`);
+      }
+    }
+  }
+
+  if (adjustment.scaleOffset != null && Math.abs(adjustment.scaleOffset) > ADJUSTMENT_LIMITS.scale) {
+    throw badRequest(`Accessory "${slug}" scale offset out of range`);
+  }
+}
 
 export function validateEquippedAccessories(
   accessories: AvatarEquippedAccessories,
@@ -23,6 +57,7 @@ export function validateEquippedAccessories(
 ): AvatarEquippedAccessories {
   const parsed = AvatarEquippedAccessoriesSchema.parse(accessories);
   const catalogBySlug = new Map(catalog.map((entry) => [entry.slug, entry]));
+  const equippedSlugs = new Set<string>();
 
   for (const slot of ACCESSORY_SLOTS) {
     const slug = parsed[slot];
@@ -32,6 +67,16 @@ export function validateEquippedAccessories(
     if (entry.slot !== slot) {
       throw badRequest(`Accessory "${slug}" is not equippable in slot "${slot}"`);
     }
+    equippedSlugs.add(slug);
+  }
+
+  const adjustments = parsed.adjustments ?? {};
+  for (const [slug, adjustment] of Object.entries(adjustments)) {
+    if (!catalogBySlug.has(slug)) throw badRequest(`Unknown accessory adjustment slug: ${slug}`);
+    if (!equippedSlugs.has(slug)) {
+      throw badRequest(`Accessory "${slug}" is not equipped`);
+    }
+    validateAdjustmentValues(slug, adjustment);
   }
 
   return parsed;

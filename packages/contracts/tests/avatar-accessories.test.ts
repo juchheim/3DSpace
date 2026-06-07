@@ -54,12 +54,28 @@ describe("avatar accessories (contracts)", () => {
       avatar: {
         color: "#336699",
         initials: "A",
-        accessories: { head: "bowler-hat" }
+        accessories: {
+          head: "bowler-hat",
+          adjustments: {
+            "bowler-hat": {
+              positionOffset: { x: 0, y: 0.01, z: 0 },
+              scaleOffset: 0.1
+            }
+          }
+        }
       },
       createdAt: "2026-06-06T00:00:00.000Z",
       updatedAt: "2026-06-06T00:00:00.000Z"
     });
-    expect(user.avatar.accessories).toEqual({ head: "bowler-hat" });
+    expect(user.avatar.accessories).toEqual({
+      head: "bowler-hat",
+      adjustments: {
+        "bowler-hat": {
+          positionOffset: { x: 0, y: 0.01, z: 0 },
+          scaleOffset: 0.1
+        }
+      }
+    });
   });
 
   it("parses builtin catalog entries and list response shape", () => {

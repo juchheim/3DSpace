@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-06 (lobby xband note width)
+Last updated: 2026-06-07 (avatar accessory fit panel)
 
 **Historical detail:** `.cursor/memory-archive.md` (planning log + bug-fix chronicle through 2026-05-30). Update that file only when archiving new dated entries; keep this file lean.
 
@@ -95,6 +95,7 @@ Remaining refactor candidates: `packages/contracts/src/index.ts`, `RoomClient.ts
 
 ## Recent work
 
+- **2026-06-07:** **Avatar accessory fit panel** — user-facing Fit & position sliders in `AvatarEditorPanel` (size, up/down, forward, side, tilt, turn); per-slug `adjustments` on `AvatarEquippedAccessories` (offsets from catalog defaults); live draft preview + save/persist via existing `PATCH /v1/users/me/accessories` + `avatar.accessories.v1`; `AccessoryAdjustPanel`, `avatarAccessoryAdjustments.ts`, `AvatarAccessoryLayer` merge.
 - **2026-06-07:** **Avatar accessories polish (verse)** — bowler hat attach via `bone.add()`; catalog position/scale tuned (`y: 0.145`, `z: -0.06`, `localScale: 2.85`); `hairSuppressionBones` on `head_end` with per-mixer re-apply (fixes hair poke-through on walk); Accessories editor spacing fix (`6c2286f`).
 - **2026-06-06:** **Avatar accessories Phase 6 complete** — Playwright E2E green (3 tests); fixed client bundle via `@3dspace/avatar-accessories/browser` (JSON import, no `node:fs`); E2E editor toggle idempotency fix.
 - **2026-06-06:** **Avatar accessories Phase 5** — `AvatarEditorPanel` Accessories section (head slot radios), `useAvatarAccessoryEditor`, draft preview via `effectiveGetAccessories`, save publishes `avatar.accessories.v1`.

@@ -252,9 +252,16 @@ export const AvatarAccessoryCatalogEntrySchema = z.object({
     .optional()
 });
 
+export const AvatarAccessoryAdjustmentSchema = z.object({
+  positionOffset: Vector3Schema.optional(),
+  rotationOffset: Vector3Schema.optional(),
+  scaleOffset: z.number().optional()
+});
+
 export const AvatarEquippedAccessoriesSchema = z
   .object({
-    head: z.string().nullable().optional().default(null)
+    head: z.string().nullable().optional().default(null),
+    adjustments: z.record(z.string(), AvatarAccessoryAdjustmentSchema).optional()
   })
   .default({ head: null });
 
@@ -266,6 +273,7 @@ export const AvatarAccessoriesMessageSchema = z.object({
 
 export type AvatarAccessorySlot = z.infer<typeof AvatarAccessorySlotSchema>;
 export type AvatarAccessoryCatalogEntry = z.infer<typeof AvatarAccessoryCatalogEntrySchema>;
+export type AvatarAccessoryAdjustment = z.infer<typeof AvatarAccessoryAdjustmentSchema>;
 export type AvatarEquippedAccessories = z.infer<typeof AvatarEquippedAccessoriesSchema>;
 export type AvatarAccessoriesMessage = z.infer<typeof AvatarAccessoriesMessageSchema>;
 

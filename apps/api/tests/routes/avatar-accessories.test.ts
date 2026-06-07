@@ -104,6 +104,68 @@ describe("avatar accessories routes", () => {
     await app.close();
   });
 
+  it("persists accessory fit adjustments on the user record", async () => {
+    const app = await buildAccessoriesApp();
+    await ensureUser(app);
+
+    const patch = await app.inject({
+      method: "PATCH",
+      url: "/v1/users/me/accessories",
+      headers: authHeaders(userId, "Alex Rivera"),
+      payload: {
+        accessories: {
+          head: "bowler-hat",
+          adjustments: {
+            "bowler-hat": {
+              positionOffset: { x: 0, y: 0.02, z: -0.01 },
+              scaleOffset: 0.15
+            }
+          }
+        }
+      }
+    });
+    expect(patch.statusCode).toBe(200);
+    expect(patch.json().avatar.accessories).toEqual({
+      head: "bowler-hat",
+      adjustments: {
+        "bowler-hat": {
+          positionOffset: { x: 0, y: 0.02, z: -0.01 },
+          scaleOffset: 0.15
+        }
+      }
+    });
+
+    const me = await app.inject({
+      method: "GET",
+      url: "/v1/users/me",
+      headers: authHeaders(userId, "Alex Rivera")
+    });
+    expect(me.json().avatar.accessories.adjustments["bowler-hat"].scaleOffset).toBe(0.15);
+    await app.close();
+  });
+
+  it("rejects adjustments for unequipped accessories", async () => {
+    const app = await buildAccessoriesApp();
+    await ensureUser(app);
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/v1/users/me/accessories",
+      headers: authHeaders(userId, "Alex Rivera"),
+      payload: {
+        accessories: {
+          head: null,
+          adjustments: {
+            "bowler-hat": { scaleOffset: 0.1 }
+          }
+        }
+      }
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe("bad_request");
+    await app.close();
+  });
+
   it("PATCH with unknown slot returns 400", async () => {
     const app = await buildAccessoriesApp();
     await ensureUser(app);

@@ -3,6 +3,7 @@
 import { Suspense, useMemo } from "react";
 import type { AvatarAccessoryCatalogEntry, AvatarEquippedAccessories } from "@3dspace/contracts";
 import type { Object3D } from "three";
+import { getAccessoryAdjustment, resolveAccessoryEntry } from "../lib/avatarAccessoryAdjustments";
 import { BUILTIN_AVATAR_ACCESSORY_CATALOG } from "../lib/avatarAccessoryCatalog";
 import { AvatarAccessoryGlb, findBone } from "./AvatarAccessoryGlb";
 
@@ -28,11 +29,12 @@ export function AvatarAccessoryLayer({
         if (!slug) return null;
         const entry = catalogBySlug.get(slug);
         if (!entry) return null;
+        const resolvedEntry = resolveAccessoryEntry(entry, getAccessoryAdjustment(equipped, slug));
         const bone = findBone(root, entry.attachBone);
         if (!bone) return null;
         return (
           <Suspense key={`${slot}:${slug}`} fallback={null}>
-            <AvatarAccessoryGlb entry={entry} bone={bone} />
+            <AvatarAccessoryGlb entry={resolvedEntry} bone={bone} />
           </Suspense>
         );
       })}

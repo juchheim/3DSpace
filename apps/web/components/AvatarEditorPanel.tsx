@@ -7,6 +7,7 @@ import { useAvatarAccessoryEditor } from "../lib/useAvatarAccessoryEditor";
 import { useAvatarEditor } from "../lib/useAvatarEditor";
 import { BUILTIN_AVATAR_ACCESSORY_CATALOG } from "../lib/avatarAccessoryCatalog";
 import { CLIENT_TUNING } from "../lib/config";
+import { AccessoryAdjustPanel } from "./avatarAccessories/AccessoryAdjustPanel";
 
 type Props = {
   savedAppearance: AvatarAppearance;
@@ -45,6 +46,10 @@ export function AvatarEditorPanel({
   const accessoryEditor = useAvatarAccessoryEditor(savedAccessories ?? { head: null });
 
   const headCatalog = accessoryCatalog.filter((entry) => entry.slot === "head");
+  const equippedHeadSlug = accessoriesEnabled ? accessoryEditor.draft.head : null;
+  const equippedHeadEntry = equippedHeadSlug
+    ? headCatalog.find((entry) => entry.slug === equippedHeadSlug)
+    : undefined;
   const saving = appearanceEditor.saving || (accessoriesEnabled && accessoryEditor.saving);
   const dirty = appearanceEditor.dirty || (accessoriesEnabled && accessoryEditor.dirty);
   const saveError = appearanceEditor.saveError || (accessoriesEnabled ? accessoryEditor.saveError : "");
@@ -142,6 +147,15 @@ export function AvatarEditorPanel({
                     />
                   ))}
                 </div>
+                {equippedHeadSlug && equippedHeadEntry ? (
+                  <AccessoryAdjustPanel
+                    displayName={equippedHeadEntry.displayName}
+                    adjustment={accessoryEditor.getAdjustment(equippedHeadSlug)}
+                    disabled={locked}
+                    onChange={(next) => accessoryEditor.setAdjustment(equippedHeadSlug, next)}
+                    onReset={() => accessoryEditor.resetAdjustment(equippedHeadSlug)}
+                  />
+                ) : null}
               </div>
             ) : null}
           </div>

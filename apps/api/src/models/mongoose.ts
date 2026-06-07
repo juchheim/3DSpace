@@ -141,7 +141,8 @@ export function createModels(connection: Connection): Models {
         shoeSide: String, shoeSole: String,
       },
       accessories: {
-        head: { type: String, default: null }
+        head: { type: String, default: null },
+        adjustments: { type: Schema.Types.Mixed, default: undefined }
       }
     },
     createdAt: String,

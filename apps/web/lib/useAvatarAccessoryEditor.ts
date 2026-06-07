@@ -1,8 +1,13 @@
 import { useState } from "react";
 import type { AvatarEquippedAccessories } from "@3dspace/contracts";
+import {
+  getAccessoryAdjustment,
+  stripEmptyAccessoryAdjustments,
+  type NormalizedAccessoryAdjustment
+} from "./avatarAccessoryAdjustments";
 
 function accessoriesEqual(a: AvatarEquippedAccessories, b: AvatarEquippedAccessories) {
-  return JSON.stringify(a) === JSON.stringify(b);
+  return JSON.stringify(stripEmptyAccessoryAdjustments(a)) === JSON.stringify(stripEmptyAccessoryAdjustments(b));
 }
 
 export function useAvatarAccessoryEditor(savedAccessories: AvatarEquippedAccessories) {
@@ -13,7 +18,27 @@ export function useAvatarAccessoryEditor(savedAccessories: AvatarEquippedAccesso
   const dirty = !accessoriesEqual(draft, savedAccessories);
 
   function setHead(slug: string | null) {
-    setDraft({ head: slug });
+    setDraft((prev) => ({ ...prev, head: slug }));
+  }
+
+  function setAdjustment(slug: string, adjustment: NormalizedAccessoryAdjustment) {
+    setDraft((prev) => ({
+      ...prev,
+      adjustments: { ...(prev.adjustments ?? {}), [slug]: adjustment }
+    }));
+  }
+
+  function resetAdjustment(slug: string) {
+    setDraft((prev) => {
+      if (!prev.adjustments?.[slug]) return prev;
+      const nextAdjustments = { ...prev.adjustments };
+      delete nextAdjustments[slug];
+      if (Object.keys(nextAdjustments).length === 0) {
+        const { adjustments: _removed, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, adjustments: nextAdjustments };
+    });
   }
 
   function resetDraft() {
@@ -25,7 +50,7 @@ export function useAvatarAccessoryEditor(savedAccessories: AvatarEquippedAccesso
     setSaving(true);
     setSaveError("");
     try {
-      await onSave(draft);
+      await onSave(stripEmptyAccessoryAdjustments(draft));
       return true;
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : "Couldn't save. Try again.");
@@ -35,5 +60,16 @@ export function useAvatarAccessoryEditor(savedAccessories: AvatarEquippedAccesso
     }
   }
 
-  return { draft, dirty, saving, saveError, setHead, resetDraft, save };
+  return {
+    draft,
+    dirty,
+    saving,
+    saveError,
+    setHead,
+    getAdjustment: (slug: string) => getAccessoryAdjustment(draft, slug),
+    setAdjustment,
+    resetAdjustment,
+    resetDraft,
+    save
+  };
 }
