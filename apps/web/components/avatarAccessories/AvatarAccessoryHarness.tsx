@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, useAnimations, useGLTF } from "@react-three/drei";
-import type { AvatarAccessoryCatalogEntry } from "@3dspace/contracts";
+import type { AvatarAccessoryCatalogEntry, AvatarEquippedAccessories } from "@3dspace/contracts";
 import { Group } from "three";
 import { SkeletonUtils } from "three-stdlib";
 import { AvatarAccessoryLayer } from "../../components/AvatarAccessoryLayer";
@@ -21,6 +21,13 @@ useGLTF.preload(AVATAR_URL);
 const DEFAULT_ENTRY =
   BUILTIN_AVATAR_ACCESSORY_CATALOG.find((entry) => entry.slug === "bowler-hat") ??
   BUILTIN_AVATAR_ACCESSORY_CATALOG[0]!;
+
+function equippedForEntry(entry: AvatarAccessoryCatalogEntry): AvatarEquippedAccessories {
+  return {
+    head: entry.slot === "head" ? entry.slug : null,
+    hands: entry.slot === "hands" ? entry.slug : null
+  };
+}
 
 function AvatarAccessoryPreview({ entry }: { entry: AvatarAccessoryCatalogEntry }) {
   const { scene, animations } = useGLTF(AVATAR_URL);
@@ -55,7 +62,7 @@ function AvatarAccessoryPreview({ entry }: { entry: AvatarAccessoryCatalogEntry 
   return (
     <group ref={groupRef} position={[0, 0, 0]}>
       <primitive object={model} scale={MODEL_SCALE} />
-      <AvatarAccessoryLayer root={model} equipped={{ head: entry.slug }} catalog={[entry]} />
+      <AvatarAccessoryLayer root={model} equipped={equippedForEntry(entry)} catalog={[entry]} />
     </group>
   );
 }
