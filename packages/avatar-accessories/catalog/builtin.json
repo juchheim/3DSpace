@@ -22,7 +22,7 @@
     "mirrorPaired": true,
     "localPosition": { "x": 0, "y": 0, "z": 0 },
     "localRotation": { "x": 0, "y": 0, "z": 0 },
-    "localScale": 1,
+    "localScale": 10,
     "boneSpaceMetersPerUnit": 0.01
   }
 ]

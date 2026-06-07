@@ -17,13 +17,7 @@ const ADJUSTMENT_LIMITS = {
 } as const;
 
 export const PatchUserAvatarAccessoriesBodySchema = z.object({
-  accessories: z
-    .object({
-      head: z.string().nullable().optional().default(null),
-      hands: z.string().nullable().optional().default(null),
-      adjustments: z.record(z.string(), AvatarAccessoryAdjustmentSchema).optional()
-    })
-    .strict()
+  accessories: AvatarEquippedAccessoriesSchema
 });
 
 function validateAdjustmentValues(slug: string, adjustment: z.infer<typeof AvatarAccessoryAdjustmentSchema>) {

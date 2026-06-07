@@ -142,6 +142,7 @@ export function createModels(connection: Connection): Models {
       },
       accessories: {
         head: { type: String, default: null },
+        hands: { type: String, default: null },
         adjustments: { type: Schema.Types.Mixed, default: undefined }
       }
     },

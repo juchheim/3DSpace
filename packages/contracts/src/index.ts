@@ -269,6 +269,7 @@ export const AvatarEquippedAccessoriesSchema = z
     hands: z.string().nullable().optional().default(null),
     adjustments: z.record(z.string(), AvatarAccessoryAdjustmentSchema).optional()
   })
+  .strict()
   .default({ head: null, hands: null });
 
 export const AvatarAccessoriesMessageSchema = z.object({
