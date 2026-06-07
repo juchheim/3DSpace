@@ -10,7 +10,7 @@ import type { ParticipantView } from "./RoomClient";
 import { CLIENT_TUNING } from "../lib/config";
 import { AvatarAccessoryLayer } from "./AvatarAccessoryLayer";
 import { BUILTIN_AVATAR_ACCESSORY_CATALOG } from "../lib/avatarAccessoryCatalog";
-import { applyHairSuppression } from "./avatarHairSuppression";
+import { applyHairSuppressionRules, collectHairSuppressionRules, restoreHairSuppressionRules } from "./avatarHairSuppression";
 
 const REACTION_EMOJI: Record<AvatarReactionSlug, string> = {
   "thumbs-up": "👍",
@@ -63,11 +63,29 @@ function AvatarModel({
     return BUILTIN_AVATAR_ACCESSORY_CATALOG.find((entry) => entry.slug === slug);
   }, [accessories.head]);
 
-  // Collapse hair volume bones (e.g. head_end) while a head accessory is equipped.
+  const hairSuppressionRulesRef = useRef(collectHairSuppressionRules(model, []));
+
   useEffect(() => {
-    if (!showAccessories || !equippedHeadEntry) return;
-    return applyHairSuppression(model, [equippedHeadEntry]);
+    if (!showAccessories || !equippedHeadEntry) {
+      restoreHairSuppressionRules(hairSuppressionRulesRef.current);
+      hairSuppressionRulesRef.current = [];
+      return;
+    }
+
+    hairSuppressionRulesRef.current = collectHairSuppressionRules(model, [equippedHeadEntry]);
+    applyHairSuppressionRules(hairSuppressionRulesRef.current);
+
+    return () => {
+      restoreHairSuppressionRules(hairSuppressionRulesRef.current);
+      hairSuppressionRulesRef.current = [];
+    };
   }, [model, showAccessories, equippedHeadEntry]);
+
+  // Walk/run clips reset bone scale each frame — re-apply after the mixer updates.
+  useFrame(() => {
+    if (!showAccessories || hairSuppressionRulesRef.current.length === 0) return;
+    applyHairSuppressionRules(hairSuppressionRulesRef.current);
+  }, 1);
 
   // Cross-fade to the desired clip whenever the movement state changes.
   useEffect(() => {

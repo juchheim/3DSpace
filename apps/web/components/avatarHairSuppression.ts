@@ -2,30 +2,40 @@ import type { AvatarAccessoryCatalogEntry } from "@3dspace/contracts";
 import type { Object3D } from "three";
 import { findBone } from "./AvatarAccessoryGlb";
 
-/**
- * Azure Vanguard hair poof is weighted heavily to `head_end` (~24 cm above Head).
- * Scaling that bone down collapses volume that would poke through head-slot props.
- */
-export function applyHairSuppression(
+export type HairSuppressionRule = {
+  bone: Object3D;
+  scale: number;
+};
+
+/** Resolve catalog rules to live skeleton bones on a cloned avatar instance. */
+export function collectHairSuppressionRules(
   root: Object3D,
   entries: readonly AvatarAccessoryCatalogEntry[]
-): () => void {
-  const restored: Array<{ bone: Object3D; scale: number }> = [];
+): HairSuppressionRule[] {
+  const rules: HairSuppressionRule[] = [];
+  const seen = new Set<Object3D>();
 
   for (const entry of entries) {
     for (const rule of entry.hairSuppressionBones ?? []) {
       const bone = findBone(root, rule.bone);
-      if (!bone) continue;
-      if (!restored.some((item) => item.bone === bone)) {
-        restored.push({ bone, scale: bone.scale.x });
-      }
-      bone.scale.setScalar(rule.scale);
+      if (!bone || seen.has(bone)) continue;
+      seen.add(bone);
+      rules.push({ bone, scale: rule.scale });
     }
   }
 
-  return () => {
-    for (const { bone, scale } of restored) {
-      bone.scale.setScalar(scale);
-    }
-  };
+  return rules;
+}
+
+/** Re-apply each frame after the animation mixer updates bone transforms. */
+export function applyHairSuppressionRules(rules: readonly HairSuppressionRule[]): void {
+  for (const { bone, scale } of rules) {
+    bone.scale.setScalar(scale);
+  }
+}
+
+export function restoreHairSuppressionRules(rules: readonly HairSuppressionRule[]): void {
+  for (const { bone } of rules) {
+    bone.scale.setScalar(1);
+  }
 }

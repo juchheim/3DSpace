@@ -1,13 +1,13 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, useAnimations, useGLTF } from "@react-three/drei";
 import type { AvatarAccessoryCatalogEntry } from "@3dspace/contracts";
 import { Group } from "three";
 import { SkeletonUtils } from "three-stdlib";
 import { AvatarAccessoryLayer } from "../../components/AvatarAccessoryLayer";
-import { applyHairSuppression } from "../../components/avatarHairSuppression";
+import { applyHairSuppressionRules, collectHairSuppressionRules, restoreHairSuppressionRules } from "../../components/avatarHairSuppression";
 import { BUILTIN_AVATAR_ACCESSORY_CATALOG } from "../../lib/avatarAccessoryCatalog";
 
 const AVATAR_URL = "/avatars/azure-vanguard.glb";
@@ -26,7 +26,22 @@ function AvatarAccessoryPreview({ entry }: { entry: AvatarAccessoryCatalogEntry 
   const { scene, animations } = useGLTF(AVATAR_URL);
   const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
   const groupRef = useRef<Group>(null);
+  const hairSuppressionRulesRef = useRef(collectHairSuppressionRules(model, []));
   const { actions } = useAnimations(animations, groupRef);
+
+  useEffect(() => {
+    hairSuppressionRulesRef.current = collectHairSuppressionRules(model, [entry]);
+    applyHairSuppressionRules(hairSuppressionRulesRef.current);
+    return () => {
+      restoreHairSuppressionRules(hairSuppressionRulesRef.current);
+      hairSuppressionRulesRef.current = [];
+    };
+  }, [model, entry]);
+
+  useFrame(() => {
+    if (hairSuppressionRulesRef.current.length === 0) return;
+    applyHairSuppressionRules(hairSuppressionRulesRef.current);
+  }, 1);
 
   useEffect(() => {
     const action = actions[CLIP_IDLE];
@@ -36,8 +51,6 @@ function AvatarAccessoryPreview({ entry }: { entry: AvatarAccessoryCatalogEntry 
       action.fadeOut(0.2);
     };
   }, [actions]);
-
-  useEffect(() => applyHairSuppression(model, [entry]), [model, entry]);
 
   return (
     <group ref={groupRef} position={[0, 0, 0]}>
