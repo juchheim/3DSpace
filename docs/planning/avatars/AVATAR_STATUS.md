@@ -291,6 +291,27 @@ All 8 phases shipped. The system provides:
 
 ---
 
+## GLB recolor — complete ✅
+
+The live Azure Vanguard GLB now consumes avatar appearance through the neutral-albedo + zone-mask recolor path behind `NEXT_PUBLIC_ENABLE_AVATAR_GLB_RECOLOR=false` by default.
+
+Shipped pieces:
+- Neutral albedo, zone mask, UV reference, and asset generation/validation scripts
+- Zone registry + recolor gate helpers in `apps/web/lib/`
+- `MeshStandardMaterial.onBeforeCompile` shader patch in `apps/web/lib/avatarRecolorShader.ts`
+- `BlockyAvatar` integration with passthrough-until-first-save behavior
+- `avatar.appearance.v1` `customized` envelope support
+- `/dev/avatar-recolor` harness
+- Unit coverage for registry/gate/shader and Playwright coverage for preview/save/peer propagation
+
+Validation run:
+- `node scripts/validate-avatar-zone-mask.mjs apps/web/public/avatars/azure-vanguard-zone-mask.png`
+- `npm run typecheck`
+- `npx vitest run apps/web/tests/avatar-zone-registry.test.ts apps/web/tests/avatar-recolor-gate.test.ts apps/web/tests/avatar-recolor-shader.test.ts`
+- `npx playwright test apps/web/test/avatar-recolor.spec.ts`
+
+---
+
 ## Key architectural context
 
 - **`FaceMaterials`** is a 6-tuple, not a plain array. Required by `noUncheckedIndexedAccess`. Any code that builds or updates materials must use this type.
@@ -298,7 +319,7 @@ All 8 phases shipped. The system provides:
 - **Canvas textures use `NearestFilter`** — never change this; it's what keeps zone edges sharp.
 - **`appearance` prop changes trigger imperative material updates** via `useEffect([appearance])`. React does NOT re-mount the component or recreate materials.
 - **Disposal**: all GPU materials and textures are disposed in the `useEffect` cleanup on unmount. Do not skip this.
-- **`DEFAULT_APPEARANCE`** lives in `BlockyAvatar.tsx`. `useAvatarAppearance.ts` imports it from there as the fallback for participants whose appearance hasn't arrived yet.
+- **`DEFAULT_APPEARANCE`** now lives in `apps/web/lib/avatarAppearance.ts`.
 - **`localAppearanceRef`** in `RoomClient.tsx` mirrors `localAppearanceRef.current` for use in the connect-effect callback (avoids stale closure). Always update both the ref and `setLocalAppearance` together when saving.
 - **`getAppearance`** is derived at render time (not stored in `ParticipantView`). This is intentional — appearance updates arrive asynchronously and shouldn't require re-constructing participant state.
 
@@ -309,7 +330,7 @@ All 8 phases shipped. The system provides:
 | `FaceMaterials` type + all material builders/updaters | `apps/web/lib/avatarMaterials.ts` |
 | `ZONE_LABELS`, `ZONE_GROUPS` (for editor) | `apps/web/lib/avatarMaterials.ts` |
 | `BlockyAvatar` component | `apps/web/components/BlockyAvatar.tsx` |
-| `DEFAULT_APPEARANCE` constant | `apps/web/components/BlockyAvatar.tsx` |
+| `DEFAULT_APPEARANCE` constant | `apps/web/lib/avatarAppearance.ts` |
 | Avatar render call site | `apps/web/components/RoomView3D.tsx` — search `BlockyAvatar` |
 | Appearance state hook | `apps/web/lib/useAvatarAppearance.ts` |
 | Editor draft/save state hook | `apps/web/lib/useAvatarEditor.ts` |

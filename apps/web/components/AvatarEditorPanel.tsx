@@ -12,7 +12,7 @@ import { AccessoryAdjustPanel } from "./avatarAccessories/AccessoryAdjustPanel";
 type Props = {
   savedAppearance: AvatarAppearance;
   onSave: (appearance: AvatarAppearance) => Promise<void>;
-  onDraftChange: (draft: AvatarAppearance) => void;
+  onDraftChange: (draft: AvatarAppearance, dirty: boolean) => void;
   savedAccessories?: AvatarEquippedAccessories;
   onSaveAccessories?: (accessories: AvatarEquippedAccessories) => Promise<void>;
   onDraftAccessoriesChange?: (draft: AvatarEquippedAccessories) => void;
@@ -59,8 +59,8 @@ export function AvatarEditorPanel({
   );
 
   useEffect(() => {
-    onDraftChange(appearanceEditor.draft);
-  }, [appearanceEditor.draft, onDraftChange]);
+    onDraftChange(appearanceEditor.draft, appearanceEditor.dirty);
+  }, [appearanceEditor.draft, appearanceEditor.dirty, onDraftChange]);
 
   useEffect(() => {
     if (!accessoriesEnabled) return;

@@ -46,7 +46,7 @@ import { useAvatarReactions } from "../lib/useAvatarReactions";
 import { useAudioModes } from "../lib/useAudioModes";
 import { isKeyboardOwnedTarget } from "../lib/isKeyboardOwnedTarget";
 import { verseById, verseFromClassName, verseRoomThemeVars } from "../lib/verses";
-import { DEFAULT_APPEARANCE } from "./BlockyAvatar";
+import { DEFAULT_APPEARANCE } from "../lib/avatarAppearance";
 import { useThirdPersonCamera } from "../lib/useThirdPersonCamera";
 import { useLocalMedia } from "../lib/useLocalMedia";
 import { useDisplayMedia } from "../lib/useDisplayMedia";
@@ -208,9 +208,15 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   const avatarStateRef = useRef<AvatarStateMessage | null>(null);
   const memberNamesRef = useRef(new Map<string, string>());
   const localAppearanceRef = useRef<AvatarAppearance>(DEFAULT_APPEARANCE);
+  const localAppearanceCustomizedRef = useRef(false);
   const localAccessoriesRef = useRef(DEFAULT_EQUIPPED_ACCESSORIES);
   const seenParticipantsRef = useRef(new Set<string>());
-  const { receiveAppearance, setLocalAppearance, getAppearance } = useAvatarAppearance();
+  const {
+    receiveAppearance,
+    setLocalAppearance,
+    getAppearance,
+    getAppearanceCustomized
+  } = useAvatarAppearance();
   const { receiveAccessories, setLocalAccessories, getAccessories } = useAvatarAccessories();
   const getAccessoriesRef = useRef(getAccessories);
   getAccessoriesRef.current = getAccessories;
@@ -1492,10 +1498,12 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
         if (generation !== joinGenerationRef.current) return;
         const normalizedManifest = normalizeRoomManifest(nextSession.manifest, nextSession.room.type);
         const initialAppearance = nextSession.avatarAppearance ?? DEFAULT_APPEARANCE;
+        const initialAppearanceCustomized = nextSession.avatarAppearance != null;
         const initialAccessories = AvatarEquippedAccessoriesSchema.parse(nextSession.avatarAccessories ?? undefined);
         localAppearanceRef.current = initialAppearance;
+        localAppearanceCustomizedRef.current = initialAppearanceCustomized;
         localAccessoriesRef.current = initialAccessories;
-        setLocalAppearance(nextSession.participantId, initialAppearance);
+        setLocalAppearance(nextSession.participantId, initialAppearance, initialAppearanceCustomized);
         setLocalAccessories(nextSession.participantId, initialAccessories);
         setSession({ ...nextSession, manifest: normalizedManifest });
         setManifest(normalizedManifest);
@@ -1623,6 +1631,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
             type: "avatar.appearance.v1",
             participantId: activeSession.participantId,
             appearance: localAppearanceRef.current,
+            customized: localAppearanceCustomizedRef.current,
           });
           if (CLIENT_TUNING.enableAvatarAccessories) {
             realtimeRef.current?.publish({
@@ -1674,7 +1683,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       if (message.type === "avatar.appearance.v1") {
         const parsed = AvatarAppearanceMessageSchema.safeParse(message);
         if (parsed.success) {
-          receiveAppearance(parsed.data.participantId, parsed.data.appearance);
+          receiveAppearance(parsed.data.participantId, parsed.data.appearance, parsed.data.customized);
         }
         return;
       }
@@ -1823,6 +1832,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           type: "avatar.appearance.v1",
           participantId: session.participantId,
           appearance: localAppearanceRef.current,
+          customized: localAppearanceCustomizedRef.current,
         });
         if (CLIENT_TUNING.enableAvatarAccessories) {
           client.publish({
@@ -2446,6 +2456,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   const avatarEditorLocked =
     classroom.state?.lessonRun?.status === "running" &&
     classroom.state?.avatarEditorLocked === true;
+  const localEditorPreviewActive = avatarEditorOpen && localDraftAppearance !== null;
 
   // Effective appearance: use draft for local participant when editor is open
   const localParticipantIdForAppearance = session?.participantId;
@@ -2454,6 +2465,10 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       return localDraftAppearance;
     }
     return getAppearance(id);
+  }
+
+  function effectiveGetAppearanceCustomized(id: string): boolean {
+    return getAppearanceCustomized(id);
   }
 
   function effectiveGetAccessories(id: string): AvatarEquippedAccessories {
@@ -2760,6 +2775,8 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
             participants={participantList}
             localParticipantId={session.participantId}
             getAppearance={effectiveGetAppearance}
+            getAppearanceCustomized={effectiveGetAppearanceCustomized}
+            localEditorPreviewActive={localEditorPreviewActive}
             getAccessories={effectiveGetAccessories}
             getReaction={(id) => getReaction(id)?.reaction}
             getAudioMode={getAudioMode}
@@ -3464,11 +3481,13 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           onSave={async (appearance) => {
             await patchAvatarAppearance(identity, appearance);
             localAppearanceRef.current = appearance;
-            setLocalAppearance(session.participantId, appearance);
+            localAppearanceCustomizedRef.current = true;
+            setLocalAppearance(session.participantId, appearance, true);
             publishRealtime({
               type: "avatar.appearance.v1",
               participantId: session.participantId,
               appearance,
+              customized: true,
             });
           }}
           {...(CLIENT_TUNING.enableAvatarAccessories
@@ -3486,7 +3505,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
                 onDraftAccessoriesChange: (draft: AvatarEquippedAccessories) => setLocalDraftAccessories(draft)
               }
             : {})}
-          onDraftChange={(draft) => setLocalDraftAppearance(draft)}
+          onDraftChange={(draft, dirty) => setLocalDraftAppearance(dirty ? draft : null)}
           onClose={() => {
             setAvatarEditorOpen(false);
             setLocalDraftAppearance(null);

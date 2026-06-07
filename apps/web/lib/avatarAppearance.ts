@@ -1,0 +1,27 @@
+import type { AvatarAppearance } from "@3dspace/contracts";
+
+export const DEFAULT_APPEARANCE: AvatarAppearance = {
+  hairTop:     "#2a1a0e",
+  hairFront:   "#2a1a0e",
+  headSide:    "#2a1a0e",
+  hairBack:    "#2a1a0e",
+  faceSkin:    "#f0c090",
+  faceAccent:  "#f0c090",
+  collar:      "#ffffff",
+  shirtFront:  "#4466aa",
+  shirtBelly:  "#4466aa",
+  shirtBack:   "#4466aa",
+  shirtSide:   "#4466aa",
+  shoulderTop: "#4466aa",
+  shoulderCap: "#4466aa",
+  sleeve:      "#4466aa",
+  hand:        "#f0c090",
+  thigh:       "#2a3a5a",
+  shin:        "#2a3a5a",
+  legSide:     "#2a3a5a",
+  legBack:     "#2a3a5a",
+  shoeTop:     "#1a1a1a",
+  shoeToe:     "#1a1a1a",
+  shoeSide:    "#1a1a1a",
+  shoeSole:    "#111111",
+};

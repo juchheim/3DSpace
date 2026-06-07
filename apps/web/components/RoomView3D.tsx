@@ -326,6 +326,8 @@ export function RoomView3D({
   privateChecks = [],
   spotlight,
   getAppearance,
+  getAppearanceCustomized,
+  localEditorPreviewActive = false,
   getAccessories,
   getReaction,
   getAudioMode,
@@ -385,6 +387,8 @@ export function RoomView3D({
   privateChecks?: ClassroomPrivateCheck[];
   spotlight?: ClassroomSpotlight | null | undefined;
   getAppearance: (participantId: string) => AvatarAppearance;
+  getAppearanceCustomized: (participantId: string) => boolean;
+  localEditorPreviewActive?: boolean;
   getAccessories: (participantId: string) => AvatarEquippedAccessories;
   getReaction?: (participantId: string) => AvatarReactionSlug | undefined;
   getAudioMode?: (participantId: string) => { mode: ParticipantAudioMode; radiusMeters: number } | undefined;
@@ -610,6 +614,8 @@ export function RoomView3D({
                 {...(group?.color ? { groupColor: group.color } : {})}
                 {...(crossPodOutlineColor ? { crossPodOutlineColor } : {})}
                 appearance={getAppearance(participant.id)}
+                appearanceCustomized={getAppearanceCustomized(participant.id)}
+                editorPreviewActive={isLocal ? localEditorPreviewActive : false}
                 accessories={getAccessories(participant.id)}
                 helpRequestActive={activeHelpRequestUserIds?.has(participant.id) ?? false}
                 waveTriggered={isLocal ? localWaveTriggered : !!(participant.state.waving)}

@@ -34,6 +34,7 @@ export const CLIENT_TUNING = {
   enableAiMeetingNotes: process.env.NEXT_PUBLIC_ENABLE_AI_MEETING_NOTES === "true",
   enableAiWorldHost: process.env.NEXT_PUBLIC_ENABLE_AI_WORLD_HOST === "true",
   enableAvatarAccessories: process.env.NEXT_PUBLIC_ENABLE_AVATAR_ACCESSORIES === "true",
+  enableAvatarGlbRecolor: process.env.NEXT_PUBLIC_ENABLE_AVATAR_GLB_RECOLOR === "true",
   enableLiveCaptions: process.env.NEXT_PUBLIC_ENABLE_LIVE_CAPTIONS === "true",
   enableAiObjectGeneration: process.env.NEXT_PUBLIC_ENABLE_AI_OBJECT_GENERATION === "true",
   enableWhiteboards: process.env.NEXT_PUBLIC_ENABLE_WHITEBOARDS !== "false",

@@ -222,6 +222,7 @@ export const AvatarAppearanceMessageSchema = z.object({
   type:          z.literal("avatar.appearance.v1"),
   participantId: z.string(),
   appearance:    AvatarAppearanceSchema,
+  customized:    z.boolean().optional(),
 });
 
 export type AvatarAppearanceMessage = z.infer<typeof AvatarAppearanceMessageSchema>;

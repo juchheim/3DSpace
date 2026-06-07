@@ -2,8 +2,19 @@
 
 import { Suspense, useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { useFrame } from "@react-three/fiber";
-import { Billboard, Html, useAnimations, useGLTF } from "@react-three/drei";
-import { MathUtils, type Group } from "three";
+import { Billboard, Html, useAnimations, useGLTF, useTexture } from "@react-three/drei";
+import {
+  ClampToEdgeWrapping,
+  MathUtils,
+  MeshStandardMaterial,
+  NearestFilter,
+  RepeatWrapping,
+  SRGBColorSpace,
+  type Group,
+  type Object3D,
+  type SkinnedMesh,
+  type Texture
+} from "three";
 import { SkeletonUtils } from "three-stdlib";
 import type { AvatarAppearance, AvatarEquippedAccessories, AvatarReactionSlug, ParticipantAudioMode } from "@3dspace/contracts";
 import type { ParticipantView } from "./RoomClient";
@@ -11,6 +22,13 @@ import { CLIENT_TUNING } from "../lib/config";
 import { AvatarAccessoryLayer } from "./AvatarAccessoryLayer";
 import { BUILTIN_AVATAR_ACCESSORY_CATALOG } from "../lib/avatarAccessoryCatalog";
 import { applyHairSuppressionRules, bindHairSuppressionToMixer, collectHairSuppressionRules, restoreHairSuppressionRules } from "./avatarHairSuppression";
+import { shouldApplyAvatarRecolor } from "../lib/avatarRecolorGate";
+import {
+  applyAvatarRecolorShader,
+  updateAvatarRecolorColors,
+  type AvatarRecolorTextures
+} from "../lib/avatarRecolorShader";
+export { DEFAULT_APPEARANCE } from "../lib/avatarAppearance";
 
 const REACTION_EMOJI: Record<AvatarReactionSlug, string> = {
   "thumbs-up": "👍",
@@ -28,6 +46,8 @@ const REACTION_EMOJI: Record<AvatarReactionSlug, string> = {
 // to TARGET_HEIGHT — no vertical offset needed. It faces +Z, which is the app's
 // forward axis, so no rotation correction is applied.
 const AVATAR_URL    = "/avatars/azure-vanguard.glb";
+const AVATAR_NEUTRAL_ALBEDO_URL = "/avatars/azure-vanguard-albedo-neutral.jpg";
+const AVATAR_ZONE_MASK_URL = "/avatars/azure-vanguard-zone-mask.png";
 const NATIVE_HEIGHT = 1.69;
 const TARGET_HEIGHT = 1.7;
 const MODEL_SCALE   = TARGET_HEIGHT / NATIVE_HEIGHT;
@@ -37,6 +57,23 @@ const CLIP = { idle: "Idle_12", walking: "Walking", running: "Running" } as cons
 type ClipName = (typeof CLIP)[keyof typeof CLIP];
 
 useGLTF.preload(AVATAR_URL);
+useTexture.preload(AVATAR_NEUTRAL_ALBEDO_URL);
+useTexture.preload(AVATAR_ZONE_MASK_URL);
+
+function isSkinnedMesh(object: Object3D): object is SkinnedMesh {
+  return (object as SkinnedMesh).isSkinnedMesh === true;
+}
+
+function configureRecolorTextures(textures: AvatarRecolorTextures) {
+  textures.neutralAlbedo.colorSpace = SRGBColorSpace;
+  textures.neutralAlbedo.wrapS = RepeatWrapping;
+  textures.neutralAlbedo.wrapT = RepeatWrapping;
+  textures.zoneMask.wrapS = ClampToEdgeWrapping;
+  textures.zoneMask.wrapT = ClampToEdgeWrapping;
+  textures.zoneMask.magFilter = NearestFilter;
+  textures.zoneMask.minFilter = NearestFilter;
+  textures.zoneMask.generateMipmaps = false;
+}
 
 /**
  * Per-instance skinned clone of the avatar GLB, cross-fading between the idle /
@@ -46,15 +83,43 @@ useGLTF.preload(AVATAR_URL);
  */
 function AvatarModel({
   clip,
+  appearance,
+  recolorActive,
   accessories,
   showAccessories
 }: {
   clip: ClipName;
+  appearance: AvatarAppearance;
+  recolorActive: boolean;
   accessories: AvatarEquippedAccessories;
   showAccessories: boolean;
 }) {
   const { scene, animations } = useGLTF(AVATAR_URL);
-  const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
+  const [neutralAlbedo, zoneMask] = useTexture([
+    AVATAR_NEUTRAL_ALBEDO_URL,
+    AVATAR_ZONE_MASK_URL
+  ]) as [Texture, Texture];
+  const recolorTextures = useMemo<AvatarRecolorTextures>(
+    () => ({ neutralAlbedo, zoneMask }),
+    [neutralAlbedo, zoneMask]
+  );
+  configureRecolorTextures(recolorTextures);
+  const model = useMemo(() => {
+    const root = SkeletonUtils.clone(scene) as Group;
+    root.traverse((object) => {
+      if (!isSkinnedMesh(object)) return;
+      object.castShadow = true;
+      object.receiveShadow = true;
+      const sourceMaterial = object.material as MeshStandardMaterial;
+      const material = sourceMaterial.clone();
+      object.material = material;
+      if (recolorActive) {
+        applyAvatarRecolorShader(material, recolorTextures);
+        updateAvatarRecolorColors(material, appearance);
+      }
+    });
+    return root;
+  }, [appearance, recolorActive, recolorTextures, scene]);
   const { actions, mixer } = useAnimations(animations, model);
 
   const equippedHeadEntry = useMemo(() => {
@@ -86,6 +151,17 @@ function AvatarModel({
     return bindHairSuppressionToMixer(mixer, () => hairSuppressionRulesRef.current);
   }, [mixer, showAccessories, equippedHeadEntry]);
 
+  useEffect(
+    () => () => {
+      model.traverse((object) => {
+        if (isSkinnedMesh(object)) {
+          (object.material as MeshStandardMaterial).dispose();
+        }
+      });
+    },
+    [model]
+  );
+
   // Cross-fade to the desired clip whenever the movement state changes.
   useEffect(() => {
     const action = actions[clip];
@@ -95,6 +171,14 @@ function AvatarModel({
       action.fadeOut(0.25);
     };
   }, [actions, clip]);
+
+  useEffect(() => {
+    if (!recolorActive) return;
+    model.traverse((object) => {
+      if (!isSkinnedMesh(object)) return;
+      updateAvatarRecolorColors(object.material as MeshStandardMaterial, appearance);
+    });
+  }, [appearance, model, recolorActive]);
 
   return (
     <group>
@@ -111,8 +195,9 @@ function AvatarModel({
 export type BlockyAvatarProps = {
   participant: ParticipantView;
   groupColor?: string;
-  /** Retained for API/editor compatibility; the GLB avatar is not recoloured. */
   appearance: AvatarAppearance;
+  appearanceCustomized: boolean;
+  editorPreviewActive?: boolean;
   helpRequestActive: boolean;
   waveTriggered: boolean;
   onWaveComplete: () => void;
@@ -129,38 +214,12 @@ export type BlockyAvatarProps = {
   accessories?: AvatarEquippedAccessories;
 };
 
-// Kept for backwards compatibility — consumed by RoomClient / useAvatarAppearance
-// as the fallback appearance. The GLB avatar ignores these colours.
-export const DEFAULT_APPEARANCE: AvatarAppearance = {
-  hairTop:     "#2a1a0e",
-  hairFront:   "#2a1a0e",
-  headSide:    "#2a1a0e",
-  hairBack:    "#2a1a0e",
-  faceSkin:    "#f0c090",
-  faceAccent:  "#f0c090",
-  collar:      "#ffffff",
-  shirtFront:  "#4466aa",
-  shirtBelly:  "#4466aa",
-  shirtBack:   "#4466aa",
-  shirtSide:   "#4466aa",
-  shoulderTop: "#4466aa",
-  shoulderCap: "#4466aa",
-  sleeve:      "#4466aa",
-  hand:        "#f0c090",
-  thigh:       "#2a3a5a",
-  shin:        "#2a3a5a",
-  legSide:     "#2a3a5a",
-  legBack:     "#2a3a5a",
-  shoeTop:     "#1a1a1a",
-  shoeToe:     "#1a1a1a",
-  shoeSide:    "#1a1a1a",
-  shoeSole:    "#111111",
-};
-
 export function BlockyAvatar({
   participant,
   groupColor,
-  appearance: _appearance,
+  appearance,
+  appearanceCustomized,
+  editorPreviewActive = false,
   helpRequestActive: _helpRequestActive,
   waveTriggered,
   onWaveComplete,
@@ -176,6 +235,13 @@ export function BlockyAvatar({
 }: BlockyAvatarProps) {
   const position = participant.state.position;
   const movement = participant.state.movement;
+  const recolorActive = shouldApplyAvatarRecolor({
+    flagEnabled: CLIENT_TUNING.enableAvatarGlbRecolor,
+    appearanceCustomized,
+    editorPreviewActive,
+    customizedFieldPresent: true,
+    appearance
+  });
 
   // Movement → clip. Idle covers everything that isn't an active stride.
   const clip: ClipName =
@@ -215,6 +281,32 @@ export function BlockyAvatar({
   const nameplateDistanceFactor = avatarScale !== 1 ? Math.round(8 / avatarScale) : 8;
   const showAccessories = CLIENT_TUNING.enableAvatarAccessories && !hidden;
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const debugWindow = window as Window & {
+      __debug?: Record<string, unknown>;
+      __avatarRecolorStates?: Record<string, {
+        recolorActive: boolean;
+        appearanceCustomized: boolean;
+        editorPreviewActive: boolean;
+      }>;
+    };
+    debugWindow.__debug = debugWindow.__debug ?? {};
+    debugWindow.__avatarRecolorStates = debugWindow.__avatarRecolorStates ?? {};
+    debugWindow.__avatarRecolorStates[participant.id] = {
+      recolorActive,
+      appearanceCustomized,
+      editorPreviewActive
+    };
+    debugWindow.__debug.avatarRecolor = {
+      enabled: CLIENT_TUNING.enableAvatarGlbRecolor,
+      getRenderState: (participantId: string) => debugWindow.__avatarRecolorStates?.[participantId] ?? null
+    };
+    return () => {
+      delete debugWindow.__avatarRecolorStates?.[participant.id];
+    };
+  }, [appearanceCustomized, editorPreviewActive, participant.id, recolorActive]);
+
   return (
     <group
       position={[position.x, position.y ?? 0, position.z]}
@@ -226,7 +318,13 @@ export function BlockyAvatar({
       {/* Avatar mesh — wrapper carries the wave sway; model feet already at y=0 */}
       <group ref={waveRef}>
         <Suspense fallback={null}>
-          <AvatarModel clip={clip} accessories={accessories} showAccessories={showAccessories} />
+          <AvatarModel
+            clip={clip}
+            appearance={appearance}
+            recolorActive={recolorActive}
+            accessories={accessories}
+            showAccessories={showAccessories}
+          />
         </Suspense>
       </group>
 
