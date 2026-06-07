@@ -259,6 +259,17 @@ export function BlockyAvatar({
     customizedFieldPresent: true,
     appearance
   });
+  // Diagnostic: log recolor gate result whenever the inputs change.
+  // Remove once recolor is confirmed working.
+  useEffect(() => {
+    console.log("[AvatarRecolor] gate:", {
+      participantId: participant.id,
+      flagEnabled: CLIENT_TUNING.enableAvatarGlbRecolor,
+      appearanceCustomized,
+      editorPreviewActive,
+      recolorActive,
+    });
+  }, [recolorActive, appearanceCustomized, editorPreviewActive, participant.id]);
 
   // Movement → clip. Idle covers everything that isn't an active stride.
   const clip: ClipName =

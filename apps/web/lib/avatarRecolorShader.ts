@@ -52,12 +52,20 @@ export function applyAvatarRecolorShader(
   target.userData.avatarRecolorTintStrength ??= 1;
 
   if (target.userData.avatarRecolorPatched) {
+    console.log("[AvatarRecolor] applyAvatarRecolorShader: already patched, forcing needsUpdate");
     target.needsUpdate = true;
     return;
   }
 
+  console.log("[AvatarRecolor] applyAvatarRecolorShader: patching material", material.name || "(unnamed)",
+    "neutralAlbedo loaded:", !!textures.neutralAlbedo.image,
+    "zoneMask loaded:", !!textures.zoneMask.image);
+
   target.userData.avatarRecolorPatched = true;
   target.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
+    console.log("[AvatarRecolor] onBeforeCompile fired — wiring uniforms",
+      "tintStrength:", target.userData.avatarRecolorTintStrength,
+      "zoneMask:", !!textures.zoneMask.image);
     shader.uniforms.zoneMask = { value: textures.zoneMask };
     shader.uniforms.zoneColors = {
       value: buildZoneColorUniformValue(target.userData.avatarRecolorColors ?? new Float32Array(AVATAR_ZONE_COUNT * 3))
@@ -100,12 +108,17 @@ uniform float tintStrength;`
 export function updateAvatarRecolorColors(material: MeshStandardMaterial, appearance: AvatarAppearance): void {
   const target = material as AvatarRecolorMaterial;
   target.userData.avatarRecolorColors = appearanceToZoneColorArray(appearance);
+  const uniformsReady = !!target.userData.avatarRecolorUniforms;
+  console.log("[AvatarRecolor] updateAvatarRecolorColors: uniformsReady=", uniformsReady,
+    "faceSkin=", appearance.faceSkin, "shirtFront=", appearance.shirtFront);
   syncUniformColors(target);
 }
 
 export function updateAvatarRecolorTintStrength(material: MeshStandardMaterial, tintStrength: number): void {
   const target = material as AvatarRecolorMaterial;
   target.userData.avatarRecolorTintStrength = tintStrength;
+  console.log("[AvatarRecolor] updateAvatarRecolorTintStrength:", tintStrength,
+    "uniformsReady:", !!target.userData.avatarRecolorUniforms);
   if (target.userData.avatarRecolorUniforms) {
     target.userData.avatarRecolorUniforms.tintStrength.value = tintStrength;
   }
