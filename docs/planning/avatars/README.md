@@ -21,6 +21,9 @@ This directory contains the complete design and implementation specification for
 | [PLAN_AVATAR_ACCESSORIES.md](PLAN_AVATAR_ACCESSORIES.md) | GLB avatar attachments (hats, etc.); pilot **bowler hat** on `Head` bone | **Shipped** (flags default off) |
 | [IMPL_AVATAR_ACCESSORIES.md](IMPL_AVATAR_ACCESSORIES.md) | Phase 0–6 build plan: catalog package, contracts, API, 3D attach, editor, E2E | **Complete** |
 | [AVATAR_ACCESSORIES_STATUS.md](AVATAR_ACCESSORIES_STATUS.md) | Rollout status, validation commands, file index | **Current** |
+| [PLAN_AVATAR_GLB_RECOLOR.md](PLAN_AVATAR_GLB_RECOLOR.md) | UV mask + neutral albedo + luminance shader — wire 23 zone colors to Azure Vanguard GLB | **Planned** |
+| [IMPL_AVATAR_GLB_RECOLOR.md](IMPL_AVATAR_GLB_RECOLOR.md) | Phase 0–7 build plan: assets, registry, shader, BlockyAvatar, harness, QA, rollout | **Not started** |
+| [AVATAR_GLB_RECOLOR_STATUS.md](AVATAR_GLB_RECOLOR_STATUS.md) | Recolor rollout status and validation commands | **Current** |
 
 ## Quick-reference: what already exists
 
