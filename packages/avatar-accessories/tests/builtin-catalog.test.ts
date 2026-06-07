@@ -45,7 +45,7 @@ describe("avatar accessories builtin catalog", () => {
     const gloves = items.find((entry) => entry.slug === "red-boxing-gloves");
     expect(gloves?.slot).toBe("hands");
     expect(gloves?.mirrorPaired).toBe(true);
-    expect(gloves?.localScale).toBe(10);
+    expect(gloves?.localScale).toBe(5);
   });
 
   it("default equipped accessories parse as head/hands null", () => {
