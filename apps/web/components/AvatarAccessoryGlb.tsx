@@ -1,20 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useEffect, useLayoutEffect, useMemo } from "react";
 import { useGLTF } from "@react-three/drei";
 import type { AvatarAccessoryCatalogEntry } from "@3dspace/contracts";
-import {
-  Euler,
-  Group,
-  Matrix4,
-  Quaternion,
-  Vector3,
-  type Mesh,
-  type MeshStandardMaterial,
-  type Object3D,
-  type SkinnedMesh
-} from "three";
+import { Group, type Mesh, type MeshStandardMaterial, type Object3D, type SkinnedMesh } from "three";
 
 const ACCESSORY_RENDER_ORDER = 50;
 
@@ -49,18 +38,12 @@ export type AvatarAccessoryGlbProps = {
 };
 
 /**
- * Bone-attached accessory GLB. Each frame, copies the target bone's world matrix
- * (with catalog offset) onto an R3F-managed group so the prop follows animation
- * and is not dropped by React reconciliation on the avatar primitive.
+ * Parents the accessory on the animated skeleton bone inside the avatar GLB.
+ * Must live inside the skinned model hierarchy (bone.add), not as a sibling
+ * with a copied world matrix — nested avatar transforms would misplace it.
  */
 export function AvatarAccessoryGlb({ entry, bone }: AvatarAccessoryGlbProps) {
   const { scene } = useGLTF(entry.glbUrl);
-  const mountRef = useRef<Group>(null);
-  const offsetMatrix = useMemo(() => new Matrix4(), []);
-  const worldMatrix = useMemo(() => new Matrix4(), []);
-  const localPosition = useMemo(() => new Vector3(), []);
-  const localQuaternion = useMemo(() => new Quaternion(), []);
-  const localScale = useMemo(() => new Vector3(), []);
 
   const model = useMemo(() => {
     const root = scene.clone(true);
@@ -96,22 +79,19 @@ export function AvatarAccessoryGlb({ entry, bone }: AvatarAccessoryGlbProps) {
   const offsetY = py * boneSpaceScale + (groundY ? -groundY * boneSpaceScale : 0);
   const mountScale = scale * boneSpaceScale;
 
-  useFrame(() => {
-    const mount = mountRef.current;
-    if (!mount) return;
+  useLayoutEffect(() => {
+    const mount = new Group();
+    mount.frustumCulled = false;
+    mount.position.set(px * boneSpaceScale, offsetY, pz * boneSpaceScale);
+    mount.rotation.set(rx, ry, rz);
+    mount.scale.setScalar(mountScale);
+    mount.add(model);
+    bone.add(mount);
+    return () => {
+      bone.remove(mount);
+      mount.remove(model);
+    };
+  }, [bone, model, px, py, pz, rx, ry, rz, mountScale, offsetY, boneSpaceScale]);
 
-    bone.updateWorldMatrix(true, false);
-    localPosition.set(px * boneSpaceScale, offsetY, pz * boneSpaceScale);
-    localQuaternion.setFromEuler(new Euler(rx, ry, rz));
-    localScale.set(mountScale, mountScale, mountScale);
-    offsetMatrix.compose(localPosition, localQuaternion, localScale);
-    worldMatrix.multiplyMatrices(bone.matrixWorld, offsetMatrix);
-    mount.matrix.copy(worldMatrix);
-  });
-
-  return (
-    <group ref={mountRef} matrixAutoUpdate={false} frustumCulled={false}>
-      <primitive object={model} />
-    </group>
-  );
-};
+  return null;
+}
