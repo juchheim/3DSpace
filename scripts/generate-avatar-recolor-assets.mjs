@@ -128,79 +128,81 @@ function luminance([r, g, b]) {
   return 0.299 * r + 0.587 * g + 0.114 * b;
 }
 
-function saturation([r, g, b]) {
-  return Math.max(r, g, b) - Math.min(r, g, b);
-}
-
 function isSkin(color) {
   const [r, g, b] = color;
   return r > 82 && r > g + 8 && g > b && b < 150 && luminance(color) > 55;
 }
 
-function isWhite(color) {
-  return luminance(color) > 165 && saturation(color) < 40;
-}
-
-function isCyanAccent(color) {
-  const [r, g, b] = color;
-  return r < 90 && g > 120 && b > 120 && saturation(color) > 70;
-}
-
-function isFaceDetail(color, y, z) {
-  const [r, g, b] = color;
-  return (
-    z > -0.01 &&
-    y > 1.42 &&
-    y < 1.57 &&
-    r > 35 &&
-    r < 180 &&
-    g > 20 &&
-    g < 150 &&
-    b < 110 &&
-    saturation(color) > 18
-  );
-}
-
-function classifyZone({ boneName, x, y, z, nx, ny, color }) {
-  if (isCyanAccent(color)) return 0;
-
+// Geometry-first zone classification. Each triangle is classified once at its
+// centroid from the dominant skin bone plus position/normal, so neighbouring
+// triangles in the same body region resolve to the same zone instead of being
+// scattered by per-texel noise in the baked albedo. Texture colour is only
+// consulted to separate bare skin (face / hands) from clothing.
+function classifyZone({ boneName, y, z, nx, ny, nz, color }) {
   if (HEAD_BONES.has(boneName)) {
-    if (isWhite(color) || isFaceDetail(color, y, z)) return 0;
-    if (isSkin(color)) return y < 1.46 ? 6 : 5;
-    if (y > 1.55 || ny > 0.55) return 1;
-    if (z > 0.005 && y > 1.48) return 2;
-    if (Math.abs(nx) > 0.45 || Math.abs(x) > 0.04) return 3;
-    return 4;
+    if (isSkin(color) && nz > 0.2 && z > 0) return y < 1.46 ? 6 : 5;
+    if (y > 1.56 || ny > 0.5) return 1;
+    if (z < -0.01) return 4;
+    if (Math.abs(nx) > 0.5) return 3;
+    return 2;
   }
 
   if (TORSO_BONES.has(boneName)) {
-    if (isWhite(color) && y > 0.96 && z > -0.02) return 7;
-    if (ny > 0.6 || y > 1.18) return 12;
-    if (Math.abs(nx) > 0.62 || Math.abs(x) > 0.1) return 11;
+    if (y > 1.27 && z > 0 && nz > 0.2) return 7;
+    if (y > 1.18 || ny > 0.55) return 12;
+    if (Math.abs(nx) > 0.6) return 11;
     if (z < -0.02) return 10;
-    return y > 0.96 ? 8 : 9;
+    return y > 0.98 ? 8 : 9;
   }
 
   if (ARM_BONES.has(boneName)) {
-    if (isSkin(color) || boneName.endsWith("Hand")) return 15;
+    if (boneName.endsWith("Hand") || isSkin(color)) return 15;
     if (boneName.includes("Shoulder")) return 13;
     return 14;
   }
 
   if (LEG_BONES.has(boneName)) {
-    if (z < -0.015) return 19;
-    if (Math.abs(nx) > 0.55 || Math.abs(x) > 0.12) return 18;
-    return y > 0.52 ? 16 : 17;
+    if (z < -0.02) return 19;
+    if (Math.abs(nx) > 0.55) return 18;
+    return y > 0.5 ? 16 : 17;
   }
 
   if (FOOT_BONES.has(boneName)) {
-    if (ny < -0.4 || y < 0.03) return 23;
-    if (z > 0.05 || boneName.includes("ToeBase")) return 21;
-    if (ny > 0.45) return 20;
+    if (y < 0.025 || ny < -0.4) return 23;
+    if (z > 0.06 || boneName.includes("ToeBase")) return 21;
+    if (ny > 0.4) return 20;
     return 22;
   }
 
   return 0;
+}
+
+// Close 1px seams between adjacent UV islands so runtime nearest-filter
+// sampling never lands on an unwritten (zone 0) texel along a triangle edge.
+function dilateMask(mask, width, height, iterations) {
+  for (let iter = 0; iter < iterations; iter += 1) {
+    const src = mask.slice();
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const offset = (y * width + x) * 3;
+        if (src[offset] !== 0) continue;
+        const neighbours = [
+          x > 0 ? (y * width + x - 1) * 3 : -1,
+          x < width - 1 ? (y * width + x + 1) * 3 : -1,
+          y > 0 ? ((y - 1) * width + x) * 3 : -1,
+          y < height - 1 ? ((y + 1) * width + x) * 3 : -1,
+        ];
+        for (const neighbour of neighbours) {
+          if (neighbour >= 0 && src[neighbour] !== 0) {
+            mask[offset] = src[neighbour];
+            mask[offset + 1] = src[neighbour];
+            mask[offset + 2] = src[neighbour];
+            break;
+          }
+        }
+      }
+    }
+  }
 }
 
 async function generateNeutralAlbedo(inputPath, outputPath) {
@@ -264,11 +266,11 @@ async function generateUvReference(glbPath, outputPath) {
     const ib = indices[i + 1] ?? 0;
     const ic = indices[i + 2] ?? 0;
     const ax = Math.round((uv[ia * 2] ?? 0) * (size - 1));
-    const ay = Math.round((1 - (uv[ia * 2 + 1] ?? 0)) * (size - 1));
+    const ay = Math.round((uv[ia * 2 + 1] ?? 0) * (size - 1));
     const bx = Math.round((uv[ib * 2] ?? 0) * (size - 1));
-    const by = Math.round((1 - (uv[ib * 2 + 1] ?? 0)) * (size - 1));
+    const by = Math.round((uv[ib * 2 + 1] ?? 0) * (size - 1));
     const cx = Math.round((uv[ic * 2] ?? 0) * (size - 1));
-    const cy = Math.round((1 - (uv[ic * 2 + 1] ?? 0)) * (size - 1));
+    const cy = Math.round((uv[ic * 2 + 1] ?? 0) * (size - 1));
     drawLine(ax, ay, bx, by);
     drawLine(bx, by, cx, cy);
     drawLine(cx, cy, ax, ay);
@@ -307,7 +309,7 @@ async function generateZoneMask(glbPath, outputPath) {
   const zoneCoverage = new Map();
   const sampleColorAt = (u, v) => {
     const x = Math.max(0, Math.min(info.width - 1, Math.round(u * (info.width - 1))));
-    const y = Math.max(0, Math.min(info.height - 1, Math.round((1 - v) * (info.height - 1))));
+    const y = Math.max(0, Math.min(info.height - 1, Math.round(v * (info.height - 1))));
     const offset = (y * info.width + x) * info.channels;
     return [
       textureData[offset] ?? 0,
@@ -316,17 +318,20 @@ async function generateZoneMask(glbPath, outputPath) {
     ];
   };
 
+  const averageAttribute = (array, ia, ib, ic, stride, component) =>
+    ((array[ia * stride + component] ?? 0) + (array[ib * stride + component] ?? 0) + (array[ic * stride + component] ?? 0)) / 3;
+
   for (let triangleIndex = 0; triangleIndex < indices.length; triangleIndex += 3) {
     const ia = indices[triangleIndex] ?? 0;
     const ib = indices[triangleIndex + 1] ?? 0;
     const ic = indices[triangleIndex + 2] ?? 0;
 
     const ax = (uv[ia * 2] ?? 0) * (info.width - 1);
-    const ay = (1 - (uv[ia * 2 + 1] ?? 0)) * (info.height - 1);
+    const ay = (uv[ia * 2 + 1] ?? 0) * (info.height - 1);
     const bx = (uv[ib * 2] ?? 0) * (info.width - 1);
-    const by = (1 - (uv[ib * 2 + 1] ?? 0)) * (info.height - 1);
+    const by = (uv[ib * 2 + 1] ?? 0) * (info.height - 1);
     const cx = (uv[ic * 2] ?? 0) * (info.width - 1);
-    const cy = (1 - (uv[ic * 2 + 1] ?? 0)) * (info.height - 1);
+    const cy = (uv[ic * 2 + 1] ?? 0) * (info.height - 1);
 
     const minX = Math.max(0, Math.floor(Math.min(ax, bx, cx)));
     const maxX = Math.min(info.width - 1, Math.ceil(Math.max(ax, bx, cx)));
@@ -334,6 +339,24 @@ async function generateZoneMask(glbPath, outputPath) {
     const maxY = Math.min(info.height - 1, Math.ceil(Math.max(ay, by, cy)));
     const area = edge(ax, ay, bx, by, cx, cy);
     if (Math.abs(area) < 1e-6) continue;
+
+    // Classify the whole triangle once at its centroid, then fill solid. This
+    // is what keeps each segment a single colour instead of a per-texel mosaic.
+    const centroidU = ((uv[ia * 2] ?? 0) + (uv[ib * 2] ?? 0) + (uv[ic * 2] ?? 0)) / 3;
+    const centroidV = ((uv[ia * 2 + 1] ?? 0) + (uv[ib * 2 + 1] ?? 0) + (uv[ic * 2 + 1] ?? 0)) / 3;
+    const boneA = jointNames[vertexClasses[ia] ?? 0] ?? "";
+    const boneB = jointNames[vertexClasses[ib] ?? 0] ?? "";
+    const boneC = jointNames[vertexClasses[ic] ?? 0] ?? "";
+    const boneName = boneB === boneC ? boneB : boneA;
+    const zoneId = classifyZone({
+      boneName,
+      y: averageAttribute(positions, ia, ib, ic, 3, 1),
+      z: averageAttribute(positions, ia, ib, ic, 3, 2),
+      nx: averageAttribute(normals, ia, ib, ic, 3, 0),
+      ny: averageAttribute(normals, ia, ib, ic, 3, 1),
+      nz: averageAttribute(normals, ia, ib, ic, 3, 2),
+      color: sampleColorAt(centroidU, centroidV),
+    });
 
     for (let y = minY; y <= maxY; y += 1) {
       for (let x = minX; x <= maxX; x += 1) {
@@ -344,22 +367,6 @@ async function generateZoneMask(glbPath, outputPath) {
         const w2 = edge(ax, ay, bx, by, px, py) / area;
         if (w0 < -1e-6 || w1 < -1e-6 || w2 < -1e-6) continue;
 
-        const u = (w0 * (uv[ia * 2] ?? 0)) + (w1 * (uv[ib * 2] ?? 0)) + (w2 * (uv[ic * 2] ?? 0));
-        const v = (w0 * (uv[ia * 2 + 1] ?? 0)) + (w1 * (uv[ib * 2 + 1] ?? 0)) + (w2 * (uv[ic * 2 + 1] ?? 0));
-        const color = sampleColorAt(u, v);
-        const dominantVertex = w0 >= w1 && w0 >= w2 ? ia : w1 >= w2 ? ib : ic;
-        const jointIndex = vertexClasses[dominantVertex] ?? 0;
-        const boneName = jointNames[jointIndex] ?? "";
-        const zoneId = classifyZone({
-          boneName,
-          x: (w0 * (positions[ia * 3] ?? 0)) + (w1 * (positions[ib * 3] ?? 0)) + (w2 * (positions[ic * 3] ?? 0)),
-          y: (w0 * (positions[ia * 3 + 1] ?? 0)) + (w1 * (positions[ib * 3 + 1] ?? 0)) + (w2 * (positions[ic * 3 + 1] ?? 0)),
-          z: (w0 * (positions[ia * 3 + 2] ?? 0)) + (w1 * (positions[ib * 3 + 2] ?? 0)) + (w2 * (positions[ic * 3 + 2] ?? 0)),
-          nx: (w0 * (normals[ia * 3] ?? 0)) + (w1 * (normals[ib * 3] ?? 0)) + (w2 * (normals[ic * 3] ?? 0)),
-          ny: (w0 * (normals[ia * 3 + 1] ?? 0)) + (w1 * (normals[ib * 3 + 1] ?? 0)) + (w2 * (normals[ic * 3 + 1] ?? 0)),
-          color,
-        });
-
         const offset = (y * info.width + x) * 3;
         mask[offset] = zoneId;
         mask[offset + 1] = zoneId;
@@ -368,6 +375,8 @@ async function generateZoneMask(glbPath, outputPath) {
       }
     }
   }
+
+  dilateMask(mask, info.width, info.height, 2);
 
   await ensureDir(outputPath);
   await sharp(Buffer.from(mask), { raw: { width: info.width, height: info.height, channels: 3 } })
