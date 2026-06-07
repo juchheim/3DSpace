@@ -47,11 +47,8 @@ import type {
 import type { z } from "zod";
 import type { ParticipantView } from "./RoomClient";
 import { BlockyAvatar } from "./BlockyAvatar";
-import { RetroRobotHostAvatar, type RetroRobotHostAvatarProps } from "./RetroRobotHostAvatar";
-import { SprocketBotHostAvatar } from "./SprocketBotHostAvatar";
-import { ModelLpHostAvatar } from "./ModelLpHostAvatar";
-import { MeshyLpRobotHostAvatar } from "./MeshyLpRobotHostAvatar";
-import { SimpleBotHostAvatar } from "./SimpleBotHostAvatar";
+import { LpHostAvatar } from "./LpHostAvatar";
+import type { WorldHostAvatarProps } from "./GlbHostAvatar";
 import { useAiWorldHostScene, type AiWorldHostSceneConfig } from "../lib/useAiWorldHost";
 import { RoomObjectsLayer } from "./RoomObjectsLayer";
 import { BuildPlacementController } from "./BuildPlacementController";
@@ -639,53 +636,25 @@ export function RoomView3D({
 }
 
 /**
- * Renders the AI World Host's retro-robot — the live host and/or a translucent
- * placement ghost during reposition. Consumes the Phase 4 scene config (passed
- * in as a prop because R3F's <Canvas> does not bridge outer React context) and
- * reads the world-skin avatar scale so the robot's eye line tracks participants'.
+ * Renders the AI World Host LP robot — the live host and/or a translucent
+ * placement ghost during reposition.
  */
-/** Picks the avatar component for a host variant. Suspends while a GLB loads. */
-function HostAvatar({ avatar, ...props }: RetroRobotHostAvatarProps & { avatar: RoomAiHost["avatar"] }) {
-  if (avatar === "simple-bot") {
-    return (
-      <Suspense fallback={null}>
-        <SimpleBotHostAvatar {...props} />
-      </Suspense>
-    );
-  }
-  if (avatar === "meshy-lp-robot") {
-    return (
-      <Suspense fallback={null}>
-        <MeshyLpRobotHostAvatar {...props} />
-      </Suspense>
-    );
-  }
-  if (avatar === "model-lp") {
-    return (
-      <Suspense fallback={null}>
-        <ModelLpHostAvatar {...props} />
-      </Suspense>
-    );
-  }
-  if (avatar === "sprocket-bot") {
-    return (
-      <Suspense fallback={null}>
-        <SprocketBotHostAvatar {...props} />
-      </Suspense>
-    );
-  }
-  return <RetroRobotHostAvatar {...props} />;
+function HostAvatar(props: WorldHostAvatarProps) {
+  return (
+    <Suspense fallback={null}>
+      <LpHostAvatar {...props} />
+    </Suspense>
+  );
 }
 
 function AiHostLayer({ scene }: { scene: AiWorldHostSceneConfig }) {
   const { skin } = useWorldSkinContext();
   const avatarScale = skin?.overrides.avatarScale ?? 1;
-  const { host, ghost, ghostAvatar, animationState, speechBubbleText, onHostInteract } = scene;
+  const { host, ghost, animationState, speechBubbleText, onHostInteract } = scene;
   return (
     <>
       {host ? (
         <HostAvatar
-          avatar={host.avatar}
           position={host.position}
           rotationY={host.rotationY}
           displayName={host.displayName}
@@ -698,7 +667,6 @@ function AiHostLayer({ scene }: { scene: AiWorldHostSceneConfig }) {
       ) : null}
       {ghost ? (
         <HostAvatar
-          avatar={ghostAvatar}
           position={ghost.position}
           rotationY={ghost.rotationY}
           displayName=""

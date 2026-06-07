@@ -18,11 +18,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "openapi": "npm run build -w @3dspace/contracts && npm --workspace @3dspace/api run openapi",
-    "build:host-glb": "node scripts/build-sprocket-bot-glb.mjs",
-    "render:host-glb": "node scripts/render-sprocket-bot.mjs",
-    "build:host-glb-modellp": "node scripts/build-model-lp-glb.mjs",
-    "render:host-glb-modellp": "node scripts/render-model-lp.mjs",
-    "optimize:simple-bot-glb": "node scripts/optimize-simple-bot-glb.mjs"
+    "optimize:lp-glb": "node scripts/optimize-lp-glb.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.44.1",

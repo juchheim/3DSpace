@@ -5,7 +5,7 @@ const host = {
   id: "host-1",
   roomId: "room-1",
   displayName: "Chip",
-  avatar: "retro-robot" as const,
+  avatar: "lp" as const,
   position: { x: 0, y: 0, z: 0 },
   rotationY: 0,
   createdByUserId: "user-1",

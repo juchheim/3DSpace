@@ -1,9 +1,9 @@
-// Re-encode simple-bot.glb textures for a smaller file:
+// Re-encode lp.glb textures for a smaller file:
 //   - Baked_BaseColor: PNG → JPEG (quality 85)
 //   - normal: stays PNG (JPEG artifacts break normal maps), recompressed losslessly
 //
-// Run:  node scripts/optimize-simple-bot-glb.mjs [in.glb] [out.glb]
-// Default in/out: GLBs/simple-bot.glb
+// Run:  node scripts/optimize-lp-glb.mjs [in.glb] [out.glb]
+// Default in/out: GLBs/lp.glb
 
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -14,7 +14,7 @@ import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
 import sharp from "sharp";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
-const DEFAULT_PATH = resolve(__dirname, "../GLBs/simple-bot.glb");
+const DEFAULT_PATH = resolve(__dirname, "../GLBs/lp.glb");
 
 const IN_PATH = resolve(process.argv[2] ?? DEFAULT_PATH);
 const OUT_PATH = resolve(process.argv[3] ?? IN_PATH);

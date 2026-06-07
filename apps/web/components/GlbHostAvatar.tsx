@@ -11,9 +11,20 @@ import {
   type MeshStandardMaterial,
   type Object3D
 } from "three";
-import type { RetroRobotHostAvatarProps } from "./RetroRobotHostAvatar";
-
 const TWO_PI = Math.PI * 2;
+
+export type WorldHostAvatarProps = {
+  /** Host placement in world space (feet at position.y). */
+  position: { x: number; y: number; z: number };
+  rotationY: number;
+  displayName: string;
+  thinking?: boolean;
+  speaking?: boolean;
+  bubbleText?: string | null;
+  ghost?: boolean;
+  onInteract?: () => void;
+  scale?: number;
+};
 const GHOST_CYAN = "#7fe9ff";
 
 function setCursor(value: string) {
@@ -24,7 +35,7 @@ function isMesh(object: Object3D): object is Mesh {
   return (object as Mesh).isMesh === true;
 }
 
-export interface GlbHostAvatarProps extends RetroRobotHostAvatarProps {
+export interface GlbHostAvatarProps extends WorldHostAvatarProps {
   /** Served from apps/web/public; built by a scripts/build-*-glb.mjs generator. */
   url: string;
   /** Native model height (feet → top) in metres, used to scale to TARGET_HEIGHT. */
@@ -36,7 +47,7 @@ export interface GlbHostAvatarProps extends RetroRobotHostAvatarProps {
 const TARGET_HEIGHT = 2.0;
 
 /**
- * Generic GLB-backed World Host avatar. Mirrors {@link RetroRobotHostAvatarProps}
+ * Generic GLB-backed World Host avatar. Mirrors {@link WorldHostAvatarProps}
  * so it can be swapped in for the procedural retro robot, and is parameterised by
  * `url` + `nativeHeight` so multiple host models (Sprocket-Bot, MODEL-LP, …)
  * share one implementation. Each instance clones the loaded scene and its

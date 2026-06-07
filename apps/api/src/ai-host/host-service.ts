@@ -34,7 +34,7 @@ export function createAiHostRecord(input: {
     id: newId("aihost"),
     roomId: input.roomId,
     displayName: normalizeAiHostDisplayName(input.displayName),
-    avatar: input.avatar ?? "simple-bot",
+    avatar: input.avatar ?? "lp",
     position: input.position,
     rotationY: input.rotationY ?? 0,
     createdByUserId: input.createdByUserId,

@@ -94,6 +94,7 @@ Remaining refactor candidates: `packages/contracts/src/index.ts`, `RoomClient.ts
 
 ## Recent work
 
+- **2026-06-06:** **LP-only AI host** — removed retro-robot / MODEL-LP / Sprocket-Bot / Meshy variants; single `lp` avatar (`LpHostAvatar`, `GLBs/lp.glb`); legacy slugs normalize on read; appearance picker removed from HUD.
 - **2026-06-06:** **Simple Bot default AI host** — optimized `GLBs/simple-bot.glb` (JPEG base color, ~6.8 MB / ~9.6k tris) → `apps/web/public/world-hosts/simple-bot.glb`; `simple-bot` avatar enum (default); `SimpleBotHostAvatar`; `scripts/optimize-simple-bot-glb.mjs`.
 - **2026-06-06:** **Meshy LP Robot AI host** — `GLBs/Meshy_AI_Model_LP_Robot_0607002057_texture.glb` → `apps/web/public/world-hosts/meshy-lp-robot.glb`; new `meshy-lp-robot` avatar enum (default); `MeshyLpRobotHostAvatar` + `nativeGroundY` on `GlbHostAvatar` for origin-centered models.
 - **2026-06-06:** **Auth planning (replace Clerk)** — `docs/planning/auth/`: Google OAuth SSO only, domain allowlist via `AUTH_ALLOWED_EMAIL_DOMAINS`, API-owned JWT + exchange-code handoff for Vercel/Koyeb split domains; PLAN + IMPL + README.

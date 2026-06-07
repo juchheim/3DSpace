@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { RoomAiHost, RoomManifest } from "@3dspace/contracts";
+import type { RoomManifest } from "@3dspace/contracts";
 import { floorYFromZ } from "@3dspace/room-engine";
 import { aiHostPlacementInFrontOfAvatar } from "../lib/useAiWorldHost";
 import type { useAiWorldHost } from "../lib/useAiWorldHost";
@@ -9,50 +9,6 @@ import type { BuildPiece } from "@3dspace/contracts";
 import { HudCard } from "./HudCard";
 
 type AiWorldHostController = ReturnType<typeof useAiWorldHost>;
-
-type AvatarVariant = RoomAiHost["avatar"];
-
-const AVATAR_OPTIONS: { value: AvatarVariant; label: string; hint: string }[] = [
-  { value: "simple-bot", label: "Simple Bot", hint: "Lightweight textured robot (default)" },
-  { value: "meshy-lp-robot", label: "LP Robot", hint: "High-detail Meshy LP robot" },
-  { value: "model-lp", label: "MODEL-LP", hint: "Red-and-steel utility mech" },
-  { value: "retro-robot", label: "Retro Robot", hint: "Classic tin-rover guide" },
-  { value: "sprocket-bot", label: "Sprocket-Bot", hint: "Steampunk brass robot" }
-];
-
-function AvatarPicker({
-  value,
-  disabled,
-  onChange
-}: {
-  value: AvatarVariant;
-  disabled: boolean;
-  onChange(next: AvatarVariant): void;
-}) {
-  return (
-    <div className="ai-world-host-card__avatar-picker" role="radiogroup" aria-label="Guide appearance">
-      {AVATAR_OPTIONS.map((option) => {
-        const active = option.value === value;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            disabled={disabled}
-            title={option.hint}
-            className={`ai-world-host-card__button ${
-              active ? "ai-world-host-card__button--primary" : "ai-world-host-card__button--ghost"
-            }`}
-            onClick={() => onChange(option.value)}
-          >
-            {option.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 export function AiWorldHostControls({
   controller,
@@ -73,8 +29,6 @@ export function AiWorldHostControls({
     loading,
     error,
     placementMode,
-    pendingAvatar,
-    setPendingAvatar,
     hasStudyFiles,
     studyFiles,
     setPanelOpen,
@@ -136,7 +90,7 @@ export function AiWorldHostControls({
                   }
                   if (!controller.ghost) return;
                   void actions
-                    .summon(displayName.trim(), controller.ghost.position, controller.ghost.rotationY, pendingAvatar)
+                    .summon(displayName.trim(), controller.ghost.position, controller.ghost.rotationY)
                     .then(() => setSummonOpen(false));
                 }}
               >
@@ -159,9 +113,6 @@ export function AiWorldHostControls({
           <HostActiveCard
             host={host}
             busy={busy}
-            onSetAvatar={(next) => {
-              void actions.setAvatar(next);
-            }}
             renameOpen={renameOpen}
             renameValue={renameValue}
             deleteFilesOnDismiss={deleteFilesOnDismiss}
@@ -192,7 +143,7 @@ export function AiWorldHostControls({
           />
         ) : summonOpen ? (
           <div className="ai-world-host-card__summon">
-            <p className="ai-world-host-card__hint">Name your guide, then place them in front of you.</p>
+            <p className="ai-world-host-card__hint">Name your LP guide, then place them in front of you.</p>
             <label className="ai-world-host-card__label">
               Guide name
               <input
@@ -204,10 +155,6 @@ export function AiWorldHostControls({
                 onChange={(event) => setDisplayName(event.target.value)}
               />
             </label>
-            <div className="ai-world-host-card__label">
-              <span>Appearance</span>
-              <AvatarPicker value={pendingAvatar} disabled={busy} onChange={setPendingAvatar} />
-            </div>
             <div className="ai-world-host-card__actions">
               <button
                 type="button"
@@ -223,7 +170,7 @@ export function AiWorldHostControls({
                     fallbackY
                   );
                   void actions
-                    .summon(displayName.trim(), placement.position, placement.rotationY, pendingAvatar)
+                    .summon(displayName.trim(), placement.position, placement.rotationY)
                     .then(() => setSummonOpen(false));
                 }}
               >
@@ -277,7 +224,6 @@ export function AiWorldHostControls({
 function HostActiveCard({
   host,
   busy,
-  onSetAvatar,
   renameOpen,
   renameValue,
   deleteFilesOnDismiss,
@@ -289,9 +235,8 @@ function HostActiveCard({
   onDismiss,
   onDeleteFilesChange
 }: {
-  host: { displayName: string; avatar: AvatarVariant };
+  host: { displayName: string };
   busy: boolean;
-  onSetAvatar(next: AvatarVariant): void;
   renameOpen: boolean;
   renameValue: string;
   deleteFilesOnDismiss: boolean;
@@ -307,12 +252,8 @@ function HostActiveCard({
     <div className="ai-world-host-card__active">
       <p className="ai-world-host-card__name">
         <strong>{host.displayName}</strong>
-        <span className="ai-world-host-card__badge">AI guide</span>
+        <span className="ai-world-host-card__badge">LP · AI guide</span>
       </p>
-      <div className="ai-world-host-card__label">
-        <span>Appearance</span>
-        <AvatarPicker value={host.avatar} disabled={busy} onChange={onSetAvatar} />
-      </div>
       {renameOpen ? (
         <div className="ai-world-host-card__rename">
           <input
@@ -354,9 +295,14 @@ function HostActiveCard({
           disabled={busy}
           onChange={(event) => onDeleteFilesChange(event.target.checked)}
         />
-        <span className="ai-world-host-card__checkbox-label">Delete study files on dismiss</span>
+        Delete study files when dismissing
       </label>
-      <button type="button" className="ai-world-host-card__button ai-world-host-card__button--ghost ai-world-host-card__dismiss" disabled={busy} onClick={onDismiss}>
+      <button
+        type="button"
+        className="ai-world-host-card__button ai-world-host-card__button--danger"
+        disabled={busy}
+        onClick={onDismiss}
+      >
         Dismiss guide
       </button>
     </div>

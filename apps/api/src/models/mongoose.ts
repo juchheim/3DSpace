@@ -1,4 +1,5 @@
 import mongoose, { type Connection, Schema, type Model } from "mongoose";
+import { RoomAiHostAvatarSchema } from "@3dspace/contracts";
 import type {
   AiObjectJob,
   AvatarAppearance,
@@ -453,7 +454,7 @@ export function createModels(connection: Connection): Models {
     id: { type: String, required: true, unique: true },
     roomId: { type: String, required: true, unique: true },
     displayName: { type: String, required: true },
-    avatar: { type: String, required: true, default: "simple-bot" },
+    avatar: { type: String, required: true, default: "lp" },
     position: {
       type: new Schema(
         {
@@ -735,7 +736,7 @@ function docToRoomAiHost(doc: Record<string, unknown>): RoomAiHost {
     id: doc.id as string,
     roomId: doc.roomId as string,
     displayName: doc.displayName as string,
-    avatar: (doc.avatar as RoomAiHost["avatar"]) ?? "simple-bot",
+    avatar: RoomAiHostAvatarSchema.parse(doc.avatar ?? "lp"),
     position: { x: position.x, y: position.y, z: position.z },
     rotationY: doc.rotationY as number,
     createdByUserId: doc.createdByUserId as string,

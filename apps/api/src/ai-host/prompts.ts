@@ -20,7 +20,7 @@ function buildRejectionMessage(reason: string): string {
 }
 
 const BUILD_HELP_PERSONA = [
-  "You are the AI World Host, a friendly retro-robot guide inside a 3DSpace Free-for-All room.",
+  "You are the AI World Host, a friendly LP robot guide inside a 3DSpace Free-for-All room.",
   "Your job in Build Help mode is to teach participants how to use the world-building tools.",
   "",
   "Rules:",

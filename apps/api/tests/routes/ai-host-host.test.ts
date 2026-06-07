@@ -86,8 +86,8 @@ describe("AI world host routes", () => {
     expect(summon.statusCode).toBe(200);
     expect(summon.json().host.displayName).toBe("Chip");
     expect(summon.json().host.rotationY).toBe(1.2);
-    // Avatar defaults to Simple Bot when not specified.
-    expect(summon.json().host.avatar).toBe("simple-bot");
+    // Avatar defaults to LP when not specified.
+    expect(summon.json().host.avatar).toBe("lp");
     expect(summon.json().realtimeMessages[0].type).toBe("room.ai-host.updated.v1");
 
     const duplicate = await app.inject({
@@ -144,7 +144,7 @@ describe("AI world host routes", () => {
     await app.close();
   });
 
-  it("summons a Sprocket-Bot host and switches avatar via patch", async () => {
+  it("normalizes legacy avatar slugs to lp and rejects unknown variants", async () => {
     const repository = new MemoryRepository();
     const app = await buildApp({ config: aiHostConfig(), repository });
     const { roomWithManifest } = await createFfaRoom(app);
@@ -155,23 +155,21 @@ describe("AI world host routes", () => {
       url: `/v1/rooms/${roomId}/ai-host`,
       headers: authHeaders("teacher-aihost", "Ms. Rivera"),
       payload: {
-        displayName: "Sprocket",
+        displayName: "Chip",
         avatar: "sprocket-bot",
         position: { x: 0, y: 0, z: 0 }
       }
     });
     expect(summon.statusCode).toBe(200);
-    expect(summon.json().host.avatar).toBe("sprocket-bot");
+    expect(summon.json().host.avatar).toBe("lp");
 
-    // The choice survives a round-trip through the repository.
     const fetched = await app.inject({
       method: "GET",
       url: `/v1/rooms/${roomId}/ai-host`,
       headers: authHeaders("teacher-aihost", "Ms. Rivera")
     });
-    expect(fetched.json().host.avatar).toBe("sprocket-bot");
+    expect(fetched.json().host.avatar).toBe("lp");
 
-    // Users can switch the look back to the retro robot.
     const patched = await app.inject({
       method: "PATCH",
       url: `/v1/rooms/${roomId}/ai-host`,
@@ -179,9 +177,8 @@ describe("AI world host routes", () => {
       payload: { avatar: "retro-robot" }
     });
     expect(patched.statusCode).toBe(200);
-    expect(patched.json().host.avatar).toBe("retro-robot");
+    expect(patched.json().host.avatar).toBe("lp");
 
-    // Unknown avatar variants are rejected.
     const bad = await app.inject({
       method: "PATCH",
       url: `/v1/rooms/${roomId}/ai-host`,

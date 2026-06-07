@@ -45,13 +45,11 @@ export type AiWorldHostPlacementMode = "idle" | "summon" | "reposition";
 
 export type AiWorldHostAnimationState = "idle" | "thinking" | "speaking";
 
-/** Scene props for Phase 3 `RetroRobotHostAvatar` — consumed via context, not RoomView3D edits from Phase 4. */
+/** Scene props for the LP World Host avatar — consumed via context in RoomView3D. */
 export type AiWorldHostSceneConfig = {
   host: RoomAiHost | null;
   placementMode: AiWorldHostPlacementMode;
   ghost: { position: Vector3; rotationY: number } | null;
-  /** Avatar to render for the placement ghost (live host's, else the pending pick). */
-  ghostAvatar: RoomAiHost["avatar"];
   animationState: AiWorldHostAnimationState;
   speechBubbleText: string | null;
   onHostInteract: () => void;
@@ -83,7 +81,6 @@ export function useAiWorldHost(input: {
   const [busy, setBusy] = useState(false);
   const [placementMode, setPlacementMode] = useState<AiWorldHostPlacementMode>("idle");
   const [ghost, setGhost] = useState<{ position: Vector3; rotationY: number } | null>(null);
-  const [pendingAvatar, setPendingAvatar] = useState<RoomAiHost["avatar"]>("simple-bot");
   const [panelOpen, setPanelOpen] = useState(false);
   const [animationState, setAnimationState] = useState<AiWorldHostAnimationState>("idle");
   const [speechBubbleText, setSpeechBubbleText] = useState<string | null>(null);
@@ -233,19 +230,13 @@ export function useAiWorldHost(input: {
   );
 
   const summon = useCallback(
-    async (
-      displayName: string,
-      position: Vector3,
-      rotationY = 0,
-      avatar: RoomAiHost["avatar"] = "simple-bot"
-    ) => {
+    async (displayName: string, position: Vector3, rotationY = 0) => {
       if (!input.roomId) throw new Error("Room is not ready.");
       setBusy(true);
       setError("");
       try {
         const result = await createAiHost(input.identity, input.roomId, {
           displayName,
-          avatar,
           position,
           rotationY
         });
@@ -308,29 +299,6 @@ export function useAiWorldHost(input: {
       } catch (err) {
         const message =
           err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Unable to rename AI guide.";
-        setError(message);
-        throw err;
-      } finally {
-        setBusy(false);
-      }
-    },
-    [applyHost, host, input.identity, input.publish, input.roomId]
-  );
-
-  const setAvatar = useCallback(
-    async (avatar: RoomAiHost["avatar"]) => {
-      if (!input.roomId || !host) throw new Error("No AI guide in this room.");
-      if (host.avatar === avatar) return host;
-      setBusy(true);
-      setError("");
-      try {
-        const result = await patchAiHost(input.identity, input.roomId, { avatar });
-        applyHost(result.host);
-        publishMessages(input.publish, result.realtimeMessages);
-        return result.host;
-      } catch (err) {
-        const message =
-          err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Unable to change the guide's look.";
         setError(message);
         throw err;
       } finally {
@@ -685,12 +653,11 @@ export function useAiWorldHost(input: {
       host,
       placementMode,
       ghost,
-      ghostAvatar: host?.avatar ?? pendingAvatar,
       animationState,
       speechBubbleText,
       onHostInteract: () => setPanelOpen(true)
     }),
-    [animationState, ghost, host, pendingAvatar, placementMode, speechBubbleText]
+    [animationState, ghost, host, placementMode, speechBubbleText]
   );
 
   return {
@@ -700,8 +667,6 @@ export function useAiWorldHost(input: {
     busy,
     placementMode,
     ghost,
-    pendingAvatar,
-    setPendingAvatar,
     panelOpen,
     setPanelOpen,
     animationState,
@@ -737,7 +702,6 @@ export function useAiWorldHost(input: {
       summon,
       confirmPlacement,
       rename,
-      setAvatar,
       dismiss,
       sendBuildHelp,
       sendFileStudy,
