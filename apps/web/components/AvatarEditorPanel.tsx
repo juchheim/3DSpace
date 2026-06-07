@@ -1,11 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { AvatarAppearance, AvatarAccessoryCatalogEntry, AvatarEquippedAccessories } from "@3dspace/contracts";
+import type {
+  AvatarAppearance,
+  AvatarAccessoryCatalogEntry,
+  AvatarBodyCatalogEntry,
+  AvatarBodySlug,
+  AvatarEquippedAccessories
+} from "@3dspace/contracts";
 import { ZONE_GROUPS, ZONE_LABELS } from "../lib/avatarMaterials";
 import { useAvatarAccessoryEditor } from "../lib/useAvatarAccessoryEditor";
+import { useAvatarBodyEditor } from "../lib/useAvatarBodyEditor";
 import { useAvatarEditor } from "../lib/useAvatarEditor";
 import { BUILTIN_AVATAR_ACCESSORY_CATALOG } from "../lib/avatarAccessoryCatalog";
+import { BUILTIN_AVATAR_BODY_CATALOG } from "../lib/avatarBodyCatalog";
 import { CLIENT_TUNING } from "../lib/config";
 import { AccessoryAdjustPanel } from "./avatarAccessories/AccessoryAdjustPanel";
 
@@ -18,6 +26,10 @@ type Props = {
   savedAccessories?: AvatarEquippedAccessories;
   onSaveAccessories?: (accessories: AvatarEquippedAccessories) => Promise<void>;
   onDraftAccessoriesChange?: (draft: AvatarEquippedAccessories) => void;
+  savedBodySlug?: AvatarBodySlug;
+  onSaveBody?: (bodySlug: AvatarBodySlug) => Promise<void>;
+  onDraftBodyChange?: (draft: AvatarBodySlug) => void;
+  bodyCatalog?: AvatarBodyCatalogEntry[];
   accessoryCatalog?: AvatarAccessoryCatalogEntry[];
   onClose: () => void;
   onTriggerWave: () => void;
@@ -34,6 +46,10 @@ export function AvatarEditorPanel({
   savedAccessories,
   onSaveAccessories,
   onDraftAccessoriesChange,
+  savedBodySlug,
+  onSaveBody,
+  onDraftBodyChange,
+  bodyCatalog = BUILTIN_AVATAR_BODY_CATALOG,
   accessoryCatalog = BUILTIN_AVATAR_ACCESSORY_CATALOG,
   onClose,
   onTriggerWave,
@@ -45,9 +61,15 @@ export function AvatarEditorPanel({
     savedAccessories !== undefined &&
     onSaveAccessories !== undefined &&
     onDraftAccessoriesChange !== undefined;
+  const bodiesEnabled =
+    CLIENT_TUNING.enableAvatarBodies &&
+    savedBodySlug !== undefined &&
+    onSaveBody !== undefined &&
+    onDraftBodyChange !== undefined;
 
   const appearanceEditor = useAvatarEditor(savedAppearance);
   const accessoryEditor = useAvatarAccessoryEditor(savedAccessories ?? { head: null, hands: null });
+  const bodyEditor = useAvatarBodyEditor(savedBodySlug ?? "azure-vanguard");
 
   const headCatalog = accessoryCatalog.filter((entry) => entry.slot === "head");
   const handsCatalog = accessoryCatalog.filter((entry) => entry.slot === "hands");
@@ -59,12 +81,15 @@ export function AvatarEditorPanel({
   const equippedHandsEntry = equippedHandsSlug
     ? handsCatalog.find((entry) => entry.slug === equippedHandsSlug)
     : undefined;
-  const saving = appearanceEditor.saving || (accessoriesEnabled && accessoryEditor.saving);
-  const dirty = appearanceEditor.dirty || (accessoriesEnabled && accessoryEditor.dirty);
-  const saveError = appearanceEditor.saveError || (accessoriesEnabled ? accessoryEditor.saveError : "");
+  const saving = appearanceEditor.saving || (accessoriesEnabled && accessoryEditor.saving) || (bodiesEnabled && bodyEditor.saving);
+  const dirty = appearanceEditor.dirty || (accessoriesEnabled && accessoryEditor.dirty) || (bodiesEnabled && bodyEditor.dirty);
+  const saveError =
+    appearanceEditor.saveError ||
+    (accessoriesEnabled ? accessoryEditor.saveError : "") ||
+    (bodiesEnabled ? bodyEditor.saveError : "");
 
   const [openSections, setOpenSections] = useState<Set<string>>(
-    new Set(accessoriesEnabled ? ["Accessories", "Head"] : ["Head"])
+    new Set(bodiesEnabled ? ["Body"] : accessoriesEnabled ? ["Accessories", "Head"] : ["Head"])
   );
 
   useEffect(() => {
@@ -75,6 +100,11 @@ export function AvatarEditorPanel({
     if (!accessoriesEnabled) return;
     onDraftAccessoriesChange(accessoryEditor.draft);
   }, [accessoriesEnabled, accessoryEditor.draft, onDraftAccessoriesChange]);
+
+  useEffect(() => {
+    if (!bodiesEnabled) return;
+    onDraftBodyChange(bodyEditor.draft);
+  }, [bodiesEnabled, bodyEditor.draft, onDraftBodyChange]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -94,6 +124,10 @@ export function AvatarEditorPanel({
 
   async function handleSave() {
     if (locked || saving || !dirty) return;
+    if (bodiesEnabled && bodyEditor.dirty) {
+      const ok = await bodyEditor.save(onSaveBody);
+      if (!ok) return;
+    }
     if (appearanceEditor.dirty) {
       const ok = await appearanceEditor.save(onSave);
       if (!ok) return;
@@ -105,6 +139,7 @@ export function AvatarEditorPanel({
 
   function handleReset() {
     if (locked || saving) return;
+    if (bodiesEnabled && bodyEditor.dirty) bodyEditor.resetDraft();
     if (appearanceEditor.dirty) appearanceEditor.resetDraft();
     if (accessoriesEnabled && accessoryEditor.dirty) accessoryEditor.resetDraft();
   }
@@ -123,6 +158,36 @@ export function AvatarEditorPanel({
       ) : null}
 
       <div className="avatar-editor__body">
+        {bodiesEnabled ? (
+          <div className={`avatar-editor__section${openSections.has("Body") ? " avatar-editor__section--open" : ""}`}>
+            <button
+              className="avatar-editor__section-header"
+              onClick={() => toggleSection("Body")}
+              aria-expanded={openSections.has("Body")}
+            >
+              <span className="avatar-editor__section-arrow">{openSections.has("Body") ? "▾" : "▸"}</span>
+              Body
+            </button>
+            {openSections.has("Body") ? (
+              <div className="avatar-editor__accessory-list">
+                <div className="avatar-editor__accessory-options">
+                  {bodyCatalog.map((entry) => (
+                    <AccessoryOption
+                      key={entry.slug}
+                      label={entry.displayName}
+                      checked={bodyEditor.draft === entry.slug}
+                      disabled={locked}
+                      onSelect={() => bodyEditor.setBodySlug(entry.slug)}
+                      radioName="avatar-body"
+                      {...(entry.thumbnailUrl ? { thumbnailUrl: entry.thumbnailUrl } : {})}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
         {accessoriesEnabled ? (
           <div
             className={`avatar-editor__section${openSections.has("Accessories") ? " avatar-editor__section--open" : ""}`}

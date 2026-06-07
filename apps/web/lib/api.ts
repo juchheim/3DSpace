@@ -3,6 +3,8 @@ import type {
   AiObjectJob,
   AvatarAppearance,
   AvatarAccessoryCatalogEntry,
+  AvatarBodyCatalogEntry,
+  AvatarBodySlug,
   AvatarEquippedAccessories,
   ClassroomActionSchema,
   ClassroomState,
@@ -342,6 +344,20 @@ export function patchAvatarAccessories(identity: ApiIdentity, accessories: Avata
     method: "PATCH",
     identity,
     body: { accessories }
+  });
+}
+
+export function listAvatarBodies(identity: ApiIdentity) {
+  return apiFetch<{ items: AvatarBodyCatalogEntry[] }>("/v1/avatar-bodies", { identity }).then(
+    (response) => response.items
+  );
+}
+
+export function patchAvatarBody(identity: ApiIdentity, bodySlug: AvatarBodySlug) {
+  return apiFetch<User>("/v1/users/me/body", {
+    method: "PATCH",
+    identity,
+    body: { bodySlug }
   });
 }
 

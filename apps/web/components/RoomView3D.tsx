@@ -22,6 +22,7 @@ import { useWorldSkinContext, DEFAULT_LIGHTING, DEFAULT_BACKGROUND } from "./wor
 import { DYNAMIC_WALL_ANCHOR_MIN_HEIGHT_M } from "@3dspace/contracts";
 import type {
   AvatarAppearance,
+  AvatarBodySlug,
   AvatarEquippedAccessories,
   AvatarReactionSlug,
   BuildPiece,
@@ -329,6 +330,7 @@ export function RoomView3D({
   getAppearanceCustomized,
   localEditorPreviewActive = false,
   getAccessories,
+  getBodySlug,
   getReaction,
   getAudioMode,
   recordingActive = false,
@@ -390,6 +392,7 @@ export function RoomView3D({
   getAppearanceCustomized: (participantId: string) => boolean;
   localEditorPreviewActive?: boolean;
   getAccessories: (participantId: string) => AvatarEquippedAccessories;
+  getBodySlug: (participantId: string) => AvatarBodySlug;
   getReaction?: (participantId: string) => AvatarReactionSlug | undefined;
   getAudioMode?: (participantId: string) => { mode: ParticipantAudioMode; radiusMeters: number } | undefined;
   recordingActive?: boolean;
@@ -617,6 +620,7 @@ export function RoomView3D({
                 appearanceCustomized={getAppearanceCustomized(participant.id)}
                 editorPreviewActive={isLocal ? localEditorPreviewActive : false}
                 accessories={getAccessories(participant.id)}
+                bodySlug={getBodySlug(participant.id)}
                 helpRequestActive={activeHelpRequestUserIds?.has(participant.id) ?? false}
                 waveTriggered={isLocal ? localWaveTriggered : !!(participant.state.waving)}
                 onWaveComplete={isLocal && onLocalWaveComplete ? onLocalWaveComplete : () => {}}

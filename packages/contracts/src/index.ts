@@ -292,6 +292,43 @@ export const ListAvatarAccessoriesResponseSchema = z.object({
   items: z.array(AvatarAccessoryCatalogEntrySchema)
 });
 
+export const AvatarBodySlugSchema = z.enum(["azure-vanguard", "ixr-female-20k"]);
+
+export const AvatarBodyClipsSchema = z.object({
+  idle: z.string().min(1),
+  walking: z.string().min(1),
+  running: z.string().min(1)
+});
+
+export const AvatarBodyCatalogEntrySchema = z.object({
+  slug: AvatarBodySlugSchema,
+  displayName: z.string().min(1),
+  glbUrl: z.string().min(1),
+  nativeHeight: z.number().positive(),
+  clips: AvatarBodyClipsSchema,
+  zoneMaskUrl: z.string().min(1),
+  neutralAlbedoUrl: z.string().min(1),
+  thumbnailUrl: z.string().optional()
+});
+
+export const AvatarBodyMessageSchema = z.object({
+  type: z.literal("avatar.body.v1"),
+  participantId: z.string(),
+  bodySlug: AvatarBodySlugSchema
+});
+
+export const PatchUserAvatarBodyRequestSchema = z.object({
+  bodySlug: AvatarBodySlugSchema
+});
+
+export const ListAvatarBodiesResponseSchema = z.object({
+  items: z.array(AvatarBodyCatalogEntrySchema)
+});
+
+export type AvatarBodySlug = z.infer<typeof AvatarBodySlugSchema>;
+export type AvatarBodyCatalogEntry = z.infer<typeof AvatarBodyCatalogEntrySchema>;
+export type AvatarBodyMessage = z.infer<typeof AvatarBodyMessageSchema>;
+
 export const ParticipantAudioModeSchema = z.enum(["normal", "whisper", "broadcast"]);
 
 export const ParticipantAudioModeMessageSchema = z.object({
@@ -330,7 +367,8 @@ export const UserSchema = z.object({
     color: z.string(),
     initials: z.string(),
     appearance: AvatarAppearanceSchema.nullable().optional(),
-    accessories: AvatarEquippedAccessoriesSchema.nullable().optional()
+    accessories: AvatarEquippedAccessoriesSchema.nullable().optional(),
+    bodySlug: AvatarBodySlugSchema.default("azure-vanguard")
   }),
   createdAt: z.string(),
   updatedAt: z.string()
@@ -2072,6 +2110,7 @@ export const RoomSessionResponseSchema = z.object({
   capabilities: RoomCapabilitiesSchema,
   avatarAppearance: AvatarAppearanceSchema.nullable(),
   avatarAccessories: AvatarEquippedAccessoriesSchema.nullable().optional(),
+  avatarBodySlug: AvatarBodySlugSchema.default("azure-vanguard"),
   tuning: z.object({
     avatarSendHz: z.number(),
     interpolationMs: z.number(),
@@ -4142,6 +4181,8 @@ export const apiRoutes: ApiRoute[] = [
   { method: "get", path: "/v1/world-skins", summary: "List world skin catalog entries (flag-gated)", tags: ["world-skins"], response: ListWorldSkinsResponseSchema },
   { method: "get", path: "/v1/world-skins/{slug}", summary: "Get a world skin by slug with absolute asset URLs (flag-gated)", tags: ["world-skins"], response: WorldSkinSchema },
   { method: "get", path: "/v1/avatar-accessories", summary: "List built-in avatar accessory catalog entries (flag-gated)", tags: ["avatar-accessories"], response: ListAvatarAccessoriesResponseSchema },
+  { method: "get", path: "/v1/avatar-bodies", summary: "List built-in avatar body catalog entries (flag-gated)", tags: ["avatar-bodies"], response: ListAvatarBodiesResponseSchema },
+  { method: "patch", path: "/v1/users/me/body", summary: "Select avatar body for the current user", tags: ["avatar-bodies"], request: PatchUserAvatarBodyRequestSchema, response: UserSchema },
   { method: "patch", path: "/v1/users/me/accessories", summary: "Equip or unequip avatar accessories for the current user", tags: ["avatar-accessories"], request: PatchUserAvatarAccessoriesRequestSchema, response: UserSchema },
   {
     method: "post",

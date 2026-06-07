@@ -4,6 +4,7 @@ import type {
   AiObjectRealtimeMessage,
   AvatarAccessoriesMessage,
   AvatarAppearanceMessage,
+  AvatarBodyMessage,
   AvatarReactionMessage,
   AvatarStateMessage,
   ClassroomStateChangedRealtimeSchema,
@@ -89,6 +90,7 @@ export type RealtimeMessage =
   | AvatarStateMessage
   | AvatarAppearanceMessage
   | AvatarAccessoriesMessage
+  | AvatarBodyMessage
   | AvatarReactionMessage
   | ParticipantAudioModeMessage
   | PresenceMessage

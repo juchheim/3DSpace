@@ -11,7 +11,7 @@ const REPO_ROOT = resolve(__dirname, "..");
 const DEFAULT_GLB_PATH = resolve(REPO_ROOT, "apps/web/public/avatars/azure-vanguard.glb");
 const DEFAULT_NEUTRAL_PATH = resolve(REPO_ROOT, "apps/web/public/avatars/azure-vanguard-albedo-neutral.jpg");
 const DEFAULT_MASK_PATH = resolve(REPO_ROOT, "apps/web/public/avatars/azure-vanguard-zone-mask.png");
-const DEFAULT_UV_REFERENCE_PATH = resolve(REPO_ROOT, "GLBs/azure-vanguard/uv-reference.png");
+const DEFAULT_UV_REFERENCE_PATH = resolve(REPO_ROOT, "GLBs/azure-vanguard/uv-reference.jpg");
 
 const HEAD_BONES = new Set(["Head", "head_end", "headfront", "neck"]);
 const TORSO_BONES = new Set(["Hips", "Spine", "Spine01", "Spine02"]);
@@ -80,6 +80,20 @@ function parseArgs(argv) {
 
 async function ensureDir(path) {
   await mkdir(dirname(path), { recursive: true });
+}
+
+async function writeRasterImage(outputPath, imageBuffer, raw) {
+  await ensureDir(outputPath);
+  const ext = extname(outputPath).toLowerCase();
+  let pipeline = raw
+    ? sharp(Buffer.from(imageBuffer), raw)
+    : sharp(Buffer.from(imageBuffer));
+  if (ext === ".jpg" || ext === ".jpeg") {
+    await pipeline.jpeg({ quality: 85, mozjpeg: true }).toFile(outputPath);
+  } else {
+    await pipeline.png().toFile(outputPath);
+  }
+  return outputPath;
 }
 
 async function readAvatarDocument(glbPath) {
@@ -276,10 +290,7 @@ async function generateUvReference(glbPath, outputPath) {
     drawLine(cx, cy, ax, ay);
   }
 
-  await ensureDir(outputPath);
-  await sharp(Buffer.from(image), { raw: { width: size, height: size, channels: 4 } })
-    .png()
-    .toFile(outputPath);
+  await writeRasterImage(outputPath, image, { raw: { width: size, height: size, channels: 4 } });
   return outputPath;
 }
 
@@ -391,7 +402,12 @@ async function main() {
   if (args.extractBaseColor) {
     const buffer = await readBaseColorBuffer(args.input);
     await ensureDir(args.extractBaseColor);
-    await writeFile(args.extractBaseColor, buffer);
+    const ext = extname(args.extractBaseColor).toLowerCase();
+    if (ext === ".jpg" || ext === ".jpeg") {
+      await sharp(buffer).jpeg({ quality: 85, mozjpeg: true }).toFile(args.extractBaseColor);
+    } else {
+      await writeFile(args.extractBaseColor, buffer);
+    }
     console.log(`Extracted base color → ${args.extractBaseColor}`);
   }
 

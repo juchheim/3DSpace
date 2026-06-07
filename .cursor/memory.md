@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-07 (avatar accessory fit panel)
+Last updated: 2026-06-07 (avatar body switching + IXR female recolor)
 
 **Historical detail:** `.cursor/memory-archive.md` (planning log + bug-fix chronicle through 2026-05-30). Update that file only when archiving new dated entries; keep this file lean.
 
@@ -13,6 +13,12 @@ Last updated: 2026-06-07 (avatar accessory fit panel)
 Remaining refactor candidates: `packages/contracts/src/index.ts`, `RoomClient.tsx`, `RoomView3D.tsx`.
 
 ---
+
+## IXR-female-20k avatar assets (2026-06-07)
+
+- **Shipped:** `apps/web/public/avatars/ixr-female-20k.glb` (~3.3 MB, JPEG textures), recolor assets (`*-albedo-neutral.jpg`, `*-zone-mask.png`, `*-uv-reference.png`), thumbnails.
+- **Catalog:** `@3dspace/avatar-bodies` — `azure-vanguard` + `ixr-female-20k`; clips differ (`Idle_12` vs `Idle_11`).
+- **Switching:** `user.avatar.bodySlug`, `PATCH /v1/users/me/body`, `avatar.body.v1`, editor **Body** section; flags `ENABLE_AVATAR_BODIES` / `NEXT_PUBLIC_ENABLE_AVATAR_BODIES` (default off). Recolor uses per-body zone mask via `BlockyAvatar` catalog lookup.
 
 ## Project Summary
 

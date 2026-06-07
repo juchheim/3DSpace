@@ -16,11 +16,23 @@ import {
   type Texture
 } from "three";
 import { SkeletonUtils } from "three-stdlib";
-import type { AvatarAppearance, AvatarEquippedAccessories, AvatarReactionSlug, ParticipantAudioMode } from "@3dspace/contracts";
+import type {
+  AvatarAppearance,
+  AvatarBodyCatalogEntry,
+  AvatarBodySlug,
+  AvatarEquippedAccessories,
+  AvatarReactionSlug,
+  ParticipantAudioMode
+} from "@3dspace/contracts";
 import type { ParticipantView } from "./RoomClient";
 import { CLIENT_TUNING } from "../lib/config";
 import { AvatarAccessoryLayer } from "./AvatarAccessoryLayer";
 import { BUILTIN_AVATAR_ACCESSORY_CATALOG } from "../lib/avatarAccessoryCatalog";
+import {
+  avatarBodyModelScale,
+  DEFAULT_AVATAR_BODY_SLUG,
+  resolveAvatarBodyEntry
+} from "../lib/avatarBodyCatalog";
 import { applyHairSuppressionRules, bindHairSuppressionToMixer, collectHairSuppressionRules, restoreHairSuppressionRules } from "./avatarHairSuppression";
 import { shouldApplyAvatarRecolor } from "../lib/avatarRecolorGate";
 import {
@@ -41,23 +53,10 @@ const REACTION_EMOJI: Record<AvatarReactionSlug, string> = {
 };
 
 // ── Avatar model ────────────────────────────────────────────────────────────
-// The participant avatar is the rigged "Azure Vanguard" GLB (one skinned mesh +
-// a 24-bone skeleton + three baked clips), served from apps/web/public. It is
-// exported feet-on-floor (origin at the soles) at ~1.69 m, so we only scale it
-// to TARGET_HEIGHT — no vertical offset needed. It faces +Z, which is the app's
-// forward axis, so no rotation correction is applied.
-const AVATAR_URL    = "/avatars/azure-vanguard.glb";
-const AVATAR_ZONE_MASK_URL = "/avatars/azure-vanguard-zone-mask.png";
-const NATIVE_HEIGHT = 1.69;
+// Rigged GLB bodies (skinned mesh + 24-bone skeleton + idle/walk/run clips),
+// served from apps/web/public/avatars. Each body entry supplies clip names,
+// native height, and recolor mask URLs via the avatar body catalog.
 const TARGET_HEIGHT = 1.7;
-const MODEL_SCALE   = TARGET_HEIGHT / NATIVE_HEIGHT;
-
-// Baked clip names (see scripts inspection): a long idle plus a walk + run cycle.
-const CLIP = { idle: "Idle_12", walking: "Walking", running: "Running" } as const;
-type ClipName = (typeof CLIP)[keyof typeof CLIP];
-
-useGLTF.preload(AVATAR_URL);
-useTexture.preload(AVATAR_ZONE_MASK_URL);
 
 function isSkinnedMesh(object: Object3D): object is SkinnedMesh {
   return (object as SkinnedMesh).isSkinnedMesh === true;
@@ -94,20 +93,23 @@ type AvatarRecolorManagedMaterial = MeshStandardMaterial & {
  * (geometry + material stay shared/cached).
  */
 function AvatarModel({
+  body,
   clip,
   appearance,
   recolorActive,
   accessories,
   showAccessories
 }: {
-  clip: ClipName;
+  body: AvatarBodyCatalogEntry;
+  clip: string;
   appearance: AvatarAppearance;
   recolorActive: boolean;
   accessories: AvatarEquippedAccessories;
   showAccessories: boolean;
 }) {
-  const { scene, animations } = useGLTF(AVATAR_URL);
-  const zoneMask = useTexture(AVATAR_ZONE_MASK_URL) as Texture;
+  const { scene, animations } = useGLTF(body.glbUrl);
+  const zoneMask = useTexture(body.zoneMaskUrl) as Texture;
+  const modelScale = avatarBodyModelScale(body);
   const recolorTextures = useMemo<AvatarRecolorTextures>(
     () => ({ zoneMask }),
     [zoneMask]
@@ -220,7 +222,7 @@ function AvatarModel({
 
   return (
     <group>
-      <primitive object={model} scale={MODEL_SCALE} />
+      <primitive object={model} scale={modelScale} />
       {showAccessories ? (
         <Suspense fallback={null}>
           <AvatarAccessoryLayer root={model} equipped={accessories} />
@@ -250,6 +252,8 @@ export type BlockyAvatarProps = {
   avatarScale?: number;
   /** Equipped accessory slugs per slot. Defaults to unequipped. */
   accessories?: AvatarEquippedAccessories;
+  /** Selected avatar body slug. Defaults to Azure Vanguard. */
+  bodySlug?: AvatarBodySlug;
 };
 
 export function BlockyAvatar({
@@ -270,9 +274,13 @@ export function BlockyAvatar({
   crossPodOutlineColor,
   avatarScale = 1,
   accessories = { head: null, hands: null },
+  bodySlug = DEFAULT_AVATAR_BODY_SLUG,
 }: BlockyAvatarProps) {
   const position = participant.state.position;
   const movement = participant.state.movement;
+  const body = resolveAvatarBodyEntry(
+    CLIENT_TUNING.enableAvatarBodies ? bodySlug : DEFAULT_AVATAR_BODY_SLUG
+  );
   const recolorActive = shouldApplyAvatarRecolor({
     flagEnabled: CLIENT_TUNING.enableAvatarGlbRecolor,
     appearanceCustomized,
@@ -282,8 +290,8 @@ export function BlockyAvatar({
   });
 
   // Movement → clip. Idle covers everything that isn't an active stride.
-  const clip: ClipName =
-    movement === "running" ? CLIP.running : movement === "walking" ? CLIP.walking : CLIP.idle;
+  const clip =
+    movement === "running" ? body.clips.running : movement === "walking" ? body.clips.walking : body.clips.idle;
 
   // ── Wave emote ────────────────────────────────────────────────────────────
   // The clips don't include a wave, so the emote is a brief whole-body sway on
@@ -357,6 +365,8 @@ export function BlockyAvatar({
       <group ref={waveRef}>
         <Suspense fallback={null}>
           <AvatarModel
+            key={body.slug}
+            body={body}
             clip={clip}
             appearance={appearance}
             recolorActive={recolorActive}

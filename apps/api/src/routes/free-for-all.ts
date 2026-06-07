@@ -105,6 +105,7 @@ export async function registerFreeForAllRoutes(app: FastifyInstance, ctx: AppCon
       capabilities: manifest.capabilities,
       avatarAppearance: sessionUser?.avatar?.appearance ?? null,
       avatarAccessories: sessionUser?.avatar?.accessories ?? null,
+      avatarBodySlug: sessionUser?.avatar?.bodySlug ?? "azure-vanguard",
       tuning: {
         avatarSendHz: config.tuning.avatarSendHz,
         interpolationMs: config.tuning.interpolationMs,

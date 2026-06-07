@@ -27,7 +27,7 @@ import { ZONE_GROUPS, ZONE_LABELS } from "../../lib/avatarMaterials";
 
 const AVATAR_URL = "/avatars/azure-vanguard.glb";
 const ZONE_MASK_URL = "/avatars/azure-vanguard-zone-mask.png";
-const UV_REFERENCE_URL = "/avatars/azure-vanguard-uv-reference.png";
+const UV_REFERENCE_URL = "/avatars/azure-vanguard-uv-reference.jpg";
 const NATIVE_HEIGHT = 1.69;
 const TARGET_HEIGHT = 1.7;
 const MODEL_SCALE = TARGET_HEIGHT / NATIVE_HEIGHT;

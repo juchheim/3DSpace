@@ -3,6 +3,7 @@ import { RoomAiHostAvatarSchema } from "@3dspace/contracts";
 import type {
   AiObjectJob,
   AvatarAppearance,
+  AvatarBodySlug,
   AvatarEquippedAccessories,
   ClassroomState,
   ClassMembership,
@@ -144,7 +145,8 @@ export function createModels(connection: Connection): Models {
         head: { type: String, default: null },
         hands: { type: String, default: null },
         adjustments: { type: Schema.Types.Mixed, default: undefined }
-      }
+      },
+      bodySlug: { type: String, default: "azure-vanguard" }
     },
     createdAt: String,
     updatedAt: String
@@ -1070,6 +1072,17 @@ export class MongoRepository implements Repository {
     const user = await this.models.User.findOneAndUpdate(
       { id: userId },
       { $set: { "avatar.accessories": accessories, updatedAt: time } },
+      { new: true, lean: true }
+    );
+    if (!user) throw notFound("User not found");
+    return entity<User>(user);
+  }
+
+  async updateUserAvatarBody(userId: string, bodySlug: AvatarBodySlug): Promise<User> {
+    const time = nowIso();
+    const user = await this.models.User.findOneAndUpdate(
+      { id: userId },
+      { $set: { "avatar.bodySlug": bodySlug, updatedAt: time } },
       { new: true, lean: true }
     );
     if (!user) throw notFound("User not found");

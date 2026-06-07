@@ -22,7 +22,7 @@ const OUT_PATH = resolve(process.argv[3] ?? IN_PATH);
 const BASE_COLOR_NAMES = new Set(["baked_basecolor", "basecolor", "diffuse", "albedo"]);
 const NORMAL_NAMES = new Set(["normal"]);
 
-function textureKind(name) {
+function textureKindFromName(name) {
   const key = (name ?? "").trim().toLowerCase();
   if (BASE_COLOR_NAMES.has(key)) return "baseColor";
   if (NORMAL_NAMES.has(key)) return "normal";
@@ -31,14 +31,31 @@ function textureKind(name) {
   return "other";
 }
 
-async function reencodeTexture(texture) {
+/** Infer role from material wiring when Meshy exports unnamed `texture_0` slots. */
+function buildTextureRoleMap(root) {
+  const roles = new Map();
+  for (const material of root.listMaterials()) {
+    const baseColor = material.getBaseColorTexture();
+    if (baseColor) roles.set(baseColor, "baseColor");
+    const emissive = material.getEmissiveTexture();
+    if (emissive) roles.set(emissive, "emissive");
+    const normal = material.getNormalTexture();
+    if (normal) roles.set(normal, "normal");
+  }
+  return roles;
+}
+
+function resolveTextureKind(texture, roles) {
+  return roles.get(texture) ?? textureKindFromName(texture.getName());
+}
+
+async function reencodeTexture(texture, kind) {
   const src = texture.getImage();
   if (!src || src.byteLength === 0) return { skipped: true, reason: "empty" };
 
-  const kind = textureKind(texture.getName());
   const before = src.byteLength;
 
-  if (kind === "baseColor") {
+  if (kind === "baseColor" || kind === "emissive") {
     const jpeg = await sharp(Buffer.from(src))
       .jpeg({ quality: 85, mozjpeg: true })
       .toBuffer();
@@ -69,9 +86,11 @@ async function main() {
   const doc = await io.read(IN_PATH);
   const root = doc.getRoot();
 
+  const textureRoles = buildTextureRoleMap(root);
   const results = [];
   for (const texture of root.listTextures()) {
-    results.push({ name: texture.getName(), ...(await reencodeTexture(texture)) });
+    const kind = resolveTextureKind(texture, textureRoles);
+    results.push({ name: texture.getName(), kind, ...(await reencodeTexture(texture, kind)) });
   }
 
   await io.write(OUT_PATH, doc);

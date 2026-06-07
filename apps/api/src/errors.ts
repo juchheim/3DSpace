@@ -91,6 +91,10 @@ export function avatarAccessoriesDisabled() {
   return new HttpError(404, "Avatar accessories are disabled", "avatar-accessories-disabled");
 }
 
+export function avatarBodiesDisabled() {
+  return new HttpError(404, "Avatar bodies are disabled", "avatar-bodies-disabled");
+}
+
 export function roomObjectLimitReached() {
   return new HttpError(422, "Active room object limit reached", "room-object-limit-reached");
 }

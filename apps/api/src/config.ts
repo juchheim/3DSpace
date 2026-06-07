@@ -86,6 +86,7 @@ export type AppConfig = {
     aiMeetingNotesStoragePrefix: string;
     enableAiWorldHost: boolean;
     enableAvatarAccessories: boolean;
+    enableAvatarBodies: boolean;
     openAiAiHostModel: string;
     openAiAiHostModelLarge: string;
     aiWorldHostStoragePrefix: string;
@@ -360,6 +361,7 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       aiMeetingNotesStoragePrefix: envString(raw, "AI_MEETING_NOTES_STORAGE_PREFIX") ?? "meeting-notes/",
       enableAiWorldHost: envBoolean(raw, "ENABLE_AI_WORLD_HOST", false),
       enableAvatarAccessories: envBoolean(raw, "ENABLE_AVATAR_ACCESSORIES", false),
+      enableAvatarBodies: envBoolean(raw, "ENABLE_AVATAR_BODIES", false),
       openAiAiHostModel: envString(raw, "OPENAI_AI_HOST_MODEL") ?? "gpt-4.1-mini",
       openAiAiHostModelLarge: envString(raw, "OPENAI_AI_HOST_MODEL_LARGE") ?? "gpt-4.1",
       aiWorldHostStoragePrefix: envString(raw, "AI_WORLD_HOST_STORAGE_PREFIX") ?? "ai-host/",

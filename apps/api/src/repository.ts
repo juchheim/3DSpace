@@ -3,6 +3,7 @@ import {
   parseRoomSettings,
   type AiObjectJob,
   type AvatarAppearance,
+  type AvatarBodySlug,
   type AvatarEquippedAccessories,
   type ClassroomState,
   type ClassMembership,
@@ -132,6 +133,7 @@ export type Repository = {
   updateUserAvatarAppearance(userId: string, appearance: AvatarAppearance): Promise<User>;
   clearUserAvatarAppearance(userId: string): Promise<User>;
   updateUserAvatarAccessories(userId: string, accessories: AvatarEquippedAccessories): Promise<User>;
+  updateUserAvatarBody(userId: string, bodySlug: AvatarBodySlug): Promise<User>;
   createClass(input: { name: string; teacher: AuthContext }): Promise<ClassRecord>;
   listClassesForUser(userId: string): Promise<ClassRecord[]>;
   getClass(classId: string): Promise<ClassRecord | undefined>;
@@ -353,7 +355,7 @@ export function avatarFor(displayName: string) {
     .join("") || "U";
   const palette = ["#eb5e28", "#2a9d8f", "#3d5a80", "#d00000", "#577590", "#f4a261"];
   const hash = Array.from(displayName).reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  return { initials, color: palette[hash % palette.length]! };
+  return { initials, color: palette[hash % palette.length]!, bodySlug: "azure-vanguard" as const };
 }
 
 export class MemoryRepository implements Repository {
@@ -497,6 +499,18 @@ export class MemoryRepository implements Repository {
     const updated: User = {
       ...existing,
       avatar: { ...existing.avatar, accessories },
+      updatedAt: nowIso()
+    };
+    this.users.set(userId, updated);
+    return updated;
+  }
+
+  async updateUserAvatarBody(userId: string, bodySlug: AvatarBodySlug): Promise<User> {
+    const existing = this.users.get(userId);
+    if (!existing) throw notFound("User not found");
+    const updated: User = {
+      ...existing,
+      avatar: { ...existing.avatar, bodySlug },
       updatedAt: nowIso()
     };
     this.users.set(userId, updated);
