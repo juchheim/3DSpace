@@ -19,6 +19,11 @@ export async function registerUserRoutes(app: FastifyInstance, ctx: AppContext) 
     const body = parseBody(AvatarUpdateSchema, request);
     return ctx.repository.updateUserAvatarAppearance(auth.userId, body.appearance);
   });
+
+  app.delete("/v1/users/me/avatar/appearance", async (request) => {
+    const auth = await requireUser(request, ctx.config, ctx.repository);
+    return ctx.repository.clearUserAvatarAppearance(auth.userId);
+  });
 }
 
 const AvatarUpdateSchema = z.object({ appearance: AvatarAppearanceSchema });

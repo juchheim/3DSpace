@@ -1,6 +1,5 @@
 import { useState } from "react";
 import type { AvatarAppearance } from "@3dspace/contracts";
-import { DEFAULT_APPEARANCE } from "./avatarAppearance";
 
 export function useAvatarEditor(savedAppearance: AvatarAppearance) {
   const [draft, setDraft] = useState<AvatarAppearance>(savedAppearance);
@@ -18,11 +17,6 @@ export function useAvatarEditor(savedAppearance: AvatarAppearance) {
     setSaveError("");
   }
 
-  function resetToDefaults() {
-    setDraft(DEFAULT_APPEARANCE);
-    setSaveError("");
-  }
-
   async function save(onSave: (appearance: AvatarAppearance) => Promise<void>): Promise<boolean> {
     setSaving(true);
     setSaveError("");
@@ -37,7 +31,5 @@ export function useAvatarEditor(savedAppearance: AvatarAppearance) {
     }
   }
 
-  const atDefaults = JSON.stringify(draft) === JSON.stringify(DEFAULT_APPEARANCE);
-
-  return { draft, dirty, saving, saveError, atDefaults, setZone, resetDraft, resetToDefaults, save };
+  return { draft, dirty, saving, saveError, setZone, resetDraft, save };
 }

@@ -31,6 +31,7 @@ import {
   leaveRoomSession,
   listClasses,
   listClassMembers,
+  clearAvatarAppearance,
   patchAvatarAppearance,
   patchAvatarAccessories,
   patchRoom,
@@ -3477,7 +3478,20 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       {avatarEditorOpen && session ? (
         <AvatarEditorPanel
           savedAppearance={localAppearanceRef.current}
+          appearanceCustomized={localAppearanceCustomizedRef.current}
           savedAccessories={localAccessoriesRef.current}
+          onResetToDefaultSkin={async () => {
+            await clearAvatarAppearance(identity);
+            localAppearanceRef.current = DEFAULT_APPEARANCE;
+            localAppearanceCustomizedRef.current = false;
+            setLocalAppearance(session.participantId, DEFAULT_APPEARANCE, false);
+            publishRealtime({
+              type: "avatar.appearance.v1",
+              participantId: session.participantId,
+              appearance: DEFAULT_APPEARANCE,
+              customized: false,
+            });
+          }}
           onSave={async (appearance) => {
             await patchAvatarAppearance(identity, appearance);
             localAppearanceRef.current = appearance;

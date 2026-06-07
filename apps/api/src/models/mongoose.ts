@@ -1054,6 +1054,17 @@ export class MongoRepository implements Repository {
     return entity<User>(user);
   }
 
+  async clearUserAvatarAppearance(userId: string): Promise<User> {
+    const time = nowIso();
+    const user = await this.models.User.findOneAndUpdate(
+      { id: userId },
+      { $unset: { "avatar.appearance": "" }, $set: { updatedAt: time } },
+      { new: true, lean: true }
+    );
+    if (!user) throw notFound("User not found");
+    return entity<User>(user);
+  }
+
   async updateUserAvatarAccessories(userId: string, accessories: AvatarEquippedAccessories): Promise<User> {
     const time = nowIso();
     const user = await this.models.User.findOneAndUpdate(

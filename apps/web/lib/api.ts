@@ -324,6 +324,13 @@ export function patchAvatarAppearance(identity: ApiIdentity, appearance: AvatarA
   });
 }
 
+export function clearAvatarAppearance(identity: ApiIdentity) {
+  return apiFetch<{ ok: boolean }>("/v1/users/me/avatar/appearance", {
+    method: "DELETE",
+    identity,
+  });
+}
+
 export function listAvatarAccessories(identity: ApiIdentity) {
   return apiFetch<{ items: AvatarAccessoryCatalogEntry[] }>("/v1/avatar-accessories", { identity }).then(
     (response) => response.items

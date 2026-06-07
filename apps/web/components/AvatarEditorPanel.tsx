@@ -11,7 +11,9 @@ import { AccessoryAdjustPanel } from "./avatarAccessories/AccessoryAdjustPanel";
 
 type Props = {
   savedAppearance: AvatarAppearance;
+  appearanceCustomized: boolean;
   onSave: (appearance: AvatarAppearance) => Promise<void>;
+  onResetToDefaultSkin: () => Promise<void>;
   onDraftChange: (draft: AvatarAppearance, dirty: boolean) => void;
   savedAccessories?: AvatarEquippedAccessories;
   onSaveAccessories?: (accessories: AvatarEquippedAccessories) => Promise<void>;
@@ -25,7 +27,9 @@ type Props = {
 
 export function AvatarEditorPanel({
   savedAppearance,
+  appearanceCustomized,
   onSave,
+  onResetToDefaultSkin,
   onDraftChange,
   savedAccessories,
   onSaveAccessories,
@@ -237,9 +241,9 @@ export function AvatarEditorPanel({
           {waveActive ? "Waving..." : "Wave 👋"}
         </button>
         <div className="avatar-editor__footer-actions">
-          {!appearanceEditor.atDefaults && !locked ? (
-            <button className="avatar-editor__reset-btn" onClick={() => { if (!saving) appearanceEditor.resetToDefaults(); }} disabled={saving}>
-              Defaults
+          {appearanceCustomized && !locked ? (
+            <button className="avatar-editor__reset-btn" onClick={() => { if (!saving) void onResetToDefaultSkin(); }} disabled={saving}>
+              Default skin
             </button>
           ) : null}
           {dirty && !locked ? (
