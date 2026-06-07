@@ -152,6 +152,8 @@ Remaining refactor candidates: `packages/contracts/src/index.ts`, `RoomClient.ts
 - **2026-05-31:** Boards-on-build-walls Phase 3 — client threads `boardPlacementWalls` into `DynamicBoardPlacementTargets`; baseY fix for hit target + vertical clamp.
 - **2026-05-31:** Boards-on-build-walls Phase 2 — server validates dynamic board placement against `boardPlacementWalls` (build + manifest walls); 6 API route tests.
 - **2026-05-31:** Boards-on-build-walls Phase 1 — `boardPlacementWalls` engine helper + unit tests (manifest walls + wall pieces only; floors/ramps excluded).
+- **2026-06-07:** `red-boxing-gloves` avatar accessory — new **hands** slot; pairs `RightHand` + mirrored `LeftHand` from `GLBs/red-boxing-glove.glb`; catalog fields `pairedAttachBone` / `mirrorPaired`.
+- **2026-06-07:** `GLBs/red-boxing-glove.glb` embedded PNG textures re-encoded to JPEG (quality 85): `Baked_BaseColor` + `normal`; file ~6.35 MB → ~0.60 MB.
 - **2026-05-31:** Drafted `PLAN_FREE_FOR_ALL_BOARDS_ON_BUILD_WALLS.md` + `IMPL_FREE_FOR_ALL_BOARDS_ON_BUILD_WALLS.md` — integration-only: shared `boardPlacementWalls`, client targets, server validator, baseY fix; no new entity/schema.
 - **2026-05-30:** FFA world-building Phases 1–10 shipped (see world-building IMPL validation checklist).
 - **2026-05-30:** API `app.ts` decomposition complete (268 tests green).

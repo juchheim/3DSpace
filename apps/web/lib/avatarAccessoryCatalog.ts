@@ -16,10 +16,18 @@ for (const entry of BUILTIN_AVATAR_ACCESSORY_CATALOG) {
 }
 
 export function resolveEquippedAccessoryEntries(
-  equipped: { head?: string | null },
+  equipped: { head?: string | null; hands?: string | null },
   catalog: AvatarAccessoryCatalogEntry[] = BUILTIN_AVATAR_ACCESSORY_CATALOG
 ) {
   const bySlug = new Map(catalog.map((entry) => [entry.slug, entry]));
-  const head = equipped.head ? bySlug.get(equipped.head) : undefined;
-  return head ? ([head] as const) : ([] as const);
+  const entries: AvatarAccessoryCatalogEntry[] = [];
+  if (equipped.head) {
+    const head = bySlug.get(equipped.head);
+    if (head) entries.push(head);
+  }
+  if (equipped.hands) {
+    const hands = bySlug.get(equipped.hands);
+    if (hands) entries.push(hands);
+  }
+  return entries;
 }

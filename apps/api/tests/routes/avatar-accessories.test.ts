@@ -31,9 +31,9 @@ describe("avatar accessories routes", () => {
     });
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body.items).toHaveLength(1);
-    expect(body.items[0].slug).toBe("bowler-hat");
-    expect(body.items[0].slot).toBe("head");
+    expect(body.items).toHaveLength(2);
+    expect(body.items.some((entry: { slug: string }) => entry.slug === "bowler-hat")).toBe(true);
+    expect(body.items.some((entry: { slug: string; slot: string }) => entry.slug === "red-boxing-gloves" && entry.slot === "hands")).toBe(true);
     await app.close();
   });
 
@@ -48,7 +48,7 @@ describe("avatar accessories routes", () => {
       payload: { accessories: { head: "bowler-hat" } }
     });
     expect(patch.statusCode).toBe(200);
-    expect(patch.json().avatar.accessories).toEqual({ head: "bowler-hat" });
+    expect(patch.json().avatar.accessories).toEqual({ head: "bowler-hat", hands: null });
 
     const me = await app.inject({
       method: "GET",
@@ -56,7 +56,7 @@ describe("avatar accessories routes", () => {
       headers: authHeaders(userId, "Alex Rivera")
     });
     expect(me.statusCode).toBe(200);
-    expect(me.json().avatar.accessories).toEqual({ head: "bowler-hat" });
+    expect(me.json().avatar.accessories).toEqual({ head: "bowler-hat", hands: null });
     await app.close();
   });
 
@@ -78,14 +78,14 @@ describe("avatar accessories routes", () => {
       payload: { accessories: { head: null } }
     });
     expect(patch.statusCode).toBe(200);
-    expect(patch.json().avatar.accessories).toEqual({ head: null });
+    expect(patch.json().avatar.accessories).toEqual({ head: null, hands: null });
 
     const me = await app.inject({
       method: "GET",
       url: "/v1/users/me",
       headers: authHeaders(userId, "Alex Rivera")
     });
-    expect(me.json().avatar.accessories).toEqual({ head: null });
+    expect(me.json().avatar.accessories).toEqual({ head: null, hands: null });
     await app.close();
   });
 
@@ -127,6 +127,7 @@ describe("avatar accessories routes", () => {
     expect(patch.statusCode).toBe(200);
     expect(patch.json().avatar.accessories).toEqual({
       head: "bowler-hat",
+      hands: null,
       adjustments: {
         "bowler-hat": {
           positionOffset: { x: 0, y: 0.02, z: -0.01 },
@@ -163,6 +164,21 @@ describe("avatar accessories routes", () => {
     });
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toBe("bad_request");
+    await app.close();
+  });
+
+  it("equips red-boxing-gloves on the hands slot", async () => {
+    const app = await buildAccessoriesApp();
+    await ensureUser(app);
+
+    const patch = await app.inject({
+      method: "PATCH",
+      url: "/v1/users/me/accessories",
+      headers: authHeaders(userId, "Alex Rivera"),
+      payload: { accessories: { hands: "red-boxing-gloves" } }
+    });
+    expect(patch.statusCode).toBe(200);
+    expect(patch.json().avatar.accessories).toEqual({ head: null, hands: "red-boxing-gloves" });
     await app.close();
   });
 

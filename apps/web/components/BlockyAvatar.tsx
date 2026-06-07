@@ -262,7 +262,7 @@ export function BlockyAvatar({
   whisperRadiusMeters = 3,
   crossPodOutlineColor,
   avatarScale = 1,
-  accessories = { head: null },
+  accessories = { head: null, hands: null },
 }: BlockyAvatarProps) {
   const position = participant.state.position;
   const movement = participant.state.movement;

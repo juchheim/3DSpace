@@ -14,13 +14,18 @@ const catalog = JSON.parse(
 ) as unknown[];
 
 describe("avatar accessories builtin catalog", () => {
-  it("ships the bowler-hat head accessory", () => {
-    expect(catalog).toHaveLength(1);
-    const entry = catalog[0] as Record<string, unknown>;
-    expect(entry.slug).toBe("bowler-hat");
-    expect(entry.slot).toBe("head");
-    expect(entry.attachBone).toBe("Head");
-    expect(entry.glbUrl).toBe("/avatar-accessories/bowler-hat.glb");
+  it("ships the bowler-hat head accessory and red-boxing-gloves hands accessory", () => {
+    expect(catalog).toHaveLength(2);
+    const bowler = catalog.find((entry) => (entry as Record<string, unknown>).slug === "bowler-hat") as Record<string, unknown>;
+    const gloves = catalog.find((entry) => (entry as Record<string, unknown>).slug === "red-boxing-gloves") as Record<string, unknown>;
+    expect(bowler?.slot).toBe("head");
+    expect(bowler?.attachBone).toBe("Head");
+    expect(bowler?.glbUrl).toBe("/avatar-accessories/bowler-hat.glb");
+    expect(gloves?.slot).toBe("hands");
+    expect(gloves?.attachBone).toBe("RightHand");
+    expect(gloves?.pairedAttachBone).toBe("LeftHand");
+    expect(gloves?.mirrorPaired).toBe(true);
+    expect(gloves?.glbUrl).toBe("/avatar-accessories/red-boxing-glove.glb");
   });
 
   it("parses every entry against AvatarAccessoryCatalogEntrySchema", () => {
@@ -31,16 +36,19 @@ describe("avatar accessories builtin catalog", () => {
 
   it("getBuiltinAvatarAccessoryCatalog returns parsed entries", () => {
     const items = getBuiltinAvatarAccessoryCatalog();
-    expect(items).toHaveLength(1);
-    expect(items[0]?.slug).toBe("bowler-hat");
-    expect(items[0]?.localPosition).toEqual({ x: 0, y: 0.145, z: -0.06 });
-    expect(items[0]?.localScale).toBe(2.85);
-    expect(items[0]?.boneSpaceMetersPerUnit).toBe(0.01);
-    expect(items[0]?.hairSuppressionBones).toEqual([{ bone: "head_end", scale: 0.04 }]);
+    expect(items).toHaveLength(2);
+    const bowler = items.find((entry) => entry.slug === "bowler-hat");
+    expect(bowler?.localPosition).toEqual({ x: 0, y: 0.145, z: -0.06 });
+    expect(bowler?.localScale).toBe(2.85);
+    expect(bowler?.boneSpaceMetersPerUnit).toBe(0.01);
+    expect(bowler?.hairSuppressionBones).toEqual([{ bone: "head_end", scale: 0.04 }]);
+    const gloves = items.find((entry) => entry.slug === "red-boxing-gloves");
+    expect(gloves?.slot).toBe("hands");
+    expect(gloves?.mirrorPaired).toBe(true);
   });
 
-  it("default equipped accessories parse as head: null", () => {
-    expect(AvatarEquippedAccessoriesSchema.parse(undefined)).toEqual({ head: null });
-    expect(AvatarEquippedAccessoriesSchema.parse({})).toEqual({ head: null });
+  it("default equipped accessories parse as head/hands null", () => {
+    expect(AvatarEquippedAccessoriesSchema.parse(undefined)).toEqual({ head: null, hands: null });
+    expect(AvatarEquippedAccessoriesSchema.parse({})).toEqual({ head: null, hands: null });
   });
 });

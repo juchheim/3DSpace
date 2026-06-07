@@ -8,7 +8,7 @@ import { getBuiltinAvatarAccessoryCatalog } from "@3dspace/avatar-accessories";
 import { z } from "zod";
 import { badRequest } from "../errors.js";
 
-const ACCESSORY_SLOTS = ["head"] as const;
+const ACCESSORY_SLOTS = ["head", "hands"] as const;
 
 const ADJUSTMENT_LIMITS = {
   position: 0.15,
@@ -20,6 +20,7 @@ export const PatchUserAvatarAccessoriesBodySchema = z.object({
   accessories: z
     .object({
       head: z.string().nullable().optional().default(null),
+      hands: z.string().nullable().optional().default(null),
       adjustments: z.record(z.string(), AvatarAccessoryAdjustmentSchema).optional()
     })
     .strict()

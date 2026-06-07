@@ -9,12 +9,12 @@ describe("avatar accessories realtime", () => {
     const { result } = renderHook(() => useAvatarAccessories());
 
     act(() => {
-      result.current.setLocalAccessories("local-1", { head: null });
-      result.current.receiveAccessories("remote-2", { head: "bowler-hat" });
+      result.current.setLocalAccessories("local-1", { head: null, hands: null });
+      result.current.receiveAccessories("remote-2", { head: "bowler-hat", hands: null });
     });
 
-    expect(result.current.getAccessories("local-1")).toEqual({ head: null });
-    expect(result.current.getAccessories("remote-2")).toEqual({ head: "bowler-hat" });
+    expect(result.current.getAccessories("local-1")).toEqual({ head: null, hands: null });
+    expect(result.current.getAccessories("remote-2")).toEqual({ head: "bowler-hat", hands: null });
     expect(result.current.getAccessories("unknown")).toEqual(DEFAULT_EQUIPPED_ACCESSORIES);
   });
 
@@ -25,6 +25,6 @@ describe("avatar accessories realtime", () => {
       accessories: { head: "bowler-hat" }
     });
     expect(message.type).toBe("avatar.accessories.v1");
-    expect(message.accessories).toEqual({ head: "bowler-hat" });
+    expect(message.accessories).toEqual({ head: "bowler-hat", hands: null });
   });
 });

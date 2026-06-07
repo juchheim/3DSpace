@@ -43,12 +43,17 @@ export function AvatarEditorPanel({
     onDraftAccessoriesChange !== undefined;
 
   const appearanceEditor = useAvatarEditor(savedAppearance);
-  const accessoryEditor = useAvatarAccessoryEditor(savedAccessories ?? { head: null });
+  const accessoryEditor = useAvatarAccessoryEditor(savedAccessories ?? { head: null, hands: null });
 
   const headCatalog = accessoryCatalog.filter((entry) => entry.slot === "head");
+  const handsCatalog = accessoryCatalog.filter((entry) => entry.slot === "hands");
   const equippedHeadSlug = accessoriesEnabled ? accessoryEditor.draft.head : null;
+  const equippedHandsSlug = accessoriesEnabled ? accessoryEditor.draft.hands : null;
   const equippedHeadEntry = equippedHeadSlug
     ? headCatalog.find((entry) => entry.slug === equippedHeadSlug)
+    : undefined;
+  const equippedHandsEntry = equippedHandsSlug
+    ? handsCatalog.find((entry) => entry.slug === equippedHandsSlug)
     : undefined;
   const saving = appearanceEditor.saving || (accessoriesEnabled && accessoryEditor.saving);
   const dirty = appearanceEditor.dirty || (accessoriesEnabled && accessoryEditor.dirty);
@@ -135,6 +140,7 @@ export function AvatarEditorPanel({
                     checked={accessoryEditor.draft.head == null}
                     disabled={locked}
                     onSelect={() => accessoryEditor.setHead(null)}
+                    radioName="avatar-accessory-head"
                   />
                   {headCatalog.map((entry) => (
                     <AccessoryOption
@@ -143,6 +149,7 @@ export function AvatarEditorPanel({
                       checked={accessoryEditor.draft.head === entry.slug}
                       disabled={locked}
                       onSelect={() => accessoryEditor.setHead(entry.slug)}
+                      radioName="avatar-accessory-head"
                       {...(entry.thumbnailUrl ? { thumbnailUrl: entry.thumbnailUrl } : {})}
                     />
                   ))}
@@ -154,6 +161,37 @@ export function AvatarEditorPanel({
                     disabled={locked}
                     onChange={(next) => accessoryEditor.setAdjustment(equippedHeadSlug, next)}
                     onReset={() => accessoryEditor.resetAdjustment(equippedHeadSlug)}
+                  />
+                ) : null}
+
+                <p className="avatar-editor__accessory-slot-label">Hands</p>
+                <div className="avatar-editor__accessory-options">
+                  <AccessoryOption
+                    label="None"
+                    checked={accessoryEditor.draft.hands == null}
+                    disabled={locked}
+                    onSelect={() => accessoryEditor.setHands(null)}
+                    radioName="avatar-accessory-hands"
+                  />
+                  {handsCatalog.map((entry) => (
+                    <AccessoryOption
+                      key={entry.slug}
+                      label={entry.displayName}
+                      checked={accessoryEditor.draft.hands === entry.slug}
+                      disabled={locked}
+                      onSelect={() => accessoryEditor.setHands(entry.slug)}
+                      radioName="avatar-accessory-hands"
+                      {...(entry.thumbnailUrl ? { thumbnailUrl: entry.thumbnailUrl } : {})}
+                    />
+                  ))}
+                </div>
+                {equippedHandsSlug && equippedHandsEntry ? (
+                  <AccessoryAdjustPanel
+                    displayName={equippedHandsEntry.displayName}
+                    adjustment={accessoryEditor.getAdjustment(equippedHandsSlug)}
+                    disabled={locked}
+                    onChange={(next) => accessoryEditor.setAdjustment(equippedHandsSlug, next)}
+                    onReset={() => accessoryEditor.resetAdjustment(equippedHandsSlug)}
                   />
                 ) : null}
               </div>
@@ -225,19 +263,21 @@ function AccessoryOption({
   checked,
   disabled,
   onSelect,
-  thumbnailUrl
+  thumbnailUrl,
+  radioName
 }: {
   label: string;
   checked: boolean;
   disabled: boolean;
   onSelect: () => void;
   thumbnailUrl?: string;
+  radioName: string;
 }) {
   return (
     <label className={`avatar-editor__accessory-option${checked ? " avatar-editor__accessory-option--selected" : ""}`}>
       <input
         type="radio"
-        name="avatar-accessory-head"
+        name={radioName}
         checked={checked}
         disabled={disabled}
         onChange={onSelect}

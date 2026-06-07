@@ -17,17 +17,18 @@ const catalog = JSON.parse(
 ) as unknown[];
 
 describe("avatar accessories (contracts)", () => {
-  it("default equipped accessories parse as { head: null }", () => {
-    expect(AvatarEquippedAccessoriesSchema.parse(undefined)).toEqual({ head: null });
-    expect(AvatarEquippedAccessoriesSchema.parse({})).toEqual({ head: null });
+  it("default equipped accessories parse as { head: null, hands: null }", () => {
+    expect(AvatarEquippedAccessoriesSchema.parse(undefined)).toEqual({ head: null, hands: null });
+    expect(AvatarEquippedAccessoriesSchema.parse({})).toEqual({ head: null, hands: null });
   });
 
   it("accepts unknown accessory slugs at the contract layer (API validates against catalog)", () => {
     expect(AvatarEquippedAccessoriesSchema.parse({ head: "unknown-hat" })).toEqual({
-      head: "unknown-hat"
+      head: "unknown-hat",
+      hands: null
     });
     expect(PatchUserAvatarAccessoriesRequestSchema.parse({ accessories: { head: "bowler-hat" } })).toEqual({
-      accessories: { head: "bowler-hat" }
+      accessories: { head: "bowler-hat", hands: null }
     });
   });
 
@@ -69,6 +70,7 @@ describe("avatar accessories (contracts)", () => {
     });
     expect(user.avatar.accessories).toEqual({
       head: "bowler-hat",
+      hands: null,
       adjustments: {
         "bowler-hat": {
           positionOffset: { x: 0, y: 0.01, z: 0 },
@@ -80,8 +82,9 @@ describe("avatar accessories (contracts)", () => {
 
   it("parses builtin catalog entries and list response shape", () => {
     const items = catalog.map((entry) => AvatarAccessoryCatalogEntrySchema.parse(entry));
-    expect(items).toHaveLength(1);
-    expect(items[0]?.slug).toBe("bowler-hat");
+    expect(items).toHaveLength(2);
+    expect(items.some((entry) => entry.slug === "bowler-hat")).toBe(true);
+    expect(items.some((entry) => entry.slug === "red-boxing-gloves")).toBe(true);
     expect(ListAvatarAccessoriesResponseSchema.parse({ items })).toEqual({ items });
   });
 

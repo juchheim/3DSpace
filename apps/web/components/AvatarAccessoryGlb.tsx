@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo } from "react";
 import { useGLTF } from "@react-three/drei";
 import type { AvatarAccessoryCatalogEntry } from "@3dspace/contracts";
-import { Group, type Mesh, type MeshStandardMaterial, type Object3D, type SkinnedMesh } from "three";
+import { DoubleSide, Group, type Mesh, type MeshStandardMaterial, type Object3D, type SkinnedMesh } from "three";
 
 const ACCESSORY_RENDER_ORDER = 50;
 
@@ -35,6 +35,8 @@ export function findBone(root: Object3D, name: string): Object3D | undefined {
 export type AvatarAccessoryGlbProps = {
   entry: AvatarAccessoryCatalogEntry;
   bone: Object3D;
+  /** Mirror the accessory on the local X axis (for opposite-side paired attachments). */
+  mirrorX?: boolean;
 };
 
 /**
@@ -42,7 +44,7 @@ export type AvatarAccessoryGlbProps = {
  * Must live inside the skinned model hierarchy (bone.add), not as a sibling
  * with a copied world matrix — nested avatar transforms would misplace it.
  */
-export function AvatarAccessoryGlb({ entry, bone }: AvatarAccessoryGlbProps) {
+export function AvatarAccessoryGlb({ entry, bone, mirrorX = false }: AvatarAccessoryGlbProps) {
   const { scene } = useGLTF(entry.glbUrl);
 
   const model = useMemo(() => {
@@ -57,10 +59,11 @@ export function AvatarAccessoryGlb({ entry, bone }: AvatarAccessoryGlbProps) {
       cloned.polygonOffset = true;
       cloned.polygonOffsetFactor = -2;
       cloned.polygonOffsetUnits = -2;
+      if (mirrorX) cloned.side = DoubleSide;
       object.material = cloned;
     });
     return root;
-  }, [scene]);
+  }, [scene, mirrorX]);
 
   useEffect(
     () => () => {
@@ -78,20 +81,21 @@ export function AvatarAccessoryGlb({ entry, bone }: AvatarAccessoryGlbProps) {
   const boneSpaceScale = entry.boneSpaceMetersPerUnit ? 1 / entry.boneSpaceMetersPerUnit : 1;
   const offsetY = py * boneSpaceScale + (groundY ? -groundY * boneSpaceScale : 0);
   const mountScale = scale * boneSpaceScale;
+  const mountX = (mirrorX ? -px : px) * boneSpaceScale;
 
   useLayoutEffect(() => {
     const mount = new Group();
     mount.frustumCulled = false;
-    mount.position.set(px * boneSpaceScale, offsetY, pz * boneSpaceScale);
+    mount.position.set(mountX, offsetY, pz * boneSpaceScale);
     mount.rotation.set(rx, ry, rz);
-    mount.scale.setScalar(mountScale);
+    mount.scale.set(mirrorX ? -mountScale : mountScale, mountScale, mountScale);
     mount.add(model);
     bone.add(mount);
     return () => {
       bone.remove(mount);
       mount.remove(model);
     };
-  }, [bone, model, px, py, pz, rx, ry, rz, mountScale, offsetY, boneSpaceScale]);
+  }, [bone, model, mountX, py, pz, rx, ry, rz, mountScale, offsetY, boneSpaceScale, mirrorX]);
 
   return null;
 }

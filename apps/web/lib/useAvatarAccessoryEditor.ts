@@ -21,6 +21,10 @@ export function useAvatarAccessoryEditor(savedAccessories: AvatarEquippedAccesso
     setDraft((prev) => ({ ...prev, head: slug }));
   }
 
+  function setHands(slug: string | null) {
+    setDraft((prev) => ({ ...prev, hands: slug }));
+  }
+
   function setAdjustment(slug: string, adjustment: NormalizedAccessoryAdjustment) {
     setDraft((prev) => ({
       ...prev,
@@ -66,6 +70,7 @@ export function useAvatarAccessoryEditor(savedAccessories: AvatarEquippedAccesso
     saving,
     saveError,
     setHead,
+    setHands,
     getAdjustment: (slug: string) => getAccessoryAdjustment(draft, slug),
     setAdjustment,
     resetAdjustment,

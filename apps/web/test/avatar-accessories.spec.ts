@@ -121,7 +121,10 @@ async function openAvatarEditor(page: Page) {
 
 async function equipHeadAccessory(page: Page, slug: string | null) {
   const label = slug === null ? /^none$/i : new RegExp(slug === "bowler-hat" ? "bowler hat" : slug, "i");
-  await page.getByRole("radio", { name: label }).check();
+  await page
+    .getByRole("radio", { name: label })
+    .and(page.locator('input[name="avatar-accessory-head"]'))
+    .check();
   await page.getByRole("button", { name: /^save$/i }).click();
   await expect(page.getByRole("button", { name: /^save$/i })).toBeDisabled({ timeout: 10_000 });
 }
@@ -133,6 +136,7 @@ test("avatar accessory catalog API returns bowler-hat", async ({ request }) => {
     TEACHER
   );
   expect(items.some((entry) => entry.slug === "bowler-hat" && entry.slot === "head")).toBe(true);
+  expect(items.some((entry) => entry.slug === "red-boxing-gloves" && entry.slot === "hands")).toBe(true);
 });
 
 test("equip bowler hat in editor; peer receives accessory; unequip clears it", async ({

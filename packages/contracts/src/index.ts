@@ -227,7 +227,7 @@ export const AvatarAppearanceMessageSchema = z.object({
 
 export type AvatarAppearanceMessage = z.infer<typeof AvatarAppearanceMessageSchema>;
 
-export const AvatarAccessorySlotSchema = z.enum(["head"]);
+export const AvatarAccessorySlotSchema = z.enum(["head", "hands"]);
 
 export const AvatarAccessoryCatalogEntrySchema = z.object({
   slug: z.string().min(1),
@@ -235,6 +235,10 @@ export const AvatarAccessoryCatalogEntrySchema = z.object({
   slot: AvatarAccessorySlotSchema,
   glbUrl: z.string().min(1),
   attachBone: z.string().min(1),
+  /** Optional opposite-side bone for paired accessories (e.g. left hand when glbUrl is authored for the right). */
+  pairedAttachBone: z.string().min(1).optional(),
+  /** Mirror the paired attachment on the X axis (negates local scale X). */
+  mirrorPaired: z.boolean().optional(),
   localPosition: Vector3Schema,
   localRotation: z.object({ x: z.number(), y: z.number(), z: z.number() }),
   localScale: z.number().positive().default(1),
@@ -262,9 +266,10 @@ export const AvatarAccessoryAdjustmentSchema = z.object({
 export const AvatarEquippedAccessoriesSchema = z
   .object({
     head: z.string().nullable().optional().default(null),
+    hands: z.string().nullable().optional().default(null),
     adjustments: z.record(z.string(), AvatarAccessoryAdjustmentSchema).optional()
   })
-  .default({ head: null });
+  .default({ head: null, hands: null });
 
 export const AvatarAccessoriesMessageSchema = z.object({
   type: z.literal("avatar.accessories.v1"),
