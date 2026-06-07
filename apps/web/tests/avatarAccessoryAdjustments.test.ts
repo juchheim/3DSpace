@@ -42,6 +42,7 @@ describe("avatarAccessoryAdjustments", () => {
   it("reads per-slug adjustments from equipped state", () => {
     const equipped = {
       head: "bowler-hat",
+      hands: null,
       adjustments: {
         "bowler-hat": { positionOffset: { x: 0, y: 0.01, z: 0 } }
       }
@@ -53,11 +54,12 @@ describe("avatarAccessoryAdjustments", () => {
     expect(
       stripEmptyAccessoryAdjustments({
         head: "bowler-hat",
+        hands: null,
         adjustments: {
           "bowler-hat": { positionOffset: { x: 0, y: 0, z: 0 }, scaleOffset: 0 }
         }
       })
-    ).toEqual({ head: "bowler-hat" });
+    ).toEqual({ head: "bowler-hat", hands: null });
     expect(accessoryAdjustmentIsDefault({ scaleOffset: 0 })).toBe(true);
   });
 });

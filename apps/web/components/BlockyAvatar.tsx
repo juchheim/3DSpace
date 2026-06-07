@@ -69,6 +69,7 @@ function isSkinnedMesh(object: Object3D): object is SkinnedMesh {
 function configureRecolorTextures(textures: AvatarRecolorTextures) {
   // neutralAlbedo: standard sRGB photo — GPU gamma-decodes on sample (correct).
   textures.neutralAlbedo.colorSpace = SRGBColorSpace;
+  textures.neutralAlbedo.flipY = false;
   textures.neutralAlbedo.wrapS = RepeatWrapping;
   textures.neutralAlbedo.wrapT = RepeatWrapping;
 
@@ -76,11 +77,14 @@ function configureRecolorTextures(textures: AvatarRecolorTextures) {
   // MUST be NoColorSpace — sRGB gamma-decoding would corrupt the zone IDs
   // (zone 8 stored as 8/255 would decode to ~47, falling outside 0-23 → no tint).
   textures.zoneMask.colorSpace = NoColorSpace;
+  textures.zoneMask.flipY = false;
   textures.zoneMask.wrapS = ClampToEdgeWrapping;
   textures.zoneMask.wrapT = ClampToEdgeWrapping;
   textures.zoneMask.magFilter = NearestFilter;
   textures.zoneMask.minFilter = NearestFilter;
   textures.zoneMask.generateMipmaps = false;
+  textures.neutralAlbedo.needsUpdate = true;
+  textures.zoneMask.needsUpdate = true;
 }
 
 type AvatarRecolorManagedMaterial = MeshStandardMaterial & {
@@ -273,17 +277,6 @@ export function BlockyAvatar({
     customizedFieldPresent: true,
     appearance
   });
-  // Diagnostic: log recolor gate result whenever the inputs change.
-  // Remove once recolor is confirmed working.
-  useEffect(() => {
-    console.log("[AvatarRecolor] gate:", {
-      participantId: participant.id,
-      flagEnabled: CLIENT_TUNING.enableAvatarGlbRecolor,
-      appearanceCustomized,
-      editorPreviewActive,
-      recolorActive,
-    });
-  }, [recolorActive, appearanceCustomized, editorPreviewActive, participant.id]);
 
   // Movement → clip. Idle covers everything that isn't an active stride.
   const clip: ClipName =

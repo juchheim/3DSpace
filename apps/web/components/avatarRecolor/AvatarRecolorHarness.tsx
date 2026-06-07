@@ -10,6 +10,7 @@ import {
   Group,
   MeshStandardMaterial,
   NearestFilter,
+  NoColorSpace,
   RepeatWrapping,
   SRGBColorSpace,
   type Object3D,
@@ -51,13 +52,18 @@ function isSkinnedMesh(object: Object3D): object is SkinnedMesh {
 
 function configureRecolorTextures(textures: AvatarRecolorTextures) {
   textures.neutralAlbedo.colorSpace = SRGBColorSpace;
+  textures.neutralAlbedo.flipY = false;
   textures.neutralAlbedo.wrapS = RepeatWrapping;
   textures.neutralAlbedo.wrapT = RepeatWrapping;
+  textures.zoneMask.colorSpace = NoColorSpace;
+  textures.zoneMask.flipY = false;
   textures.zoneMask.wrapS = ClampToEdgeWrapping;
   textures.zoneMask.wrapT = ClampToEdgeWrapping;
   textures.zoneMask.magFilter = NearestFilter;
   textures.zoneMask.minFilter = NearestFilter;
   textures.zoneMask.generateMipmaps = false;
+  textures.neutralAlbedo.needsUpdate = true;
+  textures.zoneMask.needsUpdate = true;
 }
 
 function buildMaskPreviewTexture(zoneMask: Texture) {

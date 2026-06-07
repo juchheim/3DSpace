@@ -52,31 +52,17 @@ export function applyAvatarRecolorShader(
   target.userData.avatarRecolorTintStrength ??= 1;
 
   if (target.userData.avatarRecolorPatched) {
-    console.log("[AvatarRecolor] applyAvatarRecolorShader: already patched, forcing needsUpdate");
     target.needsUpdate = true;
     return;
   }
 
-  console.log("[AvatarRecolor] applyAvatarRecolorShader: patching material", material.name || "(unnamed)",
-    "neutralAlbedo loaded:", !!textures.neutralAlbedo.image,
-    "zoneMask loaded:", !!textures.zoneMask.image);
-
   target.userData.avatarRecolorPatched = true;
   target.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
-    console.log("[AvatarRecolor] onBeforeCompile fired — wiring uniforms",
-      "tintStrength:", target.userData.avatarRecolorTintStrength,
-      "zoneMask.colorSpace:", textures.zoneMask.colorSpace,   // should be "" (NoColorSpace)
-      "zoneMask loaded:", !!textures.zoneMask.image);
     shader.uniforms.zoneMask = { value: textures.zoneMask };
     shader.uniforms.zoneColors = {
       value: buildZoneColorUniformValue(target.userData.avatarRecolorColors ?? new Float32Array(AVATAR_ZONE_COUNT * 3))
     };
     shader.uniforms.tintStrength = { value: target.userData.avatarRecolorTintStrength ?? 1 };
-
-    const beforeParsInject = shader.fragmentShader.includes("#include <map_pars_fragment>");
-    const beforeMapInject  = shader.fragmentShader.includes("#include <map_fragment>");
-    console.log("[AvatarRecolor] GLSL injection targets found:",
-      { map_pars_fragment: beforeParsInject, map_fragment: beforeMapInject });
 
     shader.fragmentShader = shader.fragmentShader.replace(
       "#include <map_pars_fragment>",
@@ -100,11 +86,6 @@ uniform float tintStrength;`
 #endif`
     );
 
-    const afterParsInject = shader.fragmentShader.includes("uniform sampler2D zoneMask");
-    const afterMapInject  = shader.fragmentShader.includes("avatarZoneId");
-    console.log("[AvatarRecolor] GLSL injection result:",
-      { zoneMask_declared: afterParsInject, avatarZoneId_present: afterMapInject });
-
     target.userData.avatarRecolorUniforms = {
       zoneColors: shader.uniforms.zoneColors.value as Color[],
       tintStrength: shader.uniforms.tintStrength as { value: number }
@@ -119,17 +100,12 @@ uniform float tintStrength;`
 export function updateAvatarRecolorColors(material: MeshStandardMaterial, appearance: AvatarAppearance): void {
   const target = material as AvatarRecolorMaterial;
   target.userData.avatarRecolorColors = appearanceToZoneColorArray(appearance);
-  const uniformsReady = !!target.userData.avatarRecolorUniforms;
-  console.log("[AvatarRecolor] updateAvatarRecolorColors: uniformsReady=", uniformsReady,
-    "faceSkin=", appearance.faceSkin, "shirtFront=", appearance.shirtFront);
   syncUniformColors(target);
 }
 
 export function updateAvatarRecolorTintStrength(material: MeshStandardMaterial, tintStrength: number): void {
   const target = material as AvatarRecolorMaterial;
   target.userData.avatarRecolorTintStrength = tintStrength;
-  console.log("[AvatarRecolor] updateAvatarRecolorTintStrength:", tintStrength,
-    "uniformsReady:", !!target.userData.avatarRecolorUniforms);
   if (target.userData.avatarRecolorUniforms) {
     target.userData.avatarRecolorUniforms.tintStrength.value = tintStrength;
   }
