@@ -8,6 +8,7 @@ import {
   MathUtils,
   MeshStandardMaterial,
   NearestFilter,
+  NoColorSpace,
   RepeatWrapping,
   SRGBColorSpace,
   type Group,
@@ -66,9 +67,15 @@ function isSkinnedMesh(object: Object3D): object is SkinnedMesh {
 }
 
 function configureRecolorTextures(textures: AvatarRecolorTextures) {
+  // neutralAlbedo: standard sRGB photo — GPU gamma-decodes on sample (correct).
   textures.neutralAlbedo.colorSpace = SRGBColorSpace;
   textures.neutralAlbedo.wrapS = RepeatWrapping;
   textures.neutralAlbedo.wrapT = RepeatWrapping;
+
+  // zoneMask: raw integer IDs 0-23 encoded in the R channel as byte values.
+  // MUST be NoColorSpace — sRGB gamma-decoding would corrupt the zone IDs
+  // (zone 8 stored as 8/255 would decode to ~47, falling outside 0-23 → no tint).
+  textures.zoneMask.colorSpace = NoColorSpace;
   textures.zoneMask.wrapS = ClampToEdgeWrapping;
   textures.zoneMask.wrapT = ClampToEdgeWrapping;
   textures.zoneMask.magFilter = NearestFilter;
@@ -110,7 +117,11 @@ function AvatarModel({
     () => ({ neutralAlbedo, zoneMask }),
     [neutralAlbedo, zoneMask]
   );
-  configureRecolorTextures(recolorTextures);
+  // Configure texture settings once (not in the render body — setting texture
+  // properties marks them needsUpdate every frame, causing a constant loop).
+  useEffect(() => {
+    configureRecolorTextures(recolorTextures);
+  }, [recolorTextures]);
   const model = useMemo(() => {
     const root = SkeletonUtils.clone(scene) as Group;
     root.traverse((object) => {
@@ -188,12 +199,15 @@ function AvatarModel({
     model.traverse((object) => {
       if (!isSkinnedMesh(object)) return;
       const material = object.material as AvatarRecolorManagedMaterial;
-      material.map = recolorActive
-        ? recolorTextures.neutralAlbedo
-        : (material.userData.avatarBakedMap ?? null);
+      const nextMap = recolorActive ? recolorTextures.neutralAlbedo : (material.userData.avatarBakedMap ?? null);
+      if (material.map !== nextMap) {
+        // Map swap requires program recompilation (USE_MAP define may change).
+        material.map = nextMap;
+        material.needsUpdate = true;
+      }
+      // Uniform value updates do NOT need needsUpdate — they go straight to GPU.
       updateAvatarRecolorColors(material, appearance);
       updateAvatarRecolorTintStrength(material, recolorActive ? 1 : 0);
-      material.needsUpdate = true;
     });
   }, [appearance, model, recolorActive, recolorTextures]);
 

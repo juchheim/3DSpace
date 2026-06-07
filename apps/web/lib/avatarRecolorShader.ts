@@ -65,12 +65,18 @@ export function applyAvatarRecolorShader(
   target.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
     console.log("[AvatarRecolor] onBeforeCompile fired — wiring uniforms",
       "tintStrength:", target.userData.avatarRecolorTintStrength,
-      "zoneMask:", !!textures.zoneMask.image);
+      "zoneMask.colorSpace:", textures.zoneMask.colorSpace,   // should be "" (NoColorSpace)
+      "zoneMask loaded:", !!textures.zoneMask.image);
     shader.uniforms.zoneMask = { value: textures.zoneMask };
     shader.uniforms.zoneColors = {
       value: buildZoneColorUniformValue(target.userData.avatarRecolorColors ?? new Float32Array(AVATAR_ZONE_COUNT * 3))
     };
     shader.uniforms.tintStrength = { value: target.userData.avatarRecolorTintStrength ?? 1 };
+
+    const beforeParsInject = shader.fragmentShader.includes("#include <map_pars_fragment>");
+    const beforeMapInject  = shader.fragmentShader.includes("#include <map_fragment>");
+    console.log("[AvatarRecolor] GLSL injection targets found:",
+      { map_pars_fragment: beforeParsInject, map_fragment: beforeMapInject });
 
     shader.fragmentShader = shader.fragmentShader.replace(
       "#include <map_pars_fragment>",
@@ -93,6 +99,11 @@ uniform float tintStrength;`
   }
 #endif`
     );
+
+    const afterParsInject = shader.fragmentShader.includes("uniform sampler2D zoneMask");
+    const afterMapInject  = shader.fragmentShader.includes("avatarZoneId");
+    console.log("[AvatarRecolor] GLSL injection result:",
+      { zoneMask_declared: afterParsInject, avatarZoneId_present: afterMapInject });
 
     target.userData.avatarRecolorUniforms = {
       zoneColors: shader.uniforms.zoneColors.value as Color[],
