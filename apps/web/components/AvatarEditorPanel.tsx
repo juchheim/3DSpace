@@ -237,6 +237,11 @@ export function AvatarEditorPanel({
           {waveActive ? "Waving..." : "Wave 👋"}
         </button>
         <div className="avatar-editor__footer-actions">
+          {!appearanceEditor.atDefaults && !locked ? (
+            <button className="avatar-editor__reset-btn" onClick={() => { if (!saving) appearanceEditor.resetToDefaults(); }} disabled={saving}>
+              Defaults
+            </button>
+          ) : null}
           {dirty && !locked ? (
             <button className="avatar-editor__reset-btn" onClick={handleReset} disabled={saving}>
               Reset

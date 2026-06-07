@@ -271,6 +271,22 @@ export function AvatarRecolorHarness() {
             <input type="checkbox" checked={useOriginalAlbedo} onChange={(event) => setUseOriginalAlbedo(event.target.checked)} />
             Use original baked albedo
           </label>
+
+          <button
+            onClick={() => setAppearance(DEFAULT_APPEARANCE)}
+            style={{
+              padding: "0.45rem 0.75rem",
+              background: "#1c2d40",
+              color: "#e5edf7",
+              border: "1px solid #33445b",
+              borderRadius: "6px",
+              fontSize: "0.88rem",
+              cursor: "pointer",
+              alignSelf: "start"
+            }}
+          >
+            Reset to defaults
+          </button>
         </section>
 
         {ZONE_GROUPS.map((group) => (
