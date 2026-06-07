@@ -95,6 +95,7 @@ Remaining refactor candidates: `packages/contracts/src/index.ts`, `RoomClient.ts
 
 ## Recent work
 
+- **2026-06-07:** **Avatar accessories polish (verse)** — bowler hat attach via `bone.add()`; catalog position/scale tuned (`y: 0.145`, `z: -0.06`, `localScale: 2.85`); `hairSuppressionBones` on `head_end` with per-mixer re-apply (fixes hair poke-through on walk); Accessories editor spacing fix (`6c2286f`).
 - **2026-06-06:** **Avatar accessories Phase 6 complete** — Playwright E2E green (3 tests); fixed client bundle via `@3dspace/avatar-accessories/browser` (JSON import, no `node:fs`); E2E editor toggle idempotency fix.
 - **2026-06-06:** **Avatar accessories Phase 5** — `AvatarEditorPanel` Accessories section (head slot radios), `useAvatarAccessoryEditor`, draft preview via `effectiveGetAccessories`, save publishes `avatar.accessories.v1`.
 - **2026-06-06:** **Avatar accessories Phase 4** — `useAvatarAccessories`, `listAvatarAccessories`/`patchAvatarAccessories` API helpers, `avatar.accessories.v1` LiveKit publish/subscribe, session `avatarAccessories` bootstrap, `RoomView3D` → `BlockyAvatar` wiring.
