@@ -9,6 +9,8 @@ import type { AvatarAppearance, AvatarEquippedAccessories, AvatarReactionSlug, P
 import type { ParticipantView } from "./RoomClient";
 import { CLIENT_TUNING } from "../lib/config";
 import { AvatarAccessoryLayer } from "./AvatarAccessoryLayer";
+import { BUILTIN_AVATAR_ACCESSORY_CATALOG } from "../lib/avatarAccessoryCatalog";
+import { applyHairSuppression } from "./avatarHairSuppression";
 
 const REACTION_EMOJI: Record<AvatarReactionSlug, string> = {
   "thumbs-up": "👍",
@@ -54,6 +56,18 @@ function AvatarModel({
   const { scene, animations } = useGLTF(AVATAR_URL);
   const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
   const { actions } = useAnimations(animations, model);
+
+  const equippedHeadEntry = useMemo(() => {
+    const slug = accessories.head;
+    if (!slug) return undefined;
+    return BUILTIN_AVATAR_ACCESSORY_CATALOG.find((entry) => entry.slug === slug);
+  }, [accessories.head]);
+
+  // Collapse hair volume bones (e.g. head_end) while a head accessory is equipped.
+  useEffect(() => {
+    if (!showAccessories || !equippedHeadEntry) return;
+    return applyHairSuppression(model, [equippedHeadEntry]);
+  }, [model, showAccessories, equippedHeadEntry]);
 
   // Cross-fade to the desired clip whenever the movement state changes.
   useEffect(() => {

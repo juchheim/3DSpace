@@ -7,6 +7,7 @@ import type { AvatarAccessoryCatalogEntry } from "@3dspace/contracts";
 import { Group } from "three";
 import { SkeletonUtils } from "three-stdlib";
 import { AvatarAccessoryLayer } from "../../components/AvatarAccessoryLayer";
+import { applyHairSuppression } from "../../components/avatarHairSuppression";
 import { BUILTIN_AVATAR_ACCESSORY_CATALOG } from "../../lib/avatarAccessoryCatalog";
 
 const AVATAR_URL = "/avatars/azure-vanguard.glb";
@@ -35,6 +36,8 @@ function AvatarAccessoryPreview({ entry }: { entry: AvatarAccessoryCatalogEntry 
       action.fadeOut(0.2);
     };
   }, [actions]);
+
+  useEffect(() => applyHairSuppression(model, [entry]), [model, entry]);
 
   return (
     <group ref={groupRef} position={[0, 0, 0]}>

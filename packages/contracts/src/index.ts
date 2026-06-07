@@ -240,7 +240,16 @@ export const AvatarAccessoryCatalogEntrySchema = z.object({
   /** Meters represented by one unit of the target skeleton bone's local space (Mixamo/Azure Vanguard ≈ 0.01). */
   boneSpaceMetersPerUnit: z.number().positive().optional(),
   nativeGroundY: z.number().optional(),
-  thumbnailUrl: z.string().optional()
+  thumbnailUrl: z.string().optional(),
+  /** Scale selected skeleton bones toward zero while equipped (e.g. collapse head_end hair volume under a hat). */
+  hairSuppressionBones: z
+    .array(
+      z.object({
+        bone: z.string().min(1),
+        scale: z.number().min(0).max(1)
+      })
+    )
+    .optional()
 });
 
 export const AvatarEquippedAccessoriesSchema = z
