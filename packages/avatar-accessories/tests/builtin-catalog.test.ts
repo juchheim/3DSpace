@@ -33,9 +33,10 @@ describe("avatar accessories builtin catalog", () => {
     const items = getBuiltinAvatarAccessoryCatalog();
     expect(items).toHaveLength(1);
     expect(items[0]?.slug).toBe("bowler-hat");
-    expect(items[0]?.localPosition).toEqual({ x: 0, y: 0.22, z: 0.03 });
-    expect(items[0]?.localScale).toBe(2.5);
+    expect(items[0]?.localPosition).toEqual({ x: 0, y: 0.165, z: -0.06 });
+    expect(items[0]?.localScale).toBe(2.85);
     expect(items[0]?.boneSpaceMetersPerUnit).toBe(0.01);
+    expect(items[0]?.hairSuppressionBones).toEqual([{ bone: "head_end", scale: 0.04 }]);
   });
 
   it("default equipped accessories parse as head: null", () => {
