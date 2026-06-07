@@ -1718,14 +1718,16 @@ export const UploadMeetingNotesAudioChunkResponseSchema = z.object({
 export const RoomAiHostDisplayNameSchema = z.string().min(3).max(24);
 
 /**
- * Which 3D avatar represents the World Host. Defaults to "model-lp" — the
- * red-and-steel utility mech GLB. "sprocket-bot" is the high-detail steampunk
- * GLB host; "retro-robot" is the original procedural robot. Hosts created before
- * this field existed parse as the default ("model-lp").
+ * Which 3D avatar represents the World Host. Defaults to "simple-bot" — the
+ * lightweight textured robot GLB (~7 MB, ~10k tris). "meshy-lp-robot" is the
+ * high-detail Meshy LP export; "model-lp" is the procedural red-and-steel utility
+ * mech; "sprocket-bot" is the steampunk GLB host; "retro-robot" is the original
+ * procedural robot. Hosts created before this field existed parse as the default
+ * ("simple-bot").
  */
 export const RoomAiHostAvatarSchema = z
-  .enum(["model-lp", "retro-robot", "sprocket-bot"])
-  .default("model-lp");
+  .enum(["simple-bot", "meshy-lp-robot", "model-lp", "retro-robot", "sprocket-bot"])
+  .default("simple-bot");
 
 export const RoomAiHostSchema = z.object({
   id: z.string().min(1),

@@ -1,5 +1,28 @@
 # World Host avatar assets
 
+## `simple-bot.glb`
+
+- Lightweight textured robot — the **default** World Host avatar.
+- **Origin:** `GLBs/simple-bot.glb` (Meshy export, textures optimized by
+  `scripts/optimize-simple-bot-glb.mjs`: base color PNG → JPEG q85, normal kept
+  as PNG).
+- **Format:** glTF 2.0 binary, ~9.6k triangles, ~6.8 MB. Model is centered on
+  the origin (feet at y ≈ -0.956); `SimpleBotHostAvatar` passes `nativeGroundY`.
+  No procedural eye-glow nodes.
+- **License:** follow Meshy AI terms for the source export; committed copy is for
+  3DSpace World Host use only.
+
+## `meshy-lp-robot.glb`
+
+- High-detail textured LP robot from Meshy AI (selectable host avatar).
+- **Origin:** `GLBs/Meshy_AI_Model_LP_Robot_0607002057_texture.glb` (Meshy AI export).
+- **Format:** glTF 2.0 binary, ~414k triangles, ~16 MB. Model is centered on the
+  origin (feet at y ≈ -0.951); `MeshyLpRobotHostAvatar` passes `nativeGroundY` so
+  the feet sit on the floor. No procedural eye-glow nodes — idle/thinking/speaking
+  animations use the shared bob + sway only.
+- **License:** follow Meshy AI terms for the source export; committed copy is for
+  3DSpace World Host use only.
+
 ## `sprocket-bot.glb`
 
 - A high-definition stylized steampunk robot used as a selectable World Host

@@ -21,7 +21,8 @@
     "build:host-glb": "node scripts/build-sprocket-bot-glb.mjs",
     "render:host-glb": "node scripts/render-sprocket-bot.mjs",
     "build:host-glb-modellp": "node scripts/build-model-lp-glb.mjs",
-    "render:host-glb-modellp": "node scripts/render-model-lp.mjs"
+    "render:host-glb-modellp": "node scripts/render-model-lp.mjs",
+    "optimize:simple-bot-glb": "node scripts/optimize-simple-bot-glb.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.44.1",

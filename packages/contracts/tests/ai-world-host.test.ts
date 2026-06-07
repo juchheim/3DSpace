@@ -76,8 +76,8 @@ describe("AI World Host (contracts)", () => {
       updatedAt: now
     });
     expect(host.displayName).toBe("Chip");
-    // Hosts created before the avatar field default to the MODEL-LP mech.
-    expect(host.avatar).toBe("model-lp");
+    // Hosts created before the avatar field default to Simple Bot.
+    expect(host.avatar).toBe("simple-bot");
 
     const sprocket = RoomAiHostSchema.parse({
       id: "host-2",

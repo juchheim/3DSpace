@@ -50,6 +50,8 @@ import { BlockyAvatar } from "./BlockyAvatar";
 import { RetroRobotHostAvatar, type RetroRobotHostAvatarProps } from "./RetroRobotHostAvatar";
 import { SprocketBotHostAvatar } from "./SprocketBotHostAvatar";
 import { ModelLpHostAvatar } from "./ModelLpHostAvatar";
+import { MeshyLpRobotHostAvatar } from "./MeshyLpRobotHostAvatar";
+import { SimpleBotHostAvatar } from "./SimpleBotHostAvatar";
 import { useAiWorldHostScene, type AiWorldHostSceneConfig } from "../lib/useAiWorldHost";
 import { RoomObjectsLayer } from "./RoomObjectsLayer";
 import { BuildPlacementController } from "./BuildPlacementController";
@@ -644,6 +646,20 @@ export function RoomView3D({
  */
 /** Picks the avatar component for a host variant. Suspends while a GLB loads. */
 function HostAvatar({ avatar, ...props }: RetroRobotHostAvatarProps & { avatar: RoomAiHost["avatar"] }) {
+  if (avatar === "simple-bot") {
+    return (
+      <Suspense fallback={null}>
+        <SimpleBotHostAvatar {...props} />
+      </Suspense>
+    );
+  }
+  if (avatar === "meshy-lp-robot") {
+    return (
+      <Suspense fallback={null}>
+        <MeshyLpRobotHostAvatar {...props} />
+      </Suspense>
+    );
+  }
   if (avatar === "model-lp") {
     return (
       <Suspense fallback={null}>

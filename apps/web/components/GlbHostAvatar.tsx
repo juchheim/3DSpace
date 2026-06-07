@@ -29,6 +29,8 @@ export interface GlbHostAvatarProps extends RetroRobotHostAvatarProps {
   url: string;
   /** Native model height (feet → top) in metres, used to scale to TARGET_HEIGHT. */
   nativeHeight: number;
+  /** Y coordinate in the GLB where the feet meet the floor (default 0). */
+  nativeGroundY?: number;
 }
 
 const TARGET_HEIGHT = 2.0;
@@ -48,6 +50,7 @@ const TARGET_HEIGHT = 2.0;
 export function GlbHostAvatar({
   url,
   nativeHeight,
+  nativeGroundY = 0,
   position,
   rotationY,
   displayName,
@@ -60,6 +63,7 @@ export function GlbHostAvatar({
 }: GlbHostAvatarProps) {
   const { scene } = useGLTF(url);
   const modelScale = TARGET_HEIGHT / nativeHeight;
+  const groundYOffset = -nativeGroundY * modelScale;
 
   // Clone the model + its materials for this instance.
   const model = useMemo(() => {
@@ -175,7 +179,7 @@ export function GlbHostAvatar({
 
   return (
     <group position={[position.x, position.y, position.z]} rotation={[0, rotationY, 0]} scale={scale}>
-      <group ref={bobRef} scale={modelScale} {...interactionHandlers}>
+      <group ref={bobRef} position={[0, groundYOffset, 0]} scale={modelScale} {...interactionHandlers}>
         <primitive object={model} />
       </group>
 
