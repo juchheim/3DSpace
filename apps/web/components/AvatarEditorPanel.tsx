@@ -226,7 +226,7 @@ export function AvatarEditorPanel({
                       zoneKey={key}
                       label={ZONE_LABELS[key]}
                       value={appearanceEditor.draft[key]}
-                      {...(locked ? {} : { onChange: appearanceEditor.setZone })}
+                      {...(locked ? {} : { onChange: appearanceEditor.setZone, onClear: appearanceEditor.clearZone })}
                     />
                   ))}
                 </div>
@@ -305,29 +305,53 @@ function ZoneRow({
   zoneKey,
   label,
   value,
-  onChange
+  onChange,
+  onClear
 }: {
   zoneKey: keyof AvatarAppearance;
   label: string;
-  value: string;
+  value: string | null;
   onChange?: (key: keyof AvatarAppearance, color: string) => void;
+  onClear?: (key: keyof AvatarAppearance) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="avatar-editor__zone-row">
       <span className="avatar-editor__zone-label">{label}</span>
-      <button
-        className="avatar-editor__swatch"
-        style={{ background: value }}
-        onClick={() => inputRef.current?.click()}
-        aria-label={`Pick color for ${label}`}
-        disabled={!onChange}
-      />
+      {value === null ? (
+        <button
+          className="avatar-editor__swatch avatar-editor__swatch--unset"
+          onClick={() => inputRef.current?.click()}
+          aria-label={`Pick color for ${label}`}
+          disabled={!onChange}
+        >
+          <span style={{ color: "#a4b4ca", fontSize: "0.9em" }}>—</span>
+        </button>
+      ) : (
+        <>
+          <button
+            className="avatar-editor__swatch"
+            style={{ background: value }}
+            onClick={() => inputRef.current?.click()}
+            aria-label={`Pick color for ${label}`}
+            disabled={!onChange}
+          />
+          {onClear ? (
+            <button
+              className="avatar-editor__swatch-clear"
+              onClick={() => onClear(zoneKey)}
+              aria-label={`Clear color for ${label}`}
+            >
+              ×
+            </button>
+          ) : null}
+        </>
+      )}
       <input
         ref={inputRef}
         type="color"
-        value={value}
+        value={value ?? "#ffffff"}
         onChange={onChange ? (e) => onChange(zoneKey, e.target.value) : undefined}
         readOnly={!onChange}
         style={{ position: "absolute", opacity: 0, pointerEvents: "none", width: 0, height: 0 }}

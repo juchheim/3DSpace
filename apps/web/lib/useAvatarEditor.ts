@@ -12,6 +12,10 @@ export function useAvatarEditor(savedAppearance: AvatarAppearance) {
     setDraft(prev => ({ ...prev, [key]: color }));
   }
 
+  function clearZone(key: keyof AvatarAppearance) {
+    setDraft(prev => ({ ...prev, [key]: null }));
+  }
+
   function resetDraft() {
     setDraft(savedAppearance);
     setSaveError("");
@@ -31,5 +35,5 @@ export function useAvatarEditor(savedAppearance: AvatarAppearance) {
     }
   }
 
-  return { draft, dirty, saving, saveError, setZone, resetDraft, save };
+  return { draft, dirty, saving, saveError, setZone, clearZone, resetDraft, save };
 }

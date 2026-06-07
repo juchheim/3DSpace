@@ -1,5 +1,4 @@
 import type { AvatarAppearance } from "@3dspace/contracts";
-import { DEFAULT_APPEARANCE } from "./avatarAppearance";
 
 export const AVATAR_ZONE_COUNT = 24;
 
@@ -111,20 +110,25 @@ export function hexToLinearRgb(hex: string): [number, number, number] {
 export function appearanceToZoneColorArray(appearance: AvatarAppearance): Float32Array {
   const out = new Float32Array(AVATAR_ZONE_COUNT * 3);
   for (const [key, id] of Object.entries(AVATAR_ZONE_BY_KEY) as Array<[keyof AvatarAppearance, AvatarZoneId]>) {
-    const [r, g, b] = hexToLinearRgb(appearance[key]);
     const offset = id * 3;
-    out[offset] = r;
-    out[offset + 1] = g;
-    out[offset + 2] = b;
+    if (appearance[key] === null || appearance[key] === undefined) {
+      // Sentinel -1 tells the shader to skip tinting for this zone
+      out[offset] = -1;
+      out[offset + 1] = -1;
+      out[offset + 2] = -1;
+    } else {
+      const [r, g, b] = hexToLinearRgb(appearance[key]);
+      out[offset] = r;
+      out[offset + 1] = g;
+      out[offset + 2] = b;
+    }
   }
   return out;
 }
 
 export function appearanceEqualsDefault(appearance: AvatarAppearance): boolean {
-  for (const key of Object.keys(DEFAULT_APPEARANCE) as Array<keyof AvatarAppearance>) {
-    if (normalizeHex(appearance[key]) !== normalizeHex(DEFAULT_APPEARANCE[key])) {
-      return false;
-    }
+  for (const key of Object.keys(appearance) as Array<keyof AvatarAppearance>) {
+    if (appearance[key] !== null && appearance[key] !== undefined) return false;
   }
   return true;
 }

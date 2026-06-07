@@ -1,6 +1,8 @@
 import type { AvatarAppearance } from "@3dspace/contracts";
 
-export const DEFAULT_APPEARANCE: AvatarAppearance = {
+// Hint colors shown in the picker before a zone is explicitly set.
+// Not saved — null zones use the original baked JPG texture.
+export const AVATAR_HINT_COLORS: Record<keyof AvatarAppearance, string> = {
   hairTop:     "#2a1a0e",
   hairFront:   "#2a1a0e",
   headSide:    "#2a1a0e",
@@ -24,4 +26,31 @@ export const DEFAULT_APPEARANCE: AvatarAppearance = {
   shoeToe:     "#1a1a1a",
   shoeSide:    "#1a1a1a",
   shoeSole:    "#111111",
+};
+
+// All-null = "no custom colors, use original JPG everywhere".
+export const DEFAULT_APPEARANCE: AvatarAppearance = {
+  hairTop:     null,
+  hairFront:   null,
+  headSide:    null,
+  hairBack:    null,
+  faceSkin:    null,
+  faceAccent:  null,
+  collar:      null,
+  shirtFront:  null,
+  shirtBelly:  null,
+  shirtBack:   null,
+  shirtSide:   null,
+  shoulderTop: null,
+  shoulderCap: null,
+  sleeve:      null,
+  hand:        null,
+  thigh:       null,
+  shin:        null,
+  legSide:     null,
+  legBack:     null,
+  shoeTop:     null,
+  shoeToe:     null,
+  shoeSide:    null,
+  shoeSole:    null,
 };

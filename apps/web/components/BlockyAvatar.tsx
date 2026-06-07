@@ -10,8 +10,6 @@ import {
   MeshStandardMaterial,
   NearestFilter,
   NoColorSpace,
-  RepeatWrapping,
-  SRGBColorSpace,
   type Group,
   type Object3D,
   type SkinnedMesh,
@@ -49,7 +47,6 @@ const REACTION_EMOJI: Record<AvatarReactionSlug, string> = {
 // to TARGET_HEIGHT — no vertical offset needed. It faces +Z, which is the app's
 // forward axis, so no rotation correction is applied.
 const AVATAR_URL    = "/avatars/azure-vanguard.glb";
-const AVATAR_NEUTRAL_ALBEDO_URL = "/avatars/azure-vanguard-albedo-neutral.jpg";
 const AVATAR_ZONE_MASK_URL = "/avatars/azure-vanguard-zone-mask.png";
 const NATIVE_HEIGHT = 1.69;
 const TARGET_HEIGHT = 1.7;
@@ -60,7 +57,6 @@ const CLIP = { idle: "Idle_12", walking: "Walking", running: "Running" } as cons
 type ClipName = (typeof CLIP)[keyof typeof CLIP];
 
 useGLTF.preload(AVATAR_URL);
-useTexture.preload(AVATAR_NEUTRAL_ALBEDO_URL);
 useTexture.preload(AVATAR_ZONE_MASK_URL);
 
 function isSkinnedMesh(object: Object3D): object is SkinnedMesh {
@@ -68,12 +64,6 @@ function isSkinnedMesh(object: Object3D): object is SkinnedMesh {
 }
 
 function configureRecolorTextures(textures: AvatarRecolorTextures) {
-  // neutralAlbedo: standard sRGB photo — GPU gamma-decodes on sample (correct).
-  textures.neutralAlbedo.colorSpace = SRGBColorSpace;
-  textures.neutralAlbedo.flipY = false;
-  textures.neutralAlbedo.wrapS = RepeatWrapping;
-  textures.neutralAlbedo.wrapT = RepeatWrapping;
-
   // zoneMask: raw integer IDs 0-23 encoded in the R channel as byte values.
   // MUST be NoColorSpace — sRGB gamma-decoding would corrupt the zone IDs
   // (zone 8 stored as 8/255 would decode to ~47, falling outside 0-23 → no tint).
@@ -84,7 +74,6 @@ function configureRecolorTextures(textures: AvatarRecolorTextures) {
   textures.zoneMask.magFilter = NearestFilter;
   textures.zoneMask.minFilter = NearestFilter;
   textures.zoneMask.generateMipmaps = false;
-  textures.neutralAlbedo.needsUpdate = true;
   textures.zoneMask.needsUpdate = true;
 }
 
@@ -118,13 +107,10 @@ function AvatarModel({
   showAccessories: boolean;
 }) {
   const { scene, animations } = useGLTF(AVATAR_URL);
-  const [neutralAlbedo, zoneMask] = useTexture([
-    AVATAR_NEUTRAL_ALBEDO_URL,
-    AVATAR_ZONE_MASK_URL
-  ]) as [Texture, Texture];
+  const zoneMask = useTexture(AVATAR_ZONE_MASK_URL) as Texture;
   const recolorTextures = useMemo<AvatarRecolorTextures>(
-    () => ({ neutralAlbedo, zoneMask }),
-    [neutralAlbedo, zoneMask]
+    () => ({ zoneMask }),
+    [zoneMask]
   );
   // Configure texture settings once (not in the render body — setting texture
   // properties marks them needsUpdate every frame, causing a constant loop).
@@ -212,12 +198,6 @@ function AvatarModel({
     model.traverse((object) => {
       if (!isSkinnedMesh(object)) return;
       const material = object.material as AvatarRecolorManagedMaterial;
-      const nextMap = recolorActive ? recolorTextures.neutralAlbedo : (material.userData.avatarBakedMap ?? null);
-      if (material.map !== nextMap) {
-        // Map swap requires program recompilation (USE_MAP define may change).
-        material.map = nextMap;
-        material.needsUpdate = true;
-      }
       const nextEmissiveMap = recolorActive ? null : (material.userData.avatarBakedEmissiveMap ?? null);
       if (material.emissiveMap !== nextEmissiveMap) {
         material.emissiveMap = nextEmissiveMap;

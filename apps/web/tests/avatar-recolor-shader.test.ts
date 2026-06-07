@@ -10,7 +10,7 @@ import {
 describe("avatar recolor shader", () => {
   it("patches the material fragment shader once", () => {
     const material = new MeshStandardMaterial();
-    const textures = { neutralAlbedo: new Texture(), zoneMask: new Texture() };
+    const textures = { zoneMask: new Texture() };
     applyAvatarRecolorShader(material, textures);
     applyAvatarRecolorShader(material, textures);
 
@@ -28,13 +28,14 @@ describe("avatar recolor shader", () => {
 
     expect(shader.fragmentShader.match(/uniform sampler2D zoneMask/g)?.length ?? 0).toBe(1);
     expect(shader.fragmentShader.match(/float avatarZoneId =/g)?.length ?? 0).toBe(1);
-    expect(shader.fragmentShader).toContain("else if (avatarZone == 14) { avatarTint = zoneColors[14]; }");
-    expect(shader.fragmentShader).toContain("diffuseColor.rgb = mix(diffuseColor.rgb, avatarTint, tintStrength);");
+    expect(shader.fragmentShader).toContain("else if (avatarZone == 14) { avatarZoneColor = zoneColors[14]; }");
+    expect(shader.fragmentShader).toContain("if (avatarZoneColor.r >= 0.0) {");
+    expect(shader.fragmentShader).toContain("diffuseColor.rgb = mix(diffuseColor.rgb, avatarZoneColor, tintStrength);");
   });
 
   it("stores and syncs the zone-color uniform payload", () => {
     const material = new MeshStandardMaterial();
-    const textures = { neutralAlbedo: new Texture(), zoneMask: new Texture() };
+    const textures = { zoneMask: new Texture() };
     applyAvatarRecolorShader(material, textures);
 
     const shader = {

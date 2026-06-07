@@ -11,14 +11,12 @@ import {
   MeshStandardMaterial,
   NearestFilter,
   NoColorSpace,
-  RepeatWrapping,
-  SRGBColorSpace,
   type Object3D,
   type SkinnedMesh,
   type Texture
 } from "three";
 import { SkeletonUtils } from "three-stdlib";
-import { DEFAULT_APPEARANCE } from "../../lib/avatarAppearance";
+import { DEFAULT_APPEARANCE, AVATAR_HINT_COLORS } from "../../lib/avatarAppearance";
 import {
   applyAvatarRecolorShader,
   updateAvatarRecolorColors,
@@ -28,7 +26,6 @@ import {
 import { ZONE_GROUPS, ZONE_LABELS } from "../../lib/avatarMaterials";
 
 const AVATAR_URL = "/avatars/azure-vanguard.glb";
-const NEUTRAL_ALBEDO_URL = "/avatars/azure-vanguard-albedo-neutral.jpg";
 const ZONE_MASK_URL = "/avatars/azure-vanguard-zone-mask.png";
 const UV_REFERENCE_URL = "/avatars/azure-vanguard-uv-reference.png";
 const NATIVE_HEIGHT = 1.69;
@@ -43,7 +40,6 @@ const CLIPS = {
 type ClipKey = keyof typeof CLIPS;
 
 useGLTF.preload(AVATAR_URL);
-useTexture.preload(NEUTRAL_ALBEDO_URL);
 useTexture.preload(ZONE_MASK_URL);
 
 function isSkinnedMesh(object: Object3D): object is SkinnedMesh {
@@ -51,10 +47,6 @@ function isSkinnedMesh(object: Object3D): object is SkinnedMesh {
 }
 
 function configureRecolorTextures(textures: AvatarRecolorTextures) {
-  textures.neutralAlbedo.colorSpace = SRGBColorSpace;
-  textures.neutralAlbedo.flipY = false;
-  textures.neutralAlbedo.wrapS = RepeatWrapping;
-  textures.neutralAlbedo.wrapT = RepeatWrapping;
   textures.zoneMask.colorSpace = NoColorSpace;
   textures.zoneMask.flipY = false;
   textures.zoneMask.wrapS = ClampToEdgeWrapping;
@@ -62,7 +54,6 @@ function configureRecolorTextures(textures: AvatarRecolorTextures) {
   textures.zoneMask.magFilter = NearestFilter;
   textures.zoneMask.minFilter = NearestFilter;
   textures.zoneMask.generateMipmaps = false;
-  textures.neutralAlbedo.needsUpdate = true;
   textures.zoneMask.needsUpdate = true;
 }
 
@@ -131,19 +122,17 @@ function AvatarRecolorPreview({
   appearance,
   clip,
   showMaskOverlay,
-  tintStrength,
-  useOriginalAlbedo
+  tintStrength
 }: {
   appearance: AvatarAppearance;
   clip: ClipKey;
   showMaskOverlay: boolean;
   tintStrength: number;
-  useOriginalAlbedo: boolean;
 }) {
   const { scene, animations } = useGLTF(AVATAR_URL);
-  const [neutralAlbedo, zoneMask] = useTexture([NEUTRAL_ALBEDO_URL, ZONE_MASK_URL]) as [Texture, Texture];
+  const zoneMask = useTexture(ZONE_MASK_URL) as Texture;
   const maskPreviewTexture = useMemo(() => buildMaskPreviewTexture(zoneMask), [zoneMask]);
-  const recolorTextures = useMemo<AvatarRecolorTextures>(() => ({ neutralAlbedo, zoneMask }), [neutralAlbedo, zoneMask]);
+  const recolorTextures = useMemo<AvatarRecolorTextures>(() => ({ zoneMask }), [zoneMask]);
   configureRecolorTextures(recolorTextures);
 
   const model = useMemo(() => {
@@ -166,17 +155,16 @@ function AvatarRecolorPreview({
         return;
       }
 
-      const albedo = useOriginalAlbedo ? (sourceMaterial.map ?? neutralAlbedo) : neutralAlbedo;
       material.emissiveMap = null;
       material.emissive.setRGB(0, 0, 0);
       material.metalness = 0;
       material.roughness = 0.72;
-      applyAvatarRecolorShader(material, { neutralAlbedo: albedo, zoneMask });
+      applyAvatarRecolorShader(material, { zoneMask });
       updateAvatarRecolorColors(material, appearance);
       updateAvatarRecolorTintStrength(material, tintStrength);
     });
     return root;
-  }, [appearance, maskPreviewTexture, neutralAlbedo, scene, showMaskOverlay, tintStrength, useOriginalAlbedo, zoneMask]);
+  }, [appearance, maskPreviewTexture, scene, showMaskOverlay, tintStrength, zoneMask]);
   const { actions } = useAnimations(animations, model);
 
   useEffect(
@@ -215,7 +203,6 @@ export function AvatarRecolorHarness() {
   const [appearance, setAppearance] = useState<AvatarAppearance>(DEFAULT_APPEARANCE);
   const [clip, setClip] = useState<ClipKey>("idle");
   const [showMaskOverlay, setShowMaskOverlay] = useState(false);
-  const [useOriginalAlbedo, setUseOriginalAlbedo] = useState(false);
   const [tintStrength, setTintStrength] = useState(1);
 
   const exportJson = useMemo(() => JSON.stringify(appearance, null, 2), [appearance]);
@@ -243,7 +230,7 @@ export function AvatarRecolorHarness() {
         <div style={{ display: "grid", gap: "0.4rem" }}>
           <h1 style={{ margin: 0, fontSize: "1.1rem" }}>Avatar recolor harness</h1>
           <p style={{ margin: 0, color: "#a4b4ca", fontSize: "0.88rem", lineHeight: 1.45 }}>
-            Azure Vanguard recolor preview with the shipped zone mask and neutral albedo.
+            Azure Vanguard recolor preview with the shipped zone mask and original baked albedo.
           </p>
         </div>
 
@@ -265,11 +252,6 @@ export function AvatarRecolorHarness() {
           <label style={{ display: "flex", gap: "0.5rem", alignItems: "center", fontSize: "0.88rem" }}>
             <input type="checkbox" checked={showMaskOverlay} onChange={(event) => setShowMaskOverlay(event.target.checked)} />
             Show zone mask overlay
-          </label>
-
-          <label style={{ display: "flex", gap: "0.5rem", alignItems: "center", fontSize: "0.88rem" }}>
-            <input type="checkbox" checked={useOriginalAlbedo} onChange={(event) => setUseOriginalAlbedo(event.target.checked)} />
-            Use original baked albedo
           </label>
 
           <button
@@ -297,7 +279,7 @@ export function AvatarRecolorHarness() {
                 <span>{ZONE_LABELS[key]}</span>
                 <input
                   type="color"
-                  value={appearance[key]}
+                  value={appearance[key] ?? AVATAR_HINT_COLORS[key]}
                   onChange={(event) => setAppearance((prev) => ({ ...prev, [key]: event.target.value }))}
                 />
               </label>
@@ -345,7 +327,6 @@ export function AvatarRecolorHarness() {
                 clip={clip}
                 showMaskOverlay={showMaskOverlay}
                 tintStrength={tintStrength}
-                useOriginalAlbedo={useOriginalAlbedo}
               />
             </group>
           </Suspense>

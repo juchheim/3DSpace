@@ -5,7 +5,6 @@ import type { AvatarAppearance } from "@3dspace/contracts";
 import { appearanceToZoneColorArray, AVATAR_ZONE_COUNT } from "./avatarZoneRegistry";
 
 export type AvatarRecolorTextures = {
-  neutralAlbedo: Texture;
   zoneMask: Texture;
 };
 
@@ -45,9 +44,13 @@ function syncUniformColors(material: AvatarRecolorMaterial) {
 function buildZoneColorLookupShader() {
   const branches: string[] = [];
   for (let zoneId = 1; zoneId < AVATAR_ZONE_COUNT; zoneId += 1) {
-    branches.push(`${zoneId === 1 ? "if" : "else if"} (avatarZone == ${zoneId}) { avatarTint = zoneColors[${zoneId}]; }`);
+    branches.push(`${zoneId === 1 ? "if" : "else if"} (avatarZone == ${zoneId}) { avatarZoneColor = zoneColors[${zoneId}]; }`);
   }
-  return branches.join("\n    ");
+  return `vec3 avatarZoneColor = vec3(-1.0);
+    ${branches.join("\n    ")}
+    if (avatarZoneColor.r >= 0.0) {
+        diffuseColor.rgb = mix(diffuseColor.rgb, avatarZoneColor, tintStrength);
+    }`;
 }
 
 export function applyAvatarRecolorShader(
@@ -55,7 +58,6 @@ export function applyAvatarRecolorShader(
   textures: AvatarRecolorTextures
 ): void {
   const target = material as AvatarRecolorMaterial;
-  target.map = textures.neutralAlbedo;
   target.userData.avatarRecolorColors ??= new Float32Array(AVATAR_ZONE_COUNT * 3);
   target.userData.avatarRecolorTintStrength ??= 1;
 
@@ -87,9 +89,7 @@ uniform float tintStrength;`
   float avatarZoneId = texture2D(zoneMask, vMapUv).r * 255.0;
   int avatarZone = int(avatarZoneId + 0.5);
   if (avatarZone > 0 && avatarZone < ${AVATAR_ZONE_COUNT}) {
-    vec3 avatarTint = diffuseColor.rgb;
     ${buildZoneColorLookupShader()}
-    diffuseColor.rgb = mix(diffuseColor.rgb, avatarTint, tintStrength);
   }
 #endif`
     );

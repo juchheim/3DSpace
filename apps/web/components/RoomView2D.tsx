@@ -485,7 +485,7 @@ export function RoomView2D({
                 ? participants.find((participant) => participant.id === holderId)
                 : undefined;
               const grabHolderColor = holderParticipant && getAppearance
-                ? getAppearance(holderParticipant.id).shirtFront
+                ? (getAppearance(holderParticipant.id).shirtFront ?? "#f4b63f")
                 : "#f4b63f";
 
               return (
