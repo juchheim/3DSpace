@@ -5,7 +5,7 @@
     "slot": "head",
     "glbUrl": "/avatar-accessories/bowler-hat.glb",
     "attachBone": "Head",
-    "localPosition": { "x": 0, "y": 0.165, "z": -0.06 },
+    "localPosition": { "x": 0, "y": 0.145, "z": -0.06 },
     "localRotation": { "x": 0, "y": 0, "z": 0 },
     "localScale": 2.85,
     "boneSpaceMetersPerUnit": 0.01,
