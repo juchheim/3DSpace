@@ -1,9 +1,22 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import type { AvatarAccessoryCatalogEntry } from "@3dspace/contracts";
-import { Group, type Mesh, type MeshStandardMaterial, type Object3D, type SkinnedMesh } from "three";
+import {
+  Euler,
+  Group,
+  Matrix4,
+  Quaternion,
+  Vector3,
+  type Mesh,
+  type MeshStandardMaterial,
+  type Object3D,
+  type SkinnedMesh
+} from "three";
+
+const ACCESSORY_RENDER_ORDER = 50;
 
 function isMesh(object: Object3D): object is Mesh {
   return (object as Mesh).isMesh === true;
@@ -36,19 +49,32 @@ export type AvatarAccessoryGlbProps = {
 };
 
 /**
- * Bone-attached accessory GLB. Parents an imperatively mounted group on the
- * target skeleton bone so the prop follows idle/walk/run clips automatically.
+ * Bone-attached accessory GLB. Each frame, copies the target bone's world matrix
+ * (with catalog offset) onto an R3F-managed group so the prop follows animation
+ * and is not dropped by React reconciliation on the avatar primitive.
  */
 export function AvatarAccessoryGlb({ entry, bone }: AvatarAccessoryGlbProps) {
   const { scene } = useGLTF(entry.glbUrl);
+  const mountRef = useRef<Group>(null);
+  const offsetMatrix = useMemo(() => new Matrix4(), []);
+  const worldMatrix = useMemo(() => new Matrix4(), []);
+  const localPosition = useMemo(() => new Vector3(), []);
+  const localQuaternion = useMemo(() => new Quaternion(), []);
+  const localScale = useMemo(() => new Vector3(), []);
 
   const model = useMemo(() => {
     const root = scene.clone(true);
     root.traverse((object) => {
       if (!isMesh(object)) return;
       object.castShadow = true;
+      object.renderOrder = ACCESSORY_RENDER_ORDER;
       const material = object.material as MeshStandardMaterial;
-      object.material = material.clone();
+      const cloned = material.clone();
+      cloned.depthWrite = true;
+      cloned.polygonOffset = true;
+      cloned.polygonOffsetFactor = -2;
+      cloned.polygonOffsetUnits = -2;
+      object.material = cloned;
     });
     return root;
   }, [scene]);
@@ -67,20 +93,25 @@ export function AvatarAccessoryGlb({ entry, bone }: AvatarAccessoryGlbProps) {
   const scale = entry.localScale;
   const groundY = entry.nativeGroundY ?? 0;
   const boneSpaceScale = entry.boneSpaceMetersPerUnit ? 1 / entry.boneSpaceMetersPerUnit : 1;
+  const offsetY = py * boneSpaceScale + (groundY ? -groundY * boneSpaceScale : 0);
+  const mountScale = scale * boneSpaceScale;
 
-  useLayoutEffect(() => {
-    const mount = new Group();
-    mount.frustumCulled = false;
-    mount.position.set(px * boneSpaceScale, py * boneSpaceScale + (groundY ? -groundY * boneSpaceScale : 0), pz * boneSpaceScale);
-    mount.rotation.set(rx, ry, rz);
-    mount.scale.setScalar(scale * boneSpaceScale);
-    mount.add(model);
-    bone.add(mount);
-    return () => {
-      bone.remove(mount);
-      mount.remove(model);
-    };
-  }, [bone, model, px, py, pz, rx, ry, rz, scale, groundY, boneSpaceScale]);
+  useFrame(() => {
+    const mount = mountRef.current;
+    if (!mount) return;
 
-  return null;
-}
+    bone.updateWorldMatrix(true, false);
+    localPosition.set(px * boneSpaceScale, offsetY, pz * boneSpaceScale);
+    localQuaternion.setFromEuler(new Euler(rx, ry, rz));
+    localScale.set(mountScale, mountScale, mountScale);
+    offsetMatrix.compose(localPosition, localQuaternion, localScale);
+    worldMatrix.multiplyMatrices(bone.matrixWorld, offsetMatrix);
+    mount.matrix.copy(worldMatrix);
+  });
+
+  return (
+    <group ref={mountRef} matrixAutoUpdate={false} frustumCulled={false}>
+      <primitive object={model} />
+    </group>
+  );
+};
