@@ -114,6 +114,283 @@
         }
       }
     },
+    "/v1/auth/google/start": {
+      "get": {
+        "summary": "Start Google OAuth sign-in",
+        "tags": [
+          "auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/google/callback": {
+      "get": {
+        "summary": "Complete Google OAuth sign-in",
+        "tags": [
+          "auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/session/exchange": {
+      "post": {
+        "summary": "Exchange one-time sign-in code for a session",
+        "tags": [
+          "auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "code"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accessToken": {
+                      "type": "string"
+                    },
+                    "refreshToken": {
+                      "type": "string"
+                    },
+                    "expiresAt": {
+                      "type": "string"
+                    },
+                    "refreshExpiresAt": {
+                      "type": "string"
+                    },
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "displayName": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string",
+                          "format": "email"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "displayName"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "accessToken",
+                    "refreshToken",
+                    "expiresAt",
+                    "refreshExpiresAt",
+                    "user"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/session/refresh": {
+      "post": {
+        "summary": "Rotate refresh token and mint a new access token",
+        "tags": [
+          "auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refreshToken": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "refreshToken"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accessToken": {
+                      "type": "string"
+                    },
+                    "refreshToken": {
+                      "type": "string"
+                    },
+                    "expiresAt": {
+                      "type": "string"
+                    },
+                    "refreshExpiresAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "accessToken",
+                    "refreshToken",
+                    "expiresAt",
+                    "refreshExpiresAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/me": {
+      "get": {
+        "summary": "Get the current authenticated user",
+        "tags": [
+          "auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "displayName": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string",
+                          "format": "email"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "displayName"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "user"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "summary": "Revoke a refresh session",
+        "tags": [
+          "auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refreshToken": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "refreshToken"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/classes": {
       "get": {
         "summary": "List classes visible to the current user",
@@ -807,7 +1084,13 @@
                           "classroom",
                           "workforce-training",
                           "free-for-all",
-                          "escape-room"
+                          "escape-room",
+                          "skill-verse",
+                          "culture-verse",
+                          "creator-verse",
+                          "food-verse",
+                          "mondi-verse",
+                          "work-verse"
                         ],
                         "default": "classroom"
                       },
@@ -1506,7 +1789,13 @@
                       "classroom",
                       "workforce-training",
                       "free-for-all",
-                      "escape-room"
+                      "escape-room",
+                      "skill-verse",
+                      "culture-verse",
+                      "creator-verse",
+                      "food-verse",
+                      "mondi-verse",
+                      "work-verse"
                     ]
                   },
                   "freeForAllPassword": {
@@ -1549,7 +1838,13 @@
                             "classroom",
                             "workforce-training",
                             "free-for-all",
-                            "escape-room"
+                            "escape-room",
+                            "skill-verse",
+                            "culture-verse",
+                            "creator-verse",
+                            "food-verse",
+                            "mondi-verse",
+                            "work-verse"
                           ],
                           "default": "classroom"
                         },
@@ -3431,7 +3726,13 @@
                         "classroom",
                         "workforce-training",
                         "free-for-all",
-                        "escape-room"
+                        "escape-room",
+                        "skill-verse",
+                        "culture-verse",
+                        "creator-verse",
+                        "food-verse",
+                        "mondi-verse",
+                        "work-verse"
                       ],
                       "default": "classroom"
                     },
@@ -4753,7 +5054,13 @@
                             "classroom",
                             "workforce-training",
                             "free-for-all",
-                            "escape-room"
+                            "escape-room",
+                            "skill-verse",
+                            "culture-verse",
+                            "creator-verse",
+                            "food-verse",
+                            "mondi-verse",
+                            "work-verse"
                           ],
                           "default": "classroom"
                         },
@@ -6115,6 +6422,21 @@
                         "shoeSole"
                       ],
                       "additionalProperties": false,
+                      "nullable": true
+                    },
+                    "avatarAccessories": {
+                      "type": "object",
+                      "properties": {
+                        "head": {
+                          "type": "string",
+                          "nullable": true,
+                          "default": null
+                        }
+                      },
+                      "additionalProperties": false,
+                      "default": {
+                        "head": null
+                      },
                       "nullable": true
                     },
                     "tuning": {
@@ -16594,10 +16916,9 @@
                         "avatar": {
                           "type": "string",
                           "enum": [
-                            "retro-robot",
-                            "sprocket-bot"
+                            "lp"
                           ],
-                          "default": "retro-robot"
+                          "default": "lp"
                         },
                         "position": {
                           "type": "object",
@@ -16679,10 +17000,9 @@
                   "avatar": {
                     "type": "string",
                     "enum": [
-                      "retro-robot",
-                      "sprocket-bot"
+                      "lp"
                     ],
-                    "default": "retro-robot"
+                    "default": "lp"
                   },
                   "position": {
                     "type": "object",
@@ -16744,10 +17064,9 @@
                         "avatar": {
                           "type": "string",
                           "enum": [
-                            "retro-robot",
-                            "sprocket-bot"
+                            "lp"
                           ],
-                          "default": "retro-robot"
+                          "default": "lp"
                         },
                         "position": {
                           "type": "object",
@@ -16832,10 +17151,9 @@
                                   "avatar": {
                                     "type": "string",
                                     "enum": [
-                                      "retro-robot",
-                                      "sprocket-bot"
+                                      "lp"
                                     ],
-                                    "default": "retro-robot"
+                                    "default": "lp"
                                   },
                                   "position": {
                                     "type": "object",
@@ -17103,10 +17421,9 @@
                   "avatar": {
                     "type": "string",
                     "enum": [
-                      "retro-robot",
-                      "sprocket-bot"
+                      "lp"
                     ],
-                    "default": "retro-robot"
+                    "default": "lp"
                   },
                   "position": {
                     "type": "object",
@@ -17164,10 +17481,9 @@
                         "avatar": {
                           "type": "string",
                           "enum": [
-                            "retro-robot",
-                            "sprocket-bot"
+                            "lp"
                           ],
-                          "default": "retro-robot"
+                          "default": "lp"
                         },
                         "position": {
                           "type": "object",
@@ -17252,10 +17568,9 @@
                                   "avatar": {
                                     "type": "string",
                                     "enum": [
-                                      "retro-robot",
-                                      "sprocket-bot"
+                                      "lp"
                                     ],
-                                    "default": "retro-robot"
+                                    "default": "lp"
                                   },
                                   "position": {
                                     "type": "object",
@@ -17557,10 +17872,9 @@
                                   "avatar": {
                                     "type": "string",
                                     "enum": [
-                                      "retro-robot",
-                                      "sprocket-bot"
+                                      "lp"
                                     ],
-                                    "default": "retro-robot"
+                                    "default": "lp"
                                   },
                                   "position": {
                                     "type": "object",
@@ -18078,10 +18392,9 @@
                                   "avatar": {
                                     "type": "string",
                                     "enum": [
-                                      "retro-robot",
-                                      "sprocket-bot"
+                                      "lp"
                                     ],
-                                    "default": "retro-robot"
+                                    "default": "lp"
                                   },
                                   "position": {
                                     "type": "object",
@@ -18480,10 +18793,9 @@
                                   "avatar": {
                                     "type": "string",
                                     "enum": [
-                                      "retro-robot",
-                                      "sprocket-bot"
+                                      "lp"
                                     ],
-                                    "default": "retro-robot"
+                                    "default": "lp"
                                   },
                                   "position": {
                                     "type": "object",
@@ -24422,7 +24734,13 @@
                                 "classroom",
                                 "workforce-training",
                                 "free-for-all",
-                                "escape-room"
+                                "escape-room",
+                                "skill-verse",
+                                "culture-verse",
+                                "creator-verse",
+                                "food-verse",
+                                "mondi-verse",
+                                "work-verse"
                               ]
                             },
                             "minItems": 1,
@@ -24790,7 +25108,13 @@
                               "classroom",
                               "workforce-training",
                               "free-for-all",
-                              "escape-room"
+                              "escape-room",
+                              "skill-verse",
+                              "culture-verse",
+                              "creator-verse",
+                              "food-verse",
+                              "mondi-verse",
+                              "work-verse"
                             ]
                           },
                           "minItems": 1,
@@ -25112,7 +25436,13 @@
                           "classroom",
                           "workforce-training",
                           "free-for-all",
-                          "escape-room"
+                          "escape-room",
+                          "skill-verse",
+                          "culture-verse",
+                          "creator-verse",
+                          "food-verse",
+                          "mondi-verse",
+                          "work-verse"
                         ]
                       },
                       "minItems": 1,
@@ -25329,7 +25659,13 @@
                           "classroom",
                           "workforce-training",
                           "free-for-all",
-                          "escape-room"
+                          "escape-room",
+                          "skill-verse",
+                          "culture-verse",
+                          "creator-verse",
+                          "food-verse",
+                          "mondi-verse",
+                          "work-verse"
                         ]
                       },
                       "minItems": 1,
@@ -30922,6 +31258,343 @@
                     "version",
                     "overrides",
                     "thumbnailStorageKey",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/avatar-accessories": {
+      "get": {
+        "summary": "List built-in avatar accessory catalog entries (flag-gated)",
+        "tags": [
+          "avatar-accessories"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "slug": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "displayName": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "slot": {
+                            "type": "string",
+                            "enum": [
+                              "head"
+                            ]
+                          },
+                          "glbUrl": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "attachBone": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "localPosition": {
+                            "type": "object",
+                            "properties": {
+                              "x": {
+                                "type": "number"
+                              },
+                              "y": {
+                                "type": "number"
+                              },
+                              "z": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "x",
+                              "y",
+                              "z"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "localRotation": {
+                            "type": "object",
+                            "properties": {
+                              "x": {
+                                "type": "number"
+                              },
+                              "y": {
+                                "type": "number"
+                              },
+                              "z": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "x",
+                              "y",
+                              "z"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "localScale": {
+                            "type": "number",
+                            "exclusiveMinimum": true,
+                            "minimum": 0,
+                            "default": 1
+                          },
+                          "nativeGroundY": {
+                            "type": "number"
+                          },
+                          "thumbnailUrl": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "slug",
+                          "displayName",
+                          "slot",
+                          "glbUrl",
+                          "attachBone",
+                          "localPosition",
+                          "localRotation"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/users/me/accessories": {
+      "patch": {
+        "summary": "Equip or unequip avatar accessories for the current user",
+        "tags": [
+          "avatar-accessories"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "accessories": {
+                    "type": "object",
+                    "properties": {
+                      "head": {
+                        "type": "string",
+                        "nullable": true,
+                        "default": null
+                      }
+                    },
+                    "additionalProperties": false,
+                    "default": {
+                      "head": null
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "externalAuthId": {
+                      "type": "string"
+                    },
+                    "displayName": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string",
+                      "format": "email"
+                    },
+                    "authProvider": {
+                      "type": "string",
+                      "enum": [
+                        "google",
+                        "dev"
+                      ]
+                    },
+                    "lastLoginAt": {
+                      "type": "string"
+                    },
+                    "avatar": {
+                      "type": "object",
+                      "properties": {
+                        "color": {
+                          "type": "string"
+                        },
+                        "initials": {
+                          "type": "string"
+                        },
+                        "appearance": {
+                          "type": "object",
+                          "properties": {
+                            "hairTop": {
+                              "type": "string"
+                            },
+                            "hairFront": {
+                              "type": "string"
+                            },
+                            "headSide": {
+                              "type": "string"
+                            },
+                            "hairBack": {
+                              "type": "string"
+                            },
+                            "faceSkin": {
+                              "type": "string"
+                            },
+                            "faceAccent": {
+                              "type": "string"
+                            },
+                            "collar": {
+                              "type": "string"
+                            },
+                            "shirtFront": {
+                              "type": "string"
+                            },
+                            "shirtBelly": {
+                              "type": "string"
+                            },
+                            "shirtBack": {
+                              "type": "string"
+                            },
+                            "shirtSide": {
+                              "type": "string"
+                            },
+                            "shoulderTop": {
+                              "type": "string"
+                            },
+                            "shoulderCap": {
+                              "type": "string"
+                            },
+                            "sleeve": {
+                              "type": "string"
+                            },
+                            "hand": {
+                              "type": "string"
+                            },
+                            "thigh": {
+                              "type": "string"
+                            },
+                            "shin": {
+                              "type": "string"
+                            },
+                            "legSide": {
+                              "type": "string"
+                            },
+                            "legBack": {
+                              "type": "string"
+                            },
+                            "shoeTop": {
+                              "type": "string"
+                            },
+                            "shoeToe": {
+                              "type": "string"
+                            },
+                            "shoeSide": {
+                              "type": "string"
+                            },
+                            "shoeSole": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "hairTop",
+                            "hairFront",
+                            "headSide",
+                            "hairBack",
+                            "faceSkin",
+                            "faceAccent",
+                            "collar",
+                            "shirtFront",
+                            "shirtBelly",
+                            "shirtBack",
+                            "shirtSide",
+                            "shoulderTop",
+                            "shoulderCap",
+                            "sleeve",
+                            "hand",
+                            "thigh",
+                            "shin",
+                            "legSide",
+                            "legBack",
+                            "shoeTop",
+                            "shoeToe",
+                            "shoeSide",
+                            "shoeSole"
+                          ],
+                          "additionalProperties": false,
+                          "nullable": true
+                        },
+                        "accessories": {
+                          "type": "object",
+                          "properties": {
+                            "head": {
+                              "type": "string",
+                              "nullable": true,
+                              "default": null
+                            }
+                          },
+                          "additionalProperties": false,
+                          "default": {
+                            "head": null
+                          },
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "color",
+                        "initials"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "externalAuthId",
+                    "displayName",
+                    "avatar",
                     "createdAt",
                     "updatedAt"
                   ],

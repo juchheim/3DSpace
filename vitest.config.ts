@@ -4,7 +4,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@3dspace/contracts": new URL("./packages/contracts/src/index.ts", import.meta.url).pathname,
-      "@3dspace/room-engine": new URL("./packages/room-engine/src/index.ts", import.meta.url).pathname
+      "@3dspace/room-engine": new URL("./packages/room-engine/src/index.ts", import.meta.url).pathname,
+      "@3dspace/avatar-accessories": new URL("./packages/avatar-accessories/src/index.ts", import.meta.url).pathname
     }
   },
   test: {

@@ -2,6 +2,7 @@
 
 import type {
   AiObjectRealtimeMessage,
+  AvatarAccessoriesMessage,
   AvatarAppearanceMessage,
   AvatarReactionMessage,
   AvatarStateMessage,
@@ -87,6 +88,7 @@ export type WhiteboardRealtime = WhiteboardRealtimeMessage;
 export type RealtimeMessage =
   | AvatarStateMessage
   | AvatarAppearanceMessage
+  | AvatarAccessoriesMessage
   | AvatarReactionMessage
   | ParticipantAudioModeMessage
   | PresenceMessage

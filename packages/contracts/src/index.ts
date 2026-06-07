@@ -226,6 +226,46 @@ export const AvatarAppearanceMessageSchema = z.object({
 
 export type AvatarAppearanceMessage = z.infer<typeof AvatarAppearanceMessageSchema>;
 
+export const AvatarAccessorySlotSchema = z.enum(["head"]);
+
+export const AvatarAccessoryCatalogEntrySchema = z.object({
+  slug: z.string().min(1),
+  displayName: z.string().min(1),
+  slot: AvatarAccessorySlotSchema,
+  glbUrl: z.string().min(1),
+  attachBone: z.string().min(1),
+  localPosition: Vector3Schema,
+  localRotation: z.object({ x: z.number(), y: z.number(), z: z.number() }),
+  localScale: z.number().positive().default(1),
+  nativeGroundY: z.number().optional(),
+  thumbnailUrl: z.string().optional()
+});
+
+export const AvatarEquippedAccessoriesSchema = z
+  .object({
+    head: z.string().nullable().optional().default(null)
+  })
+  .default({ head: null });
+
+export const AvatarAccessoriesMessageSchema = z.object({
+  type: z.literal("avatar.accessories.v1"),
+  participantId: z.string(),
+  accessories: AvatarEquippedAccessoriesSchema
+});
+
+export type AvatarAccessorySlot = z.infer<typeof AvatarAccessorySlotSchema>;
+export type AvatarAccessoryCatalogEntry = z.infer<typeof AvatarAccessoryCatalogEntrySchema>;
+export type AvatarEquippedAccessories = z.infer<typeof AvatarEquippedAccessoriesSchema>;
+export type AvatarAccessoriesMessage = z.infer<typeof AvatarAccessoriesMessageSchema>;
+
+export const PatchUserAvatarAccessoriesRequestSchema = z.object({
+  accessories: AvatarEquippedAccessoriesSchema
+});
+
+export const ListAvatarAccessoriesResponseSchema = z.object({
+  items: z.array(AvatarAccessoryCatalogEntrySchema)
+});
+
 export const ParticipantAudioModeSchema = z.enum(["normal", "whisper", "broadcast"]);
 
 export const ParticipantAudioModeMessageSchema = z.object({
@@ -263,7 +303,8 @@ export const UserSchema = z.object({
   avatar: z.object({
     color: z.string(),
     initials: z.string(),
-    appearance: AvatarAppearanceSchema.nullable().optional()
+    appearance: AvatarAppearanceSchema.nullable().optional(),
+    accessories: AvatarEquippedAccessoriesSchema.nullable().optional()
   }),
   createdAt: z.string(),
   updatedAt: z.string()
@@ -1224,6 +1265,7 @@ export const ApiErrorCodeSchema = z.enum([
   "meeting-notes-transcription-unavailable",
   "meeting-notes-transcription-failed",
   "world-skins-disabled",
+  "avatar-accessories-disabled",
   "build-disabled",
   "build-rejected",
   "build-cap-exceeded",
@@ -2003,6 +2045,7 @@ export const RoomSessionResponseSchema = z.object({
   manifest: RoomManifestSchema,
   capabilities: RoomCapabilitiesSchema,
   avatarAppearance: AvatarAppearanceSchema.nullable(),
+  avatarAccessories: AvatarEquippedAccessoriesSchema.nullable().optional(),
   tuning: z.object({
     avatarSendHz: z.number(),
     interpolationMs: z.number(),
@@ -4072,6 +4115,8 @@ export const apiRoutes: ApiRoute[] = [
   { method: "delete", path: "/v1/rooms/{roomId}/build-pieces", summary: "Clear all build pieces in a room", tags: ["build-pieces"], response: ClearBuildPiecesResponseSchema },
   { method: "get", path: "/v1/world-skins", summary: "List world skin catalog entries (flag-gated)", tags: ["world-skins"], response: ListWorldSkinsResponseSchema },
   { method: "get", path: "/v1/world-skins/{slug}", summary: "Get a world skin by slug with absolute asset URLs (flag-gated)", tags: ["world-skins"], response: WorldSkinSchema },
+  { method: "get", path: "/v1/avatar-accessories", summary: "List built-in avatar accessory catalog entries (flag-gated)", tags: ["avatar-accessories"], response: ListAvatarAccessoriesResponseSchema },
+  { method: "patch", path: "/v1/users/me/accessories", summary: "Equip or unequip avatar accessories for the current user", tags: ["avatar-accessories"], request: PatchUserAvatarAccessoriesRequestSchema, response: UserSchema },
   {
     method: "post",
     path: "/v1/world-skin-uploader/verify",

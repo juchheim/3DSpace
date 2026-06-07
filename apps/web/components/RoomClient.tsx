@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import type { AvatarAppearance, AvatarReactionMessage, AvatarReactionSlug, AvatarStateMessage, BuildPiece, CreateDynamicWallAnchorRequest, PhysicsTuning, Role, RoomManifest, RoomObjectTemplate, RoomSessionResponse, ViewMode, WallObject, WorldSkinDayNightMode } from "@3dspace/contracts";
+import type { AvatarAppearance, AvatarEquippedAccessories, AvatarReactionMessage, AvatarReactionSlug, AvatarStateMessage, BuildPiece, CreateDynamicWallAnchorRequest, PhysicsTuning, Role, RoomManifest, RoomObjectTemplate, RoomSessionResponse, ViewMode, WallObject, WorldSkinDayNightMode } from "@3dspace/contracts";
 import {
   DYNAMIC_WALL_ANCHOR_MAX_HEIGHT_M,
   DYNAMIC_WALL_ANCHOR_MAX_WIDTH_M,
@@ -11,7 +11,9 @@ import {
   DYNAMIC_WALL_ANCHOR_MIN_WIDTH_M
 } from "@3dspace/contracts";
 import {
+  AvatarAccessoriesMessageSchema,
   AvatarAppearanceMessageSchema,
+  AvatarEquippedAccessoriesSchema,
   AvatarReactionMessageSchema,
   getRoomTypeFeatureFlags,
   isVerseRoomType,
@@ -30,6 +32,7 @@ import {
   listClasses,
   listClassMembers,
   patchAvatarAppearance,
+  patchAvatarAccessories,
   patchRoom,
   postRoomEvent,
   uploadRoomObjectGlb
@@ -38,6 +41,7 @@ import { buildingEnvEnabled, CLIENT_TUNING, physicsEnvEnabled } from "../lib/con
 import { pickDisplayName } from "../lib/displayName";
 import { useAvatarMovement } from "../lib/useAvatarMovement";
 import { useAvatarAppearance } from "../lib/useAvatarAppearance";
+import { DEFAULT_EQUIPPED_ACCESSORIES, useAvatarAccessories } from "../lib/useAvatarAccessories";
 import { useAvatarReactions } from "../lib/useAvatarReactions";
 import { useAudioModes } from "../lib/useAudioModes";
 import { isKeyboardOwnedTarget } from "../lib/isKeyboardOwnedTarget";
@@ -204,8 +208,12 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   const avatarStateRef = useRef<AvatarStateMessage | null>(null);
   const memberNamesRef = useRef(new Map<string, string>());
   const localAppearanceRef = useRef<AvatarAppearance>(DEFAULT_APPEARANCE);
+  const localAccessoriesRef = useRef(DEFAULT_EQUIPPED_ACCESSORIES);
   const seenParticipantsRef = useRef(new Set<string>());
   const { receiveAppearance, setLocalAppearance, getAppearance } = useAvatarAppearance();
+  const { receiveAccessories, setLocalAccessories, getAccessories } = useAvatarAccessories();
+  const getAccessoriesRef = useRef(getAccessories);
+  getAccessoriesRef.current = getAccessories;
   const { receive: receiveReaction, drop: dropReaction, getReaction, log } = useAvatarReactions();
   const { receive: receiveAudioMode, drop: dropAudioMode, all: audioModes } = useAudioModes();
   const [whisperMode, setWhisperMode] = useState<"normal" | "whisper">("normal");
@@ -233,6 +241,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   const [positioningGroupId, setPositioningGroupId] = useState("");
   const [avatarEditorOpen, setAvatarEditorOpen] = useState(false);
   const [localDraftAppearance, setLocalDraftAppearance] = useState<AvatarAppearance | null>(null);
+  const [localDraftAccessories, setLocalDraftAccessories] = useState<AvatarEquippedAccessories | null>(null);
   const [waveTriggered, setWaveTriggered] = useState(false);
   const [hallpassBusy, setHallpassBusy] = useState(false);
   const [hallpassElapsedSeconds, setHallpassElapsedSeconds] = useState(0);
@@ -1353,6 +1362,10 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       anchors: dynamicBoards.anchors,
       refresh: dynamicBoards.refresh
     };
+    debugWindow.__debug.avatarAccessories = {
+      enabled: CLIENT_TUNING.enableAvatarAccessories,
+      getAccessories: (participantId: string) => getAccessoriesRef.current(participantId)
+    };
     return () => {
       if (debugWindow.__debug) {
         delete debugWindow.__debug.roomObjects;
@@ -1361,6 +1374,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
         delete debugWindow.__debug.participants;
         delete debugWindow.__debug.worldSkin;
         delete debugWindow.__debug.dynamicBoards;
+        delete debugWindow.__debug.avatarAccessories;
       }
     };
   }, [
@@ -1478,8 +1492,11 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
         if (generation !== joinGenerationRef.current) return;
         const normalizedManifest = normalizeRoomManifest(nextSession.manifest, nextSession.room.type);
         const initialAppearance = nextSession.avatarAppearance ?? DEFAULT_APPEARANCE;
+        const initialAccessories = AvatarEquippedAccessoriesSchema.parse(nextSession.avatarAccessories ?? undefined);
         localAppearanceRef.current = initialAppearance;
+        localAccessoriesRef.current = initialAccessories;
         setLocalAppearance(nextSession.participantId, initialAppearance);
+        setLocalAccessories(nextSession.participantId, initialAccessories);
         setSession({ ...nextSession, manifest: normalizedManifest });
         setManifest(normalizedManifest);
         setStatus("Joined room. Connecting to LiveKit...");
@@ -1607,6 +1624,13 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
             participantId: activeSession.participantId,
             appearance: localAppearanceRef.current,
           });
+          if (CLIENT_TUNING.enableAvatarAccessories) {
+            realtimeRef.current?.publish({
+              type: "avatar.accessories.v1",
+              participantId: activeSession.participantId,
+              accessories: localAccessoriesRef.current,
+            });
+          }
         }
         setParticipants((current) => {
           const existing = current[message.participantId];
@@ -1651,6 +1675,14 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
         const parsed = AvatarAppearanceMessageSchema.safeParse(message);
         if (parsed.success) {
           receiveAppearance(parsed.data.participantId, parsed.data.appearance);
+        }
+        return;
+      }
+
+      if (message.type === "avatar.accessories.v1") {
+        const parsed = AvatarAccessoriesMessageSchema.safeParse(message);
+        if (parsed.success) {
+          receiveAccessories(parsed.data.participantId, parsed.data.accessories);
         }
         return;
       }
@@ -1792,6 +1824,13 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           participantId: session.participantId,
           appearance: localAppearanceRef.current,
         });
+        if (CLIENT_TUNING.enableAvatarAccessories) {
+          client.publish({
+            type: "avatar.accessories.v1",
+            participantId: session.participantId,
+            accessories: localAccessoriesRef.current,
+          });
+        }
         client.syncParticipants();
       })
       .catch((error) => {
@@ -2417,6 +2456,13 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     return getAppearance(id);
   }
 
+  function effectiveGetAccessories(id: string): AvatarEquippedAccessories {
+    if (id === localParticipantIdForAppearance && localDraftAccessories !== null) {
+      return localDraftAccessories;
+    }
+    return getAccessories(id);
+  }
+
   const toggleBroadcast = useCallback(() => {
     if (!session || role === "teacher" || !studentHasBroadcastGrant) return;
     publishAudioMode(broadcastModeRef.current === "broadcast" ? "normal" : "broadcast");
@@ -2714,6 +2760,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
             participants={participantList}
             localParticipantId={session.participantId}
             getAppearance={effectiveGetAppearance}
+            getAccessories={effectiveGetAccessories}
             getReaction={(id) => getReaction(id)?.reaction}
             getAudioMode={getAudioMode}
             recordingActive={Boolean(meetingNotes.activeSession)}
@@ -3413,6 +3460,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       {avatarEditorOpen && session ? (
         <AvatarEditorPanel
           savedAppearance={localAppearanceRef.current}
+          savedAccessories={localAccessoriesRef.current}
           onSave={async (appearance) => {
             await patchAvatarAppearance(identity, appearance);
             localAppearanceRef.current = appearance;
@@ -3423,10 +3471,26 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
               appearance,
             });
           }}
+          {...(CLIENT_TUNING.enableAvatarAccessories
+            ? {
+                onSaveAccessories: async (accessories: AvatarEquippedAccessories) => {
+                  await patchAvatarAccessories(identity, accessories);
+                  localAccessoriesRef.current = accessories;
+                  setLocalAccessories(session.participantId, accessories);
+                  publishRealtime({
+                    type: "avatar.accessories.v1",
+                    participantId: session.participantId,
+                    accessories,
+                  });
+                },
+                onDraftAccessoriesChange: (draft: AvatarEquippedAccessories) => setLocalDraftAccessories(draft)
+              }
+            : {})}
           onDraftChange={(draft) => setLocalDraftAppearance(draft)}
           onClose={() => {
             setAvatarEditorOpen(false);
             setLocalDraftAppearance(null);
+            setLocalDraftAccessories(null);
           }}
           onTriggerWave={() => setWaveTriggered(true)}
           waveActive={waveTriggered}

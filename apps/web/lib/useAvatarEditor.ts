@@ -17,13 +17,15 @@ export function useAvatarEditor(savedAppearance: AvatarAppearance) {
     setSaveError("");
   }
 
-  async function save(onSave: (appearance: AvatarAppearance) => Promise<void>) {
+  async function save(onSave: (appearance: AvatarAppearance) => Promise<void>): Promise<boolean> {
     setSaving(true);
     setSaveError("");
     try {
       await onSave(draft);
+      return true;
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : "Couldn't save. Try again.");
+      return false;
     } finally {
       setSaving(false);
     }

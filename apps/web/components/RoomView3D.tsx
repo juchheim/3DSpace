@@ -22,6 +22,7 @@ import { useWorldSkinContext, DEFAULT_LIGHTING, DEFAULT_BACKGROUND } from "./wor
 import { DYNAMIC_WALL_ANCHOR_MIN_HEIGHT_M } from "@3dspace/contracts";
 import type {
   AvatarAppearance,
+  AvatarEquippedAccessories,
   AvatarReactionSlug,
   BuildPiece,
   BuildPieceEdge,
@@ -325,6 +326,7 @@ export function RoomView3D({
   privateChecks = [],
   spotlight,
   getAppearance,
+  getAccessories,
   getReaction,
   getAudioMode,
   recordingActive = false,
@@ -383,6 +385,7 @@ export function RoomView3D({
   privateChecks?: ClassroomPrivateCheck[];
   spotlight?: ClassroomSpotlight | null | undefined;
   getAppearance: (participantId: string) => AvatarAppearance;
+  getAccessories: (participantId: string) => AvatarEquippedAccessories;
   getReaction?: (participantId: string) => AvatarReactionSlug | undefined;
   getAudioMode?: (participantId: string) => { mode: ParticipantAudioMode; radiusMeters: number } | undefined;
   recordingActive?: boolean;
@@ -607,6 +610,7 @@ export function RoomView3D({
                 {...(group?.color ? { groupColor: group.color } : {})}
                 {...(crossPodOutlineColor ? { crossPodOutlineColor } : {})}
                 appearance={getAppearance(participant.id)}
+                accessories={getAccessories(participant.id)}
                 helpRequestActive={activeHelpRequestUserIds?.has(participant.id) ?? false}
                 waveTriggered={isLocal ? localWaveTriggered : !!(participant.state.waving)}
                 onWaveComplete={isLocal && onLocalWaveComplete ? onLocalWaveComplete : () => {}}

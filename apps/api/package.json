@@ -12,6 +12,7 @@
     "openapi": "npm run build && node dist/openapi.js"
   },
   "dependencies": {
+    "@3dspace/avatar-accessories": "0.1.0",
     "@3dspace/contracts": "0.1.0",
     "@3dspace/room-engine": "0.1.0",
     "@aws-sdk/client-s3": "^3.600.0",

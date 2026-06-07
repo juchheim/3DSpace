@@ -1,0 +1,13 @@
+[
+  {
+    "slug": "bowler-hat",
+    "displayName": "Bowler hat",
+    "slot": "head",
+    "glbUrl": "/avatar-accessories/bowler-hat.glb",
+    "attachBone": "Head",
+    "localPosition": { "x": 0, "y": 0.08, "z": 0 },
+    "localRotation": { "x": 0, "y": 0, "z": 0 },
+    "localScale": 1,
+    "thumbnailUrl": "/avatar-accessories/thumbnails/bowler-hat.png"
+  }
+]

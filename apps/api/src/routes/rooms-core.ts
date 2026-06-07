@@ -208,6 +208,7 @@ export async function registerRoomsCoreRoutes(app: FastifyInstance, ctx: AppCont
       manifest,
       capabilities: manifest.capabilities,
       avatarAppearance: sessionUser?.avatar?.appearance ?? null,
+      avatarAccessories: sessionUser?.avatar?.accessories ?? null,
       tuning: {
         avatarSendHz: config.tuning.avatarSendHz,
         interpolationMs: config.tuning.interpolationMs,

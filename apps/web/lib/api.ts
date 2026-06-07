@@ -2,6 +2,8 @@ import type {
   AcceptInviteResponseSchema,
   AiObjectJob,
   AvatarAppearance,
+  AvatarAccessoryCatalogEntry,
+  AvatarEquippedAccessories,
   ClassroomActionSchema,
   ClassroomState,
   ClassMembership,
@@ -46,6 +48,7 @@ import type {
   RoomSessionResponse,
   RoomType,
   RoomRecord,
+  User,
   RoomObjectCategory,
   RoomObjectRealtimeInbound,
   RoomObjectRealtimeMessage,
@@ -318,6 +321,20 @@ export function patchAvatarAppearance(identity: ApiIdentity, appearance: AvatarA
     method: "PATCH",
     identity,
     body: { appearance }
+  });
+}
+
+export function listAvatarAccessories(identity: ApiIdentity) {
+  return apiFetch<{ items: AvatarAccessoryCatalogEntry[] }>("/v1/avatar-accessories", { identity }).then(
+    (response) => response.items
+  );
+}
+
+export function patchAvatarAccessories(identity: ApiIdentity, accessories: AvatarEquippedAccessories) {
+  return apiFetch<User>("/v1/users/me/accessories", {
+    method: "PATCH",
+    identity,
+    body: { accessories }
   });
 }
 

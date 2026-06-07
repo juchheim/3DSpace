@@ -3,6 +3,7 @@ import {
   parseRoomSettings,
   type AiObjectJob,
   type AvatarAppearance,
+  type AvatarEquippedAccessories,
   type ClassroomState,
   type ClassMembership,
   type ClassRecord,
@@ -129,6 +130,7 @@ export type Repository = {
   getAuthRefreshSessionByTokenHash(tokenHash: string): Promise<AuthRefreshSessionRecord | undefined>;
   revokeAuthRefreshSession(sessionId: string, revokedAt: string): Promise<AuthRefreshSessionRecord | undefined>;
   updateUserAvatarAppearance(userId: string, appearance: AvatarAppearance): Promise<User>;
+  updateUserAvatarAccessories(userId: string, accessories: AvatarEquippedAccessories): Promise<User>;
   createClass(input: { name: string; teacher: AuthContext }): Promise<ClassRecord>;
   listClassesForUser(userId: string): Promise<ClassRecord[]>;
   getClass(classId: string): Promise<ClassRecord | undefined>;
@@ -470,6 +472,18 @@ export class MemoryRepository implements Repository {
     const updated: User = {
       ...existing,
       avatar: { ...existing.avatar, appearance },
+      updatedAt: nowIso()
+    };
+    this.users.set(userId, updated);
+    return updated;
+  }
+
+  async updateUserAvatarAccessories(userId: string, accessories: AvatarEquippedAccessories): Promise<User> {
+    const existing = this.users.get(userId);
+    if (!existing) throw notFound("User not found");
+    const updated: User = {
+      ...existing,
+      avatar: { ...existing.avatar, accessories },
       updatedAt: nowIso()
     };
     this.users.set(userId, updated);

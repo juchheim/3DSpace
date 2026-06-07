@@ -14,6 +14,14 @@ This directory contains the complete design and implementation specification for
 | 6 | [06-data-and-networking.md](06-data-and-networking.md) | DB schema, new contracts, API endpoints, LiveKit appearance broadcast |
 | 7 | [07-implementation-order.md](07-implementation-order.md) | Ordered phases, dependencies, what to test at each checkpoint |
 
+### Planned features
+
+| Doc | Contents | Status |
+| --- | --- | --- |
+| [PLAN_AVATAR_ACCESSORIES.md](PLAN_AVATAR_ACCESSORIES.md) | GLB avatar attachments (hats, etc.); pilot **bowler hat** on `Head` bone | **Shipped** (flags default off) |
+| [IMPL_AVATAR_ACCESSORIES.md](IMPL_AVATAR_ACCESSORIES.md) | Phase 0–6 build plan: catalog package, contracts, API, 3D attach, editor, E2E | **Complete** |
+| [AVATAR_ACCESSORIES_STATUS.md](AVATAR_ACCESSORIES_STATUS.md) | Rollout status, validation commands, file index | **Current** |
+
 ## Quick-reference: what already exists
 
 | Thing | Location |

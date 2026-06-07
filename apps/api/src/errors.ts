@@ -87,6 +87,10 @@ export function worldSkinsDisabled() {
   return new HttpError(404, "World skins are disabled", "world-skins-disabled");
 }
 
+export function avatarAccessoriesDisabled() {
+  return new HttpError(404, "Avatar accessories are disabled", "avatar-accessories-disabled");
+}
+
 export function roomObjectLimitReached() {
   return new HttpError(422, "Active room object limit reached", "room-object-limit-reached");
 }

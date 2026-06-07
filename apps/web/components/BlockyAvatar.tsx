@@ -5,8 +5,10 @@ import { useFrame } from "@react-three/fiber";
 import { Billboard, Html, useAnimations, useGLTF } from "@react-three/drei";
 import { MathUtils, type Group } from "three";
 import { SkeletonUtils } from "three-stdlib";
-import type { AvatarAppearance, AvatarReactionSlug, ParticipantAudioMode } from "@3dspace/contracts";
+import type { AvatarAppearance, AvatarEquippedAccessories, AvatarReactionSlug, ParticipantAudioMode } from "@3dspace/contracts";
 import type { ParticipantView } from "./RoomClient";
+import { CLIENT_TUNING } from "../lib/config";
+import { AvatarAccessoryLayer } from "./AvatarAccessoryLayer";
 
 const REACTION_EMOJI: Record<AvatarReactionSlug, string> = {
   "thumbs-up": "👍",
@@ -40,7 +42,15 @@ useGLTF.preload(AVATAR_URL);
  * gives each instance its own skeleton so participants animate independently
  * (geometry + material stay shared/cached).
  */
-function AvatarModel({ clip }: { clip: ClipName }) {
+function AvatarModel({
+  clip,
+  accessories,
+  showAccessories
+}: {
+  clip: ClipName;
+  accessories: AvatarEquippedAccessories;
+  showAccessories: boolean;
+}) {
   const { scene, animations } = useGLTF(AVATAR_URL);
   const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
   const groupRef = useRef<Group>(null);
@@ -59,6 +69,11 @@ function AvatarModel({ clip }: { clip: ClipName }) {
   return (
     <group ref={groupRef}>
       <primitive object={model} scale={MODEL_SCALE} />
+      {showAccessories ? (
+        <Suspense fallback={null}>
+          <AvatarAccessoryLayer root={model} equipped={accessories} />
+        </Suspense>
+      ) : null}
     </group>
   );
 }
@@ -80,6 +95,8 @@ export type BlockyAvatarProps = {
   crossPodOutlineColor?: string;
   /** Skin-driven uniform scale applied to the avatar root. Defaults to 1. */
   avatarScale?: number;
+  /** Equipped accessory slugs per slot. Defaults to unequipped. */
+  accessories?: AvatarEquippedAccessories;
 };
 
 // Kept for backwards compatibility — consumed by RoomClient / useAvatarAppearance
@@ -125,6 +142,7 @@ export function BlockyAvatar({
   whisperRadiusMeters = 3,
   crossPodOutlineColor,
   avatarScale = 1,
+  accessories = { head: null },
 }: BlockyAvatarProps) {
   const position = participant.state.position;
   const movement = participant.state.movement;
@@ -165,6 +183,7 @@ export function BlockyAvatar({
   // Compensate nameplate distanceFactor so the plate stays the same on-screen size
   // when the avatar is scaled down (e.g. Cell Interior at 0.6×).
   const nameplateDistanceFactor = avatarScale !== 1 ? Math.round(8 / avatarScale) : 8;
+  const showAccessories = CLIENT_TUNING.enableAvatarAccessories && !hidden;
 
   return (
     <group
@@ -177,7 +196,7 @@ export function BlockyAvatar({
       {/* Avatar mesh — wrapper carries the wave sway; model feet already at y=0 */}
       <group ref={waveRef}>
         <Suspense fallback={null}>
-          <AvatarModel clip={clip} />
+          <AvatarModel clip={clip} accessories={accessories} showAccessories={showAccessories} />
         </Suspense>
       </group>
 

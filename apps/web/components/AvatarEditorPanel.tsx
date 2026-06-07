@@ -1,14 +1,21 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { AvatarAppearance } from "@3dspace/contracts";
+import type { AvatarAppearance, AvatarAccessoryCatalogEntry, AvatarEquippedAccessories } from "@3dspace/contracts";
 import { ZONE_GROUPS, ZONE_LABELS } from "../lib/avatarMaterials";
+import { useAvatarAccessoryEditor } from "../lib/useAvatarAccessoryEditor";
 import { useAvatarEditor } from "../lib/useAvatarEditor";
+import { BUILTIN_AVATAR_ACCESSORY_CATALOG } from "../lib/avatarAccessoryCatalog";
+import { CLIENT_TUNING } from "../lib/config";
 
 type Props = {
   savedAppearance: AvatarAppearance;
   onSave: (appearance: AvatarAppearance) => Promise<void>;
   onDraftChange: (draft: AvatarAppearance) => void;
+  savedAccessories?: AvatarEquippedAccessories;
+  onSaveAccessories?: (accessories: AvatarEquippedAccessories) => Promise<void>;
+  onDraftAccessoriesChange?: (draft: AvatarEquippedAccessories) => void;
+  accessoryCatalog?: AvatarAccessoryCatalogEntry[];
   onClose: () => void;
   onTriggerWave: () => void;
   waveActive: boolean;
@@ -19,24 +26,42 @@ export function AvatarEditorPanel({
   savedAppearance,
   onSave,
   onDraftChange,
+  savedAccessories,
+  onSaveAccessories,
+  onDraftAccessoriesChange,
+  accessoryCatalog = BUILTIN_AVATAR_ACCESSORY_CATALOG,
   onClose,
   onTriggerWave,
   waveActive,
   locked,
 }: Props) {
-  const { draft, dirty, saving, saveError, setZone, resetDraft, save } =
-    useAvatarEditor(savedAppearance);
+  const accessoriesEnabled =
+    CLIENT_TUNING.enableAvatarAccessories &&
+    savedAccessories !== undefined &&
+    onSaveAccessories !== undefined &&
+    onDraftAccessoriesChange !== undefined;
+
+  const appearanceEditor = useAvatarEditor(savedAppearance);
+  const accessoryEditor = useAvatarAccessoryEditor(savedAccessories ?? { head: null });
+
+  const headCatalog = accessoryCatalog.filter((entry) => entry.slot === "head");
+  const saving = appearanceEditor.saving || (accessoriesEnabled && accessoryEditor.saving);
+  const dirty = appearanceEditor.dirty || (accessoriesEnabled && accessoryEditor.dirty);
+  const saveError = appearanceEditor.saveError || (accessoriesEnabled ? accessoryEditor.saveError : "");
 
   const [openSections, setOpenSections] = useState<Set<string>>(
-    new Set(["Head"])
+    new Set(accessoriesEnabled ? ["Accessories", "Head"] : ["Head"])
   );
 
-  // Propagate draft changes up for live preview
   useEffect(() => {
-    onDraftChange(draft);
-  }, [draft, onDraftChange]);
+    onDraftChange(appearanceEditor.draft);
+  }, [appearanceEditor.draft, onDraftChange]);
 
-  // Close on Escape
+  useEffect(() => {
+    if (!accessoriesEnabled) return;
+    onDraftAccessoriesChange(accessoryEditor.draft);
+  }, [accessoriesEnabled, accessoryEditor.draft, onDraftAccessoriesChange]);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -46,37 +71,81 @@ export function AvatarEditorPanel({
   }, [onClose]);
 
   function toggleSection(label: string) {
-    setOpenSections(prev => {
+    setOpenSections((prev) => {
       const next = new Set(prev);
       next.has(label) ? next.delete(label) : next.add(label);
       return next;
     });
   }
 
+  async function handleSave() {
+    if (locked || saving || !dirty) return;
+    if (appearanceEditor.dirty) {
+      const ok = await appearanceEditor.save(onSave);
+      if (!ok) return;
+    }
+    if (accessoriesEnabled && accessoryEditor.dirty) {
+      await accessoryEditor.save(onSaveAccessories);
+    }
+  }
+
+  function handleReset() {
+    if (locked || saving) return;
+    if (appearanceEditor.dirty) appearanceEditor.resetDraft();
+    if (accessoriesEnabled && accessoryEditor.dirty) accessoryEditor.resetDraft();
+  }
+
   return (
     <div className="avatar-editor__panel hud-panel" role="dialog" aria-label="Avatar editor">
-      {/* Header */}
       <div className="avatar-editor__header">
         <span className="avatar-editor__title">Your Avatar</span>
-        <button
-          className="avatar-editor__close-btn"
-          onClick={onClose}
-          aria-label="Close avatar editor"
-        >
+        <button className="avatar-editor__close-btn" onClick={onClose} aria-label="Close avatar editor">
           ×
         </button>
       </div>
 
-      {/* Lock banner */}
       {locked ? (
-        <div className="avatar-editor__lock-banner">
-          Avatar editing is paused during this lesson.
-        </div>
+        <div className="avatar-editor__lock-banner">Avatar editing is paused during this lesson.</div>
       ) : null}
 
-      {/* Zone list */}
       <div className="avatar-editor__body">
-        {ZONE_GROUPS.map(group => {
+        {accessoriesEnabled ? (
+          <div
+            className={`avatar-editor__section${openSections.has("Accessories") ? " avatar-editor__section--open" : ""}`}
+          >
+            <button
+              className="avatar-editor__section-header"
+              onClick={() => toggleSection("Accessories")}
+              aria-expanded={openSections.has("Accessories")}
+            >
+              <span className="avatar-editor__section-arrow">{openSections.has("Accessories") ? "▾" : "▸"}</span>
+              Accessories
+            </button>
+            {openSections.has("Accessories") ? (
+              <div className="avatar-editor__accessory-list">
+                <p className="avatar-editor__accessory-slot-label">Head</p>
+                <AccessoryOption
+                  label="None"
+                  checked={accessoryEditor.draft.head == null}
+                  disabled={locked}
+                  onSelect={() => accessoryEditor.setHead(null)}
+                />
+                {headCatalog.map((entry) => (
+                  <AccessoryOption
+                    key={entry.slug}
+                    label={entry.displayName}
+                    checked={accessoryEditor.draft.head === entry.slug}
+                    disabled={locked}
+                    onSelect={() => accessoryEditor.setHead(entry.slug)}
+                    {...(entry.thumbnailUrl ? { thumbnailUrl: entry.thumbnailUrl } : {})}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {ZONE_GROUPS.map((group) => {
           const isOpen = openSections.has(group.label);
           return (
             <div
@@ -93,13 +162,13 @@ export function AvatarEditorPanel({
               </button>
               {isOpen ? (
                 <div className="avatar-editor__zone-list">
-                  {group.keys.map(key => (
+                  {group.keys.map((key) => (
                     <ZoneRow
                       key={key}
                       zoneKey={key}
                       label={ZONE_LABELS[key]}
-                      value={draft[key]}
-                      {...(locked ? {} : { onChange: setZone })}
+                      value={appearanceEditor.draft[key]}
+                      {...(locked ? {} : { onChange: appearanceEditor.setZone })}
                     />
                   ))}
                 </div>
@@ -109,40 +178,61 @@ export function AvatarEditorPanel({
         })}
       </div>
 
-      {/* Footer */}
       <div className="avatar-editor__footer">
-        <button
-          className="avatar-editor__wave-btn"
-          onClick={onTriggerWave}
-          disabled={waveActive || locked}
-        >
+        <button className="avatar-editor__wave-btn" onClick={onTriggerWave} disabled={waveActive || locked}>
           {waveActive ? "Waving..." : "Wave 👋"}
         </button>
         <div className="avatar-editor__footer-actions">
           {dirty && !locked ? (
-            <button
-              className="avatar-editor__reset-btn"
-              onClick={resetDraft}
-              disabled={saving}
-            >
+            <button className="avatar-editor__reset-btn" onClick={handleReset} disabled={saving}>
               Reset
             </button>
           ) : null}
           {!locked ? (
             <button
               className={`avatar-editor__save-btn${saving ? " avatar-editor__save-btn--saving" : ""}`}
-              onClick={() => void save(onSave)}
+              onClick={() => void handleSave()}
               disabled={saving || !dirty}
             >
               {saving ? "Saving…" : "Save"}
             </button>
           ) : null}
         </div>
-        {saveError ? (
-          <p className="avatar-editor__save-error">{saveError}</p>
-        ) : null}
+        {saveError ? <p className="avatar-editor__save-error">{saveError}</p> : null}
       </div>
     </div>
+  );
+}
+
+function AccessoryOption({
+  label,
+  checked,
+  disabled,
+  onSelect,
+  thumbnailUrl
+}: {
+  label: string;
+  checked: boolean;
+  disabled: boolean;
+  onSelect: () => void;
+  thumbnailUrl?: string;
+}) {
+  return (
+    <label className={`avatar-editor__accessory-option${checked ? " avatar-editor__accessory-option--selected" : ""}`}>
+      <input
+        type="radio"
+        name="avatar-accessory-head"
+        checked={checked}
+        disabled={disabled}
+        onChange={onSelect}
+      />
+      {thumbnailUrl ? (
+        <img className="avatar-editor__accessory-thumb" src={thumbnailUrl} alt="" aria-hidden="true" />
+      ) : (
+        <span className="avatar-editor__accessory-thumb avatar-editor__accessory-thumb--placeholder" aria-hidden="true" />
+      )}
+      <span>{label}</span>
+    </label>
   );
 }
 
@@ -150,7 +240,7 @@ function ZoneRow({
   zoneKey,
   label,
   value,
-  onChange,
+  onChange
 }: {
   zoneKey: keyof AvatarAppearance;
   label: string;
@@ -173,7 +263,7 @@ function ZoneRow({
         ref={inputRef}
         type="color"
         value={value}
-        onChange={onChange ? e => onChange(zoneKey, e.target.value) : undefined}
+        onChange={onChange ? (e) => onChange(zoneKey, e.target.value) : undefined}
         readOnly={!onChange}
         style={{ position: "absolute", opacity: 0, pointerEvents: "none", width: 0, height: 0 }}
         tabIndex={-1}

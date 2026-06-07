@@ -15,6 +15,11 @@ const worldSkinsTargetDir = join(root, "dist/world-skins/catalog");
 mkdirSync(worldSkinsTargetDir, { recursive: true });
 copyFileSync(worldSkinsSource, join(worldSkinsTargetDir, "builtin.json"));
 
+const avatarAccessoriesSource = join(root, "../../packages/avatar-accessories/catalog/builtin.json");
+const avatarAccessoriesTargetDir = join(root, "dist/avatar-accessories/catalog");
+mkdirSync(avatarAccessoriesTargetDir, { recursive: true });
+copyFileSync(avatarAccessoriesSource, join(avatarAccessoriesTargetDir, "builtin.json"));
+
 const aiHostCorpusSource = join(root, "src/ai-host/corpus/world-building-guide.md");
 const aiHostCorpusTargetDir = join(root, "dist/ai-host/corpus");
 mkdirSync(aiHostCorpusTargetDir, { recursive: true });
