@@ -486,7 +486,10 @@ export function buildPieceColliders(piece: BuildPiece): BuildPieceColliders {
  */
 export function isBuildAllowedAt(
   manifest: RoomManifest,
-  piece: Pick<BuildPiece, "id" | "kind" | "cell" | "level" | "edge" | "rotation" | "materialId">
+  piece: Pick<
+    BuildPiece,
+    "id" | "kind" | "cell" | "level" | "edge" | "corner" | "rotation" | "materialId"
+  >
 ): { ok: true } | { ok: false; reason: string } {
   if (piece.level < 0 || piece.level > BUILD_MAX_LEVEL) {
     return { ok: false, reason: "level-cap" };

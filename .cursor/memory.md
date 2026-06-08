@@ -102,7 +102,7 @@ Remaining refactor candidates: `packages/contracts/src/index.ts`, `RoomClient.ts
 
 ## Recent work
 
-- **2026-06-08:** **Wall-corner build piece** — new `wall-corner` kind (`BuildPieceCorner`: ne/nw/se/sw); L-shaped colliders + `wall_v2_corner.glb` render (`/objects/wall-corner.glb`, JPEG textures); tool **Corner** shortcut **9**; placement snaps to nearest cell corner; 2D L footprint marker.
+- **2026-06-08:** **Wall-corner build piece** — new `wall-corner` kind (`BuildPieceCorner`: ne/nw/se/sw); L-shaped colliders + `wall_v2_corner.glb` render (`/objects/wall-corner.glb`, JPEG textures); tool **Corner** shortcut **9**; placement snaps to nearest cell corner; 2D L footprint marker. Batch 422 fix: single-click uses single POST (not batch on pointer-down); batch payloads explicitly include `corner`; cap slot counting includes corner.
 - **2026-06-08:** **Verse physics + jump** — enabled existing avatar physics/jump for all Dream IXR verse room types (`skill-verse`, `culture-verse`, etc.): `VERSE_ROOM_TYPE_FEATURE_FLAGS.physics: true`; `physicsEnvEnabled()` now includes `isVerseRoomType()` alongside FFA (still gated by `ENABLE_PHYSICS` / `NEXT_PUBLIC_ENABLE_PHYSICS`).
 - **2026-06-08:** **E-key sit hold window** — sit/stand on E release now allows holds up to `AVATAR_KEYBOARD_INTERACT_MAX_HOLD_MS` (450 ms); turn still starts at 120 ms. Fixes missed sits when E was held slightly too long.
 - **2026-06-08:** **Chair sit E-key fix** — `useSitting` `nearestChair` was memoized on stable `getAvatarPosition` ref, so proximity never updated as avatar moved; recompute each render. Short E tap always calls `tryInteract()` (no-op when out of range).

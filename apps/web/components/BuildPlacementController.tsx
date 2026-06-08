@@ -386,9 +386,8 @@ export function BuildPlacementController({
       setGhostTrail([]);
       lastTrailKeyRef.current = "";
       updateGhostFromHit(event.point.x, event.point.y, event.point.z, surfacePiece, buildMode.tool);
-      tryDragPlacement(event, surfacePiece);
     },
-    [buildMode.enabled, buildMode.tool, tryDragPlacement, updateGhostFromHit]
+    [buildMode.enabled, buildMode.tool, updateGhostFromHit]
   );
 
   const handlePointerUp = useCallback(async () => {

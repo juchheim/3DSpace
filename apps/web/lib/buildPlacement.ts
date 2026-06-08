@@ -305,7 +305,8 @@ export function countNewBuildSlots(pieces: BuildPiece[], targets: BuildPlacement
       kind: target.kind,
       cell: target.cell,
       level: target.level,
-      edge: target.edge
+      edge: target.edge,
+      corner: target.corner
     });
     if (!existingIds.has(stableId)) {
       newSlots += 1;

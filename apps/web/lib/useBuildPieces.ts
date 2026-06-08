@@ -65,6 +65,20 @@ function dedupePlacementsLastWins(placements: BuildPiecePlacementInput[]) {
   return [...byKey.values()];
 }
 
+/** Normalize client placement targets to the API create payload (keeps corner/edge slots explicit). */
+function toCreateBuildPiecePayload(placement: BuildPiecePlacementInput): BuildPiecePlacementInput {
+  const payload: BuildPiecePlacementInput = {
+    kind: placement.kind,
+    cell: placement.cell,
+    level: placement.level,
+    rotation: placement.rotation ?? 0,
+    materialId: placement.materialId ?? "stone"
+  };
+  if (placement.edge !== undefined) payload.edge = placement.edge;
+  if (placement.corner !== undefined) payload.corner = placement.corner;
+  return payload;
+}
+
 function optimisticBuildPiece(input: {
   roomId: string;
   userId: string;
@@ -293,7 +307,9 @@ export function useBuildPieces(input: {
       try {
         const createdPieces: BuildPiece[] = [];
         for (let offset = 0; offset < uniquePlacements.length; offset += BUILD_PIECES_BATCH_MAX_SIZE) {
-          const chunk = uniquePlacements.slice(offset, offset + BUILD_PIECES_BATCH_MAX_SIZE);
+          const chunk = uniquePlacements
+            .slice(offset, offset + BUILD_PIECES_BATCH_MAX_SIZE)
+            .map(toCreateBuildPiecePayload);
           const result = await createBuildPiecesBatch(input.identity, input.roomId, { pieces: chunk });
           for (const piece of result.pieces) {
             upsertLocal(piece);
