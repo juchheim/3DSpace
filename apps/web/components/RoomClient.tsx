@@ -86,6 +86,7 @@ import { usePlacedWorldAssets } from "../lib/usePlacedWorldAssets";
 import { useSitting } from "../lib/useSitting";
 import { AVATAR_KEYBOARD_INTERACT_MAX_HOLD_MS } from "../lib/useAvatarMovement";
 import { WORLD_ASSET_CATALOG } from "../lib/worldAssetCatalog";
+import { worldAssetGroundY } from "../lib/worldAssetGroundY";
 import { AnchorPanel } from "./AnchorPanel";
 import { AuthGate } from "../lib/auth";
 import { ClassroomPanel } from "./ClassroomPanel";
@@ -983,9 +984,17 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   // A stable ref so useSitting can always read the latest avatar position without
   // needing movement to be declared first.
   const avatarPositionRef = useRef<{ x: number; y: number; z: number } | null>(null);
+  const resolveWorldAssetGroundY = useCallback(
+    (x: number, z: number) => {
+      if (!manifest) return 0;
+      return worldAssetGroundY(manifest, buildPiecesForMovementRef.current, x, z);
+    },
+    [manifest]
+  );
   const sitting = useSitting({
     chairs: chairs.chairs,
-    getAvatarPosition: () => avatarPositionRef.current
+    getAvatarPosition: () => avatarPositionRef.current,
+    resolveGroundY: resolveWorldAssetGroundY
   });
   // Merge classroom lock and sitting lock; classroom lock wins if set.
   const combinedLockedPosition = lockedPosition ?? sitting.seatLockedPosition;

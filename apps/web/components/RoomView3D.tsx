@@ -84,6 +84,7 @@ import {
   levelToY
 } from "@3dspace/room-engine";
 import { avatarStandingLevel } from "../lib/buildPlacement";
+import { worldAssetGroundY } from "../lib/worldAssetGroundY";
 
 type Wall = z.infer<typeof WallPlaneSchema>;
 type Anchor = z.infer<typeof WallAnchorSchema>;
@@ -512,6 +513,12 @@ export function RoomView3D({
   );
   const boardWalls = dynamicBoardPlacement?.active ? boardPlacementWallSet : manifest.walls;
 
+  const resolveWorldAssetGroundY = useMemo(
+    () => (x: number, z: number) =>
+      worldAssetGroundY(mergedManifest, buildScene?.pieces ?? [], x, z),
+    [mergedManifest, buildScene?.pieces]
+  );
+
   useEffect(() => bindCamera(canvasElement), [bindCamera, canvasElement]);
 
   return (
@@ -562,6 +569,7 @@ export function RoomView3D({
             <AssetPlacementController
               glbUrl={assetPlacement.glbUrl}
               interceptPlaneY={assetInterceptPlaneY}
+              resolveGroundY={resolveWorldAssetGroundY}
               rotationStep={assetPlacement.rotationStep}
               onPlace={assetPlacement.onPlace}
               onCancel={assetPlacement.onCancel}
@@ -570,7 +578,7 @@ export function RoomView3D({
           </Suspense>
         ) : null}
         <Suspense fallback={null}>
-          <PlacedChairsLayer chairs={placedChairs} />
+          <PlacedChairsLayer chairs={placedChairs} resolveGroundY={resolveWorldAssetGroundY} />
         </Suspense>
         {buildScene ? (
           <BuildPlacementController

@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import type { PlacedChair } from "./usePlacedChairs";
-import { chairSeatPose, findNearestChair } from "./usePlacedChairs";
+import { chairSeatPose, chairWithGroundY, findNearestChair } from "./usePlacedChairs";
 
 /** Sitting animation phase.
  *  - "none"        : standing normally
@@ -32,9 +32,11 @@ const STAND_ANIM_DURATION_MS = 1050;
 export function useSitting({
   chairs,
   getAvatarPosition,
+  resolveGroundY
 }: {
   chairs: PlacedChair[];
   getAvatarPosition: () => { x: number; y: number; z: number } | null;
+  resolveGroundY?: (x: number, z: number) => number;
 }): UseSittingReturn {
   const [phase, setPhase] = useState<SittingPhase>("none");
   const [seatChairId, setSeatChairId] = useState<string | null>(null);
@@ -85,7 +87,8 @@ export function useSitting({
       const chair = pos ? findNearestChair(pos, chairsRef.current, 1.5) : null;
       if (!chair) return;
 
-      const { position: seat, rotationY: avatarYaw } = chairSeatPose(chair);
+      const grounded = resolveGroundY ? chairWithGroundY(chair, resolveGroundY) : chair;
+      const { position: seat, rotationY: avatarYaw } = chairSeatPose(grounded);
 
       clearPhaseTimer();
       setSeatChairId(chair.id);
@@ -98,7 +101,7 @@ export function useSitting({
         phaseTimerRef.current = null;
       }, SIT_ANIM_DURATION_MS);
     }
-  }, [getAvatarPosition]);
+  }, [getAvatarPosition, resolveGroundY]);
 
   // Called by BlockyAvatar when the one-shot clip finishes (may arrive slightly
   // earlier or later than the timer; whichever wins, the other is a no-op).

@@ -21,6 +21,15 @@ function distanceXZ(
   return Math.sqrt(dx * dx + dz * dz);
 }
 
+export function chairWithGroundY(
+  chair: PlacedChair,
+  groundY: (x: number, z: number) => number
+): PlacedChair {
+  const y = groundY(chair.position.x, chair.position.z);
+  if (Math.abs(y - chair.position.y) < 1e-6) return chair;
+  return { ...chair, position: { ...chair.position, y } };
+}
+
 /** World-space seat pose for an avatar sitting in `chair`. */
 export function chairSeatPose(chair: PlacedChair): {
   position: { x: number; y: number; z: number };

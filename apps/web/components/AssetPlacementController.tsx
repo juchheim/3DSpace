@@ -21,6 +21,8 @@ type AssetPlacementControllerProps = {
   glbUrl: string;
   /** Y of the invisible intercept plane (above the build placement plane). */
   interceptPlaneY?: number;
+  /** Resolve walkable ground Y at (x, z) — build floors, ramps, and room terrain. */
+  resolveGroundY(x: number, z: number): number;
   /** Current rotation step (0=0°, 1=90°, 2=180°, 3=270°). */
   rotationStep: number;
   /** Called with world position + yaw (radians) when user clicks to place. */
@@ -38,6 +40,7 @@ const PLANE_HALF = 500;
 export function AssetPlacementController({
   glbUrl,
   interceptPlaneY = 0.002,
+  resolveGroundY,
   rotationStep,
   onPlace,
   onCancel,
@@ -70,9 +73,10 @@ export function AssetPlacementController({
     (e: ThreeEvent<MouseEvent>) => {
       e.stopPropagation();
       if (!ghostPos) return;
-      onPlace({ x: ghostPos.x, y: 0, z: ghostPos.z }, yaw);
+      const y = resolveGroundY(ghostPos.x, ghostPos.z);
+      onPlace({ x: ghostPos.x, y, z: ghostPos.z }, yaw);
     },
-    [ghostPos, onPlace, yaw]
+    [ghostPos, onPlace, resolveGroundY, yaw]
   );
 
   const handlePointerOut = useCallback(() => {
@@ -100,7 +104,7 @@ export function AssetPlacementController({
       {/* Ghost chair at cursor position */}
       {ghostPos ? (
         <group
-          position={[ghostPos.x, 0, ghostPos.z]}
+          position={[ghostPos.x, resolveGroundY(ghostPos.x, ghostPos.z), ghostPos.z]}
           rotation={[0, yaw, 0]}
         >
           <primitive
