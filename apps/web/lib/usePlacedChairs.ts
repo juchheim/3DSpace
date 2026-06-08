@@ -31,7 +31,7 @@ export function chairSeatPose(chair: PlacedChair): {
   // from the GLB origin so hips sit on the seat pan, not through the backrest.
   const forwardX = Math.sin(chair.yaw);
   const forwardZ = Math.cos(chair.yaw);
-  const forwardOffset = 0.1;
+  const forwardOffset = 0.32;
   return {
     position: {
       x: chair.position.x + forwardX * forwardOffset,
