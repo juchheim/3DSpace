@@ -20,18 +20,15 @@ import {
 import { buildMaterialProps } from "./buildMaterials";
 import { edgeOpeningFrameParts } from "../lib/buildEdgeOpeningMesh";
 import { wallMeshTransform } from "../lib/buildWallMesh";
-import { wallCornerMeshTransform } from "../lib/buildWallCornerMesh";
 
 // ── Custom wall GLB ───────────────────────────────────────────────────────────
 const WALL_GLB_URL = "/objects/wall.glb";
-const WALL_CORNER_GLB_URL = "/objects/wall-corner.glb";
 // Native dimensions of the GLB mesh (measured from the source file)
 const WALL_GLB_NATIVE_W = 2.3916; // X extent
 const WALL_GLB_NATIVE_H = 2.0;    // Y extent (already matches BUILD_WALL_HEIGHT)
 const WALL_GLB_NATIVE_D = 0.7001; // Z extent
 
 useGLTF.preload(WALL_GLB_URL);
-useGLTF.preload(WALL_CORNER_GLB_URL);
 
 /**
  * Renders the custom wall GLB, stretched to match the engine's wall dimensions
@@ -64,18 +61,6 @@ function WallGlbMesh({ piece }: { piece: BuildPiece }) {
       rotation={[0, (isEW ? Math.PI / 2 : 0) + facingFlip, 0]}
       scale={[scaleX, scaleY, scaleZ]}
     >
-      <primitive object={model} />
-    </group>
-  );
-}
-
-function WallCornerGlbMesh({ piece }: { piece: BuildPiece }) {
-  const { scene } = useGLTF(WALL_CORNER_GLB_URL);
-  const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
-  const { position, rotationY, scale } = wallCornerMeshTransform(piece);
-
-  return (
-    <group position={position} rotation={[0, rotationY, 0]} scale={scale}>
       <primitive object={model} />
     </group>
   );
@@ -247,45 +232,6 @@ export function BuildPieceMesh({
           maxDepthThreshold={1}
         />
       </mesh>
-    );
-  }
-
-  if (piece.kind === "wall-corner") {
-    const { position, rotationY, size } = wallCornerMeshTransform(piece);
-
-    if (ghost || trail) {
-      return (
-        <mesh
-          position={[position[0], position[1] + BUILD_WALL_HEIGHT / 2, position[2]]}
-          rotation={[0, rotationY, 0]}
-          userData={{ buildPieceId: piece.id, buildPiece: piece }}
-          {...(pointerEventsPassThrough ? { raycast: () => {} } : {})}
-          {...pointerProps}
-        >
-          <boxGeometry args={size} />
-          <meshStandardMaterial {...materialProps} />
-          {ghost ? <Edges color={valid ? "#6dff9a" : "#ff6b6b"} linewidth={2} /> : null}
-        </mesh>
-      );
-    }
-
-    return (
-      <group
-        userData={{ buildPieceId: piece.id, buildPiece: piece }}
-        {...(pointerEventsPassThrough ? { raycast: () => {} } : {})}
-        {...pointerProps}
-      >
-        <Suspense
-          fallback={
-            <mesh position={[position[0], position[1] + BUILD_WALL_HEIGHT / 2, position[2]]} rotation={[0, rotationY, 0]}>
-              <boxGeometry args={size} />
-              <meshStandardMaterial {...materialProps} />
-            </mesh>
-          }
-        >
-          <WallCornerGlbMesh piece={piece} />
-        </Suspense>
-      </group>
     );
   }
 

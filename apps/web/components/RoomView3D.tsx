@@ -139,8 +139,7 @@ type BuildSceneConfig = {
       level: number,
       edge?: BuildPieceEdge,
       rotation?: BuildPieceRotation,
-      materialId?: BuildPieceMaterial,
-      corner?: import("@3dspace/contracts").BuildPieceCorner
+      materialId?: BuildPieceMaterial
     ): Promise<unknown>;
     placeBatch(
       placements: Array<{
@@ -148,7 +147,6 @@ type BuildSceneConfig = {
         cell: { ix: number; iz: number };
         level: number;
         edge?: BuildPieceEdge;
-        corner?: import("@3dspace/contracts").BuildPieceCorner;
         rotation?: BuildPieceRotation;
         materialId?: BuildPieceMaterial;
       }>

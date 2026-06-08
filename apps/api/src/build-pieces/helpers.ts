@@ -3,7 +3,6 @@ import {
   isVerseRoomType,
   type BuildPiece,
   type RoomType,
-  type BuildPieceCorner,
   type BuildPieceEdge,
   type BuildPieceKind,
   type BuildPieceMaterial,
@@ -30,13 +29,12 @@ export type BuildPiecePlacement = {
   cell: { ix: number; iz: number };
   level: number;
   edge?: BuildPieceEdge | undefined;
-  corner?: BuildPieceCorner | undefined;
   rotation?: BuildPieceRotation | undefined;
   materialId?: BuildPieceMaterial | undefined;
 };
 
 export function buildPiecePlacementKey(placement: BuildPiecePlacement) {
-  return `${placement.kind}:${placement.cell.ix},${placement.cell.iz}:${placement.level}:${placement.edge ?? ""}:${placement.corner ?? ""}`;
+  return `${placement.kind}:${placement.cell.ix},${placement.cell.iz}:${placement.level}:${placement.edge ?? ""}`;
 }
 
 export function dedupeBuildPlacements(placements: BuildPiecePlacement[]) {
@@ -53,8 +51,7 @@ export function matchesBuildPiecePlacement(piece: BuildPiece, placement: BuildPi
     piece.cell.ix === placement.cell.ix &&
     piece.cell.iz === placement.cell.iz &&
     piece.level === placement.level &&
-    (piece.edge ?? undefined) === (placement.edge ?? undefined) &&
-    (piece.corner ?? undefined) === (placement.corner ?? undefined)
+    (piece.edge ?? undefined) === (placement.edge ?? undefined)
   );
 }
 
@@ -92,14 +89,12 @@ export function assertBuildAllowed(
       kind: placement.kind,
       cell: placement.cell,
       level: placement.level,
-      edge: placement.edge,
-      corner: placement.corner
+      edge: placement.edge
     }),
     kind: placement.kind,
     cell: placement.cell,
     level: placement.level,
     edge: placement.edge,
-    corner: placement.corner,
     rotation: placement.rotation ?? 0,
     materialId: placement.materialId ?? "stone"
   };

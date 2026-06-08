@@ -11,7 +11,6 @@ import {
   findSurfacePieceAtCell,
   inferRampRotationFromHit,
   nearestWallEdge,
-  nearestCellCorner,
   resolveBuildPlacementTarget,
   resolvePlaceAheadBuildTarget,
   resolveRampRotation,
@@ -27,21 +26,6 @@ function wallPieceAt(ix: number, iz: number, edge: "n" | "s" | "e" | "w") {
     cell: { ix, iz },
     level: 0,
     edge,
-    rotation: 0,
-    materialId: "stone",
-    createdByUserId: "user-1",
-    createdAt: "2026-05-31T00:00:00.000Z"
-  });
-}
-
-function cornerPieceAt(ix: number, iz: number, corner: "ne" | "nw" | "se" | "sw") {
-  return BuildPieceSchema.parse({
-    id: `build:wall-corner:${ix},${iz}:0:${corner}`,
-    roomId: "room-placement",
-    kind: "wall-corner",
-    cell: { ix, iz },
-    level: 0,
-    corner,
     rotation: 0,
     materialId: "stone",
     createdByUserId: "user-1",
@@ -82,12 +66,6 @@ describe("alignWallEdgeToNeighbors", () => {
   it("only aligns within the same level", () => {
     const existing = wallPieceAt(5, 5, "n"); // level 0
     expect(alignWallEdgeToNeighbors({ ix: 6, iz: 5 }, 1, "e", { [existing.id]: existing })).toBe("e");
-  });
-
-  it("snaps collinear to an adjacent wall-corner arm", () => {
-    // A `ne` corner at (5,5) owns the north edge of (5,5); a wall at (6,5) should extend that run.
-    const corner = cornerPieceAt(5, 5, "ne");
-    expect(alignWallEdgeToNeighbors({ ix: 6, iz: 5 }, 0, "e", { [corner.id]: corner })).toBe("n");
   });
 });
 
@@ -489,27 +467,5 @@ describe("buildPlacement", () => {
       [existing.id]: existing
     });
     expect(preview.allowed).toBe(true);
-  });
-});
-
-describe("wall-corner placement", () => {
-  it("picks the nearest cell corner from the hit", () => {
-    const cell = worldToCell(BUILD_CELL_SIZE * 1.75, BUILD_CELL_SIZE * 1.75);
-    expect(nearestCellCorner(BUILD_CELL_SIZE * 1.75, BUILD_CELL_SIZE * 1.75, cell.ix, cell.iz)).toBe("ne");
-    expect(nearestCellCorner(BUILD_CELL_SIZE * 0.25, BUILD_CELL_SIZE * 1.75, cell.ix, cell.iz)).toBe("nw");
-  });
-
-  it("resolves a wall-corner target with corner slot", () => {
-    const target = resolveBuildPlacementTarget({
-      tool: "wall-corner",
-      hitX: BUILD_CELL_SIZE * 1.8,
-      hitY: 0,
-      hitZ: BUILD_CELL_SIZE * 1.8,
-      rotation: 0,
-      materialId: "stone"
-    });
-    expect(target.kind).toBe("wall-corner");
-    expect(target.corner).toBe("ne");
-    expect(target.edge).toBeUndefined();
   });
 });

@@ -1,9 +1,8 @@
-import type { BuildPiece, BuildPieceMaterial, BuildPieceCorner, RoomManifest } from "@3dspace/contracts";
+import type { BuildPiece, BuildPieceMaterial, RoomManifest } from "@3dspace/contracts";
 import {
   BUILD_CELL_SIZE,
   buildCellFootprint,
   buildPieceColliders,
-  cornerWorldPoint,
   projectPositionTo2D,
   rampClimbFromRotation
 } from "@3dspace/room-engine";
@@ -60,30 +59,6 @@ export function wallFootprintSegment(manifest: RoomManifest, piece: BuildPiece) 
   const start = projectMapPoint(manifest, wall.start.x, wall.start.z);
   const end = projectMapPoint(manifest, wall.end.x, wall.end.z);
   return { start, end };
-}
-
-/** L-shaped corner marker on the 2D map (two short segments). */
-export function wallCornerFootprintSegments(manifest: RoomManifest, piece: BuildPiece) {
-  if (piece.kind !== "wall-corner" || !piece.corner) return null;
-  const pt = cornerWorldPoint(piece.cell.ix, piece.cell.iz, piece.corner);
-  const inset = BUILD_CELL_SIZE * 0.42;
-  const center = projectMapPoint(manifest, pt.x, pt.z);
-  const arms: Record<BuildPieceCorner, { dx: number; dz: number }> = {
-    ne: { dx: -inset, dz: -inset },
-    nw: { dx: inset, dz: -inset },
-    se: { dx: -inset, dz: inset },
-    sw: { dx: inset, dz: inset }
-  };
-  const arm = arms[piece.corner];
-  const end = projectMapPoint(manifest, pt.x + arm.dx, pt.z + arm.dz);
-  const orthEnd =
-    piece.corner === "ne" || piece.corner === "sw"
-      ? projectMapPoint(manifest, pt.x + arm.dx, pt.z)
-      : projectMapPoint(manifest, pt.x, pt.z + arm.dz);
-  return [
-    { start: center, end },
-    { start: center, end: orthEnd }
-  ];
 }
 
 export function rampFootprintArrow(manifest: RoomManifest, piece: BuildPiece) {

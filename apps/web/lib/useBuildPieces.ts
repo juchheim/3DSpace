@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BUILD_PIECES_BATCH_MAX_SIZE,
   type BuildPiece,
-  type BuildPieceCorner,
   type BuildPieceEdge,
   type BuildPieceKind,
   type BuildPieceMaterial,
@@ -42,7 +41,7 @@ function publishMessages(publish: PublishBuildMessage | undefined, messages: Roo
 }
 
 function buildPlacementKey(input: BuildPiecePlacementInput) {
-  return `${input.kind}:${input.cell.ix},${input.cell.iz}:${input.level}:${input.edge ?? ""}:${input.corner ?? ""}`;
+  return `${input.kind}:${input.cell.ix},${input.cell.iz}:${input.level}:${input.edge ?? ""}`;
 }
 
 function placementInputToTarget(placement: BuildPiecePlacementInput): BuildPlacementTarget {
@@ -51,7 +50,6 @@ function placementInputToTarget(placement: BuildPiecePlacementInput): BuildPlace
     cell: placement.cell,
     level: placement.level,
     ...(placement.edge ? { edge: placement.edge } : {}),
-    ...(placement.corner ? { corner: placement.corner } : {}),
     rotation: placement.rotation ?? 0,
     materialId: placement.materialId ?? "stone"
   };
@@ -65,7 +63,7 @@ function dedupePlacementsLastWins(placements: BuildPiecePlacementInput[]) {
   return [...byKey.values()];
 }
 
-/** Normalize client placement targets to the API create payload (keeps corner/edge slots explicit). */
+/** Normalize client placement targets to the API create payload. */
 function toCreateBuildPiecePayload(placement: BuildPiecePlacementInput): BuildPiecePlacementInput {
   const payload: BuildPiecePlacementInput = {
     kind: placement.kind,
@@ -75,7 +73,6 @@ function toCreateBuildPiecePayload(placement: BuildPiecePlacementInput): BuildPi
     materialId: placement.materialId ?? "stone"
   };
   if (placement.edge !== undefined) payload.edge = placement.edge;
-  if (placement.corner !== undefined) payload.corner = placement.corner;
   return payload;
 }
 
@@ -86,7 +83,6 @@ function optimisticBuildPiece(input: {
   cell: { ix: number; iz: number };
   level: number;
   edge?: BuildPieceEdge | undefined;
-  corner?: BuildPieceCorner | undefined;
   rotation?: BuildPieceRotation | undefined;
   materialId?: BuildPieceMaterial | undefined;
   existing?: BuildPiece | undefined;
@@ -98,15 +94,13 @@ function optimisticBuildPiece(input: {
       kind: input.kind,
       cell: input.cell,
       level: input.level,
-      edge: input.edge,
-      corner: input.corner
+      edge: input.edge
     }),
     roomId: input.roomId,
     kind: input.kind,
     cell: input.cell,
     level: input.level,
     ...(input.edge ? { edge: input.edge } : {}),
-    ...(input.corner ? { corner: input.corner } : {}),
     rotation,
     materialId,
     createdByUserId: input.existing?.createdByUserId ?? input.userId,
@@ -211,11 +205,10 @@ export function useBuildPieces(input: {
       level: number,
       edge?: BuildPieceEdge | undefined,
       rotation?: BuildPieceRotation | undefined,
-      materialId?: BuildPieceMaterial | undefined,
-      corner?: BuildPieceCorner | undefined
+      materialId?: BuildPieceMaterial | undefined
     ) => {
       if (!input.roomId) throw new Error("Room is not ready.");
-      const stableId = buildPieceStableId({ kind, cell, level, edge, corner });
+      const stableId = buildPieceStableId({ kind, cell, level, edge });
       const previous = piecesById[stableId];
       upsertLocal(
         optimisticBuildPiece({
@@ -225,7 +218,6 @@ export function useBuildPieces(input: {
           cell,
           level,
           edge,
-          corner,
           rotation,
           materialId,
           existing: previous
@@ -237,7 +229,6 @@ export function useBuildPieces(input: {
           cell,
           level,
           edge,
-          corner,
           rotation,
           materialId
         });
@@ -280,8 +271,7 @@ export function useBuildPieces(input: {
           kind: placement.kind,
           cell: placement.cell,
           level: placement.level,
-          edge: placement.edge,
-          corner: placement.corner
+          edge: placement.edge
         });
         previousById.set(
           stableId,
@@ -297,7 +287,6 @@ export function useBuildPieces(input: {
             cell: placement.cell,
             level: placement.level,
             edge: placement.edge,
-            corner: placement.corner,
             rotation: placement.rotation,
             materialId: placement.materialId,
             existing: piecesById[stableId]

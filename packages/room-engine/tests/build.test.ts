@@ -117,28 +117,6 @@ describe("buildPieceColliders", () => {
     expect(walls[1]!.baseY).toBeGreaterThanOrEqual(1.39);
   });
 
-  it("wall-corner emits two perpendicular wall segments at the grid corner", () => {
-    const piece = BuildPieceSchema.parse({
-      id: `${BUILD_ID_PREFIX}wall-corner:1,2:0:ne`,
-      roomId: "room-1",
-      kind: "wall-corner",
-      cell: { ix: 1, iz: 2 },
-      level: 0,
-      corner: "ne",
-      rotation: 0,
-      materialId: "stone",
-      createdByUserId: "u1",
-      createdAt: "2026-06-08T12:00:00.000Z"
-    });
-
-    const { walls } = buildPieceColliders(piece);
-    expect(walls).toHaveLength(2);
-    expect(walls[0]!.start.z).toBe(walls[0]!.end.z);
-    expect(walls[1]!.start.x).toBe(walls[1]!.end.x);
-    expect(walls[0]!.end.x).toBe(walls[1]!.end.x);
-    expect(walls[0]!.end.z).toBe(walls[1]!.end.z);
-  });
-
   it("light piece is non-colliding", () => {
     const piece = BuildPieceSchema.parse({
       id: `${BUILD_ID_PREFIX}light:1,1:0`,

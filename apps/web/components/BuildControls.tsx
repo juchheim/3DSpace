@@ -17,7 +17,6 @@ const TOOL_OPTIONS: Array<{ id: BuildTool; label: string; shortcut: string }> = 
   { id: "window", label: "Window", shortcut: "6" },
   { id: "light", label: "Light", shortcut: "7" },
   { id: "mirror", label: "Mirror", shortcut: "8" },
-  { id: "wall-corner", label: "Corner", shortcut: "9" },
   { id: "destroy", label: "Destroy", shortcut: "4" }
 ];
 
@@ -74,7 +73,7 @@ export function BuildControls({
       {showCoachmark && buildMode.enabled ? (
         <div className="build-controls-dock__coachmark" role="status">
           <p>
-            <strong>Build:</strong> 1 Wall · 2 Floor · 3 Ramp · 4 Destroy · 5 Door · 6 Window · 7 Light · 8 Mirror · 9 Corner · R rotate ·
+            <strong>Build:</strong> 1 Wall · 2 Floor · 3 Ramp · 4 Destroy · 5 Door · 6 Window · 7 Light · 8 Mirror · R rotate ·
             drag to paint · Stamps below · ⌘Z undo
           </p>
           <button type="button" className="hud-btn" onClick={dismissCoachmark}>
