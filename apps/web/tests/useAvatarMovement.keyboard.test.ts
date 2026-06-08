@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  AVATAR_KEYBOARD_INTERACT_MAX_HOLD_MS,
   AVATAR_KEYBOARD_TURN_HOLD_MS,
   AVATAR_KEYBOARD_TURN_SPEED_RAD_PER_SEC,
   keyboardYawDelta
 } from "../lib/useAvatarMovement";
+
+describe("avatar keyboard timing", () => {
+  it("allows a longer hold for sit/stand than for turn", () => {
+    expect(AVATAR_KEYBOARD_INTERACT_MAX_HOLD_MS).toBeGreaterThan(AVATAR_KEYBOARD_TURN_HOLD_MS);
+  });
+});
 
 describe("keyboardYawDelta", () => {
   it("returns zero when neither Q nor E is held", () => {

@@ -46,6 +46,8 @@ import { PhysicsController } from "./physics/PhysicsController";
 export const AVATAR_KEYBOARD_TURN_SPEED_RAD_PER_SEC = 2.75;
 /** Hold Q/E this long before rotation starts (short taps stay interact-only for E in play mode). */
 export const AVATAR_KEYBOARD_TURN_HOLD_MS = 120;
+/** Max E-key hold on release that still counts as sit/stand (longer than turn threshold). */
+export const AVATAR_KEYBOARD_INTERACT_MAX_HOLD_MS = 450;
 
 export type TurnKeyCode = "KeyQ" | "KeyE";
 

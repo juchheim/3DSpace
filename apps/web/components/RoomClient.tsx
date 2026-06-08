@@ -84,7 +84,7 @@ import { isBoardGrantActive } from "../lib/classroomGrants";
 import { findNearestChair } from "../lib/usePlacedChairs";
 import { usePlacedWorldAssets } from "../lib/usePlacedWorldAssets";
 import { useSitting } from "../lib/useSitting";
-import { AVATAR_KEYBOARD_TURN_HOLD_MS } from "../lib/useAvatarMovement";
+import { AVATAR_KEYBOARD_INTERACT_MAX_HOLD_MS } from "../lib/useAvatarMovement";
 import { WORLD_ASSET_CATALOG } from "../lib/worldAssetCatalog";
 import { AnchorPanel } from "./AnchorPanel";
 import { AuthGate } from "../lib/auth";
@@ -1060,8 +1060,8 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       sittingKeyDownTimesRef.current.delete(e.code);
       if (downAt === undefined) return;
       const held = e.timeStamp - downAt;
-      // Short tap (< turn-hold threshold) = interact; skip if held longer (= turn right)
-      if (held >= AVATAR_KEYBOARD_TURN_HOLD_MS) return;
+      // Sit/stand on release if hold was shorter than interact max (turn starts earlier at turn-hold).
+      if (held >= AVATAR_KEYBOARD_INTERACT_MAX_HOLD_MS) return;
       e.preventDefault();
       // tryInteract no-ops when not seated and no chair is in range.
       sittingTryInteractRef.current();
