@@ -53,6 +53,8 @@ import { LpHostAvatar } from "./LpHostAvatar";
 import type { WorldHostAvatarProps } from "./GlbHostAvatar";
 import { useAiWorldHostScene, type AiWorldHostSceneConfig } from "../lib/useAiWorldHost";
 import { RoomObjectsLayer } from "./RoomObjectsLayer";
+import { PlacedChairsLayer } from "./PlacedChairsLayer";
+import type { PlacedChair } from "../lib/usePlacedChairs";
 import { BuildPlacementController } from "./BuildPlacementController";
 import { LogicLayer } from "./LogicLayer";
 import { LogicPlacementController } from "./LogicPlacementController";
@@ -365,7 +367,10 @@ export function RoomView3D({
   roomObjectActions,
   buildScene,
   logicScene,
-  logicPlayLayer
+  logicPlayLayer,
+  placedChairs = [],
+  localParticipantSittingPhase = "none",
+  onLocalParticipantSitAnimationFinished
 }: {
   manifest: RoomManifest;
   dynamicWallAnchors?: Anchor[];
@@ -445,6 +450,12 @@ export function RoomView3D({
   buildScene?: BuildSceneConfig | null | undefined;
   logicScene?: LogicSceneConfig | null | undefined;
   logicPlayLayer?: LogicPlayLayerConfig | null | undefined;
+  /** Chairs placed in the world (client-side; rendered as static GLBs). */
+  placedChairs?: PlacedChair[];
+  /** Sitting phase for the local participant's avatar (drives one-shot clips). */
+  localParticipantSittingPhase?: import("../lib/useSitting").SittingPhase;
+  /** Forwarded to the local BlockyAvatar when a sit/stand clip finishes. */
+  onLocalParticipantSitAnimationFinished?: () => void;
 }) {
   const dpr = quality === "high" ? 1.8 : quality === "medium" ? 1.4 : 1;
   const [canvasElement, setCanvasElement] = useState<HTMLCanvasElement | null>(null);
@@ -530,6 +541,9 @@ export function RoomView3D({
             actions={roomObjectActions}
           />
         ) : null}
+        <Suspense fallback={null}>
+          <PlacedChairsLayer chairs={placedChairs} />
+        </Suspense>
         {buildScene ? (
           <BuildPlacementController
             manifest={mergedManifest}
@@ -630,6 +644,10 @@ export function RoomView3D({
                 {...(() => { const m = getAudioMode?.(participant.id); return m ? { audioMode: m.mode, whisperRadiusMeters: m.radiusMeters } : {}; })()}
                 {...(isLocal && onSelfClick && !firstPerson ? { onClick: onSelfClick } : {})}
                 {...(isLocal && firstPerson ? { hidden: true } : {})}
+                {...(isLocal && localParticipantSittingPhase !== "none" ? {
+                  sittingPhase: localParticipantSittingPhase,
+                  ...(onLocalParticipantSitAnimationFinished ? { onSitAnimationFinished: onLocalParticipantSitAnimationFinished } : {})
+                } : {})}
               />
             );
           });

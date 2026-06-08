@@ -34,7 +34,9 @@
     "clips": {
       "idle": "Idle_11",
       "walking": "Walking",
-      "running": "Running"
+      "running": "Running",
+      "sit": "Look_Back_and_Sit",
+      "standFromSit": "Sit_to_standTransition_Female_2"
     },
     "zoneMaskUrl": "/avatars/ixr-female-20k-zone-mask.png",
     "neutralAlbedoUrl": "/avatars/ixr-female-20k-albedo-neutral.jpg"

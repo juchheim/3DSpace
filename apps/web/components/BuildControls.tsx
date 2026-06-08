@@ -5,6 +5,7 @@ import type { BuildPieceMaterial } from "@3dspace/contracts";
 import { BUILD_MATERIAL_OPTIONS } from "./buildMaterials";
 import { BUILTIN_BUILD_STAMPS } from "../lib/buildStamps";
 import type { BuildModeController, BuildTool } from "../lib/useBuildMode";
+import { WORLD_ASSET_CATALOG } from "../lib/worldAssetCatalog";
 
 const BUILD_COACHMARK_KEY = "3dspace-build-coachmark-dismissed";
 
@@ -30,7 +31,9 @@ export function BuildControls({
   onPlaceAhead,
   placeAheadDisabled = false,
   onUndo,
-  onRedo
+  onRedo,
+  selectedAssetSlug = null,
+  onSelectAsset
 }: {
   buildMode: BuildModeController;
   pieceCount: number;
@@ -43,6 +46,10 @@ export function BuildControls({
   onPlaceAhead?(): void;
   placeAheadDisabled?: boolean;
   onUndo?(): void;
+  /** Currently selected world-asset slug (e.g. "folding-chair"), or null. */
+  selectedAssetSlug?: string | null;
+  /** Called when user selects/deselects an asset from the Assets row. */
+  onSelectAsset?: (slug: string | null) => void;
   onRedo?(): void;
 }) {
   const [clearing, setClearing] = useState(false);
@@ -92,6 +99,26 @@ export function BuildControls({
 
         {buildMode.enabled ? (
           <>
+            {/* ── World Assets row ────────────────────────────────────────── */}
+            <div className="build-controls-dock__assets" role="toolbar" aria-label="World assets">
+              {WORLD_ASSET_CATALOG.map((asset) => (
+                <button
+                  key={asset.slug}
+                  type="button"
+                  className={`build-controls-dock__asset-btn${selectedAssetSlug === asset.slug ? " build-controls-dock__asset-btn--active" : ""}`}
+                  aria-pressed={selectedAssetSlug === asset.slug}
+                  title={`${asset.displayName} — click to select, then Place ahead`}
+                  onClick={() =>
+                    onSelectAsset?.(selectedAssetSlug === asset.slug ? null : asset.slug)
+                  }
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={asset.thumbnailUrl} alt="" className="build-controls-dock__asset-thumb" />
+                  <span className="build-controls-dock__asset-label">{asset.displayName}</span>
+                </button>
+              ))}
+            </div>
+
             <div className="build-controls-dock__tools" role="toolbar" aria-label="Build tools">
               {TOOL_OPTIONS.map((tool) => (
                 <button

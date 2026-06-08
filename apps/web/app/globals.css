@@ -1001,6 +1001,57 @@ label {
   color: var(--hud-grn);
 }
 
+/* ── World Assets row ──────────────────────────────────────────────────────── */
+.build-controls-dock__assets {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(56, 144, 96, 0.25);
+  margin-bottom: 4px;
+  width: 100%;
+}
+
+.build-controls-dock__asset-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  border-radius: 7px;
+  background: rgba(12, 24, 18, 0.72);
+  border: 1px solid rgba(56, 144, 96, 0.3);
+  cursor: pointer;
+  color: var(--hud-tx);
+  font-size: 10px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.build-controls-dock__asset-btn:hover {
+  border-color: rgba(56, 144, 96, 0.7);
+  background: rgba(12, 24, 18, 0.9);
+}
+
+.build-controls-dock__asset-btn--active {
+  border-color: #38c070;
+  background: rgba(30, 60, 40, 0.9);
+  box-shadow: 0 0 0 1px #38c070;
+}
+
+.build-controls-dock__asset-thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+  display: block;
+}
+
+.build-controls-dock__asset-label {
+  white-space: nowrap;
+  font-size: 10px;
+}
+
 .build-controls-dock__tools,
 .build-controls-dock__stamps,
 .build-controls-dock__materials {

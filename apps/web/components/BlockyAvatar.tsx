@@ -6,6 +6,7 @@ import { Billboard, Html, useAnimations, useGLTF, useTexture } from "@react-thre
 import {
   ClampToEdgeWrapping,
   Color,
+  LoopOnce,
   MathUtils,
   MeshStandardMaterial,
   NearestFilter,
@@ -24,6 +25,7 @@ import type {
   AvatarReactionSlug,
   ParticipantAudioMode
 } from "@3dspace/contracts";
+import type { SittingPhase } from "../lib/useSitting";
 import type { ParticipantView } from "./RoomClient";
 import { CLIENT_TUNING } from "../lib/config";
 import { AvatarAccessoryLayer } from "./AvatarAccessoryLayer";
@@ -98,7 +100,9 @@ function AvatarModel({
   appearance,
   recolorActive,
   accessories,
-  showAccessories
+  showAccessories,
+  sittingPhase = "none",
+  onSitAnimationFinished
 }: {
   body: AvatarBodyCatalogEntry;
   clip: string;
@@ -106,6 +110,10 @@ function AvatarModel({
   recolorActive: boolean;
   accessories: AvatarEquippedAccessories;
   showAccessories: boolean;
+  /** Sitting phase — drives one-shot sit/stand clip playback. */
+  sittingPhase?: SittingPhase;
+  /** Called when a one-shot sit or stand-from-sit clip finishes. */
+  onSitAnimationFinished?: () => void;
 }) {
   const { scene, animations } = useGLTF(body.glbUrl);
   const zoneMask = useTexture(body.zoneMaskUrl) as Texture;
@@ -186,15 +194,57 @@ function AvatarModel({
     [model]
   );
 
-  // Cross-fade to the desired clip whenever the movement state changes.
+  // Cross-fade to the desired clip whenever the movement state or sitting phase changes.
   useEffect(() => {
+    // ── Sitting phases take priority over the normal movement clip ──────────
+    if (sittingPhase === "sitting" && body.clips.sit) {
+      const action = actions[body.clips.sit];
+      if (action) {
+        action.setLoop(LoopOnce, 1);
+        action.clampWhenFinished = true;
+        action.reset().fadeIn(0.15).play();
+        const onFinished = (e: { action: typeof action }) => {
+          if (e.action === action) onSitAnimationFinished?.();
+        };
+        mixer.addEventListener("finished", onFinished as (e: object) => void);
+        return () => {
+          action.fadeOut(0.15);
+          mixer.removeEventListener("finished", onFinished as (e: object) => void);
+        };
+      }
+    }
+    if (sittingPhase === "seated") {
+      // Seated idle — loop normally using the body's configured idle clip
+      const action = actions[body.clips.idle];
+      if (action) {
+        action.reset().fadeIn(0.25).play();
+        return () => { action.fadeOut(0.25); };
+      }
+    }
+    if (sittingPhase === "standing" && body.clips.standFromSit) {
+      const action = actions[body.clips.standFromSit];
+      if (action) {
+        action.setLoop(LoopOnce, 1);
+        action.clampWhenFinished = true;
+        action.reset().fadeIn(0.15).play();
+        const onFinished = (e: { action: typeof action }) => {
+          if (e.action === action) onSitAnimationFinished?.();
+        };
+        mixer.addEventListener("finished", onFinished as (e: object) => void);
+        return () => {
+          action.fadeOut(0.15);
+          mixer.removeEventListener("finished", onFinished as (e: object) => void);
+        };
+      }
+    }
+    // ── Normal movement clip ─────────────────────────────────────────────────
     const action = actions[clip];
     if (!action) return;
     action.reset().fadeIn(0.25).play();
     return () => {
       action.fadeOut(0.25);
     };
-  }, [actions, clip]);
+  }, [actions, body.clips, clip, mixer, onSitAnimationFinished, sittingPhase]);
 
   useEffect(() => {
     model.traverse((object) => {
@@ -254,6 +304,10 @@ export type BlockyAvatarProps = {
   accessories?: AvatarEquippedAccessories;
   /** Selected avatar body slug. Defaults to Azure Vanguard. */
   bodySlug?: AvatarBodySlug;
+  /** Sitting animation phase (local avatar only). Defaults to "none". */
+  sittingPhase?: SittingPhase;
+  /** Called by AvatarModel when a one-shot sit/stand clip finishes. */
+  onSitAnimationFinished?: () => void;
 };
 
 export function BlockyAvatar({
@@ -275,6 +329,8 @@ export function BlockyAvatar({
   avatarScale = 1,
   accessories = { head: null, hands: null },
   bodySlug = DEFAULT_AVATAR_BODY_SLUG,
+  sittingPhase = "none",
+  onSitAnimationFinished,
 }: BlockyAvatarProps) {
   const position = participant.state.position;
   const movement = participant.state.movement;
@@ -372,6 +428,8 @@ export function BlockyAvatar({
             recolorActive={recolorActive}
             accessories={accessories}
             showAccessories={showAccessories}
+            sittingPhase={sittingPhase}
+            {...(onSitAnimationFinished ? { onSitAnimationFinished } : {})}
           />
         </Suspense>
       </group>

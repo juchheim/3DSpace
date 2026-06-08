@@ -297,7 +297,11 @@ export const AvatarBodySlugSchema = z.enum(["azure-vanguard", "azure-vanguard-hd
 export const AvatarBodyClipsSchema = z.object({
   idle: z.string().min(1),
   walking: z.string().min(1),
-  running: z.string().min(1)
+  running: z.string().min(1),
+  /** One-shot clip that plays when the avatar sits down. Ends seated (clampWhenFinished). */
+  sit: z.string().min(1).optional(),
+  /** One-shot clip that plays when the avatar stands up from sitting. Transitions to idle. */
+  standFromSit: z.string().min(1).optional()
 });
 
 export const AvatarBodyCatalogEntrySchema = z.object({

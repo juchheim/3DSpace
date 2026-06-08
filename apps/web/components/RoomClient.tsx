@@ -81,6 +81,8 @@ import { normalizeRoomManifest } from "../lib/manifest";
 import { createRealtimeClient, type RealtimeClient, type RealtimeMessage } from "../lib/realtime";
 import { useSpatialAudio } from "../lib/useSpatialAudio";
 import { isBoardGrantActive } from "../lib/classroomGrants";
+import { usePlacedChairs } from "../lib/usePlacedChairs";
+import { useSitting } from "../lib/useSitting";
 import { AnchorPanel } from "./AnchorPanel";
 import { AuthGate } from "../lib/auth";
 import { ClassroomPanel } from "./ClassroomPanel";
@@ -957,6 +959,19 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   logicNodesForMovementRef.current = logicFeatureEnabled ? (logicPieces.logicState?.nodes ?? {}) : {};
   const lastBuildPlaceAtRef = useRef(0);
   const [build2dPreview, setBuild2dPreview] = useState<Build2DPreview>(null);
+  // ── Chair placement ───────────────────────────────────────────────────────
+  const chairs = usePlacedChairs();
+  const [selectedAssetSlug, setSelectedAssetSlug] = useState<string | null>(null);
+  // A stable ref so useSitting can always read the latest avatar position without
+  // needing movement to be declared first.
+  const avatarPositionRef = useRef<{ x: number; y: number; z: number } | null>(null);
+  const sitting = useSitting({
+    chairs: chairs.chairs,
+    getAvatarPosition: () => avatarPositionRef.current
+  });
+  // Merge classroom lock and sitting lock; classroom lock wins if set.
+  const combinedLockedPosition = lockedPosition ?? sitting.seatLockedPosition;
+
   const movement = useAvatarMovement({
     manifest,
     participantId: session?.participantId ?? identity.userId,
@@ -969,13 +984,15 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       microphoneEnabled: media.microphoneEnabled,
       speaking: media.speaking
     },
-    lockedPosition,
+    lockedPosition: combinedLockedPosition,
     walkSpeedMultiplier,
     physicsTuning,
     buildPiecesRef: buildPiecesForMovementRef,
     logicPiecesRef: logicPiecesForMovementRef,
     logicNodesRef: logicNodesForMovementRef
   });
+  // Keep the position ref in sync with the latest avatar state.
+  avatarPositionRef.current = movement.avatarState?.position ?? null;
   movementTeleportRef.current = movement.teleportToPosition;
   const logicDetection = useLogicDetection({
     enabled: logicPlayEnabled,
@@ -991,17 +1008,51 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       setLogicDebugEvents([]);
     }
   }, [logicPlayEnabled, session?.room.id]);
+  // ── E-key: sit / stand (runs before logic interact so sitting takes priority) ──
+  useEffect(() => {
+    const keyDownTimes = new Map<string, number>();
+    function onKeyDown(e: KeyboardEvent) {
+      if (isKeyboardOwnedTarget(e.target)) return;
+      if (e.code !== "KeyE" || e.repeat) return;
+      keyDownTimes.set(e.code, e.timeStamp);
+    }
+    function onKeyUp(e: KeyboardEvent) {
+      if (isKeyboardOwnedTarget(e.target)) return;
+      if (e.code !== "KeyE") return;
+      const downAt = keyDownTimes.get(e.code);
+      keyDownTimes.delete(e.code);
+      if (downAt === undefined) return;
+      const held = e.timeStamp - downAt;
+      // Short tap (< turn-hold threshold) = interact; skip if held longer (= turn right)
+      if (held >= 120) return;
+      const isSeated = sitting.sittingPhase === "seated" || sitting.sittingPhase === "sitting";
+      const nearChair = sitting.nearestChair;
+      if (isSeated || nearChair) {
+        e.preventDefault();
+        sitting.tryInteract();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
+  }, [sitting]);
+
   useEffect(() => {
     if (!logicPlayEnabled) return;
     function onKeyDown(e: KeyboardEvent) {
       if (isKeyboardOwnedTarget(e.target)) return;
       if (e.code !== "KeyE" || e.repeat) return;
+      // Don't trigger logic if the avatar is near a chair or already seated
+      if (sitting.sittingPhase !== "none" || sitting.nearestChair) return;
       e.preventDefault();
       logicDetection.tryInteract();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [logicDetection.tryInteract, logicPlayEnabled]);
+  }, [logicDetection.tryInteract, logicPlayEnabled, sitting.nearestChair, sitting.sittingPhase]);
   const handleLogicPieceClick = useCallback(
     (piece: BuildLogicPiece) => {
       if (piece.kind === "button") {
@@ -1144,6 +1195,18 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     }
   }, [logicAuthoringEnabled, logicPieces.piecesById, selectedLogicPieceId]);
   const handlePlaceAhead = useCallback(() => {
+    // ── Asset placement (chair etc.) takes priority over build pieces ─────────
+    if (buildMode.enabled && selectedAssetSlug) {
+      const avatar = movement.avatarState;
+      if (!avatar) return;
+      const yaw = avatar.rotation.y;
+      const dist = 1.5; // place 1.5 m ahead of the avatar
+      chairs.placeChair(
+        { x: avatar.position.x + Math.sin(yaw) * dist, y: 0, z: avatar.position.z + Math.cos(yaw) * dist },
+        yaw + Math.PI // chair faces toward the avatar (avatar will sit facing away)
+      );
+      return;
+    }
     if (!manifest || !session || !buildMode.enabled || buildMode.tool === "destroy") return;
     const avatar = movement.avatarState;
     if (!avatar) return;
@@ -1471,6 +1534,18 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     if (!movement.avatarState || viewMode !== "3d") return;
     camera.yawRef.current = movement.avatarState.rotation.y;
   }, [movement.avatarState?.participantId, movement.avatarState?.rotation.y, viewMode]);
+
+  // When sitting begins, teleport avatar to seat position and snap camera yaw.
+  useEffect(() => {
+    if (sitting.sittingPhase !== "sitting") return;
+    if (sitting.seatLockedPosition) {
+      movement.teleportToPosition(sitting.seatLockedPosition);
+    }
+    if (sitting.seatYaw !== null) {
+      camera.yawRef.current = sitting.seatYaw;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sitting.sittingPhase]);
 
   const releaseMedia = media.release;
   const teardownSession = useCallback(() => {
@@ -2896,6 +2971,9 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
             buildScene={buildScene}
             logicScene={logicScene}
             logicPlayLayer={logicPlayLayer}
+            placedChairs={chairs.chairs}
+            localParticipantSittingPhase={sitting.sittingPhase}
+            onLocalParticipantSitAnimationFinished={sitting.onAnimationFinished}
           />
         ) : (
           <RoomView2D
@@ -3640,6 +3718,15 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           reserveGuideDock={aiWorldHostGuidePanelOpen}
         />
       ) : null}
+      {sitting.sittingPhase !== "none" ? (
+        <div className="hud-interaction-prompt" role="status" aria-live="polite">
+          <kbd>E</kbd> stand up
+        </div>
+      ) : sitting.nearestChair ? (
+        <div className="hud-interaction-prompt" role="status" aria-live="polite">
+          <kbd>E</kbd> sit
+        </div>
+      ) : null}
       {logicPlayEnabled && nearestInteractable?.kind === "button" ? (
         <div className="hud-interaction-prompt" role="status" aria-live="polite">
           <kbd>E</kbd> use button
@@ -3739,10 +3826,14 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           onReturnToSpawn={movement.returnToSpawn}
           onPlaceAhead={handlePlaceAhead}
           placeAheadDisabled={
-            !buildMode.enabled || buildMode.tool === "destroy" || Boolean(buildMode.selectedStampId)
+            !buildMode.enabled ||
+            (buildMode.tool === "destroy" && !selectedAssetSlug) ||
+            Boolean(buildMode.selectedStampId)
           }
           onUndo={() => void buildHistory.undo().then((did) => did && buildMode.setStatusMessage("Undid."))}
           onRedo={() => void buildHistory.redo().then((did) => did && buildMode.setStatusMessage("Redid."))}
+          selectedAssetSlug={selectedAssetSlug}
+          onSelectAsset={setSelectedAssetSlug}
         />
       ) : null}
     </main>
