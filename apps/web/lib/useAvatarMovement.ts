@@ -81,6 +81,8 @@ export function useAvatarMovement(input: {
   cameraYawRef?: MutableRefObject<number>;
   media: { cameraEnabled: boolean; microphoneEnabled: boolean; speaking: boolean };
   lockedPosition?: Vector3 | null;
+  /** When set with lockedPosition, keeps avatar yaw aligned (e.g. seated in a chair). */
+  lockedRotationY?: number | null;
   walkSpeedMultiplier?: number;
   physicsTuning?: PhysicsTuning | undefined;
   buildPiecesRef?: MutableRefObject<BuildPiece[]>;
@@ -96,6 +98,8 @@ export function useAvatarMovement(input: {
   mediaRef.current = input.media;
   const lockedPositionRef = useRef<Vector3 | null>(input.lockedPosition ?? null);
   lockedPositionRef.current = input.lockedPosition ?? null;
+  const lockedRotationYRef = useRef<number | null>(input.lockedRotationY ?? null);
+  lockedRotationYRef.current = input.lockedRotationY ?? null;
   // Keep a mutable ref so the rAF loop always reads the latest value without restarting.
   const walkSpeedMultiplierRef = useRef(input.walkSpeedMultiplier ?? 1);
   walkSpeedMultiplierRef.current = input.walkSpeedMultiplier ?? 1;
@@ -315,6 +319,7 @@ export function useAvatarMovement(input: {
         const locked = lockedPositionRef.current;
         if (locked) {
           const lockedPos = { x: locked.x, y: floorYFromZ(input.manifest!, locked.z), z: locked.z };
+          const lockedRotY = lockedRotationYRef.current ?? current.rotation.y;
           if (physicsEnabled() && input.physicsTuning) {
             if (physicsControllerRef.current) {
               physicsControllerRef.current.setPosition(lockedPos);
@@ -325,17 +330,22 @@ export function useAvatarMovement(input: {
           if (
             current.position.x !== lockedPos.x ||
             current.position.z !== lockedPos.z ||
+            current.rotation.y !== lockedRotY ||
             current.movement !== "idle"
           ) {
             const next = {
               ...current,
               sentAt: Date.now(),
               position: lockedPos,
+              rotation: { y: lockedRotY },
               movement: "idle" as const,
               airborneState: "grounded" as const,
               viewMode: input.viewMode,
               media: mediaRef.current
             };
+            if (input.cameraYawRef && lockedRotationYRef.current !== null) {
+              input.cameraYawRef.current = lockedRotY;
+            }
             stateRef.current = next;
             setAvatarState(next);
           }
@@ -556,8 +566,8 @@ export function useAvatarMovement(input: {
   );
 
   const teleportToPosition = useCallback(
-    (point: { x: number; y: number; z: number }) => {
-      if (!input.manifest || !stateRef.current || lockedPositionRef.current) return;
+    (point: { x: number; y: number; z: number }, rotationY?: number) => {
+      if (!input.manifest || !stateRef.current) return;
       const pieces = input.buildPiecesRef?.current ?? [];
       const position = applyGroundHeight(input.manifest, pieces, point, "teleport");
       verticalVelocityRef.current = 0;
@@ -565,19 +575,23 @@ export function useAvatarMovement(input: {
       const next = {
         ...stateRef.current,
         position,
+        ...(rotationY !== undefined ? { rotation: { y: rotationY } } : {}),
         sentAt: Date.now(),
         movement: "idle" as const,
         airborneState: physicsEnabled() ? "grounded" as const : undefined,
         viewMode: input.viewMode,
         media: mediaRef.current
       };
+      if (rotationY !== undefined && input.cameraYawRef) {
+        input.cameraYawRef.current = rotationY;
+      }
       if (physicsEnabled() && physicsControllerRef.current) {
         physicsControllerRef.current.setPosition(position);
       }
       stateRef.current = next;
       setAvatarState(next);
     },
-    [input.manifest, input.buildPiecesRef, input.viewMode, input.physicsTuning?.enabled]
+    [input.cameraYawRef, input.manifest, input.buildPiecesRef, input.viewMode, input.physicsTuning?.enabled]
   );
 
   const returnToSpawn = useCallback(() => {

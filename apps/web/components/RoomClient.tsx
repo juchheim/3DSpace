@@ -974,6 +974,10 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   });
   // Merge classroom lock and sitting lock; classroom lock wins if set.
   const combinedLockedPosition = lockedPosition ?? sitting.seatLockedPosition;
+  const combinedLockedRotationY =
+    lockedPosition !== null && lockedPosition !== undefined
+      ? null
+      : sitting.seatYaw;
 
   const movement = useAvatarMovement({
     manifest,
@@ -988,6 +992,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       speaking: media.speaking
     },
     lockedPosition: combinedLockedPosition,
+    lockedRotationY: combinedLockedRotationY,
     walkSpeedMultiplier,
     physicsTuning,
     buildPiecesRef: buildPiecesForMovementRef,
@@ -1539,17 +1544,16 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     camera.yawRef.current = movement.avatarState.rotation.y;
   }, [movement.avatarState?.participantId, movement.avatarState?.rotation.y, viewMode]);
 
-  // When sitting begins, teleport avatar to seat position and snap camera yaw.
+  // When sitting begins, snap avatar position + yaw to the chair seat pose.
   useEffect(() => {
     if (sitting.sittingPhase !== "sitting") return;
-    if (sitting.seatLockedPosition) {
-      movement.teleportToPosition(sitting.seatLockedPosition);
-    }
-    if (sitting.seatYaw !== null) {
-      camera.yawRef.current = sitting.seatYaw;
-    }
+    if (!sitting.seatLockedPosition) return;
+    movement.teleportToPosition(
+      sitting.seatLockedPosition,
+      sitting.seatYaw ?? undefined
+    );
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sitting.sittingPhase]);
+  }, [sitting.sittingPhase, sitting.seatLockedPosition, sitting.seatYaw]);
 
   const releaseMedia = media.release;
   const teardownSession = useCallback(() => {

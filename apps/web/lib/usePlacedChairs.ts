@@ -21,6 +21,27 @@ function distanceXZ(
   return Math.sqrt(dx * dx + dz * dz);
 }
 
+/** World-space seat pose for an avatar sitting in `chair`. */
+export function chairSeatPose(chair: PlacedChair): {
+  position: { x: number; y: number; z: number };
+  rotationY: number;
+} {
+  // Chair front faces (sin(yaw), 0, cos(yaw)). The seated avatar looks away from the
+  // front (back against the chair back). Shift slightly toward the backrest so the
+  // hips land over the seat pan rather than the GLB origin at floor center.
+  const forwardX = Math.sin(chair.yaw);
+  const forwardZ = Math.cos(chair.yaw);
+  const backOffset = 0.14;
+  return {
+    position: {
+      x: chair.position.x - forwardX * backOffset,
+      y: chair.position.y,
+      z: chair.position.z - forwardZ * backOffset
+    },
+    rotationY: chair.yaw + Math.PI
+  };
+}
+
 /** Returns the nearest chair within `radius` metres of `avatarPos`, or null. */
 export function findNearestChair(
   avatarPos: { x: number; z: number },

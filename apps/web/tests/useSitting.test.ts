@@ -43,6 +43,8 @@ describe("useSitting", () => {
     });
 
     expect(result.current.sittingPhase).toBe("sitting");
-    expect(result.current.seatLockedPosition).toEqual(chair.position);
+    expect(result.current.seatYaw).toBeCloseTo(chair.yaw + Math.PI, 5);
+    expect(result.current.seatLockedPosition?.x).toBeCloseTo(chair.position.x, 5);
+    expect(result.current.seatLockedPosition?.z).toBeCloseTo(chair.position.z - 0.14, 5);
   });
 });

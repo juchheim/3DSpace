@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import type { PlacedChair } from "./usePlacedChairs";
-import { findNearestChair } from "./usePlacedChairs";
+import { chairSeatPose, findNearestChair } from "./usePlacedChairs";
 
 /** Sitting animation phase.
  *  - "none"        : standing normally
@@ -85,11 +85,7 @@ export function useSitting({
       const chair = pos ? findNearestChair(pos, chairsRef.current, 1.5) : null;
       if (!chair) return;
 
-      // Compute seat position: directly at the chair's centre (the animation
-      // handles the backward movement visually within the clip).
-      const seat = { x: chair.position.x, y: chair.position.y, z: chair.position.z };
-      // Avatar faces the same direction the chair faces (i.e. away from the front).
-      const avatarYaw = chair.yaw + Math.PI;
+      const { position: seat, rotationY: avatarYaw } = chairSeatPose(chair);
 
       clearPhaseTimer();
       setSeatChairId(chair.id);
