@@ -24,6 +24,7 @@ import {
   type WallAttachment,
   type BuildLogicPiece,
   type BuildPiece,
+  type BuildPieceCorner,
   type BuildPieceEdge,
   type BuildPieceKind,
   type BuildPieceMaterial,
@@ -220,6 +221,7 @@ export type Repository = {
       cell: { ix: number; iz: number };
       level: number;
       edge?: BuildPieceEdge | undefined;
+      corner?: BuildPieceCorner | undefined;
     }
   ): Promise<BuildPiece | undefined>;
   createBuildPiece(input: {
@@ -228,6 +230,7 @@ export type Repository = {
     cell: { ix: number; iz: number };
     level: number;
     edge?: BuildPieceEdge | undefined;
+    corner?: BuildPieceCorner | undefined;
     rotation: BuildPieceRotation;
     materialId: BuildPieceMaterial;
     createdByUserId: string;
@@ -239,6 +242,7 @@ export type Repository = {
       cell: { ix: number; iz: number };
       level: number;
       edge?: BuildPieceEdge | undefined;
+      corner?: BuildPieceCorner | undefined;
       rotation: BuildPieceRotation;
       materialId: BuildPieceMaterial;
       createdByUserId: string;
@@ -1190,6 +1194,7 @@ export class MemoryRepository implements Repository {
       cell: { ix: number; iz: number };
       level: number;
       edge?: BuildPieceEdge | undefined;
+      corner?: BuildPieceCorner | undefined;
     }
   ) {
     return Array.from(this.buildPieces.values()).find(
@@ -1199,7 +1204,8 @@ export class MemoryRepository implements Repository {
         piece.cell.ix === placement.cell.ix &&
         piece.cell.iz === placement.cell.iz &&
         piece.level === placement.level &&
-        (piece.edge ?? undefined) === (placement.edge ?? undefined)
+        (piece.edge ?? undefined) === (placement.edge ?? undefined) &&
+        (piece.corner ?? undefined) === (placement.corner ?? undefined)
     );
   }
 
@@ -1209,6 +1215,7 @@ export class MemoryRepository implements Repository {
     cell: { ix: number; iz: number };
     level: number;
     edge?: BuildPieceEdge | undefined;
+    corner?: BuildPieceCorner | undefined;
     rotation: BuildPieceRotation;
     materialId: BuildPieceMaterial;
     createdByUserId: string;
@@ -1218,7 +1225,8 @@ export class MemoryRepository implements Repository {
       kind: input.kind,
       cell: input.cell,
       level: input.level,
-      edge: input.edge
+      edge: input.edge,
+      corner: input.corner
     });
     const key = this.buildPieceKey(input.roomId, id);
     const existing = this.buildPieces.get(key);
@@ -1229,6 +1237,7 @@ export class MemoryRepository implements Repository {
       cell: input.cell,
       level: input.level,
       ...(input.edge ? { edge: input.edge } : {}),
+      ...(input.corner ? { corner: input.corner } : {}),
       rotation: input.rotation,
       materialId: input.materialId,
       createdByUserId: existing?.createdByUserId ?? input.createdByUserId,
@@ -1245,6 +1254,7 @@ export class MemoryRepository implements Repository {
       cell: { ix: number; iz: number };
       level: number;
       edge?: BuildPieceEdge | undefined;
+      corner?: BuildPieceCorner | undefined;
       rotation: BuildPieceRotation;
       materialId: BuildPieceMaterial;
       createdByUserId: string;

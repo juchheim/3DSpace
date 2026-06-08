@@ -337,7 +337,8 @@ export function BuildPlacementController({
           target.level,
           target.edge,
           target.rotation,
-          target.materialId
+          target.materialId,
+          target.corner
         );
         onStatus?.("Piece placed.");
       } catch (err) {

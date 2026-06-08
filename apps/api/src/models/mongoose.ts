@@ -16,6 +16,7 @@ import type {
   RoomManifest,
   BuildLogicPiece,
   BuildPiece,
+  BuildPieceCorner,
   BuildPieceEdge,
   BuildPieceKind,
   BuildPieceMaterial,
@@ -43,7 +44,7 @@ import type {
   WhiteboardStroke,
   WorldSkin
 } from "@3dspace/contracts";
-import { buildPieceStableId, logicPieceRequiresEdge, logicPieceStableId } from "@3dspace/room-engine";
+import { buildPieceRequiresCorner, buildPieceRequiresEdge, buildPieceStableId, logicPieceRequiresEdge, logicPieceStableId } from "@3dspace/room-engine";
 import { normalizeBuildPiece } from "../build-pieces/normalize.js";
 import { normalizeLogicPiece } from "../logic-pieces/normalize.js";
 import { defaultLogicConfig } from "../logic-pieces/helpers.js";
@@ -1621,6 +1622,7 @@ export class MongoRepository implements Repository {
       cell: { ix: number; iz: number };
       level: number;
       edge?: BuildPieceEdge | undefined;
+      corner?: BuildPieceCorner | undefined;
     }
   ) {
     return {
@@ -1629,7 +1631,8 @@ export class MongoRepository implements Repository {
       "cell.ix": placement.cell.ix,
       "cell.iz": placement.cell.iz,
       level: placement.level,
-      edge: placement.edge ?? null
+      edge: placement.edge ?? null,
+      corner: placement.corner ?? null
     };
   }
 
@@ -1639,6 +1642,7 @@ export class MongoRepository implements Repository {
     cell: { ix: number; iz: number };
     level: number;
     edge?: BuildPieceEdge | undefined;
+    corner?: BuildPieceCorner | undefined;
     rotation: BuildPieceRotation;
     materialId: BuildPieceMaterial;
     createdByUserId: string;
@@ -1648,7 +1652,8 @@ export class MongoRepository implements Repository {
       kind: input.kind,
       cell: input.cell,
       level: input.level,
-      edge: input.edge
+      edge: input.edge,
+      corner: input.corner
     });
     return {
       id,
@@ -1657,6 +1662,7 @@ export class MongoRepository implements Repository {
       cell: input.cell,
       level: input.level,
       ...(input.edge ? { edge: input.edge } : {}),
+      ...(input.corner ? { corner: input.corner } : {}),
       rotation: input.rotation,
       materialId: input.materialId,
       createdByUserId: input.createdByUserId,
@@ -1726,6 +1732,7 @@ export class MongoRepository implements Repository {
       cell: { ix: number; iz: number };
       level: number;
       edge?: BuildPieceEdge | undefined;
+      corner?: BuildPieceCorner | undefined;
     }
   ) {
     const doc = await this.models.BuildPiece.findOne(this.buildPiecePlacementFilter(roomId, placement)).lean();
@@ -1738,6 +1745,7 @@ export class MongoRepository implements Repository {
     cell: { ix: number; iz: number };
     level: number;
     edge?: BuildPieceEdge | undefined;
+    corner?: BuildPieceCorner | undefined;
     rotation: BuildPieceRotation;
     materialId: BuildPieceMaterial;
     createdByUserId: string;
@@ -1758,9 +1766,13 @@ export class MongoRepository implements Repository {
         createdByUserId: existing?.createdByUserId ?? input.createdByUserId
       });
       lastRecord = record;
-      const update: { $set: BuildPiece; $unset?: { edge: "" } } = { $set: record };
-      if (input.kind !== "wall" && input.kind !== "doorway" && input.kind !== "window" && input.kind !== "mirror") {
+      const update: { $set: BuildPiece; $unset?: Partial<Record<"edge" | "corner", "">> } = { $set: record };
+      if (buildPieceRequiresEdge(input.kind)) {
+        update.$unset = { corner: "" };
+      } else if (buildPieceRequiresCorner(input.kind)) {
         update.$unset = { edge: "" };
+      } else {
+        update.$unset = { edge: "", corner: "" };
       }
       try {
         await this.models.BuildPiece.findOneAndUpdate(filter, update, {
@@ -1785,6 +1797,7 @@ export class MongoRepository implements Repository {
       cell: { ix: number; iz: number };
       level: number;
       edge?: BuildPieceEdge | undefined;
+      corner?: BuildPieceCorner | undefined;
       rotation: BuildPieceRotation;
       materialId: BuildPieceMaterial;
       createdByUserId: string;

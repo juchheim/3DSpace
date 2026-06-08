@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import type {
   BuildPiece,
+  BuildPieceCorner,
   BuildPieceEdge,
   BuildPieceKind,
   BuildPieceMaterial,
@@ -22,7 +23,8 @@ type BuildActions = {
     level: number,
     edge?: BuildPieceEdge | undefined,
     rotation?: BuildPieceRotation | undefined,
-    materialId?: BuildPieceMaterial | undefined
+    materialId?: BuildPieceMaterial | undefined,
+    corner?: BuildPieceCorner | undefined
   ): Promise<BuildPiece>;
   placeBatch(placements: BuildPlacementInput[]): Promise<BuildPiece[]>;
   destroy(pieceId: string): Promise<void>;
@@ -35,7 +37,8 @@ function callPlace(actions: BuildActions, placement: BuildPlacementInput) {
     placement.level,
     placement.edge,
     placement.rotation,
-    placement.materialId
+    placement.materialId,
+    placement.corner
   );
 }
 
@@ -50,6 +53,7 @@ function placementFromPiece(piece: BuildPiece): BuildPlacementInput {
     cell: piece.cell,
     level: piece.level,
     ...(piece.edge ? { edge: piece.edge } : {}),
+    ...(piece.corner ? { corner: piece.corner } : {}),
     rotation: piece.rotation,
     materialId: piece.materialId
   };

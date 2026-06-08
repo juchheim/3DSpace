@@ -46,6 +46,7 @@ function placementFromRequest(body: CreateBuildPieceRequest): BuildPiecePlacemen
     cell: body.cell,
     level: body.level,
     edge: body.edge,
+    corner: body.corner,
     rotation: body.rotation,
     materialId: body.materialId
   };
@@ -80,6 +81,7 @@ export async function registerBuildPieceRoutes(app: FastifyInstance, ctx: AppCon
         cell: placement.cell,
         level: placement.level,
         edge: placement.edge,
+        corner: placement.corner,
         rotation: placement.rotation ?? 0,
         materialId: placement.materialId ?? "stone",
         createdByUserId: auth.userId
@@ -110,6 +112,7 @@ export async function registerBuildPieceRoutes(app: FastifyInstance, ctx: AppCon
           cell: placement.cell,
           level: placement.level,
           edge: placement.edge,
+          corner: placement.corner,
           rotation: placement.rotation ?? 0,
           materialId: placement.materialId ?? "stone",
           createdByUserId: auth.userId

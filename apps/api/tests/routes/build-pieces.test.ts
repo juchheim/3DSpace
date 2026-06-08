@@ -96,6 +96,30 @@ describe("build pieces routes", () => {
     await app.close();
   });
 
+  it("persists wall-corner pieces with their corner slot", async () => {
+    const app = await buildTestApp({ config: buildPiecesConfig(), repository: new MemoryRepository() });
+    const { classRecord, roomWithManifest } = await createFfaRoom(app);
+    const roomId = roomWithManifest.room.id;
+    await addStudentMember(app, classRecord.id, "teacher-ffa", "builder-a", "Alex");
+
+    const createRes = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/build-pieces`,
+      headers: authHeaders("builder-a", "Alex"),
+      payload: { kind: "wall-corner", cell: { ix: 15, iz: 15 }, level: 0, corner: "ne", materialId: "stone" }
+    });
+    if (createRes.statusCode !== 200) {
+      throw new Error(`wall-corner create failed: ${createRes.statusCode} ${JSON.stringify(createRes.json())}`);
+    }
+    expect(createRes.json().piece).toMatchObject({
+      kind: "wall-corner",
+      corner: "ne",
+      id: "build:wall-corner:15,15:0:ne"
+    });
+
+    await app.close();
+  });
+
   it("places a batch and clears all pieces", async () => {
     const app = await buildTestApp({ config: buildPiecesConfig() });
     const { classRecord, roomWithManifest } = await createFfaRoom(app);

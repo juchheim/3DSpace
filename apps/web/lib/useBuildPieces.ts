@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BUILD_PIECES_BATCH_MAX_SIZE,
   type BuildPiece,
+  type BuildPieceCorner,
   type BuildPieceEdge,
   type BuildPieceKind,
   type BuildPieceMaterial,
@@ -41,7 +42,7 @@ function publishMessages(publish: PublishBuildMessage | undefined, messages: Roo
 }
 
 function buildPlacementKey(input: BuildPiecePlacementInput) {
-  return `${input.kind}:${input.cell.ix},${input.cell.iz}:${input.level}:${input.edge ?? ""}`;
+  return `${input.kind}:${input.cell.ix},${input.cell.iz}:${input.level}:${input.edge ?? ""}:${input.corner ?? ""}`;
 }
 
 function placementInputToTarget(placement: BuildPiecePlacementInput): BuildPlacementTarget {
@@ -50,6 +51,7 @@ function placementInputToTarget(placement: BuildPiecePlacementInput): BuildPlace
     cell: placement.cell,
     level: placement.level,
     ...(placement.edge ? { edge: placement.edge } : {}),
+    ...(placement.corner ? { corner: placement.corner } : {}),
     rotation: placement.rotation ?? 0,
     materialId: placement.materialId ?? "stone"
   };
@@ -70,6 +72,7 @@ function optimisticBuildPiece(input: {
   cell: { ix: number; iz: number };
   level: number;
   edge?: BuildPieceEdge | undefined;
+  corner?: BuildPieceCorner | undefined;
   rotation?: BuildPieceRotation | undefined;
   materialId?: BuildPieceMaterial | undefined;
   existing?: BuildPiece | undefined;
@@ -81,13 +84,15 @@ function optimisticBuildPiece(input: {
       kind: input.kind,
       cell: input.cell,
       level: input.level,
-      edge: input.edge
+      edge: input.edge,
+      corner: input.corner
     }),
     roomId: input.roomId,
     kind: input.kind,
     cell: input.cell,
     level: input.level,
     ...(input.edge ? { edge: input.edge } : {}),
+    ...(input.corner ? { corner: input.corner } : {}),
     rotation,
     materialId,
     createdByUserId: input.existing?.createdByUserId ?? input.userId,
@@ -192,10 +197,11 @@ export function useBuildPieces(input: {
       level: number,
       edge?: BuildPieceEdge | undefined,
       rotation?: BuildPieceRotation | undefined,
-      materialId?: BuildPieceMaterial | undefined
+      materialId?: BuildPieceMaterial | undefined,
+      corner?: BuildPieceCorner | undefined
     ) => {
       if (!input.roomId) throw new Error("Room is not ready.");
-      const stableId = buildPieceStableId({ kind, cell, level, edge });
+      const stableId = buildPieceStableId({ kind, cell, level, edge, corner });
       const previous = piecesById[stableId];
       upsertLocal(
         optimisticBuildPiece({
@@ -205,6 +211,7 @@ export function useBuildPieces(input: {
           cell,
           level,
           edge,
+          corner,
           rotation,
           materialId,
           existing: previous
@@ -216,6 +223,7 @@ export function useBuildPieces(input: {
           cell,
           level,
           edge,
+          corner,
           rotation,
           materialId
         });
@@ -258,7 +266,8 @@ export function useBuildPieces(input: {
           kind: placement.kind,
           cell: placement.cell,
           level: placement.level,
-          edge: placement.edge
+          edge: placement.edge,
+          corner: placement.corner
         });
         previousById.set(
           stableId,
@@ -274,6 +283,7 @@ export function useBuildPieces(input: {
             cell: placement.cell,
             level: placement.level,
             edge: placement.edge,
+            corner: placement.corner,
             rotation: placement.rotation,
             materialId: placement.materialId,
             existing: piecesById[stableId]
