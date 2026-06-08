@@ -20,7 +20,7 @@ describe("usePlacedChairs", () => {
     };
     const pose = chairSeatPose(chair);
     expect(pose.rotationY).toBeCloseTo(chair.yaw, 5);
-    expect(pose.position.x).toBeCloseTo(2 - 0.14, 5);
+    expect(pose.position.x).toBeCloseTo(2 + 0.1, 5);
     expect(pose.position.z).toBeCloseTo(3, 5);
   });
 });

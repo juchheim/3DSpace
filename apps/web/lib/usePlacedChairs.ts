@@ -27,16 +27,16 @@ export function chairSeatPose(chair: PlacedChair): {
   rotationY: number;
 } {
   // Chair front faces (sin(yaw), 0, cos(yaw)). The seated avatar faces the same
-  // direction (legs toward the front, back against the backrest). Shift slightly
-  // toward the backrest so the hips land over the seat pan.
+  // direction (legs toward the front, back against the backrest). Nudge forward
+  // from the GLB origin so hips sit on the seat pan, not through the backrest.
   const forwardX = Math.sin(chair.yaw);
   const forwardZ = Math.cos(chair.yaw);
-  const backOffset = 0.14;
+  const forwardOffset = 0.1;
   return {
     position: {
-      x: chair.position.x - forwardX * backOffset,
+      x: chair.position.x + forwardX * forwardOffset,
       y: chair.position.y,
-      z: chair.position.z - forwardZ * backOffset
+      z: chair.position.z + forwardZ * forwardOffset
     },
     rotationY: chair.yaw
   };
