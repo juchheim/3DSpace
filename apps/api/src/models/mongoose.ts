@@ -1687,7 +1687,7 @@ export class MongoRepository implements Repository {
       });
       lastRecord = record;
       const update: { $set: BuildPiece; $unset?: { edge: "" } } = { $set: record };
-      if (input.kind !== "wall" && input.kind !== "doorway" && input.kind !== "window") {
+      if (input.kind !== "wall" && input.kind !== "doorway" && input.kind !== "window" && input.kind !== "mirror") {
         update.$unset = { edge: "" };
       }
       try {
