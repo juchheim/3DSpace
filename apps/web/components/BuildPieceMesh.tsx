@@ -26,9 +26,9 @@ import { wallCornerMeshTransform } from "../lib/buildWallCornerMesh";
 const WALL_GLB_URL = "/objects/wall.glb";
 const WALL_CORNER_GLB_URL = "/objects/wall-corner.glb";
 // Native dimensions of the GLB mesh (measured from the source file)
-const WALL_GLB_NATIVE_W = 1.6762; // X extent
+const WALL_GLB_NATIVE_W = 2.3916; // X extent
 const WALL_GLB_NATIVE_H = 2.0;    // Y extent (already matches BUILD_WALL_HEIGHT)
-const WALL_GLB_NATIVE_D = 0.3545; // Z extent
+const WALL_GLB_NATIVE_D = 0.7001; // Z extent
 
 useGLTF.preload(WALL_GLB_URL);
 useGLTF.preload(WALL_CORNER_GLB_URL);
