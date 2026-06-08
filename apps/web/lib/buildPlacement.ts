@@ -1,5 +1,6 @@
 import type {
   BuildPiece,
+  BuildPieceCorner,
   BuildPieceEdge,
   BuildPieceKind,
   BuildPieceMaterial,
@@ -26,6 +27,7 @@ export type BuildPlacementTarget = {
   cell: { ix: number; iz: number };
   level: number;
   edge?: BuildPieceEdge;
+  corner?: BuildPieceCorner;
   rotation: BuildPieceRotation;
   materialId: BuildPieceMaterial;
 };
@@ -54,6 +56,17 @@ export function nearestWallEdge(x: number, z: number, ix: number, iz: number): B
     return dx >= 0 ? "e" : "w";
   }
   return dz >= 0 ? "n" : "s";
+}
+
+export function nearestCellCorner(x: number, z: number, ix: number, iz: number): BuildPieceCorner {
+  const centerX = (ix + 0.5) * BUILD_CELL_SIZE;
+  const centerZ = (iz + 0.5) * BUILD_CELL_SIZE;
+  const dx = x - centerX;
+  const dz = z - centerZ;
+  if (dx >= 0 && dz >= 0) return "ne";
+  if (dx < 0 && dz >= 0) return "nw";
+  if (dx >= 0 && dz < 0) return "se";
+  return "sw";
 }
 
 /**
@@ -170,6 +183,17 @@ export function resolveBuildPlacementTarget(input: {
 }): BuildPlacementTarget {
   const cell = worldToCell(input.hitX, input.hitZ);
   const baseLevel = input.baseLevel ?? 0;
+  if (input.tool === "wall-corner") {
+    const level = wallLevelFromSurface(input.hitY, input.surfacePiece, baseLevel);
+    return {
+      kind: "wall-corner",
+      cell,
+      level,
+      corner: nearestCellCorner(input.hitX, input.hitZ, cell.ix, cell.iz),
+      rotation: input.rotation,
+      materialId: input.materialId
+    };
+  }
   if (input.tool === "wall" || input.tool === "doorway" || input.tool === "window" || input.tool === "mirror") {
     const level = wallLevelFromSurface(input.hitY, input.surfacePiece, baseLevel);
     const cursorEdge = nearestWallEdge(input.hitX, input.hitZ, cell.ix, cell.iz);
@@ -234,7 +258,8 @@ export function buildPlacementPreviewPiece(
     kind: target.kind,
     cell: target.cell,
     level: target.level,
-    edge: target.edge
+    edge: target.edge,
+    corner: target.corner
   });
   return {
     id: stableId,
@@ -243,6 +268,7 @@ export function buildPlacementPreviewPiece(
     cell: target.cell,
     level: target.level,
     ...(target.edge ? { edge: target.edge } : {}),
+    ...(target.corner ? { corner: target.corner } : {}),
     rotation: target.rotation,
     materialId: target.materialId,
     createdByUserId: userId,
@@ -256,6 +282,7 @@ function cellLevelOccupiedBySameKind(
   stableId: string
 ) {
   if (target.kind === "wall" || target.kind === "mirror") return false;
+  if (target.kind === "wall-corner") return false;
   for (const existing of Object.values(piecesById)) {
     if (existing.id === stableId) continue;
     if (existing.kind !== target.kind) continue;
@@ -409,6 +436,18 @@ export function findSurfacePieceAtCell(
 /** Topmost build piece at a world hit (2D destroy picking). */
 export function findBuildPieceForDestroy(pieces: BuildPiece[], hitX: number, hitZ: number): BuildPiece | null {
   const cell = worldToCell(hitX, hitZ);
+  const corner = nearestCellCorner(hitX, hitZ, cell.ix, cell.iz);
+  const cornerPieces = pieces.filter(
+    (piece) =>
+      piece.kind === "wall-corner" &&
+      piece.cell.ix === cell.ix &&
+      piece.cell.iz === cell.iz &&
+      piece.corner === corner
+  );
+  if (cornerPieces.length > 0) {
+    return cornerPieces.sort((a, b) => b.level - a.level)[0] ?? null;
+  }
+
   const edge = nearestWallEdge(hitX, hitZ, cell.ix, cell.iz);
   const edgePieces = pieces.filter(
     (piece) =>
@@ -509,12 +548,15 @@ export function tryAcquireBuildPlacementSlot(lastAtMs: { current: number }): boo
   return true;
 }
 
-export function placementTargetKey(target: Pick<BuildPlacementTarget, "kind" | "cell" | "level" | "edge">) {
+export function placementTargetKey(
+  target: Pick<BuildPlacementTarget, "kind" | "cell" | "level" | "edge" | "corner">
+) {
   return buildPieceStableId({
     kind: target.kind,
     cell: target.cell,
     level: target.level,
-    edge: target.edge
+    edge: target.edge,
+    corner: target.corner
   });
 }
 

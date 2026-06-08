@@ -6,7 +6,8 @@ import {
   floorFootprintRect,
   levelFillOpacity,
   rampFootprintArrow,
-  wallFootprintSegment
+  wallFootprintSegment,
+  wallCornerFootprintSegments
 } from "../lib/buildFootprints2d";
 
 export function BuildFootprints2D({
@@ -57,6 +58,24 @@ export function BuildFootprints2D({
               strokeOpacity={0.95}
               strokeLinecap="round"
             />
+          );
+        }
+
+        if (piece.kind === "wall-corner") {
+          const segments = wallCornerFootprintSegments(manifest, piece);
+          if (!segments) return null;
+          return (
+            <g key={piece.id} stroke={stroke} strokeWidth={1.1} strokeOpacity={0.95} strokeLinecap="round">
+              {segments.map((segment, index) => (
+                <line
+                  key={`${piece.id}-${index}`}
+                  x1={segment.start.x}
+                  y1={segment.start.y}
+                  x2={segment.end.x}
+                  y2={segment.end.y}
+                />
+              ))}
+            </g>
           );
         }
 

@@ -731,7 +731,8 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
         Digit5: "doorway",
         Digit6: "window",
         Digit7: "light",
-        Digit8: "mirror"
+        Digit8: "mirror",
+        Digit9: "wall-corner"
       };
       const tool = toolByDigit[e.code];
       if (tool) {

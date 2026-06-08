@@ -922,8 +922,18 @@ export const BUILD_MAX_LEVEL = 4;
 /** Max pieces per `POST …/build-pieces/batch` (drag-paint + stamps chunk client-side). */
 export const BUILD_PIECES_BATCH_MAX_SIZE = 32;
 
-export const BuildPieceKindSchema = z.enum(["wall", "floor", "ramp", "doorway", "window", "light", "mirror"]);
+export const BuildPieceKindSchema = z.enum([
+  "wall",
+  "wall-corner",
+  "floor",
+  "ramp",
+  "doorway",
+  "window",
+  "light",
+  "mirror"
+]);
 export const BuildPieceEdgeSchema = z.enum(["n", "e", "s", "w"]);
+export const BuildPieceCornerSchema = z.enum(["ne", "nw", "se", "sw"]);
 export const BuildPieceRotationSchema = z.union([
   z.literal(0),
   z.literal(90),
@@ -941,6 +951,7 @@ export const BuildPieceSchema = z
     cell: z.object({ ix: z.number().int(), iz: z.number().int() }),
     level: z.number().int().min(0).max(BUILD_MAX_LEVEL),
     edge: BuildPieceEdgeSchema.optional(),
+    corner: BuildPieceCornerSchema.optional(),
     rotation: BuildPieceRotationSchema.default(0),
     materialId: BuildPieceMaterialSchema.default("stone"),
     createdByUserId: z.string(),
@@ -958,11 +969,28 @@ export const BuildPieceSchema = z
       }
       return;
     }
+    if (piece.kind === "wall-corner") {
+      if (!piece.corner) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "wall-corner pieces require corner",
+          path: ["corner"]
+        });
+      }
+      return;
+    }
     if (piece.edge !== undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "only edge-aligned pieces may set edge",
         path: ["edge"]
+      });
+    }
+    if (piece.corner !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "only wall-corner pieces may set corner",
+        path: ["corner"]
       });
     }
   });
@@ -973,6 +1001,7 @@ export const CreateBuildPieceRequestSchema = z
     cell: z.object({ ix: z.number().int(), iz: z.number().int() }),
     level: z.number().int().min(0).max(BUILD_MAX_LEVEL),
     edge: BuildPieceEdgeSchema.optional(),
+    corner: BuildPieceCornerSchema.optional(),
     rotation: BuildPieceRotationSchema.optional(),
     materialId: BuildPieceMaterialSchema.optional()
   })
@@ -985,11 +1014,25 @@ export const CreateBuildPieceRequestSchema = z
         path: ["edge"]
       });
     }
+    if (piece.kind === "wall-corner" && !piece.corner) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "wall-corner pieces require corner",
+        path: ["corner"]
+      });
+    }
     if (!edgeKinds.includes(piece.kind as (typeof edgeKinds)[number]) && piece.edge !== undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "only edge-aligned pieces may set edge",
         path: ["edge"]
+      });
+    }
+    if (piece.kind !== "wall-corner" && piece.corner !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "only wall-corner pieces may set corner",
+        path: ["corner"]
       });
     }
   });
@@ -3818,6 +3861,7 @@ export type EscapeSession = z.infer<typeof EscapeSessionSchema>;
 export type EscapeSessionStatus = z.infer<typeof EscapeSessionStatusSchema>;
 export type RoomSessionRealtimeMessage = z.infer<typeof RoomSessionMessageV1Schema>;
 export type BuildPieceEdge = z.infer<typeof BuildPieceEdgeSchema>;
+export type BuildPieceCorner = z.infer<typeof BuildPieceCornerSchema>;
 export type BuildPieceRotation = z.infer<typeof BuildPieceRotationSchema>;
 export type BuildPieceMaterial = z.infer<typeof BuildPieceMaterialSchema>;
 export type BuildDestroyPolicy = z.infer<typeof BuildDestroyPolicySchema>;

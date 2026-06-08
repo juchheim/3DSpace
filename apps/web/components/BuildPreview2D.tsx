@@ -2,7 +2,7 @@
 
 import type { BuildPiece, RoomManifest } from "@3dspace/contracts";
 import type { BuildPlacementTarget } from "../lib/buildPlacement";
-import { cellFootprintRect, wallFootprintSegment } from "../lib/buildFootprints2d";
+import { cellFootprintRect, wallCornerFootprintSegments, wallFootprintSegment } from "../lib/buildFootprints2d";
 import { buildPlacementPreviewPiece } from "../lib/buildPlacement";
 
 export type Build2DPreview =
@@ -35,6 +35,23 @@ export function BuildPreview2D({
           strokeLinecap="round"
           pointerEvents="none"
         />
+      );
+    }
+    if (preview.piece.kind === "wall-corner") {
+      const segments = wallCornerFootprintSegments(manifest, preview.piece);
+      if (!segments) return null;
+      return (
+        <g stroke="#ff6b6b" strokeWidth={1.6} strokeOpacity={0.95} strokeLinecap="round" pointerEvents="none">
+          {segments.map((segment, index) => (
+            <line
+              key={`destroy-${index}`}
+              x1={segment.start.x}
+              y1={segment.start.y}
+              x2={segment.end.x}
+              y2={segment.end.y}
+            />
+          ))}
+        </g>
       );
     }
     const rect = cellFootprintRect(manifest, preview.piece.cell);
@@ -73,6 +90,24 @@ export function BuildPreview2D({
         strokeLinecap="round"
         pointerEvents="none"
       />
+    );
+  }
+
+  if (preview.target.kind === "wall-corner") {
+    const segments = wallCornerFootprintSegments(manifest, piece);
+    if (!segments) return null;
+    return (
+      <g stroke={stroke} strokeWidth={1.8} strokeOpacity={0.95} strokeLinecap="round" pointerEvents="none">
+        {segments.map((segment, index) => (
+          <line
+            key={`preview-${index}`}
+            x1={segment.start.x}
+            y1={segment.start.y}
+            x2={segment.end.x}
+            y2={segment.end.y}
+          />
+        ))}
+      </g>
     );
   }
 

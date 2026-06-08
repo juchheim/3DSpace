@@ -35,8 +35,15 @@ export const BUILD_ID_PREFIX = "build:";
 /** Wall-edge piece kinds (share slot ids and board placement with `wall`). */
 export const BUILD_EDGE_PIECE_KINDS = ["wall", "doorway", "window", "mirror"] as const;
 
+/** Corner piece kinds (occupy a cell corner instead of an edge). */
+export const BUILD_CORNER_PIECE_KINDS = ["wall-corner"] as const;
+
 export function buildPieceRequiresEdge(kind: BuildPiece["kind"]): boolean {
   return (BUILD_EDGE_PIECE_KINDS as readonly string[]).includes(kind);
+}
+
+export function buildPieceRequiresCorner(kind: BuildPiece["kind"]): boolean {
+  return (BUILD_CORNER_PIECE_KINDS as readonly string[]).includes(kind);
 }
 
 /** Doorway opening: avatar-height band is open (no colliders). */
@@ -117,7 +124,13 @@ function cellBounds(ix: number, iz: number) {
   return buildCellFootprint(ix, iz);
 }
 
-export function buildPieceStableId(piece: Pick<BuildPiece, "kind" | "cell" | "level" | "edge">) {
+export function buildPieceStableId(
+  piece: Pick<BuildPiece, "kind" | "cell" | "level" | "edge" | "corner">
+) {
+  if (piece.kind === "wall-corner") {
+    const cornerPart = piece.corner ? `:${piece.corner}` : "";
+    return `${BUILD_ID_PREFIX}${piece.kind}:${piece.cell.ix},${piece.cell.iz}:${piece.level}${cornerPart}`;
+  }
   const edgePart = piece.edge ? `:${piece.edge}` : "";
   return `${BUILD_ID_PREFIX}${piece.kind}:${piece.cell.ix},${piece.cell.iz}:${piece.level}${edgePart}`;
 }
@@ -156,6 +169,132 @@ export function wallSegmentForEdge(
         start: { x: b.minX, y: baseY, z: b.minZ },
         end: { x: b.minX, y: baseY, z: b.maxZ }
       };
+  }
+}
+
+export function cornerWorldPoint(
+  ix: number,
+  iz: number,
+  corner: NonNullable<BuildPiece["corner"]>
+): { x: number; z: number } {
+  const b = cellBounds(ix, iz);
+  switch (corner) {
+    case "ne":
+      return { x: b.maxX, z: b.maxZ };
+    case "nw":
+      return { x: b.minX, z: b.maxZ };
+    case "se":
+      return { x: b.maxX, z: b.minZ };
+    case "sw":
+      return { x: b.minX, z: b.minZ };
+  }
+}
+
+/** L-shaped corner colliders matching two full-length wall segments meeting at 90°. */
+function wallCornerColliders(input: {
+  stableId: string;
+  ix: number;
+  iz: number;
+  corner: NonNullable<BuildPiece["corner"]>;
+  level: number;
+}): WallCollider[] {
+  const baseY = levelToY(input.level);
+  const { x: cx, z: cz } = cornerWorldPoint(input.ix, input.iz, input.corner);
+  const span = BUILD_CELL_SIZE;
+
+  switch (input.corner) {
+    case "ne":
+      return [
+        impassableWall({
+          id: `${input.stableId}:arm-x`,
+          label: "build-wall-corner",
+          start: { x: cx - span, y: baseY, z: cz },
+          end: { x: cx, y: baseY, z: cz },
+          height: BUILD_WALL_HEIGHT,
+          thickness: BUILD_WALL_THICKNESS,
+          anchorIds: [],
+          baseY
+        }),
+        impassableWall({
+          id: `${input.stableId}:arm-z`,
+          label: "build-wall-corner",
+          start: { x: cx, y: baseY, z: cz - span },
+          end: { x: cx, y: baseY, z: cz },
+          height: BUILD_WALL_HEIGHT,
+          thickness: BUILD_WALL_THICKNESS,
+          anchorIds: [],
+          baseY
+        })
+      ];
+    case "nw":
+      return [
+        impassableWall({
+          id: `${input.stableId}:arm-x`,
+          label: "build-wall-corner",
+          start: { x: cx, y: baseY, z: cz },
+          end: { x: cx + span, y: baseY, z: cz },
+          height: BUILD_WALL_HEIGHT,
+          thickness: BUILD_WALL_THICKNESS,
+          anchorIds: [],
+          baseY
+        }),
+        impassableWall({
+          id: `${input.stableId}:arm-z`,
+          label: "build-wall-corner",
+          start: { x: cx, y: baseY, z: cz - span },
+          end: { x: cx, y: baseY, z: cz },
+          height: BUILD_WALL_HEIGHT,
+          thickness: BUILD_WALL_THICKNESS,
+          anchorIds: [],
+          baseY
+        })
+      ];
+    case "se":
+      return [
+        impassableWall({
+          id: `${input.stableId}:arm-x`,
+          label: "build-wall-corner",
+          start: { x: cx - span, y: baseY, z: cz },
+          end: { x: cx, y: baseY, z: cz },
+          height: BUILD_WALL_HEIGHT,
+          thickness: BUILD_WALL_THICKNESS,
+          anchorIds: [],
+          baseY
+        }),
+        impassableWall({
+          id: `${input.stableId}:arm-z`,
+          label: "build-wall-corner",
+          start: { x: cx, y: baseY, z: cz },
+          end: { x: cx, y: baseY, z: cz + span },
+          height: BUILD_WALL_HEIGHT,
+          thickness: BUILD_WALL_THICKNESS,
+          anchorIds: [],
+          baseY
+        })
+      ];
+    case "sw":
+      return [
+        impassableWall({
+          id: `${input.stableId}:arm-x`,
+          label: "build-wall-corner",
+          start: { x: cx, y: baseY, z: cz },
+          end: { x: cx + span, y: baseY, z: cz },
+          height: BUILD_WALL_HEIGHT,
+          thickness: BUILD_WALL_THICKNESS,
+          anchorIds: [],
+          baseY
+        }),
+        impassableWall({
+          id: `${input.stableId}:arm-z`,
+          label: "build-wall-corner",
+          start: { x: cx, y: baseY, z: cz },
+          end: { x: cx, y: baseY, z: cz + span },
+          height: BUILD_WALL_HEIGHT,
+          thickness: BUILD_WALL_THICKNESS,
+          anchorIds: [],
+          baseY
+        })
+      ];
   }
 }
 
@@ -201,6 +340,21 @@ export function rampClimbFromRotation(rotation: BuildPiece["rotation"]): {
 export function buildPieceColliders(piece: BuildPiece): BuildPieceColliders {
   const stableId = piece.id.startsWith(BUILD_ID_PREFIX) ? piece.id : buildPieceStableId(piece);
   const baseY = levelToY(piece.level);
+
+  if (piece.kind === "wall-corner") {
+    if (!piece.corner) {
+      throw new Error("build wall-corner requires corner");
+    }
+    return {
+      walls: wallCornerColliders({
+        stableId,
+        ix: piece.cell.ix,
+        iz: piece.cell.iz,
+        corner: piece.corner,
+        level: piece.level
+      })
+    };
+  }
 
   if (piece.kind === "wall") {
     if (!piece.edge) {

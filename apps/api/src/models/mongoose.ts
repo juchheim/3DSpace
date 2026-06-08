@@ -409,6 +409,7 @@ export function createModels(connection: Connection): Models {
     },
     level: { type: Number, required: true },
     edge: { type: String },
+    corner: { type: String },
     rotation: { type: Number, default: 0 },
     materialId: { type: String, required: true },
     createdByUserId: { type: String, required: true },
@@ -417,7 +418,7 @@ export function createModels(connection: Connection): Models {
   buildPieceSchema.index({ roomId: 1 });
   buildPieceSchema.index({ roomId: 1, id: 1 }, { unique: true });
   buildPieceSchema.index(
-    { roomId: 1, kind: 1, "cell.ix": 1, "cell.iz": 1, level: 1, edge: 1 },
+    { roomId: 1, kind: 1, "cell.ix": 1, "cell.iz": 1, level: 1, edge: 1, corner: 1 },
     { unique: true }
   );
 
@@ -978,6 +979,12 @@ export class MongoRepository implements Repository {
     } catch (err) {
       const code = (err as { code?: number } | null)?.code;
       // 26 = NamespaceNotFound (collection not created yet), 27 = IndexNotFound (already migrated).
+      if (code !== 26 && code !== 27) throw err;
+    }
+    try {
+      await collection.dropIndex("roomId_1_kind_1_cell.ix_1_cell.iz_1_level_1_edge_1");
+    } catch (err) {
+      const code = (err as { code?: number } | null)?.code;
       if (code !== 26 && code !== 27) throw err;
     }
     await this.models.BuildPiece.createIndexes();

@@ -11,6 +11,7 @@ import {
   findSurfacePieceAtCell,
   inferRampRotationFromHit,
   nearestWallEdge,
+  nearestCellCorner,
   resolveBuildPlacementTarget,
   resolvePlaceAheadBuildTarget,
   resolveRampRotation,
@@ -440,5 +441,27 @@ describe("buildPlacement", () => {
       [existing.id]: existing
     });
     expect(preview.allowed).toBe(true);
+  });
+});
+
+describe("wall-corner placement", () => {
+  it("picks the nearest cell corner from the hit", () => {
+    const cell = worldToCell(BUILD_CELL_SIZE * 1.75, BUILD_CELL_SIZE * 1.75);
+    expect(nearestCellCorner(BUILD_CELL_SIZE * 1.75, BUILD_CELL_SIZE * 1.75, cell.ix, cell.iz)).toBe("ne");
+    expect(nearestCellCorner(BUILD_CELL_SIZE * 0.25, BUILD_CELL_SIZE * 1.75, cell.ix, cell.iz)).toBe("nw");
+  });
+
+  it("resolves a wall-corner target with corner slot", () => {
+    const target = resolveBuildPlacementTarget({
+      tool: "wall-corner",
+      hitX: BUILD_CELL_SIZE * 1.8,
+      hitY: 0,
+      hitZ: BUILD_CELL_SIZE * 1.8,
+      rotation: 0,
+      materialId: "stone"
+    });
+    expect(target.kind).toBe("wall-corner");
+    expect(target.corner).toBe("ne");
+    expect(target.edge).toBeUndefined();
   });
 });

@@ -3,7 +3,16 @@
 import { useCallback, useState } from "react";
 import type { BuildPieceMaterial, BuildPieceRotation } from "@3dspace/contracts";
 
-export type BuildTool = "wall" | "floor" | "ramp" | "doorway" | "window" | "light" | "mirror" | "destroy";
+export type BuildTool =
+  | "wall"
+  | "wall-corner"
+  | "floor"
+  | "ramp"
+  | "doorway"
+  | "window"
+  | "light"
+  | "mirror"
+  | "destroy";
 
 export function useBuildMode() {
   const [enabled, setEnabled] = useState(false);
