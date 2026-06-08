@@ -28,6 +28,7 @@ import {
   type BuildPieceKind,
   type BuildPieceMaterial,
   type BuildPieceRotation,
+  type PlacedWorldAsset,
   type LogicPieceKind,
   type EscapeSession,
   type RoomAiHost,
@@ -202,6 +203,15 @@ export type Repository = {
     patch: Partial<Omit<RoomObject, "id" | "roomId" | "createdAt" | "createdByUserId">>
   ): Promise<RoomObject>;
   removeRoomObject(roomId: string, objectId: string): Promise<RoomObject>;
+  listWorldAssetsForRoom(roomId: string): Promise<PlacedWorldAsset[]>;
+  createWorldAsset(input: {
+    roomId: string;
+    slug: string;
+    position: { x: number; y: number; z: number };
+    yaw: number;
+    placedByUserId: string;
+  }): Promise<PlacedWorldAsset>;
+  deleteWorldAsset(roomId: string, assetId: string): Promise<void>;
   listBuildPiecesForRoom(roomId: string): Promise<BuildPiece[]>;
   findBuildPieceByPlacement(
     roomId: string,
@@ -374,6 +384,7 @@ export class MemoryRepository implements Repository {
   private roomObjectTemplates = new Map<string, RoomObjectTemplate & { archivedAt?: string }>();
   private roomObjects = new Map<string, RoomObject>();
   private buildPieces = new Map<string, BuildPiece>();
+  private worldAssets = new Map<string, PlacedWorldAsset>();
   private logicPieces = new Map<string, BuildLogicPiece>();
   private logicStates = new Map<string, LogicState>();
   private escapeSessions = new Map<string, EscapeSession>();
@@ -1131,6 +1142,39 @@ export class MemoryRepository implements Repository {
   // is blocked by) the first room's piece, mirroring the Mongo id_1 collision bug.
   private buildPieceKey(roomId: string, id: string) {
     return `${roomId}\u0000${id}`;
+  }
+
+  async listWorldAssetsForRoom(roomId: string) {
+    return Array.from(this.worldAssets.values())
+      .filter((a) => a.roomId === roomId)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  async createWorldAsset(input: {
+    roomId: string;
+    slug: string;
+    position: { x: number; y: number; z: number };
+    yaw: number;
+    placedByUserId: string;
+  }): Promise<PlacedWorldAsset> {
+    const id = `wa-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const asset: PlacedWorldAsset = {
+      id,
+      roomId: input.roomId,
+      slug: input.slug,
+      position: input.position,
+      yaw: input.yaw,
+      placedByUserId: input.placedByUserId,
+      createdAt: new Date().toISOString()
+    };
+    this.worldAssets.set(id, asset);
+    return asset;
+  }
+
+  async deleteWorldAsset(roomId: string, assetId: string) {
+    const asset = this.worldAssets.get(assetId);
+    if (!asset || asset.roomId !== roomId) throw new Error("World asset not found");
+    this.worldAssets.delete(assetId);
   }
 
   async listBuildPiecesForRoom(roomId: string) {

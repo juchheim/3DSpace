@@ -19,6 +19,7 @@ import { registerRoomsCoreRoutes } from "./rooms-core.js";
 import { registerSharedBrowserRoutes } from "./shared-browsers.js";
 import { registerAvatarAccessoryRoutes } from "./avatar-accessories.js";
 import { registerAvatarBodyRoutes } from "./avatar-bodies.js";
+import { registerWorldAssetRoutes } from "./world-assets.js";
 import { registerUserRoutes } from "./users.js";
 import { registerWallObjectRoutes } from "./wall-objects.js";
 import { registerWhiteboardRoutes } from "./whiteboards.js";
@@ -31,6 +32,7 @@ export async function registerRoutes(app: FastifyInstance, ctx: AppContext) {
   await registerWorldSkinRoutes(app, ctx);
   await registerAvatarAccessoryRoutes(app, ctx);
   await registerAvatarBodyRoutes(app, ctx);
+  await registerWorldAssetRoutes(app, ctx);
   await registerUserRoutes(app, ctx);
   await registerClassRoutes(app, ctx);
   await registerInviteRoutes(app, ctx);

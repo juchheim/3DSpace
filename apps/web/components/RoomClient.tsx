@@ -81,7 +81,8 @@ import { normalizeRoomManifest } from "../lib/manifest";
 import { createRealtimeClient, type RealtimeClient, type RealtimeMessage } from "../lib/realtime";
 import { useSpatialAudio } from "../lib/useSpatialAudio";
 import { isBoardGrantActive } from "../lib/classroomGrants";
-import { findNearestChair, usePlacedChairs } from "../lib/usePlacedChairs";
+import { findNearestChair } from "../lib/usePlacedChairs";
+import { usePlacedWorldAssets } from "../lib/usePlacedWorldAssets";
 import { useSitting } from "../lib/useSitting";
 import { AVATAR_KEYBOARD_TURN_HOLD_MS } from "../lib/useAvatarMovement";
 import { WORLD_ASSET_CATALOG } from "../lib/worldAssetCatalog";
@@ -971,8 +972,14 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   logicNodesForMovementRef.current = logicFeatureEnabled ? (logicPieces.logicState?.nodes ?? {}) : {};
   const lastBuildPlaceAtRef = useRef(0);
   const [build2dPreview, setBuild2dPreview] = useState<Build2DPreview>(null);
-  // ── Chair placement ───────────────────────────────────────────────────────
-  const chairs = usePlacedChairs();
+  // ── Chair placement (API-persisted, realtime-synced) ─────────────────────
+  const chairs = usePlacedWorldAssets({
+    identity,
+    roomId: session?.room.id ?? roomId,
+    publish: publishRealtime
+  });
+  const worldAssetsRealtimeHandlerRef = useRef(chairs.handleRealtimeMessage);
+  worldAssetsRealtimeHandlerRef.current = chairs.handleRealtimeMessage;
   // A stable ref so useSitting can always read the latest avatar position without
   // needing movement to be declared first.
   const avatarPositionRef = useRef<{ x: number; y: number; z: number } | null>(null);
@@ -1699,6 +1706,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       if (aiObjectsRealtimeHandlerRef.current(message)) return;
       if (sharedBrowserRealtimeHandlerRef.current(message)) return;
       if (aiWorldHostRealtimeHandlerRef.current(message)) return;
+      if (worldAssetsRealtimeHandlerRef.current(message)) return;
       if (message.type.startsWith("wall.")) return;
       if (message.type.startsWith("room.whiteboard.")) return;
       if (message.type.startsWith("room.shared-browser.")) return;

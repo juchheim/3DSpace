@@ -1032,6 +1032,63 @@ export const RoomBuildRealtimeMessageSchema = z.discriminatedUnion("type", [
   RoomBuildBatchMessageV1Schema
 ]);
 
+// ── World Assets (placed furniture etc.) ─────────────────────────────────────
+
+export const PlacedWorldAssetSchema = z.object({
+  id: z.string(),
+  roomId: z.string(),
+  /** Asset catalog slug, e.g. "folding-chair". */
+  slug: z.string().min(1),
+  position: z.object({ x: z.number(), y: z.number(), z: z.number() }),
+  /** Y-axis rotation in radians. */
+  yaw: z.number(),
+  placedByUserId: z.string(),
+  createdAt: z.string()
+});
+
+export const CreateWorldAssetRequestSchema = z.object({
+  slug: z.string().min(1),
+  position: z.object({ x: z.number(), y: z.number(), z: z.number() }),
+  yaw: z.number()
+});
+
+const WorldAssetUpsertMessageSchema = z.object({
+  type: z.literal("room.world-asset.upsert.v1"),
+  roomId: z.string(),
+  asset: PlacedWorldAssetSchema,
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+const WorldAssetRemoveMessageSchema = z.object({
+  type: z.literal("room.world-asset.remove.v1"),
+  roomId: z.string(),
+  assetId: z.string(),
+  sentAt: z.number().int(),
+  senderId: z.string()
+});
+
+export const WorldAssetRealtimeMessageSchema = z.discriminatedUnion("type", [
+  WorldAssetUpsertMessageSchema,
+  WorldAssetRemoveMessageSchema
+]);
+
+export const CreateWorldAssetResponseSchema = z.object({
+  asset: PlacedWorldAssetSchema,
+  realtimeMessages: z.array(WorldAssetRealtimeMessageSchema).default([])
+});
+
+export const ListWorldAssetsResponseSchema = z.object({
+  assets: z.array(PlacedWorldAssetSchema)
+});
+
+export const DeleteWorldAssetResponseSchema = z.object({
+  realtimeMessages: z.array(WorldAssetRealtimeMessageSchema).default([])
+});
+
+export type PlacedWorldAsset = z.infer<typeof PlacedWorldAssetSchema>;
+export type WorldAssetRealtimeMessage = z.infer<typeof WorldAssetRealtimeMessageSchema>;
+
 export const CreateBuildPieceResponseSchema = z.object({
   piece: BuildPieceSchema,
   realtimeMessages: z.array(RoomBuildRealtimeMessageSchema).default([])

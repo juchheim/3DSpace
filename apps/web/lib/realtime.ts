@@ -36,7 +36,8 @@ import type {
   WallObjectRealtimeUpsertSchema,
   WallPlaybackStateMessageSchema,
   WallShareEndedMessageSchema,
-  WhiteboardRealtimeMessage
+  WhiteboardRealtimeMessage,
+  WorldAssetRealtimeMessage
 } from "@3dspace/contracts";
 import type { z } from "zod";
 
@@ -109,7 +110,8 @@ export type RealtimeMessage =
   | LiveCaptionsRealtimeMessage
   | WhiteboardRealtime
   | SharedBrowserRealtimeMessage
-  | AiObjectRealtimeMessage;
+  | AiObjectRealtimeMessage
+  | WorldAssetRealtimeMessage;
 
 const ROOM_OBJECT_UNRELIABLE_TYPES = new Set([
   "room.object.pose.v1",

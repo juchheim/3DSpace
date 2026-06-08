@@ -8,8 +8,8 @@ describe("usePlacedChairs", () => {
       position: { x: 5, y: 0, z: 5 },
       yaw: 0
     };
-    expect(findNearestChair({ x: 5.4, y: 0, z: 5.1 }, [chair], 1.5)?.id).toBe("c1");
-    expect(findNearestChair({ x: 8, y: 0, z: 5 }, [chair], 1.5)).toBeNull();
+    expect(findNearestChair({ x: 5.4, z: 5.1 }, [chair], 1.5)?.id).toBe("c1");
+    expect(findNearestChair({ x: 8, z: 5 }, [chair], 1.5)).toBeNull();
   });
 
   it("aligns the seat pose with the chair yaw", () => {

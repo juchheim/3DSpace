@@ -78,7 +78,9 @@ import type {
   EraseWhiteboardStrokesResponse,
   RequestWhiteboardSnapshotResponse,
   ClearWhiteboardResponse,
-  SharedBrowserSessionResponse
+  SharedBrowserSessionResponse,
+  PlacedWorldAsset,
+  WorldAssetRealtimeMessage
 } from "@3dspace/contracts";
 import type { z } from "zod";
 import { API_URL } from "./config";
@@ -785,6 +787,32 @@ export function clearBuildPieces(identity: ApiIdentity, roomId: string) {
     method: "DELETE",
     identity
   }).then(normalizeBuildPieceDeleteMutationResult);
+}
+
+// ── World Assets ─────────────────────────────────────────────────────────────
+
+export function listWorldAssets(identity: ApiIdentity, roomId: string) {
+  return apiFetch<{ assets: PlacedWorldAsset[] }>(`/v1/rooms/${roomId}/world-assets`, { identity }).then(
+    (r) => r.assets
+  );
+}
+
+export function createWorldAsset(
+  identity: ApiIdentity,
+  roomId: string,
+  input: { slug: string; position: { x: number; y: number; z: number }; yaw: number }
+) {
+  return apiFetch<{ asset: PlacedWorldAsset; realtimeMessages: WorldAssetRealtimeMessage[] }>(
+    `/v1/rooms/${roomId}/world-assets`,
+    { method: "POST", identity, body: input }
+  );
+}
+
+export function deleteWorldAsset(identity: ApiIdentity, roomId: string, assetId: string) {
+  return apiFetch<{ realtimeMessages: WorldAssetRealtimeMessage[] }>(
+    `/v1/rooms/${roomId}/world-assets/${assetId}`,
+    { method: "DELETE", identity }
+  );
 }
 
 function normalizeLogicPieceMutationResult(response: {

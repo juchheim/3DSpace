@@ -20,6 +20,7 @@ import type {
   BuildPieceKind,
   BuildPieceMaterial,
   BuildPieceRotation,
+  PlacedWorldAsset,
   LogicPieceKind,
   LogicState,
   EscapeSession,
@@ -81,6 +82,7 @@ type Models = {
   RoomObjectTemplate: Model<any>;
   RoomObject: Model<any>;
   BuildPiece: Model<any>;
+  PlacedWorldAsset: Model<any>;
   LogicPiece: Model<any>;
   LogicState: Model<any>;
   EscapeSession: Model<any>;
@@ -419,6 +421,22 @@ export function createModels(connection: Connection): Models {
     { unique: true }
   );
 
+  const placedWorldAssetSchema = new Schema({
+    id: { type: String, required: true },
+    roomId: { type: String, required: true },
+    slug: { type: String, required: true },
+    position: {
+      x: { type: Number, required: true },
+      y: { type: Number, required: true },
+      z: { type: Number, required: true }
+    },
+    yaw: { type: Number, required: true, default: 0 },
+    placedByUserId: { type: String, required: true },
+    createdAt: { type: String, required: true }
+  });
+  placedWorldAssetSchema.index({ roomId: 1 });
+  placedWorldAssetSchema.index({ roomId: 1, id: 1 }, { unique: true });
+
   const logicPieceSchema = new Schema({
     id: { type: String, required: true },
     roomId: { type: String, required: true },
@@ -710,6 +728,7 @@ export function createModels(connection: Connection): Models {
     RoomObjectTemplate: connection.model("RoomObjectTemplate", roomObjectTemplateSchema),
     RoomObject: connection.model("RoomObject", roomObjectSchema),
     BuildPiece: connection.model("BuildPiece", buildPieceSchema),
+    PlacedWorldAsset: connection.model("PlacedWorldAsset", placedWorldAssetSchema),
     LogicPiece: connection.model("LogicPiece", logicPieceSchema),
     LogicState: connection.model("LogicState", logicStateSchema),
     EscapeSession: connection.model("EscapeSession", escapeSessionSchema),
@@ -1641,6 +1660,52 @@ export class MongoRepository implements Repository {
   private toBuildPiece(doc: unknown): BuildPiece {
     return normalizeBuildPiece(entity<BuildPiece>(doc));
   }
+
+  // ── World Assets ───────────────────────────────────────────────────────────
+
+  private toWorldAsset(doc: Record<string, unknown>): PlacedWorldAsset {
+    return {
+      id: doc.id as string,
+      roomId: doc.roomId as string,
+      slug: doc.slug as string,
+      position: doc.position as { x: number; y: number; z: number },
+      yaw: doc.yaw as number,
+      placedByUserId: doc.placedByUserId as string,
+      createdAt: doc.createdAt as string
+    };
+  }
+
+  async listWorldAssetsForRoom(roomId: string): Promise<PlacedWorldAsset[]> {
+    const docs = await this.models.PlacedWorldAsset.find({ roomId }).sort({ createdAt: 1 }).lean();
+    return (docs as Record<string, unknown>[]).map((doc) => this.toWorldAsset(doc));
+  }
+
+  async createWorldAsset(input: {
+    roomId: string;
+    slug: string;
+    position: { x: number; y: number; z: number };
+    yaw: number;
+    placedByUserId: string;
+  }): Promise<PlacedWorldAsset> {
+    const id = `wa-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const asset: PlacedWorldAsset = {
+      id,
+      roomId: input.roomId,
+      slug: input.slug,
+      position: input.position,
+      yaw: input.yaw,
+      placedByUserId: input.placedByUserId,
+      createdAt: new Date().toISOString()
+    };
+    await this.models.PlacedWorldAsset.create(asset);
+    return asset;
+  }
+
+  async deleteWorldAsset(roomId: string, assetId: string): Promise<void> {
+    await this.models.PlacedWorldAsset.deleteOne({ roomId, id: assetId });
+  }
+
+  // ── Build pieces ───────────────────────────────────────────────────────────
 
   async listBuildPiecesForRoom(roomId: string) {
     const docs = await this.models.BuildPiece.find({ roomId }).sort({ createdAt: 1 }).lean();
