@@ -132,12 +132,17 @@ export function BuildPieceMesh({
 
   if (piece.kind === "mirror") {
     const { position, size } = wallMeshTransform(piece);
-    // Rotate the plane so its normal faces the interior side of the wall edge.
+    // Rotate the plane so its normal faces toward the player who placed it.
+    // nearestWallEdge returns "s" when the cursor is in the south half of the
+    // hit cell (most common when clicking into the next cell ahead while facing
+    // north), meaning the player is south of that edge → mirror must face south
+    // (−Z). Swapping n↔s and e↔w vs. the "room-interior" convention matches
+    // the actual player-facing-wall placement direction.
     const edgeToRotationY: Record<BuildPieceEdge, number> = {
-      n: Math.PI,
-      s: 0,
-      e: -Math.PI / 2,
-      w: Math.PI / 2
+      n: 0,             // faces north (+Z) — player approached from north
+      s: Math.PI,       // faces south (−Z) — player approached from south
+      e: Math.PI / 2,   // faces east  (+X) — player approached from east
+      w: -Math.PI / 2   // faces west  (−X) — player approached from west
     };
     const planeRotationY = edgeToRotationY[piece.edge!];
 
@@ -166,12 +171,16 @@ export function BuildPieceMesh({
       >
         <planeGeometry args={[BUILD_CELL_SIZE, BUILD_WALL_HEIGHT]} />
         <MeshReflectorMaterial
-          resolution={512}
+          resolution={1024}
           mirror={1}
           roughness={0}
-          metalness={0.8}
+          metalness={0.9}
           mixStrength={1}
+          mixBlur={0}
           blur={[0, 0]}
+          depthScale={0}
+          minDepthThreshold={0.9}
+          maxDepthThreshold={1}
         />
       </mesh>
     );
