@@ -214,11 +214,26 @@ function AvatarModel({
       }
     }
     if (sittingPhase === "seated") {
-      // Seated idle — loop normally using the body's configured idle clip
-      const action = actions[body.clips.idle];
+      // Hold the final frame of the sit-down clip when available; looping standing
+      // idle would pop the avatar upright (sit-test GLB mislabels locomotion clips).
+      const seatedClipName = body.clips.sit ?? body.clips.idle;
+      const action = actions[seatedClipName];
       if (action) {
-        action.reset().fadeIn(0.25).play();
-        return () => { action.fadeOut(0.25); };
+        if (body.clips.sit) {
+          action.setLoop(LoopOnce, 1);
+          action.clampWhenFinished = true;
+          action.reset();
+          action.time = action.getClip().duration;
+          mixer.update(0);
+          action.play();
+          action.paused = true;
+        } else {
+          action.reset().fadeIn(0.25).play();
+        }
+        return () => {
+          action.paused = false;
+          action.fadeOut(0.25);
+        };
       }
     }
     if (sittingPhase === "standing" && body.clips.standFromSit) {

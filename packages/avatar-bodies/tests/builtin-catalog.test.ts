@@ -25,4 +25,15 @@ describe("avatar body builtin catalog", () => {
   it("finds catalog entries by slug", () => {
     expect(getBuiltinAvatarBodyBySlug("ixr-female-20k")?.clips.idle).toBe("Idle_11");
   });
+
+  it("maps sit-test clips to the correctly labeled animation data", () => {
+    const clips = getBuiltinAvatarBodyBySlug("sit-test")?.clips;
+    expect(clips).toEqual({
+      idle: "Walking",
+      walking: "Sit_to_standTransition_Female_2",
+      running: "Look_Back_and_Sit",
+      sit: "Idle_11",
+      standFromSit: "Running"
+    });
+  });
 });

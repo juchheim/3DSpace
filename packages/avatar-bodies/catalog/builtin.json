@@ -32,11 +32,11 @@
     "glbUrl": "/avatars/sit-test.glb",
     "nativeHeight": 1.69,
     "clips": {
-      "idle": "Idle_11",
-      "walking": "Walking",
-      "running": "Running",
-      "sit": "Look_Back_and_Sit",
-      "standFromSit": "Sit_to_standTransition_Female_2"
+      "idle": "Walking",
+      "walking": "Sit_to_standTransition_Female_2",
+      "running": "Look_Back_and_Sit",
+      "sit": "Idle_11",
+      "standFromSit": "Running"
     },
     "zoneMaskUrl": "/avatars/ixr-female-20k-zone-mask.png",
     "neutralAlbedoUrl": "/avatars/ixr-female-20k-albedo-neutral.jpg"
