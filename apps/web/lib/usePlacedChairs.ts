@@ -7,7 +7,7 @@ export type PlacedChair = {
   /** World-space position of the chair centre (Y = 0, on the floor). */
   position: { x: number; y: number; z: number };
   /** Y-axis rotation of the chair in radians. The chair's "front" faces in the
-   *  direction (sin(yaw), 0, cos(yaw)). The avatar sits facing away — i.e. yaw + π. */
+   *  direction (sin(yaw), 0, cos(yaw)). The seated avatar faces the same way. */
   yaw: number;
 };
 
@@ -26,9 +26,9 @@ export function chairSeatPose(chair: PlacedChair): {
   position: { x: number; y: number; z: number };
   rotationY: number;
 } {
-  // Chair front faces (sin(yaw), 0, cos(yaw)). The seated avatar looks away from the
-  // front (back against the chair back). Shift slightly toward the backrest so the
-  // hips land over the seat pan rather than the GLB origin at floor center.
+  // Chair front faces (sin(yaw), 0, cos(yaw)). The seated avatar faces the same
+  // direction (legs toward the front, back against the backrest). Shift slightly
+  // toward the backrest so the hips land over the seat pan.
   const forwardX = Math.sin(chair.yaw);
   const forwardZ = Math.cos(chair.yaw);
   const backOffset = 0.14;
@@ -38,7 +38,7 @@ export function chairSeatPose(chair: PlacedChair): {
       y: chair.position.y,
       z: chair.position.z - forwardZ * backOffset
     },
-    rotationY: chair.yaw + Math.PI
+    rotationY: chair.yaw
   };
 }
 
