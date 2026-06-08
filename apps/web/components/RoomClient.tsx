@@ -1027,12 +1027,9 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       const held = e.timeStamp - downAt;
       // Short tap (< turn-hold threshold) = interact; skip if held longer (= turn right)
       if (held >= 120) return;
-      const isSeated = sitting.sittingPhase === "seated" || sitting.sittingPhase === "sitting";
-      const nearChair = sitting.nearestChair;
-      if (isSeated || nearChair) {
-        e.preventDefault();
-        sitting.tryInteract();
-      }
+      e.preventDefault();
+      // tryInteract no-ops when not seated and no chair is in range.
+      sitting.tryInteract();
     }
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);

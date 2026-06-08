@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { PlacedChair } from "./usePlacedChairs";
 import { findNearestChair } from "./usePlacedChairs";
 
@@ -51,13 +51,17 @@ export function useSitting({
     }
   }
 
-  const nearestChair = useMemo(() => {
-    const pos = getAvatarPosition();
-    if (!pos) return null;
-    // While seated, keep reporting the occupied chair so the prompt shows "E to stand"
-    if (seatChairId) return chairs.find((c) => c.id === seatChairId) ?? null;
-    return findNearestChair(pos, chairs, 1.5);
-  }, [chairs, getAvatarPosition, seatChairId]);
+  const pos = getAvatarPosition();
+  // Recompute every render — getAvatarPosition is a stable ref callback, so memoizing
+  // on it would freeze proximity until chairs change even while the avatar moves.
+  let nearestChair: PlacedChair | null = null;
+  if (pos) {
+    if (seatChairId) {
+      nearestChair = chairs.find((c) => c.id === seatChairId) ?? null;
+    } else {
+      nearestChair = findNearestChair(pos, chairs, 1.5);
+    }
+  }
 
   const tryInteract = useCallback(() => {
     if (phase === "seated" || phase === "sitting") {
