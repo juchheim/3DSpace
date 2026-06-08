@@ -973,7 +973,7 @@ export const CreateBuildPieceRequestSchema = z
     materialId: BuildPieceMaterialSchema.optional()
   })
   .superRefine((piece, ctx) => {
-    const edgeKinds = ["wall", "doorway", "window"] as const;
+    const edgeKinds = ["wall", "doorway", "window", "mirror"] as const;
     if (edgeKinds.includes(piece.kind as (typeof edgeKinds)[number]) && !piece.edge) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
