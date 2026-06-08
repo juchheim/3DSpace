@@ -32,7 +32,8 @@ type BuildActions = {
     level: number,
     edge?: import("@3dspace/contracts").BuildPieceEdge,
     rotation?: import("@3dspace/contracts").BuildPieceRotation,
-    materialId?: import("@3dspace/contracts").BuildPieceMaterial
+    materialId?: import("@3dspace/contracts").BuildPieceMaterial,
+    corner?: import("@3dspace/contracts").BuildPieceCorner
   ): Promise<unknown>;
   placeBatch(
     placements: Array<{
@@ -40,6 +41,7 @@ type BuildActions = {
       cell: { ix: number; iz: number };
       level: number;
       edge?: import("@3dspace/contracts").BuildPieceEdge;
+      corner?: import("@3dspace/contracts").BuildPieceCorner;
       rotation?: import("@3dspace/contracts").BuildPieceRotation;
       materialId?: import("@3dspace/contracts").BuildPieceMaterial;
     }>
