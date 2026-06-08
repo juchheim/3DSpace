@@ -47,10 +47,11 @@ function WallGlbMesh({ piece }: { piece: BuildPiece }) {
   const isEW = edge === "e" || edge === "w";
   const baseY = piece.level * BUILD_LEVEL_HEIGHT;
 
-  // Scale the GLB to exactly match the target wall box dimensions
+  // Scale width and height to the engine's cell dimensions; preserve the
+  // GLB's native depth ratio (physics thickness is a separate, thinner box).
   const scaleX = BUILD_CELL_SIZE / WALL_GLB_NATIVE_W;
   const scaleY = BUILD_WALL_HEIGHT / WALL_GLB_NATIVE_H;
-  const scaleZ = BUILD_WALL_THICKNESS / WALL_GLB_NATIVE_D;
+  const scaleZ = scaleX; // uniform XZ so the GLB's depth proportions are preserved
 
   // The GLB's local origin is at its bottom-left-front corner (Y starts at 0),
   // so we translate to the wall edge midpoint at floor level.
