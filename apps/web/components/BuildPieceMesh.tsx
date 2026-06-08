@@ -30,6 +30,40 @@ const WALL_GLB_NATIVE_D = 0.7001; // Z extent
 
 useGLTF.preload(WALL_GLB_URL);
 
+// ── Custom floor GLB ──────────────────────────────────────────────────────────
+const FLOOR_GLB_URL = "/objects/floor.glb";
+// Native dimensions of the GLB mesh (measured from the source file)
+const FLOOR_GLB_NATIVE_W = 0.0265856; // X extent
+const FLOOR_GLB_NATIVE_H = 0.003;     // Y extent (slab thickness)
+const FLOOR_GLB_NATIVE_D = 0.0265853; // Z extent
+
+useGLTF.preload(FLOOR_GLB_URL);
+
+/**
+ * Renders the custom floor GLB, stretched to match the engine's floor dimensions
+ * (BUILD_CELL_SIZE × BUILD_FLOOR_THICKNESS × BUILD_CELL_SIZE).
+ */
+function FloorGlbMesh({ piece }: { piece: BuildPiece }) {
+  const { scene } = useGLTF(FLOOR_GLB_URL);
+  const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
+
+  const footprint = buildCellFootprint(piece.cell.ix, piece.cell.iz);
+  const centerX = (footprint.minX + footprint.maxX) / 2;
+  const centerZ = (footprint.minZ + footprint.maxZ) / 2;
+  const baseY = piece.level * BUILD_LEVEL_HEIGHT;
+
+  const scaleX = BUILD_CELL_SIZE / FLOOR_GLB_NATIVE_W;
+  const scaleY = BUILD_FLOOR_THICKNESS / FLOOR_GLB_NATIVE_H;
+  const scaleZ = BUILD_CELL_SIZE / FLOOR_GLB_NATIVE_D;
+
+  // The GLB's local origin sits at the bottom of the slab (Y starts at 0).
+  return (
+    <group position={[centerX, baseY, centerZ]} scale={[scaleX, scaleY, scaleZ]}>
+      <primitive object={model} />
+    </group>
+  );
+}
+
 /**
  * Renders the custom wall GLB, stretched to match the engine's wall dimensions
  * (BUILD_CELL_SIZE × BUILD_WALL_HEIGHT × BUILD_WALL_THICKNESS).
@@ -329,16 +363,41 @@ export function BuildPieceMesh({
     const y = piece.level * BUILD_LEVEL_HEIGHT + BUILD_FLOOR_THICKNESS / 2;
     const centerX = (footprint.minX + footprint.maxX) / 2;
     const centerZ = (footprint.minZ + footprint.maxZ) / 2;
+    const boxSize: [number, number, number] = [BUILD_CELL_SIZE, BUILD_FLOOR_THICKNESS, BUILD_CELL_SIZE];
+
+    // Ghost / trail previews keep the simple box so the placement wireframe works.
+    if (ghost || trail) {
+      return (
+        <mesh
+          position={[centerX, y, centerZ]}
+          userData={{ buildPieceId: piece.id, buildPiece: piece }}
+          {...(pointerEventsPassThrough ? { raycast: () => {} } : {})}
+          {...pointerProps}
+        >
+          <boxGeometry args={boxSize} />
+          <meshStandardMaterial {...materialProps} />
+          {ghost ? <Edges color={valid ? "#6dff9a" : "#ff6b6b"} linewidth={2} /> : null}
+        </mesh>
+      );
+    }
+
     return (
-      <mesh
-        position={[centerX, y, centerZ]}
+      <group
         userData={{ buildPieceId: piece.id, buildPiece: piece }}
+        {...(pointerEventsPassThrough ? { raycast: () => {} } : {})}
         {...pointerProps}
       >
-        <boxGeometry args={[BUILD_CELL_SIZE, BUILD_FLOOR_THICKNESS, BUILD_CELL_SIZE]} />
-        <meshStandardMaterial {...materialProps} />
-        {ghost ? <Edges color={valid ? "#6dff9a" : "#ff6b6b"} linewidth={2} /> : null}
-      </mesh>
+        <Suspense
+          fallback={
+            <mesh position={[centerX, y, centerZ]}>
+              <boxGeometry args={boxSize} />
+              <meshStandardMaterial {...materialProps} />
+            </mesh>
+          }
+        >
+          <FloorGlbMesh piece={piece} />
+        </Suspense>
+      </group>
     );
   }
 

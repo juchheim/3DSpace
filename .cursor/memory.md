@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-08 (wall-corner removed)
+Last updated: 2026-06-08 (floor GLB)
+
+- **2026-06-08:** **Build floor GLB** — `GLBs/floor.glb` texture recompressed to JPEG (~3.9 MB → ~1.1 MB); shipped as `apps/web/public/objects/floor.glb`. `BuildPieceMesh` uses `FloorGlbMesh` (non-ghost) scaled to `2 × 0.3 × 2 m`; ghost/trail keep box preview.
 
 **Historical detail:** `.cursor/memory-archive.md` (planning log + bug-fix chronicle through 2026-05-30). Update that file only when archiving new dated entries; keep this file lean.
 
