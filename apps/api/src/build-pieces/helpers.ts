@@ -1,5 +1,6 @@
 import {
   getRoomTypeFeatureFlags,
+  isVerseRoomType,
   type BuildPiece,
   type RoomType,
   type BuildPieceEdge,
@@ -57,6 +58,7 @@ export function matchesBuildPiecePlacement(piece: BuildPiece, placement: BuildPi
 function buildingEnvEnabled(config: AppConfig, roomType: RoomType | string | null | undefined) {
   if (roomType === "free-for-all") return config.tuning.enableFreeForAllBuilding;
   if (roomType === "escape-room") return config.tuning.enableEscapeRoom;
+  if (isVerseRoomType(roomType)) return config.tuning.enableVerseBuilding;
   return false;
 }
 

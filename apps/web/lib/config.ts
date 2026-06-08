@@ -1,4 +1,4 @@
-import { PhysicsTuningSchema, QualityLevelSchema, ViewModeSchema } from "@3dspace/contracts";
+import { isVerseRoomType, PhysicsTuningSchema, QualityLevelSchema, ViewModeSchema } from "@3dspace/contracts";
 
 function envNumber(value: string | undefined, fallback: number) {
   if (!value) return fallback;
@@ -31,6 +31,7 @@ export const CLIENT_TUNING = {
   enableFreeForAll: process.env.NEXT_PUBLIC_ENABLE_FREE_FOR_ALL === "true",
   enableFreeForAllBuilding: process.env.NEXT_PUBLIC_ENABLE_FREE_FOR_ALL_BUILDING === "true",
   enableEscapeRoom: process.env.NEXT_PUBLIC_ENABLE_ESCAPE_ROOM === "true",
+  enableVerseBuilding: process.env.NEXT_PUBLIC_ENABLE_VERSE_BUILDING === "true",
   enableAiMeetingNotes: process.env.NEXT_PUBLIC_ENABLE_AI_MEETING_NOTES === "true",
   enableAiWorldHost: process.env.NEXT_PUBLIC_ENABLE_AI_WORLD_HOST === "true",
   enableAvatarAccessories: process.env.NEXT_PUBLIC_ENABLE_AVATAR_ACCESSORIES === "true",
@@ -63,6 +64,7 @@ export const CLIENT_TUNING = {
 export function buildingEnvEnabled(roomType: string | null | undefined): boolean {
   if (roomType === "free-for-all") return CLIENT_TUNING.enableFreeForAllBuilding;
   if (roomType === "escape-room") return CLIENT_TUNING.enableEscapeRoom;
+  if (isVerseRoomType(roomType)) return CLIENT_TUNING.enableVerseBuilding;
   return false;
 }
 

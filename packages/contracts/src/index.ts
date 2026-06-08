@@ -1516,7 +1516,7 @@ const VERSE_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
   whiteboards: false,
   sharedBrowsers: false,
   liveCaptions: false,
-  building: false,
+  building: true,
   logic: false,
   physics: false
 });
