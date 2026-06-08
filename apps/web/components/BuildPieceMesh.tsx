@@ -174,8 +174,9 @@ export function BuildPieceMesh({
           resolution={1024}
           mirror={1}
           roughness={0}
-          metalness={0.9}
-          mixStrength={1}
+          metalness={0}
+          color="#ffffff"
+          mixStrength={80}
           mixBlur={0}
           blur={[0, 0]}
           depthScale={0}
