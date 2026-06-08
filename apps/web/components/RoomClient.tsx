@@ -526,6 +526,8 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     publish: publishRealtime
   });
   const buildMode = useBuildMode();
+  const [selectedAssetSlug, setSelectedAssetSlug] = useState<string | null>(null);
+  const [assetRotationStep, setAssetRotationStep] = useState(0);
   const logicFeatureEnabled =
     roomTypeFeatures.logic &&
     CLIENT_TUNING.enableEscapeRoom &&
@@ -715,22 +717,30 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       }
       if (!buildMode.enabled) return;
       if (e.code === "KeyR") {
+        if (selectedAssetSlug) return;
         e.preventDefault();
         buildMode.rotate();
         return;
       }
-      if (e.code === "Digit1") buildMode.setTool("wall");
-      if (e.code === "Digit2") buildMode.setTool("floor");
-      if (e.code === "Digit3") buildMode.setTool("ramp");
-      if (e.code === "Digit4") buildMode.setTool("destroy");
-      if (e.code === "Digit5") buildMode.setTool("doorway");
-      if (e.code === "Digit6") buildMode.setTool("window");
-      if (e.code === "Digit7") buildMode.setTool("light");
-      if (e.code === "Digit8") buildMode.setTool("mirror");
+      const toolByDigit: Partial<Record<string, Parameters<typeof buildMode.setTool>[0]>> = {
+        Digit1: "wall",
+        Digit2: "floor",
+        Digit3: "ramp",
+        Digit4: "destroy",
+        Digit5: "doorway",
+        Digit6: "window",
+        Digit7: "light",
+        Digit8: "mirror"
+      };
+      const tool = toolByDigit[e.code];
+      if (tool) {
+        if (selectedAssetSlug) setSelectedAssetSlug(null);
+        buildMode.setTool(tool);
+      }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [buildHistory, buildMode, buildPiecesEnabled, dynamicBoardPlacementActive]);
+  }, [buildHistory, buildMode, buildPiecesEnabled, dynamicBoardPlacementActive, selectedAssetSlug]);
   useEffect(() => {
     if (dynamicBoardPlacementActive && buildMode.enabled) {
       buildMode.setEnabled(false);
@@ -963,8 +973,6 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   const [build2dPreview, setBuild2dPreview] = useState<Build2DPreview>(null);
   // ── Chair placement ───────────────────────────────────────────────────────
   const chairs = usePlacedChairs();
-  const [selectedAssetSlug, setSelectedAssetSlug] = useState<string | null>(null);
-  const [assetRotationStep, setAssetRotationStep] = useState(0);
   // A stable ref so useSitting can always read the latest avatar position without
   // needing movement to be declared first.
   const avatarPositionRef = useRef<{ x: number; y: number; z: number } | null>(null);
@@ -1216,7 +1224,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     }
   }, [logicAuthoringEnabled, logicPieces.piecesById, selectedLogicPieceId]);
   const handlePlaceAhead = useCallback(() => {
-    if (!manifest || !session || !buildMode.enabled || buildMode.tool === "destroy") return;
+    if (!manifest || !session || !buildMode.enabled || buildMode.tool === "destroy" || selectedAssetSlug) return;
     const avatar = movement.avatarState;
     if (!avatar) return;
     if (!tryAcquireBuildPlacementSlot(lastBuildPlaceAtRef)) {
@@ -1257,6 +1265,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     identity.userId,
     manifest,
     movement.avatarState,
+    selectedAssetSlug,
     session
   ]);
 
@@ -3849,12 +3858,19 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           onReturnToSpawn={movement.returnToSpawn}
           onPlaceAhead={handlePlaceAhead}
           placeAheadDisabled={
-            !buildMode.enabled || buildMode.tool === "destroy" || Boolean(buildMode.selectedStampId)
+            !buildMode.enabled ||
+            buildMode.tool === "destroy" ||
+            Boolean(buildMode.selectedStampId) ||
+            Boolean(selectedAssetSlug)
           }
           onUndo={() => void buildHistory.undo().then((did) => did && buildMode.setStatusMessage("Undid."))}
           onRedo={() => void buildHistory.redo().then((did) => did && buildMode.setStatusMessage("Redid."))}
           selectedAssetSlug={selectedAssetSlug}
-          onSelectAsset={(slug) => { setSelectedAssetSlug(slug); setAssetRotationStep(0); }}
+          onSelectAsset={(slug) => {
+            setSelectedAssetSlug(slug);
+            setAssetRotationStep(0);
+            if (slug) buildMode.selectStamp(null);
+          }}
         />
       ) : null}
     </main>

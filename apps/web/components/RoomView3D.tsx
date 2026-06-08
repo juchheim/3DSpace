@@ -80,8 +80,10 @@ import {
   FFA_WALL_HEIGHT,
   FFA_WALL_THICKNESS,
   FFA_EXIT_HALF_ARC,
-  FFA_PERIMETER_SEGMENTS
+  FFA_PERIMETER_SEGMENTS,
+  levelToY
 } from "@3dspace/room-engine";
+import { avatarStandingLevel } from "../lib/buildPlacement";
 
 type Wall = z.infer<typeof WallPlaneSchema>;
 type Anchor = z.infer<typeof WallAnchorSchema>;
@@ -493,6 +495,10 @@ export function RoomView3D({
     return map;
   }, [classroomGroups]);
   const localParticipantPosition = participants.find((participant) => participant.id === localParticipantId)?.state.position;
+  const assetInterceptPlaneY = useMemo(() => {
+    const avatarY = localParticipantPosition?.y ?? 0;
+    return levelToY(avatarStandingLevel(avatarY)) + 0.003;
+  }, [localParticipantPosition?.y]);
   const localPodGroup = podsEnabled ? (podGroupByParticipantId.get(localParticipantId) ?? null) : null;
   const mergedManifest = useMemo(
     () => dynamicWallAnchors?.length
@@ -555,6 +561,7 @@ export function RoomView3D({
           <Suspense fallback={null}>
             <AssetPlacementController
               glbUrl={assetPlacement.glbUrl}
+              interceptPlaneY={assetInterceptPlaneY}
               rotationStep={assetPlacement.rotationStep}
               onPlace={assetPlacement.onPlace}
               onCancel={assetPlacement.onCancel}
@@ -576,6 +583,7 @@ export function RoomView3D({
             localAvatarPosition={localParticipantPosition ?? { x: 0, y: 0, z: 0 }}
             actions={buildScene.actions}
             boardPlacementPassthrough={Boolean(dynamicBoardPlacement?.active)}
+            placementSuspended={Boolean(assetPlacement)}
             {...(buildScene.onStatus ? { onStatus: buildScene.onStatus } : {})}
           />
         ) : null}

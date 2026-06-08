@@ -19,6 +19,8 @@ import { isKeyboardOwnedTarget } from "../lib/isKeyboardOwnedTarget";
 type AssetPlacementControllerProps = {
   /** GLB URL of the asset being placed. */
   glbUrl: string;
+  /** Y of the invisible intercept plane (above the build placement plane). */
+  interceptPlaneY?: number;
   /** Current rotation step (0=0°, 1=90°, 2=180°, 3=270°). */
   rotationStep: number;
   /** Called with world position + yaw (radians) when user clicks to place. */
@@ -35,6 +37,7 @@ const PLANE_HALF = 500;
 
 export function AssetPlacementController({
   glbUrl,
+  interceptPlaneY = 0.002,
   rotationStep,
   onPlace,
   onCancel,
@@ -58,6 +61,10 @@ export function AssetPlacementController({
     },
     []
   );
+
+  const handlePointerDown = useCallback((e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+  }, []);
 
   const handleClick = useCallback(
     (e: ThreeEvent<MouseEvent>) => {
@@ -116,11 +123,12 @@ export function AssetPlacementController({
       {/* Invisible intercept plane — catches pointer events over the floor */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, 0.002, 0]}
+        position={[0, interceptPlaneY, 0]}
+        onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerOut={handlePointerOut}
         onClick={handleClick}
-        renderOrder={-1}
+        renderOrder={10}
       >
         <planeGeometry args={[PLANE_HALF * 2, PLANE_HALF * 2]} />
         <meshBasicMaterial visible={false} />

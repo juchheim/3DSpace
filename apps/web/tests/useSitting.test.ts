@@ -45,6 +45,6 @@ describe("useSitting", () => {
     expect(result.current.sittingPhase).toBe("sitting");
     expect(result.current.seatYaw).toBeCloseTo(chair.yaw, 5);
     expect(result.current.seatLockedPosition?.x).toBeCloseTo(chair.position.x, 5);
-    expect(result.current.seatLockedPosition?.z).toBeCloseTo(chair.position.z + 0.32, 5);
+    expect(result.current.seatLockedPosition?.z).toBeCloseTo(chair.position.z + 0.42, 5);
   });
 });

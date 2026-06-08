@@ -68,7 +68,8 @@ export function BuildPlacementController({
   localAvatarPosition,
   actions,
   onStatus,
-  boardPlacementPassthrough = false
+  boardPlacementPassthrough = false,
+  placementSuspended = false
 }: {
   manifest: RoomManifest;
   roomId: string;
@@ -80,6 +81,8 @@ export function BuildPlacementController({
   actions: BuildActions;
   onStatus?(message: string): void;
   boardPlacementPassthrough?: boolean;
+  /** When true, render pieces only — world-asset placement owns pointer input. */
+  placementSuspended?: boolean;
 }) {
   const [ghost, setGhost] = useState<{ pieces: BuildPiece[]; valid: boolean; reason?: string } | null>(null);
   const stampMode = Boolean(buildMode.selectedStampId);
@@ -448,7 +451,7 @@ export function BuildPlacementController({
     ]
   );
 
-  if (!buildMode.enabled) {
+  if (!buildMode.enabled || placementSuspended) {
     return <BuildLayer pieces={pieces} pointerEventsPassThrough={boardPlacementPassthrough} />;
   }
 

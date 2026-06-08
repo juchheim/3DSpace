@@ -110,9 +110,14 @@ export function BuildControls({
                   title={selectedAssetSlug === asset.slug
                     ? `${asset.displayName} — click to cancel · click in world to place · R rotate`
                     : `${asset.displayName} — click to start placing`}
-                  onClick={() =>
-                    onSelectAsset?.(selectedAssetSlug === asset.slug ? null : asset.slug)
-                  }
+                  onClick={() => {
+                    if (selectedAssetSlug === asset.slug) {
+                      onSelectAsset?.(null);
+                      return;
+                    }
+                    buildMode.selectStamp(null);
+                    onSelectAsset?.(asset.slug);
+                  }}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={asset.thumbnailUrl} alt="" className="build-controls-dock__asset-thumb" />
@@ -132,12 +137,17 @@ export function BuildControls({
                   key={tool.id}
                   type="button"
                   className={`build-controls-dock__tool hud-btn${
-                    !buildMode.selectedStampId && buildMode.tool === tool.id
+                    !selectedAssetSlug && !buildMode.selectedStampId && buildMode.tool === tool.id
                       ? " build-controls-dock__tool--active"
                       : ""
                   }`}
-                  aria-pressed={!buildMode.selectedStampId && buildMode.tool === tool.id}
-                  onClick={() => buildMode.setTool(tool.id)}
+                  aria-pressed={
+                    !selectedAssetSlug && !buildMode.selectedStampId && buildMode.tool === tool.id
+                  }
+                  onClick={() => {
+                    onSelectAsset?.(null);
+                    buildMode.setTool(tool.id);
+                  }}
                   title={`${tool.label} (${tool.shortcut})`}
                 >
                   {tool.label}
@@ -154,9 +164,10 @@ export function BuildControls({
                     buildMode.selectedStampId === stamp.id ? " build-controls-dock__tool--active" : ""
                   }`}
                   aria-pressed={buildMode.selectedStampId === stamp.id}
-                  onClick={() =>
-                    buildMode.selectStamp(buildMode.selectedStampId === stamp.id ? null : stamp.id)
-                  }
+                  onClick={() => {
+                    onSelectAsset?.(null);
+                    buildMode.selectStamp(buildMode.selectedStampId === stamp.id ? null : stamp.id);
+                  }}
                   title={stamp.description}
                 >
                   {stamp.label}
