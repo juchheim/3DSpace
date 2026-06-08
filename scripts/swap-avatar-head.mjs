@@ -27,9 +27,9 @@ const HEAD_TRIANGLE_THRESHOLD = 0.5;
 // Where the replacement head's local origin (its base, authored at Y=0) lands in
 // world space. Defaults align the base to the original neck-seam centre; tune
 // these if the head needs nudging forward/back or up/down.
-const PLACE_X = -0.005;
-const PLACE_Y = 1.3243; // original head bbox bottom; top lands at +head height
-const PLACE_Z = 0.036;
+const PLACE_X = 0.0001;  // original head X center (symmetric)
+const PLACE_Y = 1.3243;  // original head bbox bottom; top lands at +head height
+const PLACE_Z = -0.0446; // original head Z center (face is -Z, back is +Z)
 
 // ── mat4 helpers (column-major, matching gltf-transform / glMatrix) ───────────
 function mat4Multiply(a, b) {
