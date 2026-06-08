@@ -46,11 +46,11 @@ export function BuildControls({
   onPlaceAhead?(): void;
   placeAheadDisabled?: boolean;
   onUndo?(): void;
-  /** Currently selected world-asset slug (e.g. "folding-chair"), or null. */
-  selectedAssetSlug?: string | null;
-  /** Called when user selects/deselects an asset from the Assets row. */
-  onSelectAsset?: (slug: string | null) => void;
   onRedo?(): void;
+  /** Currently selected world-asset slug, or null. */
+  selectedAssetSlug?: string | null;
+  /** Called when the user selects / deselects an asset to enter placement mode. */
+  onSelectAsset?: (slug: string | null) => void;
 }) {
   const [clearing, setClearing] = useState(false);
   const [showCoachmark, setShowCoachmark] = useState(false);
@@ -107,7 +107,9 @@ export function BuildControls({
                   type="button"
                   className={`build-controls-dock__asset-btn${selectedAssetSlug === asset.slug ? " build-controls-dock__asset-btn--active" : ""}`}
                   aria-pressed={selectedAssetSlug === asset.slug}
-                  title={`${asset.displayName} — click to select, then Place ahead`}
+                  title={selectedAssetSlug === asset.slug
+                    ? `${asset.displayName} — click to cancel · click in world to place · R rotate`
+                    : `${asset.displayName} — click to start placing`}
                   onClick={() =>
                     onSelectAsset?.(selectedAssetSlug === asset.slug ? null : asset.slug)
                   }
@@ -118,6 +120,11 @@ export function BuildControls({
                 </button>
               ))}
             </div>
+            {selectedAssetSlug ? (
+              <p className="build-controls-dock__status build-controls-dock__asset-hint">
+                Click in the world to place · <kbd>R</kbd> rotate · <kbd>Esc</kbd> cancel
+              </p>
+            ) : null}
 
             <div className="build-controls-dock__tools" role="toolbar" aria-label="Build tools">
               {TOOL_OPTIONS.map((tool) => (

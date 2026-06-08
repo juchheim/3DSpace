@@ -55,6 +55,7 @@ import { useAiWorldHostScene, type AiWorldHostSceneConfig } from "../lib/useAiWo
 import { RoomObjectsLayer } from "./RoomObjectsLayer";
 import { PlacedChairsLayer } from "./PlacedChairsLayer";
 import type { PlacedChair } from "../lib/usePlacedChairs";
+import { AssetPlacementController } from "./AssetPlacementController";
 import { BuildPlacementController } from "./BuildPlacementController";
 import { LogicLayer } from "./LogicLayer";
 import { LogicPlacementController } from "./LogicPlacementController";
@@ -370,7 +371,8 @@ export function RoomView3D({
   logicPlayLayer,
   placedChairs = [],
   localParticipantSittingPhase = "none",
-  onLocalParticipantSitAnimationFinished
+  onLocalParticipantSitAnimationFinished,
+  assetPlacement = null
 }: {
   manifest: RoomManifest;
   dynamicWallAnchors?: Anchor[];
@@ -456,6 +458,14 @@ export function RoomView3D({
   localParticipantSittingPhase?: import("../lib/useSitting").SittingPhase;
   /** Forwarded to the local BlockyAvatar when a sit/stand clip finishes. */
   onLocalParticipantSitAnimationFinished?: () => void;
+  /** Config for the asset-placement ghost+click mode (active while user is placing an asset). */
+  assetPlacement?: {
+    glbUrl: string;
+    rotationStep: number;
+    onPlace(position: { x: number; y: number; z: number }, yaw: number): void;
+    onCancel(): void;
+    onRotate(): void;
+  } | null;
 }) {
   const dpr = quality === "high" ? 1.8 : quality === "medium" ? 1.4 : 1;
   const [canvasElement, setCanvasElement] = useState<HTMLCanvasElement | null>(null);
@@ -540,6 +550,17 @@ export function RoomView3D({
             onSelectObject={onSelectRoomObject}
             actions={roomObjectActions}
           />
+        ) : null}
+        {assetPlacement ? (
+          <Suspense fallback={null}>
+            <AssetPlacementController
+              glbUrl={assetPlacement.glbUrl}
+              rotationStep={assetPlacement.rotationStep}
+              onPlace={assetPlacement.onPlace}
+              onCancel={assetPlacement.onCancel}
+              onRotate={assetPlacement.onRotate}
+            />
+          </Suspense>
         ) : null}
         <Suspense fallback={null}>
           <PlacedChairsLayer chairs={placedChairs} />

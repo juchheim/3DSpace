@@ -83,6 +83,7 @@ import { useSpatialAudio } from "../lib/useSpatialAudio";
 import { isBoardGrantActive } from "../lib/classroomGrants";
 import { usePlacedChairs } from "../lib/usePlacedChairs";
 import { useSitting } from "../lib/useSitting";
+import { WORLD_ASSET_CATALOG } from "../lib/worldAssetCatalog";
 import { AnchorPanel } from "./AnchorPanel";
 import { AuthGate } from "../lib/auth";
 import { ClassroomPanel } from "./ClassroomPanel";
@@ -962,6 +963,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   // ── Chair placement ───────────────────────────────────────────────────────
   const chairs = usePlacedChairs();
   const [selectedAssetSlug, setSelectedAssetSlug] = useState<string | null>(null);
+  const [assetRotationStep, setAssetRotationStep] = useState(0);
   // A stable ref so useSitting can always read the latest avatar position without
   // needing movement to be declared first.
   const avatarPositionRef = useRef<{ x: number; y: number; z: number } | null>(null);
@@ -1195,18 +1197,6 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     }
   }, [logicAuthoringEnabled, logicPieces.piecesById, selectedLogicPieceId]);
   const handlePlaceAhead = useCallback(() => {
-    // ── Asset placement (chair etc.) takes priority over build pieces ─────────
-    if (buildMode.enabled && selectedAssetSlug) {
-      const avatar = movement.avatarState;
-      if (!avatar) return;
-      const yaw = avatar.rotation.y;
-      const dist = 1.5; // place 1.5 m ahead of the avatar
-      chairs.placeChair(
-        { x: avatar.position.x + Math.sin(yaw) * dist, y: 0, z: avatar.position.z + Math.cos(yaw) * dist },
-        yaw + Math.PI // chair faces toward the avatar (avatar will sit facing away)
-      );
-      return;
-    }
     if (!manifest || !session || !buildMode.enabled || buildMode.tool === "destroy") return;
     const avatar = movement.avatarState;
     if (!avatar) return;
@@ -2974,6 +2964,21 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
             placedChairs={chairs.chairs}
             localParticipantSittingPhase={sitting.sittingPhase}
             onLocalParticipantSitAnimationFinished={sitting.onAnimationFinished}
+            assetPlacement={(() => {
+              if (!selectedAssetSlug) return null;
+              const asset = WORLD_ASSET_CATALOG.find((a) => a.slug === selectedAssetSlug);
+              if (!asset) return null;
+              return {
+                glbUrl: asset.glbUrl,
+                rotationStep: assetRotationStep,
+                onPlace: (position, yaw) => {
+                  chairs.placeChair(position, yaw);
+                  // Keep placement mode active so user can place multiple chairs
+                },
+                onCancel: () => setSelectedAssetSlug(null),
+                onRotate: () => setAssetRotationStep((s) => (s + 1) % 4)
+              };
+            })()}
           />
         ) : (
           <RoomView2D
@@ -3826,14 +3831,12 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           onReturnToSpawn={movement.returnToSpawn}
           onPlaceAhead={handlePlaceAhead}
           placeAheadDisabled={
-            !buildMode.enabled ||
-            (buildMode.tool === "destroy" && !selectedAssetSlug) ||
-            Boolean(buildMode.selectedStampId)
+            !buildMode.enabled || buildMode.tool === "destroy" || Boolean(buildMode.selectedStampId)
           }
           onUndo={() => void buildHistory.undo().then((did) => did && buildMode.setStatusMessage("Undid."))}
           onRedo={() => void buildHistory.redo().then((did) => did && buildMode.setStatusMessage("Redid."))}
           selectedAssetSlug={selectedAssetSlug}
-          onSelectAsset={setSelectedAssetSlug}
+          onSelectAsset={(slug) => { setSelectedAssetSlug(slug); setAssetRotationStep(0); }}
         />
       ) : null}
     </main>
