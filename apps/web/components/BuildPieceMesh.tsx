@@ -46,6 +46,9 @@ function WallGlbMesh({ piece }: { piece: BuildPiece }) {
   const edge = piece.edge as BuildPieceEdge;
   const isEW = edge === "e" || edge === "w";
   const baseY = piece.level * BUILD_LEVEL_HEIGHT;
+  // `rotation` carries the player-facing flip resolved at placement (0 or 180): the GLB's
+  // default front faces +Z (n/s) or +X (e/w), so a 180° flip turns it toward the placer.
+  const facingFlip = piece.rotation === 180 ? Math.PI : 0;
 
   // Scale width and height to the engine's cell dimensions; preserve the
   // GLB's native depth ratio (physics thickness is a separate, thinner box).
@@ -58,7 +61,7 @@ function WallGlbMesh({ piece }: { piece: BuildPiece }) {
   return (
     <group
       position={[wall.position[0], baseY, wall.position[2]]}
-      rotation={[0, isEW ? Math.PI / 2 : 0, 0]}
+      rotation={[0, (isEW ? Math.PI / 2 : 0) + facingFlip, 0]}
       scale={[scaleX, scaleY, scaleZ]}
     >
       <primitive object={model} />

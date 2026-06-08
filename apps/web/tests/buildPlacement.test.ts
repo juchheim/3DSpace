@@ -15,7 +15,8 @@ import {
   resolveBuildPlacementTarget,
   resolvePlaceAheadBuildTarget,
   resolveRampRotation,
-  tryAcquireBuildPlacementSlot
+  tryAcquireBuildPlacementSlot,
+  wallFacingRotation
 } from "../lib/buildPlacement";
 
 function wallPieceAt(ix: number, iz: number, edge: "n" | "s" | "e" | "w") {
@@ -26,6 +27,21 @@ function wallPieceAt(ix: number, iz: number, edge: "n" | "s" | "e" | "w") {
     cell: { ix, iz },
     level: 0,
     edge,
+    rotation: 0,
+    materialId: "stone",
+    createdByUserId: "user-1",
+    createdAt: "2026-05-31T00:00:00.000Z"
+  });
+}
+
+function cornerPieceAt(ix: number, iz: number, corner: "ne" | "nw" | "se" | "sw") {
+  return BuildPieceSchema.parse({
+    id: `build:wall-corner:${ix},${iz}:0:${corner}`,
+    roomId: "room-placement",
+    kind: "wall-corner",
+    cell: { ix, iz },
+    level: 0,
+    corner,
     rotation: 0,
     materialId: "stone",
     createdByUserId: "user-1",
@@ -66,6 +82,38 @@ describe("alignWallEdgeToNeighbors", () => {
   it("only aligns within the same level", () => {
     const existing = wallPieceAt(5, 5, "n"); // level 0
     expect(alignWallEdgeToNeighbors({ ix: 6, iz: 5 }, 1, "e", { [existing.id]: existing })).toBe("e");
+  });
+
+  it("snaps collinear to an adjacent wall-corner arm", () => {
+    // A `ne` corner at (5,5) owns the north edge of (5,5); a wall at (6,5) should extend that run.
+    const corner = cornerPieceAt(5, 5, "ne");
+    expect(alignWallEdgeToNeighbors({ ix: 6, iz: 5 }, 0, "e", { [corner.id]: corner })).toBe("n");
+  });
+});
+
+describe("wallFacingRotation", () => {
+  it("flips a wall so its front faces the placer", () => {
+    // North edge of cell (3,3) sits at world z = 8.
+    expect(wallFacingRotation("n", { ix: 3, iz: 3 }, 7, 6)).toBe(180); // placer south of the line
+    expect(wallFacingRotation("n", { ix: 3, iz: 3 }, 7, 9)).toBe(0); // placer north of the line
+    // East edge of cell (3,3) sits at world x = 8.
+    expect(wallFacingRotation("e", { ix: 3, iz: 3 }, 9, 7)).toBe(0); // placer east of the line
+    expect(wallFacingRotation("e", { ix: 3, iz: 3 }, 6, 7)).toBe(180); // placer west of the line
+  });
+
+  it("orients a placed wall toward the avatar", () => {
+    const south = resolveBuildPlacementTarget({
+      tool: "wall",
+      hitX: 7,
+      hitY: 0,
+      hitZ: 7.8,
+      rotation: 0,
+      materialId: "stone",
+      avatarX: 7,
+      avatarZ: 6
+    });
+    expect(south.edge).toBe("n");
+    expect(south.rotation).toBe(180);
   });
 });
 

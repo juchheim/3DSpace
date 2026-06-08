@@ -202,6 +202,9 @@ export function BuildPlacementController({
         // The raycast `hitY` is the ground under the cursor; the level we build at when the
         // cursor lands on empty ground comes from where the avatar is standing.
         baseLevel: avatarStandingLevel(localAvatarPosition.y),
+        // Avatar X/Z let a placed wall orient its front toward the player.
+        avatarX: localAvatarPosition.x,
+        avatarZ: localAvatarPosition.z,
         existingPieces
       });
     },
@@ -209,7 +212,9 @@ export function BuildPlacementController({
       buildMode.materialId,
       buildMode.rampRotationOverride,
       buildMode.rotation,
+      localAvatarPosition.x,
       localAvatarPosition.y,
+      localAvatarPosition.z,
       piecesById,
       roomId,
       userId

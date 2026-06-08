@@ -79,6 +79,14 @@ export function nearestCellCorner(x: number, z: number, ix: number, iz: number):
  * neighbours); a vertical run (e/w) extends along z (front/back neighbours). Standalone walls and
  * ambiguous corners (two different runs meet) keep the cursor edge, so corners stay buildable.
  */
+/** Which two cell edges a corner piece occupies (its L arms). */
+const CORNER_EDGES: Record<BuildPieceCorner, [BuildPieceEdge, BuildPieceEdge]> = {
+  ne: ["n", "e"],
+  nw: ["n", "w"],
+  se: ["s", "e"],
+  sw: ["s", "w"]
+};
+
 export function alignWallEdgeToNeighbors(
   cell: { ix: number; iz: number },
   level: number,
@@ -87,10 +95,24 @@ export function alignWallEdgeToNeighbors(
 ): BuildPieceEdge {
   const { ix, iz } = cell;
   const edgeKinds: BuildPieceKind[] = ["wall", "doorway", "window", "mirror"];
-  const hasEdgePiece = (cix: number, ciz: number, edge: BuildPieceEdge) =>
-    edgeKinds.some((kind) =>
-      Boolean(piecesById[buildPieceStableId({ kind, cell: { ix: cix, iz: ciz }, level, edge })])
+  const corners = Object.keys(CORNER_EDGES) as BuildPieceCorner[];
+  const hasEdgePiece = (cix: number, ciz: number, edge: BuildPieceEdge) => {
+    if (
+      edgeKinds.some((kind) =>
+        Boolean(piecesById[buildPieceStableId({ kind, cell: { ix: cix, iz: ciz }, level, edge })])
+      )
+    ) {
+      return true;
+    }
+    // A wall-corner arm on this edge is also a run to stay collinear with.
+    return corners.some(
+      (corner) =>
+        CORNER_EDGES[corner].includes(edge) &&
+        Boolean(
+          piecesById[buildPieceStableId({ kind: "wall-corner", cell: { ix: cix, iz: ciz }, level, corner })]
+        )
     );
+  };
 
   const suggestions = new Set<BuildPieceEdge>();
   for (const edge of ["n", "s"] as const) {
@@ -103,6 +125,28 @@ export function alignWallEdgeToNeighbors(
   if (suggestions.has(cursorEdge)) return cursorEdge;
   if (suggestions.size === 1) return [...suggestions][0]!;
   return cursorEdge;
+}
+
+/**
+ * Pick the Y-flip (0° or 180°) that turns a wall GLB's front toward the placer.
+ *
+ * The wall mesh's default front faces +Z (n/s edges) or +X (e/w edges, after their 90° base
+ * spin). We compare the reference point — the avatar when available, else the cursor hit — to the
+ * edge's world line and flip 180° when the placer is on the opposite side, so a wall never renders
+ * facing away. Stored on `rotation` so every client renders the same orientation.
+ */
+export function wallFacingRotation(
+  edge: BuildPieceEdge,
+  cell: { ix: number; iz: number },
+  refX: number,
+  refZ: number
+): BuildPieceRotation {
+  if (edge === "n" || edge === "s") {
+    const lineZ = (edge === "n" ? cell.iz + 1 : cell.iz) * BUILD_CELL_SIZE;
+    return refZ >= lineZ ? 0 : 180;
+  }
+  const lineX = (edge === "e" ? cell.ix + 1 : cell.ix) * BUILD_CELL_SIZE;
+  return refX >= lineX ? 0 : 180;
 }
 
 export function inferPlacementLevel(hitY: number, surfacePiece?: BuildPiece | null, baseLevel = 0) {
@@ -180,6 +224,9 @@ export function resolveBuildPlacementTarget(input: {
   baseLevel?: number;
   /** Existing (and in-flight) pieces, used to align a wall collinear with an adjacent wall. */
   existingPieces?: Record<string, BuildPiece>;
+  /** Avatar world X/Z — used so a placed wall's front always faces the player. */
+  avatarX?: number;
+  avatarZ?: number;
 }): BuildPlacementTarget {
   const cell = worldToCell(input.hitX, input.hitZ);
   const baseLevel = input.baseLevel ?? 0;
@@ -197,14 +244,21 @@ export function resolveBuildPlacementTarget(input: {
   if (input.tool === "wall" || input.tool === "doorway" || input.tool === "window" || input.tool === "mirror") {
     const level = wallLevelFromSurface(input.hitY, input.surfacePiece, baseLevel);
     const cursorEdge = nearestWallEdge(input.hitX, input.hitZ, cell.ix, cell.iz);
+    const edge = input.existingPieces
+      ? alignWallEdgeToNeighbors(cell, level, cursorEdge, input.existingPieces)
+      : cursorEdge;
+    // Walls render an asymmetric GLB: orient its front toward the placer. Other edge kinds
+    // (mirror has its own facing; doorway/window frames are symmetric) keep the manual rotation.
+    const rotation =
+      input.tool === "wall"
+        ? wallFacingRotation(edge, cell, input.avatarX ?? input.hitX, input.avatarZ ?? input.hitZ)
+        : input.rotation;
     return {
       kind: input.tool,
       cell,
       level,
-      edge: input.existingPieces
-        ? alignWallEdgeToNeighbors(cell, level, cursorEdge, input.existingPieces)
-        : cursorEdge,
-      rotation: input.rotation,
+      edge,
+      rotation,
       materialId: input.materialId
     };
   }
@@ -536,6 +590,8 @@ export function resolvePlaceAheadBuildTarget(input: {
     materialId: input.materialId,
     surfacePiece,
     baseLevel: avatarStandingLevel(input.avatarPosition.y),
+    avatarX: input.avatarPosition.x,
+    avatarZ: input.avatarPosition.z,
     ...(input.rampRotationOverride !== undefined
       ? { rampRotationOverride: input.rampRotationOverride }
       : {})
