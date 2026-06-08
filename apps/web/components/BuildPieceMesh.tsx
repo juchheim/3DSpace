@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
-import { Edges, MeshReflectorMaterial } from "@react-three/drei";
+import { Suspense, useMemo } from "react";
+import { Edges, MeshReflectorMaterial, useGLTF } from "@react-three/drei";
 import type { ThreeEvent } from "@react-three/fiber";
 import { BufferGeometry, DoubleSide, Float32BufferAttribute } from "three";
+import { SkeletonUtils } from "three-stdlib";
+import type { Group } from "three";
 import type { BuildPiece, BuildPieceEdge, BuildPieceMaterial, BuildPieceRotation } from "@3dspace/contracts";
 import {
   BUILD_CELL_SIZE,
@@ -11,12 +13,54 @@ import {
   BUILD_LEVEL_HEIGHT,
   BUILD_RAMP_RISE,
   BUILD_WALL_HEIGHT,
+  BUILD_WALL_THICKNESS,
   buildCellFootprint,
   rampClimbFromRotation
 } from "@3dspace/room-engine";
 import { buildMaterialProps } from "./buildMaterials";
 import { edgeOpeningFrameParts } from "../lib/buildEdgeOpeningMesh";
 import { wallMeshTransform } from "../lib/buildWallMesh";
+
+// ── Custom wall GLB ───────────────────────────────────────────────────────────
+const WALL_GLB_URL = "/objects/wall.glb";
+// Native dimensions of the GLB mesh (measured from the source file)
+const WALL_GLB_NATIVE_W = 1.6762; // X extent
+const WALL_GLB_NATIVE_H = 2.0;    // Y extent (already matches BUILD_WALL_HEIGHT)
+const WALL_GLB_NATIVE_D = 0.3545; // Z extent
+
+useGLTF.preload(WALL_GLB_URL);
+
+/**
+ * Renders the custom wall GLB, stretched to match the engine's wall dimensions
+ * (BUILD_CELL_SIZE × BUILD_WALL_HEIGHT × BUILD_WALL_THICKNESS).
+ * E/W edges rotate 90° so the GLB's long axis aligns with world-Z.
+ */
+function WallGlbMesh({ piece }: { piece: BuildPiece }) {
+  const { scene } = useGLTF(WALL_GLB_URL);
+  const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
+
+  const wall = wallMeshTransform(piece);
+  const edge = piece.edge as BuildPieceEdge;
+  const isEW = edge === "e" || edge === "w";
+  const baseY = piece.level * BUILD_LEVEL_HEIGHT;
+
+  // Scale the GLB to exactly match the target wall box dimensions
+  const scaleX = BUILD_CELL_SIZE / WALL_GLB_NATIVE_W;
+  const scaleY = BUILD_WALL_HEIGHT / WALL_GLB_NATIVE_H;
+  const scaleZ = BUILD_WALL_THICKNESS / WALL_GLB_NATIVE_D;
+
+  // The GLB's local origin is at its bottom-left-front corner (Y starts at 0),
+  // so we translate to the wall edge midpoint at floor level.
+  return (
+    <group
+      position={[wall.position[0], baseY, wall.position[2]]}
+      rotation={[0, isEW ? Math.PI / 2 : 0, 0]}
+      scale={[scaleX, scaleY, scaleZ]}
+    >
+      <primitive object={model} />
+    </group>
+  );
+}
 
 function RampClimbIndicator({ rotation }: { rotation: BuildPieceRotation }) {
   const { climbAxis, climbSign } = rampClimbFromRotation(rotation);
@@ -189,18 +233,41 @@ export function BuildPieceMesh({
 
   if (piece.kind === "wall") {
     const { position, rotationY, size } = wallMeshTransform(piece);
+
+    // Ghost / trail previews keep the simple box so the placement wireframe works.
+    // Placed walls use the custom GLB.
+    if (ghost || trail) {
+      return (
+        <mesh
+          position={position}
+          rotation={[0, rotationY, 0]}
+          userData={{ buildPieceId: piece.id, buildPiece: piece }}
+          {...(pointerEventsPassThrough ? { raycast: () => {} } : {})}
+          {...pointerProps}
+        >
+          <boxGeometry args={size} />
+          <meshStandardMaterial {...materialProps} />
+          {ghost ? <Edges color={valid ? "#6dff9a" : "#ff6b6b"} linewidth={2} /> : null}
+        </mesh>
+      );
+    }
+
     return (
-      <mesh
-        position={position}
-        rotation={[0, rotationY, 0]}
+      <group
         userData={{ buildPieceId: piece.id, buildPiece: piece }}
         {...(pointerEventsPassThrough ? { raycast: () => {} } : {})}
         {...pointerProps}
       >
-        <boxGeometry args={size} />
-        <meshStandardMaterial {...materialProps} />
-        {ghost ? <Edges color={valid ? "#6dff9a" : "#ff6b6b"} linewidth={2} /> : null}
-      </mesh>
+        <Suspense fallback={
+          // Instant fallback while GLB loads — same box, no pointer events
+          <mesh position={position} rotation={[0, rotationY, 0]}>
+            <boxGeometry args={size} />
+            <meshStandardMaterial {...materialProps} />
+          </mesh>
+        }>
+          <WallGlbMesh piece={piece} />
+        </Suspense>
+      </group>
     );
   }
 
