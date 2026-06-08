@@ -33,7 +33,7 @@ export const BUILD_MAX_PIECES_PER_USER = 400;
 export const BUILD_ID_PREFIX = "build:";
 
 /** Wall-edge piece kinds (share slot ids and board placement with `wall`). */
-export const BUILD_EDGE_PIECE_KINDS = ["wall", "doorway", "window"] as const;
+export const BUILD_EDGE_PIECE_KINDS = ["wall", "doorway", "window", "mirror"] as const;
 
 export function buildPieceRequiresEdge(kind: BuildPiece["kind"]): boolean {
   return (BUILD_EDGE_PIECE_KINDS as readonly string[]).includes(kind);
@@ -212,6 +212,26 @@ export function buildPieceColliders(piece: BuildPiece): BuildPieceColliders {
         impassableWall({
           id: stableId,
           label: "build-wall",
+          ...segment,
+          height: BUILD_WALL_HEIGHT,
+          thickness: BUILD_WALL_THICKNESS,
+          anchorIds: [],
+          baseY
+        })
+      ]
+    };
+  }
+
+  if (piece.kind === "mirror") {
+    if (!piece.edge) {
+      throw new Error("build mirror requires edge");
+    }
+    const segment = wallSegmentForEdge(piece.cell.ix, piece.cell.iz, piece.edge, baseY);
+    return {
+      walls: [
+        impassableWall({
+          id: stableId,
+          label: "build-mirror",
           ...segment,
           height: BUILD_WALL_HEIGHT,
           thickness: BUILD_WALL_THICKNESS,

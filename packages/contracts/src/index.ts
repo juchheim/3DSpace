@@ -918,7 +918,7 @@ export const BUILD_MAX_LEVEL = 4;
 /** Max pieces per `POST …/build-pieces/batch` (drag-paint + stamps chunk client-side). */
 export const BUILD_PIECES_BATCH_MAX_SIZE = 32;
 
-export const BuildPieceKindSchema = z.enum(["wall", "floor", "ramp", "doorway", "window", "light"]);
+export const BuildPieceKindSchema = z.enum(["wall", "floor", "ramp", "doorway", "window", "light", "mirror"]);
 export const BuildPieceEdgeSchema = z.enum(["n", "e", "s", "w"]);
 export const BuildPieceRotationSchema = z.union([
   z.literal(0),
@@ -943,7 +943,7 @@ export const BuildPieceSchema = z
     createdAt: z.string()
   })
   .superRefine((piece, ctx) => {
-    const edgeKinds = ["wall", "doorway", "window"] as const;
+    const edgeKinds = ["wall", "doorway", "window", "mirror"] as const;
     if (edgeKinds.includes(piece.kind as (typeof edgeKinds)[number])) {
       if (!piece.edge) {
         ctx.addIssue({

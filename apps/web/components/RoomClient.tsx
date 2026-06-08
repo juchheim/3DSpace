@@ -722,6 +722,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       if (e.code === "Digit5") buildMode.setTool("doorway");
       if (e.code === "Digit6") buildMode.setTool("window");
       if (e.code === "Digit7") buildMode.setTool("light");
+      if (e.code === "Digit8") buildMode.setTool("mirror");
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);

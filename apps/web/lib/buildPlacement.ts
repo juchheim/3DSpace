@@ -73,7 +73,7 @@ export function alignWallEdgeToNeighbors(
   piecesById: Record<string, BuildPiece>
 ): BuildPieceEdge {
   const { ix, iz } = cell;
-  const edgeKinds: BuildPieceKind[] = ["wall", "doorway", "window"];
+  const edgeKinds: BuildPieceKind[] = ["wall", "doorway", "window", "mirror"];
   const hasEdgePiece = (cix: number, ciz: number, edge: BuildPieceEdge) =>
     edgeKinds.some((kind) =>
       Boolean(piecesById[buildPieceStableId({ kind, cell: { ix: cix, iz: ciz }, level, edge })])
@@ -170,7 +170,7 @@ export function resolveBuildPlacementTarget(input: {
 }): BuildPlacementTarget {
   const cell = worldToCell(input.hitX, input.hitZ);
   const baseLevel = input.baseLevel ?? 0;
-  if (input.tool === "wall" || input.tool === "doorway" || input.tool === "window") {
+  if (input.tool === "wall" || input.tool === "doorway" || input.tool === "window" || input.tool === "mirror") {
     const level = wallLevelFromSurface(input.hitY, input.surfacePiece, baseLevel);
     const cursorEdge = nearestWallEdge(input.hitX, input.hitZ, cell.ix, cell.iz);
     return {
@@ -255,7 +255,7 @@ function cellLevelOccupiedBySameKind(
   target: BuildPlacementTarget,
   stableId: string
 ) {
-  if (target.kind === "wall") return false;
+  if (target.kind === "wall" || target.kind === "mirror") return false;
   for (const existing of Object.values(piecesById)) {
     if (existing.id === stableId) continue;
     if (existing.kind !== target.kind) continue;
@@ -412,7 +412,7 @@ export function findBuildPieceForDestroy(pieces: BuildPiece[], hitX: number, hit
   const edge = nearestWallEdge(hitX, hitZ, cell.ix, cell.iz);
   const edgePieces = pieces.filter(
     (piece) =>
-      (piece.kind === "wall" || piece.kind === "doorway" || piece.kind === "window") &&
+      (piece.kind === "wall" || piece.kind === "doorway" || piece.kind === "window" || piece.kind === "mirror") &&
       piece.cell.ix === cell.ix &&
       piece.cell.iz === cell.iz &&
       piece.edge === edge

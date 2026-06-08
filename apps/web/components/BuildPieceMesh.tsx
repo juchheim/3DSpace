@@ -1,15 +1,16 @@
 "use client";
 
 import { useMemo } from "react";
-import { Edges } from "@react-three/drei";
+import { Edges, MeshReflectorMaterial } from "@react-three/drei";
 import type { ThreeEvent } from "@react-three/fiber";
 import { BufferGeometry, DoubleSide, Float32BufferAttribute } from "three";
-import type { BuildPiece, BuildPieceMaterial, BuildPieceRotation } from "@3dspace/contracts";
+import type { BuildPiece, BuildPieceEdge, BuildPieceMaterial, BuildPieceRotation } from "@3dspace/contracts";
 import {
   BUILD_CELL_SIZE,
   BUILD_FLOOR_THICKNESS,
   BUILD_LEVEL_HEIGHT,
   BUILD_RAMP_RISE,
+  BUILD_WALL_HEIGHT,
   buildCellFootprint,
   rampClimbFromRotation
 } from "@3dspace/room-engine";
@@ -128,6 +129,62 @@ export function BuildPieceMesh({
         ...(onClick ? { onClick } : {})
       }
     : {};
+
+  if (piece.kind === "mirror") {
+    const { position, size } = wallMeshTransform(piece);
+    // Rotate the plane so its normal faces the interior side of the wall edge.
+    const edgeToRotationY: Record<BuildPieceEdge, number> = {
+      n: Math.PI,
+      s: 0,
+      e: -Math.PI / 2,
+      w: Math.PI / 2
+    };
+    const planeRotationY = edgeToRotationY[piece.edge!];
+
+    if (ghost || trail) {
+      return (
+        <mesh
+          position={position}
+          userData={{ buildPieceId: piece.id, buildPiece: piece }}
+          {...(pointerEventsPassThrough ? { raycast: () => {} } : {})}
+          {...pointerProps}
+        >
+          <boxGeometry args={size} />
+          <meshStandardMaterial {...materialProps} />
+          {ghost ? <Edges color={valid ? "#6dff9a" : "#ff6b6b"} linewidth={2} /> : null}
+        </mesh>
+      );
+    }
+
+    return (
+      <group userData={{ buildPieceId: piece.id, buildPiece: piece }} {...pointerProps}>
+        {/* Opaque backing so the wall has depth from behind */}
+        <mesh
+          position={position}
+          {...(pointerEventsPassThrough ? { raycast: () => {} } : {})}
+        >
+          <boxGeometry args={size} />
+          <meshStandardMaterial color="#1a1a2e" roughness={0.8} metalness={0.3} />
+        </mesh>
+        {/* Reflective face — plane at wall center oriented toward room interior */}
+        <mesh
+          position={position}
+          rotation={[0, planeRotationY, 0]}
+          {...(pointerEventsPassThrough ? { raycast: () => {} } : {})}
+        >
+          <planeGeometry args={[BUILD_CELL_SIZE, BUILD_WALL_HEIGHT]} />
+          <MeshReflectorMaterial
+            resolution={512}
+            mirror={1}
+            roughness={0}
+            metalness={0.8}
+            mixStrength={1}
+            blur={[0, 0]}
+          />
+        </mesh>
+      </group>
+    );
+  }
 
   if (piece.kind === "wall") {
     const { position, rotationY, size } = wallMeshTransform(piece);
