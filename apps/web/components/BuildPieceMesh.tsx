@@ -157,32 +157,23 @@ export function BuildPieceMesh({
     }
 
     return (
-      <group userData={{ buildPieceId: piece.id, buildPiece: piece }} {...pointerProps}>
-        {/* Opaque backing so the wall has depth from behind */}
-        <mesh
-          position={position}
-          {...(pointerEventsPassThrough ? { raycast: () => {} } : {})}
-        >
-          <boxGeometry args={size} />
-          <meshStandardMaterial color="#1a1a2e" roughness={0.8} metalness={0.3} />
-        </mesh>
-        {/* Reflective face — plane at wall center oriented toward room interior */}
-        <mesh
-          position={position}
-          rotation={[0, planeRotationY, 0]}
-          {...(pointerEventsPassThrough ? { raycast: () => {} } : {})}
-        >
-          <planeGeometry args={[BUILD_CELL_SIZE, BUILD_WALL_HEIGHT]} />
-          <MeshReflectorMaterial
-            resolution={512}
-            mirror={1}
-            roughness={0}
-            metalness={0.8}
-            mixStrength={1}
-            blur={[0, 0]}
-          />
-        </mesh>
-      </group>
+      <mesh
+        position={position}
+        rotation={[0, planeRotationY, 0]}
+        userData={{ buildPieceId: piece.id, buildPiece: piece }}
+        {...(pointerEventsPassThrough ? { raycast: () => {} } : {})}
+        {...pointerProps}
+      >
+        <planeGeometry args={[BUILD_CELL_SIZE, BUILD_WALL_HEIGHT]} />
+        <MeshReflectorMaterial
+          resolution={512}
+          mirror={1}
+          roughness={0}
+          metalness={0.8}
+          mixStrength={1}
+          blur={[0, 0]}
+        />
+      </mesh>
     );
   }
 
