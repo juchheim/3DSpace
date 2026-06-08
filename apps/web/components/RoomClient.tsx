@@ -81,8 +81,9 @@ import { normalizeRoomManifest } from "../lib/manifest";
 import { createRealtimeClient, type RealtimeClient, type RealtimeMessage } from "../lib/realtime";
 import { useSpatialAudio } from "../lib/useSpatialAudio";
 import { isBoardGrantActive } from "../lib/classroomGrants";
-import { usePlacedChairs } from "../lib/usePlacedChairs";
+import { findNearestChair, usePlacedChairs } from "../lib/usePlacedChairs";
 import { useSitting } from "../lib/useSitting";
+import { AVATAR_KEYBOARD_TURN_HOLD_MS } from "../lib/useAvatarMovement";
 import { WORLD_ASSET_CATALOG } from "../lib/worldAssetCatalog";
 import { AnchorPanel } from "./AnchorPanel";
 import { AuthGate } from "../lib/auth";
@@ -996,6 +997,19 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   // Keep the position ref in sync with the latest avatar state.
   avatarPositionRef.current = movement.avatarState?.position ?? null;
   movementTeleportRef.current = movement.teleportToPosition;
+  const nearestChairForPrompt = useMemo(() => {
+    const pos = movement.avatarState?.position;
+    if (!pos) return null;
+    if (sitting.sittingPhase !== "none") return sitting.nearestChair;
+    return findNearestChair(pos, chairs.chairs, 1.5);
+  }, [chairs.chairs, movement.avatarState?.position, sitting.nearestChair, sitting.sittingPhase]);
+  const sittingTryInteractRef = useRef(sitting.tryInteract);
+  sittingTryInteractRef.current = sitting.tryInteract;
+  const sittingPhaseRef = useRef(sitting.sittingPhase);
+  sittingPhaseRef.current = sitting.sittingPhase;
+  const nearestChairRef = useRef(nearestChairForPrompt);
+  nearestChairRef.current = nearestChairForPrompt;
+  const sittingKeyDownTimesRef = useRef(new Map<string, number>());
   const logicDetection = useLogicDetection({
     enabled: logicPlayEnabled,
     pieces: logicPieces.pieces,
@@ -1011,25 +1025,26 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     }
   }, [logicPlayEnabled, session?.room.id]);
   // ── E-key: sit / stand (runs before logic interact so sitting takes priority) ──
+  // Listeners must stay mounted — avatar movement re-renders every frame, so never
+  // depend on `sitting` in this effect or keydown timestamps get wiped before keyup.
   useEffect(() => {
-    const keyDownTimes = new Map<string, number>();
     function onKeyDown(e: KeyboardEvent) {
       if (isKeyboardOwnedTarget(e.target)) return;
       if (e.code !== "KeyE" || e.repeat) return;
-      keyDownTimes.set(e.code, e.timeStamp);
+      sittingKeyDownTimesRef.current.set(e.code, e.timeStamp);
     }
     function onKeyUp(e: KeyboardEvent) {
       if (isKeyboardOwnedTarget(e.target)) return;
       if (e.code !== "KeyE") return;
-      const downAt = keyDownTimes.get(e.code);
-      keyDownTimes.delete(e.code);
+      const downAt = sittingKeyDownTimesRef.current.get(e.code);
+      sittingKeyDownTimesRef.current.delete(e.code);
       if (downAt === undefined) return;
       const held = e.timeStamp - downAt;
       // Short tap (< turn-hold threshold) = interact; skip if held longer (= turn right)
-      if (held >= 120) return;
+      if (held >= AVATAR_KEYBOARD_TURN_HOLD_MS) return;
       e.preventDefault();
       // tryInteract no-ops when not seated and no chair is in range.
-      sitting.tryInteract();
+      sittingTryInteractRef.current();
     }
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
@@ -1037,21 +1052,23 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [sitting]);
+  }, []);
 
+  const logicTryInteractRef = useRef(logicDetection.tryInteract);
+  logicTryInteractRef.current = logicDetection.tryInteract;
   useEffect(() => {
     if (!logicPlayEnabled) return;
     function onKeyDown(e: KeyboardEvent) {
       if (isKeyboardOwnedTarget(e.target)) return;
       if (e.code !== "KeyE" || e.repeat) return;
       // Don't trigger logic if the avatar is near a chair or already seated
-      if (sitting.sittingPhase !== "none" || sitting.nearestChair) return;
+      if (sittingPhaseRef.current !== "none" || nearestChairRef.current) return;
       e.preventDefault();
-      logicDetection.tryInteract();
+      logicTryInteractRef.current();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [logicDetection.tryInteract, logicPlayEnabled, sitting.nearestChair, sitting.sittingPhase]);
+  }, [logicPlayEnabled]);
   const handleLogicPieceClick = useCallback(
     (piece: BuildLogicPiece) => {
       if (piece.kind === "button") {
@@ -3724,7 +3741,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
         <div className="hud-interaction-prompt" role="status" aria-live="polite">
           <kbd>E</kbd> stand up
         </div>
-      ) : sitting.nearestChair ? (
+      ) : nearestChairForPrompt ? (
         <div className="hud-interaction-prompt" role="status" aria-live="polite">
           <kbd>E</kbd> sit
         </div>

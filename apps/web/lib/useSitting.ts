@@ -40,9 +40,13 @@ export function useSitting({
   const [seatChairId, setSeatChairId] = useState<string | null>(null);
   const [seatLockedPosition, setSeatLockedPosition] = useState<{ x: number; y: number; z: number } | null>(null);
   const [seatYaw, setSeatYaw] = useState<number | null>(null);
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
 
   // Fallback timer handle in case the animation-finished callback isn't fired
   const phaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chairsRef = useRef(chairs);
+  chairsRef.current = chairs;
 
   function clearPhaseTimer() {
     if (phaseTimerRef.current !== null) {
@@ -64,7 +68,8 @@ export function useSitting({
   }
 
   const tryInteract = useCallback(() => {
-    if (phase === "seated" || phase === "sitting") {
+    const currentPhase = phaseRef.current;
+    if (currentPhase === "seated" || currentPhase === "sitting") {
       // Begin standing
       clearPhaseTimer();
       setPhase("standing");
@@ -75,9 +80,9 @@ export function useSitting({
         setSeatYaw(null);
         phaseTimerRef.current = null;
       }, STAND_ANIM_DURATION_MS);
-    } else if (phase === "none") {
+    } else if (currentPhase === "none") {
       const pos = getAvatarPosition();
-      const chair = pos ? findNearestChair(pos, chairs, 1.5) : null;
+      const chair = pos ? findNearestChair(pos, chairsRef.current, 1.5) : null;
       if (!chair) return;
 
       // Compute seat position: directly at the chair's centre (the animation
@@ -97,7 +102,7 @@ export function useSitting({
         phaseTimerRef.current = null;
       }, SIT_ANIM_DURATION_MS);
     }
-  }, [phase, chairs, getAvatarPosition]);
+  }, [getAvatarPosition]);
 
   // Called by BlockyAvatar when the one-shot clip finishes (may arrive slightly
   // earlier or later than the timer; whichever wins, the other is a no-op).
