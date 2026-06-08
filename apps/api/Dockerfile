@@ -7,6 +7,7 @@ COPY apps/web/package.json apps/web/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/room-engine/package.json packages/room-engine/package.json
 COPY packages/avatar-accessories/package.json packages/avatar-accessories/package.json
+COPY packages/avatar-bodies/package.json packages/avatar-bodies/package.json
 RUN npm ci
 
 FROM node:20-slim AS builder
@@ -17,6 +18,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build -w @3dspace/contracts \
   && npm run build -w @3dspace/avatar-accessories \
+  && npm run build -w @3dspace/avatar-bodies \
   && npm run build -w @3dspace/room-engine \
   && npm run build -w @3dspace/api
 
@@ -35,12 +37,14 @@ COPY apps/api/package.json apps/api/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/room-engine/package.json packages/room-engine/package.json
 COPY packages/avatar-accessories/package.json packages/avatar-accessories/package.json
+COPY packages/avatar-bodies/package.json packages/avatar-bodies/package.json
 RUN npm ci --omit=dev --workspaces --include-workspace-root=false
 
 COPY --from=builder /app/apps/api/dist apps/api/dist
 COPY --from=builder /app/packages/contracts/dist packages/contracts/dist
 COPY --from=builder /app/packages/room-engine/dist packages/room-engine/dist
 COPY --from=builder /app/packages/avatar-accessories/dist packages/avatar-accessories/dist
+COPY --from=builder /app/packages/avatar-bodies/dist packages/avatar-bodies/dist
 
 EXPOSE 8080
 CMD ["node", "apps/api/dist/server.js"]
