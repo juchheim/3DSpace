@@ -31,8 +31,9 @@ describe("avatar body routes", () => {
     });
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body.items).toHaveLength(2);
+    expect(body.items).toHaveLength(3);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "azure-vanguard")).toBe(true);
+    expect(body.items.some((entry: { slug: string }) => entry.slug === "azure-vanguard-hd")).toBe(true);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "ixr-female-20k")).toBe(true);
     await app.close();
   });

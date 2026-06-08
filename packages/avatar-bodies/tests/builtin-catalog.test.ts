@@ -7,9 +7,13 @@ import {
 } from "../src/builtin-catalog";
 
 describe("avatar body builtin catalog", () => {
-  it("loads both shipped bodies", () => {
+  it("loads the shipped bodies", () => {
     const catalog = getBuiltinAvatarBodyCatalog();
-    expect(catalog.map((entry) => entry.slug)).toEqual(["azure-vanguard", "ixr-female-20k"]);
+    expect(catalog.map((entry) => entry.slug)).toEqual([
+      "azure-vanguard",
+      "azure-vanguard-hd",
+      "ixr-female-20k"
+    ]);
   });
 
   it("resolves unknown slugs to the default body", () => {

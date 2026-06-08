@@ -14,6 +14,19 @@
     "thumbnailUrl": "/avatars/thumbnails/azure-vanguard.jpg"
   },
   {
+    "slug": "azure-vanguard-hd",
+    "displayName": "Azure Vanguard HD",
+    "glbUrl": "/avatars/azure-vanguard-hd.glb",
+    "nativeHeight": 1.69,
+    "clips": {
+      "idle": "Idle_12",
+      "walking": "Walking",
+      "running": "Running"
+    },
+    "zoneMaskUrl": "/avatars/azure-vanguard-zone-mask.png",
+    "neutralAlbedoUrl": "/avatars/azure-vanguard-albedo-neutral.jpg"
+  },
+  {
     "slug": "ixr-female-20k",
     "displayName": "IXR Female",
     "glbUrl": "/avatars/ixr-female-20k.glb",
