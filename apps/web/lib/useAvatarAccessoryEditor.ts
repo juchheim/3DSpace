@@ -17,12 +17,29 @@ export function useAvatarAccessoryEditor(savedAccessories: AvatarEquippedAccesso
 
   const dirty = !accessoriesEqual(draft, savedAccessories);
 
+  function dropAdjustment(prev: AvatarEquippedAccessories, slug: string): AvatarEquippedAccessories {
+    if (!prev.adjustments?.[slug]) return prev;
+    const nextAdjustments = { ...prev.adjustments };
+    delete nextAdjustments[slug];
+    if (Object.keys(nextAdjustments).length === 0) {
+      const { adjustments: _removed, ...rest } = prev;
+      return rest;
+    }
+    return { ...prev, adjustments: nextAdjustments };
+  }
+
   function setHead(slug: string | null) {
-    setDraft((prev) => ({ ...prev, head: slug }));
+    setDraft((prev) => {
+      const next = { ...prev, head: slug };
+      return prev.head && prev.head !== slug ? dropAdjustment(next, prev.head) : next;
+    });
   }
 
   function setHands(slug: string | null) {
-    setDraft((prev) => ({ ...prev, hands: slug }));
+    setDraft((prev) => {
+      const next = { ...prev, hands: slug };
+      return prev.hands && prev.hands !== slug ? dropAdjustment(next, prev.hands) : next;
+    });
   }
 
   function setAdjustment(slug: string, adjustment: NormalizedAccessoryAdjustment) {
