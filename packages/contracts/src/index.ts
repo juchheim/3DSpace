@@ -292,7 +292,7 @@ export const ListAvatarAccessoriesResponseSchema = z.object({
   items: z.array(AvatarAccessoryCatalogEntrySchema)
 });
 
-export const AvatarBodySlugSchema = z.enum(["azure-vanguard", "azure-vanguard-hd", "ixr-female-20k"]);
+export const AvatarBodySlugSchema = z.enum(["azure-vanguard", "azure-vanguard-hd", "ixr-female-20k", "sit-test"]);
 
 export const AvatarBodyClipsSchema = z.object({
   idle: z.string().min(1),

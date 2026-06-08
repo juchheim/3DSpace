@@ -12,6 +12,7 @@ describe("avatar body builtin catalog", () => {
     expect(catalog.map((entry) => entry.slug)).toEqual([
       "azure-vanguard",
       "azure-vanguard-hd",
+      "sit-test",
       "ixr-female-20k"
     ]);
   });

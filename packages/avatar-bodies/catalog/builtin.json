@@ -27,6 +27,19 @@
     "neutralAlbedoUrl": "/avatars/azure-vanguard-albedo-neutral.jpg"
   },
   {
+    "slug": "sit-test",
+    "displayName": "Sit Test",
+    "glbUrl": "/avatars/sit-test.glb",
+    "nativeHeight": 1.69,
+    "clips": {
+      "idle": "Idle_11",
+      "walking": "Walking",
+      "running": "Running"
+    },
+    "zoneMaskUrl": "/avatars/ixr-female-20k-zone-mask.png",
+    "neutralAlbedoUrl": "/avatars/ixr-female-20k-albedo-neutral.jpg"
+  },
+  {
     "slug": "ixr-female-20k",
     "displayName": "IXR Female",
     "glbUrl": "/avatars/ixr-female-20k.glb",
