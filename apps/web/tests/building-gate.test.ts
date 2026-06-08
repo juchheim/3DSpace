@@ -40,11 +40,13 @@ describe("physicsEnvEnabled", () => {
     return mod.physicsEnvEnabled;
   }
 
-  it("enables physics only for FFA when NEXT_PUBLIC_ENABLE_PHYSICS is true", async () => {
+  it("enables physics for FFA and verse rooms when NEXT_PUBLIC_ENABLE_PHYSICS is true", async () => {
     vi.stubEnv("NEXT_PUBLIC_ENABLE_PHYSICS", "true");
     const physicsEnvEnabled = await loadPhysicsGate();
 
     expect(physicsEnvEnabled("free-for-all")).toBe(true);
+    expect(physicsEnvEnabled("skill-verse")).toBe(true);
+    expect(physicsEnvEnabled("culture-verse")).toBe(true);
     expect(physicsEnvEnabled("escape-room")).toBe(false);
     expect(physicsEnvEnabled("classroom")).toBe(false);
   });

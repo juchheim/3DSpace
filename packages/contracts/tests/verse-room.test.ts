@@ -35,7 +35,8 @@ describe("verse room types (contracts)", () => {
       expect(flags.classroomState).toBe(false);
       expect(flags.lessons).toBe(false);
       expect(flags.dynamicBoards).toBe(false);
-      expect(flags.building).toBe(false);
+      expect(flags.building).toBe(true);
+      expect(flags.physics).toBe(true);
       expect(flags.whiteboards).toBe(false);
       expect(flags.worldSkins).toBe(false);
       expect(flags.aiMeetingNotes).toBe(false);

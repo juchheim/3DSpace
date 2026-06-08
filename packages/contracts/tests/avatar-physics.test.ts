@@ -39,8 +39,9 @@ describe("avatar physics contracts", () => {
     expect(settings.physics).toEqual({});
   });
 
-  it("marks physics as free-for-all only", () => {
+  it("marks physics for free-for-all and verse rooms", () => {
     expect(getRoomTypeFeatureFlags("free-for-all").physics).toBe(true);
+    expect(getRoomTypeFeatureFlags("skill-verse").physics).toBe(true);
     expect(getRoomTypeFeatureFlags("escape-room").physics).toBe(false);
     expect(getRoomTypeFeatureFlags("classroom").physics).toBe(false);
   });

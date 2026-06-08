@@ -68,8 +68,9 @@ export function buildingEnvEnabled(roomType: string | null | undefined): boolean
   return false;
 }
 
-/** Physics is Phase 0 gated to Free-for-All only. */
+/** Physics env gate for Free-for-All and Dream IXR verse rooms. */
 export function physicsEnvEnabled(roomType: string | null | undefined): boolean {
-  if (roomType === "free-for-all") return CLIENT_TUNING.physics.enablePhysics;
+  if (!CLIENT_TUNING.physics.enablePhysics) return false;
+  if (roomType === "free-for-all" || isVerseRoomType(roomType)) return true;
   return false;
 }

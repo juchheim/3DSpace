@@ -1579,7 +1579,7 @@ const VERSE_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
   liveCaptions: false,
   building: true,
   logic: false,
-  physics: false
+  physics: true
 });
 
 /**

@@ -1,6 +1,6 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-07 (avatar body switching + IXR female recolor)
+Last updated: 2026-06-08 (E-key sit interact hold window)
 
 **Historical detail:** `.cursor/memory-archive.md` (planning log + bug-fix chronicle through 2026-05-30). Update that file only when archiving new dated entries; keep this file lean.
 
@@ -102,6 +102,10 @@ Remaining refactor candidates: `packages/contracts/src/index.ts`, `RoomClient.ts
 
 ## Recent work
 
+- **2026-06-08:** **Verse physics + jump** — enabled existing avatar physics/jump for all Dream IXR verse room types (`skill-verse`, `culture-verse`, etc.): `VERSE_ROOM_TYPE_FEATURE_FLAGS.physics: true`; `physicsEnvEnabled()` now includes `isVerseRoomType()` alongside FFA (still gated by `ENABLE_PHYSICS` / `NEXT_PUBLIC_ENABLE_PHYSICS`).
+- **2026-06-08:** **E-key sit hold window** — sit/stand on E release now allows holds up to `AVATAR_KEYBOARD_INTERACT_MAX_HOLD_MS` (450 ms); turn still starts at 120 ms. Fixes missed sits when E was held slightly too long.
+- **2026-06-08:** **Chair sit E-key fix** — `useSitting` `nearestChair` was memoized on stable `getAvatarPosition` ref, so proximity never updated as avatar moved; recompute each render. Short E tap always calls `tryInteract()` (no-op when out of range).
+- **2026-06-08:** **Sit Test avatar locomotion fix** — `sit-test.glb` Meshy merge mislabeled animation data (clip names ≠ motion). Remapped `builtin.json`: standing idle→`Walking`, walk→`Sit_to_standTransition_Female_2`, run→`Look_Back_and_Sit`, sit-down→`Idle_11`, stand-up→`Running`. `BlockyAvatar` seated phase holds final frame of `sit` clip instead of looping standing idle.
 - **2026-06-07:** **Avatar accessory fit panel** — user-facing Fit & position sliders in `AvatarEditorPanel` (size, up/down, forward, side, tilt, turn); per-slug `adjustments` on `AvatarEquippedAccessories` (offsets from catalog defaults); live draft preview + save/persist via existing `PATCH /v1/users/me/accessories` + `avatar.accessories.v1`; `AccessoryAdjustPanel`, `avatarAccessoryAdjustments.ts`, `AvatarAccessoryLayer` merge.
 - **2026-06-07:** **Avatar accessories polish (verse)** — bowler hat attach via `bone.add()`; catalog position/scale tuned (`y: 0.145`, `z: -0.06`, `localScale: 2.85`); `hairSuppressionBones` on `head_end` with per-mixer re-apply (fixes hair poke-through on walk); Accessories editor spacing fix (`6c2286f`).
 - **2026-06-06:** **Avatar accessories Phase 6 complete** — Playwright E2E green (3 tests); fixed client bundle via `@3dspace/avatar-accessories/browser` (JSON import, no `node:fs`); E2E editor toggle idempotency fix.
