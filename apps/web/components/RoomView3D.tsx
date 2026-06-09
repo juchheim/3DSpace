@@ -1513,9 +1513,12 @@ function oklch(L: number, C: number, H: number): Color {
 // Background color used when the verse skybox is active (no WorldSkin set).
 const SPACE_BG = "#03040c";
 
-// Radius of the galaxy disk in world-units. Far enough that all particles are
-// sky-distance from the player; close enough that sizeAttenuation can be off.
+// Outer radius of the galaxy disk in world-units.
 const GALAXY_R = 280;
+
+// Inner exclusion radius — no particle is placed closer than this to the
+// room origin. Prevents streaks/blobs from appearing near the avatar.
+const GALAXY_MIN_R = 80;
 
 // Original orb radius — used to normalise spin/scatter angles at skybox scale.
 const ORB_R = 1.18;
@@ -1528,7 +1531,7 @@ function VerseSkybox({ verse }: { verse: Verse }) {
 
   const { geometry, sprite } = useMemo(() => {
     const R = GALAXY_R;
-    const N = cfg.count * 6;
+    const N = cfg.count * 14;
     const pos = new Float32Array(N * 3);
     const col = new Float32Array(N * 3);
     const core = oklch(0.88, 0.155, verse.hue);
@@ -1536,14 +1539,15 @@ function VerseSkybox({ verse }: { verse: Verse }) {
     const edge = oklch(0.55, 0.215, verse.hue);
 
     for (let i = 0; i < N; i++) {
-      const rr = Math.pow(Math.random(), 1.25) * R;
+      // Distribute from GALAXY_MIN_R outward so no particle lands near the avatar.
+      const rr = GALAXY_MIN_R + Math.pow(Math.random(), 1.25) * (R - GALAXY_MIN_R);
       const branch = ((i % cfg.arms) / cfg.arms) * Math.PI * 2;
       const twist = (rr / R) * ORB_R * cfg.spin;
       const sc = cfg.scatter * (0.14 + rr / R);
       const aS = (Math.random() - 0.5) * sc;
       const rS = (Math.random() - 0.5) * sc * 0.6 * R;
       const ang = branch + twist + aS;
-      const r2 = Math.max(0, rr + rS);
+      const r2 = Math.max(GALAXY_MIN_R, rr + rS);
       pos[i * 3 + 0] = Math.cos(ang) * r2;
       pos[i * 3 + 1] = (Math.random() - 0.5) * 0.16 * (1 - 0.5 * rr / R) * R;
       pos[i * 3 + 2] = Math.sin(ang) * r2;
@@ -1592,7 +1596,7 @@ function VerseSkybox({ verse }: { verse: Verse }) {
         <points geometry={geometry} renderOrder={-100}>
           <pointsMaterial
             attach="material"
-            size={1.8}
+            size={2.5}
             sizeAttenuation={false}
             map={sprite}
             vertexColors
@@ -1600,7 +1604,7 @@ function VerseSkybox({ verse }: { verse: Verse }) {
             depthWrite={false}
             depthTest={false}
             blending={AdditiveBlending}
-            opacity={0.58}
+            opacity={0.85}
           />
         </points>
       </group>
