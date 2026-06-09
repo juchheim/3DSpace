@@ -1513,12 +1513,17 @@ function oklch(L: number, C: number, H: number): Color {
 // Background color used when the verse skybox is active (no WorldSkin set).
 const SPACE_BG = "#03040c";
 
-// Outer radius of the galaxy disk in world-units.
-const GALAXY_R = 280;
+// Galaxy disk radius in world-units. The galaxy is viewed from outside, so
+// this controls how large it appears against the sky — not the player's
+// proximity to individual particles.
+const GALAXY_R = 90;
 
-// Inner exclusion radius — no particle is placed closer than this to the
-// room origin. Prevents streaks/blobs from appearing near the avatar.
-const GALAXY_MIN_R = 80;
+// World-space position of the galaxy centre. Placed far above and behind the
+// room so the player always views it from outside as a coherent structure.
+const GALAXY_POS: [number, number, number] = [0, 180, -400];
+
+// Radius of the ambient starfield sphere centred on the room origin.
+const STAR_SPHERE_R = 650;
 
 // Original orb radius — used to normalise spin/scatter angles at skybox scale.
 const ORB_R = 1.18;
@@ -1529,40 +1534,57 @@ function VerseSkybox({ verse }: { verse: Verse }) {
   const tRef = useRef(0);
   const cfg = verse.galaxy;
 
-  const { geometry, sprite } = useMemo(() => {
+  const { galaxyGeo, starsGeo, sprite } = useMemo(() => {
+    // ── Galaxy particles ────────────────────────────────────────────────────
     const R = GALAXY_R;
-    const N = cfg.count * 14;
-    const pos = new Float32Array(N * 3);
-    const col = new Float32Array(N * 3);
+    const N = cfg.count * 5;
+    const gpos = new Float32Array(N * 3);
+    const gcol = new Float32Array(N * 3);
     const core = oklch(0.88, 0.155, verse.hue);
     const mid = oklch(0.7, 0.235, verse.hue);
     const edge = oklch(0.55, 0.215, verse.hue);
 
     for (let i = 0; i < N; i++) {
-      // Distribute from GALAXY_MIN_R outward so no particle lands near the avatar.
-      const rr = GALAXY_MIN_R + Math.pow(Math.random(), 1.25) * (R - GALAXY_MIN_R);
+      const rr = Math.pow(Math.random(), 1.25) * R;
       const branch = ((i % cfg.arms) / cfg.arms) * Math.PI * 2;
       const twist = (rr / R) * ORB_R * cfg.spin;
       const sc = cfg.scatter * (0.14 + rr / R);
       const aS = (Math.random() - 0.5) * sc;
       const rS = (Math.random() - 0.5) * sc * 0.6 * R;
       const ang = branch + twist + aS;
-      const r2 = Math.max(GALAXY_MIN_R, rr + rS);
-      pos[i * 3 + 0] = Math.cos(ang) * r2;
-      pos[i * 3 + 1] = (Math.random() - 0.5) * 0.16 * (1 - 0.5 * rr / R) * R;
-      pos[i * 3 + 2] = Math.sin(ang) * r2;
+      const r2 = Math.max(0, rr + rS);
+      gpos[i * 3 + 0] = Math.cos(ang) * r2;
+      gpos[i * 3 + 1] = (Math.random() - 0.5) * 0.16 * (1 - 0.5 * rr / R) * R;
+      gpos[i * 3 + 2] = Math.sin(ang) * r2;
       const tt = rr / R;
       const c = core.clone().lerp(mid, Math.min(1, tt / 0.4));
       if (tt > 0.45) c.lerp(edge, Math.min(1, (tt - 0.45) / 0.55) * 0.7);
-      col[i * 3 + 0] = c.r;
-      col[i * 3 + 1] = c.g;
-      col[i * 3 + 2] = c.b;
+      gcol[i * 3 + 0] = c.r;
+      gcol[i * 3 + 1] = c.g;
+      gcol[i * 3 + 2] = c.b;
     }
 
-    const geo = new BufferGeometry();
-    geo.setAttribute("position", new BufferAttribute(pos, 3));
-    geo.setAttribute("color", new BufferAttribute(col, 3));
+    const galaxyGeo = new BufferGeometry();
+    galaxyGeo.setAttribute("position", new BufferAttribute(gpos, 3));
+    galaxyGeo.setAttribute("color", new BufferAttribute(gcol, 3));
 
+    // ── Ambient starfield ───────────────────────────────────────────────────
+    // Random stars scattered on a large sphere around the room. depthTest
+    // (default on) naturally hides below-horizon stars behind the floor.
+    const SN = 4000;
+    const spos = new Float32Array(SN * 3);
+    for (let i = 0; i < SN; i++) {
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const r = STAR_SPHERE_R * (0.96 + Math.random() * 0.08);
+      spos[i * 3 + 0] = r * Math.sin(phi) * Math.cos(theta);
+      spos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      spos[i * 3 + 2] = r * Math.cos(phi);
+    }
+    const starsGeo = new BufferGeometry();
+    starsGeo.setAttribute("position", new BufferAttribute(spos, 3));
+
+    // ── Soft round sprite ───────────────────────────────────────────────────
     const s = 32;
     const canvas = document.createElement("canvas");
     canvas.width = canvas.height = s;
@@ -1576,10 +1598,14 @@ function VerseSkybox({ verse }: { verse: Verse }) {
     const tex = new Texture(canvas);
     tex.needsUpdate = true;
 
-    return { geometry: geo, sprite: tex };
+    return { galaxyGeo, starsGeo, sprite: tex };
   }, [cfg, verse.hue]);
 
-  useEffect(() => () => { geometry.dispose(); sprite.dispose(); }, [geometry, sprite]);
+  useEffect(() => () => {
+    galaxyGeo.dispose();
+    starsGeo.dispose();
+    sprite.dispose();
+  }, [galaxyGeo, starsGeo, sprite]);
 
   useFrame((_, delta) => {
     tRef.current += delta;
@@ -1591,24 +1617,40 @@ function VerseSkybox({ verse }: { verse: Verse }) {
   });
 
   return (
-    <group ref={groupRef} rotation-x={cfg.tilt}>
-      <group ref={diskRef}>
-        <points geometry={geometry} renderOrder={-100}>
-          <pointsMaterial
-            attach="material"
-            size={2.5}
-            sizeAttenuation={false}
-            map={sprite}
-            vertexColors
-            transparent
-            depthWrite={false}
-            depthTest={false}
-            blending={AdditiveBlending}
-            opacity={0.85}
-          />
-        </points>
+    <>
+      {/* Ambient starfield — centred on room, depth-tested so floor hides horizon stars */}
+      <points geometry={starsGeo}>
+        <pointsMaterial
+          attach="material"
+          size={1.5}
+          sizeAttenuation={false}
+          color="#ccd8ff"
+          transparent
+          depthWrite={false}
+          blending={AdditiveBlending}
+          opacity={0.55}
+        />
+      </points>
+
+      {/* Galaxy — positioned far away so it's viewed as a coherent external structure */}
+      <group ref={groupRef} position={GALAXY_POS} rotation-x={cfg.tilt}>
+        <group ref={diskRef}>
+          <points geometry={galaxyGeo}>
+            <pointsMaterial
+              attach="material"
+              size={2.5}
+              sizeAttenuation={false}
+              map={sprite}
+              vertexColors
+              transparent
+              depthWrite={false}
+              blending={AdditiveBlending}
+              opacity={0.85}
+            />
+          </points>
+        </group>
       </group>
-    </group>
+    </>
   );
 }
 
