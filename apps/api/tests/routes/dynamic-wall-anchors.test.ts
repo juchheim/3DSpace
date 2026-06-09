@@ -358,6 +358,43 @@ describe("dynamic wall anchor routes", () => {
     await app.close();
   });
 
+  it("attaches a wall object to a build-wall board in a verse room (dynamic anchor resolution)", async () => {
+    // Regression: dynamic (build-wall) anchors were only merged into the anchor
+    // lookup for free-for-all rooms, so attaching content to a board in a verse
+    // (or escape) room failed with "wallAnchorId does not exist in room manifest".
+    const app = await buildTestApp({ config: buildPiecesConfig({ ENABLE_VERSE_BUILDING: "true" }) });
+    const { roomWithManifest } = await createClassAndRoom(app, "teacher-verse-boards", "skill-verse");
+    const roomId = roomWithManifest.room.id;
+    await enableBuildingForRoom(app, roomId, "teacher-verse-boards");
+
+    const piece = await createBuildWall(app, roomId, "teacher-verse-boards");
+    const wall = buildPieceColliders(piece).walls[0]!;
+
+    const anchorRes = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/dynamic-wall-anchors`,
+      headers: authHeaders("teacher-verse-boards", "Ms. Rivera"),
+      payload: anchorBodyForBuildWall(wall, { accepts: ["note"] })
+    });
+    expect(anchorRes.statusCode).toBe(200);
+    const anchorId = anchorRes.json().anchor.id;
+
+    const objectRes = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/wall-objects`,
+      headers: authHeaders("teacher-verse-boards", "Ms. Rivera"),
+      payload: {
+        wallAnchorId: anchorId,
+        type: "note",
+        title: "Verse board note",
+        source: { kind: "inline", data: { text: "hello" } }
+      }
+    });
+    expect(objectRes.statusCode).toBe(200);
+    expect(objectRes.json().wallAnchorId).toBe(anchorId);
+    await app.close();
+  });
+
   it("still allows destroying floors and ramps when a board exists elsewhere", async () => {
     const app = await buildTestApp({ config: buildPiecesConfig() });
     const { classRecord, roomWithManifest } = await createFfaRoom(app);

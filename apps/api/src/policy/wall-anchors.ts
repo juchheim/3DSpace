@@ -1,4 +1,5 @@
 import { anchorAcceptsWallObjectType, anchorHasOccupyingWallObject, type WallAnchorCreateOption } from "@3dspace/room-engine";
+import { getRoomTypeFeatureFlags } from "@3dspace/contracts";
 import type { DynamicWallAnchor, RoomManifest, RoomType, WallObjectType } from "@3dspace/contracts";
 import { badRequest, conflict } from "../errors.js";
 import type { Repository } from "../repository.js";
@@ -20,7 +21,9 @@ export async function listRoomWallAnchors(
   manifest: Awaited<ReturnType<Repository["getActiveManifest"]>>
 ) {
   if (!manifest) return [];
-  if (room.type !== "free-for-all") return manifest.wallAnchors;
+  // Dynamic (build-wall) anchors only exist where dynamic boards are enabled
+  // (free-for-all, escape rooms, and the Dream IXR verses).
+  if (!getRoomTypeFeatureFlags(room.type).dynamicBoards) return manifest.wallAnchors;
   const dynamicAnchors = await repository.listDynamicWallAnchorsForRoom(room.id);
   return [...manifest.wallAnchors, ...dynamicAnchors];
 }

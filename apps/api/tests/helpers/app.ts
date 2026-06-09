@@ -1,4 +1,5 @@
 import { expect } from "vitest";
+import type { RoomType } from "@3dspace/contracts";
 import { buildApp } from "../../src/app";
 import { loadConfig } from "../../src/config";
 import { MemoryRepository } from "../../src/repository";
@@ -25,7 +26,7 @@ export async function buildTestApp(overrides: BuildTestAppOptions = {}) {
 export async function createClassAndRoom(
   app: TestApp,
   teacherId = "teacher-wall",
-  roomType: "classroom" | "workforce-training" | "free-for-all" | "escape-room" = "classroom"
+  roomType: RoomType = "classroom"
 ) {
   const classResponse = await app.inject({
     method: "POST",
