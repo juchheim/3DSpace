@@ -1,8 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-08 (chair floor height)
+Last updated: 2026-06-08 (ramp GLB)
 
-- **2026-06-08:** **Chair placement on build floors** — `worldAssetGroundY` uses `groundHeightAt` snap mode so chairs render/sit/placement at floor top (`BUILD_FLOOR_THICKNESS`), not terrain y=0; fixes chairs clipping through floor GLBs.
+- **2026-06-08:** **Build ramp GLB** — `GLBs/ramp.glb` texture recompressed to JPEG (~4.3 MB → ~1.3 MB); shipped as `apps/web/public/objects/ramp.glb`. `BuildPieceMesh` uses `RampGlbMesh` scaled to `2 × 2.3 × 2 m` with rotation mapped to climb direction; ghost/trail keep procedural wedge.
 
 **Historical detail:** `.cursor/memory-archive.md` (planning log + bug-fix chronicle through 2026-05-30). Update that file only when archiving new dated entries; keep this file lean.
 

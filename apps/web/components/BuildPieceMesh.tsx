@@ -39,6 +39,57 @@ const FLOOR_GLB_NATIVE_D = 0.0265853; // Z extent
 
 useGLTF.preload(FLOOR_GLB_URL);
 
+// ── Custom ramp GLB ───────────────────────────────────────────────────────────
+const RAMP_GLB_URL = "/objects/ramp.glb";
+// Native dimensions of the GLB mesh (measured from the source file)
+const RAMP_GLB_NATIVE_W = 3.1869926; // X extent (footprint width)
+const RAMP_GLB_NATIVE_H = 2.4;       // Y extent (rise)
+const RAMP_GLB_NATIVE_D = 4.2271991; // Z extent (footprint run — model climbs along Z)
+
+useGLTF.preload(RAMP_GLB_URL);
+
+/** Map build rotation to GLB yaw; native mesh climbs from +Z (low) to −Z (high). */
+function rampGlbRotationY(rotation: BuildPieceRotation): number {
+  switch (rotation) {
+    case 0:
+      return Math.PI;
+    case 90:
+      return Math.PI / 2;
+    case 180:
+      return 0;
+    case 270:
+      return -Math.PI / 2;
+  }
+}
+
+/**
+ * Renders the custom ramp GLB, stretched to match the engine's ramp dimensions
+ * (BUILD_CELL_SIZE × BUILD_RAMP_RISE × BUILD_CELL_SIZE footprint).
+ */
+function RampGlbMesh({ piece }: { piece: BuildPiece }) {
+  const { scene } = useGLTF(RAMP_GLB_URL);
+  const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
+
+  const footprint = buildCellFootprint(piece.cell.ix, piece.cell.iz);
+  const centerX = (footprint.minX + footprint.maxX) / 2;
+  const centerZ = (footprint.minZ + footprint.maxZ) / 2;
+  const baseY = piece.level * BUILD_LEVEL_HEIGHT;
+
+  const scaleX = BUILD_CELL_SIZE / RAMP_GLB_NATIVE_W;
+  const scaleY = BUILD_RAMP_RISE / RAMP_GLB_NATIVE_H;
+  const scaleZ = BUILD_CELL_SIZE / RAMP_GLB_NATIVE_D;
+
+  return (
+    <group
+      position={[centerX, baseY, centerZ]}
+      rotation={[0, rampGlbRotationY(piece.rotation), 0]}
+      scale={[scaleX, scaleY, scaleZ]}
+    >
+      <primitive object={model} />
+    </group>
+  );
+}
+
 /**
  * Renders the custom floor GLB, stretched to match the engine's floor dimensions
  * (BUILD_CELL_SIZE × BUILD_FLOOR_THICKNESS × BUILD_CELL_SIZE).
@@ -405,18 +456,44 @@ export function BuildPieceMesh({
   const centerX = (footprint.minX + footprint.maxX) / 2;
   const centerZ = (footprint.minZ + footprint.maxZ) / 2;
   const baseY = piece.level * BUILD_LEVEL_HEIGHT;
+
+  // Ghost / trail previews keep the procedural wedge so placement wireframe works.
+  if (ghost || trail) {
+    return (
+      <group
+        position={[centerX, baseY, centerZ]}
+        userData={{ buildPieceId: piece.id, buildPiece: piece }}
+        {...(pointerEventsPassThrough ? { raycast: () => {} } : {})}
+        {...pointerProps}
+      >
+        <mesh>
+          <RampGeometry rotation={piece.rotation} />
+          <meshStandardMaterial {...materialProps} side={DoubleSide} />
+          {ghost ? <Edges color={valid ? "#6dff9a" : "#ff6b6b"} linewidth={2} /> : null}
+        </mesh>
+        {ghost ? <RampClimbIndicator rotation={piece.rotation} /> : null}
+      </group>
+    );
+  }
+
   return (
     <group
-      position={[centerX, baseY, centerZ]}
       userData={{ buildPieceId: piece.id, buildPiece: piece }}
+      {...(pointerEventsPassThrough ? { raycast: () => {} } : {})}
       {...pointerProps}
     >
-      <mesh>
-        <RampGeometry rotation={piece.rotation} />
-        <meshStandardMaterial {...materialProps} side={DoubleSide} />
-        {ghost ? <Edges color={valid ? "#6dff9a" : "#ff6b6b"} linewidth={2} /> : null}
-      </mesh>
-      {ghost ? <RampClimbIndicator rotation={piece.rotation} /> : null}
+      <Suspense
+        fallback={
+          <group position={[centerX, baseY, centerZ]}>
+            <mesh>
+              <RampGeometry rotation={piece.rotation} />
+              <meshStandardMaterial {...materialProps} side={DoubleSide} />
+            </mesh>
+          </group>
+        }
+      >
+        <RampGlbMesh piece={piece} />
+      </Suspense>
     </group>
   );
 }
