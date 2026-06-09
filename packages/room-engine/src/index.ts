@@ -21,7 +21,9 @@ import {
   VERSE_ROOM_HALF_EXTENT,
   VERSE_ROOM_MANIFEST_FEATURE,
   VERSE_ROOM_WALL_HEIGHT,
-  isVerseRoomManifest
+  VERSE_SKYBOX_GALAXY_POSITION,
+  isVerseRoomManifest,
+  rotationFacingVerseGalaxy
 } from "./verse-room.js";
 
 export {
@@ -35,7 +37,9 @@ export {
   VERSE_ROOM_HALF_EXTENT,
   VERSE_ROOM_MANIFEST_FEATURE,
   VERSE_ROOM_WALL_HEIGHT,
-  isVerseRoomManifest
+  VERSE_SKYBOX_GALAXY_POSITION,
+  isVerseRoomManifest,
+  rotationFacingVerseGalaxy
 };
 
 export {
@@ -1248,12 +1252,13 @@ export function createEscapeRoomManifest(input: {
 }
 
 function buildVerseRoomSpawnPoints(): SpawnPoint[] {
+  const position = { x: 0, y: 0, z: 0 };
   return [
     {
       id: "spawn-center",
       label: "Spawn",
-      position: { x: 0, y: 0, z: 0 },
-      rotation: { y: 0 }
+      position,
+      rotation: rotationFacingVerseGalaxy(position)
     }
   ];
 }
@@ -1587,6 +1592,13 @@ export function rotationFacingRoomCenter(manifest: RoomManifest, position: Vecto
   return rotationFacingPosition(position, roomCenterXZ(manifest));
 }
 
+/** Initial spawn yaw: verse rooms face the skybox galaxy; others face the room center. */
+export function resolveSpawnRotation(manifest: RoomManifest, position: Vector3): { y: number } {
+  return isVerseRoomManifest(manifest)
+    ? rotationFacingVerseGalaxy(position)
+    : rotationFacingRoomCenter(manifest, position);
+}
+
 export function selectSpawnPoint(input: {
   manifest: RoomManifest;
   participantId: string;
@@ -1640,7 +1652,7 @@ export function createAvatarState(input: {
     sentAt: input.sentAt ?? Date.now(),
     participantId: input.participantId,
     position,
-    rotation: rotationFacingRoomCenter(input.manifest, position),
+    rotation: resolveSpawnRotation(input.manifest, position),
     movement: "idle",
     viewMode: input.viewMode ?? "3d",
     media: {

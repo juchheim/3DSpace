@@ -5,8 +5,11 @@ import {
   createEscapeRoomManifest,
   createVerseRoomManifest,
   isVerseRoomManifest,
+  resolveSpawnRotation,
+  rotationFacingVerseGalaxy,
   VERSE_ROOM_HALF_EXTENT,
-  VERSE_ROOM_MANIFEST_FEATURE
+  VERSE_ROOM_MANIFEST_FEATURE,
+  VERSE_SKYBOX_GALAXY_POSITION
 } from "../src/index.js";
 
 describe("createVerseRoomManifest", () => {
@@ -41,6 +44,20 @@ describe("createVerseRoomManifest", () => {
   it("includes a center spawn point", () => {
     expect(manifest.spawnPoints).toHaveLength(1);
     expect(manifest.spawnPoints[0]!.position).toEqual({ x: 0, y: 0, z: 0 });
+  });
+
+  it("spawns facing the skybox galaxy (-Z)", () => {
+    const spawn = manifest.spawnPoints[0]!;
+    expect(spawn.rotation.y).toBeCloseTo(Math.PI);
+    expect(resolveSpawnRotation(manifest, spawn.position).y).toBeCloseTo(Math.PI);
+
+    const g = VERSE_SKYBOX_GALAXY_POSITION;
+    const facingX = Math.sin(spawn.rotation.y);
+    const facingZ = Math.cos(spawn.rotation.y);
+    const toGalaxyX = g.x - spawn.position.x;
+    const toGalaxyZ = g.z - spawn.position.z;
+    expect(facingX * toGalaxyX + facingZ * toGalaxyZ).toBeGreaterThan(0);
+    expect(rotationFacingVerseGalaxy(spawn.position).y).toBeCloseTo(spawn.rotation.y);
   });
 });
 

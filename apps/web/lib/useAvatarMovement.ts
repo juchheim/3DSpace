@@ -22,6 +22,7 @@ import {
   floorYFromZ,
   groundHeightAt,
   physicsWorldSpecCacheKey,
+  resolveSpawnRotation,
   selectSpawnPoint,
   transformLocalMovementToWorld,
   unprojectPointFrom2D,
@@ -632,17 +633,18 @@ export function useAvatarMovement(input: {
     );
     verticalVelocityRef.current = 0;
     jumpRequestedRef.current = false;
+    const rotation = resolveSpawnRotation(input.manifest, position);
     const next = {
       ...stateRef.current,
       position,
-      rotation: spawn.rotation,
+      rotation,
       sentAt: Date.now(),
       movement: "idle" as const,
       airborneState: physicsEnabled() ? "grounded" as const : undefined,
       viewMode: input.viewMode,
       media: mediaRef.current
     };
-    if (input.cameraYawRef) input.cameraYawRef.current = spawn.rotation.y;
+    if (input.cameraYawRef) input.cameraYawRef.current = rotation.y;
     if (physicsEnabled() && physicsControllerRef.current) {
       physicsControllerRef.current.setPosition(position);
     }

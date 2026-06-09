@@ -84,7 +84,8 @@ import {
   FFA_WALL_THICKNESS,
   FFA_EXIT_HALF_ARC,
   FFA_PERIMETER_SEGMENTS,
-  levelToY
+  levelToY,
+  VERSE_SKYBOX_GALAXY_POSITION
 } from "@3dspace/room-engine";
 import { avatarStandingLevel } from "../lib/buildPlacement";
 import { worldAssetGroundY, worldAssetPlacementGroundY } from "../lib/worldAssetGroundY";
@@ -1523,7 +1524,11 @@ const GALAXY_HALO_REACH = 1.65;
 
 // World-space position of the galaxy centre. Placed far above and behind the
 // room so the player always views it from outside as a coherent structure.
-const GALAXY_POS: [number, number, number] = [0, 205, -420];
+const GALAXY_POS: [number, number, number] = [
+  VERSE_SKYBOX_GALAXY_POSITION.x,
+  VERSE_SKYBOX_GALAXY_POSITION.y,
+  VERSE_SKYBOX_GALAXY_POSITION.z
+];
 
 // Radius of the ambient starfield sphere centred on the room origin.
 const STAR_SPHERE_R = 650;

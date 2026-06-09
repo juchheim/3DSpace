@@ -1,7 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-09 (World Builder lamp GLB)
+Last updated: 2026-06-09 (Verse spawn faces galaxy)
 
+- **2026-06-09:** **Verse spawn faces galaxy** — center spawn used `rotationFacingRoomCenter` → yaw 0 (+Z) with galaxy at `VERSE_SKYBOX_GALAXY_POSITION` (0,205,-420). `resolveSpawnRotation()` / `rotationFacingVerseGalaxy()` in room-engine; `createAvatarState`, `returnToSpawn`, spawn point rotation, and `RoomView3D` `GALAXY_POS` share the constant.
 - **2026-06-09:** **World Builder lamp GLB** — `GLBs/lamp.glb` → `apps/web/public/objects/lamp.glb` via `scripts/prepare-lamp-glb.mjs` (JPEG q85, ~0.5 MB; split `LampBase`/`LampShade`). `LampGlbMesh` replaces procedural light in `BuildPieceMesh` + `LogicPieceMesh`: bright emissive bulb, translucent warm shade, budgeted point light.
 - **2026-06-09:** **Verse skybox galaxy v2** — `VerseSkybox` in `RoomView3D.tsx` rebuilt as 4 point layers (dense arm field 10×count, bright sparkle stars, gaussian core bulge, sparse outer halo to 1.65×R) + core/nebula glow sprites; `GALAXY_R` 130→185, pos `[0,205,-420]`; ambient starfield 4k→7k + 900 bright tinted stars; 64px `makePointSprite` glow/star textures. Verse color code preserved: same OKLCH core/mid/edge palette from `verse.hue` as lobby `VerseOrb`.
 - **2026-06-09:** **Simple Wall** — World Builder tool `simple-wall` (key `9`) uses `GLBs/wall-simple.glb` → `apps/web/public/objects/wall-simple.glb` (~1.1 MB, JPEG q85). Same collision/board rules as `wall`; plainer mesh vs. detailed `wall.glb`.
