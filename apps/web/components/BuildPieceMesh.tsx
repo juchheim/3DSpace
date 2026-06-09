@@ -11,6 +11,8 @@ import {
   BUILD_CELL_SIZE,
   BUILD_FLOOR_THICKNESS,
   BUILD_LEVEL_HEIGHT,
+  BUILD_RAMP_HIGH_Y,
+  BUILD_RAMP_LOW_Y,
   BUILD_RAMP_RISE,
   BUILD_WALL_HEIGHT,
   BUILD_WALL_THICKNESS,
@@ -64,7 +66,7 @@ function rampGlbRotationY(rotation: BuildPieceRotation): number {
 
 /**
  * Renders the custom ramp GLB, stretched to match the engine's ramp dimensions
- * (BUILD_CELL_SIZE × BUILD_RAMP_RISE × BUILD_CELL_SIZE footprint).
+ * (BUILD_CELL_SIZE × BUILD_RAMP_HIGH_Y × BUILD_CELL_SIZE footprint).
  */
 function RampGlbMesh({ piece }: { piece: BuildPiece }) {
   const { scene } = useGLTF(RAMP_GLB_URL);
@@ -76,7 +78,7 @@ function RampGlbMesh({ piece }: { piece: BuildPiece }) {
   const baseY = piece.level * BUILD_LEVEL_HEIGHT;
 
   const scaleX = BUILD_CELL_SIZE / RAMP_GLB_NATIVE_W;
-  const scaleY = BUILD_RAMP_RISE / RAMP_GLB_NATIVE_H;
+  const scaleY = BUILD_RAMP_HIGH_Y / RAMP_GLB_NATIVE_H;
   const scaleZ = BUILD_CELL_SIZE / RAMP_GLB_NATIVE_D;
 
   return (
@@ -174,8 +176,8 @@ function RampGeometry({ rotation }: { rotation: BuildPieceRotation }) {
   const geometry = useMemo(() => {
     const { climbAxis, climbSign } = rampClimbFromRotation(rotation);
     const half = BUILD_CELL_SIZE / 2;
-    const lowY = 0;
-    const highY = BUILD_RAMP_RISE;
+    const lowY = BUILD_RAMP_LOW_Y;
+    const highY = BUILD_RAMP_HIGH_Y;
     const lowCoord = climbSign === 1 ? -half : half;
     const highCoord = climbSign === 1 ? half : -half;
 

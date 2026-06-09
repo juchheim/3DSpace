@@ -11,6 +11,7 @@ import {
   BUILD_FLOOR_THICKNESS,
   BUILD_ID_PREFIX,
   BUILD_MAX_LEVEL,
+  BUILD_RAMP_LOW_Y,
   BUILD_WALL_HEIGHT,
   isBuildAllowedAt,
   levelToY,
@@ -74,6 +75,7 @@ describe("buildPieceColliders", () => {
     const rampColliders = buildPieceColliders(ramp);
     expect(rampColliders.ramp?.climbAxis).toBe("z");
     expect(rampColliders.ramp?.climbSign).toBe(1);
+    expect(rampColliders.ramp?.lowY).toBe(BUILD_RAMP_LOW_Y);
     expect(rampColliders.ramp?.highY).toBe(
       levelToY(1) + BUILD_FLOOR_THICKNESS
     );

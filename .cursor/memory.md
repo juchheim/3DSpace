@@ -1,8 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-08 (ramp GLB)
+Last updated: 2026-06-08 (ramp collision GLB-aligned)
 
-- **2026-06-08:** **Build ramp GLB** — `GLBs/ramp.glb` texture recompressed to JPEG (~4.3 MB → ~1.3 MB); shipped as `apps/web/public/objects/ramp.glb`. `BuildPieceMesh` uses `RampGlbMesh` scaled to `2 × 2.3 × 2 m` with rotation mapped to climb direction; ghost/trail keep procedural wedge.
+- **2026-06-08:** **Ramp collision aligned to GLB** — `BUILD_RAMP_LOW_Y` (0.35 m foot) + `BUILD_RAMP_HIGH_Y` (2.3 m crest); `groundHeightAt`, physics convex hull, and ghost wedge updated to match scaled ramp GLB walk surface.
 
 **Historical detail:** `.cursor/memory-archive.md` (planning log + bug-fix chronicle through 2026-05-30). Update that file only when archiving new dated entries; keep this file lean.
 

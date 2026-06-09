@@ -4,6 +4,8 @@ import { BuildLogicPieceSchema, BuildPieceSchema } from "@3dspace/contracts";
 import {
   buildPhysicsWorldSpec,
   BUILD_FLOOR_THICKNESS,
+  BUILD_RAMP_HIGH_Y,
+  BUILD_RAMP_LOW_Y,
   createDefaultRoomManifest,
   physicsWorldSpecCacheKey
 } from "../src/index.js";
@@ -136,8 +138,8 @@ describe("buildPhysicsWorldSpec", () => {
       maxX: 12,
       minZ: 12,
       maxZ: 14,
-      lowY: 0,
-      highY: 2 + BUILD_FLOOR_THICKNESS,
+      lowY: BUILD_RAMP_LOW_Y,
+      highY: BUILD_RAMP_HIGH_Y,
       climbAxis: "x",
       climbSign: -1,
       rotation: 270

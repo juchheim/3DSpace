@@ -123,7 +123,7 @@ describe("ramp walking simulation", () => {
     }
     expect(heights[heights.length - 1]).toBeCloseTo(expectedBottom, 2);
     expect(heights[0]).toBeCloseTo(surface.highY, 2);
-    expect(expectedBottom).toBeLessThan(0.2);
+    expect(expectedBottom).toBeGreaterThan(0.2);
   });
 
   it("connects ramp top to a floor on the next level in the same cell", () => {
