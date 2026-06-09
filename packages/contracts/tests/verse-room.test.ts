@@ -40,6 +40,7 @@ describe("verse room types (contracts)", () => {
       expect(flags.whiteboards).toBe(false);
       expect(flags.worldSkins).toBe(false);
       expect(flags.aiMeetingNotes).toBe(false);
+      expect(flags.aiWorldHost).toBe(true);
       expect(flags.breakoutPods).toBe(false);
     }
   });

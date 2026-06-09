@@ -13,12 +13,16 @@ import {
   RoomAiHostRealtimeMessageSchema,
   RoomAiHostSchema,
   RoomAiHostUpdatedMessageV1Schema,
-  SendRoomAiHostChatRequestSchema
+  SendRoomAiHostChatRequestSchema,
+  VERSE_ROOM_TYPES
 } from "../src/index";
 
 describe("AI World Host (contracts)", () => {
-  it("enables aiWorldHost only for free-for-all", () => {
+  it("enables aiWorldHost for free-for-all and verse rooms", () => {
     expect(getRoomTypeFeatureFlags("free-for-all").aiWorldHost).toBe(true);
+    for (const roomType of VERSE_ROOM_TYPES) {
+      expect(getRoomTypeFeatureFlags(roomType).aiWorldHost).toBe(true);
+    }
     expect(getRoomTypeFeatureFlags("classroom").aiWorldHost).toBe(false);
     expect(getRoomTypeFeatureFlags("escape-room").aiWorldHost).toBe(false);
     expect(getRoomTypeFeatureFlags("workforce-training").aiWorldHost).toBe(false);
