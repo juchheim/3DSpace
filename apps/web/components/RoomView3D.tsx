@@ -1657,29 +1657,24 @@ function VerseSkybox({ verse }: { verse: Verse }) {
     });
 
     // ── Ambient starfield ───────────────────────────────────────────────────
-    // Random stars scattered on a large sphere around the room. depthTest
-    // (default on) naturally hides below-horizon stars behind the floor.
-    const sphericalPoint = (pos: Float32Array, i: number) => {
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      const r = STAR_SPHERE_R * (0.96 + Math.random() * 0.08);
-      pos[i * 3 + 0] = r * Math.sin(phi) * Math.cos(theta);
-      pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-      pos[i * 3 + 2] = r * Math.cos(phi);
+    // Positions only (no sprite map) — textured point sprites were invisible at
+    // skybox scale. depthTest hides below-horizon stars behind the floor.
+    const spherePositions = (n: number) => {
+      const pos = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) {
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        const r = STAR_SPHERE_R * (0.96 + Math.random() * 0.08);
+        pos[i * 3 + 0] = r * Math.sin(phi) * Math.cos(theta);
+        pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+        pos[i * 3 + 2] = r * Math.cos(phi);
+      }
+      const geo = new BufferGeometry();
+      geo.setAttribute("position", new BufferAttribute(pos, 3));
+      return geo;
     };
-    const starsGeo = fill(7000, (i, pos, col) => {
-      sphericalPoint(pos, i);
-      const lum = 0.4 + Math.random() * 0.6;
-      col[i * 3 + 0] = 0.8 * lum;
-      col[i * 3 + 1] = 0.85 * lum;
-      col[i * 3 + 2] = 1.0 * lum;
-    });
-    const starTints = [new Color("#ffffff"), new Color("#cdd8ff"), new Color("#aabdff"), new Color("#ffe9c8")];
-    const brightStarsGeo = fill(900, (i, pos, col) => {
-      sphericalPoint(pos, i);
-      const c = starTints[Math.floor(Math.random() * starTints.length)] ?? white;
-      writeColor(col, i, c, 0.7 + Math.random() * 0.3);
-    });
+    const starsGeo = spherePositions(7000);
+    const brightStarsGeo = spherePositions(900);
 
     // ── Point sprites ───────────────────────────────────────────────────────
     // glow: wide soft falloff for nebulous layers; star: crisp hot centre.
@@ -1713,31 +1708,29 @@ function VerseSkybox({ verse }: { verse: Verse }) {
 
   return (
     <>
-      {/* Ambient starfield — centred on room, depth-tested so floor hides horizon stars */}
-      <points geometry={starsGeo}>
+      {/* Ambient starfield — plain points (no sprite map) so stars stay visible at skybox scale */}
+      <points geometry={starsGeo} frustumCulled={false}>
         <pointsMaterial
           attach="material"
-          size={1.4}
+          size={1.6}
           sizeAttenuation={false}
-          map={starTex}
-          vertexColors
+          color="#ccd8ff"
           transparent
           depthWrite={false}
           blending={AdditiveBlending}
-          opacity={0.6}
+          opacity={0.58}
         />
       </points>
-      <points geometry={brightStarsGeo}>
+      <points geometry={brightStarsGeo} frustumCulled={false}>
         <pointsMaterial
           attach="material"
-          size={2.6}
+          size={2.4}
           sizeAttenuation={false}
-          map={starTex}
-          vertexColors
+          color="#ffffff"
           transparent
           depthWrite={false}
           blending={AdditiveBlending}
-          opacity={0.9}
+          opacity={0.82}
         />
       </points>
 
