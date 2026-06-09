@@ -7,6 +7,7 @@ import {
   BUILD_LEVEL_HEIGHT,
   buildCellFootprint
 } from "@3dspace/room-engine";
+import { LampGlbMesh } from "./LampGlbMesh";
 
 const KIND_COLORS: Record<BuildLogicPiece["kind"], string> = {
   button: "#6dff9a",
@@ -117,36 +118,19 @@ export function LogicPieceMesh({
 
   if (piece.kind === "light") {
     const on = nodeState?.on === true;
-    const lightY = piece.level * BUILD_LEVEL_HEIGHT + 0.55;
-    const baseEmissive = ghost ? 0.35 : on ? 0.6 : 0.04;
-    const bulbEmissive = ghost ? 0.8 : on ? 1.2 : 0.08;
+    const bulbIntensity = ghost ? 0.8 : on ? 1.35 : 0.06;
+    const shadeOpacity = ghost ? 0.42 : on ? 0.58 : 0.35;
     return (
-      <group
-        position={[centerX, lightY, centerZ]}
-        userData={{ logicPieceId: piece.id, logicPiece: piece }}
-        {...(onClick ? { onClick } : {})}
-      >
-        <mesh>
-          <cylinderGeometry args={[0.18, 0.22, 0.5, 10]} />
-          <meshStandardMaterial
-            color={color}
-            transparent
-            opacity={ghost ? 0.5 : on ? 1 : 0.55}
-            emissive="#ffdd99"
-            emissiveIntensity={baseEmissive}
-          />
-        </mesh>
-        <mesh position={[0, 0.35, 0]}>
-          <sphereGeometry args={[0.12, 10, 10]} />
-          <meshStandardMaterial
-            color="#fff8e8"
-            emissive="#ffe8b0"
-            emissiveIntensity={bulbEmissive}
-          />
-        </mesh>
-        {emitRealLight && on && !ghost ? (
-          <pointLight position={[0, 0.35, 0]} intensity={0.85} distance={8} decay={2} color="#ffe8c8" />
-        ) : null}
+      <group userData={{ logicPieceId: piece.id, logicPiece: piece }} {...(onClick ? { onClick } : {})}>
+        <LampGlbMesh
+          cell={piece.cell}
+          level={piece.level}
+          ghost={ghost}
+          bulbIntensity={bulbIntensity}
+          shadeOpacity={shadeOpacity}
+          emitRealLight={emitRealLight && on}
+          pointLightIntensity={0.9}
+        />
         {ghostEdges}
         {selectionEdges}
       </group>

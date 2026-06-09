@@ -18,7 +18,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "openapi": "npm run build -w @3dspace/contracts && npm --workspace @3dspace/api run openapi",
-    "optimize:lp-glb": "node scripts/optimize-lp-glb.mjs"
+    "optimize:lp-glb": "node scripts/optimize-lp-glb.mjs",
+    "prepare:lamp-glb": "node scripts/prepare-lamp-glb.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.44.1",

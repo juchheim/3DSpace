@@ -22,6 +22,7 @@ import {
 import { buildMaterialProps } from "./buildMaterials";
 import { edgeOpeningFrameParts } from "../lib/buildEdgeOpeningMesh";
 import { wallMeshTransform } from "../lib/buildWallMesh";
+import { LampGlbMesh } from "./LampGlbMesh";
 
 // ── Custom wall GLB ───────────────────────────────────────────────────────────
 const WALL_GLB_URL = "/objects/wall.glb";
@@ -402,25 +403,54 @@ export function BuildPieceMesh({
   }
 
   if (piece.kind === "light") {
-    const footprint = buildCellFootprint(piece.cell.ix, piece.cell.iz);
-    const centerX = (footprint.minX + footprint.maxX) / 2;
-    const centerZ = (footprint.minZ + footprint.maxZ) / 2;
-    const y = piece.level * BUILD_LEVEL_HEIGHT + 0.55;
+    if (ghost || trail) {
+      const footprint = buildCellFootprint(piece.cell.ix, piece.cell.iz);
+      const centerX = (footprint.minX + footprint.maxX) / 2;
+      const centerZ = (footprint.minZ + footprint.maxZ) / 2;
+      const y = piece.level * BUILD_LEVEL_HEIGHT + 0.55;
+      return (
+        <group position={[centerX, y, centerZ]} userData={{ buildPieceId: piece.id, buildPiece: piece }} {...pointerProps}>
+          <mesh>
+            <cylinderGeometry args={[0.18, 0.22, 0.5, 10]} />
+            <meshStandardMaterial {...materialProps} emissive="#ffdd99" emissiveIntensity={0.6} />
+          </mesh>
+          <mesh position={[0, 0.35, 0]}>
+            <sphereGeometry args={[0.12, 10, 10]} />
+            <meshStandardMaterial color="#fff8e8" emissive="#ffe8b0" emissiveIntensity={ghost ? 0.8 : 1.2} />
+          </mesh>
+          {ghost ? <Edges color={valid ? "#6dff9a" : "#ff6b6b"} linewidth={2} /> : null}
+        </group>
+      );
+    }
+
     return (
-      <group position={[centerX, y, centerZ]} userData={{ buildPieceId: piece.id, buildPiece: piece }} {...pointerProps}>
-        <mesh>
-          <cylinderGeometry args={[0.18, 0.22, 0.5, 10]} />
-          <meshStandardMaterial {...materialProps} emissive="#ffdd99" emissiveIntensity={0.6} />
-        </mesh>
-        <mesh position={[0, 0.35, 0]}>
-          <sphereGeometry args={[0.12, 10, 10]} />
-          <meshStandardMaterial color="#fff8e8" emissive="#ffe8b0" emissiveIntensity={ghost ? 0.8 : 1.2} />
-        </mesh>
-        {emitRealLight && !ghost ? (
-          <pointLight position={[0, 0.35, 0]} intensity={0.85} distance={8} decay={2} color="#ffe8c8" />
-        ) : null}
-        {ghost ? <Edges color={valid ? "#6dff9a" : "#ff6b6b"} linewidth={2} /> : null}
-      </group>
+      <Suspense
+        fallback={
+          <group userData={{ buildPieceId: piece.id, buildPiece: piece }}>
+            <LampGlbMesh
+              cell={piece.cell}
+              level={piece.level}
+              materialId={materialId}
+              bulbIntensity={1.2}
+              emitRealLight={emitRealLight}
+              userData={{ buildPieceId: piece.id, buildPiece: piece }}
+              {...(pointerEventsPassThrough ? { pointerEventsPassThrough: true } : {})}
+              {...pointerProps}
+            />
+          </group>
+        }
+      >
+        <LampGlbMesh
+          cell={piece.cell}
+          level={piece.level}
+          materialId={materialId}
+          bulbIntensity={1.2}
+          emitRealLight={emitRealLight}
+          userData={{ buildPieceId: piece.id, buildPiece: piece }}
+          {...(pointerEventsPassThrough ? { pointerEventsPassThrough: true } : {})}
+          {...pointerProps}
+        />
+      </Suspense>
     );
   }
 

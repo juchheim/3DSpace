@@ -15,6 +15,14 @@
 - **Format:** glTF 2.0 binary, ~1.1 MB. Native footprint ~2.01 × 2.0 × 0.26 m; same engine
   collision as `wall.glb`.
 
+## `lamp.glb`
+
+- Table lamp for the World Builder **Light** tool (shortcut `7`).
+- **Origin:** `GLBs/lamp.glb` (textures re-encoded to JPEG q85; mesh split into
+  `LampBase` + `LampShade` via `scripts/prepare-lamp-glb.mjs`).
+- **Format:** glTF 2.0 binary, ~2 MB. Native height 1.2 m; scaled to 0.72 m at
+  render time. Shade is translucent with warm emissive bleed from the bulb.
+
 ## `floor.glb` / `ramp.glb`
 
 - See `BuildPieceMesh.tsx` for native dimensions and scaling.
