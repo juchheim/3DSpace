@@ -83,6 +83,19 @@ export function Lobby() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [identity.userId, loaded, authRequired, signedIn]);
 
+  // After returning from sign-in, auto-open the access panel and scroll to it.
+  useEffect(() => {
+    if (!loaded || !signedIn) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("access") !== "open") return;
+    setAccessOpen(true);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("access");
+    window.history.replaceState(null, "", url.toString());
+    requestAnimationFrame(() => scrollToEl("access"));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, signedIn]);
+
   function scrollToEl(id: string) {
     const el = document.getElementById(id);
     if (!el) return;
@@ -393,7 +406,7 @@ export function Lobby() {
             {accessOpen ? (
               <div className="access-region open">
                 {/* Auth (Google) */}
-                {authRequired ? <div className="dixr-auth"><AuthGate /></div> : null}
+                {authRequired ? <div className="dixr-auth"><AuthGate returnTo="/?access=open" /></div> : null}
 
                 {/* Selected verse banner */}
                 {selectedVerse ? (

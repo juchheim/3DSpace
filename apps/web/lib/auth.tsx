@@ -183,7 +183,7 @@ export function AppAuthProvider({ children }: { children: React.ReactNode }) {
   return <AppAuthContext.Provider value={value}>{children}</AppAuthContext.Provider>;
 }
 
-export function AuthGate() {
+export function AuthGate({ returnTo }: { returnTo?: string }) {
   const auth = useAppAuth();
   const pathname = usePathname() || "/";
   if (!auth.authRequired) return null;
@@ -192,7 +192,7 @@ export function AuthGate() {
     <div className="cluster" aria-label="Authentication status">
       {!auth.signedIn ? (
         <>
-          <Link className="button secondary" href={googleStartUrl(pathname)}>
+          <Link className="button secondary" href={googleStartUrl(returnTo ?? pathname)}>
             Sign in with Google
           </Link>
           <span className="small">Sign in to create or join production rooms.</span>
