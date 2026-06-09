@@ -4,9 +4,11 @@ import { Canvas, useFrame, useLoader, useThree, type ThreeEvent } from "@react-t
 import { Billboard, Html } from "@react-three/drei";
 import { memo, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
 import {
+  AdditiveBlending,
   BufferAttribute,
   BufferGeometry,
   ClampToEdgeWrapping,
+  Color,
   DoubleSide,
   PlaneGeometry,
   RepeatWrapping,
@@ -19,6 +21,7 @@ import {
   Vector3
 } from "three";
 import { useWorldSkinContext, DEFAULT_LIGHTING, DEFAULT_BACKGROUND } from "./worldSkins/SkinLayer";
+import type { Verse } from "../lib/verses";
 import { DYNAMIC_WALL_ANCHOR_MIN_HEIGHT_M } from "@3dspace/contracts";
 import type {
   AvatarAppearance,
@@ -376,7 +379,8 @@ export function RoomView3D({
   onDeleteChair,
   localParticipantSittingPhase = "none",
   onLocalParticipantSitAnimationFinished,
-  assetPlacement = null
+  assetPlacement = null,
+  verse = null
 }: {
   manifest: RoomManifest;
   dynamicWallAnchors?: Anchor[];
@@ -472,6 +476,7 @@ export function RoomView3D({
     onCancel(): void;
     onRotate(): void;
   } | null;
+  verse?: Verse | null;
 }) {
   const dpr = quality === "high" ? 1.8 : quality === "medium" ? 1.4 : 1;
   const [canvasElement, setCanvasElement] = useState<HTMLCanvasElement | null>(null);
@@ -552,7 +557,7 @@ export function RoomView3D({
         gl={{ antialias: quality !== "low", powerPreference: "high-performance" }}
         onCreated={({ gl }) => setCanvasElement(gl.domElement)}
       >
-        <SceneAtmosphere />
+        <SceneAtmosphere verse={verse} />
         <RoomGeometry
           manifest={mergedManifest}
           onMoveToPoint={onMoveToPoint}
@@ -1483,15 +1488,137 @@ function TierMeshTextured({
   );
 }
 
+// ── Verse galaxy skybox ───────────────────────────────────────────────────────
+// Converts an OKLCH triplet to a Three.js Color in sRGB.
+function oklch(L: number, C: number, H: number): Color {
+  const hr = (H * Math.PI) / 180;
+  const a = C * Math.cos(hr);
+  const b = C * Math.sin(hr);
+  const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = L - 0.0894841775 * a - 1.291485548 * b;
+  const lc = l_ * l_ * l_;
+  const mc = m_ * m_ * m_;
+  const sc = s_ * s_ * s_;
+  const r = 4.0767416621 * lc - 3.3077115913 * mc + 0.2309699292 * sc;
+  const g = -1.2684380046 * lc + 2.6097574011 * mc - 0.3413193965 * sc;
+  const bb = -0.0041960863 * lc - 0.7034186147 * mc + 1.707614701 * sc;
+  const enc = (v: number) => {
+    v = Math.max(0, Math.min(1, v));
+    return v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055;
+  };
+  return new Color(enc(r), enc(g), enc(bb));
+}
+
+// Background color used when the verse skybox is active (no WorldSkin set).
+const SPACE_BG = "#03040c";
+
+// Radius of the galaxy disk in world-units. Far enough that all particles are
+// sky-distance from the player; close enough that sizeAttenuation can be off.
+const GALAXY_R = 280;
+
+// Original orb radius — used to normalise spin/scatter angles at skybox scale.
+const ORB_R = 1.18;
+
+function VerseSkybox({ verse }: { verse: Verse }) {
+  const diskRef = useRef<Group>(null);
+  const groupRef = useRef<Group>(null);
+  const tRef = useRef(0);
+  const cfg = verse.galaxy;
+
+  const { geometry, sprite } = useMemo(() => {
+    const R = GALAXY_R;
+    const N = cfg.count * 6;
+    const pos = new Float32Array(N * 3);
+    const col = new Float32Array(N * 3);
+    const core = oklch(0.88, 0.155, verse.hue);
+    const mid = oklch(0.7, 0.235, verse.hue);
+    const edge = oklch(0.55, 0.215, verse.hue);
+
+    for (let i = 0; i < N; i++) {
+      const rr = Math.pow(Math.random(), 1.25) * R;
+      const branch = ((i % cfg.arms) / cfg.arms) * Math.PI * 2;
+      const twist = (rr / R) * ORB_R * cfg.spin;
+      const sc = cfg.scatter * (0.14 + rr / R);
+      const aS = (Math.random() - 0.5) * sc;
+      const rS = (Math.random() - 0.5) * sc * 0.6 * R;
+      const ang = branch + twist + aS;
+      const r2 = Math.max(0, rr + rS);
+      pos[i * 3 + 0] = Math.cos(ang) * r2;
+      pos[i * 3 + 1] = (Math.random() - 0.5) * 0.16 * (1 - 0.5 * rr / R) * R;
+      pos[i * 3 + 2] = Math.sin(ang) * r2;
+      const tt = rr / R;
+      const c = core.clone().lerp(mid, Math.min(1, tt / 0.4));
+      if (tt > 0.45) c.lerp(edge, Math.min(1, (tt - 0.45) / 0.55) * 0.7);
+      col[i * 3 + 0] = c.r;
+      col[i * 3 + 1] = c.g;
+      col[i * 3 + 2] = c.b;
+    }
+
+    const geo = new BufferGeometry();
+    geo.setAttribute("position", new BufferAttribute(pos, 3));
+    geo.setAttribute("color", new BufferAttribute(col, 3));
+
+    const s = 32;
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = s;
+    const ctx = canvas.getContext("2d")!;
+    const grd = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+    grd.addColorStop(0.0, "rgba(255,255,255,1)");
+    grd.addColorStop(0.4, "rgba(255,255,255,0.6)");
+    grd.addColorStop(1.0, "rgba(255,255,255,0)");
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, s, s);
+    const tex = new Texture(canvas);
+    tex.needsUpdate = true;
+
+    return { geometry: geo, sprite: tex };
+  }, [cfg, verse.hue]);
+
+  useEffect(() => () => { geometry.dispose(); sprite.dispose(); }, [geometry, sprite]);
+
+  useFrame((_, delta) => {
+    tRef.current += delta;
+    if (diskRef.current) diskRef.current.rotation.y += delta * cfg.speed * cfg.dir * 0.15;
+    if (groupRef.current) {
+      groupRef.current.rotation.x = cfg.tilt + Math.sin(tRef.current * 0.35) * 0.05;
+      groupRef.current.rotation.z += delta * 0.025 * cfg.dir;
+    }
+  });
+
+  return (
+    <group ref={groupRef} rotation-x={cfg.tilt}>
+      <group ref={diskRef}>
+        <points geometry={geometry} renderOrder={-100}>
+          <pointsMaterial
+            attach="material"
+            size={1.8}
+            sizeAttenuation={false}
+            map={sprite}
+            vertexColors
+            transparent
+            depthWrite={false}
+            depthTest={false}
+            blending={AdditiveBlending}
+            opacity={0.58}
+          />
+        </points>
+      </group>
+    </group>
+  );
+}
+
 /** Renders sky color, optional fog, and lights driven by the active WorldSkin. */
-function SceneAtmosphere() {
+function SceneAtmosphere({ verse }: { verse?: Verse | null }) {
   const { activeLighting } = useWorldSkinContext();
   const l = activeLighting ?? DEFAULT_LIGHTING;
-  const bg = activeLighting?.backgroundColor ?? DEFAULT_BACKGROUND;
+  const hasSkybox = verse != null && activeLighting == null;
+  const bg = hasSkybox ? SPACE_BG : (activeLighting?.backgroundColor ?? DEFAULT_BACKGROUND);
 
   return (
     <>
       <color attach="background" args={[bg]} />
+      {hasSkybox ? <VerseSkybox verse={verse} /> : null}
       {l.fogColor !== undefined ? (
         <fog attach="fog" args={[l.fogColor, l.fogNear ?? 20, l.fogFar ?? 60]} />
       ) : null}
