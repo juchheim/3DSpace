@@ -1,7 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-09 (Simple Wall build tool)
+Last updated: 2026-06-09 (Verse skybox galaxy v2)
 
+- **2026-06-09:** **Verse skybox galaxy v2** — `VerseSkybox` in `RoomView3D.tsx` rebuilt as 4 point layers (dense arm field 10×count, bright sparkle stars, gaussian core bulge, sparse outer halo to 1.65×R) + core/nebula glow sprites; `GALAXY_R` 130→185, pos `[0,205,-420]`; ambient starfield 4k→7k + 900 bright tinted stars; 64px `makePointSprite` glow/star textures. Verse color code preserved: same OKLCH core/mid/edge palette from `verse.hue` as lobby `VerseOrb`.
 - **2026-06-09:** **Simple Wall** — World Builder tool `simple-wall` (key `9`) uses `GLBs/wall-simple.glb` → `apps/web/public/objects/wall-simple.glb` (~1.1 MB, JPEG q85). Same collision/board rules as `wall`; plainer mesh vs. detailed `wall.glb`.
 - **2026-06-09:** **Verse AI World Host** — `VERSE_ROOM_TYPE_FEATURE_FLAGS.aiWorldHost` set to `true` so all Dream IXR verse rooms (`skill-verse`, `culture-verse`, etc.) use existing FFA World Host (API guards, HUD, summon/chat/files). Verse rooms already default `roomSettings().aiWorldHost.enabled: true`; only the room-type flag gate was missing.
 - **2026-06-08:** **Backpedal animation reversal** — pressing S / backward in 3D view sets `locomotionReversed` on `avatar.state.v1`; `BlockyAvatar` plays walk/run clips at `timeScale = -1` so stride matches backpedaling. Strafe-only and 2D view unchanged.

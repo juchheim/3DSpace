@@ -1516,11 +1516,14 @@ const SPACE_BG = "#03040c";
 // Galaxy disk radius in world-units. The galaxy is viewed from outside, so
 // this controls how large it appears against the sky — not the player's
 // proximity to individual particles.
-const GALAXY_R = 130;
+const GALAXY_R = 185;
+
+// How far past GALAXY_R the sparse outer halo trails off (multiplier).
+const GALAXY_HALO_REACH = 1.65;
 
 // World-space position of the galaxy centre. Placed far above and behind the
 // room so the player always views it from outside as a coherent structure.
-const GALAXY_POS: [number, number, number] = [0, 180, -400];
+const GALAXY_POS: [number, number, number] = [0, 205, -420];
 
 // Radius of the ambient starfield sphere centred on the room origin.
 const STAR_SPHERE_R = 650;
@@ -1528,84 +1531,176 @@ const STAR_SPHERE_R = 650;
 // Original orb radius — used to normalise spin/scatter angles at skybox scale.
 const ORB_R = 1.18;
 
+// Approximate standard normal via Box-Muller, clamped to avoid far outliers.
+function gaussRand(): number {
+  const u = Math.max(Math.random(), 1e-9);
+  const v = Math.random();
+  const n = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  return Math.max(-2.5, Math.min(2.5, n));
+}
+
+// Builds a 64px radial-gradient point sprite from gradient stops.
+function makePointSprite(stops: Array<[number, number]>): Texture {
+  const s = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = s;
+  const ctx = canvas.getContext("2d")!;
+  const grd = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+  for (const [offset, alpha] of stops) grd.addColorStop(offset, `rgba(255,255,255,${alpha})`);
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, s, s);
+  const tex = new Texture(canvas);
+  tex.needsUpdate = true;
+  return tex;
+}
+
 function VerseSkybox({ verse }: { verse: Verse }) {
   const diskRef = useRef<Group>(null);
   const groupRef = useRef<Group>(null);
   const tRef = useRef(0);
   const cfg = verse.galaxy;
 
-  const { galaxyGeo, starsGeo, sprite } = useMemo(() => {
-    // ── Galaxy particles ────────────────────────────────────────────────────
+  const built = useMemo(() => {
     const R = GALAXY_R;
-    const N = cfg.count * 5;
-    const gpos = new Float32Array(N * 3);
-    const gcol = new Float32Array(N * 3);
+    // Verse color code — identical palette to the lobby VerseOrb.
     const core = oklch(0.88, 0.155, verse.hue);
     const mid = oklch(0.7, 0.235, verse.hue);
     const edge = oklch(0.55, 0.215, verse.hue);
+    const coreGlow = oklch(0.82, 0.18, verse.hue);
+    const white = new Color(1, 1, 1);
+    const tmp = new Color();
 
-    for (let i = 0; i < N; i++) {
-      const rr = Math.pow(Math.random(), 1.25) * R;
+    // Radial palette: bright core → saturated mid → deep edge.
+    const colorAt = (t: number, out: Color) => {
+      out.copy(core).lerp(mid, Math.min(1, t / 0.38));
+      if (t > 0.42) out.lerp(edge, Math.min(1, (t - 0.42) / 0.58) * 0.75);
+      return out;
+    };
+
+    // Samples a point on the spiral-arm pattern at disk radius rr.
+    // extraScatter > 1 loosens arm definition (used by the outer halo).
+    const armPoint = (i: number, rr: number, extraScatter = 1) => {
       const branch = ((i % cfg.arms) / cfg.arms) * Math.PI * 2;
-      const twist = (rr / R) * ORB_R * cfg.spin;
-      const sc = cfg.scatter * (0.14 + rr / R);
+      const twist = (Math.min(rr, R) / R) * ORB_R * cfg.spin;
+      const sc = cfg.scatter * (0.12 + rr / R) * extraScatter;
       const aS = (Math.random() - 0.5) * sc;
       const rS = (Math.random() - 0.5) * sc * 0.6 * R;
       const ang = branch + twist + aS;
       const r2 = Math.max(0, rr + rS);
-      gpos[i * 3 + 0] = Math.cos(ang) * r2;
-      gpos[i * 3 + 1] = (Math.random() - 0.5) * 0.16 * (1 - 0.5 * rr / R) * R;
-      gpos[i * 3 + 2] = Math.sin(ang) * r2;
-      const tt = rr / R;
-      const c = core.clone().lerp(mid, Math.min(1, tt / 0.4));
-      if (tt > 0.45) c.lerp(edge, Math.min(1, (tt - 0.45) / 0.55) * 0.7);
-      gcol[i * 3 + 0] = c.r;
-      gcol[i * 3 + 1] = c.g;
-      gcol[i * 3 + 2] = c.b;
-    }
+      const thick = 0.085 * (1 - 0.62 * Math.min(1, rr / R)) * R * extraScatter;
+      return {
+        x: Math.cos(ang) * r2,
+        y: gaussRand() * thick * 0.5,
+        z: Math.sin(ang) * r2
+      };
+    };
 
-    const galaxyGeo = new BufferGeometry();
-    galaxyGeo.setAttribute("position", new BufferAttribute(gpos, 3));
-    galaxyGeo.setAttribute("color", new BufferAttribute(gcol, 3));
+    const fill = (n: number, place: (i: number, pos: Float32Array, col: Float32Array) => void) => {
+      const pos = new Float32Array(n * 3);
+      const col = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) place(i, pos, col);
+      const geo = new BufferGeometry();
+      geo.setAttribute("position", new BufferAttribute(pos, 3));
+      geo.setAttribute("color", new BufferAttribute(col, 3));
+      return geo;
+    };
+    const writeColor = (col: Float32Array, i: number, c: Color, lum: number) => {
+      col[i * 3 + 0] = Math.min(1, c.r * lum);
+      col[i * 3 + 1] = Math.min(1, c.g * lum);
+      col[i * 3 + 2] = Math.min(1, c.b * lum);
+    };
+
+    // ── Layer A: dense arm field — the body of the galaxy ──────────────────
+    const armsGeo = fill(cfg.count * 10, (i, pos, col) => {
+      const rr = Math.pow(Math.random(), 1.3) * R;
+      const p = armPoint(i, rr);
+      pos[i * 3 + 0] = p.x;
+      pos[i * 3 + 1] = p.y;
+      pos[i * 3 + 2] = p.z;
+      colorAt(rr / R, tmp);
+      writeColor(col, i, tmp, 0.55 + Math.random() * 0.65);
+    });
+
+    // ── Layer B: bright sparkle stars — tighter to the arms, whiter ────────
+    const brightGeo = fill(Math.round(cfg.count * 1.6), (i, pos, col) => {
+      const rr = Math.pow(Math.random(), 1.15) * R;
+      const p = armPoint(i, rr, 0.7);
+      pos[i * 3 + 0] = p.x;
+      pos[i * 3 + 1] = p.y;
+      pos[i * 3 + 2] = p.z;
+      colorAt(rr / R, tmp).lerp(white, 0.35 + Math.random() * 0.4);
+      writeColor(col, i, tmp, 1);
+    });
+
+    // ── Layer C: central bulge — dense gaussian ellipsoid, luminous core ───
+    const bulgeGeo = fill(Math.round(cfg.count * 2.5), (i, pos, col) => {
+      const x = gaussRand() * R * 0.16;
+      const y = gaussRand() * R * 0.07;
+      const z = gaussRand() * R * 0.16;
+      pos[i * 3 + 0] = x;
+      pos[i * 3 + 1] = y;
+      pos[i * 3 + 2] = z;
+      const d = Math.sqrt(x * x + y * y + z * z) / (R * 0.3);
+      tmp.copy(core).lerp(white, Math.max(0, 1 - d) * 0.7);
+      writeColor(col, i, tmp, 0.7 + Math.random() * 0.3);
+    });
+
+    // ── Layer D: outer halo — sparse trailing stars past the disk edge ─────
+    const haloGeo = fill(cfg.count * 3, (i, pos, col) => {
+      const rr = R * (0.85 + Math.pow(Math.random(), 0.8) * (GALAXY_HALO_REACH - 0.85));
+      const p = armPoint(i, rr, 2.2);
+      pos[i * 3 + 0] = p.x;
+      pos[i * 3 + 1] = p.y;
+      pos[i * 3 + 2] = p.z;
+      colorAt(1, tmp);
+      writeColor(col, i, tmp, 0.35 + Math.random() * 0.45);
+    });
 
     // ── Ambient starfield ───────────────────────────────────────────────────
     // Random stars scattered on a large sphere around the room. depthTest
     // (default on) naturally hides below-horizon stars behind the floor.
-    const SN = 4000;
-    const spos = new Float32Array(SN * 3);
-    for (let i = 0; i < SN; i++) {
+    const sphericalPoint = (pos: Float32Array, i: number) => {
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(2 * Math.random() - 1);
       const r = STAR_SPHERE_R * (0.96 + Math.random() * 0.08);
-      spos[i * 3 + 0] = r * Math.sin(phi) * Math.cos(theta);
-      spos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-      spos[i * 3 + 2] = r * Math.cos(phi);
-    }
-    const starsGeo = new BufferGeometry();
-    starsGeo.setAttribute("position", new BufferAttribute(spos, 3));
+      pos[i * 3 + 0] = r * Math.sin(phi) * Math.cos(theta);
+      pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      pos[i * 3 + 2] = r * Math.cos(phi);
+    };
+    const starsGeo = fill(7000, (i, pos, col) => {
+      sphericalPoint(pos, i);
+      const lum = 0.4 + Math.random() * 0.6;
+      col[i * 3 + 0] = 0.8 * lum;
+      col[i * 3 + 1] = 0.85 * lum;
+      col[i * 3 + 2] = 1.0 * lum;
+    });
+    const starTints = [new Color("#ffffff"), new Color("#cdd8ff"), new Color("#aabdff"), new Color("#ffe9c8")];
+    const brightStarsGeo = fill(900, (i, pos, col) => {
+      sphericalPoint(pos, i);
+      const c = starTints[Math.floor(Math.random() * starTints.length)] ?? white;
+      writeColor(col, i, c, 0.7 + Math.random() * 0.3);
+    });
 
-    // ── Soft round sprite ───────────────────────────────────────────────────
-    const s = 32;
-    const canvas = document.createElement("canvas");
-    canvas.width = canvas.height = s;
-    const ctx = canvas.getContext("2d")!;
-    const grd = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
-    grd.addColorStop(0.0, "rgba(255,255,255,1)");
-    grd.addColorStop(0.4, "rgba(255,255,255,0.6)");
-    grd.addColorStop(1.0, "rgba(255,255,255,0)");
-    ctx.fillStyle = grd;
-    ctx.fillRect(0, 0, s, s);
-    const tex = new Texture(canvas);
-    tex.needsUpdate = true;
+    // ── Point sprites ───────────────────────────────────────────────────────
+    // glow: wide soft falloff for nebulous layers; star: crisp hot centre.
+    const glowTex = makePointSprite([[0, 1], [0.3, 0.7], [0.65, 0.18], [1, 0]]);
+    const starTex = makePointSprite([[0, 1], [0.22, 0.9], [0.5, 0.22], [1, 0]]);
 
-    return { galaxyGeo, starsGeo, sprite: tex };
+    return { armsGeo, brightGeo, bulgeGeo, haloGeo, starsGeo, brightStarsGeo, glowTex, starTex, coreGlow, mid };
   }, [cfg, verse.hue]);
 
+  const { armsGeo, brightGeo, bulgeGeo, haloGeo, starsGeo, brightStarsGeo, glowTex, starTex, coreGlow, mid } = built;
+
   useEffect(() => () => {
-    galaxyGeo.dispose();
+    armsGeo.dispose();
+    brightGeo.dispose();
+    bulgeGeo.dispose();
+    haloGeo.dispose();
     starsGeo.dispose();
-    sprite.dispose();
-  }, [galaxyGeo, starsGeo, sprite]);
+    brightStarsGeo.dispose();
+    glowTex.dispose();
+    starTex.dispose();
+  }, [armsGeo, brightGeo, bulgeGeo, haloGeo, starsGeo, brightStarsGeo, glowTex, starTex]);
 
   useFrame((_, delta) => {
     tRef.current += delta;
@@ -1622,32 +1717,112 @@ function VerseSkybox({ verse }: { verse: Verse }) {
       <points geometry={starsGeo}>
         <pointsMaterial
           attach="material"
-          size={1.5}
+          size={1.4}
           sizeAttenuation={false}
-          color="#ccd8ff"
+          map={starTex}
+          vertexColors
           transparent
           depthWrite={false}
           blending={AdditiveBlending}
-          opacity={0.55}
+          opacity={0.6}
+        />
+      </points>
+      <points geometry={brightStarsGeo}>
+        <pointsMaterial
+          attach="material"
+          size={2.6}
+          sizeAttenuation={false}
+          map={starTex}
+          vertexColors
+          transparent
+          depthWrite={false}
+          blending={AdditiveBlending}
+          opacity={0.9}
         />
       </points>
 
       {/* Galaxy — positioned far away so it's viewed as a coherent external structure */}
       <group ref={groupRef} position={GALAXY_POS} rotation-x={cfg.tilt}>
         <group ref={diskRef}>
-          <points geometry={galaxyGeo}>
+          {/* Outer halo — sparse, faint, extends well past the disk edge */}
+          <points geometry={haloGeo}>
             <pointsMaterial
               attach="material"
-              size={2.5}
+              size={1.5}
               sizeAttenuation={false}
-              map={sprite}
+              map={glowTex}
               vertexColors
               transparent
               depthWrite={false}
               blending={AdditiveBlending}
-              opacity={0.85}
+              opacity={0.5}
             />
           </points>
+          {/* Dense arm field — the main body */}
+          <points geometry={armsGeo}>
+            <pointsMaterial
+              attach="material"
+              size={1.8}
+              sizeAttenuation={false}
+              map={starTex}
+              vertexColors
+              transparent
+              depthWrite={false}
+              blending={AdditiveBlending}
+              opacity={0.8}
+            />
+          </points>
+          {/* Bright sparkle stars — definition along the arms */}
+          <points geometry={brightGeo}>
+            <pointsMaterial
+              attach="material"
+              size={3.4}
+              sizeAttenuation={false}
+              map={starTex}
+              vertexColors
+              transparent
+              depthWrite={false}
+              blending={AdditiveBlending}
+              opacity={0.95}
+            />
+          </points>
+          {/* Central bulge */}
+          <points geometry={bulgeGeo}>
+            <pointsMaterial
+              attach="material"
+              size={2.1}
+              sizeAttenuation={false}
+              map={glowTex}
+              vertexColors
+              transparent
+              depthWrite={false}
+              blending={AdditiveBlending}
+              opacity={0.75}
+            />
+          </points>
+          {/* Luminous core + wide nebular halo, tinted to the verse hue */}
+          <sprite scale={[GALAXY_R * 0.55, GALAXY_R * 0.55, 1]}>
+            <spriteMaterial
+              attach="material"
+              map={glowTex}
+              color={coreGlow}
+              transparent
+              depthWrite={false}
+              blending={AdditiveBlending}
+              opacity={0.75}
+            />
+          </sprite>
+          <sprite scale={[GALAXY_R * 2.3, GALAXY_R * 2.3, 1]}>
+            <spriteMaterial
+              attach="material"
+              map={glowTex}
+              color={mid}
+              transparent
+              depthWrite={false}
+              blending={AdditiveBlending}
+              opacity={0.12}
+            />
+          </sprite>
         </group>
       </group>
     </>
