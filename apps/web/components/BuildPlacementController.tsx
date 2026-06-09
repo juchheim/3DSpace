@@ -287,24 +287,15 @@ export function BuildPlacementController({
   );
 
   const tryDragPlacement = useCallback(
-    (
-      event: ThreeEvent<PointerEvent>,
-      surfacePiece: BuildPiece | null
-    ) => {
+    (hitX: number, hitY: number, hitZ: number, surfacePiece: BuildPiece | null) => {
       if (!draggingRef.current || buildMode.tool === "destroy" || stampMode) return;
-      const target = targetFromHit(
-        buildMode.tool,
-        event.point.x,
-        event.point.y,
-        event.point.z,
-        surfacePiece
-      );
+      const target = targetFromHit(buildMode.tool, hitX, hitY, hitZ, surfacePiece);
       const preview = previewPlacement(target);
       if (preview.allowed) {
         scheduleBatchPlacement(target);
       }
     },
-    [buildMode.tool, previewPlacement, scheduleBatchPlacement, targetFromHit]
+    [buildMode.tool, previewPlacement, scheduleBatchPlacement, stampMode, targetFromHit]
   );
 
   const handleSurfacePointer = useCallback(
@@ -316,10 +307,19 @@ export function BuildPlacementController({
         setGhost(null);
         return;
       }
-      updateGhostFromHit(event.point.x, event.point.y, event.point.z, surfacePiece, buildMode.tool);
-      tryDragPlacement(event, surfacePiece);
+      // When a floor/ramp above the standing level intercepts the ray, treat the hit as
+      // landing on the placement plane at the current level instead of the upper surface.
+      const effectivePiece =
+        surfacePiece &&
+        (surfacePiece.kind === "floor" || surfacePiece.kind === "ramp") &&
+        surfacePiece.level > standingLevel
+          ? null
+          : surfacePiece;
+      const hitY = effectivePiece !== surfacePiece ? placementPlaneY : event.point.y;
+      updateGhostFromHit(event.point.x, hitY, event.point.z, effectivePiece, buildMode.tool);
+      tryDragPlacement(event.point.x, hitY, event.point.z, effectivePiece);
     },
-    [buildMode.enabled, buildMode.tool, tryDragPlacement, updateGhostFromHit]
+    [buildMode.enabled, buildMode.tool, placementPlaneY, standingLevel, tryDragPlacement, updateGhostFromHit]
   );
 
   const commitPlacement = useCallback(
@@ -387,9 +387,16 @@ export function BuildPlacementController({
       pendingBatchRef.current = [];
       setGhostTrail([]);
       lastTrailKeyRef.current = "";
-      updateGhostFromHit(event.point.x, event.point.y, event.point.z, surfacePiece, buildMode.tool);
+      const effectivePiece =
+        surfacePiece &&
+        (surfacePiece.kind === "floor" || surfacePiece.kind === "ramp") &&
+        surfacePiece.level > standingLevel
+          ? null
+          : surfacePiece;
+      const hitY = effectivePiece !== surfacePiece ? placementPlaneY : event.point.y;
+      updateGhostFromHit(event.point.x, hitY, event.point.z, effectivePiece, buildMode.tool);
     },
-    [buildMode.enabled, buildMode.tool, updateGhostFromHit]
+    [buildMode.enabled, buildMode.tool, placementPlaneY, stampMode, standingLevel, updateGhostFromHit]
   );
 
   const handlePointerUp = useCallback(async () => {
@@ -434,12 +441,22 @@ export function BuildPlacementController({
         return;
       }
 
+      // When a floor/ramp above the standing level intercepts the ray, treat the hit as
+      // landing on the placement plane at the current level instead of the upper surface.
+      const effectivePiece =
+        surfacePiece &&
+        (surfacePiece.kind === "floor" || surfacePiece.kind === "ramp") &&
+        surfacePiece.level > standingLevel
+          ? null
+          : surfacePiece;
+      const hitY = effectivePiece !== surfacePiece ? placementPlaneY : event.point.y;
+
       const target = targetFromHit(
         buildMode.tool as Exclude<BuildTool, "destroy">,
         event.point.x,
-        event.point.y,
+        hitY,
         event.point.z,
-        surfacePiece
+        effectivePiece
       );
       await commitPlacement(target);
     },
@@ -450,7 +467,9 @@ export function BuildPlacementController({
       commitPlacement,
       commitStampPlacement,
       onStatus,
+      placementPlaneY,
       stampMode,
+      standingLevel,
       targetFromHit
     ]
   );
