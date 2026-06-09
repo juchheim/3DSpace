@@ -84,7 +84,7 @@ import {
   levelToY
 } from "@3dspace/room-engine";
 import { avatarStandingLevel } from "../lib/buildPlacement";
-import { worldAssetGroundY } from "../lib/worldAssetGroundY";
+import { worldAssetGroundY, worldAssetPlacementGroundY } from "../lib/worldAssetGroundY";
 
 type Wall = z.infer<typeof WallPlaneSchema>;
 type Anchor = z.infer<typeof WallAnchorSchema>;
@@ -522,6 +522,18 @@ export function RoomView3D({
     [mergedManifest, buildScene?.pieces]
   );
 
+  // For placement only: step-up-limited so an upper floor can't intercept a click
+  // aimed at the level the avatar is standing on.
+  const avatarStandingLevelForPlacement = avatarStandingLevel(localParticipantPosition?.y ?? 0);
+  const resolveAssetPlacementGroundY = useMemo(
+    () => {
+      const currentY = levelToY(avatarStandingLevelForPlacement);
+      return (x: number, z: number) =>
+        worldAssetPlacementGroundY(mergedManifest, buildScene?.pieces ?? [], x, z, currentY);
+    },
+    [mergedManifest, buildScene?.pieces, avatarStandingLevelForPlacement]
+  );
+
   useEffect(() => bindCamera(canvasElement), [bindCamera, canvasElement]);
 
   return (
@@ -572,7 +584,7 @@ export function RoomView3D({
             <AssetPlacementController
               glbUrl={assetPlacement.glbUrl}
               interceptPlaneY={assetInterceptPlaneY}
-              resolveGroundY={resolveWorldAssetGroundY}
+              resolveGroundY={resolveAssetPlacementGroundY}
               rotationStep={assetPlacement.rotationStep}
               onPlace={assetPlacement.onPlace}
               onCancel={assetPlacement.onCancel}
