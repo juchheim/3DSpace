@@ -522,8 +522,16 @@ export function RoomView3D({
     [mergedManifest, buildScene?.pieces]
   );
 
-  // For placement only: step-up-limited so an upper floor can't intercept a click
-  // aimed at the level the avatar is standing on.
+  // Walk-mode resolver: honours step-up cap from currentY so a floor above doesn't
+  // intercept placement or re-snap a chair that lives on a lower level.
+  const resolveWalkGroundY = useMemo(
+    () => (x: number, z: number, currentY: number) =>
+      worldAssetPlacementGroundY(mergedManifest, buildScene?.pieces ?? [], x, z, currentY),
+    [mergedManifest, buildScene?.pieces]
+  );
+
+  // For placement only: pre-bind the avatar's standing level so the intercept plane
+  // stays stable across fine-grained avatar position updates.
   const avatarStandingLevelForPlacement = avatarStandingLevel(localParticipantPosition?.y ?? 0);
   const resolveAssetPlacementGroundY = useMemo(
     () => {
@@ -593,7 +601,7 @@ export function RoomView3D({
           </Suspense>
         ) : null}
         <Suspense fallback={null}>
-          <PlacedChairsLayer chairs={placedChairs} resolveGroundY={resolveWorldAssetGroundY} {...(onDeleteChair ? { onDeleteChair } : {})} />
+          <PlacedChairsLayer chairs={placedChairs} resolveGroundY={resolveWalkGroundY} {...(onDeleteChair ? { onDeleteChair } : {})} />
         </Suspense>
         {buildScene ? (
           <BuildPlacementController

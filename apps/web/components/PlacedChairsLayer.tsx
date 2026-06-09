@@ -17,14 +17,15 @@ function ChairMesh({
   onDelete
 }: {
   chair: PlacedChair;
-  resolveGroundY: (x: number, z: number) => number;
+  // currentY = the chair's own stored Y, so walk mode won't snap to a higher floor above it
+  resolveGroundY: (x: number, z: number, currentY: number) => number;
   onDelete?: (id: string) => void;
 }) {
   const { scene } = useGLTF(CHAIR_GLB_URL);
 
   // Clone so each instance is independent (material refs etc. stay separate)
   const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
-  const resolved = chairWithGroundY(chair, resolveGroundY);
+  const resolved = chairWithGroundY(chair, (x, z) => resolveGroundY(x, z, chair.position.y));
 
   return (
     <group
@@ -43,7 +44,7 @@ export function PlacedChairsLayer({
   onDeleteChair
 }: {
   chairs: PlacedChair[];
-  resolveGroundY: (x: number, z: number) => number;
+  resolveGroundY: (x: number, z: number, currentY: number) => number;
   onDeleteChair?: (id: string) => void;
 }) {
   if (chairs.length === 0) return null;
