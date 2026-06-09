@@ -19,7 +19,7 @@ export const LAMP_GLB_URL = "/objects/lamp.glb";
 /** Native mesh height (floor to top of shade). */
 export const LAMP_GLB_NATIVE_H = 1.2;
 /** World-space lamp height on the build grid. */
-export const LAMP_TARGET_HEIGHT = 0.72;
+export const LAMP_TARGET_HEIGHT = 1.8;
 /** Bulb center in native model space (inside the shade). */
 export const LAMP_BULB_NATIVE_Y = 0.98;
 export const LAMP_BULB_RADIUS = 0.055;

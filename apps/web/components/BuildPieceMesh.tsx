@@ -22,7 +22,7 @@ import {
 import { buildMaterialProps } from "./buildMaterials";
 import { edgeOpeningFrameParts } from "../lib/buildEdgeOpeningMesh";
 import { wallMeshTransform } from "../lib/buildWallMesh";
-import { LampGlbMesh } from "./LampGlbMesh";
+import { LampGlbMesh, LAMP_BULB_NATIVE_Y, LAMP_GLB_NATIVE_H, LAMP_TARGET_HEIGHT } from "./LampGlbMesh";
 
 // ── Custom wall GLB ───────────────────────────────────────────────────────────
 const WALL_GLB_URL = "/objects/wall.glb";
@@ -407,15 +407,17 @@ export function BuildPieceMesh({
       const footprint = buildCellFootprint(piece.cell.ix, piece.cell.iz);
       const centerX = (footprint.minX + footprint.maxX) / 2;
       const centerZ = (footprint.minZ + footprint.maxZ) / 2;
-      const y = piece.level * BUILD_LEVEL_HEIGHT + 0.55;
+      const baseY = piece.level * BUILD_LEVEL_HEIGHT;
+      const lampScale = LAMP_TARGET_HEIGHT / LAMP_GLB_NATIVE_H;
+      const bulbY = LAMP_BULB_NATIVE_Y * lampScale;
       return (
-        <group position={[centerX, y, centerZ]} userData={{ buildPieceId: piece.id, buildPiece: piece }} {...pointerProps}>
-          <mesh>
-            <cylinderGeometry args={[0.18, 0.22, 0.5, 10]} />
+        <group position={[centerX, baseY, centerZ]} userData={{ buildPieceId: piece.id, buildPiece: piece }} {...pointerProps}>
+          <mesh position={[0, LAMP_TARGET_HEIGHT * 0.35, 0]}>
+            <cylinderGeometry args={[0.18 * lampScale, 0.22 * lampScale, LAMP_TARGET_HEIGHT * 0.5, 10]} />
             <meshStandardMaterial {...materialProps} emissive="#ffdd99" emissiveIntensity={0.6} />
           </mesh>
-          <mesh position={[0, 0.35, 0]}>
-            <sphereGeometry args={[0.12, 10, 10]} />
+          <mesh position={[0, bulbY, 0]}>
+            <sphereGeometry args={[0.12 * lampScale, 10, 10]} />
             <meshStandardMaterial color="#fff8e8" emissive="#ffe8b0" emissiveIntensity={ghost ? 0.8 : 1.2} />
           </mesh>
           {ghost ? <Edges color={valid ? "#6dff9a" : "#ff6b6b"} linewidth={2} /> : null}

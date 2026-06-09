@@ -20,7 +20,7 @@
 - Table lamp for the World Builder **Light** tool (shortcut `7`).
 - **Origin:** `GLBs/lamp.glb` (textures re-encoded to JPEG q85; mesh split into
   `LampBase` + `LampShade` via `scripts/prepare-lamp-glb.mjs`).
-- **Format:** glTF 2.0 binary, ~2 MB. Native height 1.2 m; scaled to 0.72 m at
+- **Format:** glTF 2.0 binary, ~0.5 MB. Native height 1.2 m; scaled to 1.8 m at
   render time. Shade is translucent with warm emissive bleed from the bulb.
 
 ## `floor.glb` / `ramp.glb`
