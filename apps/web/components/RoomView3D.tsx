@@ -373,6 +373,7 @@ export function RoomView3D({
   logicScene,
   logicPlayLayer,
   placedChairs = [],
+  onDeleteChair,
   localParticipantSittingPhase = "none",
   onLocalParticipantSitAnimationFinished,
   assetPlacement = null
@@ -457,6 +458,8 @@ export function RoomView3D({
   logicPlayLayer?: LogicPlayLayerConfig | null | undefined;
   /** Chairs placed in the world (client-side; rendered as static GLBs). */
   placedChairs?: PlacedChair[];
+  /** Called when the erase tool deletes a placed chair. */
+  onDeleteChair?: (id: string) => void;
   /** Sitting phase for the local participant's avatar (drives one-shot clips). */
   localParticipantSittingPhase?: import("../lib/useSitting").SittingPhase;
   /** Forwarded to the local BlockyAvatar when a sit/stand clip finishes. */
@@ -578,7 +581,7 @@ export function RoomView3D({
           </Suspense>
         ) : null}
         <Suspense fallback={null}>
-          <PlacedChairsLayer chairs={placedChairs} resolveGroundY={resolveWorldAssetGroundY} />
+          <PlacedChairsLayer chairs={placedChairs} resolveGroundY={resolveWorldAssetGroundY} {...(onDeleteChair ? { onDeleteChair } : {})} />
         </Suspense>
         {buildScene ? (
           <BuildPlacementController

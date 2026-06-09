@@ -3006,6 +3006,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
             logicScene={logicScene}
             logicPlayLayer={logicPlayLayer}
             placedChairs={chairs.chairs}
+            {...(buildMode.tool === "destroy" ? { onDeleteChair: (id: string) => void chairs.removeChair(id) } : {})}
             localParticipantSittingPhase={sitting.sittingPhase}
             onLocalParticipantSitAnimationFinished={sitting.onAnimationFinished}
             assetPlacement={(() => {

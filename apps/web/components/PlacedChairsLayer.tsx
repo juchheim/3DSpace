@@ -13,10 +13,12 @@ useGLTF.preload(CHAIR_GLB_URL);
 
 function ChairMesh({
   chair,
-  resolveGroundY
+  resolveGroundY,
+  onDelete
 }: {
   chair: PlacedChair;
   resolveGroundY: (x: number, z: number) => number;
+  onDelete?: (id: string) => void;
 }) {
   const { scene } = useGLTF(CHAIR_GLB_URL);
 
@@ -28,6 +30,7 @@ function ChairMesh({
     <group
       position={[resolved.position.x, resolved.position.y, resolved.position.z]}
       rotation={[0, resolved.yaw, 0]}
+      {...(onDelete ? { onClick: (e) => { e.stopPropagation(); onDelete(chair.id); } } : {})}
     >
       <primitive object={model} />
     </group>
@@ -36,16 +39,18 @@ function ChairMesh({
 
 export function PlacedChairsLayer({
   chairs,
-  resolveGroundY
+  resolveGroundY,
+  onDeleteChair
 }: {
   chairs: PlacedChair[];
   resolveGroundY: (x: number, z: number) => number;
+  onDeleteChair?: (id: string) => void;
 }) {
   if (chairs.length === 0) return null;
   return (
     <>
       {chairs.map((chair) => (
-        <ChairMesh key={chair.id} chair={chair} resolveGroundY={resolveGroundY} />
+        <ChairMesh key={chair.id} chair={chair} resolveGroundY={resolveGroundY} {...(onDeleteChair ? { onDelete: onDeleteChair } : {})} />
       ))}
     </>
   );
