@@ -37,7 +37,8 @@ describe("verse room types (contracts)", () => {
       expect(flags.dynamicBoards).toBe(true);
       expect(flags.building).toBe(true);
       expect(flags.physics).toBe(true);
-      expect(flags.whiteboards).toBe(false);
+      expect(flags.whiteboards).toBe(true);
+      expect(flags.sharedBrowsers).toBe(true);
       expect(flags.worldSkins).toBe(false);
       expect(flags.aiMeetingNotes).toBe(false);
       expect(flags.aiWorldHost).toBe(true);

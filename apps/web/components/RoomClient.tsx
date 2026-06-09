@@ -282,15 +282,15 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     enabled: Boolean(session && manifest),
     publish: publishRealtime
   });
+  const roomTypeFeatures = useMemo(() => getRoomTypeFeatureFlags(session?.room.type), [session?.room.type]);
   const whiteboards = useWhiteboards({
     identity,
     roomId: session?.room.id ?? roomId,
     session,
     wallObjects: wall.wallObjects,
-    enabled: CLIENT_TUNING.enableWhiteboards && Boolean(session && manifest),
+    enabled: CLIENT_TUNING.enableWhiteboards && roomTypeFeatures.whiteboards && Boolean(session && manifest),
     publish: publishRealtime
   });
-  const roomTypeFeatures = useMemo(() => getRoomTypeFeatureFlags(session?.room.type), [session?.room.type]);
   const sharedBrowsers = useSharedBrowser({
     identity,
     roomId: session?.room.id ?? roomId,

@@ -125,3 +125,28 @@ export function escapeRoomSettings(config: AppConfig) {
     logicEnabled: true
   };
 }
+
+/** Verse rooms: open board uploads/shares like FFA, without classroom HUD. */
+export function verseRoomSettings(config: AppConfig) {
+  const base = roomSettings(config);
+  return {
+    ...base,
+    wallObjectCreation: "student-direct" as const,
+    allowLiveStudentShares: true,
+    allowStudentUploads: true,
+    allowWebLinks: true,
+    allowEmbeds: config.tuning.enableWallWebEmbeds,
+    whiteboards: {
+      ...base.whiteboards,
+      enabled: true,
+      allowStudentDraw: true
+    },
+    sharedBrowsers: {
+      ...base.sharedBrowsers,
+      enabled: config.tuning.enableSharedBrowsers
+    },
+    hallpass: { ...base.hallpass, enabled: false },
+    pods: { ...base.pods, enabled: false },
+    aiMeetingNotes: { ...base.aiMeetingNotes, enabled: false }
+  };
+}

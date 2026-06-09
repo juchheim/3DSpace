@@ -31,7 +31,7 @@ import { newId } from "../repository.js";
 import { mintLiveKitToken } from "../services/livekit.js";
 import { createDownloadTarget, createUploadTarget, storageKeyFor } from "../services/storage.js";
 import { assertFreeForAllPassword } from "../free-for-all/password.js";
-import { escapeRoomSettings, roomSettings } from "../rooms-core/settings.js";
+import { escapeRoomSettings, roomSettings, verseRoomSettings } from "../rooms-core/settings.js";
 import {
   actorIsRoomTeacher,
   assertWallObjectsEnabled,
@@ -98,7 +98,10 @@ export async function registerRoomsCoreRoutes(app: FastifyInstance, ctx: AppCont
         classId: body.classId,
         name: body.name,
         type: roomType,
-        settings: roomType === "escape-room" ? escapeRoomSettings(config) : roomSettings(config),
+        settings:
+          roomType === "escape-room" ? escapeRoomSettings(config) :
+          isVerseRoomType(roomType) ? verseRoomSettings(config) :
+          roomSettings(config),
         manifest
       })
     );

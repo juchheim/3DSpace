@@ -18,12 +18,20 @@ import {
   isEscapeRoomManifest
 } from "./escape-room.js";
 import {
+  VERSE_BOARD_HEIGHT,
+  VERSE_BOARD_WALL_DISTANCE,
+  VERSE_BOARD_WALL_INSET,
+  VERSE_BOARD_WIDTH,
   VERSE_ROOM_HALF_EXTENT,
   VERSE_ROOM_MANIFEST_FEATURE,
   VERSE_ROOM_WALL_HEIGHT,
   VERSE_SKYBOX_GALAXY_POSITION,
+  VERSE_WALL_THICKNESS,
+  buildVerseRoomWallAnchors,
+  buildVerseRoomWalls,
   isVerseRoomManifest,
-  rotationFacingVerseGalaxy
+  rotationFacingVerseGalaxy,
+  verseBoardAnchorForWall
 } from "./verse-room.js";
 
 export {
@@ -34,12 +42,20 @@ export {
 };
 
 export {
+  VERSE_BOARD_HEIGHT,
+  VERSE_BOARD_WALL_DISTANCE,
+  VERSE_BOARD_WALL_INSET,
+  VERSE_BOARD_WIDTH,
   VERSE_ROOM_HALF_EXTENT,
   VERSE_ROOM_MANIFEST_FEATURE,
   VERSE_ROOM_WALL_HEIGHT,
   VERSE_SKYBOX_GALAXY_POSITION,
+  VERSE_WALL_THICKNESS,
+  buildVerseRoomWallAnchors,
+  buildVerseRoomWalls,
   isVerseRoomManifest,
-  rotationFacingVerseGalaxy
+  rotationFacingVerseGalaxy,
+  verseBoardAnchorForWall
 };
 
 export {
@@ -1279,6 +1295,7 @@ export function createVerseRoomManifest(input: {
   };
 
   const half = VERSE_ROOM_HALF_EXTENT;
+  const walls = buildVerseRoomWalls();
   const manifest: RoomManifest = {
     id: input.id ?? `${input.roomId}:manifest:v${input.version ?? 1}`,
     roomId: input.roomId,
@@ -1297,8 +1314,8 @@ export function createVerseRoomManifest(input: {
     },
     tiers: [],
     spawnPoints: buildVerseRoomSpawnPoints(),
-    walls: [],
-    wallAnchors: [],
+    walls,
+    wallAnchors: buildVerseRoomWallAnchors(walls),
     projection: { kind: "top-down-v1", scale: 1, origin: { x: 0, y: 0 } },
     capabilities: createRoomCapabilities(config),
     spatialAudio: config.spatialAudio,
@@ -1307,6 +1324,33 @@ export function createVerseRoomManifest(input: {
         key: VERSE_ROOM_MANIFEST_FEATURE,
         enabled: true,
         config: { verseId: input.verseId }
+      },
+      {
+        key: "wall-objects",
+        enabled: true,
+        config: {
+          creationDefault: "student-direct",
+          maxActivePerRoom: 20,
+          maxActiveLiveShares: 4,
+          supportedTypes: [
+            "image.file",
+            "video.file",
+            "audio.file",
+            "camera.live",
+            "microphone.live",
+            "screen.live",
+            "browser-tab.live",
+            "web.link",
+            "web.embed",
+            "web.browser.shared",
+            "document.file",
+            "slides.file",
+            "whiteboard",
+            "note",
+            "poll",
+            "timer"
+          ]
+        }
       }
     ],
     createdAt: input.createdAt ?? new Date().toISOString()

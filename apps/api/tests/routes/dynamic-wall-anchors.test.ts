@@ -395,6 +395,30 @@ describe("dynamic wall anchor routes", () => {
     await app.close();
   });
 
+  it("attaches a wall object to a pre-built manifest board in a verse room", async () => {
+    const app = await buildTestApp();
+    const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-verse-manifest-boards", "skill-verse");
+    const roomId = roomWithManifest.room.id;
+    expect(roomWithManifest.room.settings.wallObjectCreation).toBe("student-direct");
+    expect(roomWithManifest.room.settings.allowStudentUploads).toBe(true);
+    await addStudentMember(app, classRecord.id, "teacher-verse-manifest-boards", "student-verse", "Sam");
+
+    const objectRes = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/wall-objects`,
+      headers: authHeaders("student-verse", "Sam"),
+      payload: {
+        wallAnchorId: "verse-anchor-front",
+        type: "note",
+        title: "Front board note",
+        source: { kind: "inline", data: { text: "hello verse" } }
+      }
+    });
+    expect(objectRes.statusCode).toBe(200);
+    expect(objectRes.json().wallAnchorId).toBe("verse-anchor-front");
+    await app.close();
+  });
+
   it("still allows destroying floors and ramps when a board exists elsewhere", async () => {
     const app = await buildTestApp({ config: buildPiecesConfig() });
     const { classRecord, roomWithManifest } = await createFfaRoom(app);
