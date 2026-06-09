@@ -2925,7 +2925,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
             dynamicWallAnchors={dynamicBoards.anchors}
             participants={participantList}
             localParticipantId={session.participantId}
-            verse={activeVerse}
+            verse={skinId === null ? activeVerse : null}
             getAppearance={effectiveGetAppearance}
             getAppearanceCustomized={effectiveGetAppearanceCustomized}
             localEditorPreviewActive={localEditorPreviewActive}

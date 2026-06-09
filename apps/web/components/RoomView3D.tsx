@@ -1612,7 +1612,7 @@ function VerseSkybox({ verse }: { verse: Verse }) {
 function SceneAtmosphere({ verse }: { verse?: Verse | null }) {
   const { activeLighting } = useWorldSkinContext();
   const l = activeLighting ?? DEFAULT_LIGHTING;
-  const hasSkybox = verse != null && activeLighting == null;
+  const hasSkybox = verse != null;
   const bg = hasSkybox ? SPACE_BG : (activeLighting?.backgroundColor ?? DEFAULT_BACKGROUND);
 
   return (
