@@ -93,6 +93,20 @@ describe("build piece contracts", () => {
     });
     expect(wall.edge).toBe("n");
 
+    const simpleWall = BuildPieceSchema.parse({
+      id: "build:simple-wall:0,0:0:n",
+      roomId: "room-1",
+      kind: "simple-wall",
+      cell: { ix: 0, iz: 0 },
+      level: 0,
+      edge: "n",
+      rotation: 0,
+      materialId: "stone",
+      createdByUserId: "u1",
+      createdAt: new Date().toISOString()
+    });
+    expect(simpleWall.kind).toBe("simple-wall");
+
     expect(() =>
       BuildPieceSchema.parse({
         id: "build:floor:0,0:0",

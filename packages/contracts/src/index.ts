@@ -924,6 +924,7 @@ export const BUILD_PIECES_BATCH_MAX_SIZE = 32;
 
 export const BuildPieceKindSchema = z.enum([
   "wall",
+  "simple-wall",
   "floor",
   "ramp",
   "doorway",
@@ -955,7 +956,7 @@ export const BuildPieceSchema = z
     createdAt: z.string()
   })
   .superRefine((piece, ctx) => {
-    const edgeKinds = ["wall", "doorway", "window", "mirror"] as const;
+    const edgeKinds = ["wall", "simple-wall", "doorway", "window", "mirror"] as const;
     if (edgeKinds.includes(piece.kind as (typeof edgeKinds)[number])) {
       if (!piece.edge) {
         ctx.addIssue({
@@ -985,7 +986,7 @@ export const CreateBuildPieceRequestSchema = z
     materialId: BuildPieceMaterialSchema.optional()
   })
   .superRefine((piece, ctx) => {
-    const edgeKinds = ["wall", "doorway", "window", "mirror"] as const;
+    const edgeKinds = ["wall", "simple-wall", "doorway", "window", "mirror"] as const;
     if (edgeKinds.includes(piece.kind as (typeof edgeKinds)[number]) && !piece.edge) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

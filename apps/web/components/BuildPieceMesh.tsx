@@ -28,9 +28,15 @@ const WALL_GLB_URL = "/objects/wall.glb";
 // Native dimensions of the GLB mesh (measured from the source file)
 const WALL_GLB_NATIVE_W = 2.3916; // X extent
 const WALL_GLB_NATIVE_H = 2.0;    // Y extent (already matches BUILD_WALL_HEIGHT)
-const WALL_GLB_NATIVE_D = 0.7001; // Z extent
 
 useGLTF.preload(WALL_GLB_URL);
+
+// ── Simple wall GLB ───────────────────────────────────────────────────────────
+const SIMPLE_WALL_GLB_URL = "/objects/wall-simple.glb";
+const SIMPLE_WALL_GLB_NATIVE_W = 2.0093;
+const SIMPLE_WALL_GLB_NATIVE_H = 2.0;
+
+useGLTF.preload(SIMPLE_WALL_GLB_URL);
 
 // ── Custom floor GLB ──────────────────────────────────────────────────────────
 const FLOOR_GLB_URL = "/objects/floor.glb";
@@ -118,30 +124,34 @@ function FloorGlbMesh({ piece }: { piece: BuildPiece }) {
 }
 
 /**
- * Renders the custom wall GLB, stretched to match the engine's wall dimensions
+ * Renders a build wall GLB, stretched to match the engine's wall dimensions
  * (BUILD_CELL_SIZE × BUILD_WALL_HEIGHT × BUILD_WALL_THICKNESS).
  * E/W edges rotate 90° so the GLB's long axis aligns with world-Z.
  */
-function WallGlbMesh({ piece }: { piece: BuildPiece }) {
-  const { scene } = useGLTF(WALL_GLB_URL);
+function WallGlbMesh({
+  piece,
+  glbUrl,
+  nativeW,
+  nativeH
+}: {
+  piece: BuildPiece;
+  glbUrl: string;
+  nativeW: number;
+  nativeH: number;
+}) {
+  const { scene } = useGLTF(glbUrl);
   const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
 
   const wall = wallMeshTransform(piece);
   const edge = piece.edge as BuildPieceEdge;
   const isEW = edge === "e" || edge === "w";
   const baseY = piece.level * BUILD_LEVEL_HEIGHT;
-  // `rotation` carries the player-facing flip resolved at placement (0 or 180): the GLB's
-  // default front faces +Z (n/s) or +X (e/w), so a 180° flip turns it toward the placer.
   const facingFlip = piece.rotation === 180 ? Math.PI : 0;
 
-  // Scale width and height to the engine's cell dimensions; preserve the
-  // GLB's native depth ratio (physics thickness is a separate, thinner box).
-  const scaleX = BUILD_CELL_SIZE / WALL_GLB_NATIVE_W;
-  const scaleY = BUILD_WALL_HEIGHT / WALL_GLB_NATIVE_H;
-  const scaleZ = scaleX; // uniform XZ so the GLB's depth proportions are preserved
+  const scaleX = BUILD_CELL_SIZE / nativeW;
+  const scaleY = BUILD_WALL_HEIGHT / nativeH;
+  const scaleZ = scaleX;
 
-  // The GLB's local origin is at its bottom-left-front corner (Y starts at 0),
-  // so we translate to the wall edge midpoint at floor level.
   return (
     <group
       position={[wall.position[0], baseY, wall.position[2]]}
@@ -322,8 +332,11 @@ export function BuildPieceMesh({
     );
   }
 
-  if (piece.kind === "wall") {
+  if (piece.kind === "wall" || piece.kind === "simple-wall") {
     const { position, rotationY, size } = wallMeshTransform(piece);
+    const glbUrl = piece.kind === "simple-wall" ? SIMPLE_WALL_GLB_URL : WALL_GLB_URL;
+    const nativeW = piece.kind === "simple-wall" ? SIMPLE_WALL_GLB_NATIVE_W : WALL_GLB_NATIVE_W;
+    const nativeH = piece.kind === "simple-wall" ? SIMPLE_WALL_GLB_NATIVE_H : WALL_GLB_NATIVE_H;
 
     // Ghost / trail previews keep the simple box so the placement wireframe works.
     // Placed walls use the custom GLB.
@@ -356,7 +369,7 @@ export function BuildPieceMesh({
             <meshStandardMaterial {...materialProps} />
           </mesh>
         }>
-          <WallGlbMesh piece={piece} />
+          <WallGlbMesh piece={piece} glbUrl={glbUrl} nativeW={nativeW} nativeH={nativeH} />
         </Suspense>
       </group>
     );

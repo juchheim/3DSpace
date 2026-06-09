@@ -163,7 +163,7 @@ export async function assertBuildWallHasNoBoards(
   piece: BuildPiece,
   manifest: RoomManifest
 ) {
-  if (piece.kind !== "wall" && piece.kind !== "doorway" && piece.kind !== "window") return;
+  if (piece.kind !== "wall" && piece.kind !== "simple-wall" && piece.kind !== "doorway" && piece.kind !== "window") return;
   const anchors = await repository.listDynamicWallAnchorsForRoom(roomId);
   if (anchors.length === 0) return;
 

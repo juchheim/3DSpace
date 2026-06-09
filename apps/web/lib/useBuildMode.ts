@@ -5,6 +5,7 @@ import type { BuildPieceMaterial, BuildPieceRotation } from "@3dspace/contracts"
 
 export type BuildTool =
   | "wall"
+  | "simple-wall"
   | "floor"
   | "ramp"
   | "doorway"

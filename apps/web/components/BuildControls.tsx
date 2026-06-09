@@ -14,6 +14,7 @@ type BuildCategory = "build" | "objects" | "stamps";
 /** Tools shown in the Build palette. Destroy is surfaced as a separate erase mode. */
 const BUILD_TOOLS: Array<{ id: BuildTool; label: string; shortcut: string; group: "structure" | "fixture" }> = [
   { id: "wall", label: "Wall", shortcut: "1", group: "structure" },
+  { id: "simple-wall", label: "Simple Wall", shortcut: "9", group: "structure" },
   { id: "floor", label: "Floor", shortcut: "2", group: "structure" },
   { id: "ramp", label: "Ramp", shortcut: "3", group: "structure" },
   { id: "doorway", label: "Door", shortcut: "5", group: "structure" },
@@ -55,11 +56,16 @@ function Glyph({
   };
   switch (id) {
     case "wall":
+    case "simple-wall":
     case "tab-build":
       return (
         <svg {...common}>
           <rect x="2.3" y="3.3" width="11.4" height="9.4" rx="1" />
-          <path d="M2.3 6.4h11.4M2.3 9.6h11.4M8 3.3v3.1M5 6.4v3.2M11 6.4v3.2M8 9.6v3.1" />
+          {id === "simple-wall" ? (
+            <path d="M2.3 8h11.4" />
+          ) : (
+            <path d="M2.3 6.4h11.4M2.3 9.6h11.4M8 3.3v3.1M5 6.4v3.2M11 6.4v3.2M8 9.6v3.1" />
+          )}
         </svg>
       );
     case "floor":

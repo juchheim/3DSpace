@@ -1,7 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-09 (verse AI World Host)
+Last updated: 2026-06-09 (Simple Wall build tool)
 
+- **2026-06-09:** **Simple Wall** — World Builder tool `simple-wall` (key `9`) uses `GLBs/wall-simple.glb` → `apps/web/public/objects/wall-simple.glb` (~1.1 MB, JPEG q85). Same collision/board rules as `wall`; plainer mesh vs. detailed `wall.glb`.
 - **2026-06-09:** **Verse AI World Host** — `VERSE_ROOM_TYPE_FEATURE_FLAGS.aiWorldHost` set to `true` so all Dream IXR verse rooms (`skill-verse`, `culture-verse`, etc.) use existing FFA World Host (API guards, HUD, summon/chat/files). Verse rooms already default `roomSettings().aiWorldHost.enabled: true`; only the room-type flag gate was missing.
 - **2026-06-08:** **Backpedal animation reversal** — pressing S / backward in 3D view sets `locomotionReversed` on `avatar.state.v1`; `BlockyAvatar` plays walk/run clips at `timeScale = -1` so stride matches backpedaling. Strafe-only and 2D view unchanged.
 - **2026-06-08:** **Ramp collision aligned to GLB** — `BUILD_RAMP_LOW_Y` (0.35 m foot) + `BUILD_RAMP_HIGH_Y` (2.3 m crest); `groundHeightAt`, physics convex hull, and ghost wedge updated to match scaled ramp GLB walk surface.

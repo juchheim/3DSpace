@@ -64,6 +64,7 @@ highlighted.
 | Tool | Key | What it does |
 | --- | --- | --- |
 | **Wall** | `1` | Places a solid wall along the nearest cell edge. Blocks movement. Boards can be hung on walls. |
+| **Simple Wall** | `9` | Like a wall but uses a plainer mesh. Same collision and board rules as a wall. |
 | **Floor** | `2` | Places a 2×2 floor tile filling the cell. Walkable surface; stack on higher levels to make upper storeys. |
 | **Ramp** | `3` | Places a 45° ramp filling the cell, rising one level. Walk up it to reach the next floor. Use `R` to aim it. |
 | **Destroy** | `4` | Removes the piece you click. In Free-for-All anyone can destroy any piece. |

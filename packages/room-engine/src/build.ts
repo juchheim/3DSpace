@@ -39,10 +39,17 @@ export const BUILD_MAX_PIECES_PER_USER = 400;
 export const BUILD_ID_PREFIX = "build:";
 
 /** Wall-edge piece kinds (share slot ids and board placement with `wall`). */
-export const BUILD_EDGE_PIECE_KINDS = ["wall", "doorway", "window", "mirror"] as const;
+export const BUILD_EDGE_PIECE_KINDS = ["wall", "simple-wall", "doorway", "window", "mirror"] as const;
+
+/** Solid wall segments that block movement and accept boards (detailed vs. simple mesh). */
+export const BUILD_WALL_SEGMENT_KINDS = ["wall", "simple-wall"] as const;
 
 export function buildPieceRequiresEdge(kind: BuildPiece["kind"]): boolean {
   return (BUILD_EDGE_PIECE_KINDS as readonly string[]).includes(kind);
+}
+
+export function isBuildWallSegmentKind(kind: BuildPiece["kind"]): boolean {
+  return (BUILD_WALL_SEGMENT_KINDS as readonly string[]).includes(kind);
 }
 
 /** Doorway opening: avatar-height band is open (no colliders). */
@@ -210,7 +217,7 @@ export function buildPieceColliders(piece: BuildPiece): BuildPieceColliders {
   const stableId = piece.id.startsWith(BUILD_ID_PREFIX) ? piece.id : buildPieceStableId(piece);
   const baseY = levelToY(piece.level);
 
-  if (piece.kind === "wall") {
+  if (isBuildWallSegmentKind(piece.kind)) {
     if (!piece.edge) {
       throw new Error("build wall requires edge");
     }
@@ -397,7 +404,7 @@ export function collectCollisionWalls(manifest: RoomManifest, buildPieces: Build
 
 type BoardPlacementWall = RoomManifest["walls"][number];
 
-const BUILD_WALL_PIECE_ID_RE = /^build:(wall|doorway|window):(-?\d+),(-?\d+):(\d+):(n|s|e|w)$/;
+const BUILD_WALL_PIECE_ID_RE = /^build:(wall|simple-wall|doorway|window):(-?\d+),(-?\d+):(\d+):(n|s|e|w)$/;
 
 function parseBuildWallPieceId(id: string) {
   const match = id.match(BUILD_WALL_PIECE_ID_RE);
