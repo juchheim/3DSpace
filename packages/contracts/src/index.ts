@@ -2153,6 +2153,8 @@ export const AvatarStateMessageSchema = z.object({
   position: Vector3Schema,
   rotation: RotationSchema,
   movement: AvatarMovementSchema,
+  /** True when walk/run plays in reverse (backpedaling in 3D view). */
+  locomotionReversed: z.boolean().optional(),
   airborneState: AvatarAirborneStateSchema.optional(),
   viewMode: ViewModeSchema,
   waving: z.boolean().optional(),

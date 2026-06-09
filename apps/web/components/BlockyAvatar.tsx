@@ -94,9 +94,20 @@ type AvatarRecolorManagedMaterial = MeshStandardMaterial & {
  * gives each instance its own skeleton so participants animate independently
  * (geometry + material stay shared/cached).
  */
+function applyLocomotionPlayback(action: NonNullable<ReturnType<typeof useAnimations>["actions"][string]>, reversed: boolean) {
+  action.reset();
+  if (reversed) {
+    action.time = action.getClip().duration;
+    action.timeScale = -1;
+  } else {
+    action.timeScale = 1;
+  }
+}
+
 function AvatarModel({
   body,
   clip,
+  locomotionReversed = false,
   appearance,
   recolorActive,
   accessories,
@@ -106,6 +117,7 @@ function AvatarModel({
 }: {
   body: AvatarBodyCatalogEntry;
   clip: string;
+  locomotionReversed?: boolean;
   appearance: AvatarAppearance;
   recolorActive: boolean;
   accessories: AvatarEquippedAccessories;
@@ -255,11 +267,12 @@ function AvatarModel({
     // ── Normal movement clip ─────────────────────────────────────────────────
     const action = actions[clip];
     if (!action) return;
-    action.reset().fadeIn(0.25).play();
+    applyLocomotionPlayback(action, locomotionReversed);
+    action.fadeIn(0.25).play();
     return () => {
       action.fadeOut(0.25);
     };
-  }, [actions, body.clips, clip, mixer, onSitAnimationFinished, sittingPhase]);
+  }, [actions, body.clips, clip, locomotionReversed, mixer, onSitAnimationFinished, sittingPhase]);
 
   useEffect(() => {
     model.traverse((object) => {
@@ -363,6 +376,8 @@ export function BlockyAvatar({
   // Movement → clip. Idle covers everything that isn't an active stride.
   const clip =
     movement === "running" ? body.clips.running : movement === "walking" ? body.clips.walking : body.clips.idle;
+  const locomotionReversed =
+    (movement === "walking" || movement === "running") && (participant.state.locomotionReversed ?? false);
 
   // ── Wave emote ────────────────────────────────────────────────────────────
   // The clips don't include a wave, so the emote is a brief whole-body sway on
@@ -439,6 +454,7 @@ export function BlockyAvatar({
             key={body.slug}
             body={body}
             clip={clip}
+            locomotionReversed={locomotionReversed}
             appearance={appearance}
             recolorActive={recolorActive}
             accessories={accessories}

@@ -3,12 +3,23 @@ import {
   AVATAR_KEYBOARD_INTERACT_MAX_HOLD_MS,
   AVATAR_KEYBOARD_TURN_HOLD_MS,
   AVATAR_KEYBOARD_TURN_SPEED_RAD_PER_SEC,
-  keyboardYawDelta
+  keyboardYawDelta,
+  locomotionReversed
 } from "../lib/useAvatarMovement";
 
 describe("avatar keyboard timing", () => {
   it("allows a longer hold for sit/stand than for turn", () => {
     expect(AVATAR_KEYBOARD_INTERACT_MAX_HOLD_MS).toBeGreaterThan(AVATAR_KEYBOARD_TURN_HOLD_MS);
+  });
+});
+
+describe("locomotionReversed", () => {
+  it("is true only when backpedaling in 3D view", () => {
+    expect(locomotionReversed("3d", true, 1)).toBe(true);
+    expect(locomotionReversed("3d", true, 0)).toBe(false);
+    expect(locomotionReversed("3d", true, -1)).toBe(false);
+    expect(locomotionReversed("2d", true, 1)).toBe(false);
+    expect(locomotionReversed("3d", false, 1)).toBe(false);
   });
 });
 

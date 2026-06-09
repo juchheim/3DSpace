@@ -74,6 +74,11 @@ function samePosition(a: Vector3, b: Vector3) {
   return a.x === b.x && a.y === b.y && a.z === b.z;
 }
 
+/** Backpedal in 3D: local +Z input while the avatar keeps facing camera yaw. */
+export function locomotionReversed(viewMode: ViewMode, moving: boolean, localZ: number) {
+  return moving && viewMode === "3d" && localZ > 0;
+}
+
 export function useAvatarMovement(input: {
   manifest: RoomManifest | null;
   participantId: string;
@@ -341,6 +346,7 @@ export function useAvatarMovement(input: {
               position: lockedPos,
               rotation: { y: lockedRotY },
               movement: "idle" as const,
+              locomotionReversed: false,
               airborneState: "grounded" as const,
               viewMode: input.viewMode,
               media: mediaRef.current
@@ -410,6 +416,7 @@ export function useAvatarMovement(input: {
               position: nextPosition,
               rotation: { y: avatarYaw },
               movement: moving ? (sprinting ? ("running" as const) : ("walking" as const)) : ("idle" as const),
+              locomotionReversed: locomotionReversed(input.viewMode, moving, localZ),
               airborneState: physicsAirborneState(out.grounded, out.vy),
               viewMode: input.viewMode,
               media: mediaRef.current
@@ -477,6 +484,7 @@ export function useAvatarMovement(input: {
           position: nextPosition,
           rotation: nextRotation,
           movement: moving ? (sprinting ? ("running" as const) : ("walking" as const)) : ("idle" as const),
+          locomotionReversed: locomotionReversed(input.viewMode, moving, localZ),
           airborneState: undefined,
           viewMode: input.viewMode,
           media: mediaRef.current
