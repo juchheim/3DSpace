@@ -34,7 +34,7 @@ describe("verse room types (contracts)", () => {
       const flags = getRoomTypeFeatureFlags(roomType);
       expect(flags.classroomState).toBe(false);
       expect(flags.lessons).toBe(false);
-      expect(flags.dynamicBoards).toBe(false);
+      expect(flags.dynamicBoards).toBe(true);
       expect(flags.building).toBe(true);
       expect(flags.physics).toBe(true);
       expect(flags.whiteboards).toBe(false);

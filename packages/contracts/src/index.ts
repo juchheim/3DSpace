@@ -1564,7 +1564,7 @@ const ESCAPE_ROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze(
   physics: false
 });
 
-/** Blank canvas for Dream IXR verses — no classroom HUD, boards, or build tools until customized. */
+/** Blank canvas for Dream IXR verses — no classroom HUD until customized, but build tools and wall boards are on. */
 const VERSE_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
   classroomState: false,
   peoplePanelTeacherControls: false,
@@ -1577,7 +1577,7 @@ const VERSE_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
   breakoutPods: false,
   studentMediaControls: false,
   worldSkins: false,
-  dynamicBoards: false,
+  dynamicBoards: true,
   openJoin: false,
   aiMeetingNotes: false,
   aiObjects: false,
