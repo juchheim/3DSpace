@@ -1516,7 +1516,7 @@ const SPACE_BG = "#03040c";
 // Galaxy disk radius in world-units. The galaxy is viewed from outside, so
 // this controls how large it appears against the sky — not the player's
 // proximity to individual particles.
-const GALAXY_R = 90;
+const GALAXY_R = 130;
 
 // World-space position of the galaxy centre. Placed far above and behind the
 // room so the player always views it from outside as a coherent structure.
@@ -1609,7 +1609,7 @@ function VerseSkybox({ verse }: { verse: Verse }) {
 
   useFrame((_, delta) => {
     tRef.current += delta;
-    if (diskRef.current) diskRef.current.rotation.y += delta * cfg.speed * cfg.dir * 0.15;
+    if (diskRef.current) diskRef.current.rotation.y += delta * cfg.speed * cfg.dir * 0.05;
     if (groupRef.current) {
       groupRef.current.rotation.x = cfg.tilt + Math.sin(tRef.current * 0.35) * 0.05;
       groupRef.current.rotation.z += delta * 0.025 * cfg.dir;
