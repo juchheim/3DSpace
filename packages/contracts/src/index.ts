@@ -87,6 +87,7 @@ export const WallAnchorSchema = z.object({
   height: z.number().positive(),
   metadata: z.record(z.unknown()).default({})
 });
+export type WallAnchor = z.infer<typeof WallAnchorSchema>;
 
 export const DynamicWallAnchorSchema = WallAnchorSchema.extend({
   roomId: z.string().min(1),
