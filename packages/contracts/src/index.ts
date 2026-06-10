@@ -1568,7 +1568,7 @@ const ESCAPE_ROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze(
 /** Dream IXR verses: build tools, wall boards, and classroom lessons (when env-enabled). */
 const VERSE_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
   classroomState: true,
-  peoplePanelTeacherControls: false,
+  peoplePanelTeacherControls: true,
   lessons: true,
   privateChecks: true,
   groups: true,

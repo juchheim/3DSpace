@@ -126,20 +126,14 @@ export function escapeRoomSettings(config: AppConfig) {
   };
 }
 
-/** Verse rooms: open board uploads/shares like FFA, without classroom HUD. */
+/** Verse rooms: classroom board-access grants; teachers place content unless a grant is active. */
 export function verseRoomSettings(config: AppConfig) {
   const base = roomSettings(config);
   return {
     ...base,
-    wallObjectCreation: "student-direct" as const,
-    allowLiveStudentShares: true,
-    allowStudentUploads: true,
-    allowWebLinks: true,
-    allowEmbeds: config.tuning.enableWallWebEmbeds,
     whiteboards: {
       ...base.whiteboards,
-      enabled: true,
-      allowStudentDraw: true
+      enabled: true
     },
     sharedBrowsers: {
       ...base.sharedBrowsers,

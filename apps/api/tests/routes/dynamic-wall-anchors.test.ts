@@ -395,15 +395,15 @@ describe("dynamic wall anchor routes", () => {
     await app.close();
   });
 
-  it("attaches a wall object to a pre-built manifest board in a verse room", async () => {
+  it("requires a board grant before a student can post to a verse manifest board", async () => {
     const app = await buildTestApp();
     const { classRecord, roomWithManifest } = await createClassAndRoom(app, "teacher-verse-manifest-boards", "skill-verse");
     const roomId = roomWithManifest.room.id;
-    expect(roomWithManifest.room.settings.wallObjectCreation).toBe("student-direct");
-    expect(roomWithManifest.room.settings.allowStudentUploads).toBe(true);
+    expect(roomWithManifest.room.settings.wallObjectCreation).toBe("teacher-only");
+    expect(roomWithManifest.room.settings.allowStudentUploads).toBe(false);
     await addStudentMember(app, classRecord.id, "teacher-verse-manifest-boards", "student-verse", "Sam");
 
-    const objectRes = await app.inject({
+    const blocked = await app.inject({
       method: "POST",
       url: `/v1/rooms/${roomId}/wall-objects`,
       headers: authHeaders("student-verse", "Sam"),
@@ -414,8 +414,34 @@ describe("dynamic wall anchor routes", () => {
         source: { kind: "inline", data: { text: "hello verse" } }
       }
     });
-    expect(objectRes.statusCode).toBe(200);
-    expect(objectRes.json().wallAnchorId).toBe("verse-anchor-front");
+    expect(blocked.statusCode).toBe(403);
+
+    const grant = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/classroom/actions`,
+      headers: authHeaders("teacher-verse-manifest-boards", "Ms. Rivera"),
+      payload: {
+        type: "grant-board-access",
+        userId: "student-verse",
+        wallAnchorId: "verse-anchor-front",
+        allowedObjectTypes: ["note"]
+      }
+    });
+    expect(grant.statusCode).toBe(200);
+
+    const allowed = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/wall-objects`,
+      headers: authHeaders("student-verse", "Sam"),
+      payload: {
+        wallAnchorId: "verse-anchor-front",
+        type: "note",
+        title: "Front board note",
+        source: { kind: "inline", data: { text: "hello verse" } }
+      }
+    });
+    expect(allowed.statusCode).toBe(200);
+    expect(allowed.json().wallAnchorId).toBe("verse-anchor-front");
     await app.close();
   });
 

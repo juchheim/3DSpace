@@ -2252,14 +2252,21 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   const canWriteWhiteboard = useCallback((object: WallObject) => {
     if (!session || object.type !== "whiteboard") return false;
     if (session.role === "teacher") return true;
-    if (session.room.type !== "classroom") return true;
+    if (!roomTypeFeatures.peoplePanelTeacherControls) {
+      return Boolean(parsedRoomSettings?.whiteboards.allowStudentDraw);
+    }
     if (!parsedRoomSettings?.whiteboards.allowStudentDraw) return false;
     return Boolean(
       activeBoardGrant &&
       activeBoardGrant.wallAnchorId === object.wallAnchorId &&
       activeBoardGrant.allowedObjectTypes.includes("whiteboard")
     );
-  }, [activeBoardGrant, parsedRoomSettings?.whiteboards.allowStudentDraw, session]);
+  }, [activeBoardGrant, parsedRoomSettings?.whiteboards.allowStudentDraw, roomTypeFeatures.peoplePanelTeacherControls, session]);
+  const boardGrantWallAnchors = useMemo(() => {
+    if (!manifest) return [];
+    const dynamic = dynamicBoards.anchors ?? [];
+    return dynamic.length ? [...manifest.wallAnchors, ...dynamic] : manifest.wallAnchors;
+  }, [dynamicBoards.anchors, manifest]);
   const podsInput = useMemo(() => {
     if (!roomTypeFeatures.breakoutPods || !CLIENT_TUNING.enableBreakoutPods) return undefined;
     const runtime = classroom.state?.podsRuntime;
@@ -3378,7 +3385,10 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
               wallMediaStreams={wallMediaStreams}
               canCreate={session.role === "teacher" || session.room.settings.wallObjectCreation !== "teacher-only" || Boolean(activeBoardGrant)}
               canManage={session.role === "teacher"}
-              canCreateDynamicAnchor={roomTypeFeatures.dynamicBoards}
+              canCreateDynamicAnchor={
+                roomTypeFeatures.dynamicBoards &&
+                (session.role === "teacher" || !roomTypeFeatures.peoplePanelTeacherControls)
+              }
               dynamicAnchorPlacementActive={dynamicBoardPlacementActive}
               role={session.role}
               activeBoardGrant={activeBoardGrant}
@@ -3605,6 +3615,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
                 helpRequest={helpRequest}
                 activeGrants={activeGrantMap(classroom.state).get(helpStudent.id) ?? []}
                 manifest={manifest}
+                wallAnchors={boardGrantWallAnchors}
                 studentMediaRuntime={classroom.state.studentMediaRuntime}
                 error={classroom.error}
                 onRunAction={async (action) => {
@@ -3632,6 +3643,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
             helpRequest={helpRequest}
             activeGrants={studentActiveGrants}
             manifest={manifest}
+            wallAnchors={boardGrantWallAnchors}
             studentMediaRuntime={classroom.state?.studentMediaRuntime}
             error={classroom.error}
             onRunAction={async (action) => { await classroom.runAction(action); }}

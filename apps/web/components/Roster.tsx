@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { HudCard } from "./HudCard";
-import type { ClassroomAction, ClassroomBoardAccessGrant, ClassroomGroup, ClassroomHelpRequest, ClassroomState, Role, RoomManifest } from "@3dspace/contracts";
+import type { ClassroomAction, ClassroomBoardAccessGrant, ClassroomGroup, ClassroomHelpRequest, ClassroomState, Role, RoomManifest, WallAnchor } from "@3dspace/contracts";
 import type { ParticipantView } from "./RoomClient";
 import { groupByUserId } from "./GroupsPanel";
 import { isBoardGrantActive } from "../lib/classroomGrants";
@@ -159,6 +159,7 @@ export function StudentDetailPanel({
   helpRequest,
   activeGrants,
   manifest,
+  wallAnchors,
   studentMediaRuntime,
   error,
   onRunAction,
@@ -168,6 +169,7 @@ export function StudentDetailPanel({
   helpRequest: ClassroomHelpRequest | null;
   activeGrants: ClassroomBoardAccessGrant[];
   manifest: RoomManifest;
+  wallAnchors?: readonly WallAnchor[] | undefined;
   studentMediaRuntime?: ClassroomState["studentMediaRuntime"];
   error?: string | undefined;
   onRunAction(action: ClassroomAction): Promise<void>;
@@ -180,6 +182,7 @@ export function StudentDetailPanel({
       helpRequest={helpRequest}
       activeGrants={activeGrants}
       manifest={manifest}
+      {...(wallAnchors ? { wallAnchors } : {})}
       studentMediaRuntime={studentMediaRuntime}
       error={error}
       dock="left-people"

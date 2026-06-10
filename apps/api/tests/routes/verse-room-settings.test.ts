@@ -3,11 +3,11 @@ import { loadConfig } from "../../src/config.js";
 import { verseRoomSettings } from "../../src/rooms-core/settings.js";
 
 describe("verseRoomSettings", () => {
-  it("opens board uploads and live shares for all participants", () => {
+  it("uses classroom-style teacher-controlled board access defaults", () => {
     const settings = verseRoomSettings(loadConfig({ NODE_ENV: "test" }));
-    expect(settings.wallObjectCreation).toBe("student-direct");
-    expect(settings.allowStudentUploads).toBe(true);
-    expect(settings.allowLiveStudentShares).toBe(true);
+    expect(settings.wallObjectCreation).toBe("teacher-only");
+    expect(settings.allowStudentUploads).toBe(false);
+    expect(settings.allowLiveStudentShares).toBe(false);
     expect(settings.whiteboards.enabled).toBe(true);
     expect(settings.whiteboards.allowStudentDraw).toBe(true);
   });

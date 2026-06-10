@@ -37,7 +37,7 @@ describe("verse room types (contracts)", () => {
       expect(flags.privateChecks).toBe(true);
       expect(flags.groups).toBe(true);
       expect(flags.focus).toBe(true);
-      expect(flags.peoplePanelTeacherControls).toBe(false);
+      expect(flags.peoplePanelTeacherControls).toBe(true);
       expect(flags.dynamicBoards).toBe(true);
       expect(flags.building).toBe(true);
       expect(flags.physics).toBe(true);

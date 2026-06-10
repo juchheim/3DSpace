@@ -51,8 +51,14 @@ const BOARD_GRANT_TYPE_LABELS = new Map<SupportedBoardGrantType, string>(
   BOARD_GRANT_TYPE_OPTIONS.map((option) => [option.type, option.label])
 );
 
-export function allowedBoardGrantTypesForAnchor(manifest: RoomManifest | null | undefined, anchorId: string): SupportedBoardGrantType[] {
-  const anchor = manifest?.wallAnchors.find((candidate) => candidate.id === anchorId);
+export function allowedBoardGrantTypesForAnchor(
+  manifest: RoomManifest | null | undefined,
+  anchorId: string,
+  extraAnchors: ReadonlyArray<RoomManifest["wallAnchors"][number]> = []
+): SupportedBoardGrantType[] {
+  const anchor =
+    manifest?.wallAnchors.find((candidate) => candidate.id === anchorId) ??
+    extraAnchors.find((candidate) => candidate.id === anchorId);
   if (!anchor) return [];
   const next: SupportedBoardGrantType[] = [];
   if (anchorAcceptsWallObjectType(anchor, "image.file")) next.push("image.file");

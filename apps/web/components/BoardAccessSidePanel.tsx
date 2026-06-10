@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ClassroomAction, ClassroomBoardAccessGrant, ClassroomHelpRequest, ClassroomState, RoomManifest } from "@3dspace/contracts";
+import type { ClassroomAction, ClassroomBoardAccessGrant, ClassroomHelpRequest, ClassroomState, RoomManifest, WallAnchor } from "@3dspace/contracts";
 import { CLIENT_TUNING } from "../lib/config";
 import { BoardAccessGrantControls } from "./BoardAccessGrantControls";
 import { StudentMediaAccessControls } from "./StudentMediaAccessControls";
@@ -21,6 +21,7 @@ export function BoardAccessSidePanel({
   helpRequest,
   activeGrants,
   manifest,
+  wallAnchors,
   studentMediaRuntime,
   error,
   showHelpActions = false,
@@ -33,6 +34,7 @@ export function BoardAccessSidePanel({
   helpRequest?: ClassroomHelpRequest | null | undefined;
   activeGrants: ClassroomBoardAccessGrant[];
   manifest: RoomManifest;
+  wallAnchors?: readonly WallAnchor[] | undefined;
   studentMediaRuntime?: ClassroomState["studentMediaRuntime"];
   error?: string | undefined;
   showHelpActions?: boolean | undefined;
@@ -113,6 +115,7 @@ export function BoardAccessSidePanel({
         helpRequest={helpRequest}
         activeGrants={activeGrants}
         manifest={manifest}
+        {...(wallAnchors ? { wallAnchors } : {})}
         onRunAction={onRunAction}
       />
       {error ? <p className="small">{error}</p> : null}

@@ -98,7 +98,9 @@ export async function assertWhiteboardWritePolicy(input: {
 }) {
   const { teacher } = await actorIsRoomTeacher(input.repository, input.room.id, input.auth);
   if (teacher) return { teacher, granted: false };
-  if (input.room.type !== "classroom") return { teacher: false, granted: false };
+  if (!getRoomTypeFeatureFlags(input.room.type).peoplePanelTeacherControls) {
+    return { teacher: false, granted: false };
+  }
   if (!input.room.settings.whiteboards.allowStudentDraw) {
     throw forbidden("Student whiteboard drawing is disabled");
   }

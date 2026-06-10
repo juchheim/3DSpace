@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { ClassroomAction, ClassroomBoardAccessGrant, ClassroomHelpRequest, RoomManifest } from "@3dspace/contracts";
+import type { ClassroomAction, ClassroomBoardAccessGrant, ClassroomHelpRequest, RoomManifest, WallAnchor } from "@3dspace/contracts";
 import {
   allowedBoardGrantTypesForAnchor,
   BOARD_GRANT_PRESETS,
@@ -14,9 +14,10 @@ import {
 function initialGrantTypes(
   manifest: RoomManifest,
   anchorId: string,
-  activeGrants: ClassroomBoardAccessGrant[]
+  activeGrants: ClassroomBoardAccessGrant[],
+  wallAnchors: readonly WallAnchor[]
 ) {
-  const allowedTypes = allowedBoardGrantTypesForAnchor(manifest, anchorId);
+  const allowedTypes = allowedBoardGrantTypesForAnchor(manifest, anchorId, wallAnchors);
   const activeTypes = (activeGrants[0]?.allowedObjectTypes ?? [])
     .filter(isSupportedBoardGrantType)
     .filter((type) => allowedTypes.includes(type));
@@ -29,6 +30,7 @@ export function BoardAccessGrantControls({
   helpRequest,
   activeGrants,
   manifest,
+  wallAnchors,
   onRunAction
 }: {
   userId: string;
@@ -36,23 +38,26 @@ export function BoardAccessGrantControls({
   helpRequest?: ClassroomHelpRequest | null | undefined;
   activeGrants: ClassroomBoardAccessGrant[];
   manifest: RoomManifest;
+  wallAnchors?: readonly WallAnchor[] | undefined;
   onRunAction(action: ClassroomAction): Promise<void>;
 }) {
+  const grantWallAnchors = wallAnchors ?? manifest.wallAnchors;
   const [busy, setBusy] = useState("");
   const [selectedAnchorId, setSelectedAnchorId] = useState(
-    () => activeGrants[0]?.wallAnchorId ?? manifest.wallAnchors[0]?.id ?? ""
+    () => activeGrants[0]?.wallAnchorId ?? grantWallAnchors[0]?.id ?? ""
   );
   const [selectedGrantTypes, setSelectedGrantTypes] = useState<SupportedBoardGrantType[]>(() =>
     initialGrantTypes(
       manifest,
-      activeGrants[0]?.wallAnchorId ?? manifest.wallAnchors[0]?.id ?? "",
-      activeGrants
+      activeGrants[0]?.wallAnchorId ?? grantWallAnchors[0]?.id ?? "",
+      activeGrants,
+      grantWallAnchors
     )
   );
 
   const grantTypesForAnchor = useMemo(
-    () => (selectedAnchorId ? allowedBoardGrantTypesForAnchor(manifest, selectedAnchorId) : []),
-    [manifest, selectedAnchorId]
+    () => (selectedAnchorId ? allowedBoardGrantTypesForAnchor(manifest, selectedAnchorId, grantWallAnchors) : []),
+    [grantWallAnchors, manifest, selectedAnchorId]
   );
 
   async function run(label: string, action: ClassroomAction) {
@@ -72,7 +77,7 @@ export function BoardAccessGrantControls({
             <div key={grant.id} className="classroom-active-grant">
               <div className="classroom-help-meta">
                 <span className="classroom-help-name">
-                  {manifest.wallAnchors.find((anchor) => anchor.id === grant.wallAnchorId)?.label ?? "Selected board"}
+                  {grantWallAnchors.find((anchor) => anchor.id === grant.wallAnchorId)?.label ?? "Selected board"}
                 </span>
                 <span className="tag tag-board">active</span>
               </div>
@@ -91,7 +96,7 @@ export function BoardAccessGrantControls({
         </div>
       ) : null}
 
-      {manifest.wallAnchors.length > 0 ? (
+      {grantWallAnchors.length > 0 ? (
         <div className="classroom-grant-panel">
           <div className="classroom-grant-header">
             <span>{activeGrants.length > 0 ? "Replace board access" : "Grant board access"}</span>
@@ -104,10 +109,10 @@ export function BoardAccessGrantControls({
             onChange={(event) => {
               const nextAnchorId = event.target.value;
               setSelectedAnchorId(nextAnchorId);
-              setSelectedGrantTypes(allowedBoardGrantTypesForAnchor(manifest, nextAnchorId));
+              setSelectedGrantTypes(allowedBoardGrantTypesForAnchor(manifest, nextAnchorId, grantWallAnchors));
             }}
           >
-            {manifest.wallAnchors.map((anchor) => (
+            {grantWallAnchors.map((anchor) => (
               <option key={anchor.id} value={anchor.id}>
                 {anchor.label}
               </option>
