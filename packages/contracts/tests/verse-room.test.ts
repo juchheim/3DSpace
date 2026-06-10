@@ -29,11 +29,15 @@ describe("verse room types (contracts)", () => {
     expect(isVerseRoomType(null)).toBe(false);
   });
 
-  it("exposes blank feature flags for verse rooms", () => {
+  it("exposes verse feature flags", () => {
     for (const roomType of VERSE_ROOM_TYPES) {
       const flags = getRoomTypeFeatureFlags(roomType);
-      expect(flags.classroomState).toBe(false);
-      expect(flags.lessons).toBe(false);
+      expect(flags.classroomState).toBe(true);
+      expect(flags.lessons).toBe(true);
+      expect(flags.privateChecks).toBe(true);
+      expect(flags.groups).toBe(true);
+      expect(flags.focus).toBe(true);
+      expect(flags.peoplePanelTeacherControls).toBe(false);
       expect(flags.dynamicBoards).toBe(true);
       expect(flags.building).toBe(true);
       expect(flags.physics).toBe(true);
