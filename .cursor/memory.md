@@ -1,7 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-10 (Verse lessons)
+Last updated: 2026-06-10 (duplicate avatar fix)
 
+- **2026-06-10:** **Duplicate avatar fix** — Google user ids are `google:<sub>`; LiveKit identity is `${userId}:${roomId}`. `participantIdFromLiveKitIdentity()` in `apps/web/lib/realtime.ts` now strips only the room suffix (`lastIndexOf(":")`), not the first colon segment. Old `split(":")[0]` produced phantom participant id `google`, duplicating every Google user in PEOPLE + 3D view when teacher/student joined from separate browsers.
 - **2026-06-10:** **Verse lessons** — `VERSE_ROOM_TYPE_FEATURE_FLAGS` enables existing classroom lesson stack: `classroomState`, `lessons`, `privateChecks`, `groups`, `focus` (still gated by `ENABLE_CLASSROOM_LESSONS` / `NEXT_PUBLIC_ENABLE_CLASSROOM_LESSONS`). Help queue / raise-hand via `ClassroomPanel` comes with `classroomState`; teacher people-panel controls stay off.
 
 - **2026-06-09:** **Verse env vars** — spawn/galaxy/walls/anchors need no env. Board content: API `ENABLE_WALL_OBJECTS` (default on), uploads `ENABLE_WALL_ATTACHMENTS` + object storage in prod, whiteboards `ENABLE_WHITEBOARDS` + `NEXT_PUBLIC_ENABLE_WHITEBOARDS`, shared browsers need `ENABLE_SHARED_BROWSERS` + `NEXT_PUBLIC_ENABLE_SHARED_BROWSERS` + `HYPERBEAM_API_KEY`. Verse building/physics/AI host gated by `ENABLE_VERSE_BUILDING`/`NEXT_PUBLIC_ENABLE_VERSE_BUILDING`, `ENABLE_PHYSICS`/`NEXT_PUBLIC_ENABLE_PHYSICS`, `ENABLE_AI_WORLD_HOST`/`NEXT_PUBLIC_ENABLE_AI_WORLD_HOST` + `OPENAI_API_KEY`. `NEXT_PUBLIC_ENABLE_WALL_*` in `.env.example` are not read by web code.

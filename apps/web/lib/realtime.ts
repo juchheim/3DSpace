@@ -130,6 +130,13 @@ export function isRealtimeUnreliable(message: RealtimeMessage) {
   return message.type === "avatar.state.v1" || isRoomObjectRealtimeUnreliable(message.type);
 }
 
+/** LiveKit identity is `${userId}:${roomId}`; user ids may contain colons (e.g. `google:<sub>`). */
+export function participantIdFromLiveKitIdentity(identity: string) {
+  const roomSuffix = identity.lastIndexOf(":");
+  if (roomSuffix === -1) return identity;
+  return identity.slice(0, roomSuffix);
+}
+
 export type RemoteMediaUpdate = {
   participantId: string;
   cameraStream?: MediaStream | null;
@@ -550,7 +557,7 @@ async function createLiveKitClient(input: AdapterInput): Promise<RealtimeClient>
   const publishedWallTracks = new Map<string, { video?: MediaStreamTrack; audio?: MediaStreamTrack }>();
 
   function participantIdFromIdentity(identity: string) {
-    return identity.includes(":") ? identity.split(":")[0]! : identity;
+    return participantIdFromLiveKitIdentity(identity);
   }
 
   function isSharedBrowserIdentity(identity: string) {
