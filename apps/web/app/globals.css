@@ -6458,13 +6458,6 @@ body.lobby-dark::before {
   color: #cfe8d8;
 }
 
-.lesson-add-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 5px;
-}
-
-.lesson-step-list,
 .lesson-timeline {
   display: grid;
   gap: 6px;
@@ -6473,72 +6466,28 @@ body.lobby-dark::before {
   list-style: none;
 }
 
-.lesson-step-row {
-  display: grid;
-  gap: 5px;
-  padding: 6px;
-  border: 1px solid var(--hud-bd);
-  border-radius: 5px;
-  background: rgba(255, 255, 255, 0.025);
-}
-
-.lesson-step-row.selected {
-  border-color: rgba(192, 120, 52, 0.5);
-}
-
-.lesson-step-row.current {
-  border-color: rgba(70, 120, 180, 0.5);
-}
-
-.lesson-step-row.drifted {
-  border-color: rgba(176, 58, 58, 0.45);
-}
-
-.lesson-step-main {
-  display: grid;
-  grid-template-columns: 18px 1fr;
-  gap: 4px 7px;
-  align-items: center;
-  padding: 0;
-  color: var(--hud-tx);
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  text-align: left;
-}
-
-.lesson-step-main span {
-  grid-row: span 2;
-  display: grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  border: 1px solid var(--hud-bd-m);
-  border-radius: 3px;
-  color: var(--hud-tx-m);
-  font-size: 10px;
-}
-
-.lesson-step-main strong {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  color: var(--hud-tx);
-  font-size: 11px;
-  line-height: 1.2;
-}
-
-.lesson-step-main em {
-  color: var(--hud-tx-m);
-  font-size: 9.5px;
-  font-style: normal;
-}
-
-.lesson-step-row__actions,
 .lesson-controls {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
+}
+
+.lesson-card-summary {
+  display: grid;
+  gap: 2px;
+  padding: 2px 0 4px;
+}
+
+.lesson-card-summary strong {
+  color: var(--hud-tx);
+  font-size: 11.5px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.lesson-card-summary span {
+  color: var(--hud-tx-m);
+  font-size: 10px;
 }
 
 .hud-panel .lesson-run-primary-btn {
@@ -6554,48 +6503,12 @@ body.lobby-dark::before {
   border-color: rgba(255, 196, 120, 0.75);
 }
 
-.lesson-editor {
-  display: grid;
-  gap: 8px;
-  padding-top: 4px;
-}
-
-.lesson-editor label {
-  gap: 4px;
-}
-
-.lesson-editor label span,
-.lesson-member-list span {
-  color: var(--hud-tx-m);
-  font-family: 'Barlow', system-ui, sans-serif;
-  font-size: 10px;
-}
-
-.lesson-check-row {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.lesson-check-row input {
-  width: auto;
-}
-
-.lesson-member-list {
-  display: grid;
-  gap: 5px;
-  padding: 6px;
-  border: 1px solid var(--hud-bd);
-  border-radius: 5px;
-}
-
 .lesson-run-current {
   display: grid;
   gap: 7px;
 }
 
-.lesson-drift,
-.lesson-broken {
+.lesson-drift {
   margin: 0;
   padding: 6px;
   border: 1px solid rgba(176, 58, 58, 0.35);
@@ -6946,6 +6859,918 @@ body.lobby-dark::before {
 
 .lesson-recap-footer .lesson-recap-error {
   padding: 0;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   LESSON BUILDER — full-screen authoring studio
+   A workspace-scale surface in the room HUD design universe: deep glass,
+   Barlow, micro-label kickers, themed to the active Verse via --hud-acc /
+   --hud-blu (set by verseRoomThemeVars). Larger type than the side-panel
+   HUD because lesson planning is a focused, sit-down activity.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+.lesson-studio-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 16777272; /* above drei Html nameplates, same tier as board fullscreen */
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(6, 10, 8, 0.66);
+  backdrop-filter: blur(8px);
+}
+
+.lesson-studio {
+  width: min(1240px, 100%);
+  height: min(100%, 860px);
+  display: flex;
+  flex-direction: column;
+  background: var(--hud-bg);
+  border: 1px solid var(--hud-bd-m);
+  border-radius: 10px;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  outline: none;
+  color: var(--hud-tx);
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .lesson-studio {
+    animation: studio-lift-in 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes studio-lift-in {
+    from {
+      opacity: 0;
+      transform: translateY(16px) scale(0.985);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+}
+
+/* ── Header ── */
+
+.studio-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid var(--hud-bd);
+  flex-shrink: 0;
+}
+
+.studio-header__lead {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.studio-kicker {
+  margin: 0;
+  color: var(--hud-acc);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.lesson-studio .studio-title-input {
+  width: 100%;
+  margin-left: -6px;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: none;
+  color: var(--hud-tx);
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.lesson-studio .studio-title-input:hover {
+  border-color: var(--hud-bd);
+}
+
+.lesson-studio .studio-title-input:focus {
+  border-color: var(--hud-bd-m);
+  background: rgba(255, 255, 255, 0.04);
+  outline: none;
+}
+
+.studio-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: var(--hud-tx-m);
+  font-size: 11px;
+}
+
+.studio-status {
+  padding: 1px 7px;
+  border: 1px solid var(--hud-bd-m);
+  border-radius: 999px;
+  color: var(--hud-tx-m);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.studio-status--ready {
+  color: var(--hud-grn);
+  border-color: rgba(56, 144, 96, 0.45);
+  background: rgba(56, 144, 96, 0.1);
+}
+
+.studio-status--running,
+.studio-status--paused {
+  color: #f0b860;
+  border-color: rgba(200, 144, 10, 0.5);
+  background: rgba(200, 144, 10, 0.12);
+}
+
+.studio-status--ended,
+.studio-status--abandoned {
+  color: var(--hud-red);
+  border-color: rgba(176, 58, 58, 0.4);
+  background: rgba(176, 58, 58, 0.1);
+}
+
+.studio-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+/* ── Buttons ── */
+
+.lesson-studio .studio-btn {
+  padding: 7px 14px;
+  border: 1px solid var(--hud-bd-m);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--hud-tx);
+  box-shadow: none;
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.lesson-studio .studio-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.11);
+}
+
+.lesson-studio .studio-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.lesson-studio .studio-btn--primary {
+  background: var(--hud-acc);
+  border-color: transparent;
+  color: #fff;
+}
+
+.lesson-studio .studio-btn--primary:hover:not(:disabled) {
+  filter: brightness(1.12);
+  background: var(--hud-acc);
+}
+
+/* ── Banners ── */
+
+.studio-error {
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid rgba(176, 58, 58, 0.35);
+  border-radius: 5px;
+  color: #e4a09a;
+  background: rgba(176, 58, 58, 0.1);
+  font-size: 12px;
+}
+
+.studio-error--bar {
+  border-left: none;
+  border-right: none;
+  border-radius: 0;
+  flex-shrink: 0;
+}
+
+.studio-live-banner {
+  margin: 0;
+  padding: 7px 18px;
+  flex-shrink: 0;
+  color: #f0b860;
+  background: rgba(200, 144, 10, 0.1);
+  border-bottom: 1px solid rgba(200, 144, 10, 0.25);
+  font-size: 11.5px;
+}
+
+/* ── Body: outline | editor | context ── */
+
+.studio-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 232px;
+}
+
+.studio-outline {
+  min-height: 0;
+  overflow-y: auto;
+  border-right: 1px solid var(--hud-bd);
+  scrollbar-width: thin;
+  scrollbar-color: var(--hud-bd) transparent;
+}
+
+.studio-context {
+  min-height: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--hud-bd);
+  scrollbar-width: thin;
+  scrollbar-color: var(--hud-bd) transparent;
+}
+
+.studio-rail-section {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--hud-bd);
+}
+
+.studio-rail-section:last-child {
+  border-bottom: none;
+}
+
+.studio-rail-heading {
+  margin: 0 0 8px;
+  color: var(--hud-tx-m);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.studio-hint {
+  margin: 4px 0 0;
+  color: var(--hud-tx-m);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+/* ── Step-kind chips ── */
+
+.studio-chip {
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  min-width: 42px;
+  padding: 2px 7px;
+  border: 1px solid var(--hud-bd-m);
+  border-radius: 999px;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hud-tx-m);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.studio-chip--instruction {
+  color: #a7b4c2;
+  border-color: rgba(167, 180, 194, 0.32);
+  background: rgba(167, 180, 194, 0.1);
+}
+
+.studio-chip--focus-board {
+  color: var(--hud-blu);
+  border-color: rgba(70, 120, 180, 0.4);
+  background: rgba(70, 120, 180, 0.12);
+}
+
+.studio-chip--private-check {
+  color: var(--hud-acc);
+  border-color: rgba(192, 120, 52, 0.4);
+  background: rgba(192, 120, 52, 0.12);
+}
+
+.studio-chip--group-work {
+  color: var(--hud-grn);
+  border-color: rgba(56, 144, 96, 0.4);
+  background: rgba(56, 144, 96, 0.12);
+}
+
+.studio-chip--timer {
+  color: #b08fd8;
+  border-color: rgba(154, 123, 200, 0.4);
+  background: rgba(154, 123, 200, 0.12);
+}
+
+.studio-chip--student-share {
+  color: #d8b25a;
+  border-color: rgba(200, 144, 10, 0.4);
+  background: rgba(200, 144, 10, 0.12);
+}
+
+.studio-chip--exit-ticket {
+  color: #d88a82;
+  border-color: rgba(176, 58, 58, 0.42);
+  background: rgba(176, 58, 58, 0.12);
+}
+
+/* ── Add-step palette ── */
+
+.studio-add-list {
+  display: grid;
+  gap: 4px;
+}
+
+.lesson-studio .studio-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: none;
+  box-shadow: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.lesson-studio .studio-add-btn:hover:not(:disabled) {
+  background: var(--hud-bg-h);
+  border-color: var(--hud-bd);
+}
+
+.lesson-studio .studio-add-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.studio-add-btn__text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.studio-add-btn__text strong {
+  color: var(--hud-tx);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.studio-add-btn__text em {
+  color: var(--hud-tx-m);
+  font-size: 10.5px;
+  font-style: normal;
+  line-height: 1.3;
+}
+
+/* ── Script outline ── */
+
+.studio-step-list {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.studio-step {
+  position: relative;
+  border: 1px solid var(--hud-bd);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.025);
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.studio-step--selected {
+  border-color: var(--hud-acc);
+  background: rgba(192, 120, 52, 0.07);
+}
+
+.studio-step--current {
+  border-color: rgba(70, 120, 180, 0.6);
+}
+
+.studio-step--drifted {
+  border-color: rgba(176, 58, 58, 0.5);
+}
+
+.studio-step--completed {
+  opacity: 0.78;
+}
+
+.lesson-studio .studio-step__main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 9px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  box-shadow: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.studio-step__num {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--hud-bd-m);
+  border-radius: 5px;
+  color: var(--hud-tx-m);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.studio-step--selected .studio-step__num {
+  border-color: var(--hud-acc);
+  color: var(--hud-acc);
+}
+
+.studio-step__text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.studio-step__text strong {
+  color: var(--hud-tx);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.studio-step__text em {
+  color: var(--hud-tx-m);
+  font-size: 10.5px;
+  font-style: normal;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.studio-step__warn {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 5px;
+  border-radius: 50%;
+  background: var(--hud-red);
+  vertical-align: 1px;
+}
+
+.studio-step__tools {
+  position: absolute;
+  top: 50%;
+  right: 7px;
+  transform: translateY(-50%);
+  display: none;
+  gap: 2px;
+}
+
+.studio-step:hover .studio-step__tools,
+.studio-step:focus-within .studio-step__tools {
+  display: flex;
+}
+
+/* The kind chip yields to the reorder/remove tools on hover. */
+.studio-step:hover .studio-step__chip,
+.studio-step:focus-within .studio-step__chip {
+  visibility: hidden;
+}
+
+.lesson-studio .studio-step__tools button {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--hud-bd-m);
+  border-radius: 4px;
+  background: var(--hud-bg-r);
+  box-shadow: none;
+  color: var(--hud-tx-m);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.lesson-studio .studio-step__tools button:hover:not(:disabled) {
+  color: var(--hud-tx);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.lesson-studio .studio-step__tools button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ── Center editor ── */
+
+.studio-main {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 26px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hud-bd) transparent;
+}
+
+.studio-main > .studio-error {
+  margin-bottom: 12px;
+}
+
+.studio-editor {
+  display: grid;
+  gap: 16px;
+  max-width: 600px;
+  padding-bottom: 18px;
+}
+
+.studio-editor__kind {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.studio-editor__kind strong {
+  display: block;
+  color: var(--hud-tx);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.studio-editor__kind p {
+  margin: 0;
+  color: var(--hud-tx-m);
+  font-size: 11.5px;
+}
+
+.studio-field-group {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--hud-bd);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.studio-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.studio-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.studio-field--narrow {
+  max-width: 180px;
+}
+
+.studio-field > span {
+  color: var(--hud-tx-m);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.studio-field > em {
+  color: var(--hud-tx-d);
+  font-size: 10.5px;
+  font-style: normal;
+  line-height: 1.35;
+}
+
+.lesson-studio input:not([type="checkbox"]):not([type="radio"]),
+.lesson-studio select,
+.lesson-studio textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--hud-bd-m);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--hud-tx);
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.lesson-studio textarea {
+  resize: vertical;
+}
+
+.lesson-studio input:focus-visible,
+.lesson-studio select:focus-visible,
+.lesson-studio textarea:focus-visible,
+.lesson-studio button:focus-visible {
+  outline: 2px solid var(--hud-acc);
+  outline-offset: 1px;
+}
+
+.studio-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--hud-tx);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.studio-check input {
+  width: auto;
+  accent-color: var(--hud-acc);
+}
+
+.studio-member-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.studio-member {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--hud-bd-m);
+  border-radius: 999px;
+  color: var(--hud-tx-m);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: border-color 0.1s, color 0.1s, background 0.1s;
+}
+
+.studio-member input {
+  width: auto;
+  accent-color: var(--hud-acc);
+}
+
+.studio-member--on {
+  color: var(--hud-tx);
+  border-color: rgba(192, 120, 52, 0.55);
+  background: rgba(192, 120, 52, 0.1);
+}
+
+.studio-editor__savebar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin: 0 -26px;
+  padding: 10px 26px 14px;
+  background: linear-gradient(to top, var(--hud-bg) 72%, transparent);
+}
+
+.studio-savebar-status {
+  min-height: 1em;
+  color: var(--hud-tx-m);
+  font-size: 11px;
+}
+
+.studio-savebar-status--dirty {
+  color: #f0b860;
+}
+
+.studio-empty {
+  max-width: 420px;
+  margin: 48px auto;
+  text-align: center;
+}
+
+.studio-empty h3 {
+  margin: 0 0 8px;
+  color: var(--hud-tx);
+  font-size: 16px;
+}
+
+.studio-empty p {
+  margin: 0;
+  color: var(--hud-tx-m);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+/* ── Context rail ── */
+
+.studio-context-list {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--hud-tx);
+  font-size: 11.5px;
+}
+
+.studio-context-list li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.studio-context-list em {
+  color: var(--hud-tx-m);
+  font-size: 10px;
+  font-style: normal;
+}
+
+.studio-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+}
+
+.studio-dot--board {
+  background: var(--hud-blu);
+}
+
+.studio-dot--teacher {
+  background: var(--hud-acc);
+}
+
+.studio-dot--student {
+  background: var(--hud-grn);
+}
+
+.studio-flight-ok {
+  margin: 0;
+  color: var(--hud-grn);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.studio-flight-list {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lesson-studio .studio-flight-list button {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid rgba(176, 58, 58, 0.35);
+  border-radius: 5px;
+  background: rgba(176, 58, 58, 0.08);
+  box-shadow: none;
+  color: #e4a09a;
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lesson-studio .studio-flight-list button:hover {
+  background: rgba(176, 58, 58, 0.16);
+}
+
+/* ── Create view ── */
+
+.studio-create {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 4fr);
+  gap: 28px;
+  padding: 36px 44px;
+  overflow-y: auto;
+  align-content: start;
+}
+
+.studio-create__form {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  max-width: 440px;
+}
+
+.studio-create__form h2 {
+  margin: 0;
+  color: var(--hud-tx);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.studio-create__form > p {
+  margin: 0;
+  color: var(--hud-tx-m);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.studio-create__form .studio-btn--primary {
+  justify-self: start;
+  padding: 9px 22px;
+  font-size: 13.5px;
+}
+
+.studio-create__kinds {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.studio-kind-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 11px;
+  border: 1px solid var(--hud-bd);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.studio-kind-preview strong {
+  display: block;
+  color: var(--hud-tx);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.studio-kind-preview p {
+  margin: 0;
+  color: var(--hud-tx-m);
+  font-size: 10.5px;
+  line-height: 1.3;
+}
+
+/* ── Responsive ── */
+
+@media (max-width: 1100px) {
+  .studio-body {
+    grid-template-columns: 270px minmax(0, 1fr);
+  }
+
+  .studio-context {
+    display: none;
+  }
+}
+
+@media (max-width: 820px) {
+  .lesson-studio-backdrop {
+    padding: 8px;
+  }
+
+  .studio-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 38%) minmax(0, 1fr);
+  }
+
+  .studio-outline {
+    border-right: none;
+    border-bottom: 1px solid var(--hud-bd);
+  }
+
+  .studio-create {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 22px;
+  }
+
+  .studio-main {
+    padding: 14px 16px 0;
+  }
+
+  .studio-editor__savebar {
+    margin: 0 -16px;
+    padding: 10px 16px 12px;
+  }
 }
 
 /* Student detail panel — dark theme (appears alongside right panel) */

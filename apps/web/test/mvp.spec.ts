@@ -44,6 +44,38 @@ async function createRoomWithInvite(request: APIRequestContext) {
   return { room: roomWithManifest.room, invite };
 }
 
+async function expandHudCard(page: Page, heading: RegExp) {
+  const headingButton = page.getByRole("button", { name: heading });
+  await expect(headingButton).toBeVisible({ timeout: 15_000 });
+  if ((await headingButton.getAttribute("aria-expanded")) !== "true") {
+    await headingButton.click();
+  }
+}
+
+/** Opens the full-screen Lesson Builder and creates a lesson run with the given title. */
+async function createLessonInBuilder(page: Page, title: string) {
+  await expandHudCard(page, /^lesson script/i);
+  await page.getByTestId("open-lesson-studio").click();
+  await expect(page.getByTestId("lesson-studio")).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId("lesson-run-title").fill(title);
+  await page.getByTestId("init-lesson-run").click();
+  await expect(page.getByTestId("add-lesson-step-instruction")).toBeVisible({ timeout: 10_000 });
+}
+
+/** Starts the run from the builder (closes it), then expands the Lesson Run HUD card. */
+async function startLessonFromBuilder(page: Page) {
+  await page.getByTestId("lesson-studio-start").click();
+  await expect(page.getByTestId("lesson-studio")).toHaveCount(0, { timeout: 10_000 });
+  await expandHudCard(page, /^lesson run/i);
+}
+
+/** The recap modal auto-opens for teachers when a run ends; close it. */
+async function dismissLessonRecap(page: Page) {
+  await expect(page.getByTestId("lesson-recap-panel")).toBeVisible({ timeout: 10_000 });
+  await page.getByRole("button", { name: /close recap/i }).click();
+  await expect(page.getByTestId("lesson-recap-panel")).toHaveCount(0);
+}
+
 test("teacher can create a room, move, and switch between 3D and 2D", async ({ page }) => {
   await page.goto("/legacy");
   await expect(page.getByRole("heading", { name: /legacy rooms/i })).toBeVisible();
@@ -151,19 +183,18 @@ test("teacher can author and run a three-step lesson while a student joins mid-r
   await page.goto(`/rooms/${room.id}`, { waitUntil: "commit" });
   await expect(page.getByTestId("participant-dev-teacher")).toContainText("Ms. Rivera", { timeout: 20_000 });
 
-  await page.getByTestId("lesson-run-title").fill("Forces warmup");
-  await page.getByTestId("init-lesson-run").click();
-  await expect(page.getByText("Lesson Script")).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByTestId("lesson-script-dock")).toBeVisible({ timeout: 10_000 });
+  await createLessonInBuilder(page, "Forces warmup");
 
   await page.getByTestId("add-lesson-step-instruction").click();
   await page.getByTestId("lesson-instruction-body").fill("Read the diagram silently.");
   await page.getByTestId("save-lesson-step").click();
+  await expect(page.getByTestId("lesson-step-save-state")).toHaveText("Saved");
   await page.getByTestId("add-lesson-step-focus-board").click();
+  await expect(page.getByTestId("lesson-step-list")).toContainText("Look at the board");
   await page.getByTestId("add-lesson-step-private-check").click();
   await expect(page.getByTestId("lesson-step-list")).toContainText("Quick check");
 
-  await page.getByTestId("start-lesson-run").click();
+  await startLessonFromBuilder(page);
   await expect(page.getByTestId("lesson-run-current")).toContainText("Instruction", { timeout: 10_000 });
   await page.getByTestId("advance-lesson-step").click();
   await expect(page.getByTestId("lesson-run-current")).toContainText("Look at the board", { timeout: 10_000 });
@@ -180,6 +211,8 @@ test("teacher can author and run a three-step lesson while a student joins mid-r
   await expect(studentPage.getByTestId("lesson-student-callout")).toContainText("Answer the active check", { timeout: 10_000 });
   await expect(studentPage.getByLabel("Private checks")).toContainText("What do you notice?", { timeout: 10_000 });
   await page.getByTestId("advance-lesson-step").click();
+  await dismissLessonRecap(page);
+  await expandHudCard(page, /^lesson timeline/i);
   await expect(page.getByTestId("lesson-timeline")).toContainText("Quick check", { timeout: 10_000 });
 });
 
@@ -190,15 +223,17 @@ test("lesson hud timers remain visible after advancing to the next step", async 
   await page.goto(`/rooms/${room.id}`, { waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("participant-dev-teacher")).toContainText("Ms. Rivera", { timeout: 20_000 });
 
-  await page.getByTestId("lesson-run-title").fill("Timer overlap");
-  await page.getByTestId("init-lesson-run").click();
+  await createLessonInBuilder(page, "Timer overlap");
 
   await page.getByTestId("add-lesson-step-timer").click();
   await page.getByTestId("save-lesson-step").click();
+  await expect(page.getByTestId("lesson-step-save-state")).toHaveText("Saved");
   await page.getByTestId("add-lesson-step-instruction").click();
+  await expect(page.getByTestId("lesson-step-list")).toContainText("Instruction");
   await page.getByTestId("save-lesson-step").click();
+  await expect(page.getByTestId("lesson-step-save-state")).toHaveText("Saved");
 
-  await page.getByTestId("start-lesson-run").click();
+  await startLessonFromBuilder(page);
   await expect(page.getByTestId("lesson-run-current")).toContainText("Work timer", { timeout: 10_000 });
   await expect(page.getByTestId("lesson-timer-hud")).toContainText("Work time");
 
@@ -220,8 +255,7 @@ test("lesson quick-check multiple-choice choices accept new lines", async ({ pag
   await page.goto(`/rooms/${room.id}`, { waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("participant-dev-teacher")).toContainText("Ms. Rivera", { timeout: 20_000 });
 
-  await page.getByTestId("lesson-run-title").fill("Choice authoring");
-  await page.getByTestId("init-lesson-run").click();
+  await createLessonInBuilder(page, "Choice authoring");
   await page.getByTestId("add-lesson-step-private-check").click();
   await page.getByLabel("Prompt type").selectOption("multiple-choice");
   const choices = page.getByLabel("Choices, one per line");
@@ -244,12 +278,12 @@ test("group-work lesson steps assign students to a board zone", async ({ context
   await expect(studentPage.getByTestId("participant-dev-student")).toContainText("Avery Student", { timeout: 20_000 });
   await expect(page.getByTestId("participant-dev-student")).toContainText("Avery Student", { timeout: 10_000 });
 
-  await page.getByTestId("lesson-run-title").fill("Group zone");
-  await page.getByTestId("init-lesson-run").click();
+  await createLessonInBuilder(page, "Group zone");
   await page.getByTestId("add-lesson-step-group-work").click();
   await page.getByTestId("save-lesson-step").click();
+  await expect(page.getByTestId("lesson-step-save-state")).toHaveText("Saved");
 
-  await page.getByTestId("start-lesson-run").click();
+  await startLessonFromBuilder(page);
   await expect(page.getByTestId("lesson-run-current")).toContainText("Group work", { timeout: 10_000 });
   await expect(studentPage.getByTestId("lesson-student-callout")).toContainText("Team A", { timeout: 10_000 });
   await expect(studentPage.getByTestId("lesson-student-callout")).toContainText("Main board");
@@ -320,17 +354,16 @@ test("existing three-step lesson flow is unaffected when a non-default skin is p
   await page.goto(`/rooms/${room.id}`, { waitUntil: "commit" });
   await expect(page.getByTestId("participant-dev-teacher")).toContainText("Ms. Rivera", { timeout: 20_000 });
 
-  await page.getByTestId("lesson-run-title").fill("Forces warmup (skin smoke)");
-  await page.getByTestId("init-lesson-run").click();
-  await expect(page.getByTestId("lesson-script-dock")).toBeVisible({ timeout: 10_000 });
+  await createLessonInBuilder(page, "Forces warmup (skin smoke)");
 
   await page.getByTestId("add-lesson-step-instruction").click();
   await page.getByTestId("lesson-instruction-body").fill("Read the diagram silently.");
   await page.getByTestId("save-lesson-step").click();
+  await expect(page.getByTestId("lesson-step-save-state")).toHaveText("Saved");
   await page.getByTestId("add-lesson-step-private-check").click();
   await expect(page.getByTestId("lesson-step-list")).toContainText("Quick check");
 
-  await page.getByTestId("start-lesson-run").click();
+  await startLessonFromBuilder(page);
   await expect(page.getByTestId("lesson-run-current")).toContainText("Instruction", { timeout: 10_000 });
 
   const studentPage = await context.newPage();
@@ -346,5 +379,7 @@ test("existing three-step lesson flow is unaffected when a non-default skin is p
   await page.getByTestId("advance-lesson-step").click();
   await expect(page.getByTestId("lesson-run-current")).toContainText("Quick check", { timeout: 10_000 });
   await page.getByTestId("advance-lesson-step").click();
+  await dismissLessonRecap(page);
+  await expandHudCard(page, /^lesson timeline/i);
   await expect(page.getByTestId("lesson-timeline")).toContainText("Quick check", { timeout: 10_000 });
 });

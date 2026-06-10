@@ -100,7 +100,7 @@ import { BoardAccessSidePanel } from "./BoardAccessSidePanel";
 import { activeGrantMap, Roster, StudentDetailPanel } from "./Roster";
 import { useClassroomState } from "../lib/useClassroomState";
 import { useLessonRun } from "../lib/useLessonRun";
-import { LessonAuthoringPanel } from "./LessonAuthoringPanel";
+import { LessonScriptCard, LessonStudio } from "./LessonStudio";
 import { LessonRunControls } from "./LessonRunControls";
 import { LessonStudentCallout } from "./LessonStudentCallout";
 import { LessonTimelinePanel } from "./LessonTimelinePanel";
@@ -268,6 +268,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   const [hallpassElapsedSeconds, setHallpassElapsedSeconds] = useState(0);
   const [recapOpen, setRecapOpen] = useState(false);
   const [recapRunId, setRecapRunId] = useState<string | null>(null);
+  const [lessonStudioOpen, setLessonStudioOpen] = useState(false);
   const [fullscreenObjectId, setFullscreenObjectId] = useState<string | null>(null);
   const prevLessonStatusRef = useRef<string | undefined>(undefined);
   const waveTriggeredRef = useRef(false);
@@ -2594,7 +2595,6 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     (lesson.run?.status === "running" || lesson.run?.status === "paused") &&
     lesson.currentStep?.kind === "private-check";
   const helpDetailPanelOpen = roomTypeFeatures.peoplePanelTeacherControls && Boolean(helpBoardAccessUserId);
-  const lessonScriptDockOpen = roomTypeFeatures.lessons && CLIENT_TUNING.enableClassroomLessons && role === "teacher" && Boolean(lesson.run);
   const roomObjectInspectorDockOpen =
     roomObjectsEnabled &&
     role === "teacher" &&
@@ -2603,8 +2603,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     aiWorldHostEnabled &&
     aiWorldHost.panelOpen &&
     Boolean(aiWorldHost.host || aiWorldHost.hasStudyFiles);
-  const roomObjectInspectorStacked =
-    helpDetailPanelOpen || lessonScriptDockOpen || aiWorldHostGuidePanelOpen;
+  const roomObjectInspectorStacked = helpDetailPanelOpen || aiWorldHostGuidePanelOpen;
   const avatarEditorLocked =
     classroom.state?.lessonRun?.status === "running" &&
     classroom.state?.avatarEditorLocked === true;
@@ -3309,22 +3308,12 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
                   if (lesson.run?.id) openLessonRecap(lesson.run.id);
                 }}
               />
-              {!lesson.run ? (
-                <LessonAuthoringPanel
-                  run={lesson.run}
-                  state={classroom.state}
-                  manifest={manifest}
-                  participants={participantList.map((participant) => ({
-                    id: participant.id,
-                    displayName: participant.displayName,
-                    role: participant.role
-                  }))}
-                  loading={lesson.loading}
-                  error={lesson.error}
-                  runAction={lesson.runAction}
-                  stepStatus={lesson.stepStatus}
-                />
-              ) : null}
+              <LessonScriptCard
+                run={lesson.run}
+                loading={lesson.loading}
+                error={lesson.error}
+                onOpenStudio={() => setLessonStudioOpen(true)}
+              />
               <LessonTimelinePanel run={lesson.run} />
             </>
           ) : null}
@@ -3575,29 +3564,22 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           </div>
         </aside>
       ) : null}
-      {roomTypeFeatures.lessons && CLIENT_TUNING.enableClassroomLessons && role === "teacher" && lesson.run ? (
-        <aside
-          className={`room-hud-right-secondary${helpDetailPanelOpen || aiWorldHostGuidePanelOpen ? " room-hud-right-secondary--stacked" : ""}`}
-          aria-label="Lesson script"
-          data-testid="lesson-script-dock"
-        >
-          <div className="hud-panel">
-            <LessonAuthoringPanel
-              run={lesson.run}
-              state={classroom.state}
-              manifest={manifest}
-              participants={participantList.map((participant) => ({
-                id: participant.id,
-                displayName: participant.displayName,
-                role: participant.role
-              }))}
-              loading={lesson.loading}
-              error={lesson.error}
-              runAction={lesson.runAction}
-              stepStatus={lesson.stepStatus}
-            />
-          </div>
-        </aside>
+      {roomTypeFeatures.lessons && CLIENT_TUNING.enableClassroomLessons && role === "teacher" && lessonStudioOpen ? (
+        <LessonStudio
+          run={lesson.run}
+          state={classroom.state}
+          manifest={manifest}
+          participants={participantList.map((participant) => ({
+            id: participant.id,
+            displayName: participant.displayName,
+            role: participant.role
+          }))}
+          loading={lesson.loading}
+          error={lesson.error}
+          runAction={lesson.runAction}
+          stepStatus={lesson.stepStatus}
+          onClose={() => setLessonStudioOpen(false)}
+        />
       ) : null}
       {roomTypeFeatures.peoplePanelTeacherControls ? (() => {
         if (helpBoardAccessUserId && manifest && classroom.state) {

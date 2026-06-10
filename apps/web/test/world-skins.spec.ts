@@ -78,6 +78,38 @@ async function classroomAction<T>(request: APIRequestContext, roomId: string, da
   return postJson<T>(request, `/v1/rooms/${roomId}/classroom/actions`, TEACHER, data);
 }
 
+async function expandHudCard(page: Page, heading: RegExp) {
+  const headingButton = page.getByRole("button", { name: heading });
+  await expect(headingButton).toBeVisible({ timeout: 15_000 });
+  if ((await headingButton.getAttribute("aria-expanded")) !== "true") {
+    await headingButton.click();
+  }
+}
+
+/** Opens the full-screen Lesson Builder and creates a lesson run with the given title. */
+async function createLessonInBuilder(page: Page, title: string) {
+  await expandHudCard(page, /^lesson script/i);
+  await page.getByTestId("open-lesson-studio").click();
+  await expect(page.getByTestId("lesson-studio")).toBeVisible({ timeout: 10_000 });
+  await page.getByTestId("lesson-run-title").fill(title);
+  await page.getByTestId("init-lesson-run").click();
+  await expect(page.getByTestId("add-lesson-step-instruction")).toBeVisible({ timeout: 10_000 });
+}
+
+/** Starts the run from the builder (closes it), then expands the Lesson Run HUD card. */
+async function startLessonFromBuilder(page: Page) {
+  await page.getByTestId("lesson-studio-start").click();
+  await expect(page.getByTestId("lesson-studio")).toHaveCount(0, { timeout: 10_000 });
+  await expandHudCard(page, /^lesson run/i);
+}
+
+/** The recap modal auto-opens for teachers when a run ends; close it. */
+async function dismissLessonRecap(page: Page) {
+  await expect(page.getByTestId("lesson-recap-panel")).toBeVisible({ timeout: 10_000 });
+  await page.getByRole("button", { name: /close recap/i }).click();
+  await expect(page.getByTestId("lesson-recap-panel")).toHaveCount(0);
+}
+
 async function createSkinsRoom(request: APIRequestContext) {
   const suffix = Date.now().toString(36);
   const classRecord = await postJson<{ id: string }>(request, "/v1/classes", TEACHER, {
@@ -382,18 +414,17 @@ test("three-step lesson still works when a skin is active mid-run", async ({
   // Active skin hydrates for teacher
   await expectWorldSkinSlug(page, "mars-surface");
 
-  // Lesson authoring
-  await page.getByTestId("lesson-run-title").fill("Mars Forces");
-  await page.getByTestId("init-lesson-run").click();
-  await expect(page.getByTestId("lesson-script-dock")).toBeVisible({ timeout: 10_000 });
+  // Lesson authoring in the full-screen builder
+  await createLessonInBuilder(page, "Mars Forces");
 
   await page.getByTestId("add-lesson-step-instruction").click();
   await page.getByTestId("lesson-instruction-body").fill("Observe the Martian terrain.");
   await page.getByTestId("save-lesson-step").click();
+  await expect(page.getByTestId("lesson-step-save-state")).toHaveText("Saved");
   await page.getByTestId("add-lesson-step-private-check").click();
   await expect(page.getByTestId("lesson-step-list")).toContainText("Quick check");
 
-  await page.getByTestId("start-lesson-run").click();
+  await startLessonFromBuilder(page);
   await expect(page.getByTestId("lesson-run-current")).toContainText("Instruction", { timeout: 10_000 });
 
   // Student joins mid-run
@@ -414,5 +445,7 @@ test("three-step lesson still works when a skin is active mid-run", async ({
   await page.getByTestId("advance-lesson-step").click();
   await expect(page.getByTestId("lesson-run-current")).toContainText("Quick check", { timeout: 10_000 });
   await page.getByTestId("advance-lesson-step").click();
+  await dismissLessonRecap(page);
+  await expandHudCard(page, /^lesson timeline/i);
   await expect(page.getByTestId("lesson-timeline")).toContainText("Quick check", { timeout: 10_000 });
 });
