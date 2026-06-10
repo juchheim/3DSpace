@@ -3569,6 +3569,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           run={lesson.run}
           state={classroom.state}
           manifest={manifest}
+          wallAnchors={allWallAnchors}
           participants={participantList.map((participant) => ({
             id: participant.id,
             displayName: participant.displayName,

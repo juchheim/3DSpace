@@ -10,6 +10,7 @@ import type {
   LessonStepKind,
   LessonStepPayload,
   RoomManifest,
+  WallAnchor,
   WallObjectType
 } from "@3dspace/contracts";
 import { HudCard } from "./HudCard";
@@ -42,16 +43,30 @@ const SHARE_TYPES: WallObjectType[] = ["note", "image.file", "whiteboard", "came
 const DEFAULT_GROUP_COLOR = "#389060";
 const DEFAULT_GROUP_HOLD = { enabled: true, mode: "hard" as const, radiusMeters: 2.5 };
 
-function firstAnchorId(manifest: RoomManifest | null | undefined) {
-  return manifest?.wallAnchors[0]?.id ?? "";
+function resolveLessonWallAnchors(manifest: RoomManifest | null | undefined, wallAnchors?: WallAnchor[]) {
+  if (wallAnchors?.length) return wallAnchors;
+  return manifest?.wallAnchors ?? [];
+}
+
+function firstAnchorId(anchors: WallAnchor[]) {
+  return anchors[0]?.id ?? "";
+}
+
+function normalizeTimerPayload(
+  data: Extract<LessonStepPayload, { kind: "timer" }>["data"],
+  anchors: WallAnchor[]
+) {
+  if (data.placement !== "wall") return data;
+  const wallAnchorId = data.wallAnchorId ?? firstAnchorId(anchors);
+  return wallAnchorId && wallAnchorId !== data.wallAnchorId ? { ...data, wallAnchorId } : data;
 }
 
 function firstStudentId(participants: ParticipantOption[]) {
   return participants.find((participant) => participant.role === "student")?.id ?? participants[0]?.id ?? "";
 }
 
-function defaultStep(kind: LessonStepKind, manifest: RoomManifest | null | undefined, participants: ParticipantOption[]): LessonStepInput {
-  const anchorId = firstAnchorId(manifest);
+function defaultStep(kind: LessonStepKind, anchors: WallAnchor[], participants: ParticipantOption[]): LessonStepInput {
+  const anchorId = firstAnchorId(anchors);
   const studentId = firstStudentId(participants);
   if (kind === "focus-board") {
     return {
@@ -142,13 +157,13 @@ function isNonArchivedGroup(group: NonNullable<ClassroomState["groups"]>[number]
   return group.status !== "archived";
 }
 
-function anchorLabel(anchorId: string | undefined, manifest: RoomManifest | null | undefined) {
+function anchorLabel(anchorId: string | undefined, anchors: WallAnchor[]) {
   if (!anchorId) return "";
-  return manifest?.wallAnchors.find((anchor) => anchor.id === anchorId)?.label ?? anchorId;
+  return anchors.find((anchor) => anchor.id === anchorId)?.label ?? anchorId;
 }
 
-function brokenAssetMessage(step: LessonStep, manifest: RoomManifest | null | undefined, state: ClassroomState | null, participants: ParticipantOption[]) {
-  const anchorIds = new Set((manifest?.wallAnchors ?? []).map((anchor) => anchor.id));
+function brokenAssetMessage(step: LessonStep, anchors: WallAnchor[], state: ClassroomState | null, participants: ParticipantOption[]) {
+  const anchorIds = new Set(anchors.map((anchor) => anchor.id));
   const userIds = new Set(participants.map((participant) => participant.id));
   const payload = step.payload;
   if (payload.kind === "focus-board" && !anchorIds.has(payload.data.anchorId)) return "This step references a missing board.";
@@ -175,10 +190,10 @@ function formatTimer(totalSeconds: number) {
   return seconds === 0 ? `${minutes}m` : `${minutes}m ${seconds}s`;
 }
 
-function stepGlance(step: LessonStep, manifest: RoomManifest | null | undefined, participants: ParticipantOption[]) {
+function stepGlance(step: LessonStep, anchors: WallAnchor[], participants: ParticipantOption[]) {
   const payload = step.payload;
   if (payload.kind === "instruction") return payload.data.body;
-  if (payload.kind === "focus-board") return `${anchorLabel(payload.data.anchorId, manifest) || "Board"} · ${payload.data.mode}`;
+  if (payload.kind === "focus-board") return `${anchorLabel(payload.data.anchorId, anchors) || "Board"} · ${payload.data.mode}`;
   if (payload.kind === "private-check") {
     const type = payload.data.promptType === "multiple-choice" ? "Multiple choice" : payload.data.promptType === "confidence" ? "Confidence" : "Short answer";
     return `${type} · ${payload.data.question}`;
@@ -187,13 +202,13 @@ function stepGlance(step: LessonStep, manifest: RoomManifest | null | undefined,
     if (payload.data.existingGroupId) return "Reuses an existing group";
     const group = payload.data.newGroup;
     if (!group) return "Group work";
-    const board = anchorLabel(group.targetWallAnchorId, manifest);
+    const board = anchorLabel(group.targetWallAnchorId, anchors);
     return `${group.label} · ${group.memberUserIds.length} member${group.memberUserIds.length === 1 ? "" : "s"}${board ? ` · ${board}` : ""}`;
   }
   if (payload.kind === "timer") return `${formatTimer(payload.data.durationSeconds)} · ${payload.data.label}`;
   if (payload.kind === "student-share") {
     const student = participants.find((participant) => participant.id === payload.data.userId);
-    return `${student?.displayName ?? "Student"} → ${anchorLabel(payload.data.wallAnchorId, manifest) || "board"}`;
+    return `${student?.displayName ?? "Student"} → ${anchorLabel(payload.data.wallAnchorId, anchors) || "board"}`;
   }
   return payload.data.reflectionPrompt;
 }
@@ -272,12 +287,14 @@ export function LessonScriptCard({
 function StudioStepEditor({
   step,
   manifest,
+  wallAnchors,
   state,
   participants,
   onSave
 }: {
   step: LessonStep;
   manifest: RoomManifest | null | undefined;
+  wallAnchors: WallAnchor[];
   state: ClassroomState | null;
   participants: ParticipantOption[];
   onSave(input: { title: string; notes?: string; payload: LessonStepPayload }): Promise<void>;
@@ -317,6 +334,17 @@ function StudioStepEditor({
     // in-progress edits because new object references retrigger the effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step.id]);
+
+  useEffect(() => {
+    if (payload.kind !== "timer" || payload.data.placement !== "wall" || payload.data.wallAnchorId) return;
+    const anchorId = firstAnchorId(wallAnchors);
+    if (!anchorId) return;
+    setPayload((current) =>
+      current.kind === "timer" && current.data.placement === "wall" && !current.data.wallAnchorId
+        ? { ...current, data: { ...current.data, wallAnchorId: anchorId } }
+        : current
+    );
+  }, [step.id, wallAnchors, payload.kind, payload.kind === "timer" ? payload.data.placement : null, payload.kind === "timer" ? payload.data.wallAnchorId : null]);
 
   const dirty = useMemo(() => {
     if (title !== step.title) return true;
@@ -362,8 +390,8 @@ function StudioStepEditor({
       label: "Team",
       color: DEFAULT_GROUP_COLOR,
       memberUserIds: [],
-      targetWallAnchorId: firstAnchorId(manifest) || undefined,
-      hold: firstAnchorId(manifest) ? DEFAULT_GROUP_HOLD : undefined
+      targetWallAnchorId: firstAnchorId(wallAnchors) || undefined,
+      hold: firstAnchorId(wallAnchors) ? DEFAULT_GROUP_HOLD : undefined
     };
     setData({ existingGroupId: undefined, newGroup: updater(currentGroup) });
   }
@@ -371,7 +399,12 @@ function StudioStepEditor({
   async function save() {
     setSaving(true);
     try {
-      const next: { title: string; notes?: string; payload: LessonStepPayload } = { title: title.trim() || step.title, payload };
+      let nextPayload = payload;
+      if (payload.kind === "timer") {
+        nextPayload = { ...payload, data: normalizeTimerPayload(payload.data, wallAnchors) };
+        if (nextPayload !== payload) setPayload(nextPayload);
+      }
+      const next: { title: string; notes?: string; payload: LessonStepPayload } = { title: title.trim() || step.title, payload: nextPayload };
       if (notes.trim()) next.notes = notes.trim();
       await onSave(next);
       setSavedAt(Date.now());
@@ -380,7 +413,7 @@ function StudioStepEditor({
     }
   }
 
-  const anchors = manifest?.wallAnchors ?? [];
+  const anchors = wallAnchors;
   const students = participants.filter((participant) => participant.role === "student");
   const meta = stepKindMeta(step.kind);
 
@@ -513,8 +546,8 @@ function StudioStepEditor({
                     label: "Team A",
                     color: DEFAULT_GROUP_COLOR,
                     memberUserIds: students.map((participant) => participant.id),
-                    targetWallAnchorId: firstAnchorId(manifest) || undefined,
-                    hold: firstAnchorId(manifest) ? DEFAULT_GROUP_HOLD : undefined
+                    targetWallAnchorId: firstAnchorId(wallAnchors) || undefined,
+                    hold: firstAnchorId(wallAnchors) ? DEFAULT_GROUP_HOLD : undefined
                   }
                 });
               }}
@@ -534,7 +567,7 @@ function StudioStepEditor({
               {(() => {
                 const existingGroup = (state?.groups ?? []).find((group) => group.id === payload.data.existingGroupId);
                 if (!existingGroup) return <p className="studio-hint">This step references a missing group.</p>;
-                const boardLabel = anchorLabel(existingGroup.targetWallAnchorId, manifest);
+                const boardLabel = anchorLabel(existingGroup.targetWallAnchorId, wallAnchors);
                 return (
                   <p className="studio-hint">
                     {existingGroup.memberUserIds.length} member{existingGroup.memberUserIds.length === 1 ? "" : "s"}
@@ -664,7 +697,20 @@ function StudioStepEditor({
           <div className="studio-row">
             <label className="studio-field">
               <span>Placement</span>
-              <select value={payload.data.placement} onChange={(event) => setData({ placement: event.target.value })}>
+              <select
+                value={payload.data.placement}
+                onChange={(event) => {
+                  const placement = event.target.value;
+                  if (placement === "wall") {
+                    setData({
+                      placement,
+                      wallAnchorId: payload.data.wallAnchorId ?? (firstAnchorId(anchors) || undefined)
+                    });
+                  } else {
+                    setData({ placement });
+                  }
+                }}
+              >
                 <option value="hud">HUD</option>
                 <option value="wall">Wall</option>
               </select>
@@ -673,7 +719,7 @@ function StudioStepEditor({
             {payload.data.placement === "wall" ? (
               <label className="studio-field">
                 <span>Board</span>
-                <select value={payload.data.wallAnchorId ?? firstAnchorId(manifest)} onChange={(event) => setData({ wallAnchorId: event.target.value })}>
+                <select value={payload.data.wallAnchorId ?? firstAnchorId(anchors)} onChange={(event) => setData({ wallAnchorId: event.target.value })}>
                   {anchors.map((anchor) => <option key={anchor.id} value={anchor.id}>{anchor.label}</option>)}
                 </select>
               </label>
@@ -845,6 +891,7 @@ export function LessonStudio({
   run,
   state,
   manifest,
+  wallAnchors: wallAnchorsProp,
   participants,
   loading,
   error,
@@ -855,6 +902,7 @@ export function LessonStudio({
   run: LessonRun | null;
   state: ClassroomState | null;
   manifest?: RoomManifest | null | undefined;
+  wallAnchors?: WallAnchor[];
   participants: ParticipantOption[];
   loading: boolean;
   error: string;
@@ -866,12 +914,13 @@ export function LessonStudio({
   const [selectedStepId, setSelectedStepId] = useState("");
   const [busy, setBusy] = useState("");
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const wallAnchors = useMemo(() => resolveLessonWallAnchors(manifest, wallAnchorsProp), [manifest, wallAnchorsProp]);
 
   const selectedStep = useMemo(
     () => run?.steps.find((step) => step.id === selectedStepId) ?? run?.steps[0] ?? null,
     [run, selectedStepId]
   );
-  const brokenMessage = selectedStep ? brokenAssetMessage(selectedStep, manifest, state, participants) : "";
+  const brokenMessage = selectedStep ? brokenAssetMessage(selectedStep, wallAnchors, state, participants) : "";
 
   useEffect(() => {
     if (run?.title) setTitle(run.title);
@@ -916,10 +965,10 @@ export function LessonStudio({
     (total, step) => (step.payload.kind === "timer" ? total + step.payload.data.durationSeconds : total),
     0
   );
-  const anchors = manifest?.wallAnchors ?? [];
+  const anchors = wallAnchors;
   const students = participants.filter((participant) => participant.role === "student");
   const issues = (run?.steps ?? [])
-    .map((step, index) => ({ step, index, message: brokenAssetMessage(step, manifest, state, participants) }))
+    .map((step, index) => ({ step, index, message: brokenAssetMessage(step, wallAnchors, state, participants) }))
     .filter((entry) => entry.message);
 
   return (
@@ -1050,7 +1099,7 @@ export function LessonStudio({
                         className="studio-add-btn"
                         data-testid={`add-lesson-step-${meta.kind}`}
                         disabled={busy === meta.kind || !editable}
-                        onClick={() => void execute(meta.kind, { type: "add-lesson-step", step: defaultStep(meta.kind, manifest, participants) })}
+                        onClick={() => void execute(meta.kind, { type: "add-lesson-step", step: defaultStep(meta.kind, wallAnchors, participants) })}
                       >
                         <span className={`studio-chip studio-chip--${meta.kind}`}>{meta.chip}</span>
                         <span className="studio-add-btn__text">
@@ -1070,7 +1119,7 @@ export function LessonStudio({
                     {run.steps.map((step, index) => {
                       const status = stepStatus(index);
                       const meta = stepKindMeta(step.kind);
-                      const broken = Boolean(brokenAssetMessage(step, manifest, state, participants));
+                      const broken = Boolean(brokenAssetMessage(step, wallAnchors, state, participants));
                       return (
                         <li
                           key={step.id}
@@ -1084,7 +1133,7 @@ export function LessonStudio({
                                 {step.title}
                                 {broken ? <i className="studio-step__warn" title="This step references something missing" /> : null}
                               </strong>
-                              <em>{stepGlance(step, manifest, participants) || meta.label}</em>
+                              <em>{stepGlance(step, wallAnchors, participants) || meta.label}</em>
                             </span>
                             <span className={`studio-chip studio-step__chip studio-chip--${step.kind}`}>{meta.chip}</span>
                           </button>
@@ -1130,6 +1179,7 @@ export function LessonStudio({
                     key={selectedStep.id}
                     step={selectedStep}
                     manifest={manifest}
+                    wallAnchors={wallAnchors}
                     state={state}
                     participants={participants}
                     onSave={(input) => execute(`save-${selectedStep.id}`, { type: "update-lesson-step", stepId: selectedStep.id, ...input })}
