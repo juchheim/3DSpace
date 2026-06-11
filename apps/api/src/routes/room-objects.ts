@@ -18,6 +18,7 @@ import {
   RoomObjectSchema,
   RoomObjectTemplateSchema,
   RoomObjectTouchRequestSchema,
+  RoomTypeSchema,
   UpdateRoomObjectRequestSchema,
   type RoomObjectRealtimeMessage,
   type RoomSettings,
@@ -83,14 +84,16 @@ function roomObjectStoragePrefix(classId: string, kind: "assets" | "thumbnails")
   return `room-objects/classes/${classId}/${kind}/`;
 }
 
+function roomTypeForObjectTemplates(room: { type?: RoomType | string | null | undefined }): RoomType {
+  const parsed = RoomTypeSchema.safeParse(room.type);
+  return parsed.success ? parsed.data : "classroom";
+}
+
 function assertRoomObjectTemplateVisibleForRoomType(
   template: { visibleRoomTypes: RoomType[] },
   room: { type?: RoomType | string | null | undefined }
 ) {
-  const roomType: RoomType =
-    room.type === "workforce-training" ? "workforce-training" :
-    room.type === "free-for-all" ? "free-for-all" :
-    "classroom";
+  const roomType = roomTypeForObjectTemplates(room);
   if (!template.visibleRoomTypes.includes(roomType)) {
     throw notFound("Room object template is unavailable for this room type");
   }
@@ -106,10 +109,7 @@ async function assertRoomObjectTemplateResolvable(
   if (template.source === "ai-generated") {
     return;
   }
-  const roomType: RoomType =
-    room.type === "workforce-training" ? "workforce-training" :
-    room.type === "free-for-all" ? "free-for-all" :
-    "classroom";
+  const roomType = roomTypeForObjectTemplates(room);
   const visible = await repository.listRoomObjectTemplatesVisibleTo(auth.userId, roomType);
   if (!visible.some((entry) => entry.id === template.id)) {
     throw notFound("Room object template not found");

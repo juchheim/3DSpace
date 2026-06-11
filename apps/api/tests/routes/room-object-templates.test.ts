@@ -208,6 +208,33 @@ describe("room object templates", () => {
     await app.close();
   });
 
+  it("lets teachers place custom templates uploaded in verse rooms", async () => {
+    const app = await buildApp({ config: roomObjectsConfig(), repository: new MemoryRepository() });
+    const teacherId = "teacher-ro-verse-instantiate";
+    const { roomWithManifest } = await createClassAndRoom(app, teacherId, "skill-verse");
+    const roomId = roomWithManifest.room.id;
+    await enableRoomObjects(app, roomId, teacherId, { customUploadsEnabled: true });
+
+    const { response: createResponse } = await createCustomRoomObjectTemplate(app, {
+      roomId,
+      teacherId,
+      glb: await createTinyGlb()
+    });
+    expect(createResponse.statusCode).toBe(200);
+    const template = createResponse.json().template;
+    expect(template.visibleRoomTypes).toEqual(["skill-verse"]);
+
+    const instantiate = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/objects`,
+      headers: authHeaders(teacherId, "Ms. Rivera"),
+      payload: { templateId: template.id }
+    });
+    expect(instantiate.statusCode).toBe(200);
+    expect(instantiate.json().object.templateId).toBe(template.id);
+    await app.close();
+  });
+
   it("rejects placing classroom-only templates in workforce-training rooms", async () => {
     const app = await buildApp({
       config: roomObjectsConfig({ ENABLE_WORKFORCE_TRAINING: "true" }),
