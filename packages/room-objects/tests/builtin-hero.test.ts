@@ -12,7 +12,7 @@ const builtin = JSON.parse(readFileSync(join(here, "../catalog/builtin.json"), "
 
 describe("room object builtin catalog", () => {
   it("ships the Phase 0 hero plus additional procedural builtins", () => {
-    expect(builtin).toHaveLength(6);
+    expect(builtin).toHaveLength(7);
     const entry = builtin[0] as Record<string, unknown>;
     expect(entry.slug).toBe("water-molecule");
     expect(entry.proceduralId).toBe("water-molecule");
@@ -23,6 +23,7 @@ describe("room object builtin catalog", () => {
     expect(builtin.some((template) => template.slug === "stegosaurus-glb")).toBe(true);
     expect(builtin.some((template) => template.slug === "earth-globe")).toBe(true);
     expect(builtin.some((template) => template.slug === "heart-glb")).toBe(true);
+    expect(builtin.some((template) => template.slug === "dice-glb")).toBe(true);
   });
 
   it("matches hero-draft fields used at runtime", () => {
@@ -164,5 +165,28 @@ describe("room object builtin catalog", () => {
     expect(entry.triangleCount).toBe(30433);
     expect(entry.fileSizeBytes).toBe(1997792);
     expect(entry.defaultScale).toBe(0.09);
+  });
+
+  it("validates the Verse six-sided die GLB teaching object", () => {
+    const entry = RoomObjectTemplateSchema.parse(
+      builtin.find((template) => template.slug === "dice-glb")
+    );
+
+    expect(entry.displayName).toBe("Six-sided die");
+    expect(entry.category).toBe("math");
+    expect(entry.renderer).toBe("gltf");
+    expect(entry.assetUrl).toBe("https://app.invalid/room-objects/assets/dice.glb");
+    expect(entry.visibleRoomTypes).toEqual([
+      "skill-verse",
+      "culture-verse",
+      "creator-verse",
+      "food-verse",
+      "mondi-verse",
+      "work-verse"
+    ]);
+    expect(entry.thumbnailUrl).toBe("/room-objects/thumbnails/dice-glb.jpg");
+    expect(entry.triangleCount).toBe(972);
+    expect(entry.fileSizeBytes).toBe(101872);
+    expect(entry.defaultScale).toBe(0.05);
   });
 });

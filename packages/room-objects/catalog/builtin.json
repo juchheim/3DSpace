@@ -208,5 +208,39 @@
     "fileSizeBytes": 1997792,
     "triangleCount": 30433,
     "createdAt": "2026-06-11T00:00:00.000Z"
+  },
+  {
+    "id": "tpl_dice_glb",
+    "slug": "dice-glb",
+    "displayName": "Six-sided die",
+    "category": "math",
+    "description": "A textured six-sided die for probability lessons, classroom games, and quick random-number demos in Verse rooms.",
+    "renderer": "gltf",
+    "assetUrl": "https://app.invalid/room-objects/assets/dice.glb",
+    "exportable": true,
+    "kinematic": false,
+    "source": "builtin",
+    "visibleRoomTypes": [
+      "skill-verse",
+      "culture-verse",
+      "creator-verse",
+      "food-verse",
+      "mondi-verse",
+      "work-verse"
+    ],
+    "license": "CC0-1.0",
+    "attribution": "3DSpace — built-in GLB teaching model",
+    "defaultPose": {
+      "position": { "x": 0, "y": 0.05, "z": 0 },
+      "rotation": { "yaw": 0, "pitch": 0, "roll": 0 }
+    },
+    "defaultScale": 0.05,
+    "recommendedTouchPolicy": "teacher-only",
+    "defaultParameters": {},
+    "parameterSchemaJson": "{}",
+    "thumbnailUrl": "/room-objects/thumbnails/dice-glb.jpg",
+    "fileSizeBytes": 101872,
+    "triangleCount": 972,
+    "createdAt": "2026-06-11T00:00:00.000Z"
   }
 ]

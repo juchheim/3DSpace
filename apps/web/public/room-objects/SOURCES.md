@@ -46,6 +46,11 @@ The visible terminator guide is a great circle perpendicular to the same solar v
 - `assets/heart.glb`: Optimized beating-heart model for Verse room object catalogs. Source: `GLBs/heart.glb` + `scripts/prepare-heart-glb.mjs`, catalog asset via `scripts/prepare-heart-catalog-glb.mjs`.
 - `thumbnails/heart-glb.png`: Catalog thumbnail from `GLBs/heart-thumbnail.png`.
 
+## Six-sided die (Verse GLB)
+
+- `assets/dice.glb`: Textured six-sided die for Verse room object catalogs. Source: `GLBs/dice.glb`.
+- `thumbnails/dice-glb.jpg`: Catalog thumbnail rendered by `scripts/render-glb-thumbnail.mjs`.
+
 Upstream references:
 
 - Natural Earth 1:10m physical vectors: https://www.naturalearthdata.com/downloads/10m-physical-vectors
