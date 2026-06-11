@@ -37,6 +37,13 @@ export const WORLD_ASSET_CATALOG: WorldAsset[] = [
     displayName: "Round Walnut Table",
     glbUrl: "/objects/table-round-walnut.glb",
     thumbnailUrl: "/objects/thumbnails/round-table.jpg"
+  },
+  {
+    slug: "school-desk-chair2",
+    displayName: "Student Desk",
+    glbUrl: "/objects/school-desk-chair2.glb",
+    thumbnailUrl: "/objects/thumbnails/student-desk.jpg",
+    sittable: true
   }
 ];
 
