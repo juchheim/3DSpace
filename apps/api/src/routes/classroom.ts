@@ -164,8 +164,15 @@ export async function registerClassroomRoutes(app: FastifyInstance, ctx: AppCont
     const run = hydrated.lessonRun;
     if (!run || run.id !== params.runId) throw notFound("Lesson run not found");
 
+    const classRecord = await repository.getClass(room.classId);
     const memberships = await repository.listMemberships(room.classId);
-    const recap = buildLessonRecap({ memberships, room, state: hydrated, run });
+    const recap = buildLessonRecap({
+      memberships,
+      room,
+      state: hydrated,
+      run,
+      teacherUserId: classRecord?.teacherUserId
+    });
 
     const format = parseQuery(z.object({ format: z.string().optional() }), request).format;
     if (format === "csv") {

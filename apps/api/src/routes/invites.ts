@@ -38,11 +38,13 @@ export async function registerInviteRoutes(app: FastifyInstance, ctx: AppContext
     }
     const classRecord = await ctx.repository.getClass(invite.classId);
     if (!classRecord) throw notFound("Class not found");
+    const membershipRole =
+      classRecord.teacherUserId === auth.userId ? "teacher" : invite.role;
     const membership = await ctx.repository.upsertMembership({
       classId: invite.classId,
       userId: auth.userId,
       displayName: auth.displayName,
-      role: invite.role,
+      role: membershipRole,
       status: "active"
     });
     const updatedInvite = await ctx.repository.markInviteUsed(invite.code);

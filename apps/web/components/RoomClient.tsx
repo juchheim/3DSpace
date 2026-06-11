@@ -813,7 +813,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   sharedBrowserRealtimeHandlerRef.current = sharedBrowsers.handleRealtimeMessage;
   const aiWorldHostRealtimeHandlerRef = useRef(aiWorldHost.handleRealtimeMessage);
   aiWorldHostRealtimeHandlerRef.current = aiWorldHost.handleRealtimeMessage;
-  camera.lockedRef.current = classroom.state?.spotlight?.mode === "force";
+  camera.lockedRef.current = role === "student" && classroom.state?.spotlight?.mode === "force";
 
   const myActiveHallpass = useMemo(() => {
     return (classroom.state?.helpRequests ?? []).find(
@@ -1553,16 +1553,16 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     [manifest, camera.yawRef]
   );
 
-  // Force mode: snap camera to the spotlight anchor on activation
+  // Force mode: snap student camera to the spotlight anchor on activation
   const spotlight = classroom.state?.spotlight;
   useEffect(() => {
-    if (spotlight?.mode !== "force" || !spotlight.anchorId || !manifest) return;
+    if (role !== "student" || spotlight?.mode !== "force" || !spotlight.anchorId || !manifest) return;
     const anchor = manifest.wallAnchors.find((a) => a.id === spotlight.anchorId);
     if (!anchor) return;
     const pos = avatarStateRef.current?.position;
     if (!pos) return;
     camera.yawRef.current = Math.atan2(anchor.position.x - pos.x, anchor.position.z - pos.z);
-  }, [spotlight?.anchorId, spotlight?.mode, manifest, camera.yawRef]);
+  }, [role, spotlight?.anchorId, spotlight?.mode, manifest, camera.yawRef]);
 
   useEffect(() => {
     setManifest((current) => (current ? normalizeRoomManifest(current, session?.room.type ?? "classroom") : current));

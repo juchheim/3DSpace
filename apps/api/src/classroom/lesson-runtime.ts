@@ -25,6 +25,19 @@ export type ClassroomActor = {
   role: "teacher" | "student";
 };
 
+/** Active student roster for lesson gates/recap — never counts the class teacher. */
+export function activeStudentMemberships(
+  memberships: ClassMembership[],
+  teacherUserId?: string | null
+): ClassMembership[] {
+  return memberships.filter(
+    (membership) =>
+      membership.status === "active" &&
+      membership.role === "student" &&
+      membership.userId !== teacherUserId
+  );
+}
+
 export const DEFAULT_PODS_RUNTIME = {
   podsEnabled: false,
   broadcastFromUserIds: [] as string[]
@@ -352,7 +365,8 @@ export async function findExitTicketBlocker(input: {
   const submittedUserIds = new Set((reflectionCheck?.responses ?? []).map((r) => r.userId));
 
   const memberships = await input.repository.listMemberships(input.classId);
-  const expectedStudents = memberships.filter((m) => m.status === "active" && m.role === "student");
+  const classRecord = await input.repository.getClass(input.classId);
+  const expectedStudents = activeStudentMemberships(memberships, classRecord?.teacherUserId);
   const missingUserIds = expectedStudents.map((m) => m.userId).filter((id) => !submittedUserIds.has(id));
 
   if (missingUserIds.length === 0) return null;
@@ -970,8 +984,9 @@ export function buildLessonRecap(input: {
   room: { id: string; classId: string };
   state: ClassroomState;
   run: LessonRun;
+  teacherUserId?: string | null;
 }): LessonRecap {
-  const activeStudents = input.memberships.filter((m) => m.status === "active" && m.role === "student");
+  const activeStudents = activeStudentMemberships(input.memberships, input.teacherUserId);
 
   const lessonCheckIds = new Set<string>();
   for (const record of input.run.timeline) {

@@ -149,6 +149,9 @@ export async function registerRoomsCoreRoutes(app: FastifyInstance, ctx: AppCont
     let room = await repository.getRoom(params.roomId);
     if (!room) throw notFound("Room not found");
 
+    const classRecord = await repository.getClass(room.classId);
+    const isClassTeacher = classRecord?.teacherUserId === auth.userId;
+
     let membership = await repository.getMembership(room.classId, auth.userId);
     if ((!membership || membership.status !== "active") && body.inviteCode) {
       const invite = await repository.getInvite(body.inviteCode);
@@ -158,7 +161,7 @@ export async function registerRoomsCoreRoutes(app: FastifyInstance, ctx: AppCont
         classId: room.classId,
         userId: auth.userId,
         displayName: auth.displayName,
-        role: invite.role,
+        role: isClassTeacher ? "teacher" : invite.role,
         status: "active"
       });
       await repository.markInviteUsed(invite.code);
@@ -168,11 +171,12 @@ export async function registerRoomsCoreRoutes(app: FastifyInstance, ctx: AppCont
       throw forbidden("Active room membership required");
     }
 
+    const sessionRole = isClassTeacher ? "teacher" : membership.role;
     membership = await repository.upsertMembership({
       classId: room.classId,
       userId: auth.userId,
       displayName: auth.displayName,
-      role: membership.role,
+      role: sessionRole,
       status: "active"
     });
 
@@ -185,7 +189,7 @@ export async function registerRoomsCoreRoutes(app: FastifyInstance, ctx: AppCont
       roomId: room.id,
       participantIdentity,
       userId: auth.userId,
-      role: membership.role,
+      role: sessionRole,
       maxParticipants: room.settings.maxParticipants
     });
     if (activeCount > room.settings.maxParticipants) {
@@ -196,7 +200,7 @@ export async function registerRoomsCoreRoutes(app: FastifyInstance, ctx: AppCont
       roomId: room.id,
       participantIdentity,
       displayName: auth.displayName,
-      role: membership.role
+      role: sessionRole
     });
 
     const sessionUser = await repository.getUser(auth.userId);
@@ -206,7 +210,7 @@ export async function registerRoomsCoreRoutes(app: FastifyInstance, ctx: AppCont
       livekitUrl: config.livekitUrl,
       participantIdentity,
       participantId: auth.userId,
-      role: membership.role,
+      role: sessionRole,
       room,
       manifest,
       capabilities: manifest.capabilities,
