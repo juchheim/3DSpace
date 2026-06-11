@@ -99,7 +99,7 @@ describe("room object builtin catalog", () => {
     expect(entry.thumbnailUrl).toBe("/room-objects/thumbnails/stegosaurus-glb.jpg");
     expect(entry.triangleCount).toBe(31307);
     expect(entry.fileSizeBytes).toBe(2254384);
-    expect(entry.defaultScale).toBe(0.15);
+    expect(entry.defaultScale).toBe(0.35);
   });
 
   it("validates the procedural Earth globe teaching object", () => {
