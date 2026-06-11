@@ -35,4 +35,5 @@ export async function seedBuiltinRoomObjectTemplates(repository: Repository, con
     ? resolveBuiltinRoomObjectAssetUrls(loadBuiltinRoomObjectCatalog(), config.appUrl)
     : loadBuiltinRoomObjectCatalog();
   await repository.upsertBuiltinRoomObjectTemplates(templates);
+  await repository.archiveRetiredBuiltinRoomObjectTemplates(templates.map((template) => template.slug));
 }

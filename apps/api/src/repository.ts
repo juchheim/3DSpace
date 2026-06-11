@@ -190,6 +190,8 @@ export type Repository = {
   listWorldSkins(): Promise<WorldSkin[]>;
   getWorldSkin(slug: string): Promise<WorldSkin | undefined>;
   upsertBuiltinRoomObjectTemplates(templates: RoomObjectTemplate[]): Promise<void>;
+  /** Hide built-in catalog entries removed from `builtin.json` (seed-only; not the user archive API). */
+  archiveRetiredBuiltinRoomObjectTemplates(activeSlugs: readonly string[]): Promise<void>;
   listRoomObjectTemplatesVisibleTo(userId: string, roomType?: RoomType | undefined): Promise<RoomObjectTemplate[]>;
   getRoomObjectTemplate(templateId: string): Promise<RoomObjectTemplate | undefined>;
   createRoomObjectTemplate(input: Omit<RoomObjectTemplate, "id" | "createdAt">): Promise<RoomObjectTemplate>;
@@ -1044,6 +1046,15 @@ export class MemoryRepository implements Repository {
         ...(existing ? { createdAt: existing.createdAt } : { createdAt: template.createdAt || time })
       };
       this.roomObjectTemplates.set(record.id, record);
+    }
+  }
+
+  async archiveRetiredBuiltinRoomObjectTemplates(activeSlugs: readonly string[]) {
+    const active = new Set(activeSlugs);
+    const time = nowIso();
+    for (const template of this.roomObjectTemplates.values()) {
+      if (template.source !== "builtin" || template.archivedAt || active.has(template.slug)) continue;
+      this.roomObjectTemplates.set(template.id, { ...template, archivedAt: time });
     }
   }
 

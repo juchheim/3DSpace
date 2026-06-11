@@ -1529,6 +1529,13 @@ export class MongoRepository implements Repository {
     }
   }
 
+  async archiveRetiredBuiltinRoomObjectTemplates(activeSlugs: readonly string[]) {
+    await this.models.RoomObjectTemplate.updateMany(
+      { source: "builtin", slug: { $nin: [...activeSlugs] }, archivedAt: { $exists: false } },
+      { $set: { archivedAt: nowIso() } }
+    );
+  }
+
   async listRoomObjectTemplatesVisibleTo(userId: string, roomType?: RoomType | undefined) {
     const classes = await this.listClassesForUser(userId);
     const classIds = classes.map((record) => record.id);

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { RoomObjectTemplate } from "@3dspace/contracts";
 import { buildApp } from "../../src/app";
 import { loadConfig } from "../../src/config";
 import { MemoryRepository } from "../../src/repository";
@@ -81,6 +82,49 @@ describe("room object templates", () => {
     expect(templates.some((template) => template.slug === "water-molecule")).toBe(false);
     const caffeine = templates.find((template) => template.slug === "caffeine-glb");
     expect(caffeine?.assetUrl).toContain("/room-objects/assets/caffeine.glb");
+    await app.close();
+  });
+
+  it("archives retired builtin templates removed from the catalog", async () => {
+    const repository = new MemoryRepository();
+    const retiredDie: RoomObjectTemplate = {
+      id: "tpl_dice_glb",
+      slug: "dice-glb",
+      displayName: "Six-sided die",
+      category: "math",
+      description: "Retired single die GLB.",
+      renderer: "gltf",
+      assetUrl: "https://example.test/room-objects/assets/dice.glb",
+      exportable: true,
+      kinematic: false,
+      source: "builtin",
+      visibleRoomTypes: ["skill-verse"],
+      license: "CC0-1.0",
+      attribution: "test",
+      defaultPose: { position: { x: 0, y: 0, z: 0 }, rotation: { yaw: 0, pitch: 0, roll: 0 } },
+      defaultScale: 0.05,
+      recommendedTouchPolicy: "teacher-only",
+      defaultParameters: {},
+      parameterSchemaJson: "{}",
+      thumbnailUrl: "/room-objects/thumbnails/dice-glb.jpg",
+      fileSizeBytes: 101872,
+      triangleCount: 972,
+      createdAt: "2026-06-11T00:00:00.000Z"
+    };
+    await repository.upsertBuiltinRoomObjectTemplates([retiredDie]);
+
+    const app = await buildApp({ config: roomObjectsConfig(), repository });
+    const { roomWithManifest } = await createClassAndRoom(app, "teacher-ro-retired-dice", "skill-verse");
+    const response = await app.inject({
+      method: "GET",
+      url: `/v1/room-objects/templates?roomId=${roomWithManifest.room.id}`,
+      headers: authHeaders("teacher-ro-retired-dice", "Ms. Rivera")
+    });
+
+    expect(response.statusCode).toBe(200);
+    const slugs = (response.json().templates as Array<{ slug: string }>).map((template) => template.slug);
+    expect(slugs).not.toContain("dice-glb");
+    expect(slugs).toContain("dice-pair");
     await app.close();
   });
 
