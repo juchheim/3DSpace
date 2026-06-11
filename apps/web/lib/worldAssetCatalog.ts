@@ -59,6 +59,13 @@ export const WORLD_ASSET_CATALOG: WorldAsset[] = [
     glbUrl: "/objects/tree.glb",
     thumbnailUrl: "/objects/thumbnails/tree.jpg",
     scaleVariance: 0.15
+  },
+  {
+    slug: "tree-in-a-pot",
+    displayName: "Tree in a Pot",
+    glbUrl: "/objects/tree-in-a-pot.glb",
+    thumbnailUrl: "/objects/thumbnails/tree-in-a-pot.jpg",
+    scaleVariance: 0.15
   }
 ];
 

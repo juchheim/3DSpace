@@ -69,6 +69,14 @@
   `worldAssetCatalog.ts`); the chosen scale is persisted on the placed world asset so every
   participant sees the same tree size.
 
+## `tree-in-a-pot.glb`
+
+- Potted tree for the World Builder **Objects** palette.
+- **Origin:** `GLBs/tree-in-a-pot.glb` (base color re-encoded to JPEG q85 via
+  `scripts/prepare-tree-in-a-pot-glb.mjs`).
+- **Format:** glTF 2.0 binary, ~0.45 MB (~3k tris). Native footprint ~1.7 × 3.0 × 1.8 m.
+- **Placement:** ±15% per-instance scale variance (`scaleVariance: 0.15`), same as `tree.glb`.
+
 ## `floor.glb` / `ramp.glb`
 
 - See `BuildPieceMesh.tsx` for native dimensions and scaling.
