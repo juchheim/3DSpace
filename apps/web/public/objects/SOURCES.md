@@ -23,6 +23,19 @@
 - **Format:** glTF 2.0 binary, ~0.5 MB. Native height 1.2 m; scaled to 1.8 m at
   render time. Shade is translucent with warm emissive bleed from the bulb.
 
+## `table-6-walnut.glb`
+
+- Walnut conference table for the World Builder **Objects** palette.
+- **Origin:** `GLBs/table-6-walnut.glb` (base color re-encoded to JPEG q85 via
+  `scripts/prepare-table-glb.mjs`).
+- **Format:** glTF 2.0 binary, ~0.8 MB. Placed at native scale (no sit interaction).
+
+## `folding-chair.glb`
+
+- Folding chair for the World Builder **Objects** palette. Avatars can sit with E.
+- **Origin:** `GLBs/folding-chair.glb`
+- **Format:** glTF 2.0 binary. Sittable (`sittable: true` in `worldAssetCatalog.ts`).
+
 ## `floor.glb` / `ramp.glb`
 
 - See `BuildPieceMesh.tsx` for native dimensions and scaling.

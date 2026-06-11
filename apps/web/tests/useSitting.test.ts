@@ -7,6 +7,7 @@ import type { PlacedChair } from "../lib/usePlacedChairs";
 
 const chair: PlacedChair = {
   id: "chair-1",
+  slug: "folding-chair",
   position: { x: 10, y: 0, z: 10 },
   yaw: 0
 };

@@ -1,13 +1,15 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { isSittableWorldAsset } from "./worldAssetCatalog";
 
 export type PlacedChair = {
   id: string;
-  /** World-space position of the chair centre (Y = 0, on the floor). */
+  /** Catalog slug, e.g. "folding-chair". */
+  slug: string;
+  /** World-space position of the asset centre (Y = walkable ground). */
   position: { x: number; y: number; z: number };
-  /** Y-axis rotation of the chair in radians. The chair's "front" faces in the
-   *  direction (sin(yaw), 0, cos(yaw)). The seated avatar faces the same way. */
+  /** Y-axis rotation in radians. For sittable chairs, the seat faces (sin(yaw), 0, cos(yaw)). */
   yaw: number;
 };
 
@@ -60,6 +62,7 @@ export function findNearestChair(
   let best: PlacedChair | null = null;
   let bestDist = radius;
   for (const chair of chairs) {
+    if (!isSittableWorldAsset(chair.slug)) continue;
     const d = distanceXZ(avatarPos, chair.position);
     if (d < bestDist) {
       best = chair;
@@ -73,9 +76,9 @@ export function usePlacedChairs() {
   const [chairs, setChairs] = useState<PlacedChair[]>([]);
 
   const placeChair = useCallback(
-    (position: { x: number; y: number; z: number }, yaw: number) => {
+    (slug: string, position: { x: number; y: number; z: number }, yaw: number) => {
       const id = `chair-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-      setChairs((prev) => [...prev, { id, position, yaw }]);
+      setChairs((prev) => [...prev, { id, slug, position, yaw }]);
     },
     []
   );

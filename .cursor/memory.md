@@ -1,7 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-11 (Verse teacher focus + recap attendance)
+Last updated: 2026-06-11 (Walnut table World Builder object)
 
+- **2026-06-11:** **Walnut table World Builder object** — `GLBs/table-6-walnut.glb` → `apps/web/public/objects/table-6-walnut.glb` via `scripts/prepare-table-glb.mjs` (JPEG q85, ~0.8 MB). Catalog slug `table-6-walnut`, thumbnail `/objects/thumbnails/table.jpg`. Multi-asset placement: `PlacedChair.slug`, `worldAssetGlbUrl()`, sittable flag on folding-chair only.
 - **2026-06-11:** **Verse teacher focus + recap attendance** — force spotlight no longer locks/snaps teacher camera (`RoomClient`: `role === "student"` gate on `camera.lockedRef` + yaw snap). Lesson recap attendance excludes `classRecord.teacherUserId` via `activeStudentMemberships()` even if teacher membership was downgraded to student (e.g. opening own student invite). Session join + invite accept preserve/heal teacher role for class owner (`rooms-core.ts`, `invites.ts`).
 - **2026-06-10:** **Slide Deck lesson step** — new `"slide-deck"` `LessonStepKind`:
 

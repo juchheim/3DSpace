@@ -6,22 +6,24 @@ import { SkeletonUtils } from "three-stdlib";
 import type { Group } from "three";
 import type { PlacedChair } from "../lib/usePlacedChairs";
 import { chairWithGroundY } from "../lib/usePlacedChairs";
+import { WORLD_ASSET_CATALOG, worldAssetGlbUrl } from "../lib/worldAssetCatalog";
 
-const CHAIR_GLB_URL = "/objects/folding-chair.glb";
+for (const asset of WORLD_ASSET_CATALOG) {
+  useGLTF.preload(asset.glbUrl);
+}
 
-useGLTF.preload(CHAIR_GLB_URL);
-
-function ChairMesh({
+function WorldAssetMesh({
   chair,
   resolveGroundY,
   onDelete
 }: {
   chair: PlacedChair;
-  // currentY = the chair's own stored Y, so walk mode won't snap to a higher floor above it
+  // currentY = the asset's own stored Y, so walk mode won't snap to a higher floor above it
   resolveGroundY: (x: number, z: number, currentY: number) => number;
   onDelete?: (id: string) => void;
 }) {
-  const { scene } = useGLTF(CHAIR_GLB_URL);
+  const glbUrl = worldAssetGlbUrl(chair.slug);
+  const { scene } = useGLTF(glbUrl);
 
   // Clone so each instance is independent (material refs etc. stay separate)
   const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
@@ -51,7 +53,7 @@ export function PlacedChairsLayer({
   return (
     <>
       {chairs.map((chair) => (
-        <ChairMesh key={chair.id} chair={chair} resolveGroundY={resolveGroundY} {...(onDeleteChair ? { onDelete: onDeleteChair } : {})} />
+        <WorldAssetMesh key={chair.id} chair={chair} resolveGroundY={resolveGroundY} {...(onDeleteChair ? { onDelete: onDeleteChair } : {})} />
       ))}
     </>
   );

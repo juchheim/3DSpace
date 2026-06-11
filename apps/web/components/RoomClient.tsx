@@ -3096,8 +3096,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
                 glbUrl: asset.glbUrl,
                 rotationStep: assetRotationStep,
                 onPlace: (position, yaw) => {
-                  chairs.placeChair(position, yaw);
-                  // Keep placement mode active so user can place multiple chairs
+                  chairs.placeChair(selectedAssetSlug, position, yaw);
                 },
                 onCancel: () => setSelectedAssetSlug(null),
                 onRotate: () => setAssetRotationStep((s) => (s + 1) % 4)

@@ -20,10 +20,11 @@ const REFRESH_INTERVAL_MS = 30_000;
 
 function toChair(asset: {
   id: string;
+  slug: string;
   position: { x: number; y: number; z: number };
   yaw: number;
 }): PlacedChair {
-  return { id: asset.id, position: asset.position, yaw: asset.yaw };
+  return { id: asset.id, slug: asset.slug, position: asset.position, yaw: asset.yaw };
 }
 
 export function usePlacedWorldAssets(input: {
@@ -67,15 +68,15 @@ export function usePlacedWorldAssets(input: {
 
   // ── Place ────────────────────────────────────────────────────────────────
   const placeChair = useCallback(
-    async (position: { x: number; y: number; z: number }, yaw: number) => {
+    async (slug: string, position: { x: number; y: number; z: number }, yaw: number) => {
       if (!input.roomId) return;
       // Optimistic: assign a temp id
       const tempId = `tmp-${Date.now()}`;
-      const optimistic: PlacedChair = { id: tempId, position, yaw };
+      const optimistic: PlacedChair = { id: tempId, slug, position, yaw };
       setChairsById((prev) => ({ ...prev, [tempId]: optimistic }));
       try {
         const result = await createWorldAsset(input.identity, input.roomId, {
-          slug: "folding-chair",
+          slug,
           position,
           yaw
         });

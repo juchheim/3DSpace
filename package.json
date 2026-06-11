@@ -19,7 +19,8 @@
     "test:e2e": "playwright test",
     "openapi": "npm run build -w @3dspace/contracts && npm --workspace @3dspace/api run openapi",
     "optimize:lp-glb": "node scripts/optimize-lp-glb.mjs",
-    "prepare:lamp-glb": "node scripts/prepare-lamp-glb.mjs"
+    "prepare:lamp-glb": "node scripts/prepare-lamp-glb.mjs",
+    "prepare:table-glb": "node scripts/prepare-table-glb.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.44.1",

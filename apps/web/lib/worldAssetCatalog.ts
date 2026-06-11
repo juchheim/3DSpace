@@ -3,6 +3,8 @@ export type WorldAsset = {
   displayName: string;
   glbUrl: string;
   thumbnailUrl: string;
+  /** When true, avatars can sit on this asset with E. */
+  sittable?: boolean;
 };
 
 export const WORLD_ASSET_CATALOG: WorldAsset[] = [
@@ -10,6 +12,27 @@ export const WORLD_ASSET_CATALOG: WorldAsset[] = [
     slug: "folding-chair",
     displayName: "Folding Chair",
     glbUrl: "/objects/folding-chair.glb",
-    thumbnailUrl: "/objects/thumbnails/folding-chair.jpg"
+    thumbnailUrl: "/objects/thumbnails/folding-chair.jpg",
+    sittable: true
+  },
+  {
+    slug: "table-6-walnut",
+    displayName: "Walnut Table",
+    glbUrl: "/objects/table-6-walnut.glb",
+    thumbnailUrl: "/objects/thumbnails/table.jpg"
   }
 ];
+
+const WORLD_ASSET_BY_SLUG = new Map(WORLD_ASSET_CATALOG.map((asset) => [asset.slug, asset]));
+
+export function worldAssetBySlug(slug: string): WorldAsset | undefined {
+  return WORLD_ASSET_BY_SLUG.get(slug);
+}
+
+export function worldAssetGlbUrl(slug: string): string {
+  return worldAssetBySlug(slug)?.glbUrl ?? `/objects/${slug}.glb`;
+}
+
+export function isSittableWorldAsset(slug: string): boolean {
+  return worldAssetBySlug(slug)?.sittable === true;
+}

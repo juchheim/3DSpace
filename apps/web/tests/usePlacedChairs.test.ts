@@ -5,6 +5,7 @@ describe("usePlacedChairs", () => {
   it("finds a chair within range on the XZ plane", () => {
     const chair = {
       id: "c1",
+      slug: "folding-chair",
       position: { x: 5, y: 0, z: 5 },
       yaw: 0
     };
@@ -15,6 +16,7 @@ describe("usePlacedChairs", () => {
   it("aligns the seat pose with the chair yaw", () => {
     const chair = {
       id: "c1",
+      slug: "folding-chair",
       position: { x: 2, y: 0, z: 3 },
       yaw: Math.PI / 2
     };
