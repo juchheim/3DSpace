@@ -171,7 +171,7 @@ export async function registerClassroomRoutes(app: FastifyInstance, ctx: AppCont
       room,
       state: hydrated,
       run,
-      teacherUserId: classRecord?.teacherUserId
+      teacherUserId: classRecord?.teacherUserId ?? null
     });
 
     const format = parseQuery(z.object({ format: z.string().optional() }), request).format;
