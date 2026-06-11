@@ -4,6 +4,8 @@ import { ROOM_OBJECT_PROCEDURALS } from "../components/roomObjectProcedurals";
 
 const POSITION_GRID_M = 0.25;
 const ROTATION_STEP_RAD = Math.PI / 12;
+/** Distance in front of the placer's avatar when dropping a new object. */
+const SPAWN_AHEAD_DISTANCE_M = 1.0;
 
 /** v1 district-demo hero — kept first in the toolbar and badged for demos. */
 export const ROOM_OBJECT_HERO_SLUG = "water-molecule";
@@ -65,15 +67,18 @@ export function buildSpawnPoseInFront(input: {
   const forwardX = Math.sin(input.avatarYaw);
   const forwardZ = Math.cos(input.avatarYaw);
   const position = clampPositionToBounds(input.manifest, {
-    x: input.avatarPosition.x + forwardX * 0.5,
-    y: input.template.defaultPose.position.y,
-    z: input.avatarPosition.z + forwardZ * 0.5
+    x: input.avatarPosition.x + forwardX * SPAWN_AHEAD_DISTANCE_M,
+    y: input.avatarPosition.y,
+    z: input.avatarPosition.z + forwardZ * SPAWN_AHEAD_DISTANCE_M
   });
+  // Object meshes face +Z at yaw 0; the placer looks along avatarYaw, so add π so
+  // the object faces back toward the avatar (same convention as drag-to-rotate).
+  const yaw = input.avatarYaw + Math.PI;
   return {
     position,
     rotation: {
       ...input.template.defaultPose.rotation,
-      yaw: input.avatarYaw
+      yaw
     }
   };
 }
