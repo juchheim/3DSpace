@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 
 import { NodeIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
+import { prune } from "@gltf-transform/functions";
 import sharp from "sharp";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
@@ -61,7 +62,8 @@ async function reencodeTexture(texture, kind) {
       .toBuffer();
     texture.setImage(jpeg);
     texture.setMimeType("image/jpeg");
-    return { kind, before, after: jpeg.byteLength, note: mime.includes("png") ? "PNG→JPEG" : "JPEG q85" };
+    const note = mime.includes("png") ? "PNG→JPEG" : mime.includes("webp") ? "WebP→JPEG" : "JPEG q85";
+    return { kind, before, after: jpeg.byteLength, note };
   }
 
   if (kind === "normal") {
@@ -112,6 +114,8 @@ async function main() {
     const kind = resolveTextureKind(texture, textureRoles);
     results.push({ name: texture.getName(), kind, ...(await reencodeTexture(texture, kind)) });
   }
+
+  await doc.transform(prune());
 
   await io.write(OUT_PATH, doc);
   const afterBytes = (await readFile(OUT_PATH)).byteLength;

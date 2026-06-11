@@ -49,9 +49,9 @@
 ## `school-desk-chair2.glb`
 
 - Student desk-chair combo for the World Builder **Objects** palette. Avatars can sit with E.
-- **Origin:** `GLBs/school-desk-chair2.glb` (base color PNG → JPEG q85; normal stays PNG via
-  `scripts/prepare-table-glb.mjs`).
-- **Format:** glTF 2.0 binary, ~3.8 MB (~14k tris). Native height 0.8 m. Sittable.
+- **Origin:** `GLBs/school-desk-chair4.glb` (textures re-encoded via `scripts/prepare-table-glb.mjs`;
+  unused duplicate texture slots pruned).
+- **Format:** glTF 2.0 binary, ~1.0 MB (~13.6k tris). Native height 0.8 m. Sittable.
 
 ## `folding-chair.glb`
 
