@@ -97,7 +97,7 @@ describe("room object builtin catalog", () => {
       "mondi-verse",
       "work-verse"
     ]);
-    expect(entry.thumbnailUrl).toBe("/room-objects/thumbnails/stegosaurus-glb.jpg");
+    expect(entry.thumbnailUrl).toBe("/room-objects/thumbnails/stegosaurus-glb.png");
     expect(entry.triangleCount).toBe(31307);
     expect(entry.fileSizeBytes).toBe(2254384);
     expect(entry.defaultScale).toBe(0.35);
@@ -160,7 +160,7 @@ describe("room object builtin catalog", () => {
       "mondi-verse",
       "work-verse"
     ]);
-    expect(entry.thumbnailUrl).toBe("/room-objects/thumbnails/heart-glb.jpg");
+    expect(entry.thumbnailUrl).toBe("/room-objects/thumbnails/heart-glb.png");
     expect(entry.triangleCount).toBe(30433);
     expect(entry.fileSizeBytes).toBe(1997792);
     expect(entry.defaultScale).toBe(0.09);

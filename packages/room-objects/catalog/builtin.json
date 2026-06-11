@@ -170,7 +170,7 @@
     "recommendedTouchPolicy": "teacher-only",
     "defaultParameters": {},
     "parameterSchemaJson": "{}",
-    "thumbnailUrl": "/room-objects/thumbnails/stegosaurus-glb.jpg",
+    "thumbnailUrl": "/room-objects/thumbnails/stegosaurus-glb.png",
     "fileSizeBytes": 2254384,
     "triangleCount": 31307,
     "createdAt": "2026-06-11T00:00:00.000Z"
@@ -204,7 +204,7 @@
     "recommendedTouchPolicy": "teacher-only",
     "defaultParameters": {},
     "parameterSchemaJson": "{}",
-    "thumbnailUrl": "/room-objects/thumbnails/heart-glb.jpg",
+    "thumbnailUrl": "/room-objects/thumbnails/heart-glb.png",
     "fileSizeBytes": 1997792,
     "triangleCount": 30433,
     "createdAt": "2026-06-11T00:00:00.000Z"

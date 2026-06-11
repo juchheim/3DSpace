@@ -39,7 +39,12 @@ The visible terminator guide is a great circle perpendicular to the same solar v
 ## Stegosaurus (Verse GLB)
 
 - `assets/stegosaurus.glb`: Optimized Stegosaurus model for Verse room object catalogs. Source: `GLBs/stegosaurus.glb`, prepared by `scripts/prepare-stegosaurus-glb.mjs`.
-- `thumbnails/stegosaurus-glb.jpg`: Catalog thumbnail rendered by `scripts/render-glb-thumbnail.mjs`.
+- `thumbnails/stegosaurus-glb.png`: Catalog thumbnail from `GLBs/stegosaurus-thumbnail.png`.
+
+## Human heart (Verse GLB)
+
+- `assets/heart.glb`: Optimized beating-heart model for Verse room object catalogs. Source: `GLBs/heart.glb` + `scripts/prepare-heart-glb.mjs`, catalog asset via `scripts/prepare-heart-catalog-glb.mjs`.
+- `thumbnails/heart-glb.png`: Catalog thumbnail from `GLBs/heart-thumbnail.png`.
 
 Upstream references:
 
