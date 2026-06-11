@@ -18,6 +18,8 @@ import { isKeyboardOwnedTarget } from "../lib/isKeyboardOwnedTarget";
 type AssetPlacementControllerProps = {
   /** GLB URL of the asset being placed. */
   glbUrl: string;
+  /** Uniform render scale for the placement ghost. */
+  scale?: number;
   /** Y of the invisible intercept plane (above the build placement plane). */
   interceptPlaneY?: number;
   /** Resolve walkable ground Y at (x, z) — build floors, ramps, and room terrain. */
@@ -38,6 +40,7 @@ const PLANE_HALF = 500;
 
 export function AssetPlacementController({
   glbUrl,
+  scale = 1,
   interceptPlaneY = 0.002,
   resolveGroundY,
   rotationStep,
@@ -100,6 +103,7 @@ export function AssetPlacementController({
         <group
           position={[ghostPos.x, resolveGroundY(ghostPos.x, ghostPos.z), ghostPos.z]}
           rotation={[0, yaw, 0]}
+          scale={scale}
         >
           <primitive object={ghostModel} />
         </group>

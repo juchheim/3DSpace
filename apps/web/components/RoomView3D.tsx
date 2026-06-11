@@ -473,6 +473,7 @@ export function RoomView3D({
   /** Config for the asset-placement ghost+click mode (active while user is placing an asset). */
   assetPlacement?: {
     glbUrl: string;
+    scale?: number;
     rotationStep: number;
     onPlace(position: { x: number; y: number; z: number }, yaw: number): void;
     onCancel(): void;
@@ -598,6 +599,7 @@ export function RoomView3D({
           <Suspense fallback={null}>
             <AssetPlacementController
               glbUrl={assetPlacement.glbUrl}
+              scale={assetPlacement.scale ?? 1}
               interceptPlaneY={assetInterceptPlaneY}
               resolveGroundY={resolveAssetPlacementGroundY}
               rotationStep={assetPlacement.rotationStep}

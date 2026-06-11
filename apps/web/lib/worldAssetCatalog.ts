@@ -3,6 +3,8 @@ export type WorldAsset = {
   displayName: string;
   glbUrl: string;
   thumbnailUrl: string;
+  /** Uniform render scale. Defaults to 1. */
+  scale?: number;
   /** When true, avatars can sit on this asset with E. */
   sittable?: boolean;
 };
@@ -19,7 +21,8 @@ export const WORLD_ASSET_CATALOG: WorldAsset[] = [
     slug: "table-6-walnut",
     displayName: "Walnut Table",
     glbUrl: "/objects/table-6-walnut.glb",
-    thumbnailUrl: "/objects/thumbnails/table.jpg"
+    thumbnailUrl: "/objects/thumbnails/table.jpg",
+    scale: 0.8
   }
 ];
 
@@ -35,4 +38,8 @@ export function worldAssetGlbUrl(slug: string): string {
 
 export function isSittableWorldAsset(slug: string): boolean {
   return worldAssetBySlug(slug)?.sittable === true;
+}
+
+export function worldAssetScale(slug: string): number {
+  return worldAssetBySlug(slug)?.scale ?? 1;
 }

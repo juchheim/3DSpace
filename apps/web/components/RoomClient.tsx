@@ -3094,6 +3094,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
               if (!asset) return null;
               return {
                 glbUrl: asset.glbUrl,
+                ...(asset.scale !== undefined ? { scale: asset.scale } : {}),
                 rotationStep: assetRotationStep,
                 onPlace: (position, yaw) => {
                   chairs.placeChair(selectedAssetSlug, position, yaw);

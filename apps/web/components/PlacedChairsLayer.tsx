@@ -5,7 +5,7 @@ import { useGLTF } from "@react-three/drei";
 import type { PlacedChair } from "../lib/usePlacedChairs";
 import { chairWithGroundY } from "../lib/usePlacedChairs";
 import { cloneGlbSceneSolid } from "../lib/cloneGlbScene";
-import { WORLD_ASSET_CATALOG, worldAssetGlbUrl } from "../lib/worldAssetCatalog";
+import { WORLD_ASSET_CATALOG, worldAssetGlbUrl, worldAssetScale } from "../lib/worldAssetCatalog";
 
 for (const asset of WORLD_ASSET_CATALOG) {
   useGLTF.preload(asset.glbUrl);
@@ -22,6 +22,7 @@ function WorldAssetMesh({
   onDelete?: (id: string) => void;
 }) {
   const glbUrl = worldAssetGlbUrl(chair.slug);
+  const scale = worldAssetScale(chair.slug);
   const { scene } = useGLTF(glbUrl);
 
   const model = useMemo(() => cloneGlbSceneSolid(scene), [scene]);
@@ -31,6 +32,7 @@ function WorldAssetMesh({
     <group
       position={[resolved.position.x, resolved.position.y, resolved.position.z]}
       rotation={[0, resolved.yaw, 0]}
+      scale={scale}
       {...(onDelete ? { onClick: (e) => { e.stopPropagation(); onDelete(chair.id); } } : {})}
     >
       <primitive object={model} />

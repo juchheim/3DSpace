@@ -28,7 +28,8 @@
 - Walnut conference table for the World Builder **Objects** palette.
 - **Origin:** `GLBs/table-6-walnut.glb` (base color re-encoded to JPEG q85 via
   `scripts/prepare-table-glb.mjs`).
-- **Format:** glTF 2.0 binary, ~0.8 MB. Placed at native scale (no sit interaction).
+- **Format:** glTF 2.0 binary, ~0.8 MB. Native height 1.0 m; scaled to 0.8 m (80 cm) at
+  render time (`scale: 0.8` in `worldAssetCatalog.ts`). No sit interaction.
 
 ## `folding-chair.glb`
 
