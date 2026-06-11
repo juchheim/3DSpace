@@ -48,7 +48,7 @@ The visible terminator guide is a great circle perpendicular to the same solar v
 
 ## Six-sided die (Verse GLB)
 
-- `assets/dice.glb`: Textured six-sided die for Verse room object catalogs. Source: `GLBs/dice.glb`.
+- `assets/dice.glb`: Textured six-sided die for Verse room object catalogs. Source: `GLBs/dice.glb`. Served at `/room-objects/assets/dice.glb`.
 - `thumbnails/dice-glb.jpg`: Catalog thumbnail rendered by `scripts/render-glb-thumbnail.mjs`.
 
 Upstream references:
