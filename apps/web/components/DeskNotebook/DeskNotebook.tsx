@@ -14,8 +14,26 @@ import {
 } from "../../lib/useDeskNotebook";
 import { NotebookPageView, type NotebookTool } from "./NotebookPage";
 
-const NOTEBOOK_INK_COLORS = ["#111827", "#ef4444", "#3b82f6", "#10b981", "#8b5cf6"] as const;
+const NOTEBOOK_HIGHLIGHTER_COLOR = "#facc15";
+const NOTEBOOK_HIGHLIGHTER_THICKNESS = 16;
+const NOTEBOOK_INK_COLORS = ["#111827", "#ef4444", "#3b82f6", "#10b981", "#8b5cf6", NOTEBOOK_HIGHLIGHTER_COLOR] as const;
 const NOTEBOOK_INK_WEIGHTS = [2, 4] as const;
+
+function selectNotebookTool(
+  next: NotebookTool,
+  current: NotebookTool,
+  setTool: (tool: NotebookTool) => void,
+  setColor: (color: string) => void,
+  setThickness: (thickness: number) => void
+) {
+  if (next === "highlighter") {
+    setColor(NOTEBOOK_HIGHLIGHTER_COLOR);
+    setThickness(NOTEBOOK_HIGHLIGHTER_THICKNESS);
+  } else if (current === "highlighter" && next === "pen") {
+    setThickness(NOTEBOOK_INK_WEIGHTS[0]);
+  }
+  setTool(next);
+}
 
 // Design-space footprint of the whole book (pages + spine + chrome) used to
 // fit the notebook into the viewport via a CSS transform scale.
@@ -268,6 +286,8 @@ export function DeskNotebook({
   const interactive = !flip && coverStage === "open";
   const showCoverSheet = coverStage !== "open";
   const hasContent = notebookHasContent(pages);
+  const inkColor = tool === "highlighter" ? NOTEBOOK_HIGHLIGHTER_COLOR : color;
+  const inkThickness = tool === "highlighter" ? NOTEBOOK_HIGHLIGHTER_THICKNESS : thickness;
 
   // Capture as consts so the narrowed types survive into the JSX closures.
   const leftPage = staticLeft;
@@ -288,7 +308,7 @@ export function DeskNotebook({
                 key={entry.id}
                 type="button"
                 className={`desk-notebook__tool${tool === entry.id ? " is-active" : ""}`}
-                onClick={() => setTool(entry.id)}
+                onClick={() => selectNotebookTool(entry.id, tool, setTool, setColor, setThickness)}
                 title={entry.label}
                 aria-label={entry.label}
               >
@@ -307,22 +327,28 @@ export function DeskNotebook({
                 onClick={() => {
                   setColor(entry);
                   if (tool === "type" || tool === "eraser") setTool("pen");
+                  if (tool === "highlighter" && entry !== NOTEBOOK_HIGHLIGHTER_COLOR) {
+                    setTool("pen");
+                    setThickness(NOTEBOOK_INK_WEIGHTS[0]);
+                  }
                 }}
                 aria-label={`Select ${entry} ink`}
               />
             ))}
-            {NOTEBOOK_INK_WEIGHTS.map((entry) => (
-              <button
-                key={entry}
-                type="button"
-                className={`desk-notebook__weight${thickness === entry ? " is-active" : ""}`}
-                onClick={() => setThickness(entry)}
-                title={`${entry}px ink`}
-                aria-label={`${entry}px ink`}
-              >
-                <span style={{ height: entry, width: 12 }} />
-              </button>
-            ))}
+            {tool !== "highlighter"
+              ? NOTEBOOK_INK_WEIGHTS.map((entry) => (
+                  <button
+                    key={entry}
+                    type="button"
+                    className={`desk-notebook__weight${thickness === entry ? " is-active" : ""}`}
+                    onClick={() => setThickness(entry)}
+                    title={`${entry}px ink`}
+                    aria-label={`${entry}px ink`}
+                  >
+                    <span style={{ height: entry, width: 12 }} />
+                  </button>
+                ))
+              : null}
           </div>
           <div className="desk-notebook__spacer" />
           <span className="desk-notebook__pages-label" aria-live="polite">
@@ -369,8 +395,8 @@ export function DeskNotebook({
                 page={leftPage}
                 pageNumber={staticLeftNumber}
                 tool={tool}
-                color={color}
-                thickness={thickness}
+                color={inkColor}
+                thickness={inkThickness}
                 interactive={interactive}
                 onTextChange={(text) => notebook.setPageText(leftPage.id, text)}
                 onCommitStroke={(stroke) => notebook.commitStroke(leftPage.id, stroke)}
@@ -384,8 +410,8 @@ export function DeskNotebook({
                 page={rightPage}
                 pageNumber={staticRightNumber}
                 tool={tool}
-                color={color}
-                thickness={thickness}
+                color={inkColor}
+                thickness={inkThickness}
                 interactive={interactive}
                 onTextChange={(text) => notebook.setPageText(rightPage.id, text)}
                 onCommitStroke={(stroke) => notebook.commitStroke(rightPage.id, stroke)}
@@ -411,8 +437,8 @@ export function DeskNotebook({
                     page={sheetFront}
                     pageNumber={sheetFrontNumber}
                     tool={tool}
-                    color={color}
-                    thickness={thickness}
+                    color={inkColor}
+                    thickness={inkThickness}
                     interactive={false}
                   />
                 ) : null}
@@ -423,8 +449,8 @@ export function DeskNotebook({
                     page={sheetBack}
                     pageNumber={sheetBackNumber}
                     tool={tool}
-                    color={color}
-                    thickness={thickness}
+                    color={inkColor}
+                    thickness={inkThickness}
                     interactive={false}
                   />
                 ) : null}
@@ -453,8 +479,8 @@ export function DeskNotebook({
                     page={sheetBack}
                     pageNumber={sheetBackNumber}
                     tool={tool}
-                    color={color}
-                    thickness={thickness}
+                    color={inkColor}
+                    thickness={inkThickness}
                     interactive={false}
                   />
                 ) : null}
