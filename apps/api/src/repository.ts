@@ -211,6 +211,7 @@ export type Repository = {
     slug: string;
     position: { x: number; y: number; z: number };
     yaw: number;
+    scale?: number;
     placedByUserId: string;
   }): Promise<PlacedWorldAsset>;
   deleteWorldAsset(roomId: string, assetId: string): Promise<void>;
@@ -1166,6 +1167,7 @@ export class MemoryRepository implements Repository {
     slug: string;
     position: { x: number; y: number; z: number };
     yaw: number;
+    scale?: number;
     placedByUserId: string;
   }): Promise<PlacedWorldAsset> {
     const id = `wa-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -1175,6 +1177,7 @@ export class MemoryRepository implements Repository {
       slug: input.slug,
       position: input.position,
       yaw: input.yaw,
+      ...(input.scale !== undefined ? { scale: input.scale } : {}),
       placedByUserId: input.placedByUserId,
       createdAt: new Date().toISOString()
     };

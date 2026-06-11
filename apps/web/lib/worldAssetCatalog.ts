@@ -3,8 +3,13 @@ export type WorldAsset = {
   displayName: string;
   glbUrl: string;
   thumbnailUrl: string;
-  /** Uniform render scale. Defaults to 1. */
+  /** Uniform catalog render scale before per-placement variance. Defaults to 1. */
   scale?: number;
+  /**
+   * When set (e.g. 0.15), each placement samples an instance scale in
+   * [catalogScale×(1−v), catalogScale×(1+v)] so repeated props look natural.
+   */
+  scaleVariance?: number;
   /** When true, avatars can sit on this asset with E. */
   sittable?: boolean;
   /** When true, sitting on this asset opens the personal desk notebook. */
@@ -47,6 +52,13 @@ export const WORLD_ASSET_CATALOG: WorldAsset[] = [
     thumbnailUrl: "/objects/thumbnails/student-desk.jpg",
     sittable: true,
     deskNotebook: true
+  },
+  {
+    slug: "tree",
+    displayName: "Tree",
+    glbUrl: "/objects/tree.glb",
+    thumbnailUrl: "/objects/thumbnails/tree.jpg",
+    scaleVariance: 0.15
   }
 ];
 
@@ -71,4 +83,19 @@ export function hasDeskNotebook(slug: string): boolean {
 
 export function worldAssetScale(slug: string): number {
   return worldAssetBySlug(slug)?.scale ?? 1;
+}
+
+/** Sample a placement scale for `slug`, applying `scaleVariance` when configured. */
+export function sampleWorldAssetPlacementScale(slug: string): number {
+  const asset = worldAssetBySlug(slug);
+  const base = asset?.scale ?? 1;
+  const variance = asset?.scaleVariance ?? 0;
+  if (variance <= 0) return base;
+  const factor = 1 + (Math.random() * 2 - 1) * variance;
+  return base * factor;
+}
+
+/** Render scale for a placed instance (persisted scale, else catalog default). */
+export function placedWorldAssetRenderScale(asset: { slug: string; scale?: number }): number {
+  return asset.scale ?? worldAssetScale(asset.slug);
 }

@@ -431,6 +431,7 @@ export function createModels(connection: Connection): Models {
       z: { type: Number, required: true }
     },
     yaw: { type: Number, required: true, default: 0 },
+    scale: { type: Number, required: false },
     placedByUserId: { type: String, required: true },
     createdAt: { type: String, required: true }
   });
@@ -1683,12 +1684,14 @@ export class MongoRepository implements Repository {
   // ── World Assets ───────────────────────────────────────────────────────────
 
   private toWorldAsset(doc: Record<string, unknown>): PlacedWorldAsset {
+    const scale = doc.scale;
     return {
       id: doc.id as string,
       roomId: doc.roomId as string,
       slug: doc.slug as string,
       position: doc.position as { x: number; y: number; z: number },
       yaw: doc.yaw as number,
+      ...(typeof scale === "number" && Number.isFinite(scale) ? { scale } : {}),
       placedByUserId: doc.placedByUserId as string,
       createdAt: doc.createdAt as string
     };
@@ -1704,6 +1707,7 @@ export class MongoRepository implements Repository {
     slug: string;
     position: { x: number; y: number; z: number };
     yaw: number;
+    scale?: number;
     placedByUserId: string;
   }): Promise<PlacedWorldAsset> {
     const id = `wa-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -1713,6 +1717,7 @@ export class MongoRepository implements Repository {
       slug: input.slug,
       position: input.position,
       yaw: input.yaw,
+      ...(input.scale !== undefined ? { scale: input.scale } : {}),
       placedByUserId: input.placedByUserId,
       createdAt: new Date().toISOString()
     };

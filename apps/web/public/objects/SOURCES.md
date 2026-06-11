@@ -59,6 +59,16 @@
 - **Origin:** `GLBs/folding-chair.glb`
 - **Format:** glTF 2.0 binary. Sittable (`sittable: true` in `worldAssetCatalog.ts`).
 
+## `tree.glb`
+
+- Deciduous tree for the World Builder **Objects** palette.
+- **Origin:** `GLBs/tree.glb` (all PNG textures, including the normal map, re-encoded to JPEG q85 via
+  `scripts/prepare-tree-glb.mjs`).
+- **Format:** glTF 2.0 binary, ~0.76 MB (~3k tris). Native footprint ~1.8 × 3.0 × 1.85 m.
+- **Placement:** each instance samples a render scale in ±15% (`scaleVariance: 0.15` in
+  `worldAssetCatalog.ts`); the chosen scale is persisted on the placed world asset so every
+  participant sees the same tree size.
+
 ## `floor.glb` / `ramp.glb`
 
 - See `BuildPieceMesh.tsx` for native dimensions and scaling.

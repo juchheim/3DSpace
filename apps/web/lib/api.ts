@@ -800,7 +800,7 @@ export function listWorldAssets(identity: ApiIdentity, roomId: string) {
 export function createWorldAsset(
   identity: ApiIdentity,
   roomId: string,
-  input: { slug: string; position: { x: number; y: number; z: number }; yaw: number }
+  input: { slug: string; position: { x: number; y: number; z: number }; yaw: number; scale?: number }
 ) {
   return apiFetch<{ asset: PlacedWorldAsset; realtimeMessages: WorldAssetRealtimeMessage[] }>(
     `/v1/rooms/${roomId}/world-assets`,

@@ -11,6 +11,8 @@ export type PlacedChair = {
   position: { x: number; y: number; z: number };
   /** Y-axis rotation in radians. For sittable chairs, the seat faces (sin(yaw), 0, cos(yaw)). */
   yaw: number;
+  /** Instance render scale (catalog base × placement variance). */
+  scale?: number;
 };
 
 /** Euclidean distance on the XZ plane between two XZ points. */

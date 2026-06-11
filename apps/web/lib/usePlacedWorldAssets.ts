@@ -11,20 +11,22 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PlacedChair } from "./usePlacedChairs";
-import type { WorldAssetRealtimeMessage } from "@3dspace/contracts";
+import type { PlacedWorldAsset, WorldAssetRealtimeMessage } from "@3dspace/contracts";
 import { createWorldAsset, deleteWorldAsset, listWorldAssets } from "./api";
 import type { ApiIdentity } from "./identity";
 import type { RealtimeMessage } from "./realtime";
+import { sampleWorldAssetPlacementScale } from "./worldAssetCatalog";
 
 const REFRESH_INTERVAL_MS = 30_000;
 
-function toChair(asset: {
-  id: string;
-  slug: string;
-  position: { x: number; y: number; z: number };
-  yaw: number;
-}): PlacedChair {
-  return { id: asset.id, slug: asset.slug, position: asset.position, yaw: asset.yaw };
+function toChair(asset: Pick<PlacedWorldAsset, "id" | "slug" | "position" | "yaw" | "scale">): PlacedChair {
+  return {
+    id: asset.id,
+    slug: asset.slug,
+    position: asset.position,
+    yaw: asset.yaw,
+    ...(asset.scale !== undefined ? { scale: asset.scale } : {})
+  };
 }
 
 export function usePlacedWorldAssets(input: {
@@ -70,15 +72,17 @@ export function usePlacedWorldAssets(input: {
   const placeChair = useCallback(
     async (slug: string, position: { x: number; y: number; z: number }, yaw: number) => {
       if (!input.roomId) return;
+      const scale = sampleWorldAssetPlacementScale(slug);
       // Optimistic: assign a temp id
       const tempId = `tmp-${Date.now()}`;
-      const optimistic: PlacedChair = { id: tempId, slug, position, yaw };
+      const optimistic: PlacedChair = { id: tempId, slug, position, yaw, scale };
       setChairsById((prev) => ({ ...prev, [tempId]: optimistic }));
       try {
         const result = await createWorldAsset(input.identity, input.roomId, {
           slug,
           position,
-          yaw
+          yaw,
+          scale
         });
         const chair = toChair(result.asset);
         // Replace temp entry with the real one

@@ -1052,6 +1052,8 @@ export const PlacedWorldAssetSchema = z.object({
   position: z.object({ x: z.number(), y: z.number(), z: z.number() }),
   /** Y-axis rotation in radians. */
   yaw: z.number(),
+  /** Instance render scale (catalog base scale × placement variance). Defaults to 1. */
+  scale: z.number().positive().optional(),
   placedByUserId: z.string(),
   createdAt: z.string()
 });
@@ -1059,7 +1061,8 @@ export const PlacedWorldAssetSchema = z.object({
 export const CreateWorldAssetRequestSchema = z.object({
   slug: z.string().min(1),
   position: z.object({ x: z.number(), y: z.number(), z: z.number() }),
-  yaw: z.number()
+  yaw: z.number(),
+  scale: z.number().positive().optional()
 });
 
 const WorldAssetUpsertMessageSchema = z.object({
