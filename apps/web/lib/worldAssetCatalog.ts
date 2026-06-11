@@ -7,6 +7,8 @@ export type WorldAsset = {
   scale?: number;
   /** When true, avatars can sit on this asset with E. */
   sittable?: boolean;
+  /** When true, sitting on this asset opens the personal desk notebook. */
+  deskNotebook?: boolean;
 };
 
 export const WORLD_ASSET_CATALOG: WorldAsset[] = [
@@ -43,7 +45,8 @@ export const WORLD_ASSET_CATALOG: WorldAsset[] = [
     displayName: "Student Desk",
     glbUrl: "/objects/school-desk-chair2.glb",
     thumbnailUrl: "/objects/thumbnails/student-desk.jpg",
-    sittable: true
+    sittable: true,
+    deskNotebook: true
   }
 ];
 
@@ -59,6 +62,11 @@ export function worldAssetGlbUrl(slug: string): string {
 
 export function isSittableWorldAsset(slug: string): boolean {
   return worldAssetBySlug(slug)?.sittable === true;
+}
+
+/** True when sitting on this asset should open the personal desk notebook. */
+export function hasDeskNotebook(slug: string): boolean {
+  return worldAssetBySlug(slug)?.deskNotebook === true;
 }
 
 export function worldAssetScale(slug: string): number {

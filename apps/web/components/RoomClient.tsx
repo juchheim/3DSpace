@@ -88,7 +88,7 @@ import { findNearestChair } from "../lib/usePlacedChairs";
 import { usePlacedWorldAssets } from "../lib/usePlacedWorldAssets";
 import { useSitting } from "../lib/useSitting";
 import { AVATAR_KEYBOARD_INTERACT_MAX_HOLD_MS } from "../lib/useAvatarMovement";
-import { WORLD_ASSET_CATALOG } from "../lib/worldAssetCatalog";
+import { hasDeskNotebook, WORLD_ASSET_CATALOG } from "../lib/worldAssetCatalog";
 import { worldAssetGroundY } from "../lib/worldAssetGroundY";
 import { AnchorPanel } from "./AnchorPanel";
 import { AuthGate } from "../lib/auth";
@@ -144,6 +144,11 @@ const RoomView3D = dynamic(() => import("./RoomView3D").then((module) => module.
   ssr: false,
   loading: () => <div className="fallback-view">Loading the 3D room...</div>
 });
+
+const DeskNotebook = dynamic(
+  () => import("./DeskNotebook/DeskNotebook").then((module) => module.DeskNotebook),
+  { ssr: false }
+);
 
 function isActiveLiveWallObject(object: WallObject) {
   return object.type.endsWith(".live") && object.status === "active";
@@ -1037,6 +1042,11 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     if (sitting.sittingPhase !== "none") return sitting.nearestChair;
     return findNearestChair(pos, chairs.chairs, 1.5);
   }, [chairs.chairs, movement.avatarState?.position, sitting.nearestChair, sitting.sittingPhase]);
+  // Seated at a Student Desk → the personal notebook overlay mounts.
+  const seatedNotebookDesk =
+    sitting.sittingPhase === "seated" &&
+    sitting.nearestChair !== null &&
+    hasDeskNotebook(sitting.nearestChair.slug);
   const sittingTryInteractRef = useRef(sitting.tryInteract);
   sittingTryInteractRef.current = sitting.tryInteract;
   const sittingPhaseRef = useRef(sitting.sittingPhase);
@@ -3845,11 +3855,20 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       {sitting.sittingPhase !== "none" ? (
         <div className="hud-interaction-prompt" role="status" aria-live="polite">
           <kbd>E</kbd> stand up
+          {seatedNotebookDesk ? (
+            <>
+              <span aria-hidden="true">·</span>
+              <kbd>N</kbd> notebook
+            </>
+          ) : null}
         </div>
       ) : nearestChairForPrompt ? (
         <div className="hud-interaction-prompt" role="status" aria-live="polite">
           <kbd>E</kbd> sit
         </div>
+      ) : null}
+      {seatedNotebookDesk && session ? (
+        <DeskNotebook roomId={session.room.id} userId={identity.userId} roomLabel={session.room.name} />
       ) : null}
       {logicPlayEnabled && nearestInteractable?.kind === "button" ? (
         <div className="hud-interaction-prompt" role="status" aria-live="polite">

@@ -13,7 +13,16 @@ export const WHITEBOARD_PRESET_COLORS = [
 
 export const WHITEBOARD_THICKNESSES = [1, 2, 4, 8] as const;
 
-function applyStrokeStyle(context: CanvasRenderingContext2D, stroke: WhiteboardStroke) {
+/**
+ * Structural subset of WhiteboardStroke needed to draw or hit-test ink.
+ * Lets non-wall surfaces (e.g. the desk notebook) reuse the stroke renderer
+ * without fabricating server-side fields like roomId/wallObjectId.
+ */
+export type DrawableStroke = Pick<WhiteboardStroke, "tool" | "color" | "thickness" | "points"> & {
+  text?: WhiteboardStroke["text"];
+};
+
+function applyStrokeStyle(context: CanvasRenderingContext2D, stroke: DrawableStroke) {
   context.strokeStyle = stroke.color;
   context.fillStyle = stroke.color;
   context.lineCap = "round";
@@ -30,11 +39,11 @@ function toCanvasPoint(point: WhiteboardPoint, width: number, height: number) {
   return { x: point.x * width, y: point.y * height };
 }
 
-function twoPointTools(stroke: WhiteboardStroke) {
+function twoPointTools(stroke: DrawableStroke) {
   return stroke.tool === "line" || stroke.tool === "rectangle" || stroke.tool === "ellipse" || stroke.tool === "arrow";
 }
 
-export function strokeBounds(stroke: WhiteboardStroke) {
+export function strokeBounds(stroke: DrawableStroke) {
   let minX = 1;
   let minY = 1;
   let maxX = 0;
@@ -73,7 +82,7 @@ function drawArrowHead(
 
 export function drawWhiteboardStroke(
   context: CanvasRenderingContext2D,
-  stroke: WhiteboardStroke,
+  stroke: DrawableStroke,
   size: { width: number; height: number }
 ) {
   const validPoints = stroke.points.filter(isValidPoint);
@@ -186,7 +195,7 @@ export function renderWhiteboardScene(input: {
   }
 }
 
-export function strokeHitTest(stroke: WhiteboardStroke, point: WhiteboardPoint, tolerance = 0.025) {
+export function strokeHitTest(stroke: DrawableStroke, point: WhiteboardPoint, tolerance = 0.025) {
   const bounds = strokeBounds(stroke);
   return (
     point.x >= bounds.minX - tolerance &&
