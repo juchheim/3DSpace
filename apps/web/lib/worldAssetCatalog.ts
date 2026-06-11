@@ -22,6 +22,7 @@ export const WORLD_ASSET_CATALOG: WorldAsset[] = [
     displayName: "Walnut Chair",
     glbUrl: "/objects/chair-walnut.glb",
     thumbnailUrl: "/objects/thumbnails/chair.jpg",
+    scale: 0.8,
     sittable: true
   },
   {
