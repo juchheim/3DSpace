@@ -1,9 +1,9 @@
 "use client";
 
-import { Html, Outlines, useGLTF } from "@react-three/drei";
+import { Html, Outlines, useAnimations, useGLTF } from "@react-three/drei";
 import { useThree, type ThreeEvent } from "@react-three/fiber";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { Group, Plane, Vector3 } from "three";
+import { Group, LoopRepeat, Object3D, Plane, Vector3 } from "three";
 import type { Pose, RoomManifest, RoomObject, RoomObjectTemplate } from "@3dspace/contracts";
 import { snapPosition, snapScale, snapYaw } from "../lib/roomObjectInteraction";
 import { renderProcedural } from "./roomObjectProcedurals";
@@ -26,15 +26,41 @@ type RoomObjectActions = {
 function RoomObjectGltf({
   assetUrl,
   scale,
-  exportRootRef
+  exportRootRef,
+  animated = false
 }: {
   assetUrl: string;
   scale: number;
   exportRootRef: RefObject<Group | null>;
+  animated?: boolean;
 }) {
-  const { scene } = useGLTF(assetUrl);
-  const clone = useMemo(() => scene.clone(true), [scene]);
-  return <primitive ref={exportRootRef as never} object={clone} scale={scale} />;
+  const { scene, animations } = useGLTF(assetUrl);
+  const model = useMemo(() => scene.clone(true) as Group, [scene]);
+  const animRootRef = useRef<Group>(null);
+  const { actions, names } = useAnimations(animations, animRootRef);
+
+  useEffect(() => {
+    if (!animated || names.length === 0) return;
+    for (const name of names) {
+      actions[name]?.reset().setLoop(LoopRepeat, Infinity).play();
+    }
+    return () => {
+      for (const name of names) {
+        actions[name]?.stop();
+      }
+    };
+  }, [animated, actions, names, model]);
+
+  return (
+    <primitive
+      ref={(node: Object3D | null) => {
+        animRootRef.current = node as Group | null;
+        exportRootRef.current = node as Group | null;
+      }}
+      object={model}
+      scale={scale}
+    />
+  );
 }
 
 export function RoomObjectMesh({
@@ -224,7 +250,12 @@ export function RoomObjectMesh({
           })
         ) : template.assetUrl ? (
           <Suspense fallback={null}>
-            <RoomObjectGltf assetUrl={template.assetUrl} scale={1} exportRootRef={exportRootRef} />
+            <RoomObjectGltf
+              assetUrl={template.assetUrl}
+              scale={1}
+              exportRootRef={exportRootRef}
+              animated={template.kinematic}
+            />
           </Suspense>
         ) : (
           <mesh>
