@@ -174,5 +174,39 @@
     "fileSizeBytes": 2254384,
     "triangleCount": 31307,
     "createdAt": "2026-06-11T00:00:00.000Z"
+  },
+  {
+    "id": "tpl_heart_glb",
+    "slug": "heart-glb",
+    "displayName": "Human heart",
+    "category": "science",
+    "description": "An anatomical human heart with a looping heartbeat animation at ~65 bpm. The ventricles squeeze and the long axis shortens each beat. Place it in Verse rooms for cardiology lessons, anatomy discussions, and biology explorations.",
+    "renderer": "gltf",
+    "assetUrl": "https://app.invalid/room-objects/assets/heart.glb",
+    "exportable": true,
+    "kinematic": true,
+    "source": "builtin",
+    "visibleRoomTypes": [
+      "skill-verse",
+      "culture-verse",
+      "creator-verse",
+      "food-verse",
+      "mondi-verse",
+      "work-verse"
+    ],
+    "license": "CC0-1.0",
+    "attribution": "3DSpace — built-in GLB teaching model",
+    "defaultPose": {
+      "position": { "x": 0, "y": 0.5, "z": 0 },
+      "rotation": { "yaw": 0, "pitch": 0, "roll": 0 }
+    },
+    "defaultScale": 0.09,
+    "recommendedTouchPolicy": "teacher-only",
+    "defaultParameters": {},
+    "parameterSchemaJson": "{}",
+    "thumbnailUrl": "/room-objects/thumbnails/heart-glb.jpg",
+    "fileSizeBytes": 1997792,
+    "triangleCount": 30433,
+    "createdAt": "2026-06-11T00:00:00.000Z"
   }
 ]
