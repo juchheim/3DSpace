@@ -31,6 +31,20 @@
 - **Format:** glTF 2.0 binary, ~0.8 MB. Native height 1.0 m; scaled to 0.8 m (80 cm) at
   render time (`scale: 0.8` in `worldAssetCatalog.ts`). No sit interaction.
 
+## `table-round-walnut.glb`
+
+- Round walnut table for the World Builder **Objects** palette.
+- **Origin:** `GLBs/table-round-walnut.glb` (base color re-encoded to JPEG q85 via
+  `scripts/prepare-table-glb.mjs`).
+- **Format:** glTF 2.0 binary, ~0.7 MB. Native height 0.8 m. No sit interaction.
+
+## `chair-walnut.glb`
+
+- Walnut side chair for the World Builder **Objects** palette. Avatars can sit with E.
+- **Origin:** `GLBs/chair-walnut.glb` (base color re-encoded to JPEG q85 via
+  `scripts/prepare-table-glb.mjs`).
+- **Format:** glTF 2.0 binary, ~0.6 MB. Native height 1.0 m. Sittable.
+
 ## `folding-chair.glb`
 
 - Folding chair for the World Builder **Objects** palette. Avatars can sit with E.

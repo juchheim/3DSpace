@@ -18,11 +18,24 @@ export const WORLD_ASSET_CATALOG: WorldAsset[] = [
     sittable: true
   },
   {
+    slug: "chair-walnut",
+    displayName: "Walnut Chair",
+    glbUrl: "/objects/chair-walnut.glb",
+    thumbnailUrl: "/objects/thumbnails/chair.jpg",
+    sittable: true
+  },
+  {
     slug: "table-6-walnut",
     displayName: "Walnut Table",
     glbUrl: "/objects/table-6-walnut.glb",
     thumbnailUrl: "/objects/thumbnails/table.jpg",
     scale: 0.8
+  },
+  {
+    slug: "table-round-walnut",
+    displayName: "Round Walnut Table",
+    glbUrl: "/objects/table-round-walnut.glb",
+    thumbnailUrl: "/objects/thumbnails/round-table.jpg"
   }
 ];
 
