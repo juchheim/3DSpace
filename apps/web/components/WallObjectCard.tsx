@@ -4,11 +4,14 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import type { WallObject } from "@3dspace/contracts";
 import {
   normalizePollInlineData,
+  normalizeSlideDeckInlineData,
   pollTotalVotes,
   pollVoteCounts,
   readPollState,
+  readSlideDeckState,
   type PollChoice
 } from "@3dspace/room-engine";
+import { SlideDeckSlide } from "./SlideDeckSlide";
 import {
   forceTimerElapsed,
   pushTimerElapsed,
@@ -32,10 +35,20 @@ export type WallObjectControlAction =
   | "seek"
   | "vote"
   | "close-poll"
-  | "reopen-poll";
+  | "reopen-poll"
+  | "set-slide";
+
+export type WallObjectControlHandler = (
+  objectId: string,
+  action: WallObjectControlAction,
+  positionSeconds?: number,
+  choiceId?: string,
+  slideIndex?: number
+) => void;
 type TimerPlaybackStatus = "idle" | "playing" | "paused" | "ended";
 
 function typeLabel(type: WallObject["type"]) {
+  if (type === "slides.file") return "slide deck";
   return type.replace(".", " ");
 }
 
@@ -491,12 +504,81 @@ function WallPollDisplay({
   );
 }
 
+/** Slide deck on a board — themed 16:9 slide with a counter and teacher-only nav arrows. */
+function WallSlideDeckBoard({
+  object,
+  canManage,
+  surface,
+  slideImageUrls,
+  onControl
+}: {
+  object: WallObject;
+  canManage: boolean;
+  surface: boolean;
+  slideImageUrls?: Record<string, string> | undefined;
+  onControl?: ((objectId: string, action: WallObjectControlAction, positionSeconds?: number, choiceId?: string, slideIndex?: number) => void) | undefined;
+}) {
+  const data = object.source.kind === "inline" ? object.source.data : {};
+  const deck = useMemo(() => normalizeSlideDeckInlineData(data), [data]);
+  const slideState = useMemo(() => readSlideDeckState(object.state, deck.slides.length), [object.state, deck.slides.length]);
+  const slide = deck.slides[slideState.index] ?? deck.slides[0];
+
+  if (!slide) {
+    return <div className="wall-object-placeholder">This slide deck is empty.</div>;
+  }
+
+  const imageUrl = slide.imageAttachmentId ? slideImageUrls?.[slide.imageAttachmentId] : undefined;
+  const canNavigate = canManage && Boolean(onControl);
+  const goTo = (index: number) => {
+    if (!onControl) return;
+    const clamped = Math.min(Math.max(index, 0), deck.slides.length - 1);
+    if (clamped === slideState.index) return;
+    void onControl(object.id, "set-slide", undefined, undefined, clamped);
+  };
+
+  return (
+    <div
+      className={`wall-slide-board wall-slide-board--${deck.theme}${surface ? " wall-slide-board--surface" : ""}`}
+      data-testid="wall-slide-deck"
+      data-slide-index={slideState.index}
+    >
+      <SlideDeckSlide slide={slide} theme={deck.theme} imageUrl={imageUrl} />
+      {canNavigate ? (
+        <>
+          <button
+            type="button"
+            className="wall-slide-board__nav wall-slide-board__nav--prev"
+            aria-label="Previous slide"
+            disabled={slideState.index <= 0}
+            onClick={() => goTo(slideState.index - 1)}
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            className="wall-slide-board__nav wall-slide-board__nav--next"
+            aria-label="Next slide"
+            disabled={slideState.index >= deck.slides.length - 1}
+            onClick={() => goTo(slideState.index + 1)}
+          >
+            ›
+          </button>
+        </>
+      ) : null}
+      <span className="wall-slide-board__counter" aria-label={`Slide ${slideState.index + 1} of ${deck.slides.length}`}>
+        {slideState.index + 1} / {deck.slides.length}
+      </span>
+    </div>
+  );
+}
+
 export function WallObjectContent({
   object,
   canManage,
   currentUserId,
   surface,
   assetUrl,
+  slideImageUrls,
   videoStream,
   audioStream,
   onControl,
@@ -517,9 +599,10 @@ export function WallObjectContent({
   surface: boolean;
   compact?: boolean;
   assetUrl?: string | undefined;
+  slideImageUrls?: Record<string, string> | undefined;
   videoStream?: MediaStream | null | undefined;
   audioStream?: MediaStream | null | undefined;
-  onControl?: (objectId: string, action: WallObjectControlAction, positionSeconds?: number, choiceId?: string) => void;
+  onControl?: (objectId: string, action: WallObjectControlAction, positionSeconds?: number, choiceId?: string, slideIndex?: number) => void;
   whiteboardController?: WhiteboardController | undefined;
   whiteboardParticipantNames?: Record<string, string> | undefined;
   canWriteWhiteboard?: ((object: WallObject) => boolean) | undefined;
@@ -551,6 +634,18 @@ export function WallObjectContent({
 
   if (object.type === "timer") {
     return <WallTimerDisplay object={object} canManage={canManage} surface={surface} {...(onControl ? { onControl } : {})} />;
+  }
+
+  if (object.type === "slides.file" && object.source.kind === "inline") {
+    return (
+      <WallSlideDeckBoard
+        object={object}
+        canManage={canManage}
+        surface={surface}
+        slideImageUrls={slideImageUrls}
+        onControl={onControl}
+      />
+    );
   }
 
   const data = object.source.kind === "inline" ? object.source.data : {};
@@ -657,6 +752,7 @@ export function WallObjectContent({
 export function WallObjectCard({
   object,
   assetUrl,
+  slideImageUrls,
   videoStream,
   audioStream,
   compact = false,
@@ -681,6 +777,7 @@ export function WallObjectCard({
 }: {
   object: WallObject;
   assetUrl?: string | undefined;
+  slideImageUrls?: Record<string, string> | undefined;
   videoStream?: MediaStream | null | undefined;
   audioStream?: MediaStream | null | undefined;
   compact?: boolean;
@@ -689,7 +786,7 @@ export function WallObjectCard({
   currentUserId?: string | undefined;
   onRemove?: (objectId: string) => void;
   onStopShare?: (objectId: string) => void;
-  onControl?: (objectId: string, action: WallObjectControlAction, positionSeconds?: number, choiceId?: string) => void;
+  onControl?: (objectId: string, action: WallObjectControlAction, positionSeconds?: number, choiceId?: string, slideIndex?: number) => void;
   whiteboardController?: WhiteboardController | undefined;
   whiteboardParticipantNames?: Record<string, string> | undefined;
   canWriteWhiteboard?: ((object: WallObject) => boolean) | undefined;
@@ -714,6 +811,7 @@ export function WallObjectCard({
         currentUserId={currentUserId}
         surface={surface}
         assetUrl={assetUrl}
+        slideImageUrls={slideImageUrls}
         videoStream={videoStream}
         audioStream={audioStream}
         whiteboardController={whiteboardController}
@@ -731,6 +829,7 @@ export function WallObjectCard({
     ),
     [
       assetUrl,
+      slideImageUrls,
       audioStream,
       canManage,
       canWriteWhiteboard,
@@ -782,7 +881,7 @@ export function WallObjectCard({
         </header>
       )}
       <div className="wall-object-card__media">{body}</div>
-      {canManage && !(surface && (object.type === "timer" || object.type === "poll" || object.type === "whiteboard" || object.type === "web.browser.shared")) ? (
+      {canManage && !(surface && (object.type === "timer" || object.type === "poll" || object.type === "whiteboard" || object.type === "slides.file" || object.type === "web.browser.shared")) ? (
         <footer className="wall-object-card__actions">
           {object.type.endsWith(".live") && live ? (
             <button type="button" className="secondary" onClick={() => onStopShare?.(object.id)}>

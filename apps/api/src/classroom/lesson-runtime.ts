@@ -580,6 +580,73 @@ export async function startLessonStep(input: {
     return { ...record, createdGrantId: grantId, emittedActionIds };
   }
 
+  if (input.step.kind === "slide-deck" && input.step.payload.kind === "slide-deck") {
+    const payload = input.step.payload.data;
+    const manifest = await input.repository.getActiveManifest(input.roomId);
+    const dynamicAnchors = await input.repository.listDynamicWallAnchorsForRoom(input.roomId);
+    const anchorExists =
+      hasAnchor(manifest, payload.wallAnchorId) ||
+      dynamicAnchors.some((anchor) => anchor.id === payload.wallAnchorId);
+    if (!anchorExists) {
+      return { ...record, drifted: true, driftReason: "Missing deck wall anchor" };
+    }
+
+    const emittedActionIds: string[] = [];
+    // Speaker notes stay teacher-only: never copy them into the shared wall object.
+    const slides = payload.slides.map(({ speakerNotes: _speakerNotes, ...slide }) => slide);
+
+    // Re-entering the step (e.g. teacher stepped back) reuses a still-owned deck at slide 1.
+    const priorObject = prior?.createdWallObjectId
+      ? await input.repository.getWallObject(input.roomId, prior.createdWallObjectId)
+      : undefined;
+    let deckObjectId: string;
+    if (
+      priorObject &&
+      priorObject.status === "active" &&
+      priorObject.permissions?.lessonRunId === input.run.id &&
+      priorObject.permissions?.lessonStepId === input.step.id
+    ) {
+      await input.repository.updateWallObject(input.roomId, priorObject.id, {
+        source: { kind: "inline", data: { theme: payload.theme, slides } },
+        state: { ...priorObject.state, slides: { index: 0, count: slides.length, sentAt: Date.now() } },
+        updatedByUserId: input.actor.userId
+      });
+      deckObjectId = priorObject.id;
+      emittedActionIds.push("reset-slide-deck");
+    } else {
+      const wallObject = await input.repository.createWallObject({
+        roomId: input.roomId,
+        wallAnchorId: payload.wallAnchorId,
+        type: "slides.file",
+        title: input.step.title,
+        source: { kind: "inline", data: { theme: payload.theme, slides } },
+        placement: { x: 0, y: 0, width: 1, height: 1, zIndex: Date.now() % 1000, fit: "contain" },
+        state: { slides: { index: 0, count: slides.length, sentAt: Date.now() } },
+        permissions: { lessonRunId: input.run.id, lessonStepId: input.step.id },
+        moderation: {},
+        status: "active",
+        createdByUserId: input.actor.userId,
+        updatedByUserId: input.actor.userId
+      });
+      deckObjectId = wallObject.id;
+      emittedActionIds.push("create-slide-deck");
+    }
+
+    if (payload.spotlightBoard) {
+      input.state.spotlight = {
+        targetType: "wall-anchor",
+        anchorId: payload.wallAnchorId,
+        title: input.step.title,
+        mode: "highlight",
+        createdByUserId: input.actor.userId,
+        startedAt: input.now
+      };
+      emittedActionIds.push("set-spotlight");
+    }
+
+    return { ...record, createdWallObjectId: deckObjectId, emittedActionIds };
+  }
+
   if (input.step.kind === "exit-ticket" && input.step.payload.kind === "exit-ticket") {
     const payload = input.step.payload.data;
 
@@ -755,6 +822,55 @@ async function cleanupLessonStep(input: {
       : {};
   }
 
+  if (input.step.kind === "slide-deck" && input.step.payload.kind === "slide-deck") {
+    const emittedActionIds: string[] = [];
+    let drifted = false;
+    let driftReason: string | undefined;
+
+    if (input.step.payload.data.spotlightBoard) {
+      const spotlight = input.state.spotlight;
+      if (
+        spotlight &&
+        spotlight.targetType === "wall-anchor" &&
+        spotlight.anchorId === input.step.payload.data.wallAnchorId
+      ) {
+        input.state.spotlight = null;
+        emittedActionIds.push("clear-spotlight");
+      } else {
+        drifted = true;
+        driftReason = "Spotlight changed before cleanup";
+      }
+    }
+
+    if (input.step.payload.data.removeOnAdvance) {
+      if (!input.record.createdWallObjectId) {
+        drifted = true;
+        driftReason = "Missing slide deck object id";
+      } else {
+        const wallObject = await input.repository.getWallObject(input.roomId, input.record.createdWallObjectId);
+        if (!wallObject || wallObject.status === "removed") {
+          drifted = true;
+          driftReason = "Slide deck was removed";
+        } else if (
+          wallObject.permissions?.lessonRunId !== input.run.id ||
+          wallObject.permissions?.lessonStepId !== input.step.id
+        ) {
+          drifted = true;
+          driftReason = "Slide deck ownership changed";
+        } else {
+          await input.repository.softRemoveWallObject(input.roomId, wallObject.id, { updatedByUserId: input.actor.userId });
+          emittedActionIds.push("remove-slide-deck");
+        }
+      }
+    }
+
+    return {
+      emittedActionIds,
+      ...(drifted ? { drifted: true } : {}),
+      ...(driftReason ? { driftReason } : {})
+    };
+  }
+
   if (input.step.kind === "exit-ticket" && input.step.payload.kind === "exit-ticket") {
     if (!input.step.payload.data.autoCloseOnAdvance) return {};
     if (!input.record.createdExitTicket) return { drifted: true, driftReason: "Missing exit ticket check ids" };
@@ -810,6 +926,18 @@ export function filterLessonRunForActor(run: LessonRun | null, actor: ClassroomA
   const steps = run.steps.map((step, index) => {
     if (currentStep && index === run.currentStepIndex) {
       const { notes: _notes, ...visibleStep } = step;
+      if (visibleStep.payload.kind === "slide-deck") {
+        return {
+          ...visibleStep,
+          payload: {
+            ...visibleStep.payload,
+            data: {
+              ...visibleStep.payload.data,
+              slides: visibleStep.payload.data.slides.map(({ speakerNotes: _speakerNotes, ...slide }) => slide)
+            }
+          }
+        };
+      }
       return visibleStep;
     }
     return {

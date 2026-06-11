@@ -655,6 +655,7 @@ export function RoomView2D({
               compact
               currentUserId={currentUserId}
               assetUrl={assetUrls[object.id]}
+              slideImageUrls={assetUrls}
               videoStream={wallMediaStreams[object.id]?.videoStream}
               audioStream={wallMediaStreams[object.id]?.audioStream}
               whiteboardController={whiteboardController}

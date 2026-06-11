@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ClassroomAction, LessonRun, LessonStep } from "@3dspace/contracts";
+import type { ClassroomAction, LessonRun, LessonStep, WallObject } from "@3dspace/contracts";
+import { readSlideDeckState } from "@3dspace/room-engine";
 import { HudCard } from "./HudCard";
 import { LessonTimerHud } from "./LessonTimerHud";
 
@@ -14,6 +15,63 @@ function latestCurrentRecord(run: LessonRun, step: LessonStep | null) {
   return null;
 }
 
+/** In-panel presenter remote for a live slide-deck step. */
+function LessonSlideNavigator({
+  step,
+  object,
+  onSetSlide
+}: {
+  step: LessonStep;
+  object: WallObject;
+  onSetSlide: (objectId: string, slideIndex: number) => void;
+}) {
+  if (step.payload.kind !== "slide-deck") return null;
+  const slides = step.payload.data.slides;
+  const slideState = readSlideDeckState(object.state, slides.length);
+  const current = slides[slideState.index];
+  const next = slides[slideState.index + 1];
+
+  return (
+    <div className="lesson-slide-nav" data-testid="lesson-slide-nav">
+      <div className="lesson-slide-nav__head">
+        <span className="lesson-run-kicker">Slides</span>
+        <span className="lesson-slide-nav__count" data-testid="lesson-slide-nav-count">
+          {slideState.index + 1} / {slides.length}
+        </span>
+      </div>
+      {current ? (
+        <p className="lesson-slide-nav__title">{current.title || `Slide ${slideState.index + 1}`}</p>
+      ) : null}
+      {current?.speakerNotes ? <p className="lesson-slide-nav__notes">{current.speakerNotes}</p> : null}
+      <div className="lesson-slide-nav__btns">
+        <button
+          type="button"
+          className="hud-btn"
+          data-testid="lesson-slide-prev"
+          disabled={slideState.index <= 0}
+          onClick={() => onSetSlide(object.id, slideState.index - 1)}
+        >
+          ‹ Prev
+        </button>
+        <button
+          type="button"
+          className="hud-btn lesson-run-primary-btn"
+          data-testid="lesson-slide-next"
+          disabled={slideState.index >= slides.length - 1}
+          onClick={() => onSetSlide(object.id, slideState.index + 1)}
+        >
+          Next ›
+        </button>
+      </div>
+      {next ? (
+        <p className="small">Next slide: {next.title || next.layout}</p>
+      ) : (
+        <p className="small">Last slide — advance the lesson when ready.</p>
+      )}
+    </div>
+  );
+}
+
 export function LessonRunControls({
   run,
   currentStep,
@@ -23,7 +81,9 @@ export function LessonRunControls({
   error,
   avatarEditorLocked = false,
   onToggleAvatarLock,
-  onOpenRecap
+  onOpenRecap,
+  slideDeckObject,
+  onSetSlide
 }: {
   run: LessonRun | null;
   currentStep: LessonStep | null;
@@ -34,6 +94,8 @@ export function LessonRunControls({
   avatarEditorLocked?: boolean;
   onToggleAvatarLock?: () => void;
   onOpenRecap?: () => void;
+  slideDeckObject?: WallObject | null | undefined;
+  onSetSlide?: ((objectId: string, slideIndex: number) => void) | undefined;
 }) {
   const [busy, setBusy] = useState("");
   const [startAlert, setStartAlert] = useState(false);
@@ -95,6 +157,9 @@ export function LessonRunControls({
           {currentStep.notes ? <p className="lesson-notes">{currentStep.notes}</p> : null}
           {currentRecord?.drifted ? <p className="lesson-drift" title={currentRecord.driftReason ?? "Step drifted"}>Drifted</p> : null}
           <LessonTimerHud run={run} currentStep={currentStep} onComplete={autoAdvance} />
+          {currentStep.payload.kind === "slide-deck" && slideDeckObject && onSetSlide ? (
+            <LessonSlideNavigator step={currentStep} object={slideDeckObject} onSetSlide={onSetSlide} />
+          ) : null}
           {nextStep ? <p className="small">Next: {nextStep.title}</p> : <p className="small">Last step.</p>}
         </div>
       ) : (

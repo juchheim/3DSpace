@@ -36,6 +36,10 @@ function bodyForStep(step: LessonStep, state: ClassroomState | null, manifest: R
       : "A classmate is sharing to the board.";
   }
   if (payload.kind === "timer") return payload.data.label || "Timer running.";
+  if (payload.kind === "slide-deck") {
+    const anchor = manifest?.wallAnchors.find((candidate) => candidate.id === payload.data.wallAnchorId);
+    return anchor?.label ? `Slides are up on ${anchor.label}.` : "Slides are up on the board.";
+  }
   if (payload.kind === "exit-ticket") return "Share your reflection before the lesson ends.";
   return "";
 }

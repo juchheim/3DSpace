@@ -5,6 +5,7 @@ import {
   createInitialPollState,
   isValidPollChoiceId,
   normalizePollInlineData,
+  normalizeSlideDeckInlineData,
   readPollState,
   validateDynamicBoardPlacement
 } from "@3dspace/room-engine";
@@ -452,7 +453,7 @@ export async function registerWallObjectRoutes(app: FastifyInstance, ctx: AppCon
       };
     } else {
       const { teacher } = await assertWallObjectManagePolicy(repository, params.roomId, auth, existing);
-      if ((body.action === "approve" || body.action === "reject" || body.action === "lock" || body.action === "unlock") && !teacher) {
+      if ((body.action === "approve" || body.action === "reject" || body.action === "lock" || body.action === "unlock" || body.action === "set-slide") && !teacher) {
         throw forbidden("Teacher role required for wall object moderation");
       }
 
@@ -460,6 +461,16 @@ export async function registerWallObjectRoutes(app: FastifyInstance, ctx: AppCon
         if (existing.type !== "poll") throw badRequest("Poll controls are only supported for polls");
         const pollState = readPollState(state);
         state.poll = { ...pollState, closed: body.action === "close-poll" };
+      }
+
+      if (body.action === "set-slide") {
+        if (existing.type !== "slides.file") throw badRequest("Slide controls are only supported for slide decks");
+        if (existing.source.kind !== "inline") throw badRequest("Slide deck source is invalid");
+        const deck = normalizeSlideDeckInlineData(existing.source.data);
+        if (deck.slides.length === 0) throw badRequest("Slide deck has no slides");
+        const maxIndex = deck.slides.length - 1;
+        const index = Math.min(Math.max(body.slideIndex ?? 0, 0), maxIndex);
+        state.slides = { index, count: deck.slides.length, sentAt: Date.now(), controlledByUserId: auth.userId };
       }
 
       if (body.action === "play" || body.action === "pause") {
@@ -529,7 +540,9 @@ export async function registerWallObjectRoutes(app: FastifyInstance, ctx: AppCon
               ? "wall.object.moderated.v1"
               : body.action === "lock" || body.action === "unlock"
                 ? "wall.object.locked.v1"
-                : "wall.playback.controlled.v1",
+                : body.action === "set-slide"
+                  ? "wall.slides.controlled.v1"
+                  : "wall.playback.controlled.v1",
       payload: { objectId: updated.id, action: body.action, status: updated.status, version: updated.version },
       createdByUserId: auth.userId
     });

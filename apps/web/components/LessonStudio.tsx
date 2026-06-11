@@ -5,6 +5,9 @@ import type {
   ClassroomAction,
   ClassroomState,
   LessonRun,
+  LessonSlide,
+  LessonSlideDeckTheme,
+  LessonSlideLayout,
   LessonStep,
   LessonStepInput,
   LessonStepKind,
@@ -14,7 +17,11 @@ import type {
   WallObjectType
 } from "@3dspace/contracts";
 import { HudCard } from "./HudCard";
+import { SlideDeckSlide } from "./SlideDeckSlide";
 import type { LessonStepStatus } from "../lib/useLessonRun";
+
+export type SlideImageUpload = (file: File, wallAnchorId: string) => Promise<{ attachmentId: string; url: string }>;
+export type SlideImageResolve = (attachmentId: string) => Promise<string>;
 
 type ParticipantOption = {
   id: string;
@@ -32,12 +39,51 @@ type StepKindMeta = {
 const STEP_KINDS: StepKindMeta[] = [
   { kind: "instruction", label: "Instruction", chip: "Say", hint: "Tell the class what to do next." },
   { kind: "focus-board", label: "Focus Board", chip: "Look", hint: "Point every student at one board." },
+  { kind: "slide-deck", label: "Slide Deck", chip: "Deck", hint: "Present slides on a board, at your pace." },
   { kind: "private-check", label: "Private Check", chip: "Check", hint: "Ask a question only you see answers to." },
   { kind: "group-work", label: "Group Work", chip: "Teams", hint: "Send a team to a working zone." },
   { kind: "timer", label: "Timer", chip: "Time", hint: "Run a countdown the class can see." },
   { kind: "student-share", label: "Student Share", chip: "Mic", hint: "Hand one student a board to present." },
   { kind: "exit-ticket", label: "Exit Ticket", chip: "Exit", hint: "Collect reflections before class ends." }
 ];
+
+type SlideLayoutMeta = {
+  layout: LessonSlideLayout;
+  label: string;
+  titleLabel: string;
+  titlePlaceholder: string;
+  bodyLabel: string;
+  bodyPlaceholder: string;
+  bodyMultiline: boolean;
+  hasImage: boolean;
+};
+
+const SLIDE_LAYOUTS: SlideLayoutMeta[] = [
+  { layout: "title", label: "Title", titleLabel: "Title", titlePlaceholder: "Photosynthesis", bodyLabel: "Subtitle", bodyPlaceholder: "How plants turn light into food", bodyMultiline: false, hasImage: false },
+  { layout: "bullets", label: "Bullets", titleLabel: "Heading", titlePlaceholder: "Key ideas", bodyLabel: "Bullets — one per line", bodyPlaceholder: "Light energy is captured\nWater + CO₂ become glucose", bodyMultiline: true, hasImage: false },
+  { layout: "big-fact", label: "Big fact", titleLabel: "The fact", titlePlaceholder: "90% of ocean life is unexplored", bodyLabel: "Why it matters", bodyPlaceholder: "One line of context", bodyMultiline: false, hasImage: false },
+  { layout: "quote", label: "Quote", titleLabel: "Quote", titlePlaceholder: "Nothing in life is to be feared…", bodyLabel: "Attribution", bodyPlaceholder: "Marie Curie", bodyMultiline: false, hasImage: false },
+  { layout: "image", label: "Image", titleLabel: "Caption", titlePlaceholder: "Optional caption", bodyLabel: "", bodyPlaceholder: "", bodyMultiline: false, hasImage: true },
+  { layout: "image-text", label: "Image + text", titleLabel: "Heading", titlePlaceholder: "What do you notice?", bodyLabel: "Points — one per line", bodyPlaceholder: "Look at the top left\nWhat changed?", bodyMultiline: true, hasImage: true }
+];
+
+const DECK_THEME_OPTIONS: { theme: LessonSlideDeckTheme; label: string }[] = [
+  { theme: "midnight", label: "Midnight" },
+  { theme: "paper", label: "Paper" },
+  { theme: "chalkboard", label: "Chalkboard" }
+];
+
+function slideLayoutMeta(layout: LessonSlideLayout): SlideLayoutMeta {
+  return SLIDE_LAYOUTS.find((candidate) => candidate.layout === layout) ?? SLIDE_LAYOUTS[0]!;
+}
+
+function newSlideId() {
+  return `slide-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function newSlide(layout: LessonSlideLayout): LessonSlide {
+  return { id: newSlideId(), layout, title: "", body: "" };
+}
 
 const SHARE_TYPES: WallObjectType[] = ["note", "image.file", "whiteboard", "camera.live", "screen.live"];
 const DEFAULT_GROUP_COLOR = "#389060";
@@ -114,6 +160,22 @@ function defaultStep(kind: LessonStepKind, anchors: WallAnchor[], participants: 
   if (kind === "timer") {
     return { kind, title: "Work timer", payload: { kind, data: { durationSeconds: 60, label: "Work time", placement: "hud", autoAdvanceOnComplete: false } } };
   }
+  if (kind === "slide-deck") {
+    return {
+      kind,
+      title: "Slide deck",
+      payload: {
+        kind,
+        data: {
+          wallAnchorId: anchorId,
+          theme: "midnight",
+          slides: [{ ...newSlide("title"), title: "Today's lesson" }],
+          spotlightBoard: true,
+          removeOnAdvance: true
+        }
+      }
+    };
+  }
   if (kind === "student-share") {
     return {
       kind,
@@ -173,6 +235,7 @@ function brokenAssetMessage(step: LessonStep, anchors: WallAnchor[], state: Clas
     if (payload.data.newGroup?.targetWallAnchorId && !anchorIds.has(payload.data.newGroup.targetWallAnchorId)) return "This group target references a missing board.";
   }
   if (payload.kind === "timer" && payload.data.placement === "wall" && !anchorIds.has(payload.data.wallAnchorId ?? "")) return "This timer references a missing board.";
+  if (payload.kind === "slide-deck" && !anchorIds.has(payload.data.wallAnchorId)) return "This slide deck references a missing board.";
   if (payload.kind === "student-share") {
     if (!userIds.has(payload.data.userId)) return "This share step references a missing student.";
     if (!anchorIds.has(payload.data.wallAnchorId)) return "This share step references a missing board.";
@@ -206,6 +269,10 @@ function stepGlance(step: LessonStep, anchors: WallAnchor[], participants: Parti
     return `${group.label} · ${group.memberUserIds.length} member${group.memberUserIds.length === 1 ? "" : "s"}${board ? ` · ${board}` : ""}`;
   }
   if (payload.kind === "timer") return `${formatTimer(payload.data.durationSeconds)} · ${payload.data.label}`;
+  if (payload.kind === "slide-deck") {
+    const count = payload.data.slides.length;
+    return `${count} slide${count === 1 ? "" : "s"} → ${anchorLabel(payload.data.wallAnchorId, anchors) || "board"}`;
+  }
   if (payload.kind === "student-share") {
     const student = participants.find((participant) => participant.id === payload.data.userId);
     return `${student?.displayName ?? "Student"} → ${anchorLabel(payload.data.wallAnchorId, anchors) || "board"}`;
@@ -281,6 +348,320 @@ export function LessonScriptCard({
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   Slide deck editor — filmstrip, live preview, and per-layout fields.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+type SlideDeckData = Extract<LessonStepPayload, { kind: "slide-deck" }>["data"];
+
+function StudioSlideDeckEditor({
+  data,
+  anchors,
+  setData,
+  uploadSlideImage,
+  resolveSlideImage,
+  slideImageUrls
+}: {
+  data: SlideDeckData;
+  anchors: WallAnchor[];
+  setData(patch: Record<string, unknown>): void;
+  uploadSlideImage?: SlideImageUpload | undefined;
+  resolveSlideImage?: SlideImageResolve | undefined;
+  slideImageUrls?: Record<string, string> | undefined;
+}) {
+  const slides = data.slides;
+  const [selectedSlideId, setSelectedSlideId] = useState(slides[0]?.id ?? "");
+  const [localImageUrls, setLocalImageUrls] = useState<Record<string, string>>({});
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const selectedIndex = Math.max(0, slides.findIndex((candidate) => candidate.id === selectedSlideId));
+  const slide = slides[selectedIndex] ?? slides[0];
+  const layoutMeta = slide ? slideLayoutMeta(slide.layout) : SLIDE_LAYOUTS[0]!;
+
+  const imageUrlFor = (candidate: LessonSlide | undefined) => {
+    if (!candidate?.imageAttachmentId) return undefined;
+    return localImageUrls[candidate.imageAttachmentId] ?? slideImageUrls?.[candidate.imageAttachmentId];
+  };
+
+  // Hydrate download URLs for images saved in earlier sessions so thumbnails
+  // and the preview render when the teacher reopens the builder.
+  useEffect(() => {
+    if (!resolveSlideImage) return;
+    let cancelled = false;
+    const missing = slides
+      .map((candidate) => candidate.imageAttachmentId)
+      .filter((id): id is string => Boolean(id))
+      .filter((id) => !localImageUrls[id] && !slideImageUrls?.[id]);
+    if (missing.length === 0) return;
+    for (const attachmentId of missing) {
+      void resolveSlideImage(attachmentId)
+        .then((url) => {
+          if (cancelled) return;
+          setLocalImageUrls((current) => (current[attachmentId] ? current : { ...current, [attachmentId]: url }));
+        })
+        .catch(() => undefined);
+    }
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slides.map((candidate) => candidate.imageAttachmentId ?? "").join(","), resolveSlideImage]);
+
+  function updateSlides(updater: (current: LessonSlide[]) => LessonSlide[]) {
+    setData({ slides: updater(slides) });
+  }
+
+  function patchSlide(patch: Partial<Pick<LessonSlide, "layout" | "title" | "body" | "speakerNotes">>) {
+    updateSlides((current) => current.map((candidate, index) => (index === selectedIndex ? { ...candidate, ...patch } : candidate)));
+  }
+
+  function addSlide() {
+    const created = newSlide(slides.length === 0 ? "title" : "bullets");
+    updateSlides((current) => [...current.slice(0, selectedIndex + 1), created, ...current.slice(selectedIndex + 1)]);
+    setSelectedSlideId(created.id);
+  }
+
+  function duplicateSlide() {
+    if (!slide) return;
+    const copy: LessonSlide = { ...slide, id: newSlideId() };
+    updateSlides((current) => [...current.slice(0, selectedIndex + 1), copy, ...current.slice(selectedIndex + 1)]);
+    setSelectedSlideId(copy.id);
+  }
+
+  function deleteSlide() {
+    if (slides.length <= 1 || !slide) return;
+    const nextSelected = slides[selectedIndex + 1]?.id ?? slides[selectedIndex - 1]?.id ?? "";
+    updateSlides((current) => current.filter((candidate) => candidate.id !== slide.id));
+    setSelectedSlideId(nextSelected);
+  }
+
+  function moveSlide(direction: -1 | 1) {
+    const target = selectedIndex + direction;
+    if (target < 0 || target >= slides.length) return;
+    updateSlides((current) => {
+      const next = [...current];
+      const [moved] = next.splice(selectedIndex, 1);
+      if (moved) next.splice(target, 0, moved);
+      return next;
+    });
+  }
+
+  async function handleImageFile(file: File) {
+    if (!uploadSlideImage || !slide) return;
+    setUploading(true);
+    setUploadError("");
+    try {
+      const anchorForUpload = data.wallAnchorId || firstAnchorId(anchors);
+      const result = await uploadSlideImage(file, anchorForUpload);
+      setLocalImageUrls((current) => ({ ...current, [result.attachmentId]: result.url }));
+      updateSlides((current) =>
+        current.map((candidate, index) => {
+          if (index !== selectedIndex) return candidate;
+          const { imageUrl: _droppedUrl, ...rest } = candidate;
+          return { ...rest, imageAttachmentId: result.attachmentId };
+        })
+      );
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "Upload failed — try again.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function removeImage() {
+    updateSlides((current) =>
+      current.map((candidate, index) => {
+        if (index !== selectedIndex) return candidate;
+        const { imageUrl: _droppedUrl, imageAttachmentId: _droppedId, ...rest } = candidate;
+        return rest;
+      })
+    );
+  }
+
+  if (!slide) return null;
+  const slideImageUrl = imageUrlFor(slide);
+
+  return (
+    <div className="studio-field-group studio-deck" data-testid="lesson-slide-deck-editor">
+      <div className="studio-row">
+        <label className="studio-field">
+          <span>Present on board</span>
+          <select
+            data-testid="lesson-deck-board"
+            value={data.wallAnchorId}
+            onChange={(event) => setData({ wallAnchorId: event.target.value })}
+          >
+            {anchors.map((anchor) => <option key={anchor.id} value={anchor.id}>{anchor.label}</option>)}
+          </select>
+          <em>The deck appears here when this step starts.</em>
+        </label>
+        <div className="studio-field">
+          <span>Theme</span>
+          <div className="studio-deck-themes" role="radiogroup" aria-label="Deck theme">
+            {DECK_THEME_OPTIONS.map((option) => (
+              <button
+                key={option.theme}
+                type="button"
+                role="radio"
+                aria-checked={data.theme === option.theme}
+                className={`studio-deck-theme studio-deck-theme--${option.theme}${data.theme === option.theme ? " studio-deck-theme--on" : ""}`}
+                onClick={() => setData({ theme: option.theme })}
+              >
+                <span className="studio-deck-theme__swatch" aria-hidden />
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="studio-deck-strip" role="listbox" aria-label="Slides">
+        {slides.map((candidate, index) => (
+          <button
+            key={candidate.id}
+            type="button"
+            role="option"
+            aria-selected={candidate.id === slide.id}
+            className={`studio-deck-thumb${candidate.id === slide.id ? " studio-deck-thumb--on" : ""}`}
+            data-testid={`lesson-deck-slide-${index}`}
+            onClick={() => setSelectedSlideId(candidate.id)}
+          >
+            <span className="studio-deck-thumb__frame" aria-hidden>
+              <SlideDeckSlide slide={candidate} theme={data.theme} imageUrl={imageUrlFor(candidate)} />
+            </span>
+            <span className="studio-deck-thumb__num">{index + 1}</span>
+          </button>
+        ))}
+        <button
+          type="button"
+          className="studio-deck-thumb studio-deck-thumb--add"
+          data-testid="lesson-deck-add-slide"
+          disabled={slides.length >= 40}
+          onClick={addSlide}
+        >
+          <span aria-hidden>＋</span>
+          Add slide
+        </button>
+      </div>
+
+      <div className="studio-deck-stage">
+        <div className="studio-deck-preview" aria-label={`Slide ${selectedIndex + 1} preview`}>
+          <SlideDeckSlide slide={slide} theme={data.theme} imageUrl={slideImageUrl} />
+        </div>
+        <div className="studio-deck-stage__bar">
+          <span className="studio-deck-stage__count">Slide {selectedIndex + 1} of {slides.length}</span>
+          <span className="studio-deck-stage__tools">
+            <button type="button" aria-label="Move slide earlier" disabled={selectedIndex === 0} onClick={() => moveSlide(-1)}>←</button>
+            <button type="button" aria-label="Move slide later" disabled={selectedIndex === slides.length - 1} onClick={() => moveSlide(1)}>→</button>
+            <button type="button" disabled={slides.length >= 40} onClick={duplicateSlide}>Duplicate</button>
+            <button type="button" disabled={slides.length <= 1} onClick={deleteSlide}>Delete</button>
+          </span>
+        </div>
+      </div>
+
+      <div className="studio-field">
+        <span>Layout</span>
+        <div className="studio-deck-layouts" role="radiogroup" aria-label="Slide layout">
+          {SLIDE_LAYOUTS.map((option) => (
+            <button
+              key={option.layout}
+              type="button"
+              role="radio"
+              aria-checked={slide.layout === option.layout}
+              className={`studio-deck-layout${slide.layout === option.layout ? " studio-deck-layout--on" : ""}`}
+              onClick={() => patchSlide({ layout: option.layout })}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {layoutMeta.hasImage ? (
+        <div className="studio-field">
+          <span>Image</span>
+          <div className="studio-deck-image-row">
+            {slideImageUrl ? <img className="studio-deck-image-chip" src={slideImageUrl} alt="" /> : null}
+            <button
+              type="button"
+              className="studio-btn"
+              data-testid="lesson-deck-upload-image"
+              disabled={uploading || !uploadSlideImage}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {uploading ? "Uploading…" : slide.imageAttachmentId || slide.imageUrl ? "Replace image" : "Upload image"}
+            </button>
+            {slide.imageAttachmentId || slide.imageUrl ? (
+              <button type="button" className="studio-btn" onClick={removeImage}>Remove</button>
+            ) : null}
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/gif,image/webp"
+            hidden
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (file) void handleImageFile(file);
+            }}
+          />
+          {uploadError ? <p className="studio-error">{uploadError}</p> : null}
+          <em>PNG or JPG, landscape works best — the image fills the slide.</em>
+        </div>
+      ) : null}
+
+      <label className="studio-field">
+        <span>{layoutMeta.titleLabel}</span>
+        <input
+          data-testid="lesson-deck-slide-title"
+          value={slide.title}
+          maxLength={160}
+          placeholder={layoutMeta.titlePlaceholder}
+          onChange={(event) => patchSlide({ title: event.target.value })}
+        />
+      </label>
+
+      {layoutMeta.bodyLabel ? (
+        <label className="studio-field">
+          <span>{layoutMeta.bodyLabel}</span>
+          <textarea
+            data-testid="lesson-deck-slide-body"
+            rows={layoutMeta.bodyMultiline ? 4 : 2}
+            maxLength={1200}
+            value={slide.body}
+            placeholder={layoutMeta.bodyPlaceholder}
+            onChange={(event) => patchSlide({ body: event.target.value })}
+          />
+        </label>
+      ) : null}
+
+      <label className="studio-field">
+        <span>Speaker notes</span>
+        <textarea
+          rows={2}
+          maxLength={1000}
+          value={slide.speakerNotes ?? ""}
+          placeholder="Cues for you while presenting"
+          onChange={(event) => patchSlide({ speakerNotes: event.target.value })}
+        />
+        <em>Only you see these — they show in the lesson run panel.</em>
+      </label>
+
+      <label className="studio-check">
+        <input type="checkbox" checked={data.spotlightBoard} onChange={(event) => setData({ spotlightBoard: event.target.checked })} />
+        <span>Spotlight the board so students look at it</span>
+      </label>
+      <label className="studio-check">
+        <input type="checkbox" checked={data.removeOnAdvance} onChange={(event) => setData({ removeOnAdvance: event.target.checked })} />
+        <span>Take the deck down when I advance</span>
+      </label>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    Step editor — the roomy center column of the builder.
    ──────────────────────────────────────────────────────────────────────────── */
 
@@ -290,7 +671,10 @@ function StudioStepEditor({
   wallAnchors,
   state,
   participants,
-  onSave
+  onSave,
+  uploadSlideImage,
+  resolveSlideImage,
+  slideImageUrls
 }: {
   step: LessonStep;
   manifest: RoomManifest | null | undefined;
@@ -298,6 +682,9 @@ function StudioStepEditor({
   state: ClassroomState | null;
   participants: ParticipantOption[];
   onSave(input: { title: string; notes?: string; payload: LessonStepPayload }): Promise<void>;
+  uploadSlideImage?: SlideImageUpload | undefined;
+  resolveSlideImage?: SlideImageResolve | undefined;
+  slideImageUrls?: Record<string, string> | undefined;
 }) {
   const [title, setTitle] = useState(step.title);
   const [notes, setNotes] = useState(step.notes ?? "");
@@ -732,6 +1119,17 @@ function StudioStepEditor({
         </div>
       ) : null}
 
+      {payload.kind === "slide-deck" ? (
+        <StudioSlideDeckEditor
+          data={payload.data}
+          anchors={anchors}
+          setData={setData}
+          uploadSlideImage={uploadSlideImage}
+          resolveSlideImage={resolveSlideImage}
+          slideImageUrls={slideImageUrls}
+        />
+      ) : null}
+
       {payload.kind === "student-share" ? (
         <div className="studio-field-group">
           <div className="studio-row">
@@ -897,7 +1295,10 @@ export function LessonStudio({
   error,
   runAction,
   stepStatus,
-  onClose
+  onClose,
+  uploadSlideImage,
+  resolveSlideImage,
+  slideImageUrls
 }: {
   run: LessonRun | null;
   state: ClassroomState | null;
@@ -909,6 +1310,9 @@ export function LessonStudio({
   runAction(action: ClassroomAction): Promise<unknown>;
   stepStatus(stepIndex: number): LessonStepStatus;
   onClose: () => void;
+  uploadSlideImage?: SlideImageUpload | undefined;
+  resolveSlideImage?: SlideImageResolve | undefined;
+  slideImageUrls?: Record<string, string> | undefined;
 }) {
   const [title, setTitle] = useState(run?.title ?? "Untitled lesson");
   const [selectedStepId, setSelectedStepId] = useState("");
@@ -1183,6 +1587,9 @@ export function LessonStudio({
                     state={state}
                     participants={participants}
                     onSave={(input) => execute(`save-${selectedStep.id}`, { type: "update-lesson-step", stepId: selectedStep.id, ...input })}
+                    uploadSlideImage={uploadSlideImage}
+                    resolveSlideImage={resolveSlideImage}
+                    slideImageUrls={slideImageUrls}
                   />
                 ) : (
                   <div className="studio-empty">

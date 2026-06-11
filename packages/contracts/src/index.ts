@@ -2360,12 +2360,14 @@ export const WallObjectControlRequestSchema = z.object({
     "reject",
     "vote",
     "close-poll",
-    "reopen-poll"
+    "reopen-poll",
+    "set-slide"
   ]),
   positionSeconds: z.number().nonnegative().optional(),
   rate: z.number().positive().max(4).optional(),
   muted: z.boolean().optional(),
-  choiceId: z.string().min(1).optional()
+  choiceId: z.string().min(1).optional(),
+  slideIndex: z.number().int().min(0).max(200).optional()
 });
 
 export const WhiteboardToolSchema = z.enum([
@@ -3118,6 +3120,7 @@ export const LessonStepKindSchema = z.enum([
   "group-work",
   "timer",
   "student-share",
+  "slide-deck",
   "exit-ticket"
 ]);
 
@@ -3176,6 +3179,36 @@ export const LessonStepStudentSharePayloadSchema = z.object({
   expiresAt: z.string().optional()
 });
 
+export const LessonSlideLayoutSchema = z.enum([
+  "title",
+  "bullets",
+  "big-fact",
+  "quote",
+  "image",
+  "image-text"
+]);
+
+export const LessonSlideSchema = z.object({
+  id: z.string().min(1),
+  layout: LessonSlideLayoutSchema.default("title"),
+  title: z.string().max(160).default(""),
+  body: z.string().max(1200).default(""),
+  imageAttachmentId: z.string().optional(),
+  imageUrl: z.string().url().optional(),
+  /** Teacher-only presenter notes; stripped from student payloads and the wall object. */
+  speakerNotes: z.string().max(1000).optional()
+});
+
+export const LessonSlideDeckThemeSchema = z.enum(["midnight", "paper", "chalkboard"]);
+
+export const LessonStepSlideDeckPayloadSchema = z.object({
+  wallAnchorId: z.string().min(1),
+  theme: LessonSlideDeckThemeSchema.default("midnight"),
+  slides: z.array(LessonSlideSchema).min(1).max(40),
+  spotlightBoard: z.boolean().default(true),
+  removeOnAdvance: z.boolean().default(true)
+});
+
 export const LessonStepExitTicketChoiceSchema = ClassroomPrivateCheckChoiceSchema;
 
 export const LessonStepExitTicketPayloadSchema = z.object({
@@ -3202,6 +3235,7 @@ export const LessonStepPayloadSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("group-work"), data: LessonStepGroupWorkPayloadSchema }),
   z.object({ kind: z.literal("timer"), data: LessonStepTimerPayloadSchema }),
   z.object({ kind: z.literal("student-share"), data: LessonStepStudentSharePayloadSchema }),
+  z.object({ kind: z.literal("slide-deck"), data: LessonStepSlideDeckPayloadSchema }),
   z.object({ kind: z.literal("exit-ticket"), data: LessonStepExitTicketPayloadSchema })
 ]);
 
@@ -3892,6 +3926,10 @@ export type ClassroomPrivateCheckResponse = z.infer<typeof ClassroomPrivateCheck
 export type ClassroomPrivateCheckTarget = z.infer<typeof ClassroomPrivateCheckTargetSchema>;
 export type ClassroomPrivateCheck = z.infer<typeof ClassroomPrivateCheckSchema>;
 export type LessonStepKind = z.infer<typeof LessonStepKindSchema>;
+export type LessonSlideLayout = z.infer<typeof LessonSlideLayoutSchema>;
+export type LessonSlide = z.infer<typeof LessonSlideSchema>;
+export type LessonSlideDeckTheme = z.infer<typeof LessonSlideDeckThemeSchema>;
+export type LessonStepSlideDeckPayload = z.infer<typeof LessonStepSlideDeckPayloadSchema>;
 export type LessonStepPayload = z.infer<typeof LessonStepPayloadSchema>;
 export type LessonStepExitTicketChoice = z.infer<typeof LessonStepExitTicketChoiceSchema>;
 export type LessonStepExitTicketPayload = z.infer<typeof LessonStepExitTicketPayloadSchema>;

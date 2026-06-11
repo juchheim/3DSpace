@@ -20,7 +20,7 @@ import {
   listWallObjects,
   removeWallObject
 } from "./api";
-import { anchorHasOccupyingWallObject, createInitialPollState, readPollState } from "@3dspace/room-engine";
+import { anchorHasOccupyingWallObject, createInitialPollState, normalizeSlideDeckInlineData, readPollState } from "@3dspace/room-engine";
 import type { ApiIdentity } from "./identity";
 import type { RealtimeMessage } from "./realtime";
 
@@ -144,6 +144,33 @@ function applyPollControl(
   }
 
   return object;
+}
+
+function applySlideControl(object: WallObject, control: z.infer<typeof WallObjectControlRequestSchema>): WallObject {
+  if (control.action !== "set-slide" || object.type !== "slides.file") return object;
+  const previous =
+    object.state?.slides && typeof object.state.slides === "object"
+      ? (object.state.slides as Record<string, unknown>)
+      : {};
+  return {
+    ...object,
+    state: {
+      ...object.state,
+      slides: {
+        ...previous,
+        index: control.slideIndex ?? 0,
+        sentAt: Date.now()
+      }
+    }
+  };
+}
+
+/** Attachment ids referenced by an inline slide deck's image slides. */
+function slideAttachmentIdsFor(object: WallObject): string[] {
+  if (object.type !== "slides.file" || object.source.kind !== "inline" || object.status === "removed") return [];
+  return normalizeSlideDeckInlineData(object.source.data)
+    .slides.map((slide) => slide.imageAttachmentId)
+    .filter((id): id is string => Boolean(id));
 }
 
 function publishRemove(publish: PublishWallMessage | undefined, roomId: string, objectId: string, senderId: string) {
@@ -276,24 +303,49 @@ export function useWallObjects(input: {
     [input.identity.userId, input.identity.displayName, input.roomId]
   );
 
-  const hydrateAssetUrls = useCallback(
-    async (objects: WallObject[]) => {
-      const pending = objects.filter((object) => object.source.kind === "asset" && !assetUrlsRef.current[object.id]);
+  // Slide-deck images are stored per attachment (one deck object references many
+  // attachments), so their download URLs are keyed by attachmentId in assetUrls.
+  const fetchSlideAttachmentUrls = useCallback(
+    async (object: WallObject) => {
+      const roomId = input.roomId;
+      if (!roomId) return;
+      const pending = slideAttachmentIdsFor(object).filter((attachmentId) => !assetUrlsRef.current[attachmentId]);
       if (pending.length === 0) return;
-      const results = await Promise.allSettled(pending.map((object) => fetchAssetUrl(object, { force: true })));
+      const results = await Promise.allSettled(
+        pending.map(async (attachmentId) => {
+          const response = await createAttachmentDownload(input.identity, roomId, attachmentId);
+          setAssetUrls((current) => ({ ...current, [attachmentId]: response.download.url }));
+        })
+      );
       const failure = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
       if (failure) {
         throw failure.reason;
       }
     },
-    [fetchAssetUrl]
+    [input.identity.userId, input.identity.displayName, input.roomId]
+  );
+
+  const hydrateAssetUrls = useCallback(
+    async (objects: WallObject[]) => {
+      const pending = objects.filter((object) => object.source.kind === "asset" && !assetUrlsRef.current[object.id]);
+      const decks = objects.filter((object) => slideAttachmentIdsFor(object).some((id) => !assetUrlsRef.current[id]));
+      if (pending.length === 0 && decks.length === 0) return;
+      const results = await Promise.allSettled([
+        ...pending.map((object) => fetchAssetUrl(object, { force: true })),
+        ...decks.map((object) => fetchSlideAttachmentUrls(object))
+      ]);
+      const failure = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+      if (failure) {
+        throw failure.reason;
+      }
+    },
+    [fetchAssetUrl, fetchSlideAttachmentUrls]
   );
 
   const assetObjectIds = useMemo(
     () =>
       wallObjects
-        .filter((object) => object.source.kind === "asset")
-        .map((object) => object.id)
+        .flatMap((object) => (object.source.kind === "asset" ? [object.id] : slideAttachmentIdsFor(object)))
         .join(","),
     [wallObjects]
   );
@@ -457,6 +509,14 @@ export function useWallObjects(input: {
           const existing = current[objectId];
           if (!existing) return current;
           return { ...current, [objectId]: applyPollControl(existing, control, input.identity.userId) };
+        });
+      }
+
+      if (control.action === "set-slide") {
+        setObjectsById((current) => {
+          const existing = current[objectId];
+          if (!existing) return current;
+          return { ...current, [objectId]: applySlideControl(existing, control) };
         });
       }
 

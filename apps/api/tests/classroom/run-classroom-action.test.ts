@@ -193,4 +193,91 @@ describe("runClassroomAction", () => {
     expect(state.lessonRun?.timeline[0]?.emittedActionIds).toContain("toggle-pods");
     await app.close();
   });
+
+  it("presents a slide deck on the board for the step and tears it down on advance", async () => {
+    const { app, repository, classRecord, roomWithManifest } = await setupClassroom("teacher-run-action-deck", { lessons: true });
+    const anchorId = roomWithManifest.manifest.wallAnchors[0]!.id;
+    const teacherActor = { userId: "teacher-run-action-deck", displayName: "Ms. Rivera", role: "teacher" as const };
+    const base = {
+      repository,
+      roomId: roomWithManifest.room.id,
+      classId: classRecord.id,
+      actor: teacherActor,
+      lessonsEnabled: true,
+      breakoutPodsEnabled: false,
+      studentMediaPermissionsEnabled: false,
+      roomSettings: roomWithManifest.room.settings
+    };
+
+    let state = await runClassroomAction({
+      ...base,
+      action: { type: "init-lesson-run", expectedVersion: 1, title: "Deck lesson" }
+    });
+    state = await runClassroomAction({
+      ...base,
+      action: {
+        type: "add-lesson-step",
+        expectedVersion: state.version,
+        step: {
+          kind: "slide-deck",
+          title: "Cell structure",
+          payload: {
+            kind: "slide-deck",
+            data: {
+              wallAnchorId: anchorId,
+              theme: "paper",
+              slides: [
+                { id: "slide-1", layout: "title", title: "Cells", body: "", speakerNotes: "Greet the class" },
+                { id: "slide-2", layout: "bullets", title: "Organelles", body: "Nucleus\nMitochondria" }
+              ],
+              spotlightBoard: true,
+              removeOnAdvance: true
+            }
+          }
+        }
+      }
+    });
+    state = await runClassroomAction({
+      ...base,
+      action: {
+        type: "add-lesson-step",
+        expectedVersion: state.version,
+        step: {
+          kind: "instruction",
+          title: "Debrief",
+          payload: { kind: "instruction", data: { body: "Discuss the slides." } }
+        }
+      }
+    });
+    state = await runClassroomAction({
+      ...base,
+      action: { type: "start-lesson-run", expectedVersion: state.version }
+    });
+
+    const objects = await repository.listWallObjects(roomWithManifest.room.id);
+    const deck = objects.find((object) => object.type === "slides.file");
+    expect(deck).toBeDefined();
+    expect(deck).toMatchObject({ wallAnchorId: anchorId, status: "active" });
+    expect(deck?.state.slides).toMatchObject({ index: 0, count: 2 });
+    expect(deck?.source.kind).toBe("inline");
+    // Speaker notes are teacher-only and must never reach the shared wall object.
+    expect(JSON.stringify(deck?.source)).not.toContain("Greet the class");
+    expect(state.spotlight).toMatchObject({ targetType: "wall-anchor", anchorId });
+    expect(state.lessonRun?.timeline[0]?.emittedActionIds).toEqual(
+      expect.arrayContaining(["create-slide-deck", "set-spotlight"])
+    );
+
+    state = await runClassroomAction({
+      ...base,
+      action: { type: "advance-lesson-step", expectedVersion: state.version }
+    });
+
+    const removed = await repository.getWallObject(roomWithManifest.room.id, deck!.id);
+    expect(removed?.status).toBe("removed");
+    expect(state.spotlight).toBeNull();
+    expect(state.lessonRun?.timeline[0]?.emittedActionIds).toEqual(
+      expect.arrayContaining(["clear-spotlight", "remove-slide-deck"])
+    );
+    await app.close();
+  });
 });

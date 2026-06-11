@@ -3,7 +3,8 @@ import {
   ClassroomActionSchema,
   ClassroomStateSchema,
   LessonRunSchema,
-  LessonStepPayloadSchema
+  LessonStepPayloadSchema,
+  WallObjectControlRequestSchema
 } from "../src/index";
 
 const now = "2026-05-19T12:00:00.000Z";
@@ -31,6 +32,37 @@ describe("lesson run contracts", () => {
         data: { userId: "student-1", wallAnchorId: "board-1" }
       }).data.revokeOnAdvance
     ).toBe(true);
+  });
+
+  it("parses slide-deck steps with presenter defaults", () => {
+    const payload = LessonStepPayloadSchema.parse({
+      kind: "slide-deck",
+      data: {
+        wallAnchorId: "board-1",
+        slides: [{ id: "slide-1", title: "Opening", speakerNotes: "Greet the class" }]
+      }
+    });
+    if (payload.kind !== "slide-deck") throw new Error("Expected slide-deck payload");
+    expect(payload.data.theme).toBe("midnight");
+    expect(payload.data.spotlightBoard).toBe(true);
+    expect(payload.data.removeOnAdvance).toBe(true);
+    expect(payload.data.slides[0]).toMatchObject({ layout: "title", body: "", speakerNotes: "Greet the class" });
+  });
+
+  it("rejects slide decks without slides or a board", () => {
+    expect(() =>
+      LessonStepPayloadSchema.parse({ kind: "slide-deck", data: { wallAnchorId: "board-1", slides: [] } })
+    ).toThrow();
+    expect(() =>
+      LessonStepPayloadSchema.parse({ kind: "slide-deck", data: { wallAnchorId: "", slides: [{ id: "slide-1" }] } })
+    ).toThrow();
+  });
+
+  it("accepts set-slide wall object controls", () => {
+    const control = WallObjectControlRequestSchema.parse({ action: "set-slide", slideIndex: 3 });
+    expect(control.action).toBe("set-slide");
+    expect(control.slideIndex).toBe(3);
+    expect(() => WallObjectControlRequestSchema.parse({ action: "set-slide", slideIndex: -1 })).toThrow();
   });
 
   it("round-trips a lesson run through classroom state", () => {

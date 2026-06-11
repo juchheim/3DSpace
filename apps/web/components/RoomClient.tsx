@@ -28,6 +28,9 @@ import {
 import { computeGroupMemberPosition, createAvatarState, floorYFromZ, isEscapeRoomManifest, logicChannelsFromPieces, resolvePhysicsTuning, unprojectPointFrom2D, worldToCell } from "@3dspace/room-engine";
 import {
   archiveRoomObjectTemplate,
+  createAttachment,
+  createAttachmentDownload,
+  finalizeAttachment,
   heartbeatRoomSession,
   joinRoom,
   leaveRoomSession,
@@ -2428,14 +2431,16 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   const controlWallObject = useCallback(
     async (
       objectId: string,
-      action: "play" | "pause" | "mute" | "unmute" | "seek" | "vote" | "close-poll" | "reopen-poll",
+      action: "play" | "pause" | "mute" | "unmute" | "seek" | "vote" | "close-poll" | "reopen-poll" | "set-slide",
       positionSeconds?: number,
-      choiceId?: string
+      choiceId?: string,
+      slideIndex?: number
     ) => {
       await wall.controlObject(objectId, {
         action,
         ...(positionSeconds !== undefined ? { positionSeconds } : {}),
-        ...(choiceId ? { choiceId } : {})
+        ...(choiceId ? { choiceId } : {}),
+        ...(slideIndex !== undefined ? { slideIndex } : {})
       });
     },
     [wall.controlObject]
@@ -2447,6 +2452,72 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     },
     [wall.controlObject]
   );
+
+  const uploadSlideImage = useCallback(
+    async (file: File, wallAnchorId: string) => {
+      const roomId = session?.room.id;
+      if (!roomId) throw new Error("Room is not ready.");
+      const created = await createAttachment(identity, roomId, {
+        wallAnchorId,
+        kind: "image",
+        fileName: file.name,
+        contentType: file.type || "application/octet-stream",
+        metadata: { source: "lesson-slide-deck", sizeBytes: file.size }
+      });
+      const response = await fetch(created.upload.url, {
+        method: created.upload.method,
+        headers: created.upload.headers,
+        body: file
+      });
+      if (!response.ok) throw new Error(`Upload failed with ${response.status}`);
+      const finalized = await finalizeAttachment(identity, roomId, created.attachment.id, { sizeBytes: file.size });
+      const download = await createAttachmentDownload(identity, roomId, finalized.id);
+      return { attachmentId: finalized.id, url: download.download.url };
+    },
+    [identity, session?.room.id]
+  );
+
+  const resolveSlideImage = useCallback(
+    async (attachmentId: string) => {
+      const roomId = session?.room.id;
+      if (!roomId) throw new Error("Room is not ready.");
+      const response = await createAttachmentDownload(identity, roomId, attachmentId);
+      return response.download.url;
+    },
+    [identity, session?.room.id]
+  );
+
+  // The deck wall object is created server-side when the step starts; this is
+  // the live object the run panel's slide navigator reads from and controls.
+  const lessonSlideDeckObject = useMemo(() => {
+    const step = lesson.currentStep;
+    const payload = step?.payload;
+    if (!payload || payload.kind !== "slide-deck") return null;
+    if (lesson.run?.status !== "running" && lesson.run?.status !== "paused") return null;
+    return (
+      wall.wallObjects.find(
+        (object) =>
+          object.type === "slides.file" &&
+          object.status === "active" &&
+          object.wallAnchorId === payload.data.wallAnchorId
+      ) ?? null
+    );
+  }, [lesson.currentStep, lesson.run?.status, wall.wallObjects]);
+
+  const setLessonSlide = useCallback(
+    (objectId: string, slideIndex: number) => {
+      void controlWallObject(objectId, "set-slide", undefined, undefined, slideIndex).catch(() => undefined);
+    },
+    [controlWallObject]
+  );
+
+  // Lesson steps create and remove wall objects server-side (slide decks, wall
+  // timers); refresh right away instead of waiting for the next poll.
+  const lessonWallRefreshKey = `${lesson.run?.status ?? "none"}:${lesson.run?.currentStepIndex ?? -1}`;
+  const wallRefresh = wall.refresh;
+  useEffect(() => {
+    void wallRefresh({ showLoading: false });
+  }, [lessonWallRefreshKey, wallRefresh]);
 
   const whisperAllowed = classroom.state?.whisper?.allowed === true;
   const whisperSuggested =
@@ -3299,6 +3370,8 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
                 loading={lesson.loading}
                 error={lesson.error}
                 runAction={lesson.runAction}
+                slideDeckObject={lessonSlideDeckObject}
+                onSetSlide={setLessonSlide}
                 avatarEditorLocked={avatarEditorLocked}
                 onToggleAvatarLock={() => void classroom.runAction({
                   type: "set-avatar-editor-locked",
@@ -3580,6 +3653,9 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           runAction={lesson.runAction}
           stepStatus={lesson.stepStatus}
           onClose={() => setLessonStudioOpen(false)}
+          uploadSlideImage={uploadSlideImage}
+          resolveSlideImage={resolveSlideImage}
+          slideImageUrls={wall.assetUrls}
         />
       ) : null}
       {roomTypeFeatures.peoplePanelTeacherControls ? (() => {
@@ -3742,6 +3818,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
                 currentUserId={identity.userId}
                 surface={false}
                 assetUrl={wall.assetUrls[fullscreenObjectId]}
+                slideImageUrls={wall.assetUrls}
                 videoStream={fsStreams.videoStream}
                 audioStream={fsStreams.audioStream}
                 whiteboardController={whiteboards}

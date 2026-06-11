@@ -418,9 +418,10 @@ export function RoomView3D({
   onLocalWaveComplete?: () => void;
   onWallObjectControl?: (
     objectId: string,
-    action: "play" | "pause" | "mute" | "unmute" | "seek" | "vote" | "close-poll" | "reopen-poll",
+    action: "play" | "pause" | "mute" | "unmute" | "seek" | "vote" | "close-poll" | "reopen-poll" | "set-slide",
     positionSeconds?: number,
-    choiceId?: string
+    choiceId?: string,
+    slideIndex?: number
   ) => void;
   onWallObjectRemove?: (objectId: string) => void | Promise<void>;
   onWallObjectStopShare?: (objectId: string) => void | Promise<void>;
@@ -985,9 +986,10 @@ function WallObjectLayer({
   quality: QualityLevel;
   onWallObjectControl?: (
     objectId: string,
-    action: "play" | "pause" | "mute" | "unmute" | "seek" | "vote" | "close-poll" | "reopen-poll",
+    action: "play" | "pause" | "mute" | "unmute" | "seek" | "vote" | "close-poll" | "reopen-poll" | "set-slide",
     positionSeconds?: number,
-    choiceId?: string
+    choiceId?: string,
+    slideIndex?: number
   ) => void;
   onWallObjectRemove?: (objectId: string) => void | Promise<void>;
   onWallObjectStopShare?: (objectId: string) => void | Promise<void>;
@@ -1014,6 +1016,7 @@ function WallObjectLayer({
               walls={overlayOcclusionWalls}
               object={object}
               assetUrl={assetUrls[object.id]}
+              slideImageUrls={assetUrls}
               videoStream={wallMediaStreams[object.id]?.videoStream}
               audioStream={wallMediaStreams[object.id]?.audioStream}
               canManage={canManageWallObjects}
@@ -1042,6 +1045,7 @@ const WallObjectSurface = memo(function WallObjectSurface({
   walls,
   object,
   assetUrl,
+  slideImageUrls,
   videoStream,
   audioStream,
   canManage,
@@ -1063,6 +1067,7 @@ const WallObjectSurface = memo(function WallObjectSurface({
   walls: Wall[];
   object: WallObject;
   assetUrl?: string | undefined;
+  slideImageUrls?: Record<string, string> | undefined;
   videoStream?: MediaStream | null | undefined;
   audioStream?: MediaStream | null | undefined;
   canManage: boolean;
@@ -1070,9 +1075,10 @@ const WallObjectSurface = memo(function WallObjectSurface({
   quality: QualityLevel;
   onControl?: (
     objectId: string,
-    action: "play" | "pause" | "mute" | "unmute" | "seek" | "vote" | "close-poll" | "reopen-poll",
+    action: "play" | "pause" | "mute" | "unmute" | "seek" | "vote" | "close-poll" | "reopen-poll" | "set-slide",
     positionSeconds?: number,
-    choiceId?: string
+    choiceId?: string,
+    slideIndex?: number
   ) => void;
   onRemove?: (objectId: string) => void | Promise<void>;
   onStopShare?: (objectId: string) => void | Promise<void>;
@@ -1174,6 +1180,7 @@ const WallObjectSurface = memo(function WallObjectSurface({
             <WallObjectCard
               object={object}
               assetUrl={assetUrl}
+              slideImageUrls={slideImageUrls}
               videoStream={videoStream}
               audioStream={audioStream}
               compact

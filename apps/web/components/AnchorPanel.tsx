@@ -99,7 +99,7 @@ export function AnchorPanel({
   onShareScreen(anchorId: string): Promise<void>;
   onRemove(objectId: string): Promise<void>;
   onStopShare(objectId: string): Promise<void>;
-  onControl(objectId: string, action: WallObjectControlAction, positionSeconds?: number, choiceId?: string): Promise<void>;
+  onControl(objectId: string, action: WallObjectControlAction, positionSeconds?: number, choiceId?: string, slideIndex?: number): Promise<void>;
   onModerate(objectId: string, action: "approve" | "reject"): Promise<void>;
   whiteboardController?: WhiteboardController;
   whiteboardParticipantNames?: Record<string, string>;
@@ -621,6 +621,7 @@ export function AnchorPanel({
                     canManage={canManage}
                     currentUserId={identity.userId}
                     assetUrl={assetUrls[object.id]}
+                    slideImageUrls={assetUrls}
                     videoStream={wallMediaStreams[object.id]?.videoStream}
                     audioStream={wallMediaStreams[object.id]?.audioStream}
                     whiteboardController={whiteboardController}
@@ -631,7 +632,7 @@ export function AnchorPanel({
                     {...(canWriteWhiteboard ? { canWriteWhiteboard } : {})}
                     onRemove={(objectId) => void onRemove(objectId)}
                     onStopShare={(objectId) => void onStopShare(objectId)}
-                    onControl={(objectId, action, positionSeconds, choiceId) => void onControl(objectId, action, positionSeconds, choiceId)}
+                    onControl={(objectId, action, positionSeconds, choiceId, slideIndex) => void onControl(objectId, action, positionSeconds, choiceId, slideIndex)}
                     onModerate={(objectId, action) => void onModerate(objectId, action)}
                   />
                 ))}

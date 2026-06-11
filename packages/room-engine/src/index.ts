@@ -1848,3 +1848,11 @@ export {
   readPollState
 } from "./poll";
 export type { PollChoice, PollState } from "./poll";
+export {
+  createInitialSlideDeckState,
+  normalizeSlideDeckInlineData,
+  normalizeSlideDeckTheme,
+  readSlideDeckState,
+  slideBodyLines
+} from "./slide-deck";
+export type { DeckSlide, DeckSlideLayout, DeckTheme, SlideDeckState } from "./slide-deck";
