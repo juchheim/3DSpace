@@ -12,7 +12,7 @@ const builtin = JSON.parse(readFileSync(join(here, "../catalog/builtin.json"), "
 
 describe("room object builtin catalog", () => {
   it("ships the Phase 0 hero plus additional procedural builtins", () => {
-    expect(builtin).toHaveLength(4);
+    expect(builtin).toHaveLength(5);
     const entry = builtin[0] as Record<string, unknown>;
     expect(entry.slug).toBe("water-molecule");
     expect(entry.proceduralId).toBe("water-molecule");
@@ -20,6 +20,7 @@ describe("room object builtin catalog", () => {
 
     expect(builtin.some((template) => template.slug === "caffeine-molecule")).toBe(true);
     expect(builtin.some((template) => template.slug === "caffeine-glb")).toBe(true);
+    expect(builtin.some((template) => template.slug === "stegosaurus-glb")).toBe(true);
     expect(builtin.some((template) => template.slug === "earth-globe")).toBe(true);
   });
 
@@ -77,6 +78,28 @@ describe("room object builtin catalog", () => {
     expect(entry.thumbnailUrl).toBe("/room-objects/thumbnails/caffeine-glb.png");
     expect(entry.triangleCount).toBe(10460);
     expect(entry.fileSizeBytes).toBe(888808);
+  });
+
+  it("validates the Verse Stegosaurus GLB teaching object", () => {
+    const entry = RoomObjectTemplateSchema.parse(
+      builtin.find((template) => template.slug === "stegosaurus-glb")
+    );
+
+    expect(entry.displayName).toBe("Stegosaurus");
+    expect(entry.renderer).toBe("gltf");
+    expect(entry.assetUrl).toBe("https://app.invalid/room-objects/assets/stegosaurus.glb");
+    expect(entry.visibleRoomTypes).toEqual([
+      "skill-verse",
+      "culture-verse",
+      "creator-verse",
+      "food-verse",
+      "mondi-verse",
+      "work-verse"
+    ]);
+    expect(entry.thumbnailUrl).toBe("/room-objects/thumbnails/stegosaurus-glb.jpg");
+    expect(entry.triangleCount).toBe(31307);
+    expect(entry.fileSizeBytes).toBe(2254384);
+    expect(entry.defaultScale).toBe(0.15);
   });
 
   it("validates the procedural Earth globe teaching object", () => {

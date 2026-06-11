@@ -36,6 +36,11 @@ The visible terminator guide is a great circle perpendicular to the same solar v
 - `assets/caffeine.glb`: Optimized ball-and-stick caffeine model for Verse room object catalogs. Source: `GLBs/caffeine.glb`, prepared by `scripts/prepare-caffeine-glb.mjs`.
 - `thumbnails/caffeine-glb.png`: Catalog thumbnail rendered from the source model.
 
+## Stegosaurus (Verse GLB)
+
+- `assets/stegosaurus.glb`: Optimized Stegosaurus model for Verse room object catalogs. Source: `GLBs/stegosaurus.glb`, prepared by `scripts/prepare-stegosaurus-glb.mjs`.
+- `thumbnails/stegosaurus-glb.jpg`: Catalog thumbnail rendered by `scripts/render-glb-thumbnail.mjs`.
+
 Upstream references:
 
 - Natural Earth 1:10m physical vectors: https://www.naturalearthdata.com/downloads/10m-physical-vectors

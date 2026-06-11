@@ -76,6 +76,7 @@ describe("room object templates", () => {
     expect(response.statusCode).toBe(200);
     const templates = response.json().templates as Array<{ slug: string; assetUrl?: string }>;
     expect(templates.some((template) => template.slug === "caffeine-glb")).toBe(true);
+    expect(templates.some((template) => template.slug === "stegosaurus-glb")).toBe(true);
     expect(templates.some((template) => template.slug === "water-molecule")).toBe(false);
     const caffeine = templates.find((template) => template.slug === "caffeine-glb");
     expect(caffeine?.assetUrl).toContain("/room-objects/assets/caffeine.glb");
