@@ -2,10 +2,9 @@
 
 import { useMemo } from "react";
 import { useGLTF } from "@react-three/drei";
-import { SkeletonUtils } from "three-stdlib";
-import type { Group } from "three";
 import type { PlacedChair } from "../lib/usePlacedChairs";
 import { chairWithGroundY } from "../lib/usePlacedChairs";
+import { cloneGlbSceneSolid } from "../lib/cloneGlbScene";
 import { WORLD_ASSET_CATALOG, worldAssetGlbUrl } from "../lib/worldAssetCatalog";
 
 for (const asset of WORLD_ASSET_CATALOG) {
@@ -25,8 +24,7 @@ function WorldAssetMesh({
   const glbUrl = worldAssetGlbUrl(chair.slug);
   const { scene } = useGLTF(glbUrl);
 
-  // Clone so each instance is independent (material refs etc. stay separate)
-  const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
+  const model = useMemo(() => cloneGlbSceneSolid(scene), [scene]);
   const resolved = chairWithGroundY(chair, (x, z) => resolveGroundY(x, z, chair.position.y));
 
   return (

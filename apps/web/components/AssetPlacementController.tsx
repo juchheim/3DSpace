@@ -9,11 +9,10 @@
  * pointer events first via stopPropagation.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useGLTF } from "@react-three/drei";
 import type { ThreeEvent } from "@react-three/fiber";
-import { SkeletonUtils } from "three-stdlib";
-import type { Group } from "three";
+import { cloneGlbSceneGhost } from "../lib/cloneGlbScene";
 import { isKeyboardOwnedTarget } from "../lib/isKeyboardOwnedTarget";
 
 type AssetPlacementControllerProps = {
@@ -47,13 +46,8 @@ export function AssetPlacementController({
   onRotate
 }: AssetPlacementControllerProps) {
   const { scene } = useGLTF(glbUrl);
-  const ghostModel = useRef<Group | null>(null);
+  const ghostModel = useMemo(() => cloneGlbSceneGhost(scene), [scene, glbUrl]);
   const [ghostPos, setGhostPos] = useState<{ x: number; z: number } | null>(null);
-
-  // Clone once for the ghost
-  if (!ghostModel.current) {
-    ghostModel.current = SkeletonUtils.clone(scene) as Group;
-  }
 
   const yaw = rotationStep * (Math.PI / 2);
 
@@ -107,20 +101,7 @@ export function AssetPlacementController({
           position={[ghostPos.x, resolveGroundY(ghostPos.x, ghostPos.z), ghostPos.z]}
           rotation={[0, yaw, 0]}
         >
-          <primitive
-            object={ghostModel.current}
-            // Traverse to apply ghost opacity once mounted
-            onUpdate={(self: Group) => {
-              self.traverse((obj) => {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const mat = (obj as any).material;
-                if (mat) {
-                  mat.transparent = true;
-                  mat.opacity = 0.55;
-                }
-              });
-            }}
-          />
+          <primitive object={ghostModel} />
         </group>
       ) : null}
 
