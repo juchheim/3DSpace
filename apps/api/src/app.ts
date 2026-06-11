@@ -37,7 +37,7 @@ async function buildRepository(config: AppConfig) {
 export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
   const config = options.config ?? loadConfig();
   const repository = options.repository ?? (await buildRepository(config));
-  await seedBuiltinRoomObjectTemplates(repository);
+  await seedBuiltinRoomObjectTemplates(repository, config);
   if (config.tuning.enableWorldSkins) {
     await seedBuiltinWorldSkins(repository);
   }

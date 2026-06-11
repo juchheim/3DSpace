@@ -12,13 +12,14 @@ const builtin = JSON.parse(readFileSync(join(here, "../catalog/builtin.json"), "
 
 describe("room object builtin catalog", () => {
   it("ships the Phase 0 hero plus additional procedural builtins", () => {
-    expect(builtin).toHaveLength(3);
+    expect(builtin).toHaveLength(4);
     const entry = builtin[0] as Record<string, unknown>;
     expect(entry.slug).toBe("water-molecule");
     expect(entry.proceduralId).toBe("water-molecule");
     expect(entry.renderer).toBe("procedural");
 
     expect(builtin.some((template) => template.slug === "caffeine-molecule")).toBe(true);
+    expect(builtin.some((template) => template.slug === "caffeine-glb")).toBe(true);
     expect(builtin.some((template) => template.slug === "earth-globe")).toBe(true);
   });
 
@@ -55,6 +56,27 @@ describe("room object builtin catalog", () => {
     expect(entry.visibleRoomTypes).toEqual(["classroom"]);
     expect(entry.thumbnailUrl).toBe("/room-objects/thumbnails/caffeine-molecule.png");
     expect(entry.triangleCount).toBe(42000);
+  });
+
+  it("validates the Verse caffeine GLB teaching object", () => {
+    const entry = RoomObjectTemplateSchema.parse(
+      builtin.find((template) => template.slug === "caffeine-glb")
+    );
+
+    expect(entry.displayName).toBe("Caffeine molecule (C₈H₁₀N₄O₂)");
+    expect(entry.renderer).toBe("gltf");
+    expect(entry.assetUrl).toBe("https://app.invalid/room-objects/assets/caffeine.glb");
+    expect(entry.visibleRoomTypes).toEqual([
+      "skill-verse",
+      "culture-verse",
+      "creator-verse",
+      "food-verse",
+      "mondi-verse",
+      "work-verse"
+    ]);
+    expect(entry.thumbnailUrl).toBe("/room-objects/thumbnails/caffeine-glb.png");
+    expect(entry.triangleCount).toBe(10460);
+    expect(entry.fileSizeBytes).toBe(888808);
   });
 
   it("validates the procedural Earth globe teaching object", () => {

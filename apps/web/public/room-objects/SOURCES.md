@@ -31,6 +31,11 @@ Physical time-flow mode advances UTC time from an anchored lesson date with the 
 Subsolar and solar-midnight markers use the same geographic coordinate transform as the shader so their positions coincide with maximum daylight and the antipodal night center.
 The visible terminator guide is a great circle perpendicular to the same solar vector used by the shader, transformed by the same display spin so it tracks the rendered sunrise/sunset boundary.
 
+## Caffeine molecule (Verse GLB)
+
+- `assets/caffeine.glb`: Optimized ball-and-stick caffeine model for Verse room object catalogs. Source: `GLBs/caffeine.glb`, prepared by `scripts/prepare-caffeine-glb.mjs`.
+- `thumbnails/caffeine-glb.png`: Catalog thumbnail rendered from the source model.
+
 Upstream references:
 
 - Natural Earth 1:10m physical vectors: https://www.naturalearthdata.com/downloads/10m-physical-vectors

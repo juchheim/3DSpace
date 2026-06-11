@@ -63,6 +63,25 @@ describe("room object templates", () => {
     await app.close();
   });
 
+  it("exposes the caffeine GLB builtin in Verse room catalogs", async () => {
+    const app = await buildApp({ config: roomObjectsConfig(), repository: new MemoryRepository() });
+    const { roomWithManifest } = await createClassAndRoom(app, "teacher-ro-verse-catalog", "skill-verse");
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/v1/room-objects/templates?roomId=${roomWithManifest.room.id}`,
+      headers: authHeaders("teacher-ro-verse-catalog", "Ms. Rivera")
+    });
+
+    expect(response.statusCode).toBe(200);
+    const templates = response.json().templates as Array<{ slug: string; assetUrl?: string }>;
+    expect(templates.some((template) => template.slug === "caffeine-glb")).toBe(true);
+    expect(templates.some((template) => template.slug === "water-molecule")).toBe(false);
+    const caffeine = templates.find((template) => template.slug === "caffeine-glb");
+    expect(caffeine?.assetUrl).toContain("/room-objects/assets/caffeine.glb");
+    await app.close();
+  });
+
   it("returns 404 when ENABLE_ROOM_OBJECTS is false", async () => {
     const app = await buildApp({
       config: loadConfig({ NODE_ENV: "test", ENABLE_ROOM_OBJECTS: "false" } as NodeJS.ProcessEnv),
