@@ -246,7 +246,11 @@ export function RoomObjectMesh({
             parameters: object.parameters,
             scale: 1,
             colorTintHex: object.colorTintHex,
-            exportRootRef: { current: null }
+            exportRootRef: { current: null },
+            interaction: {
+              canInteract: canGrab,
+              setParameters: (parameters) => actions.setParameters(object.id, parameters)
+            }
           })
         ) : template.assetUrl ? (
           <Suspense fallback={null}>

@@ -46,10 +46,10 @@ The visible terminator guide is a great circle perpendicular to the same solar v
 - `assets/heart.glb`: Optimized beating-heart model for Verse room object catalogs. Source: `GLBs/heart.glb` + `scripts/prepare-heart-glb.mjs`, catalog asset via `scripts/prepare-heart-catalog-glb.mjs`.
 - `thumbnails/heart-glb.png`: Catalog thumbnail from `GLBs/heart-thumbnail.png`.
 
-## Six-sided die (Verse GLB)
+## Pair of dice (Verse procedural)
 
-- `assets/dice.glb`: Textured six-sided die for Verse room object catalogs. Source: `GLBs/dice.glb`. Served at `/room-objects/assets/dice.glb`.
-- `thumbnails/dice-glb.jpg`: Catalog thumbnail rendered by `scripts/render-glb-thumbnail.mjs`.
+- `assets/dice.glb`: Single die model used twice by the `dice-pair` procedural renderer. Source: `GLBs/dice.glb`, prepared by `scripts/prepare-dice-glb.mjs` (authoring light/camera stripped, texture re-encoded JPEG q85, ~82 KB). Pip layout (opposite faces sum to 7): +X=1, −X=6, +Y=4, −Y=3, +Z=2, −Z=5 — mirrored in `apps/web/lib/diceRoll.ts`.
+- `thumbnails/dice-pair.png`: Catalog thumbnail rendered by `scripts/render-dice-thumbnail.mjs`.
 
 Upstream references:
 

@@ -1,6 +1,7 @@
 import { roomObjectScaleBounds, type Pose, type Role, type RoomManifest, type RoomObject, type RoomObjectTemplate, type Vector3 } from "@3dspace/contracts";
 import { canTouchRoomObject as sharedCanTouchRoomObject, clampPositionToBounds } from "@3dspace/room-engine";
 import { ROOM_OBJECT_PROCEDURALS } from "../components/roomObjectProcedurals";
+import { diceRollResult } from "./diceRoll";
 
 const POSITION_GRID_M = 0.25;
 const ROTATION_STEP_RAD = Math.PI / 12;
@@ -111,6 +112,10 @@ export function snapScale(value: number, templateDefaultScale: number, bypassSna
 
 export function parameterSummary(parameters: Record<string, unknown>) {
   const parts: string[] = [];
+  if (typeof parameters.rollSeed === "number" && typeof parameters.rollId === "number") {
+    const { faces, total } = diceRollResult(parameters.rollSeed >>> 0);
+    parts.push(`last roll ${faces[0]} + ${faces[1]} = ${total}`);
+  }
   if (typeof parameters.modelStyle === "string") {
     parts.push(parameters.modelStyle === "space-filling" ? "space-filling" : "ball & stick");
   }

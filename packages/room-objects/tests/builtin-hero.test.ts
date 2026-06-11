@@ -23,7 +23,7 @@ describe("room object builtin catalog", () => {
     expect(builtin.some((template) => template.slug === "stegosaurus-glb")).toBe(true);
     expect(builtin.some((template) => template.slug === "earth-globe")).toBe(true);
     expect(builtin.some((template) => template.slug === "heart-glb")).toBe(true);
-    expect(builtin.some((template) => template.slug === "dice-glb")).toBe(true);
+    expect(builtin.some((template) => template.slug === "dice-pair")).toBe(true);
   });
 
   it("matches hero-draft fields used at runtime", () => {
@@ -167,15 +167,19 @@ describe("room object builtin catalog", () => {
     expect(entry.defaultScale).toBe(0.09);
   });
 
-  it("validates the Verse six-sided die GLB teaching object", () => {
+  it("validates the interactive pair of dice", () => {
     const entry = RoomObjectTemplateSchema.parse(
-      builtin.find((template) => template.slug === "dice-glb")
+      builtin.find((template) => template.slug === "dice-pair")
     );
 
-    expect(entry.displayName).toBe("Six-sided die");
+    expect(entry.displayName).toBe("Pair of dice");
     expect(entry.category).toBe("math");
-    expect(entry.renderer).toBe("gltf");
-    expect(entry.assetUrl).toBe("https://app.invalid/room-objects/assets/dice.glb");
+    expect(entry.renderer).toBe("procedural");
+    expect(entry.proceduralId).toBe("dice-pair");
+    expect(entry.kinematic).toBe(true);
+    // Everyone in the room should be able to roll by default.
+    expect(entry.recommendedTouchPolicy).toBe("all-class");
+    expect(entry.defaultParameters).toEqual({ rollId: 0, rollSeed: 20260611 });
     expect(entry.visibleRoomTypes).toEqual([
       "skill-verse",
       "culture-verse",
@@ -184,9 +188,7 @@ describe("room object builtin catalog", () => {
       "mondi-verse",
       "work-verse"
     ]);
-    expect(entry.thumbnailUrl).toBe("/room-objects/thumbnails/dice-glb.jpg");
-    expect(entry.triangleCount).toBe(972);
-    expect(entry.fileSizeBytes).toBe(101872);
-    expect(entry.defaultScale).toBe(0.05);
+    expect(entry.thumbnailUrl).toBe("/room-objects/thumbnails/dice-pair.png");
+    expect(entry.triangleCount).toBe(1944);
   });
 });

@@ -210,15 +210,15 @@
     "createdAt": "2026-06-11T00:00:00.000Z"
   },
   {
-    "id": "tpl_dice_glb",
-    "slug": "dice-glb",
-    "displayName": "Six-sided die",
+    "id": "tpl_dice_pair",
+    "slug": "dice-pair",
+    "displayName": "Pair of dice",
     "category": "math",
-    "description": "A textured six-sided die for probability lessons, classroom games, and quick random-number demos in Verse rooms.",
-    "renderer": "gltf",
-    "assetUrl": "https://app.invalid/room-objects/assets/dice.glb",
+    "description": "Two oversized classroom dice with real rolling physics. Anyone in the room can press Roll to toss them into the air — they tumble, bounce, and settle on a random result that every participant sees identically. Great for probability lessons, games, and randomized turn-taking.",
+    "renderer": "procedural",
+    "proceduralId": "dice-pair",
     "exportable": true,
-    "kinematic": false,
+    "kinematic": true,
     "source": "builtin",
     "visibleRoomTypes": [
       "skill-verse",
@@ -231,16 +231,19 @@
     "license": "CC0-1.0",
     "attribution": "3DSpace — built-in GLB teaching model",
     "defaultPose": {
-      "position": { "x": 0, "y": 0.05, "z": 0 },
+      "position": { "x": 0, "y": 0.02, "z": 0 },
       "rotation": { "yaw": 0, "pitch": 0, "roll": 0 }
     },
-    "defaultScale": 0.05,
-    "recommendedTouchPolicy": "teacher-only",
-    "defaultParameters": {},
+    "defaultScale": 1,
+    "recommendedTouchPolicy": "all-class",
+    "defaultParameters": {
+      "rollId": 0,
+      "rollSeed": 20260611
+    },
     "parameterSchemaJson": "{}",
-    "thumbnailUrl": "/room-objects/thumbnails/dice-glb.jpg",
-    "fileSizeBytes": 101872,
-    "triangleCount": 972,
+    "thumbnailUrl": "/room-objects/thumbnails/dice-pair.png",
+    "fileSizeBytes": 84160,
+    "triangleCount": 1944,
     "createdAt": "2026-06-11T00:00:00.000Z"
   }
 ]
