@@ -12,7 +12,7 @@ const builtin = JSON.parse(readFileSync(join(here, "../catalog/builtin.json"), "
 
 describe("room object builtin catalog", () => {
   it("ships the Phase 0 hero plus additional procedural builtins", () => {
-    expect(builtin).toHaveLength(7);
+    expect(builtin).toHaveLength(8);
     const entry = builtin[0] as Record<string, unknown>;
     expect(entry.slug).toBe("water-molecule");
     expect(entry.proceduralId).toBe("water-molecule");
@@ -24,6 +24,7 @@ describe("room object builtin catalog", () => {
     expect(builtin.some((template) => template.slug === "earth-globe")).toBe(true);
     expect(builtin.some((template) => template.slug === "heart-glb")).toBe(true);
     expect(builtin.some((template) => template.slug === "dice-pair")).toBe(true);
+    expect(builtin.some((template) => template.slug === "steam-engine-glb")).toBe(true);
   });
 
   it("matches hero-draft fields used at runtime", () => {
@@ -190,5 +191,28 @@ describe("room object builtin catalog", () => {
     ]);
     expect(entry.thumbnailUrl).toBe("/room-objects/thumbnails/dice-pair.png");
     expect(entry.triangleCount).toBe(1944);
+  });
+
+  it("validates the Verse cutaway steam engine GLB teaching object", () => {
+    const entry = RoomObjectTemplateSchema.parse(
+      builtin.find((template) => template.slug === "steam-engine-glb")
+    );
+
+    expect(entry.displayName).toBe("Steam engine (cutaway)");
+    expect(entry.renderer).toBe("gltf");
+    expect(entry.kinematic).toBe(true);
+    expect(entry.assetUrl).toBe("https://app.invalid/room-objects/assets/steam-engine.glb");
+    expect(entry.visibleRoomTypes).toEqual([
+      "skill-verse",
+      "culture-verse",
+      "creator-verse",
+      "food-verse",
+      "mondi-verse",
+      "work-verse"
+    ]);
+    expect(entry.thumbnailUrl).toBe("/room-objects/thumbnails/steam-engine-glb.jpg");
+    expect(entry.triangleCount).toBe(15154);
+    expect(entry.fileSizeBytes).toBe(686596);
+    expect(entry.defaultScale).toBe(0.4);
   });
 });

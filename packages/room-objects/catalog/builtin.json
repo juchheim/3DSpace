@@ -245,5 +245,39 @@
     "fileSizeBytes": 84160,
     "triangleCount": 1944,
     "createdAt": "2026-06-11T00:00:00.000Z"
+  },
+  {
+    "id": "tpl_steam_engine_glb",
+    "slug": "steam-engine-glb",
+    "displayName": "Steam engine (cutaway)",
+    "category": "science",
+    "description": "A horizontal stationary steam engine with section cutaways exposing every moving part: the boiler shows sloshing water, rising bubbles, the steam space, and the glowing fire tube; the cylinder shows the piston, expanding steam, and the slide valve driven by an eccentric. Crankshaft, connecting rod, crosshead, flywheel, and flyball governor all run in an endless loop — ideal for physics, engineering, and industrial-history lessons.",
+    "renderer": "gltf",
+    "assetUrl": "https://app.invalid/room-objects/assets/steam-engine.glb",
+    "exportable": true,
+    "kinematic": true,
+    "source": "builtin",
+    "visibleRoomTypes": [
+      "skill-verse",
+      "culture-verse",
+      "creator-verse",
+      "food-verse",
+      "mondi-verse",
+      "work-verse"
+    ],
+    "license": "CC0-1.0",
+    "attribution": "3DSpace — built-in GLB teaching model",
+    "defaultPose": {
+      "position": { "x": 0, "y": 0, "z": 0 },
+      "rotation": { "yaw": 0, "pitch": 0, "roll": 0 }
+    },
+    "defaultScale": 0.4,
+    "recommendedTouchPolicy": "teacher-only",
+    "defaultParameters": {},
+    "parameterSchemaJson": "{}",
+    "thumbnailUrl": "/room-objects/thumbnails/steam-engine-glb.jpg",
+    "fileSizeBytes": 686596,
+    "triangleCount": 15154,
+    "createdAt": "2026-06-11T00:00:00.000Z"
   }
 ]
