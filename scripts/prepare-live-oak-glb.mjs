@@ -34,6 +34,7 @@ import sharp from "sharp";
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const OUT_PATH = resolve(process.argv[2] ?? resolve(__dirname, "../GLBs/live-oak.glb"));
 const PUBLIC_PATH = resolve(__dirname, "../apps/web/public/objects/live-oak.glb");
+const ROOM_OBJECT_PATH = resolve(__dirname, "../apps/web/public/room-objects/assets/live-oak.glb");
 
 const DEG = Math.PI / 180;
 
@@ -459,7 +460,9 @@ function sweepBranch({ pts, radii, radialSegs, radialFn }) {
     for (let j = 0; j < radialSegs; j++) {
       const a = i * cols + j;
       const b = a + cols;
-      idx.push(a, b, a + 1, a + 1, b, b + 1);
+      // CCW from outside: ring direction (a -> a+1) crossed with the along-
+      // branch direction (a -> b) must face the same way as the radial normal.
+      idx.push(a, a + 1, b + 1, a, b + 1, b);
     }
   }
   const g = new THREE.BufferGeometry();
@@ -694,6 +697,7 @@ const mossTris = mossGeometry ? addPart("SpanishMoss", mossGeometry, foliageMat)
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
 await io.write(OUT_PATH, doc);
 await copyFile(OUT_PATH, PUBLIC_PATH);
+await copyFile(OUT_PATH, ROOM_OBJECT_PATH);
 
 // Report
 const bb = new THREE.Box3().setFromBufferAttribute(barkGeometry.attributes.position);
