@@ -7,6 +7,7 @@ import {
   type BuildPieceKind,
   type BuildPieceMaterial,
   type BuildPieceRotation,
+  type ImageFloorTextureSpanCells,
   type RoomManifest,
   type RoomSettings
 } from "@3dspace/contracts";
@@ -33,6 +34,7 @@ export type BuildPiecePlacement = {
   rotation?: BuildPieceRotation | undefined;
   materialId?: BuildPieceMaterial | undefined;
   textureStorageKey?: string | undefined;
+  textureSpanCells?: ImageFloorTextureSpanCells | undefined;
 };
 
 /** Image-floor textures must live under this room's floor-texture prefix (no foreign/object keys). */

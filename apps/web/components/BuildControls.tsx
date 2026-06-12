@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { BuildPieceMaterial } from "@3dspace/contracts";
+import { IMAGE_FLOOR_TEXTURE_SPAN_OPTIONS, type BuildPieceMaterial } from "@3dspace/contracts";
 import { BUILD_MATERIAL_OPTIONS } from "./buildMaterials";
 import { BUILTIN_BUILD_STAMPS } from "../lib/buildStamps";
 import type { BuildModeController, BuildTool, FloorTextureSelection } from "../lib/useBuildMode";
@@ -410,7 +410,8 @@ export function BuildControls({
                         {buildMode.floorTexture.fileName ?? "Floor image"}
                       </span>
                       <span className="build-dock__image-floor-sub">
-                        Drag on the ground — the image stretches across the connected floor.
+                        Drag on the ground — one image covers {buildMode.floorTextureSpanCells}×
+                        {buildMode.floorTextureSpanCells} cells; extend to reveal more.
                       </span>
                     </span>
                     <button
@@ -434,6 +435,26 @@ export function BuildControls({
                     {uploadingTexture ? "Uploading…" : "Upload floor image"}
                   </button>
                 )}
+
+                <div className="build-dock__image-floor-span" role="group" aria-label="Image scale on floor">
+                  <span className="build-dock__prop-label">Image span</span>
+                  <div className="build-dock__image-floor-span-options">
+                    {IMAGE_FLOOR_TEXTURE_SPAN_OPTIONS.map((span) => (
+                      <button
+                        key={span}
+                        type="button"
+                        className={`build-dock__image-floor-span-btn${
+                          buildMode.floorTextureSpanCells === span ? " is-active" : ""
+                        }`}
+                        aria-pressed={buildMode.floorTextureSpanCells === span}
+                        title={`One image covers ${span}×${span} build cells`}
+                        onClick={() => buildMode.setFloorTextureSpanCells(span)}
+                      >
+                        {span}×{span}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
                 {floorTextureOptions.length > 0 ? (
                   <div className="build-dock__image-floor-recents" role="toolbar" aria-label="Floor images in this room">

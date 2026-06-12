@@ -8,9 +8,17 @@ export function normalizeBuildPiece(piece: BuildPiece): BuildPiece {
     const { edge: _edge, ...rest } = normalized;
     normalized = rest;
   }
-  if (normalized.kind !== "image-floor" && normalized.textureStorageKey !== undefined) {
-    const { textureStorageKey: _texture, ...rest } = normalized;
-    normalized = rest;
+  if (normalized.kind !== "image-floor") {
+    let next = normalized;
+    if (normalized.textureStorageKey !== undefined) {
+      const { textureStorageKey: _texture, ...rest } = next;
+      next = rest;
+    }
+    if (normalized.textureSpanCells !== undefined) {
+      const { textureSpanCells: _span, ...rest } = next;
+      next = rest;
+    }
+    normalized = next;
   }
   return normalized;
 }

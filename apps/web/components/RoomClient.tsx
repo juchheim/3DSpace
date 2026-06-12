@@ -564,13 +564,17 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   );
   /** Distinct floor images already laid in this room, so a floor can be extended later. */
   const floorTextureOptions = useMemo(() => {
-    const seen = new Map<string, { storageKey: string; url: string }>();
+    const seen = new Map<
+      string,
+      { storageKey: string; url: string; spanCells?: import("@3dspace/contracts").ImageFloorTextureSpanCells }
+    >();
     for (const piece of buildPieces.pieces) {
       if (piece.kind !== "image-floor" || !piece.textureStorageKey) continue;
       if (!seen.has(piece.textureStorageKey)) {
         seen.set(piece.textureStorageKey, {
           storageKey: piece.textureStorageKey,
-          url: imageFloorTextureUrl(piece.textureStorageKey)
+          url: imageFloorTextureUrl(piece.textureStorageKey),
+          ...(piece.textureSpanCells ? { spanCells: piece.textureSpanCells } : {})
         });
       }
     }
@@ -1328,7 +1332,8 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       materialId: buildMode.materialId,
       pieces: buildPieces.pieces,
       rampRotationOverride: buildMode.rampRotationOverride,
-      textureStorageKey: buildMode.tool === "image-floor" ? buildMode.floorTexture?.storageKey : undefined
+      textureStorageKey: buildMode.tool === "image-floor" ? buildMode.floorTexture?.storageKey : undefined,
+      textureSpanCells: buildMode.tool === "image-floor" ? buildMode.floorTextureSpanCells : undefined
     });
     const preview = evaluateBuildPlacement(
       manifest,
@@ -1349,7 +1354,8 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
         target.edge,
         target.rotation,
         target.materialId,
-        target.textureStorageKey
+        target.textureStorageKey,
+        target.textureSpanCells
       )
       .then(() => buildMode.setStatusMessage("Piece placed."))
       .catch((err) =>
@@ -1389,7 +1395,8 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
         materialId: buildMode.materialId,
         pieces: buildPieces.pieces,
         rampRotationOverride: buildMode.rampRotationOverride,
-        textureStorageKey: buildMode.tool === "image-floor" ? buildMode.floorTexture?.storageKey : undefined
+        textureStorageKey: buildMode.tool === "image-floor" ? buildMode.floorTexture?.storageKey : undefined,
+        textureSpanCells: buildMode.tool === "image-floor" ? buildMode.floorTextureSpanCells : undefined
       });
       const result = evaluateBuildPlacement(
         manifest,
@@ -1410,6 +1417,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     [
       buildMode.enabled,
       buildMode.floorTexture,
+      buildMode.floorTextureSpanCells,
       buildMode.materialId,
       buildMode.rampRotationOverride,
       buildMode.rotation,
@@ -1463,7 +1471,8 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
         materialId: buildMode.materialId,
         pieces: buildPieces.pieces,
         rampRotationOverride: buildMode.rampRotationOverride,
-        textureStorageKey: buildMode.floorTexture?.storageKey
+        textureStorageKey: buildMode.floorTexture?.storageKey,
+        textureSpanCells: buildMode.floorTextureSpanCells
       });
       const preview = evaluateBuildPlacement(
         manifest,
@@ -1484,7 +1493,8 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           target.edge,
           target.rotation,
           target.materialId,
-          target.textureStorageKey
+          target.textureStorageKey,
+          target.textureSpanCells
         )
         .then(() => buildMode.setStatusMessage("Piece placed."))
         .catch((err) =>

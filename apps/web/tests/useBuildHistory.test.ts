@@ -55,7 +55,7 @@ describe("useBuildHistory", () => {
       await result.current.undo();
     });
 
-    expect(place).toHaveBeenCalledWith("floor", { ix: 5, iz: 5 }, 0, undefined, 0, "stone", undefined);
+    expect(place).toHaveBeenCalledWith("floor", { ix: 5, iz: 5 }, 0, undefined, 0, "stone", undefined, undefined);
   });
 
   it("restores a destroyed image floor with its texture on undo", async () => {
@@ -63,7 +63,8 @@ describe("useBuildHistory", () => {
       ...basePiece,
       id: "build:image-floor:5,5:0",
       kind: "image-floor",
-      textureStorageKey: "rooms/room-1/floor-textures/tex.webp"
+      textureStorageKey: "rooms/room-1/floor-textures/tex.webp",
+      textureSpanCells: 8
     };
     const place = vi.fn().mockResolvedValue(imageFloor);
     const destroy = vi.fn().mockResolvedValue(undefined);
@@ -88,7 +89,8 @@ describe("useBuildHistory", () => {
       undefined,
       0,
       "stone",
-      "rooms/room-1/floor-textures/tex.webp"
+      "rooms/room-1/floor-textures/tex.webp",
+      8
     );
   });
 

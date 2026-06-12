@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Edges, Grid, Html } from "@react-three/drei";
 import type { BuildPiece, BuildPieceKind, RoomManifest } from "@3dspace/contracts";
+import { DEFAULT_IMAGE_FLOOR_TEXTURE_SPAN_CELLS } from "@3dspace/contracts";
 import type { ThreeEvent } from "@react-three/fiber";
 import {
   BUILD_CELL_SIZE,
@@ -57,7 +58,8 @@ type BuildActions = {
     edge?: import("@3dspace/contracts").BuildPieceEdge,
     rotation?: import("@3dspace/contracts").BuildPieceRotation,
     materialId?: import("@3dspace/contracts").BuildPieceMaterial,
-    textureStorageKey?: string
+    textureStorageKey?: string,
+    textureSpanCells?: import("@3dspace/contracts").ImageFloorTextureSpanCells
   ): Promise<unknown>;
   placeBatch(
     placements: Array<{
@@ -68,6 +70,7 @@ type BuildActions = {
       rotation?: import("@3dspace/contracts").BuildPieceRotation;
       materialId?: import("@3dspace/contracts").BuildPieceMaterial;
       textureStorageKey?: string;
+      textureSpanCells?: import("@3dspace/contracts").ImageFloorTextureSpanCells;
     }>
   ): Promise<unknown>;
   destroy(pieceId: string): Promise<unknown>;
@@ -126,6 +129,8 @@ export function BuildPlacementController({
   // Image-floor tool: click-drag sweeps out a rectangle of tiles committed on release.
   const imageFloorRectMode = buildMode.tool === "image-floor" && !stampMode;
   const floorTextureKey = buildMode.tool === "image-floor" ? buildMode.floorTexture?.storageKey : undefined;
+  const floorTextureSpanCells =
+    buildMode.tool === "image-floor" ? buildMode.floorTextureSpanCells : undefined;
   const rectAnchorRef = useRef<{ ix: number; iz: number; level: number } | null>(null);
   const rectTargetsRef = useRef<BuildPlacementTarget[]>([]);
   const [rectGhost, setRectGhost] = useState<ImageFloorRectGhost | null>(null);
@@ -230,6 +235,9 @@ export function BuildPlacementController({
         surfacePiece,
         rampRotationOverride: buildMode.rampRotationOverride,
         ...(tool === "image-floor" && floorTextureKey ? { textureStorageKey: floorTextureKey } : {}),
+        ...(tool === "image-floor" && floorTextureSpanCells
+          ? { textureSpanCells: floorTextureSpanCells }
+          : {}),
         // The raycast `hitY` is the ground under the cursor; the level we build at when the
         // cursor lands on empty ground comes from where the avatar is standing.
         baseLevel: avatarStandingLevel(localAvatarPosition.y),
@@ -244,6 +252,7 @@ export function BuildPlacementController({
       buildMode.rampRotationOverride,
       buildMode.rotation,
       floorTextureKey,
+      floorTextureSpanCells,
       localAvatarPosition.x,
       localAvatarPosition.y,
       localAvatarPosition.z,
@@ -283,14 +292,16 @@ export function BuildPlacementController({
             level: anchor.level,
             rotation: buildMode.rotation,
             materialId: buildMode.materialId,
-            ...(floorTextureKey ? { textureStorageKey: floorTextureKey } : {})
+            ...(floorTextureKey ? { textureStorageKey: floorTextureKey } : {}),
+            ...(floorTextureSpanCells ? { textureSpanCells: floorTextureSpanCells } : {})
           };
-          // A cell already holding this exact texture needs no re-upsert.
+          // A cell already holding this exact texture + span needs no re-upsert.
           const stableId = buildPieceStableId({ kind: "image-floor", cell: { ix, iz }, level: anchor.level });
           const existing = piecesById[stableId];
           if (
             existing?.kind === "image-floor" &&
-            (existing.textureStorageKey ?? "") === (floorTextureKey ?? "")
+            (existing.textureStorageKey ?? "") === (floorTextureKey ?? "") &&
+            (existing.textureSpanCells ?? DEFAULT_IMAGE_FLOOR_TEXTURE_SPAN_CELLS) === floorTextureSpanCells
           ) {
             continue;
           }
@@ -332,7 +343,7 @@ export function BuildPlacementController({
         reason
       });
     },
-    [buildMode.materialId, buildMode.rotation, floorTextureKey, manifest, piecesById, roomId, userId]
+    [buildMode.materialId, buildMode.rotation, floorTextureKey, floorTextureSpanCells, manifest, piecesById, roomId, userId]
   );
 
   const commitImageFloorRect = useCallback(async () => {
@@ -505,7 +516,8 @@ export function BuildPlacementController({
           target.edge,
           target.rotation,
           target.materialId,
-          target.textureStorageKey
+          target.textureStorageKey,
+          target.textureSpanCells
         );
         onStatus?.("Piece placed.");
       } catch (err) {

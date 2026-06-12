@@ -177,6 +177,54 @@ describe("build piece contracts", () => {
     expect(request.textureStorageKey).toBe("rooms/room-1/floor-textures/abc.webp");
   });
 
+  it("allows textureSpanCells only on image floors", () => {
+    const base = {
+      roomId: "room-1",
+      cell: { ix: 0, iz: 0 },
+      level: 0,
+      rotation: 0,
+      materialId: "stone",
+      createdByUserId: "u1",
+      createdAt: new Date().toISOString()
+    };
+
+    const imageFloor = BuildPieceSchema.parse({
+      ...base,
+      id: "build:image-floor:0,0:0",
+      kind: "image-floor",
+      textureSpanCells: 8
+    });
+    expect(imageFloor.textureSpanCells).toBe(8);
+
+    expect(() =>
+      BuildPieceSchema.parse({
+        ...base,
+        id: "build:floor:0,0:0",
+        kind: "floor",
+        textureSpanCells: 4
+      })
+    ).toThrow();
+
+    expect(() =>
+      CreateBuildPieceRequestSchema.parse({
+        kind: "wall",
+        cell: { ix: 0, iz: 0 },
+        level: 0,
+        edge: "n",
+        textureSpanCells: 4
+      })
+    ).toThrow();
+
+    expect(() =>
+      CreateBuildPieceRequestSchema.parse({
+        kind: "image-floor",
+        cell: { ix: 0, iz: 0 },
+        level: 0,
+        textureSpanCells: 3
+      })
+    ).toThrow();
+  });
+
   it("round-trips create request and realtime upsert", () => {
     const request = CreateBuildPieceRequestSchema.parse({
       kind: "ramp",

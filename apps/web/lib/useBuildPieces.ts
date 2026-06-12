@@ -52,7 +52,8 @@ function placementInputToTarget(placement: BuildPiecePlacementInput): BuildPlace
     ...(placement.edge ? { edge: placement.edge } : {}),
     rotation: placement.rotation ?? 0,
     materialId: placement.materialId ?? "stone",
-    ...(placement.textureStorageKey ? { textureStorageKey: placement.textureStorageKey } : {})
+    ...(placement.textureStorageKey ? { textureStorageKey: placement.textureStorageKey } : {}),
+    ...(placement.textureSpanCells ? { textureSpanCells: placement.textureSpanCells } : {})
   };
 }
 
@@ -75,6 +76,7 @@ function toCreateBuildPiecePayload(placement: BuildPiecePlacementInput): BuildPi
   };
   if (placement.edge !== undefined) payload.edge = placement.edge;
   if (placement.textureStorageKey !== undefined) payload.textureStorageKey = placement.textureStorageKey;
+  if (placement.textureSpanCells !== undefined) payload.textureSpanCells = placement.textureSpanCells;
   return payload;
 }
 
@@ -88,11 +90,13 @@ function optimisticBuildPiece(input: {
   rotation?: BuildPieceRotation | undefined;
   materialId?: BuildPieceMaterial | undefined;
   textureStorageKey?: string | undefined;
+  textureSpanCells?: import("@3dspace/contracts").ImageFloorTextureSpanCells | undefined;
   existing?: BuildPiece | undefined;
 }): BuildPiece {
   const rotation = input.rotation ?? input.existing?.rotation ?? 0;
   const materialId = input.materialId ?? input.existing?.materialId ?? "stone";
   const textureStorageKey = input.textureStorageKey ?? input.existing?.textureStorageKey;
+  const textureSpanCells = input.textureSpanCells ?? input.existing?.textureSpanCells;
   return {
     id: buildPieceStableId({
       kind: input.kind,
@@ -108,6 +112,7 @@ function optimisticBuildPiece(input: {
     rotation,
     materialId,
     ...(input.kind === "image-floor" && textureStorageKey ? { textureStorageKey } : {}),
+    ...(input.kind === "image-floor" && textureSpanCells ? { textureSpanCells } : {}),
     createdByUserId: input.existing?.createdByUserId ?? input.userId,
     createdAt: input.existing?.createdAt ?? new Date().toISOString()
   };
@@ -211,7 +216,8 @@ export function useBuildPieces(input: {
       edge?: BuildPieceEdge | undefined,
       rotation?: BuildPieceRotation | undefined,
       materialId?: BuildPieceMaterial | undefined,
-      textureStorageKey?: string | undefined
+      textureStorageKey?: string | undefined,
+      textureSpanCells?: import("@3dspace/contracts").ImageFloorTextureSpanCells | undefined
     ) => {
       if (!input.roomId) throw new Error("Room is not ready.");
       const stableId = buildPieceStableId({ kind, cell, level, edge });
@@ -227,6 +233,7 @@ export function useBuildPieces(input: {
           rotation,
           materialId,
           textureStorageKey,
+          textureSpanCells,
           existing: previous
         })
       );
@@ -238,7 +245,8 @@ export function useBuildPieces(input: {
           edge,
           rotation,
           materialId,
-          textureStorageKey
+          textureStorageKey,
+          textureSpanCells
         });
         upsertLocal(result.piece);
         applyRealtimeMessages(result.realtimeMessages);
@@ -298,6 +306,7 @@ export function useBuildPieces(input: {
             rotation: placement.rotation,
             materialId: placement.materialId,
             textureStorageKey: placement.textureStorageKey,
+            textureSpanCells: placement.textureSpanCells,
             existing: piecesById[stableId]
           })
         );

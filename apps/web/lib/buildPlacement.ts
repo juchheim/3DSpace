@@ -4,6 +4,7 @@ import type {
   BuildPieceKind,
   BuildPieceMaterial,
   BuildPieceRotation,
+  ImageFloorTextureSpanCells,
   RoomManifest
 } from "@3dspace/contracts";
 import {
@@ -23,6 +24,7 @@ import {
   levelToY,
   worldToCell
 } from "@3dspace/room-engine";
+import { DEFAULT_IMAGE_FLOOR_TEXTURE_SPAN_CELLS } from "@3dspace/contracts";
 
 export type BuildPlacementTarget = {
   kind: BuildPieceKind;
@@ -31,8 +33,9 @@ export type BuildPlacementTarget = {
   edge?: BuildPieceEdge;
   rotation: BuildPieceRotation;
   materialId: BuildPieceMaterial;
-  /** Image-floor only: the uploaded image stretched across the connected floor. */
+  /** Image-floor only: slice of the uploaded image on a fixed span×span cell canvas. */
   textureStorageKey?: string;
+  textureSpanCells?: ImageFloorTextureSpanCells;
 };
 
 function clampLevel(level: number) {
@@ -199,6 +202,7 @@ export function resolveBuildPlacementTarget(input: {
   avatarZ?: number;
   /** Selected image for the image-floor tool. */
   textureStorageKey?: string | undefined;
+  textureSpanCells?: ImageFloorTextureSpanCells | undefined;
 }): BuildPlacementTarget {
   const cell = worldToCell(input.hitX, input.hitZ);
   const baseLevel = input.baseLevel ?? 0;
@@ -241,7 +245,8 @@ export function resolveBuildPlacementTarget(input: {
       level: inferPlacementLevel(input.hitY, input.surfacePiece, baseLevel),
       rotation: input.rotation,
       materialId: input.materialId,
-      ...(input.textureStorageKey ? { textureStorageKey: input.textureStorageKey } : {})
+      ...(input.textureStorageKey ? { textureStorageKey: input.textureStorageKey } : {}),
+      ...(input.textureSpanCells ? { textureSpanCells: input.textureSpanCells } : {})
     };
   }
 
@@ -297,6 +302,7 @@ export function buildPlacementPreviewPiece(
     rotation: target.rotation,
     materialId: target.materialId,
     ...(target.textureStorageKey ? { textureStorageKey: target.textureStorageKey } : {}),
+    ...(target.textureSpanCells ? { textureSpanCells: target.textureSpanCells } : {}),
     createdByUserId: userId,
     createdAt: new Date().toISOString()
   };
@@ -323,7 +329,9 @@ function cellLevelOccupiedBySameKind(
       if (
         target.kind === "image-floor" &&
         existing.kind === "image-floor" &&
-        (existing.textureStorageKey ?? "") !== (target.textureStorageKey ?? "")
+        ((existing.textureStorageKey ?? "") !== (target.textureStorageKey ?? "") ||
+          (existing.textureSpanCells ?? DEFAULT_IMAGE_FLOOR_TEXTURE_SPAN_CELLS) !==
+            (target.textureSpanCells ?? DEFAULT_IMAGE_FLOOR_TEXTURE_SPAN_CELLS))
       ) {
         continue;
       }
@@ -516,6 +524,7 @@ export function resolveBuildTargetFromWorld(input: {
   pieces: BuildPiece[];
   rampRotationOverride?: boolean;
   textureStorageKey?: string | undefined;
+  textureSpanCells?: ImageFloorTextureSpanCells | undefined;
 }): BuildPlacementTarget {
   const cell = worldToCell(input.hitX, input.hitZ);
   const surfacePiece = findSurfacePieceAtCell(input.pieces, cell, input.hitY);
@@ -532,6 +541,7 @@ export function resolveBuildTargetFromWorld(input: {
     ...(input.textureStorageKey !== undefined
       ? { textureStorageKey: input.textureStorageKey }
       : {}),
+    ...(input.textureSpanCells !== undefined ? { textureSpanCells: input.textureSpanCells } : {}),
     ...(input.rampRotationOverride !== undefined
       ? { rampRotationOverride: input.rampRotationOverride }
       : {})
@@ -549,6 +559,7 @@ export function resolvePlaceAheadBuildTarget(input: {
   rampRotationOverride?: boolean;
   distanceCells?: number;
   textureStorageKey?: string | undefined;
+  textureSpanCells?: ImageFloorTextureSpanCells | undefined;
 }): BuildPlacementTarget {
   const distance = BUILD_CELL_SIZE * (input.distanceCells ?? 1);
   const hitX = input.avatarPosition.x + Math.sin(input.rotationY) * distance;
@@ -571,6 +582,7 @@ export function resolvePlaceAheadBuildTarget(input: {
     ...(input.textureStorageKey !== undefined
       ? { textureStorageKey: input.textureStorageKey }
       : {}),
+    ...(input.textureSpanCells !== undefined ? { textureSpanCells: input.textureSpanCells } : {}),
     ...(input.rampRotationOverride !== undefined
       ? { rampRotationOverride: input.rampRotationOverride }
       : {})

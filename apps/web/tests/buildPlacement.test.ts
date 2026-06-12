@@ -475,7 +475,7 @@ describe("image-floor placement", () => {
   const TEXTURE_A = "rooms/room-placement/floor-textures/a.webp";
   const TEXTURE_B = "rooms/room-placement/floor-textures/b.webp";
 
-  function imageFloorTarget(texture?: string) {
+  function imageFloorTarget(texture?: string, textureSpanCells?: 2 | 4 | 8) {
     return resolveBuildPlacementTarget({
       tool: "image-floor",
       hitX: 10,
@@ -483,7 +483,8 @@ describe("image-floor placement", () => {
       hitZ: 10,
       rotation: 0,
       materialId: "stone",
-      ...(texture ? { textureStorageKey: texture } : {})
+      ...(texture ? { textureStorageKey: texture } : {}),
+      ...(textureSpanCells ? { textureSpanCells } : {})
     });
   }
 
@@ -492,6 +493,11 @@ describe("image-floor placement", () => {
     expect(target.kind).toBe("image-floor");
     expect(target.level).toBe(0);
     expect(target.textureStorageKey).toBe(TEXTURE_A);
+  });
+
+  it("resolves an image-floor target carrying the selected texture span", () => {
+    const target = imageFloorTarget(TEXTURE_A, 8);
+    expect(target.textureSpanCells).toBe(8);
   });
 
   it("blocks an image floor where a plain floor already sits (and vice versa)", () => {
@@ -536,6 +542,21 @@ describe("image-floor placement", () => {
     const repaint = evaluateBuildPlacement(
       manifest,
       imageFloorTarget(TEXTURE_B),
+      "room-placement",
+      "user-1",
+      { [existing.id]: existing }
+    );
+    expect(repaint.allowed).toBe(true);
+  });
+
+  it("allows repainting an image floor in place with a different texture span", () => {
+    const existing = {
+      ...evaluateBuildPlacement(manifest, imageFloorTarget(TEXTURE_A, 4), "room-placement", "user-1").piece,
+      id: "build:image-floor:5,5:0:legacy"
+    };
+    const repaint = evaluateBuildPlacement(
+      manifest,
+      imageFloorTarget(TEXTURE_A, 8),
       "room-placement",
       "user-1",
       { [existing.id]: existing }

@@ -1,19 +1,21 @@
 import type { BuildPiece } from "@3dspace/contracts";
+import { DEFAULT_IMAGE_FLOOR_TEXTURE_SPAN_CELLS, type ImageFloorTextureSpanCells } from "@3dspace/contracts";
 import { BUILD_CELL_SIZE } from "@3dspace/room-engine";
 
 /**
  * Continuous image-floor regions.
  *
- * Image-floor tiles that touch edge-to-edge (4-connected), sit on the same level and share the
- * same texture form one continuous floor. The uploaded image is stretched across the bounding
- * rect of that region, so extending the floor in any direction re-stretches the image over the
- * full connected surface. The grouping is deterministic (sorted piece ids), so every client
- * renders the identical mapping from the same piece set.
+ * Image-floor tiles that touch edge-to-edge (4-connected), sit on the same level, share the
+ * same texture and the same textureSpanCells form one continuous floor. The uploaded image
+ * covers a fixed span×span cell canvas anchored at the region's min corner — extend the floor
+ * to reveal more at a constant scale. The grouping is deterministic (sorted piece ids).
  */
 export type ImageFloorRegion = {
   /** Stable region id: the lexicographically smallest piece id in the region. */
   regionId: string;
   textureStorageKey: string | undefined;
+  /** How many build cells wide/tall one image covers (from the placed pieces). */
+  textureSpanCells: ImageFloorTextureSpanCells;
   level: number;
   /** World-space bounding rect of the connected region. */
   minX: number;
@@ -23,12 +25,19 @@ export type ImageFloorRegion = {
   pieceIds: string[];
 };
 
+export { DEFAULT_IMAGE_FLOOR_TEXTURE_SPAN_CELLS, IMAGE_FLOOR_TEXTURE_SPAN_OPTIONS } from "@3dspace/contracts";
+
 function groupKey(piece: BuildPiece) {
-  return `${piece.level}\u0000${piece.textureStorageKey ?? ""}`;
+  const span = piece.textureSpanCells ?? DEFAULT_IMAGE_FLOOR_TEXTURE_SPAN_CELLS;
+  return `${piece.level}\u0000${piece.textureStorageKey ?? ""}\u0000${span}`;
 }
 
 function cellKey(ix: number, iz: number) {
   return `${ix},${iz}`;
+}
+
+function spanForPiece(piece: BuildPiece): ImageFloorTextureSpanCells {
+  return piece.textureSpanCells ?? DEFAULT_IMAGE_FLOOR_TEXTURE_SPAN_CELLS;
 }
 
 /** Map of piece id → its connected region (only image-floor pieces appear). */
@@ -83,6 +92,7 @@ export function computeImageFloorRegions(pieces: BuildPiece[]): Map<string, Imag
       const region: ImageFloorRegion = {
         regionId: pieceIds[0]!,
         textureStorageKey: startPiece.textureStorageKey,
+        textureSpanCells: spanForPiece(startPiece),
         level: startPiece.level,
         minX: minIx * BUILD_CELL_SIZE,
         maxX: (maxIx + 1) * BUILD_CELL_SIZE,
@@ -99,14 +109,13 @@ export function computeImageFloorRegions(pieces: BuildPiece[]): Map<string, Imag
 }
 
 /**
- * UV for a world point inside a region's bounding rect. The image is upright for an avatar
- * looking toward -Z (the verse spawn facing): image top (v=1) lies at the region's minZ edge.
+ * UV for a world point on an image floor. The image spans textureSpanCells build cells from
+ * the connected region's min corner. Upright for an avatar looking toward -Z.
  */
 export function imageFloorUvAt(region: ImageFloorRegion, worldX: number, worldZ: number) {
-  const spanX = region.maxX - region.minX || 1;
-  const spanZ = region.maxZ - region.minZ || 1;
+  const span = region.textureSpanCells * BUILD_CELL_SIZE;
   return {
-    u: (worldX - region.minX) / spanX,
-    v: (region.maxZ - worldZ) / spanZ
+    u: (worldX - region.minX) / span,
+    v: 1 - (worldZ - region.minZ) / span
   };
 }

@@ -56,7 +56,8 @@ function placementFromRequest(body: CreateBuildPieceRequest): BuildPiecePlacemen
     edge: body.edge,
     rotation: body.rotation,
     materialId: body.materialId,
-    textureStorageKey: body.textureStorageKey
+    textureStorageKey: body.textureStorageKey,
+    textureSpanCells: body.textureSpanCells
   };
 }
 
@@ -93,6 +94,7 @@ export async function registerBuildPieceRoutes(app: FastifyInstance, ctx: AppCon
         rotation: placement.rotation ?? 0,
         materialId: placement.materialId ?? "stone",
         textureStorageKey: placement.textureStorageKey,
+        textureSpanCells: placement.textureSpanCells,
         createdByUserId: auth.userId
       })
     );
@@ -125,6 +127,7 @@ export async function registerBuildPieceRoutes(app: FastifyInstance, ctx: AppCon
           rotation: placement.rotation ?? 0,
           materialId: placement.materialId ?? "stone",
           textureStorageKey: placement.textureStorageKey,
+        textureSpanCells: placement.textureSpanCells,
           createdByUserId: auth.userId
         }))
       )

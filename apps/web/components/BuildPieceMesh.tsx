@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo } from "react";
 import { Edges, MeshReflectorMaterial, useGLTF, useTexture } from "@react-three/drei";
 import type { ThreeEvent } from "@react-three/fiber";
-import { BufferGeometry, ClampToEdgeWrapping, DoubleSide, Float32BufferAttribute, SRGBColorSpace } from "three";
+import { BufferGeometry, DoubleSide, Float32BufferAttribute, RepeatWrapping, SRGBColorSpace } from "three";
 import { SkeletonUtils } from "three-stdlib";
 import type { Group } from "three";
 import type { BuildPiece, BuildPieceEdge, BuildPieceMaterial, BuildPieceRotation } from "@3dspace/contracts";
@@ -133,9 +133,8 @@ const IMAGE_FLOOR_SLAB_COLOR = "#3a3f48";
 const IMAGE_FLOOR_TOP_LIFT = 0.002;
 
 /**
- * Top face of one image-floor tile. UVs map this cell's slice of the connected
- * region's bounding rect, so the uploaded image stretches across the whole
- * continuous floor and re-fits as the floor is extended in any direction.
+ * Top face of one image-floor tile. UVs slice the uploaded image from a fixed span×span cell
+ * canvas anchored at the connected region's min corner — extend the floor to reveal more.
  */
 function ImageFloorTopFace({ piece, region }: { piece: BuildPiece; region: ImageFloorRegion }) {
   const texture = useTexture(imageFloorTextureUrl(region.textureStorageKey!));
@@ -143,8 +142,8 @@ function ImageFloorTopFace({ piece, region }: { piece: BuildPiece; region: Image
   useEffect(() => {
     texture.colorSpace = SRGBColorSpace;
     texture.anisotropy = 8;
-    texture.wrapS = ClampToEdgeWrapping;
-    texture.wrapT = ClampToEdgeWrapping;
+    texture.wrapS = RepeatWrapping;
+    texture.wrapT = RepeatWrapping;
     texture.needsUpdate = true;
   }, [texture]);
 
@@ -171,7 +170,7 @@ function ImageFloorTopFace({ piece, region }: { piece: BuildPiece; region: Image
     geo.setIndex([0, 2, 1, 0, 3, 2]);
     geo.computeVertexNormals();
     return geo;
-  }, [piece.cell.ix, piece.cell.iz, piece.level, region]);
+  }, [piece.cell.ix, piece.cell.iz, piece.level, region.minX, region.minZ, region.textureSpanCells]);
 
   return (
     <mesh geometry={geometry}>

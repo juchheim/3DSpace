@@ -28,6 +28,7 @@ import {
   type BuildPieceKind,
   type BuildPieceMaterial,
   type BuildPieceRotation,
+  type ImageFloorTextureSpanCells,
   type PlacedWorldAsset,
   type LogicPieceKind,
   type EscapeSession,
@@ -234,6 +235,7 @@ export type Repository = {
     rotation: BuildPieceRotation;
     materialId: BuildPieceMaterial;
     textureStorageKey?: string | undefined;
+    textureSpanCells?: ImageFloorTextureSpanCells | undefined;
     createdByUserId: string;
   }): Promise<BuildPiece>;
   createBuildPiecesBatch(
@@ -246,6 +248,7 @@ export type Repository = {
       rotation: BuildPieceRotation;
       materialId: BuildPieceMaterial;
       textureStorageKey?: string | undefined;
+      textureSpanCells?: ImageFloorTextureSpanCells | undefined;
       createdByUserId: string;
     }>
   ): Promise<BuildPiece[]>;
@@ -1228,6 +1231,7 @@ export class MemoryRepository implements Repository {
     rotation: BuildPieceRotation;
     materialId: BuildPieceMaterial;
     textureStorageKey?: string | undefined;
+    textureSpanCells?: ImageFloorTextureSpanCells | undefined;
     createdByUserId: string;
   }) {
     const time = nowIso();
@@ -1251,6 +1255,9 @@ export class MemoryRepository implements Repository {
       ...(input.kind === "image-floor" && input.textureStorageKey
         ? { textureStorageKey: input.textureStorageKey }
         : {}),
+      ...(input.kind === "image-floor" && input.textureSpanCells
+        ? { textureSpanCells: input.textureSpanCells }
+        : {}),
       createdByUserId: existing?.createdByUserId ?? input.createdByUserId,
       createdAt: existing?.createdAt ?? time
     };
@@ -1268,6 +1275,7 @@ export class MemoryRepository implements Repository {
       rotation: BuildPieceRotation;
       materialId: BuildPieceMaterial;
       textureStorageKey?: string | undefined;
+      textureSpanCells?: ImageFloorTextureSpanCells | undefined;
       createdByUserId: string;
     }>
   ) {

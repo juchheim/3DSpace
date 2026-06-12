@@ -20,6 +20,7 @@ import type {
   BuildPieceKind,
   BuildPieceMaterial,
   BuildPieceRotation,
+  ImageFloorTextureSpanCells,
   PlacedWorldAsset,
   LogicPieceKind,
   LogicState,
@@ -412,6 +413,7 @@ export function createModels(connection: Connection): Models {
     rotation: { type: Number, default: 0 },
     materialId: { type: String, required: true },
     textureStorageKey: { type: String },
+    textureSpanCells: { type: Number },
     createdByUserId: { type: String, required: true },
     createdAt: { type: String, required: true }
   });
@@ -1656,6 +1658,7 @@ export class MongoRepository implements Repository {
     rotation: BuildPieceRotation;
     materialId: BuildPieceMaterial;
     textureStorageKey?: string | undefined;
+    textureSpanCells?: ImageFloorTextureSpanCells | undefined;
     createdByUserId: string;
     createdAt?: string;
   }): BuildPiece {
@@ -1676,6 +1679,9 @@ export class MongoRepository implements Repository {
       materialId: input.materialId,
       ...(input.kind === "image-floor" && input.textureStorageKey
         ? { textureStorageKey: input.textureStorageKey }
+        : {}),
+      ...(input.kind === "image-floor" && input.textureSpanCells
+        ? { textureSpanCells: input.textureSpanCells }
         : {}),
       createdByUserId: input.createdByUserId,
       createdAt: input.createdAt ?? nowIso()
@@ -1763,6 +1769,7 @@ export class MongoRepository implements Repository {
     rotation: BuildPieceRotation;
     materialId: BuildPieceMaterial;
     textureStorageKey?: string | undefined;
+    textureSpanCells?: ImageFloorTextureSpanCells | undefined;
     createdByUserId: string;
   }) {
     const filter = this.buildPiecePlacementFilter(input.roomId, input);
@@ -1781,15 +1788,21 @@ export class MongoRepository implements Repository {
         createdByUserId: existing?.createdByUserId ?? input.createdByUserId
       });
       lastRecord = record;
-      const update: { $set: BuildPiece; $unset?: Partial<Record<"edge" | "textureStorageKey", "">> } = {
+      const update: {
+        $set: BuildPiece;
+        $unset?: Partial<Record<"edge" | "textureStorageKey" | "textureSpanCells", "">>;
+      } = {
         $set: record
       };
-      const unset: Partial<Record<"edge" | "textureStorageKey", "">> = {};
+      const unset: Partial<Record<"edge" | "textureStorageKey" | "textureSpanCells", "">> = {};
       if (!buildPieceRequiresEdge(input.kind)) {
         unset.edge = "";
       }
       if (record.textureStorageKey === undefined) {
         unset.textureStorageKey = "";
+      }
+      if (record.textureSpanCells === undefined) {
+        unset.textureSpanCells = "";
       }
       if (Object.keys(unset).length > 0) {
         update.$unset = unset;
@@ -1820,6 +1833,7 @@ export class MongoRepository implements Repository {
       rotation: BuildPieceRotation;
       materialId: BuildPieceMaterial;
       textureStorageKey?: string | undefined;
+      textureSpanCells?: ImageFloorTextureSpanCells | undefined;
       createdByUserId: string;
     }>
   ) {

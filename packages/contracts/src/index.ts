@@ -937,6 +937,14 @@ export const BuildPieceKindSchema = z.enum([
 
 /** Allowed MIME types for image-floor texture uploads. */
 export const BUILD_FLOOR_TEXTURE_CONTENT_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
+/** How many build cells wide/tall one uploaded image covers at native scale. */
+export const IMAGE_FLOOR_TEXTURE_SPAN_OPTIONS = [2, 4, 8] as const;
+export const DEFAULT_IMAGE_FLOOR_TEXTURE_SPAN_CELLS = 4;
+export const ImageFloorTextureSpanCellsSchema = z.union([
+  z.literal(2),
+  z.literal(4),
+  z.literal(8)
+]);
 export const BuildPieceEdgeSchema = z.enum(["n", "e", "s", "w"]);
 export const BuildPieceRotationSchema = z.union([
   z.literal(0),
@@ -957,8 +965,10 @@ export const BuildPieceSchema = z
     edge: BuildPieceEdgeSchema.optional(),
     rotation: BuildPieceRotationSchema.default(0),
     materialId: BuildPieceMaterialSchema.default("stone"),
-    /** Storage key of the uploaded image stretched across the connected floor (image-floor only). */
+    /** Storage key of the uploaded image (image-floor only). */
     textureStorageKey: z.string().min(1).max(512).optional(),
+    /** Cells wide/tall one image covers; image-floor only (default 4). */
+    textureSpanCells: ImageFloorTextureSpanCellsSchema.optional(),
     createdByUserId: z.string(),
     createdAt: z.string()
   })
@@ -968,6 +978,13 @@ export const BuildPieceSchema = z
         code: z.ZodIssueCode.custom,
         message: "only image-floor pieces may set textureStorageKey",
         path: ["textureStorageKey"]
+      });
+    }
+    if (piece.textureSpanCells !== undefined && piece.kind !== "image-floor") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "only image-floor pieces may set textureSpanCells",
+        path: ["textureSpanCells"]
       });
     }
     const edgeKinds = ["wall", "simple-wall", "doorway", "window", "mirror"] as const;
@@ -998,7 +1015,8 @@ export const CreateBuildPieceRequestSchema = z
     edge: BuildPieceEdgeSchema.optional(),
     rotation: BuildPieceRotationSchema.optional(),
     materialId: BuildPieceMaterialSchema.optional(),
-    textureStorageKey: z.string().min(1).max(512).optional()
+    textureStorageKey: z.string().min(1).max(512).optional(),
+    textureSpanCells: ImageFloorTextureSpanCellsSchema.optional()
   })
   .superRefine((piece, ctx) => {
     if (piece.textureStorageKey !== undefined && piece.kind !== "image-floor") {
@@ -1006,6 +1024,13 @@ export const CreateBuildPieceRequestSchema = z
         code: z.ZodIssueCode.custom,
         message: "only image-floor pieces may set textureStorageKey",
         path: ["textureStorageKey"]
+      });
+    }
+    if (piece.textureSpanCells !== undefined && piece.kind !== "image-floor") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "only image-floor pieces may set textureSpanCells",
+        path: ["textureSpanCells"]
       });
     }
     const edgeKinds = ["wall", "simple-wall", "doorway", "window", "mirror"] as const;
@@ -3906,6 +3931,7 @@ export type RoomSessionRealtimeMessage = z.infer<typeof RoomSessionMessageV1Sche
 export type BuildPieceEdge = z.infer<typeof BuildPieceEdgeSchema>;
 export type BuildPieceRotation = z.infer<typeof BuildPieceRotationSchema>;
 export type BuildPieceMaterial = z.infer<typeof BuildPieceMaterialSchema>;
+export type ImageFloorTextureSpanCells = z.infer<typeof ImageFloorTextureSpanCellsSchema>;
 export type BuildDestroyPolicy = z.infer<typeof BuildDestroyPolicySchema>;
 export type BuildPiece = z.infer<typeof BuildPieceSchema>;
 export type CreateBuildFloorTextureUploadRequest = z.infer<typeof CreateBuildFloorTextureUploadRequestSchema>;

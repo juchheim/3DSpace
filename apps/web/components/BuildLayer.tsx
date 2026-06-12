@@ -58,7 +58,7 @@ export function BuildLayer({
 }) {
   const activeLightIds = useNearestLightPieceIds(pieces);
   const activeLightSet = useMemo(() => new Set(activeLightIds), [activeLightIds]);
-  // Connected image-floor regions: the uploaded image stretches across each region's bounds.
+  // Connected image-floor regions: image spans a fixed 4×4 cell canvas from each region's min corner.
   const imageFloorRegions = useMemo(() => computeImageFloorRegions(pieces), [pieces]);
 
   return (

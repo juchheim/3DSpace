@@ -6,7 +6,8 @@ import type {
   BuildPieceEdge,
   BuildPieceKind,
   BuildPieceMaterial,
-  BuildPieceRotation
+  BuildPieceRotation,
+  ImageFloorTextureSpanCells
 } from "@3dspace/contracts";
 import type { z } from "zod";
 import type { CreateBuildPieceRequestSchema } from "@3dspace/contracts";
@@ -23,7 +24,8 @@ type BuildActions = {
     edge?: BuildPieceEdge | undefined,
     rotation?: BuildPieceRotation | undefined,
     materialId?: BuildPieceMaterial | undefined,
-    textureStorageKey?: string | undefined
+    textureStorageKey?: string | undefined,
+    textureSpanCells?: ImageFloorTextureSpanCells | undefined
   ): Promise<BuildPiece>;
   placeBatch(placements: BuildPlacementInput[]): Promise<BuildPiece[]>;
   destroy(pieceId: string): Promise<void>;
@@ -37,7 +39,8 @@ function callPlace(actions: BuildActions, placement: BuildPlacementInput) {
     placement.edge,
     placement.rotation,
     placement.materialId,
-    placement.textureStorageKey
+    placement.textureStorageKey,
+    placement.textureSpanCells
   );
 }
 
@@ -54,7 +57,8 @@ function placementFromPiece(piece: BuildPiece): BuildPlacementInput {
     ...(piece.edge ? { edge: piece.edge } : {}),
     rotation: piece.rotation,
     materialId: piece.materialId,
-    ...(piece.textureStorageKey ? { textureStorageKey: piece.textureStorageKey } : {})
+    ...(piece.textureStorageKey ? { textureStorageKey: piece.textureStorageKey } : {}),
+    ...(piece.textureSpanCells ? { textureSpanCells: piece.textureSpanCells } : {})
   };
 }
 

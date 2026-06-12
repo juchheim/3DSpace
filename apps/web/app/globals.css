@@ -1443,6 +1443,36 @@ label {
   white-space: nowrap;
 }
 .build-dock__image-floor-sub { font-size: 10px; color: var(--bd-tx-m); }
+.build-dock__image-floor-span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.build-dock__image-floor-span-options {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.build-dock__image-floor-span-btn {
+  min-width: 42px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--bd-tx);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--bd-line-m);
+  border-radius: var(--bd-rs);
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+}
+.build-dock__image-floor-span-btn:hover { border-color: var(--bd-acc); }
+.build-dock__image-floor-span-btn.is-active {
+  border-color: var(--bd-acc);
+  background: var(--bd-tint);
+  box-shadow: 0 0 8px -2px var(--bd-acc);
+}
 .build-dock__image-floor-recents {
   display: flex;
   flex-direction: column;

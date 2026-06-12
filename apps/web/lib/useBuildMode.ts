@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import type { BuildPieceMaterial, BuildPieceRotation } from "@3dspace/contracts";
+import {
+  DEFAULT_IMAGE_FLOOR_TEXTURE_SPAN_CELLS,
+  type BuildPieceMaterial,
+  type BuildPieceRotation,
+  type ImageFloorTextureSpanCells
+} from "@3dspace/contracts";
 
 export type BuildTool =
   | "wall"
@@ -20,6 +25,8 @@ export type FloorTextureSelection = {
   storageKey: string;
   url: string;
   fileName?: string;
+  /** Span used by existing floor pieces with this texture, if known. */
+  spanCells?: ImageFloorTextureSpanCells;
 };
 
 export function useBuildMode() {
@@ -31,6 +38,9 @@ export function useBuildMode() {
   const [statusMessage, setStatusMessage] = useState("");
   const [rampRotationOverride, setRampRotationOverride] = useState(false);
   const [floorTexture, setFloorTexture] = useState<FloorTextureSelection | null>(null);
+  const [floorTextureSpanCells, setFloorTextureSpanCells] = useState<ImageFloorTextureSpanCells>(
+    DEFAULT_IMAGE_FLOOR_TEXTURE_SPAN_CELLS
+  );
 
   const setTool = useCallback((next: BuildTool) => {
     setToolState(next);
@@ -56,6 +66,13 @@ export function useBuildMode() {
     setRampRotationOverride(false);
   }, []);
 
+  const applyFloorTexture = useCallback((selection: FloorTextureSelection | null) => {
+    setFloorTexture(selection);
+    if (selection?.spanCells) {
+      setFloorTextureSpanCells(selection.spanCells);
+    }
+  }, []);
+
   return {
     enabled,
     setEnabled,
@@ -72,7 +89,9 @@ export function useBuildMode() {
     statusMessage,
     setStatusMessage,
     floorTexture,
-    setFloorTexture
+    setFloorTexture: applyFloorTexture,
+    floorTextureSpanCells,
+    setFloorTextureSpanCells
   };
 }
 
