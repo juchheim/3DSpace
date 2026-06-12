@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo } from "react";
-import { Edges, MeshReflectorMaterial, useGLTF, useTexture } from "@react-three/drei";
+import { Edges, MeshReflectorMaterial, useGLTF } from "@react-three/drei";
 import type { ThreeEvent } from "@react-three/fiber";
 import { BufferGeometry, DoubleSide, Float32BufferAttribute, RepeatWrapping, SRGBColorSpace } from "three";
 import { SkeletonUtils } from "three-stdlib";
@@ -22,8 +22,7 @@ import {
 import { buildMaterialProps } from "./buildMaterials";
 import { edgeOpeningFrameParts } from "../lib/buildEdgeOpeningMesh";
 import { wallMeshTransform } from "../lib/buildWallMesh";
-import { imageFloorUvAt, type ImageFloorRegion } from "../lib/imageFloorRegions";
-import { imageFloorTextureUrl } from "../lib/imageFloorTexture";
+import type { ImageFloorRegion } from "../lib/imageFloorRegions";
 import { LampGlbMesh, LAMP_BULB_NATIVE_Y, LAMP_GLB_NATIVE_H, LAMP_TARGET_HEIGHT } from "./LampGlbMesh";
 
 // ── Custom wall GLB ───────────────────────────────────────────────────────────
@@ -128,76 +127,20 @@ function FloorGlbMesh({ piece }: { piece: BuildPiece }) {
 
 // ── Image floor (tiled floor with an uploaded image texture) ──────────────────
 
-/** Sides + underside of the image-floor slab; the textured top sits just above. */
+/** Sides + underside of the image-floor slab; textured tops render in {@link ImageFloorRegionTopLayer}. */
 const IMAGE_FLOOR_SLAB_COLOR = "#3a3f48";
-const IMAGE_FLOOR_TOP_LIFT = 0.002;
 
-/**
- * Top face of one image-floor tile. UVs slice the uploaded image from a fixed span×span cell
- * canvas anchored at the connected region's min corner — extend the floor to reveal more.
- */
-function ImageFloorTopFace({ piece, region }: { piece: BuildPiece; region: ImageFloorRegion }) {
-  const texture = useTexture(imageFloorTextureUrl(region.textureStorageKey!));
-
-  useEffect(() => {
-    texture.colorSpace = SRGBColorSpace;
-    texture.anisotropy = 8;
-    texture.wrapS = RepeatWrapping;
-    texture.wrapT = RepeatWrapping;
-    texture.needsUpdate = true;
-  }, [texture]);
-
-  const geometry = useMemo(() => {
-    const footprint = buildCellFootprint(piece.cell.ix, piece.cell.iz);
-    const y = piece.level * BUILD_LEVEL_HEIGHT + BUILD_FLOOR_THICKNESS + IMAGE_FLOOR_TOP_LIFT;
-    const corners: Array<[number, number]> = [
-      [footprint.minX, footprint.minZ],
-      [footprint.maxX, footprint.minZ],
-      [footprint.maxX, footprint.maxZ],
-      [footprint.minX, footprint.maxZ]
-    ];
-    const positions: number[] = [];
-    const uvs: number[] = [];
-    for (const [x, z] of corners) {
-      positions.push(x, y, z);
-      const { u, v } = imageFloorUvAt(region, x, z);
-      uvs.push(u, v);
-    }
-    const geo = new BufferGeometry();
-    geo.setAttribute("position", new Float32BufferAttribute(positions, 3));
-    geo.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
-    // Counter-clockwise from above → +Y normals.
-    geo.setIndex([0, 2, 1, 0, 3, 2]);
-    geo.computeVertexNormals();
-    return geo;
-  }, [piece.cell.ix, piece.cell.iz, piece.level, region.minX, region.minZ, region.textureSpanCells]);
-
-  return (
-    <mesh geometry={geometry}>
-      <meshStandardMaterial map={texture} roughness={0.85} metalness={0.05} />
-    </mesh>
-  );
-}
-
-function ImageFloorMesh({ piece, region }: { piece: BuildPiece; region: ImageFloorRegion | undefined }) {
+function ImageFloorMesh({ piece }: { piece: BuildPiece }) {
   const footprint = buildCellFootprint(piece.cell.ix, piece.cell.iz);
   const centerX = (footprint.minX + footprint.maxX) / 2;
   const centerZ = (footprint.minZ + footprint.maxZ) / 2;
   const y = piece.level * BUILD_LEVEL_HEIGHT + BUILD_FLOOR_THICKNESS / 2;
-  const hasTexture = Boolean(region?.textureStorageKey);
 
   return (
-    <group>
-      <mesh position={[centerX, y, centerZ]}>
-        <boxGeometry args={[BUILD_CELL_SIZE, BUILD_FLOOR_THICKNESS, BUILD_CELL_SIZE]} />
-        <meshStandardMaterial color={IMAGE_FLOOR_SLAB_COLOR} roughness={0.9} metalness={0.1} />
-      </mesh>
-      {hasTexture && region ? (
-        <Suspense fallback={null}>
-          <ImageFloorTopFace piece={piece} region={region} />
-        </Suspense>
-      ) : null}
-    </group>
+    <mesh position={[centerX, y, centerZ]}>
+      <boxGeometry args={[BUILD_CELL_SIZE, BUILD_FLOOR_THICKNESS, BUILD_CELL_SIZE]} />
+      <meshStandardMaterial color={IMAGE_FLOOR_SLAB_COLOR} roughness={0.9} metalness={0.1} />
+    </mesh>
   );
 }
 
@@ -566,7 +509,7 @@ export function BuildPieceMesh({
           {...(pointerEventsPassThrough ? { raycast: () => {} } : {})}
           {...pointerProps}
         >
-          <ImageFloorMesh piece={piece} region={imageFloorRegion} />
+          <ImageFloorMesh piece={piece} />
         </group>
       );
     }

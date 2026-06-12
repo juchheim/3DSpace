@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest";
 import {
   computeImageFloorRegions,
   DEFAULT_IMAGE_FLOOR_TEXTURE_SPAN_CELLS,
-  imageFloorUvAt
+  imageFloorUvAt,
+  uniqueImageFloorRegions
 } from "../lib/imageFloorRegions";
 
 function imageFloorPiece(
@@ -94,6 +95,13 @@ describe("computeImageFloorRegions", () => {
     const reversed = computeImageFloorRegions([...pieces].reverse()).get(pieces[0]!.id)!;
     expect(forward.regionId).toBe(reversed.regionId);
     expect(forward.pieceIds).toEqual(reversed.pieceIds);
+  });
+
+  it("uniqueImageFloorRegions returns one entry per connected region", () => {
+    const pieces = [imageFloorPiece(0, 0), imageFloorPiece(1, 0), imageFloorPiece(5, 5)];
+    const regions = computeImageFloorRegions(pieces);
+    expect(regions.size).toBe(3);
+    expect(uniqueImageFloorRegions(regions)).toHaveLength(2);
   });
 });
 

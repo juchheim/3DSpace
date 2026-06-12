@@ -705,22 +705,29 @@ export function BuildPlacementController({
       })()
     : null;
 
-  if (!buildMode.enabled || placementSuspended) {
-    return <BuildLayer pieces={pieces} pointerEventsPassThrough={boardPlacementPassthrough} />;
-  }
+  const placementActive = buildMode.enabled && !placementSuspended;
 
   return (
     <group>
       <BuildLayer
         pieces={pieces}
-        interactive
-        highlightedPieceId={highlightedPieceId}
-        onPiecePointerMove={(piece, event) => handleSurfacePointer(event, piece)}
-        onPiecePointerOut={() => setHighlightedPieceId(null)}
-        onPiecePointerDown={(piece, event) => handlePointerDown(event, piece)}
-        onPieceClick={(piece, event) => void handleClick(event, piece)}
+        interactive={placementActive}
+        highlightedPieceId={placementActive ? highlightedPieceId : null}
+        pointerEventsPassThrough={!placementActive && boardPlacementPassthrough}
+        {...(placementActive
+          ? {
+              onPiecePointerMove: (piece: BuildPiece, event: ThreeEvent<PointerEvent>) =>
+                handleSurfacePointer(event, piece),
+              onPiecePointerOut: () => setHighlightedPieceId(null),
+              onPiecePointerDown: (piece: BuildPiece, event: ThreeEvent<PointerEvent>) =>
+                handlePointerDown(event, piece),
+              onPieceClick: (piece: BuildPiece, event: ThreeEvent<MouseEvent>) => void handleClick(event, piece)
+            }
+          : {})}
       />
 
+      {!placementActive ? null : (
+        <>
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, placementPlaneY + 0.001, 0]}
@@ -802,6 +809,8 @@ export function BuildPlacementController({
           ) : null}
         </group>
       ) : null}
+        </>
+      )}
     </group>
   );
 }

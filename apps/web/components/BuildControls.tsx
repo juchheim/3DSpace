@@ -403,7 +403,7 @@ export function BuildControls({
                   <div className="build-dock__image-floor-current">
                     <span className="build-dock__image-floor-thumb">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={buildMode.floorTexture.url} alt="" />
+                      <img src={buildMode.floorTexture.url} alt="" loading="lazy" decoding="async" />
                     </span>
                     <span className="build-dock__image-floor-meta">
                       <span className="build-dock__image-floor-name">
@@ -471,7 +471,7 @@ export function BuildControls({
                           onClick={() => buildMode.setFloorTexture(option)}
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={option.url} alt="" />
+                          <img src={option.url} alt="" loading="lazy" decoding="async" />
                         </button>
                       ))}
                     </div>

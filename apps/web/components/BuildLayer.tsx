@@ -10,6 +10,7 @@ import {
   cellToWorldCenter
 } from "@3dspace/room-engine";
 import { computeImageFloorRegions } from "../lib/imageFloorRegions";
+import { ImageFloorRegionTopLayer } from "./ImageFloorRegionTopLayer";
 import { BuildPieceMesh } from "./BuildPieceMesh";
 
 function useNearestLightPieceIds(pieces: BuildPiece[]) {
@@ -63,6 +64,7 @@ export function BuildLayer({
 
   return (
     <group>
+      <ImageFloorRegionTopLayer regions={imageFloorRegions} pieces={pieces} />
       {pieces.map((piece) => (
         <BuildPieceMesh
           key={piece.id}

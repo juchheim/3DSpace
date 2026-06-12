@@ -108,6 +108,15 @@ export function computeImageFloorRegions(pieces: BuildPiece[]): Map<string, Imag
   return result;
 }
 
+/** One entry per connected region (the map from {@link computeImageFloorRegions} repeats per tile). */
+export function uniqueImageFloorRegions(regions: Map<string, ImageFloorRegion>): ImageFloorRegion[] {
+  const byRegionId = new Map<string, ImageFloorRegion>();
+  for (const region of regions.values()) {
+    byRegionId.set(region.regionId, region);
+  }
+  return Array.from(byRegionId.values());
+}
+
 /**
  * UV for a world point on an image floor. The image spans textureSpanCells build cells from
  * the connected region's min corner. Upright for an avatar looking toward -Z.
