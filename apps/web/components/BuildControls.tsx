@@ -153,7 +153,9 @@ export function BuildControls({
   onUndo,
   onRedo,
   selectedAssetSlug = null,
-  onSelectAsset
+  onSelectAsset,
+  finePlacement = false,
+  onToggleFinePlacement
 }: {
   buildMode: BuildModeController;
   pieceCount: number;
@@ -171,6 +173,9 @@ export function BuildControls({
   selectedAssetSlug?: string | null;
   /** Called when the user selects / deselects an asset to enter placement mode. */
   onSelectAsset?: (slug: string | null) => void;
+  /** Fine object placement: clicks set down a draft to nudge & rotate in small steps. */
+  finePlacement?: boolean;
+  onToggleFinePlacement?: () => void;
 }) {
   const [clearing, setClearing] = useState(false);
   const [showCoachmark, setShowCoachmark] = useState(false);
@@ -350,6 +355,26 @@ export function BuildControls({
               </div>
             ) : null}
 
+            {category === "objects" && onToggleFinePlacement ? (
+              <div className="build-dock__fine-row">
+                <button
+                  type="button"
+                  className={`build-dock__fine${finePlacement ? " is-active" : ""}`}
+                  aria-pressed={finePlacement}
+                  onClick={onToggleFinePlacement}
+                  title="Fine placement: click sets down a draft you can nudge and rotate in small steps before confirming"
+                >
+                  <span className="build-dock__fine-dot" />
+                  Fine placement
+                </button>
+                <span className="build-dock__fine-sub">
+                  {finePlacement
+                    ? "Click sets a draft — nudge & rotate, then confirm."
+                    : "Off — objects drop instantly at 90° turns."}
+                </span>
+              </div>
+            ) : null}
+
             {category === "objects" ? (
               <div className="build-dock__grid" role="toolbar" aria-label="World objects">
                 {WORLD_ASSET_CATALOG.map((asset) => {
@@ -418,7 +443,16 @@ export function BuildControls({
             {/* Contextual placement hint for object / stamp modes */}
             {selectedAssetSlug ? (
               <p className="build-dock__inline-hint">
-                Click in the world to place · <kbd>R</kbd> rotate · <kbd>Esc</kbd> cancel
+                {finePlacement ? (
+                  <>
+                    Click to set down a draft · drag or <kbd>↑↓←→</kbd> nudge · <kbd>Q</kbd>/<kbd>E</kbd> rotate 5° ·{" "}
+                    <kbd>⏎</kbd> place · <kbd>Esc</kbd> cancel
+                  </>
+                ) : (
+                  <>
+                    Click in the world to place · <kbd>R</kbd> rotate · <kbd>Esc</kbd> cancel
+                  </>
+                )}
               </p>
             ) : null}
           </div>

@@ -474,10 +474,13 @@ export function RoomView3D({
   assetPlacement?: {
     glbUrl: string;
     scale?: number;
-    rotationStep: number;
+    /** Pending yaw in degrees. */
+    yawDeg: number;
+    /** When true, clicks anchor an adjustable draft (nudge + small rotations) before committing. */
+    finePlacement: boolean;
     onPlace(position: { x: number; y: number; z: number }, yaw: number): void;
     onCancel(): void;
-    onRotate(): void;
+    onRotateBy(deltaDeg: number): void;
   } | null;
   verse?: Verse | null;
 }) {
@@ -602,10 +605,11 @@ export function RoomView3D({
               scale={assetPlacement.scale ?? 1}
               interceptPlaneY={assetInterceptPlaneY}
               resolveGroundY={resolveAssetPlacementGroundY}
-              rotationStep={assetPlacement.rotationStep}
+              yawDeg={assetPlacement.yawDeg}
+              finePlacement={assetPlacement.finePlacement}
               onPlace={assetPlacement.onPlace}
               onCancel={assetPlacement.onCancel}
-              onRotate={assetPlacement.onRotate}
+              onRotateBy={assetPlacement.onRotateBy}
             />
           </Suspense>
         ) : null}

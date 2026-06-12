@@ -1320,6 +1320,46 @@ label {
 .build-dock__rotate-icon { font-size: 13px; color: var(--bd-acc); }
 .build-dock__rotate-deg { font-variant-numeric: tabular-nums; min-width: 30px; }
 
+/* ── Fine placement (objects) ── */
+.build-dock__fine-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+.build-dock__fine {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--bd-tx);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--bd-line-m);
+  border-radius: var(--bd-rs);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.12s, background 0.12s;
+}
+.build-dock__fine:hover { border-color: var(--bd-acc); }
+.build-dock__fine-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  transition: background 0.12s, box-shadow 0.12s;
+}
+.build-dock__fine.is-active {
+  border-color: var(--bd-acc);
+  background: var(--bd-tint);
+}
+.build-dock__fine.is-active .build-dock__fine-dot {
+  background: var(--bd-acc);
+  box-shadow: 0 0 6px var(--bd-acc);
+}
+.build-dock__fine-sub { font-size: 10px; color: var(--bd-tx-m); }
+
 .build-dock__place-ahead {
   margin-left: auto;
   padding: 6px 14px;
@@ -1342,6 +1382,60 @@ label {
   color: var(--bd-tx);
 }
 .build-dock__status--error { color: #ff9f9f; }
+
+/* ── Fine-placement adjust puck (drei Html, floats above the draft) ── */
+.fine-place-puck {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  padding: 8px 10px;
+  background: rgba(12, 16, 22, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+  user-select: none;
+  white-space: nowrap;
+}
+.fine-place-puck__row { display: flex; gap: 4px; align-items: center; }
+.fine-place-puck__row button {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  font-size: 13px;
+  line-height: 1;
+  color: #e8f6ef;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+.fine-place-puck__row button:hover { border-color: #35e0a1; }
+.fine-place-puck__deg {
+  min-width: 38px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #35e0a1;
+  font-variant-numeric: tabular-nums;
+}
+.fine-place-puck__row--actions { margin-top: 2px; gap: 8px; }
+.fine-place-puck__row .fine-place-puck__confirm {
+  background: rgba(53, 224, 161, 0.18);
+  border-color: rgba(53, 224, 161, 0.55);
+  font-weight: 700;
+  padding: 0 12px;
+}
+.fine-place-puck__row .fine-place-puck__cancel {
+  background: rgba(255, 110, 110, 0.12);
+  border-color: rgba(255, 110, 110, 0.4);
+}
+.fine-place-puck__hint {
+  margin: 0;
+  font-size: 9.5px;
+  color: rgba(232, 246, 239, 0.55);
+}
 
 /* ── Compact / responsive ── */
 .build-dock--compact { width: min(520px, calc(100vw - 16px)); }

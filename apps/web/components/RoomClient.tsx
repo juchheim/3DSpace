@@ -150,6 +150,9 @@ const DeskNotebook = dynamic(
   { ssr: false }
 );
 
+/** Remembered across sessions: fine object placement (small rotations + nudge). */
+const FINE_PLACEMENT_STORAGE_KEY = "3dspace-fine-placement";
+
 function isActiveLiveWallObject(object: WallObject) {
   return object.type.endsWith(".live") && object.status === "active";
 }
@@ -538,7 +541,17 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   });
   const buildMode = useBuildMode();
   const [selectedAssetSlug, setSelectedAssetSlug] = useState<string | null>(null);
-  const [assetRotationStep, setAssetRotationStep] = useState(0);
+  const [assetYawDeg, setAssetYawDeg] = useState(0);
+  const [fineAssetPlacement, setFineAssetPlacement] = useState(
+    () => typeof window !== "undefined" && window.localStorage.getItem(FINE_PLACEMENT_STORAGE_KEY) === "1"
+  );
+  const toggleFineAssetPlacement = useCallback(() => {
+    setFineAssetPlacement((value) => {
+      const next = !value;
+      window.localStorage.setItem(FINE_PLACEMENT_STORAGE_KEY, next ? "1" : "0");
+      return next;
+    });
+  }, []);
   const logicFeatureEnabled =
     roomTypeFeatures.logic &&
     CLIENT_TUNING.enableEscapeRoom &&
@@ -762,7 +775,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     if (!buildMode.enabled) {
       setBuild2dPreview(null);
       setSelectedAssetSlug(null);
-      setAssetRotationStep(0);
+      setAssetYawDeg(0);
     }
   }, [buildMode.enabled]);
   const handleAiObjectJobDeleted = useCallback(
@@ -3109,12 +3122,13 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
               return {
                 glbUrl: asset.glbUrl,
                 ...(asset.scale !== undefined ? { scale: asset.scale } : {}),
-                rotationStep: assetRotationStep,
+                yawDeg: assetYawDeg,
+                finePlacement: fineAssetPlacement,
                 onPlace: (position, yaw) => {
                   chairs.placeChair(selectedAssetSlug, position, yaw);
                 },
                 onCancel: () => setSelectedAssetSlug(null),
-                onRotate: () => setAssetRotationStep((s) => (s + 1) % 4)
+                onRotateBy: (deltaDeg) => setAssetYawDeg((deg) => (((deg + deltaDeg) % 360) + 360) % 360)
               };
             })()}
           />
@@ -3983,9 +3997,11 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           selectedAssetSlug={selectedAssetSlug}
           onSelectAsset={(slug) => {
             setSelectedAssetSlug(slug);
-            setAssetRotationStep(0);
+            setAssetYawDeg(0);
             if (slug) buildMode.selectStamp(null);
           }}
+          finePlacement={fineAssetPlacement}
+          onToggleFinePlacement={toggleFineAssetPlacement}
         />
       ) : null}
     </main>

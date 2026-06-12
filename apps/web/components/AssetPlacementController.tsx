@@ -5,12 +5,16 @@
  * pointer events while an asset is being placed. Shows a ghost of the asset
  * following the cursor; click to place, R to rotate, Escape to cancel.
  *
+ * With fine placement enabled, a click anchors an adjustable draft instead of
+ * committing: drag it (or arrow keys) to nudge position, rotate it in small
+ * increments via the floating puck or Q/E/R, then Enter / ✓ confirms.
+ *
  * Placed above the BuildPlacementController in the scene so it receives
  * pointer events first via stopPropagation.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useGLTF } from "@react-three/drei";
+import { Html, useGLTF } from "@react-three/drei";
 import type { ThreeEvent } from "@react-three/fiber";
 import { cloneGlbSceneGhost } from "../lib/cloneGlbScene";
 import { isKeyboardOwnedTarget } from "../lib/isKeyboardOwnedTarget";
@@ -24,42 +28,92 @@ type AssetPlacementControllerProps = {
   interceptPlaneY?: number;
   /** Resolve walkable ground Y at (x, z) — build floors, ramps, and room terrain. */
   resolveGroundY(x: number, z: number): number;
-  /** Current rotation step (0=0°, 1=90°, 2=180°, 3=270°). */
-  rotationStep: number;
-  /** Called with world position + yaw (radians) when user clicks to place. */
+  /** Pending yaw in degrees — owned by the parent so it survives placements. */
+  yawDeg: number;
+  /** When true, clicks anchor an adjustable draft instead of committing. */
+  finePlacement: boolean;
+  /** Called with world position + yaw (radians) when the placement commits. */
   onPlace(position: { x: number; y: number; z: number }, yaw: number): void;
   /** Called when the user cancels (Escape or the button in BuildControls). */
   onCancel(): void;
-  /** Called when the user presses R to rotate. */
-  onRotate(): void;
+  /** Rotate the pending asset by `deltaDeg` degrees. */
+  onRotateBy(deltaDeg: number): void;
 };
 
 /** The invisible floor intercept plane — sits just above y=0 so it catches
  *  clicks before the floor mesh does. Sized generously to cover any room. */
 const PLANE_HALF = 500;
 
+/** Fine-mode steps: nudges in meters, rotations in degrees. */
+const NUDGE_STEP = 0.1;
+const NUDGE_STEP_FINE = 0.02;
+const ROTATE_STEP_SMALL = 5;
+const ROTATE_STEP_TINY = 1;
+const ROTATE_STEP_BIG = 45;
+const ROTATE_STEP_R = 15;
+
+/** Keys the draft-adjust handler owns. Captured before the avatar-movement
+ *  listener so nudging the draft doesn't also walk or turn the avatar. */
+const ADJUST_KEYS = new Set([
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "KeyQ",
+  "KeyE",
+  "KeyR",
+  "Enter",
+  "Escape"
+]);
+
 export function AssetPlacementController({
   glbUrl,
   scale = 1,
   interceptPlaneY = 0.002,
   resolveGroundY,
-  rotationStep,
+  yawDeg,
+  finePlacement,
   onPlace,
   onCancel,
-  onRotate
+  onRotateBy
 }: AssetPlacementControllerProps) {
   const { scene } = useGLTF(glbUrl);
   const ghostModel = useMemo(() => cloneGlbSceneGhost(scene), [scene, glbUrl]);
   const [ghostPos, setGhostPos] = useState<{ x: number; z: number } | null>(null);
+  // Fine-placement draft anchored in the world; while set, the ghost stops
+  // following the cursor and the adjust puck + keyboard take over.
+  const [draftPos, setDraftPos] = useState<{ x: number; z: number } | null>(null);
 
-  const yaw = rotationStep * (Math.PI / 2);
+  const yaw = (yawDeg * Math.PI) / 180;
+  const yawDisplay = ((Math.round(yawDeg) % 360) + 360) % 360;
+
+  // Switching assets or leaving fine mode discards any pending draft.
+  useEffect(() => {
+    setDraftPos(null);
+  }, [glbUrl, finePlacement]);
+
+  const commitDraft = useCallback(() => {
+    setDraftPos((pos) => {
+      if (pos) onPlace({ x: pos.x, y: resolveGroundY(pos.x, pos.z), z: pos.z }, yaw);
+      return null;
+    });
+  }, [onPlace, resolveGroundY, yaw]);
+
+  const nudgeDraft = useCallback((dx: number, dz: number) => {
+    setDraftPos((pos) => (pos ? { x: pos.x + dx, z: pos.z + dz } : pos));
+  }, []);
 
   const handlePointerMove = useCallback(
     (e: ThreeEvent<PointerEvent>) => {
       e.stopPropagation();
+      if (draftPos) {
+        // Drag the anchored draft while the primary button is held.
+        if (e.buttons === 1) setDraftPos({ x: e.point.x, z: e.point.z });
+        return;
+      }
       setGhostPos({ x: e.point.x, z: e.point.z });
     },
-    []
+    [draftPos]
   );
 
   const handlePointerDown = useCallback((e: ThreeEvent<PointerEvent>) => {
@@ -69,24 +123,33 @@ export function AssetPlacementController({
   const handleClick = useCallback(
     (e: ThreeEvent<MouseEvent>) => {
       e.stopPropagation();
+      if (finePlacement) {
+        // Anchor (or relocate) the draft — commit happens via ✓ / Enter.
+        setDraftPos({ x: e.point.x, z: e.point.z });
+        setGhostPos(null);
+        return;
+      }
       if (!ghostPos) return;
       const y = resolveGroundY(ghostPos.x, ghostPos.z);
       onPlace({ x: ghostPos.x, y, z: ghostPos.z }, yaw);
     },
-    [ghostPos, onPlace, resolveGroundY, yaw]
+    [finePlacement, ghostPos, onPlace, resolveGroundY, yaw]
   );
 
   const handlePointerOut = useCallback(() => {
     setGhostPos(null);
   }, []);
 
-  // Keyboard: R = rotate, Escape = cancel
+  // Follow-phase keyboard: R = rotate (90° coarse, 15° fine, Shift reverses),
+  // Escape = cancel placement mode.
   useEffect(() => {
+    if (draftPos) return;
     function onKeyDown(e: KeyboardEvent) {
       if (isKeyboardOwnedTarget(e.target)) return;
       if (e.code === "KeyR") {
         e.preventDefault();
-        onRotate();
+        const step = finePlacement ? ROTATE_STEP_R : 90;
+        onRotateBy(e.shiftKey ? -step : step);
       } else if (e.code === "Escape") {
         e.preventDefault();
         onCancel();
@@ -94,18 +157,134 @@ export function AssetPlacementController({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onCancel, onRotate]);
+  }, [draftPos, finePlacement, onCancel, onRotateBy]);
+
+  // Draft-adjust keyboard: arrows nudge (Shift = fine), Q/E rotate small steps
+  // (Shift = 1°), R = 15°, Enter commits, Escape discards back to the ghost.
+  useEffect(() => {
+    if (!draftPos) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (isKeyboardOwnedTarget(e.target)) return;
+      if (!ADJUST_KEYS.has(e.code)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const nudge = e.shiftKey ? NUDGE_STEP_FINE : NUDGE_STEP;
+      const turn = e.shiftKey ? ROTATE_STEP_TINY : ROTATE_STEP_SMALL;
+      switch (e.code) {
+        case "ArrowUp":
+          nudgeDraft(0, -nudge);
+          break;
+        case "ArrowDown":
+          nudgeDraft(0, nudge);
+          break;
+        case "ArrowLeft":
+          nudgeDraft(-nudge, 0);
+          break;
+        case "ArrowRight":
+          nudgeDraft(nudge, 0);
+          break;
+        case "KeyQ":
+          onRotateBy(-turn);
+          break;
+        case "KeyE":
+          onRotateBy(turn);
+          break;
+        case "KeyR":
+          onRotateBy(e.shiftKey ? -ROTATE_STEP_R : ROTATE_STEP_R);
+          break;
+        case "Enter":
+          commitDraft();
+          break;
+        case "Escape":
+          setDraftPos(null);
+          break;
+      }
+    }
+    // Capture phase so stopPropagation reaches us before useAvatarMovement's
+    // bubble-phase window listener grabs the same keys.
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [draftPos, commitDraft, nudgeDraft, onRotateBy]);
+
+  const draftY = draftPos ? resolveGroundY(draftPos.x, draftPos.z) : 0;
 
   return (
     <group>
-      {/* Ghost chair at cursor position */}
-      {ghostPos ? (
+      {/* Ghost following the cursor (hidden while a draft is anchored) */}
+      {!draftPos && ghostPos ? (
         <group
           position={[ghostPos.x, resolveGroundY(ghostPos.x, ghostPos.z), ghostPos.z]}
           rotation={[0, yaw, 0]}
           scale={scale}
         >
           <primitive object={ghostModel} />
+        </group>
+      ) : null}
+
+      {/* Anchored draft: ghost + selection ring + facing tick + control puck */}
+      {draftPos ? (
+        <group position={[draftPos.x, draftY, draftPos.z]}>
+          <group rotation={[0, yaw, 0]} scale={scale}>
+            <primitive object={ghostModel} />
+          </group>
+          <group rotation={[0, yaw, 0]}>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+              <ringGeometry args={[0.55, 0.62, 48]} />
+              <meshBasicMaterial color="#35e0a1" transparent opacity={0.85} depthWrite={false} />
+            </mesh>
+            {/* Facing tick: marks the draft's front (+Z at 0°) so small turns read clearly */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0.74]}>
+              <circleGeometry args={[0.08, 16]} />
+              <meshBasicMaterial color="#35e0a1" transparent opacity={0.95} depthWrite={false} />
+            </mesh>
+          </group>
+          <Html position={[0, 2.05, 0]} center zIndexRange={[40, 0]}>
+            <div className="fine-place-puck" onPointerDown={(e) => e.stopPropagation()}>
+              <div className="fine-place-puck__row">
+                <button type="button" onClick={() => onRotateBy(-ROTATE_STEP_BIG)} title="Rotate left 45°">
+                  «
+                </button>
+                <button type="button" onClick={() => onRotateBy(-ROTATE_STEP_SMALL)} title="Rotate left 5° (Q)">
+                  ⟲
+                </button>
+                <span className="fine-place-puck__deg">{yawDisplay}°</span>
+                <button type="button" onClick={() => onRotateBy(ROTATE_STEP_SMALL)} title="Rotate right 5° (E)">
+                  ⟳
+                </button>
+                <button type="button" onClick={() => onRotateBy(ROTATE_STEP_BIG)} title="Rotate right 45°">
+                  »
+                </button>
+              </div>
+              <div className="fine-place-puck__row">
+                <button type="button" onClick={() => nudgeDraft(-NUDGE_STEP, 0)} title="Nudge left (←)">
+                  ◀
+                </button>
+                <button type="button" onClick={() => nudgeDraft(0, -NUDGE_STEP)} title="Nudge away (↑)">
+                  ▲
+                </button>
+                <button type="button" onClick={() => nudgeDraft(0, NUDGE_STEP)} title="Nudge toward you (↓)">
+                  ▼
+                </button>
+                <button type="button" onClick={() => nudgeDraft(NUDGE_STEP, 0)} title="Nudge right (→)">
+                  ▶
+                </button>
+              </div>
+              <div className="fine-place-puck__row fine-place-puck__row--actions">
+                <button
+                  type="button"
+                  className="fine-place-puck__cancel"
+                  onClick={() => setDraftPos(null)}
+                  title="Discard draft (Esc)"
+                >
+                  ✕
+                </button>
+                <button type="button" className="fine-place-puck__confirm" onClick={commitDraft} title="Place (Enter)">
+                  ✓ Place
+                </button>
+              </div>
+              <p className="fine-place-puck__hint">Drag to move · arrows nudge · Q/E rotate</p>
+            </div>
+          </Html>
         </group>
       ) : null}
 
