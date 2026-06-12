@@ -34,7 +34,6 @@ import sharp from "sharp";
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const OUT_PATH = resolve(process.argv[2] ?? resolve(__dirname, "../GLBs/live-oak.glb"));
 const PUBLIC_PATH = resolve(__dirname, "../apps/web/public/objects/live-oak.glb");
-const ROOM_OBJECT_PATH = resolve(__dirname, "../apps/web/public/room-objects/assets/live-oak.glb");
 
 const DEG = Math.PI / 180;
 
@@ -697,7 +696,6 @@ const mossTris = mossGeometry ? addPart("SpanishMoss", mossGeometry, foliageMat)
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
 await io.write(OUT_PATH, doc);
 await copyFile(OUT_PATH, PUBLIC_PATH);
-await copyFile(OUT_PATH, ROOM_OBJECT_PATH);
 
 // Report
 const bb = new THREE.Box3().setFromBufferAttribute(barkGeometry.attributes.position);

@@ -66,6 +66,13 @@ export const WORLD_ASSET_CATALOG: WorldAsset[] = [
     glbUrl: "/objects/tree-in-a-pot.glb",
     thumbnailUrl: "/objects/thumbnails/tree-in-a-pot.jpg",
     scaleVariance: 0.15
+  },
+  {
+    slug: "live-oak",
+    displayName: "Southern Live Oak",
+    glbUrl: "/objects/live-oak.glb",
+    thumbnailUrl: "/objects/thumbnails/live-oak.jpg",
+    scaleVariance: 0.15
   }
 ];
 
