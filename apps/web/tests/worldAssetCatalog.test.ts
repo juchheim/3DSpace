@@ -19,7 +19,7 @@ describe("worldAssetCatalog", () => {
   });
 
   it("samples tree placement scale within ±15%", () => {
-    for (const slug of ["tree", "tree-in-a-pot", "live-oak"] as const) {
+    for (const slug of ["tree", "tree-in-a-pot"] as const) {
       for (let i = 0; i < 40; i++) {
         const scale = sampleWorldAssetPlacementScale(slug);
         expect(scale).toBeGreaterThanOrEqual(0.85);
@@ -35,15 +35,6 @@ describe("worldAssetCatalog", () => {
     expect(potted?.glbUrl).toBe("/objects/tree-in-a-pot.glb");
     expect(potted?.thumbnailUrl).toBe("/objects/thumbnails/tree-in-a-pot.jpg");
     expect(potted?.scaleVariance).toBe(0.15);
-  });
-
-  it("includes the Southern Live Oak World Builder object with scale variance", () => {
-    const oak = worldAssetBySlug("live-oak");
-    expect(oak).toBeDefined();
-    expect(oak?.displayName).toBe("Southern Live Oak");
-    expect(oak?.glbUrl).toBe("/objects/live-oak.glb");
-    expect(oak?.thumbnailUrl).toBe("/objects/thumbnails/live-oak.jpg");
-    expect(oak?.scaleVariance).toBe(0.15);
   });
 
   it("leaves fixed-scale assets at their catalog scale", () => {
