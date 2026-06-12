@@ -7,12 +7,20 @@ export type BuildTool =
   | "wall"
   | "simple-wall"
   | "floor"
+  | "image-floor"
   | "ramp"
   | "doorway"
   | "window"
   | "light"
   | "mirror"
   | "destroy";
+
+/** Image selected for the Image Floor tool (uploaded or reused from the room). */
+export type FloorTextureSelection = {
+  storageKey: string;
+  url: string;
+  fileName?: string;
+};
 
 export function useBuildMode() {
   const [enabled, setEnabled] = useState(false);
@@ -22,6 +30,7 @@ export function useBuildMode() {
   const [rotation, setRotation] = useState<BuildPieceRotation>(0);
   const [statusMessage, setStatusMessage] = useState("");
   const [rampRotationOverride, setRampRotationOverride] = useState(false);
+  const [floorTexture, setFloorTexture] = useState<FloorTextureSelection | null>(null);
 
   const setTool = useCallback((next: BuildTool) => {
     setToolState(next);
@@ -61,7 +70,9 @@ export function useBuildMode() {
     rampRotationOverride,
     toggle,
     statusMessage,
-    setStatusMessage
+    setStatusMessage,
+    floorTexture,
+    setFloorTexture
   };
 }
 

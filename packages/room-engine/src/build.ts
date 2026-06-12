@@ -44,12 +44,19 @@ export const BUILD_EDGE_PIECE_KINDS = ["wall", "simple-wall", "doorway", "window
 /** Solid wall segments that block movement and accept boards (detailed vs. simple mesh). */
 export const BUILD_WALL_SEGMENT_KINDS = ["wall", "simple-wall"] as const;
 
+/** Walkable floor slabs (fixed-texture GLB floor and image-textured tiled floor). */
+export const BUILD_FLOOR_PIECE_KINDS = ["floor", "image-floor"] as const;
+
 export function buildPieceRequiresEdge(kind: BuildPiece["kind"]): boolean {
   return (BUILD_EDGE_PIECE_KINDS as readonly string[]).includes(kind);
 }
 
 export function isBuildWallSegmentKind(kind: BuildPiece["kind"]): boolean {
   return (BUILD_WALL_SEGMENT_KINDS as readonly string[]).includes(kind);
+}
+
+export function isBuildFloorPieceKind(kind: BuildPiece["kind"]): boolean {
+  return (BUILD_FLOOR_PIECE_KINDS as readonly string[]).includes(kind);
 }
 
 /** Doorway opening: avatar-height band is open (no colliders). */
@@ -299,7 +306,7 @@ export function buildPieceColliders(piece: BuildPiece): BuildPieceColliders {
     return { walls: [] };
   }
 
-  if (piece.kind === "floor") {
+  if (isBuildFloorPieceKind(piece.kind)) {
     const b = cellBounds(piece.cell.ix, piece.cell.iz);
     return {
       walls: [],

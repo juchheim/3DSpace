@@ -469,3 +469,97 @@ describe("buildPlacement", () => {
     expect(preview.allowed).toBe(true);
   });
 });
+
+describe("image-floor placement", () => {
+  const manifest = createFreeForAllManifest({ roomId: "room-placement" });
+  const TEXTURE_A = "rooms/room-placement/floor-textures/a.webp";
+  const TEXTURE_B = "rooms/room-placement/floor-textures/b.webp";
+
+  function imageFloorTarget(texture?: string) {
+    return resolveBuildPlacementTarget({
+      tool: "image-floor",
+      hitX: 10,
+      hitY: 0,
+      hitZ: 10,
+      rotation: 0,
+      materialId: "stone",
+      ...(texture ? { textureStorageKey: texture } : {})
+    });
+  }
+
+  it("resolves an image-floor target carrying the selected texture", () => {
+    const target = imageFloorTarget(TEXTURE_A);
+    expect(target.kind).toBe("image-floor");
+    expect(target.level).toBe(0);
+    expect(target.textureStorageKey).toBe(TEXTURE_A);
+  });
+
+  it("blocks an image floor where a plain floor already sits (and vice versa)", () => {
+    const floorTarget = resolveBuildPlacementTarget({
+      tool: "floor",
+      hitX: 10,
+      hitY: 0,
+      hitZ: 10,
+      rotation: 0,
+      materialId: "stone"
+    });
+    const plainFloor = evaluateBuildPlacement(manifest, floorTarget, "room-placement", "user-1").piece;
+
+    const imageOverPlain = evaluateBuildPlacement(
+      manifest,
+      imageFloorTarget(TEXTURE_A),
+      "room-placement",
+      "user-1",
+      { [plainFloor.id]: plainFloor }
+    );
+    expect(imageOverPlain.allowed).toBe(false);
+    expect(imageOverPlain.reason).toBe("slot-occupied");
+
+    const imageFloor = evaluateBuildPlacement(
+      manifest,
+      imageFloorTarget(TEXTURE_A),
+      "room-placement",
+      "user-1"
+    ).piece;
+    const plainOverImage = evaluateBuildPlacement(manifest, floorTarget, "room-placement", "user-1", {
+      [imageFloor.id]: imageFloor
+    });
+    expect(plainOverImage.allowed).toBe(false);
+    expect(plainOverImage.reason).toBe("slot-occupied");
+  });
+
+  it("allows repainting an image floor in place with a different texture", () => {
+    const existing = {
+      ...evaluateBuildPlacement(manifest, imageFloorTarget(TEXTURE_A), "room-placement", "user-1").piece,
+      id: "build:image-floor:5,5:0:legacy"
+    };
+    const repaint = evaluateBuildPlacement(
+      manifest,
+      imageFloorTarget(TEXTURE_B),
+      "room-placement",
+      "user-1",
+      { [existing.id]: existing }
+    );
+    expect(repaint.allowed).toBe(true);
+  });
+
+  it("rejects the same texture in an occupied slot when ids differ (no-op sweep)", () => {
+    const existing = {
+      ...evaluateBuildPlacement(manifest, imageFloorTarget(TEXTURE_A), "room-placement", "user-1").piece,
+      id: "build:image-floor:5,5:0:legacy"
+    };
+    const samePaint = evaluateBuildPlacement(
+      manifest,
+      imageFloorTarget(TEXTURE_A),
+      "room-placement",
+      "user-1",
+      { [existing.id]: existing }
+    );
+    expect(samePaint.allowed).toBe(false);
+    expect(samePaint.reason).toBe("slot-occupied");
+  });
+
+  it("has a friendly message for the missing-texture state", () => {
+    expect(buildPlacementStatusMessage("floor-texture-missing")).toBe("Upload or pick a floor image first");
+  });
+});

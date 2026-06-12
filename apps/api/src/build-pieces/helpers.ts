@@ -23,6 +23,7 @@ import type { AppConfig } from "../config.js";
 import { buildCapExceeded, buildDestroyDenied, buildDisabled, buildNotFound, buildRejected, buildWallHasBoards } from "../errors.js";
 import { actorIsRoomTeacher } from "../policy/wall-objects.js";
 import type { Repository } from "../repository.js";
+import { buildFloorTextureStoragePrefix } from "../services/storage.js";
 
 export type BuildPiecePlacement = {
   kind: BuildPieceKind;
@@ -31,7 +32,16 @@ export type BuildPiecePlacement = {
   edge?: BuildPieceEdge | undefined;
   rotation?: BuildPieceRotation | undefined;
   materialId?: BuildPieceMaterial | undefined;
+  textureStorageKey?: string | undefined;
 };
+
+/** Image-floor textures must live under this room's floor-texture prefix (no foreign/object keys). */
+export function assertFloorTextureScope(roomId: string, placement: BuildPiecePlacement) {
+  if (placement.textureStorageKey === undefined) return;
+  if (!placement.textureStorageKey.startsWith(buildFloorTextureStoragePrefix(roomId))) {
+    throw buildRejected("texture-scope");
+  }
+}
 
 export function buildPiecePlacementKey(placement: BuildPiecePlacement) {
   return `${placement.kind}:${placement.cell.ix},${placement.cell.iz}:${placement.level}:${placement.edge ?? ""}`;

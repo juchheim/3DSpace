@@ -1373,6 +1373,111 @@ label {
 }
 .build-dock__place-ahead:disabled { opacity: 0.4; cursor: not-allowed; }
 
+/* ── Image Floor: texture picker (Verse glass panel, lobby-style tiles) ── */
+.build-dock__image-floor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 9px;
+  padding: 10px;
+  background: linear-gradient(color-mix(in oklch, var(--bd-acc) 7%, transparent), transparent),
+    rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--bd-line);
+  border-radius: var(--bd-rs);
+}
+.build-dock__image-floor-upload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--bd-tx);
+  background: var(--bd-tint);
+  border: 1px dashed var(--bd-line-m);
+  border-radius: var(--bd-rs);
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+}
+.build-dock__image-floor-upload:hover:not(:disabled) {
+  border-color: var(--bd-acc);
+  background: var(--bd-tint-s);
+  box-shadow: 0 0 12px -4px var(--bd-acc);
+}
+.build-dock__image-floor-upload:disabled { opacity: 0.5; cursor: wait; }
+.build-dock__image-floor-upload svg { color: var(--bd-acc); }
+.build-dock__image-floor-current {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.build-dock__image-floor-thumb {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  border: 1px solid var(--bd-line-m);
+  border-radius: var(--bd-rs);
+  box-shadow: 0 0 10px -4px var(--bd-acc);
+}
+.build-dock__image-floor-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.build-dock__image-floor-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.build-dock__image-floor-name {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--bd-tx);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.build-dock__image-floor-sub { font-size: 10px; color: var(--bd-tx-m); }
+.build-dock__image-floor-recents {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-top: 7px;
+  border-top: 1px solid var(--bd-line);
+}
+.build-dock__image-floor-swatches {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.build-dock__image-floor-swatch {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--bd-line);
+  border-radius: var(--bd-rs);
+  cursor: pointer;
+  transition: border-color 0.12s, box-shadow 0.12s, transform 0.12s;
+}
+.build-dock__image-floor-swatch img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.build-dock__image-floor-swatch:hover { border-color: var(--bd-acc); transform: translateY(-1px); }
+.build-dock__image-floor-swatch.is-active {
+  border-color: var(--bd-acc);
+  box-shadow: 0 0 9px -2px var(--bd-acc);
+}
+
 /* ── Status ── */
 .build-dock__status {
   margin: 0;

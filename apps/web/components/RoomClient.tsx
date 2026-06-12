@@ -30,6 +30,7 @@ import {
   archiveRoomObjectTemplate,
   createAttachment,
   createAttachmentDownload,
+  createBuildFloorTextureUpload,
   finalizeAttachment,
   heartbeatRoomSession,
   joinRoom,
@@ -129,6 +130,7 @@ import { LogicInspector } from "./LogicInspector";
 import { LogicDebugOverlay } from "./LogicDebugOverlay";
 import { useLogicMode } from "../lib/useLogicMode";
 import { ESCAPE_STARTER_KIT, roomStampToTargets } from "../lib/buildStamps";
+import { imageFloorTextureUrl, prepareFloorTextureFile } from "../lib/imageFloorTexture";
 import { useLogicPieces } from "../lib/useLogicPieces";
 import { useLogicDetection, type LogicDetectionEvent } from "../lib/useLogicDetection";
 import { useEscapeSession } from "../lib/useEscapeSession";
@@ -540,6 +542,40 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     publish: publishRealtime
   });
   const buildMode = useBuildMode();
+  const setFloorTexture = buildMode.setFloorTexture;
+  /** Upload a floor image (downscaled client-side) and select it for the Image Floor tool. */
+  const handleUploadFloorTexture = useCallback(
+    async (file: File) => {
+      const activeRoomId = session?.room.id ?? roomId;
+      const prepared = await prepareFloorTextureFile(file);
+      const { storageKey, textureUrl, upload } = await createBuildFloorTextureUpload(identity, activeRoomId, {
+        fileName: prepared.fileName,
+        contentType: prepared.contentType
+      });
+      const response = await fetch(upload.url, {
+        method: upload.method,
+        headers: upload.headers,
+        body: prepared.blob
+      });
+      if (!response.ok) throw new Error("Floor image upload failed.");
+      setFloorTexture({ storageKey, url: textureUrl, fileName: prepared.fileName });
+    },
+    [identity, roomId, session?.room.id, setFloorTexture]
+  );
+  /** Distinct floor images already laid in this room, so a floor can be extended later. */
+  const floorTextureOptions = useMemo(() => {
+    const seen = new Map<string, { storageKey: string; url: string }>();
+    for (const piece of buildPieces.pieces) {
+      if (piece.kind !== "image-floor" || !piece.textureStorageKey) continue;
+      if (!seen.has(piece.textureStorageKey)) {
+        seen.set(piece.textureStorageKey, {
+          storageKey: piece.textureStorageKey,
+          url: imageFloorTextureUrl(piece.textureStorageKey)
+        });
+      }
+    }
+    return Array.from(seen.values());
+  }, [buildPieces.pieces]);
   const [selectedAssetSlug, setSelectedAssetSlug] = useState<string | null>(null);
   const [assetYawDeg, setAssetYawDeg] = useState(0);
   const [fineAssetPlacement, setFineAssetPlacement] = useState(
@@ -755,7 +791,8 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
         Digit6: "window",
         Digit7: "light",
         Digit8: "mirror",
-        Digit9: "simple-wall"
+        Digit9: "simple-wall",
+        Digit0: "image-floor"
       };
       const tool = toolByDigit[e.code];
       if (tool) {
@@ -1275,6 +1312,10 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     if (!manifest || !session || !buildMode.enabled || buildMode.tool === "destroy" || selectedAssetSlug) return;
     const avatar = movement.avatarState;
     if (!avatar) return;
+    if (buildMode.tool === "image-floor" && !buildMode.floorTexture) {
+      buildMode.setStatusMessage(buildPlacementStatusMessage("floor-texture-missing"));
+      return;
+    }
     if (!tryAcquireBuildPlacementSlot(lastBuildPlaceAtRef)) {
       buildMode.setStatusMessage("Slow down…");
       return;
@@ -1286,7 +1327,8 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       rotation: buildMode.rotation,
       materialId: buildMode.materialId,
       pieces: buildPieces.pieces,
-      rampRotationOverride: buildMode.rampRotationOverride
+      rampRotationOverride: buildMode.rampRotationOverride,
+      textureStorageKey: buildMode.tool === "image-floor" ? buildMode.floorTexture?.storageKey : undefined
     });
     const preview = evaluateBuildPlacement(
       manifest,
@@ -1300,7 +1342,15 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       return;
     }
     void buildPieces.actions
-      .place(target.kind, target.cell, target.level, target.edge, target.rotation, target.materialId)
+      .place(
+        target.kind,
+        target.cell,
+        target.level,
+        target.edge,
+        target.rotation,
+        target.materialId,
+        target.textureStorageKey
+      )
       .then(() => buildMode.setStatusMessage("Piece placed."))
       .catch((err) =>
         buildMode.setStatusMessage(err instanceof Error ? err.message : "Unable to place piece.")
@@ -1338,7 +1388,8 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
         rotation: buildMode.rotation,
         materialId: buildMode.materialId,
         pieces: buildPieces.pieces,
-        rampRotationOverride: buildMode.rampRotationOverride
+        rampRotationOverride: buildMode.rampRotationOverride,
+        textureStorageKey: buildMode.tool === "image-floor" ? buildMode.floorTexture?.storageKey : undefined
       });
       const result = evaluateBuildPlacement(
         manifest,
@@ -1347,16 +1398,18 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
         identity.userId,
         buildPieces.piecesById
       );
+      const missingTexture = buildMode.tool === "image-floor" && !buildMode.floorTexture;
       setBuild2dPreview({
         mode: "place",
         target,
-        allowed: result.allowed,
+        allowed: result.allowed && !missingTexture,
         roomId: session.room.id,
         userId: identity.userId
       });
     },
     [
       buildMode.enabled,
+      buildMode.floorTexture,
       buildMode.materialId,
       buildMode.rampRotationOverride,
       buildMode.rotation,
@@ -1391,6 +1444,11 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
         return;
       }
 
+      if (buildMode.tool === "image-floor" && !buildMode.floorTexture) {
+        buildMode.setStatusMessage(buildPlacementStatusMessage("floor-texture-missing"));
+        return;
+      }
+
       if (!tryAcquireBuildPlacementSlot(lastBuildPlaceAtRef)) {
         buildMode.setStatusMessage("Slow down…");
         return;
@@ -1404,7 +1462,8 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
         rotation: buildMode.rotation,
         materialId: buildMode.materialId,
         pieces: buildPieces.pieces,
-        rampRotationOverride: buildMode.rampRotationOverride
+        rampRotationOverride: buildMode.rampRotationOverride,
+        textureStorageKey: buildMode.floorTexture?.storageKey
       });
       const preview = evaluateBuildPlacement(
         manifest,
@@ -1418,7 +1477,15 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
         return;
       }
       void buildPieces.actions
-        .place(target.kind, target.cell, target.level, target.edge, target.rotation, target.materialId)
+        .place(
+          target.kind,
+          target.cell,
+          target.level,
+          target.edge,
+          target.rotation,
+          target.materialId,
+          target.textureStorageKey
+        )
         .then(() => buildMode.setStatusMessage("Piece placed."))
         .catch((err) =>
           buildMode.setStatusMessage(err instanceof Error ? err.message : "Unable to place piece.")
@@ -4002,6 +4069,8 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           }}
           finePlacement={fineAssetPlacement}
           onToggleFinePlacement={toggleFineAssetPlacement}
+          onUploadFloorTexture={handleUploadFloorTexture}
+          floorTextureOptions={floorTextureOptions}
         />
       ) : null}
     </main>

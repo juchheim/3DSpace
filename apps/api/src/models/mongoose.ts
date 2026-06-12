@@ -411,6 +411,7 @@ export function createModels(connection: Connection): Models {
     edge: { type: String },
     rotation: { type: Number, default: 0 },
     materialId: { type: String, required: true },
+    textureStorageKey: { type: String },
     createdByUserId: { type: String, required: true },
     createdAt: { type: String, required: true }
   });
@@ -1654,6 +1655,7 @@ export class MongoRepository implements Repository {
     edge?: BuildPieceEdge | undefined;
     rotation: BuildPieceRotation;
     materialId: BuildPieceMaterial;
+    textureStorageKey?: string | undefined;
     createdByUserId: string;
     createdAt?: string;
   }): BuildPiece {
@@ -1672,6 +1674,9 @@ export class MongoRepository implements Repository {
       ...(input.edge ? { edge: input.edge } : {}),
       rotation: input.rotation,
       materialId: input.materialId,
+      ...(input.kind === "image-floor" && input.textureStorageKey
+        ? { textureStorageKey: input.textureStorageKey }
+        : {}),
       createdByUserId: input.createdByUserId,
       createdAt: input.createdAt ?? nowIso()
     };
@@ -1757,6 +1762,7 @@ export class MongoRepository implements Repository {
     edge?: BuildPieceEdge | undefined;
     rotation: BuildPieceRotation;
     materialId: BuildPieceMaterial;
+    textureStorageKey?: string | undefined;
     createdByUserId: string;
   }) {
     const filter = this.buildPiecePlacementFilter(input.roomId, input);
@@ -1775,9 +1781,18 @@ export class MongoRepository implements Repository {
         createdByUserId: existing?.createdByUserId ?? input.createdByUserId
       });
       lastRecord = record;
-      const update: { $set: BuildPiece; $unset?: Partial<Record<"edge", "">> } = { $set: record };
+      const update: { $set: BuildPiece; $unset?: Partial<Record<"edge" | "textureStorageKey", "">> } = {
+        $set: record
+      };
+      const unset: Partial<Record<"edge" | "textureStorageKey", "">> = {};
       if (!buildPieceRequiresEdge(input.kind)) {
-        update.$unset = { edge: "" };
+        unset.edge = "";
+      }
+      if (record.textureStorageKey === undefined) {
+        unset.textureStorageKey = "";
+      }
+      if (Object.keys(unset).length > 0) {
+        update.$unset = unset;
       }
       try {
         await this.models.BuildPiece.findOneAndUpdate(filter, update, {
@@ -1804,6 +1819,7 @@ export class MongoRepository implements Repository {
       edge?: BuildPieceEdge | undefined;
       rotation: BuildPieceRotation;
       materialId: BuildPieceMaterial;
+      textureStorageKey?: string | undefined;
       createdByUserId: string;
     }>
   ) {

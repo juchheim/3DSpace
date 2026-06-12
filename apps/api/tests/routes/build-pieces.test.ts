@@ -655,6 +655,121 @@ describe("build pieces routes", () => {
     await app.close();
   });
 
+  it("issues floor-texture upload targets and stores the texture on image floors", async () => {
+    const app = await buildTestApp({ config: buildPiecesConfig() });
+    const { classRecord, roomWithManifest } = await createFfaRoom(app);
+    const roomId = roomWithManifest.room.id;
+    await addStudentMember(app, classRecord.id, "teacher-ffa", "builder-a", "Alex");
+
+    const uploadRes = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/build-pieces/floor-texture-uploads`,
+      headers: authHeaders("builder-a", "Alex"),
+      payload: { fileName: "marble.webp", contentType: "image/webp" }
+    });
+    expect(uploadRes.statusCode).toBe(200);
+    const upload = uploadRes.json();
+    expect(upload.storageKey.startsWith(`rooms/${roomId}/floor-textures/`)).toBe(true);
+    expect(upload.textureUrl).toContain("/v1/room-object-assets/");
+    expect(upload.upload.method).toBe("PUT");
+    expect(upload.upload.headers["content-type"]).toBe("image/webp");
+
+    // Only PNG / JPEG / WebP are accepted as floor textures.
+    const badType = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/build-pieces/floor-texture-uploads`,
+      headers: authHeaders("builder-a", "Alex"),
+      payload: { fileName: "movie.mp4", contentType: "video/mp4" }
+    });
+    expect(badType.statusCode).toBe(400);
+
+    const createRes = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/build-pieces`,
+      headers: authHeaders("builder-a", "Alex"),
+      payload: {
+        kind: "image-floor",
+        cell: { ix: 14, iz: 14 },
+        level: 0,
+        textureStorageKey: upload.storageKey
+      }
+    });
+    expect(createRes.statusCode).toBe(200);
+    expect(createRes.json().piece.kind).toBe("image-floor");
+    expect(createRes.json().piece.textureStorageKey).toBe(upload.storageKey);
+
+    const batchRes = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/build-pieces/batch`,
+      headers: authHeaders("builder-a", "Alex"),
+      payload: {
+        pieces: [
+          { kind: "image-floor", cell: { ix: 15, iz: 14 }, level: 0, textureStorageKey: upload.storageKey },
+          { kind: "image-floor", cell: { ix: 16, iz: 14 }, level: 0, textureStorageKey: upload.storageKey }
+        ]
+      }
+    });
+    expect(batchRes.statusCode).toBe(200);
+    for (const piece of batchRes.json().pieces) {
+      expect(piece.textureStorageKey).toBe(upload.storageKey);
+    }
+
+    const listRes = await app.inject({
+      method: "GET",
+      url: `/v1/rooms/${roomId}/build-pieces`,
+      headers: authHeaders("builder-a", "Alex")
+    });
+    const imageFloors = listRes
+      .json()
+      .pieces.filter((piece: { kind: string }) => piece.kind === "image-floor");
+    expect(imageFloors).toHaveLength(3);
+
+    await app.close();
+  });
+
+  it("rejects image-floor textures that are not scoped to the room", async () => {
+    const app = await buildTestApp({ config: buildPiecesConfig() });
+    const { classRecord, roomWithManifest } = await createFfaRoom(app);
+    const roomId = roomWithManifest.room.id;
+    await addStudentMember(app, classRecord.id, "teacher-ffa", "builder-a", "Alex");
+
+    const foreignKey = "rooms/another-room/floor-textures/sneaky.webp";
+    const createRes = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/build-pieces`,
+      headers: authHeaders("builder-a", "Alex"),
+      payload: { kind: "image-floor", cell: { ix: 14, iz: 15 }, level: 0, textureStorageKey: foreignKey }
+    });
+    expect(createRes.statusCode).toBe(422);
+    expect(createRes.json().error).toBe("build-rejected");
+
+    const batchRes = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/build-pieces/batch`,
+      headers: authHeaders("builder-a", "Alex"),
+      payload: {
+        pieces: [{ kind: "image-floor", cell: { ix: 15, iz: 15 }, level: 0, textureStorageKey: foreignKey }]
+      }
+    });
+    expect(batchRes.statusCode).toBe(422);
+
+    // Textures are an image-floor concept; plain floors must reject the field.
+    const plainFloorRes = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/build-pieces`,
+      headers: authHeaders("builder-a", "Alex"),
+      payload: {
+        kind: "floor",
+        cell: { ix: 16, iz: 15 },
+        level: 0,
+        textureStorageKey: `rooms/${roomId}/floor-textures/ok.webp`
+      }
+    });
+    expect(plainFloorRes.statusCode).toBe(400);
+
+    await app.close();
+  });
+
   it("deletes build pieces when the room is deleted", async () => {
     const repository = new MemoryRepository();
     const app = await buildTestApp({ config: buildPiecesConfig(), repository });

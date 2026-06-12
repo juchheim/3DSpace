@@ -3,6 +3,8 @@ import { z } from "zod";
 import {
   BuildPieceSchema,
   ClearBuildPiecesResponseSchema,
+  CreateBuildFloorTextureUploadRequestSchema,
+  CreateBuildFloorTextureUploadResponseSchema,
   CreateBuildPieceRequestSchema,
   CreateBuildPieceResponseSchema,
   CreateBuildPiecesBatchRequestSchema,
@@ -18,11 +20,17 @@ import {
   assertBuildingEnabled,
   assertBuildWallHasNoBoards,
   assertCanDestroyBuildPiece,
+  assertFloorTextureScope,
   dedupeBuildPlacements,
   enforceBuildCaps,
   requireBuildPiece,
   type BuildPiecePlacement
 } from "../build-pieces/helpers.js";
+import {
+  buildFloorTextureStorageKeyFor,
+  createUploadTarget,
+  roomObjectAssetUrl
+} from "../services/storage.js";
 import {
   buildBuildBatchMessage,
   buildBuildRemoveMessage,
@@ -47,7 +55,8 @@ function placementFromRequest(body: CreateBuildPieceRequest): BuildPiecePlacemen
     level: body.level,
     edge: body.edge,
     rotation: body.rotation,
-    materialId: body.materialId
+    materialId: body.materialId,
+    textureStorageKey: body.textureStorageKey
   };
 }
 
@@ -71,6 +80,7 @@ export async function registerBuildPieceRoutes(app: FastifyInstance, ctx: AppCon
     assertBuildingEnabled(config, room);
     const placement = placementFromRequest(body);
     assertBuildAllowed(manifest, placement);
+    assertFloorTextureScope(params.roomId, placement);
     await enforceBuildCaps(repository, params.roomId, auth.userId, [placement]);
     buildPlacementRateLimiter.enforce(auth.userId, params.roomId, 1);
     const piece = BuildPieceSchema.parse(
@@ -82,6 +92,7 @@ export async function registerBuildPieceRoutes(app: FastifyInstance, ctx: AppCon
         edge: placement.edge,
         rotation: placement.rotation ?? 0,
         materialId: placement.materialId ?? "stone",
+        textureStorageKey: placement.textureStorageKey,
         createdByUserId: auth.userId
       })
     );
@@ -99,6 +110,7 @@ export async function registerBuildPieceRoutes(app: FastifyInstance, ctx: AppCon
     const placements = dedupeBuildPlacements(body.pieces.map((piece) => placementFromRequest(piece)));
     for (const placement of placements) {
       assertBuildAllowed(manifest, placement);
+      assertFloorTextureScope(params.roomId, placement);
     }
     await enforceBuildCaps(repository, params.roomId, auth.userId, placements);
     buildPlacementRateLimiter.enforce(auth.userId, params.roomId, placements.length);
@@ -112,6 +124,7 @@ export async function registerBuildPieceRoutes(app: FastifyInstance, ctx: AppCon
           edge: placement.edge,
           rotation: placement.rotation ?? 0,
           materialId: placement.materialId ?? "stone",
+          textureStorageKey: placement.textureStorageKey,
           createdByUserId: auth.userId
         }))
       )
@@ -119,6 +132,22 @@ export async function registerBuildPieceRoutes(app: FastifyInstance, ctx: AppCon
     await recordBuildPiecesPlacedBatch(repository, params.roomId, auth.userId, pieces);
     const realtimeMessages = [buildBuildBatchMessage({ roomId: params.roomId, pieces, senderId: auth.userId })];
     return CreateBuildPiecesBatchResponseSchema.parse({ pieces, realtimeMessages });
+  });
+
+  app.post("/v1/rooms/:roomId/build-pieces/floor-texture-uploads", async (request) => {
+    const auth = await requireUser(request, config, repository);
+    const params = parseParams(ParamsWithRoomId, request);
+    const body = parseBody(CreateBuildFloorTextureUploadRequestSchema, request);
+    const { room } = await requireRoomAccess(repository, params.roomId, auth);
+    assertBuildingEnabled(config, room);
+    const storageKey = buildFloorTextureStorageKeyFor({ roomId: params.roomId, fileName: body.fileName });
+    const upload = await createUploadTarget(config, { storageKey, contentType: body.contentType });
+    return CreateBuildFloorTextureUploadResponseSchema.parse({
+      storageKey,
+      // Served by the generic stored-object route — a stable URL all clients can load.
+      textureUrl: roomObjectAssetUrl(config, storageKey),
+      upload
+    });
   });
 
   app.delete("/v1/rooms/:roomId/build-pieces", async (request) => {

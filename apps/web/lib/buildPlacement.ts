@@ -17,6 +17,7 @@ import {
   BUILD_STEP_UP_MAX,
   buildPieceStableId,
   buildPieceRequiresEdge,
+  isBuildFloorPieceKind,
   isBuildWallSegmentKind,
   isBuildAllowedAt,
   levelToY,
@@ -30,6 +31,8 @@ export type BuildPlacementTarget = {
   edge?: BuildPieceEdge;
   rotation: BuildPieceRotation;
   materialId: BuildPieceMaterial;
+  /** Image-floor only: the uploaded image stretched across the connected floor. */
+  textureStorageKey?: string;
 };
 
 function clampLevel(level: number) {
@@ -117,7 +120,7 @@ export function wallFacingRotation(
 }
 
 export function inferPlacementLevel(hitY: number, surfacePiece?: BuildPiece | null, baseLevel = 0) {
-  if (surfacePiece?.kind === "floor") {
+  if (surfacePiece && isBuildFloorPieceKind(surfacePiece.kind)) {
     // Hitting a floor's top face means "extend at this level," not "stack above."
     // To build a second story you walk up a ramp to that level and place from there.
     return clampLevel(surfacePiece.level);
@@ -133,7 +136,7 @@ export function inferPlacementLevel(hitY: number, surfacePiece?: BuildPiece | nu
 }
 
 export function wallLevelFromSurface(hitY: number, surfacePiece?: BuildPiece | null, baseLevel = 0) {
-  if (surfacePiece?.kind === "floor") {
+  if (surfacePiece && isBuildFloorPieceKind(surfacePiece.kind)) {
     return surfacePiece.level;
   }
   if (surfacePiece?.kind === "ramp") {
@@ -158,7 +161,7 @@ export function inferRampRotationFromHit(hitX: number, hitZ: number, ix: number,
 }
 
 export function rampLevelFromSurface(hitY: number, surfacePiece?: BuildPiece | null, baseLevel = 0) {
-  if (surfacePiece?.kind === "floor" || surfacePiece?.kind === "ramp") {
+  if (surfacePiece && (isBuildFloorPieceKind(surfacePiece.kind) || surfacePiece.kind === "ramp")) {
     return clampLevel(surfacePiece.level);
   }
   return wallLevelFromSurface(hitY, surfacePiece, baseLevel);
@@ -194,6 +197,8 @@ export function resolveBuildPlacementTarget(input: {
   /** Avatar world X/Z — used so a placed wall's front always faces the player. */
   avatarX?: number;
   avatarZ?: number;
+  /** Selected image for the image-floor tool. */
+  textureStorageKey?: string | undefined;
 }): BuildPlacementTarget {
   const cell = worldToCell(input.hitX, input.hitZ);
   const baseLevel = input.baseLevel ?? 0;
@@ -229,9 +234,21 @@ export function resolveBuildPlacementTarget(input: {
     };
   }
 
+  if (input.tool === "image-floor") {
+    return {
+      kind: "image-floor",
+      cell,
+      level: inferPlacementLevel(input.hitY, input.surfacePiece, baseLevel),
+      rotation: input.rotation,
+      materialId: input.materialId,
+      ...(input.textureStorageKey ? { textureStorageKey: input.textureStorageKey } : {})
+    };
+  }
+
   if (input.tool === "ramp") {
     const autoOrient =
-      input.surfacePiece?.kind === "floor" || input.surfacePiece?.kind === "ramp";
+      Boolean(input.surfacePiece && isBuildFloorPieceKind(input.surfacePiece.kind)) ||
+      input.surfacePiece?.kind === "ramp";
     return {
       kind: "ramp",
       cell,
@@ -279,6 +296,7 @@ export function buildPlacementPreviewPiece(
     ...(target.edge ? { edge: target.edge } : {}),
     rotation: target.rotation,
     materialId: target.materialId,
+    ...(target.textureStorageKey ? { textureStorageKey: target.textureStorageKey } : {}),
     createdByUserId: userId,
     createdAt: new Date().toISOString()
   };
@@ -290,14 +308,25 @@ function cellLevelOccupiedBySameKind(
   stableId: string
 ) {
   if (isBuildWallSegmentKind(target.kind) || target.kind === "mirror") return false;
+  const targetIsFloor = isBuildFloorPieceKind(target.kind);
   for (const existing of Object.values(piecesById)) {
     if (existing.id === stableId) continue;
-    if (existing.kind !== target.kind) continue;
+    // Floor kinds share the slab volume, so a plain floor blocks an image floor and vice
+    // versa. Exception: re-placing an image floor with a different texture repaints in place.
+    const conflictsAsFloor = targetIsFloor && isBuildFloorPieceKind(existing.kind);
+    if (!conflictsAsFloor && existing.kind !== target.kind) continue;
     if (
       existing.cell.ix === target.cell.ix &&
       existing.cell.iz === target.cell.iz &&
       existing.level === target.level
     ) {
+      if (
+        target.kind === "image-floor" &&
+        existing.kind === "image-floor" &&
+        (existing.textureStorageKey ?? "") !== (target.textureStorageKey ?? "")
+      ) {
+        continue;
+      }
       return true;
     }
   }
@@ -342,6 +371,8 @@ export function buildPlacementStatusMessage(reason: string | undefined): string 
       return "Cannot build over a board zone";
     case "slot-occupied":
       return "That slot is already filled";
+    case "floor-texture-missing":
+      return "Upload or pick a floor image first";
     case "invalid-piece":
       return "Invalid piece placement";
     default:
@@ -420,7 +451,7 @@ export function findSurfacePieceAtCell(
 ): BuildPiece | null {
   const surfaces = pieces.filter(
     (piece) =>
-      (piece.kind === "floor" || piece.kind === "ramp") &&
+      (isBuildFloorPieceKind(piece.kind) || piece.kind === "ramp") &&
       piece.cell.ix === cell.ix &&
       piece.cell.iz === cell.iz
   );
@@ -464,7 +495,7 @@ export function findBuildPieceForDestroy(pieces: BuildPiece[], hitX: number, hit
 
   const surfaces = pieces.filter(
     (piece) =>
-      (piece.kind === "floor" || piece.kind === "ramp") &&
+      (isBuildFloorPieceKind(piece.kind) || piece.kind === "ramp") &&
       piece.cell.ix === cell.ix &&
       piece.cell.iz === cell.iz
   );
@@ -484,6 +515,7 @@ export function resolveBuildTargetFromWorld(input: {
   materialId: BuildPieceMaterial;
   pieces: BuildPiece[];
   rampRotationOverride?: boolean;
+  textureStorageKey?: string | undefined;
 }): BuildPlacementTarget {
   const cell = worldToCell(input.hitX, input.hitZ);
   const surfacePiece = findSurfacePieceAtCell(input.pieces, cell, input.hitY);
@@ -497,6 +529,9 @@ export function resolveBuildTargetFromWorld(input: {
     materialId: input.materialId,
     surfacePiece,
     baseLevel: avatarStandingLevel(input.hitY),
+    ...(input.textureStorageKey !== undefined
+      ? { textureStorageKey: input.textureStorageKey }
+      : {}),
     ...(input.rampRotationOverride !== undefined
       ? { rampRotationOverride: input.rampRotationOverride }
       : {})
@@ -513,6 +548,7 @@ export function resolvePlaceAheadBuildTarget(input: {
   pieces?: BuildPiece[];
   rampRotationOverride?: boolean;
   distanceCells?: number;
+  textureStorageKey?: string | undefined;
 }): BuildPlacementTarget {
   const distance = BUILD_CELL_SIZE * (input.distanceCells ?? 1);
   const hitX = input.avatarPosition.x + Math.sin(input.rotationY) * distance;
@@ -532,6 +568,9 @@ export function resolvePlaceAheadBuildTarget(input: {
     baseLevel: avatarStandingLevel(input.avatarPosition.y),
     avatarX: input.avatarPosition.x,
     avatarZ: input.avatarPosition.z,
+    ...(input.textureStorageKey !== undefined
+      ? { textureStorageKey: input.textureStorageKey }
+      : {}),
     ...(input.rampRotationOverride !== undefined
       ? { rampRotationOverride: input.rampRotationOverride }
       : {})
@@ -557,7 +596,7 @@ export function placementTargetKey(
 }
 
 export function surfaceHeightForPiece(piece: BuildPiece) {
-  if (piece.kind === "floor") {
+  if (isBuildFloorPieceKind(piece.kind)) {
     return levelToY(piece.level) + BUILD_FLOOR_THICKNESS;
   }
   if (piece.kind === "ramp") {

@@ -123,6 +123,60 @@ describe("build piece contracts", () => {
     ).toThrow();
   });
 
+  it("allows textureStorageKey only on image floors", () => {
+    const base = {
+      roomId: "room-1",
+      cell: { ix: 0, iz: 0 },
+      level: 0,
+      rotation: 0,
+      materialId: "stone",
+      createdByUserId: "u1",
+      createdAt: new Date().toISOString()
+    };
+
+    const imageFloor = BuildPieceSchema.parse({
+      ...base,
+      id: "build:image-floor:0,0:0",
+      kind: "image-floor",
+      textureStorageKey: "rooms/room-1/floor-textures/abc.webp"
+    });
+    expect(imageFloor.textureStorageKey).toBe("rooms/room-1/floor-textures/abc.webp");
+
+    // An image floor without a texture is valid (renders as a blank slab).
+    expect(
+      BuildPieceSchema.parse({ ...base, id: "build:image-floor:1,0:0", kind: "image-floor", cell: { ix: 1, iz: 0 } })
+        .textureStorageKey
+    ).toBeUndefined();
+
+    // A plain floor must not carry a texture.
+    expect(() =>
+      BuildPieceSchema.parse({
+        ...base,
+        id: "build:floor:0,0:0",
+        kind: "floor",
+        textureStorageKey: "rooms/room-1/floor-textures/abc.webp"
+      })
+    ).toThrow();
+
+    expect(() =>
+      CreateBuildPieceRequestSchema.parse({
+        kind: "wall",
+        cell: { ix: 0, iz: 0 },
+        level: 0,
+        edge: "n",
+        textureStorageKey: "rooms/room-1/floor-textures/abc.webp"
+      })
+    ).toThrow();
+
+    const request = CreateBuildPieceRequestSchema.parse({
+      kind: "image-floor",
+      cell: { ix: 0, iz: 0 },
+      level: 0,
+      textureStorageKey: "rooms/room-1/floor-textures/abc.webp"
+    });
+    expect(request.textureStorageKey).toBe("rooms/room-1/floor-textures/abc.webp");
+  });
+
   it("round-trips create request and realtime upsert", () => {
     const request = CreateBuildPieceRequestSchema.parse({
       kind: "ramp",

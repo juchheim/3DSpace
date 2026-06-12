@@ -55,7 +55,41 @@ describe("useBuildHistory", () => {
       await result.current.undo();
     });
 
-    expect(place).toHaveBeenCalledWith("floor", { ix: 5, iz: 5 }, 0, undefined, 0, "stone");
+    expect(place).toHaveBeenCalledWith("floor", { ix: 5, iz: 5 }, 0, undefined, 0, "stone", undefined);
+  });
+
+  it("restores a destroyed image floor with its texture on undo", async () => {
+    const imageFloor: BuildPiece = {
+      ...basePiece,
+      id: "build:image-floor:5,5:0",
+      kind: "image-floor",
+      textureStorageKey: "rooms/room-1/floor-textures/tex.webp"
+    };
+    const place = vi.fn().mockResolvedValue(imageFloor);
+    const destroy = vi.fn().mockResolvedValue(undefined);
+    const actions = {
+      place,
+      placeBatch: vi.fn(),
+      destroy,
+      clearAll: vi.fn()
+    };
+
+    const { result } = renderHook(() => useBuildHistory(actions, () => ({})));
+
+    await act(async () => {
+      result.current.recordDestroy(imageFloor);
+      await result.current.undo();
+    });
+
+    expect(place).toHaveBeenCalledWith(
+      "image-floor",
+      { ix: 5, iz: 5 },
+      0,
+      undefined,
+      0,
+      "stone",
+      "rooms/room-1/floor-textures/tex.webp"
+    );
   });
 
   it("no-ops undo destroy when another user owns the slot", async () => {

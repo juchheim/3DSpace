@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { BuildPieceMaterial } from "@3dspace/contracts";
 import { BUILD_MATERIAL_OPTIONS } from "./buildMaterials";
 import { BUILTIN_BUILD_STAMPS } from "../lib/buildStamps";
-import type { BuildModeController, BuildTool } from "../lib/useBuildMode";
+import type { BuildModeController, BuildTool, FloorTextureSelection } from "../lib/useBuildMode";
 import { WORLD_ASSET_CATALOG } from "../lib/worldAssetCatalog";
 
 const BUILD_COACHMARK_KEY = "3dspace-build-coachmark-dismissed";
@@ -16,6 +16,7 @@ const BUILD_TOOLS: Array<{ id: BuildTool; label: string; shortcut: string; group
   { id: "wall", label: "Wall", shortcut: "1", group: "structure" },
   { id: "simple-wall", label: "Simple Wall", shortcut: "9", group: "structure" },
   { id: "floor", label: "Floor", shortcut: "2", group: "structure" },
+  { id: "image-floor", label: "Image Floor", shortcut: "0", group: "structure" },
   { id: "ramp", label: "Ramp", shortcut: "3", group: "structure" },
   { id: "doorway", label: "Door", shortcut: "5", group: "structure" },
   { id: "window", label: "Window", shortcut: "6", group: "structure" },
@@ -74,6 +75,14 @@ function Glyph({
           <rect x="2.5" y="2.5" width="11" height="11" rx="1" />
           <path d="M2.5 8h11M8 2.5v11" />
           <rect x="2.5" y="2.5" width="5.5" height="5.5" fill="currentColor" stroke="none" opacity="0.22" />
+        </svg>
+      );
+    case "image-floor":
+      return (
+        <svg {...common}>
+          <rect x="2.5" y="2.5" width="11" height="11" rx="1" />
+          <circle cx="6" cy="6" r="1.1" />
+          <path d="M2.5 11.2 6.2 8l2.6 2.2 2.2-1.8 2.5 2.1" />
         </svg>
       );
     case "ramp":
@@ -155,7 +164,9 @@ export function BuildControls({
   selectedAssetSlug = null,
   onSelectAsset,
   finePlacement = false,
-  onToggleFinePlacement
+  onToggleFinePlacement,
+  onUploadFloorTexture,
+  floorTextureOptions = []
 }: {
   buildMode: BuildModeController;
   pieceCount: number;
@@ -176,12 +187,31 @@ export function BuildControls({
   /** Fine object placement: clicks set down a draft to nudge & rotate in small steps. */
   finePlacement?: boolean;
   onToggleFinePlacement?: () => void;
+  /** Uploads a floor image and selects it for the Image Floor tool. */
+  onUploadFloorTexture?: (file: File) => Promise<void>;
+  /** Images already laid as floors in this room, so a floor can be extended later. */
+  floorTextureOptions?: FloorTextureSelection[];
 }) {
   const [clearing, setClearing] = useState(false);
   const [showCoachmark, setShowCoachmark] = useState(false);
+  const [uploadingTexture, setUploadingTexture] = useState(false);
+  const floorTextureInputRef = useRef<HTMLInputElement | null>(null);
   const [category, setCategory] = useState<BuildCategory>(() =>
     selectedAssetSlug ? "objects" : buildMode.selectedStampId ? "stamps" : "build"
   );
+
+  async function handleFloorTextureFile(file: File | undefined) {
+    if (!file || !onUploadFloorTexture) return;
+    setUploadingTexture(true);
+    try {
+      await onUploadFloorTexture(file);
+      buildMode.setStatusMessage("Floor image ready — drag on the ground to lay it.");
+    } catch (err) {
+      buildMode.setStatusMessage(err instanceof Error ? err.message : "Unable to upload floor image.");
+    } finally {
+      setUploadingTexture(false);
+    }
+  }
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -352,6 +382,91 @@ export function BuildControls({
                     </button>
                   );
                 })}
+              </div>
+            ) : null}
+
+            {/* ── Image Floor: pick an image, then drag a rectangle on the ground ── */}
+            {category === "build" && toolActive && buildMode.tool === "image-floor" ? (
+              <div className="build-dock__image-floor" role="group" aria-label="Image floor texture">
+                <input
+                  ref={floorTextureInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  hidden
+                  onChange={(event) => {
+                    void handleFloorTextureFile(event.target.files?.[0]);
+                    event.target.value = "";
+                  }}
+                />
+
+                {buildMode.floorTexture ? (
+                  <div className="build-dock__image-floor-current">
+                    <span className="build-dock__image-floor-thumb">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={buildMode.floorTexture.url} alt="" />
+                    </span>
+                    <span className="build-dock__image-floor-meta">
+                      <span className="build-dock__image-floor-name">
+                        {buildMode.floorTexture.fileName ?? "Floor image"}
+                      </span>
+                      <span className="build-dock__image-floor-sub">
+                        Drag on the ground — the image stretches across the connected floor.
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      className="build-dock__util"
+                      disabled={uploadingTexture}
+                      onClick={() => floorTextureInputRef.current?.click()}
+                      title="Use a different image"
+                    >
+                      {uploadingTexture ? "…" : "Swap"}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="build-dock__image-floor-upload"
+                    disabled={uploadingTexture || !onUploadFloorTexture}
+                    onClick={() => floorTextureInputRef.current?.click()}
+                  >
+                    <Glyph id="image-floor" />
+                    {uploadingTexture ? "Uploading…" : "Upload floor image"}
+                  </button>
+                )}
+
+                {floorTextureOptions.length > 0 ? (
+                  <div className="build-dock__image-floor-recents" role="toolbar" aria-label="Floor images in this room">
+                    <span className="build-dock__prop-label">In this room</span>
+                    <div className="build-dock__image-floor-swatches">
+                      {floorTextureOptions.map((option) => (
+                        <button
+                          key={option.storageKey}
+                          type="button"
+                          className={`build-dock__image-floor-swatch${
+                            buildMode.floorTexture?.storageKey === option.storageKey ? " is-active" : ""
+                          }`}
+                          title={option.fileName ?? "Reuse this floor image (extends the existing floor)"}
+                          onClick={() => buildMode.setFloorTexture(option)}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={option.url} alt="" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                <p className="build-dock__inline-hint">
+                  {buildMode.floorTexture ? (
+                    <>
+                      <strong>Drag</strong> to sweep out any size · drag again from an edge to extend ·{" "}
+                      <kbd>4</kbd> erase tiles
+                    </>
+                  ) : (
+                    <>Pick an image first — PNG, JPEG or WebP.</>
+                  )}
+                </p>
               </div>
             ) : null}
 

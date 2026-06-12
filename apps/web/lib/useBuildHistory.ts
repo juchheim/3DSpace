@@ -22,7 +22,8 @@ type BuildActions = {
     level: number,
     edge?: BuildPieceEdge | undefined,
     rotation?: BuildPieceRotation | undefined,
-    materialId?: BuildPieceMaterial | undefined
+    materialId?: BuildPieceMaterial | undefined,
+    textureStorageKey?: string | undefined
   ): Promise<BuildPiece>;
   placeBatch(placements: BuildPlacementInput[]): Promise<BuildPiece[]>;
   destroy(pieceId: string): Promise<void>;
@@ -35,7 +36,8 @@ function callPlace(actions: BuildActions, placement: BuildPlacementInput) {
     placement.level,
     placement.edge,
     placement.rotation,
-    placement.materialId
+    placement.materialId,
+    placement.textureStorageKey
   );
 }
 
@@ -51,7 +53,8 @@ function placementFromPiece(piece: BuildPiece): BuildPlacementInput {
     level: piece.level,
     ...(piece.edge ? { edge: piece.edge } : {}),
     rotation: piece.rotation,
-    materialId: piece.materialId
+    materialId: piece.materialId,
+    ...(piece.textureStorageKey ? { textureStorageKey: piece.textureStorageKey } : {})
   };
 }
 

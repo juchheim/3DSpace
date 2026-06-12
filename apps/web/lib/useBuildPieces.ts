@@ -51,7 +51,8 @@ function placementInputToTarget(placement: BuildPiecePlacementInput): BuildPlace
     level: placement.level,
     ...(placement.edge ? { edge: placement.edge } : {}),
     rotation: placement.rotation ?? 0,
-    materialId: placement.materialId ?? "stone"
+    materialId: placement.materialId ?? "stone",
+    ...(placement.textureStorageKey ? { textureStorageKey: placement.textureStorageKey } : {})
   };
 }
 
@@ -73,6 +74,7 @@ function toCreateBuildPiecePayload(placement: BuildPiecePlacementInput): BuildPi
     materialId: placement.materialId ?? "stone"
   };
   if (placement.edge !== undefined) payload.edge = placement.edge;
+  if (placement.textureStorageKey !== undefined) payload.textureStorageKey = placement.textureStorageKey;
   return payload;
 }
 
@@ -85,10 +87,12 @@ function optimisticBuildPiece(input: {
   edge?: BuildPieceEdge | undefined;
   rotation?: BuildPieceRotation | undefined;
   materialId?: BuildPieceMaterial | undefined;
+  textureStorageKey?: string | undefined;
   existing?: BuildPiece | undefined;
 }): BuildPiece {
   const rotation = input.rotation ?? input.existing?.rotation ?? 0;
   const materialId = input.materialId ?? input.existing?.materialId ?? "stone";
+  const textureStorageKey = input.textureStorageKey ?? input.existing?.textureStorageKey;
   return {
     id: buildPieceStableId({
       kind: input.kind,
@@ -103,6 +107,7 @@ function optimisticBuildPiece(input: {
     ...(input.edge ? { edge: input.edge } : {}),
     rotation,
     materialId,
+    ...(input.kind === "image-floor" && textureStorageKey ? { textureStorageKey } : {}),
     createdByUserId: input.existing?.createdByUserId ?? input.userId,
     createdAt: input.existing?.createdAt ?? new Date().toISOString()
   };
@@ -205,7 +210,8 @@ export function useBuildPieces(input: {
       level: number,
       edge?: BuildPieceEdge | undefined,
       rotation?: BuildPieceRotation | undefined,
-      materialId?: BuildPieceMaterial | undefined
+      materialId?: BuildPieceMaterial | undefined,
+      textureStorageKey?: string | undefined
     ) => {
       if (!input.roomId) throw new Error("Room is not ready.");
       const stableId = buildPieceStableId({ kind, cell, level, edge });
@@ -220,6 +226,7 @@ export function useBuildPieces(input: {
           edge,
           rotation,
           materialId,
+          textureStorageKey,
           existing: previous
         })
       );
@@ -230,7 +237,8 @@ export function useBuildPieces(input: {
           level,
           edge,
           rotation,
-          materialId
+          materialId,
+          textureStorageKey
         });
         upsertLocal(result.piece);
         applyRealtimeMessages(result.realtimeMessages);
@@ -289,6 +297,7 @@ export function useBuildPieces(input: {
             edge: placement.edge,
             rotation: placement.rotation,
             materialId: placement.materialId,
+            textureStorageKey: placement.textureStorageKey,
             existing: piecesById[stableId]
           })
         );

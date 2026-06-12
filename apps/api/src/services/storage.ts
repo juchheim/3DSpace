@@ -41,6 +41,15 @@ export function roomObjectStorageKeyFor(input: { classId: string; kind: "assets"
   return `room-objects/classes/${input.classId}/${input.kind}/${crypto.randomUUID()}-${safeName}`;
 }
 
+export function buildFloorTextureStoragePrefix(roomId: string) {
+  return `rooms/${roomId}/floor-textures/`;
+}
+
+export function buildFloorTextureStorageKeyFor(input: { roomId: string; fileName: string }) {
+  const safeName = safeStorageName(input.fileName);
+  return `${buildFloorTextureStoragePrefix(input.roomId)}${crypto.randomUUID()}-${safeName}`;
+}
+
 export async function createUploadTarget(
   config: AppConfig,
   input: {

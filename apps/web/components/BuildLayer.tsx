@@ -9,6 +9,7 @@ import {
   BUILD_MAX_ACTIVE_LIGHTS,
   cellToWorldCenter
 } from "@3dspace/room-engine";
+import { computeImageFloorRegions } from "../lib/imageFloorRegions";
 import { BuildPieceMesh } from "./BuildPieceMesh";
 
 function useNearestLightPieceIds(pieces: BuildPiece[]) {
@@ -57,6 +58,8 @@ export function BuildLayer({
 }) {
   const activeLightIds = useNearestLightPieceIds(pieces);
   const activeLightSet = useMemo(() => new Set(activeLightIds), [activeLightIds]);
+  // Connected image-floor regions: the uploaded image stretches across each region's bounds.
+  const imageFloorRegions = useMemo(() => computeImageFloorRegions(pieces), [pieces]);
 
   return (
     <group>
@@ -67,6 +70,7 @@ export function BuildLayer({
           interactive={interactive}
           emitRealLight={activeLightSet.has(piece.id)}
           pointerEventsPassThrough={pointerEventsPassThrough}
+          imageFloorRegion={imageFloorRegions.get(piece.id)}
           highlighted={highlightedPieceId === piece.id}
           {...(onPiecePointerMove ? { onPointerMove: (event) => onPiecePointerMove(piece, event) } : {})}
           {...(onPiecePointerOut ? { onPointerOut: (event) => onPiecePointerOut(piece, event) } : {})}

@@ -1,9 +1,9 @@
 "use client";
 
-import { Suspense, useMemo } from "react";
-import { Edges, MeshReflectorMaterial, useGLTF } from "@react-three/drei";
+import { Suspense, useEffect, useMemo } from "react";
+import { Edges, MeshReflectorMaterial, useGLTF, useTexture } from "@react-three/drei";
 import type { ThreeEvent } from "@react-three/fiber";
-import { BufferGeometry, DoubleSide, Float32BufferAttribute } from "three";
+import { BufferGeometry, ClampToEdgeWrapping, DoubleSide, Float32BufferAttribute, SRGBColorSpace } from "three";
 import { SkeletonUtils } from "three-stdlib";
 import type { Group } from "three";
 import type { BuildPiece, BuildPieceEdge, BuildPieceMaterial, BuildPieceRotation } from "@3dspace/contracts";
@@ -22,6 +22,8 @@ import {
 import { buildMaterialProps } from "./buildMaterials";
 import { edgeOpeningFrameParts } from "../lib/buildEdgeOpeningMesh";
 import { wallMeshTransform } from "../lib/buildWallMesh";
+import { imageFloorUvAt, type ImageFloorRegion } from "../lib/imageFloorRegions";
+import { imageFloorTextureUrl } from "../lib/imageFloorTexture";
 import { LampGlbMesh, LAMP_BULB_NATIVE_Y, LAMP_GLB_NATIVE_H, LAMP_TARGET_HEIGHT } from "./LampGlbMesh";
 
 // ── Custom wall GLB ───────────────────────────────────────────────────────────
@@ -120,6 +122,82 @@ function FloorGlbMesh({ piece }: { piece: BuildPiece }) {
   return (
     <group position={[centerX, baseY, centerZ]} scale={[scaleX, scaleY, scaleZ]}>
       <primitive object={model} />
+    </group>
+  );
+}
+
+// ── Image floor (tiled floor with an uploaded image texture) ──────────────────
+
+/** Sides + underside of the image-floor slab; the textured top sits just above. */
+const IMAGE_FLOOR_SLAB_COLOR = "#3a3f48";
+const IMAGE_FLOOR_TOP_LIFT = 0.002;
+
+/**
+ * Top face of one image-floor tile. UVs map this cell's slice of the connected
+ * region's bounding rect, so the uploaded image stretches across the whole
+ * continuous floor and re-fits as the floor is extended in any direction.
+ */
+function ImageFloorTopFace({ piece, region }: { piece: BuildPiece; region: ImageFloorRegion }) {
+  const texture = useTexture(imageFloorTextureUrl(region.textureStorageKey!));
+
+  useEffect(() => {
+    texture.colorSpace = SRGBColorSpace;
+    texture.anisotropy = 8;
+    texture.wrapS = ClampToEdgeWrapping;
+    texture.wrapT = ClampToEdgeWrapping;
+    texture.needsUpdate = true;
+  }, [texture]);
+
+  const geometry = useMemo(() => {
+    const footprint = buildCellFootprint(piece.cell.ix, piece.cell.iz);
+    const y = piece.level * BUILD_LEVEL_HEIGHT + BUILD_FLOOR_THICKNESS + IMAGE_FLOOR_TOP_LIFT;
+    const corners: Array<[number, number]> = [
+      [footprint.minX, footprint.minZ],
+      [footprint.maxX, footprint.minZ],
+      [footprint.maxX, footprint.maxZ],
+      [footprint.minX, footprint.maxZ]
+    ];
+    const positions: number[] = [];
+    const uvs: number[] = [];
+    for (const [x, z] of corners) {
+      positions.push(x, y, z);
+      const { u, v } = imageFloorUvAt(region, x, z);
+      uvs.push(u, v);
+    }
+    const geo = new BufferGeometry();
+    geo.setAttribute("position", new Float32BufferAttribute(positions, 3));
+    geo.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+    // Counter-clockwise from above → +Y normals.
+    geo.setIndex([0, 2, 1, 0, 3, 2]);
+    geo.computeVertexNormals();
+    return geo;
+  }, [piece.cell.ix, piece.cell.iz, piece.level, region]);
+
+  return (
+    <mesh geometry={geometry}>
+      <meshStandardMaterial map={texture} roughness={0.85} metalness={0.05} />
+    </mesh>
+  );
+}
+
+function ImageFloorMesh({ piece, region }: { piece: BuildPiece; region: ImageFloorRegion | undefined }) {
+  const footprint = buildCellFootprint(piece.cell.ix, piece.cell.iz);
+  const centerX = (footprint.minX + footprint.maxX) / 2;
+  const centerZ = (footprint.minZ + footprint.maxZ) / 2;
+  const y = piece.level * BUILD_LEVEL_HEIGHT + BUILD_FLOOR_THICKNESS / 2;
+  const hasTexture = Boolean(region?.textureStorageKey);
+
+  return (
+    <group>
+      <mesh position={[centerX, y, centerZ]}>
+        <boxGeometry args={[BUILD_CELL_SIZE, BUILD_FLOOR_THICKNESS, BUILD_CELL_SIZE]} />
+        <meshStandardMaterial color={IMAGE_FLOOR_SLAB_COLOR} roughness={0.9} metalness={0.1} />
+      </mesh>
+      {hasTexture && region ? (
+        <Suspense fallback={null}>
+          <ImageFloorTopFace piece={piece} region={region} />
+        </Suspense>
+      ) : null}
     </group>
   );
 }
@@ -238,6 +316,7 @@ export function BuildPieceMesh({
   interactive = false,
   emitRealLight = false,
   pointerEventsPassThrough = false,
+  imageFloorRegion,
   onPointerMove,
   onPointerOut,
   onPointerDown,
@@ -252,6 +331,8 @@ export function BuildPieceMesh({
   /** When true, mount a real point light (budgeted by BuildLayer). */
   emitRealLight?: boolean;
   pointerEventsPassThrough?: boolean;
+  /** Connected-region info for image-floor pieces (computed by BuildLayer). */
+  imageFloorRegion?: ImageFloorRegion | undefined;
   onPointerMove?: (event: ThreeEvent<PointerEvent>) => void;
   onPointerOut?: (event: ThreeEvent<PointerEvent>) => void;
   onPointerDown?: (event: ThreeEvent<PointerEvent>) => void;
@@ -456,7 +537,7 @@ export function BuildPieceMesh({
     );
   }
 
-  if (piece.kind === "floor") {
+  if (piece.kind === "floor" || piece.kind === "image-floor") {
     const footprint = buildCellFootprint(piece.cell.ix, piece.cell.iz);
     const y = piece.level * BUILD_LEVEL_HEIGHT + BUILD_FLOOR_THICKNESS / 2;
     const centerX = (footprint.minX + footprint.maxX) / 2;
@@ -476,6 +557,18 @@ export function BuildPieceMesh({
           <meshStandardMaterial {...materialProps} />
           {ghost ? <Edges color={valid ? "#6dff9a" : "#ff6b6b"} linewidth={2} /> : null}
         </mesh>
+      );
+    }
+
+    if (piece.kind === "image-floor") {
+      return (
+        <group
+          userData={{ buildPieceId: piece.id, buildPiece: piece }}
+          {...(pointerEventsPassThrough ? { raycast: () => {} } : {})}
+          {...pointerProps}
+        >
+          <ImageFloorMesh piece={piece} region={imageFloorRegion} />
+        </group>
       );
     }
 

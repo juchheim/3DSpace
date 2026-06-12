@@ -363,6 +363,22 @@ export function patchAvatarBody(identity: ApiIdentity, bodySlug: AvatarBodySlug)
   });
 }
 
+export function createBuildFloorTextureUpload(
+  identity: ApiIdentity,
+  roomId: string,
+  input: { fileName: string; contentType: string }
+) {
+  return apiFetch<{
+    storageKey: string;
+    textureUrl: string;
+    upload: { url: string; method: "PUT"; headers: Record<string, string> };
+  }>(`/v1/rooms/${roomId}/build-pieces/floor-texture-uploads`, {
+    method: "POST",
+    identity,
+    body: input
+  });
+}
+
 export function listAttachments(identity: ApiIdentity, roomId: string) {
   return apiFetch<WallAttachment[]>(`/v1/rooms/${roomId}/attachments`, { identity });
 }

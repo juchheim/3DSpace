@@ -927,12 +927,16 @@ export const BuildPieceKindSchema = z.enum([
   "wall",
   "simple-wall",
   "floor",
+  "image-floor",
   "ramp",
   "doorway",
   "window",
   "light",
   "mirror"
 ]);
+
+/** Allowed MIME types for image-floor texture uploads. */
+export const BUILD_FLOOR_TEXTURE_CONTENT_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 export const BuildPieceEdgeSchema = z.enum(["n", "e", "s", "w"]);
 export const BuildPieceRotationSchema = z.union([
   z.literal(0),
@@ -953,10 +957,19 @@ export const BuildPieceSchema = z
     edge: BuildPieceEdgeSchema.optional(),
     rotation: BuildPieceRotationSchema.default(0),
     materialId: BuildPieceMaterialSchema.default("stone"),
+    /** Storage key of the uploaded image stretched across the connected floor (image-floor only). */
+    textureStorageKey: z.string().min(1).max(512).optional(),
     createdByUserId: z.string(),
     createdAt: z.string()
   })
   .superRefine((piece, ctx) => {
+    if (piece.textureStorageKey !== undefined && piece.kind !== "image-floor") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "only image-floor pieces may set textureStorageKey",
+        path: ["textureStorageKey"]
+      });
+    }
     const edgeKinds = ["wall", "simple-wall", "doorway", "window", "mirror"] as const;
     if (edgeKinds.includes(piece.kind as (typeof edgeKinds)[number])) {
       if (!piece.edge) {
@@ -984,9 +997,17 @@ export const CreateBuildPieceRequestSchema = z
     level: z.number().int().min(0).max(BUILD_MAX_LEVEL),
     edge: BuildPieceEdgeSchema.optional(),
     rotation: BuildPieceRotationSchema.optional(),
-    materialId: BuildPieceMaterialSchema.optional()
+    materialId: BuildPieceMaterialSchema.optional(),
+    textureStorageKey: z.string().min(1).max(512).optional()
   })
   .superRefine((piece, ctx) => {
+    if (piece.textureStorageKey !== undefined && piece.kind !== "image-floor") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "only image-floor pieces may set textureStorageKey",
+        path: ["textureStorageKey"]
+      });
+    }
     const edgeKinds = ["wall", "simple-wall", "doorway", "window", "mirror"] as const;
     if (edgeKinds.includes(piece.kind as (typeof edgeKinds)[number]) && !piece.edge) {
       ctx.addIssue({
@@ -1006,6 +1027,22 @@ export const CreateBuildPieceRequestSchema = z
 
 export const CreateBuildPiecesBatchRequestSchema = z.object({
   pieces: z.array(CreateBuildPieceRequestSchema).min(1).max(BUILD_PIECES_BATCH_MAX_SIZE)
+});
+
+export const CreateBuildFloorTextureUploadRequestSchema = z.object({
+  fileName: z.string().min(1).max(200),
+  contentType: z.enum(BUILD_FLOOR_TEXTURE_CONTENT_TYPES)
+});
+
+export const CreateBuildFloorTextureUploadResponseSchema = z.object({
+  storageKey: z.string(),
+  /** Stable public URL every client uses to render the floor texture. */
+  textureUrl: z.string(),
+  upload: z.object({
+    url: z.string(),
+    method: z.literal("PUT"),
+    headers: z.record(z.string(), z.string())
+  })
 });
 
 export const ListBuildPiecesResponseSchema = z.object({
@@ -3871,6 +3908,8 @@ export type BuildPieceRotation = z.infer<typeof BuildPieceRotationSchema>;
 export type BuildPieceMaterial = z.infer<typeof BuildPieceMaterialSchema>;
 export type BuildDestroyPolicy = z.infer<typeof BuildDestroyPolicySchema>;
 export type BuildPiece = z.infer<typeof BuildPieceSchema>;
+export type CreateBuildFloorTextureUploadRequest = z.infer<typeof CreateBuildFloorTextureUploadRequestSchema>;
+export type CreateBuildFloorTextureUploadResponse = z.infer<typeof CreateBuildFloorTextureUploadResponseSchema>;
 export type RoomBuildRealtimeMessage = z.infer<typeof RoomBuildRealtimeMessageSchema>;
 export type RoomBuildUpsertMessageV1 = z.infer<typeof RoomBuildUpsertMessageV1Schema>;
 export type RoomBuildRemoveMessageV1 = z.infer<typeof RoomBuildRemoveMessageV1Schema>;
@@ -4289,6 +4328,14 @@ export const apiRoutes: ApiRoute[] = [
     tags: ["build-pieces"],
     request: CreateBuildPiecesBatchRequestSchema,
     response: CreateBuildPiecesBatchResponseSchema
+  },
+  {
+    method: "post",
+    path: "/v1/rooms/{roomId}/build-pieces/floor-texture-uploads",
+    summary: "Create a signed upload target for an image-floor texture",
+    tags: ["build-pieces"],
+    request: CreateBuildFloorTextureUploadRequestSchema,
+    response: CreateBuildFloorTextureUploadResponseSchema
   },
   { method: "delete", path: "/v1/rooms/{roomId}/build-pieces/{pieceId}", summary: "Remove a build piece", tags: ["build-pieces"], response: DeleteBuildPieceResponseSchema },
   { method: "delete", path: "/v1/rooms/{roomId}/build-pieces", summary: "Clear all build pieces in a room", tags: ["build-pieces"], response: ClearBuildPiecesResponseSchema },

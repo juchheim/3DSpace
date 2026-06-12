@@ -233,6 +233,7 @@ export type Repository = {
     edge?: BuildPieceEdge | undefined;
     rotation: BuildPieceRotation;
     materialId: BuildPieceMaterial;
+    textureStorageKey?: string | undefined;
     createdByUserId: string;
   }): Promise<BuildPiece>;
   createBuildPiecesBatch(
@@ -244,6 +245,7 @@ export type Repository = {
       edge?: BuildPieceEdge | undefined;
       rotation: BuildPieceRotation;
       materialId: BuildPieceMaterial;
+      textureStorageKey?: string | undefined;
       createdByUserId: string;
     }>
   ): Promise<BuildPiece[]>;
@@ -1225,6 +1227,7 @@ export class MemoryRepository implements Repository {
     edge?: BuildPieceEdge | undefined;
     rotation: BuildPieceRotation;
     materialId: BuildPieceMaterial;
+    textureStorageKey?: string | undefined;
     createdByUserId: string;
   }) {
     const time = nowIso();
@@ -1245,6 +1248,9 @@ export class MemoryRepository implements Repository {
       ...(input.edge ? { edge: input.edge } : {}),
       rotation: input.rotation,
       materialId: input.materialId,
+      ...(input.kind === "image-floor" && input.textureStorageKey
+        ? { textureStorageKey: input.textureStorageKey }
+        : {}),
       createdByUserId: existing?.createdByUserId ?? input.createdByUserId,
       createdAt: existing?.createdAt ?? time
     };
@@ -1261,6 +1267,7 @@ export class MemoryRepository implements Repository {
       edge?: BuildPieceEdge | undefined;
       rotation: BuildPieceRotation;
       materialId: BuildPieceMaterial;
+      textureStorageKey?: string | undefined;
       createdByUserId: string;
     }>
   ) {
