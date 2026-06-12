@@ -79,6 +79,7 @@ describe("room object templates", () => {
     expect(templates.some((template) => template.slug === "caffeine-glb")).toBe(true);
     expect(templates.some((template) => template.slug === "stegosaurus-glb")).toBe(true);
     expect(templates.some((template) => template.slug === "dice-pair")).toBe(true);
+    expect(templates.some((template) => template.slug === "live-oak-glb")).toBe(true);
     expect(templates.some((template) => template.slug === "water-molecule")).toBe(false);
     const caffeine = templates.find((template) => template.slug === "caffeine-glb");
     expect(caffeine?.assetUrl).toContain("/room-objects/assets/caffeine.glb");
