@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-11 (World Builder tree in a pot)
+Last updated: 2026-06-12 (World Builder deselect on close)
+
+- **2026-06-12:** **World Builder deselect on close** — closing the World Builder panel (`buildMode.enabled` → false via "Build on" or `B`) now clears `selectedAssetSlug` and `assetRotationStep` in `RoomClient`, exiting world-object placement mode.
 
 - **2026-06-11:** **World Builder tree in a pot** — `GLBs/tree-in-a-pot.glb` → `apps/web/public/objects/tree-in-a-pot.glb` via `scripts/prepare-tree-in-a-pot-glb.mjs` (2.5 MB JPEG → q85, ~0.45 MB, ~3 m tall). Catalog slug `tree-in-a-pot` with `scaleVariance: 0.15` (same ±15% persisted placement scale as `tree`). Thumbnail `objects/thumbnails/tree-in-a-pot.jpg`.
 - **2026-06-11:** **World Builder tree** — `GLBs/tree.glb` → `apps/web/public/objects/tree.glb` via `scripts/prepare-tree-glb.mjs` (all PNGs including 6.3 MB normal → JPEG q85, ~0.76 MB, ~3 m tall). Catalog slug `tree` in `worldAssetCatalog.ts` with `scaleVariance: 0.15`: each placement samples scale in [0.85, 1.15], persisted on `PlacedWorldAsset.scale` and synced via world-asset API/realtime. Thumbnail `objects/thumbnails/tree.jpg`. Tests: `apps/web/tests/worldAssetCatalog.test.ts`.

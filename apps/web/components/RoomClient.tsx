@@ -759,7 +759,11 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     }
   }, [buildMode, dynamicBoardPlacementActive]);
   useEffect(() => {
-    if (!buildMode.enabled) setBuild2dPreview(null);
+    if (!buildMode.enabled) {
+      setBuild2dPreview(null);
+      setSelectedAssetSlug(null);
+      setAssetRotationStep(0);
+    }
   }, [buildMode.enabled]);
   const handleAiObjectJobDeleted = useCallback(
     (payload: { jobId: string; templateId?: string | undefined }) => {
