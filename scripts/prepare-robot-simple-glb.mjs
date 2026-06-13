@@ -41,7 +41,7 @@ const EYE_Y_OFFSET = 0.06;    // above the head centre
 const EYE_Z_PROUD = 0.05;     // sit proud of the face surface (extra clearance when eyes translate sideways)
 const FACE_SURFACE_Z = 0.704; // pre-scale front-most Z at eye height
 const EYE_R = 0.21;           // glow quad half-size (scaled up to hold visual size after 20% overall render shrink)
-const EYE_SCALE_X = 0.9;      // horizontal eye travel multiplier (head rotation already covers most of the lateral movement)
+const EYE_SCALE_X = 0.5;      // horizontal eye travel multiplier (head rotation already covers most of the lateral movement)
 const EYE_SCALE_Y = 1.4;      // vertical eye travel multiplier
 
 // Head rotation: how far the head turns to follow the eye gaze direction.
