@@ -38,9 +38,10 @@ const BODY_TOP_Y = 2.044;     // measured body bbox max Y
 // Eye placement (final model space, after the head transform).
 const EYE_DX = 0.20;          // half the spacing between the two eyes
 const EYE_Y_OFFSET = 0.06;    // above the head centre
-const EYE_Z_PROUD = 0.02;     // sit just proud of the face surface
+const EYE_Z_PROUD = 0.05;     // sit proud of the face surface (extra clearance when eyes translate sideways)
 const FACE_SURFACE_Z = 0.704; // pre-scale front-most Z at eye height
 const EYE_R = 0.21;           // glow quad half-size (scaled up to hold visual size after 20% overall render shrink)
+const EYE_SCALE = 1.4;        // multiplier on GLANCES dx/dy for eye translation only — head rotation uses raw values
 
 // Head rotation: how far the head turns to follow the eye gaze direction.
 const HEAD_YAW_FACTOR   = 2.2;  // radians of yaw per unit of eye dx  (~9.5° max)
@@ -197,11 +198,13 @@ const eyePrim = doc
   ));
 const eyeMesh = doc.createMesh("robot-eye").addPrimitive(eyePrim);
 
-// EyeRig sits at the face surface (world-space coords); eyes are its children.
-const eyeRig = doc.createNode("EyeRig").setTranslation([0, EYE_Y, EYE_Z]);
+// EyeRig is a child of HeadPivot so it rotates with the head — preventing the head
+// sphere from clipping through the eye quads when the head turns.
+// Translation is in HeadPivot-local space: (0, EYE_Y_OFFSET, EYE_Z).
+const eyeRig = doc.createNode("EyeRig").setTranslation([0, EYE_Y_OFFSET, EYE_Z]);
 eyeRig.addChild(doc.createNode("EyeL").setMesh(eyeMesh).setTranslation([-EYE_DX, 0, 0]));
 eyeRig.addChild(doc.createNode("EyeR").setMesh(eyeMesh).setTranslation([ EYE_DX, 0, 0]));
-scene.addChild(eyeRig);
+headPivotNode.addChild(eyeRig);
 
 // ── 5. "LookAround" animation ─────────────────────────────────────────────
 // Channel A: EyeRig translation (world-space glance offsets).
@@ -211,20 +214,20 @@ scene.addChild(eyeRig);
 const GLANCES = [
   [0.0,  0,      0     ],
   [3.0,  0,      0     ],
-  [3.18, 0.075,  0.012 ], // glance right
-  [5.0,  0.075,  0.012 ],
+  [3.18, 0.15,   0.024 ], // glance right
+  [5.0,  0.15,   0.024 ],
   [5.18, 0,      0     ],
   [6.6,  0,      0     ],
-  [6.78, -0.075, 0.012 ], // glance left
-  [8.3,  -0.075, 0.012 ],
+  [6.78, -0.15,  0.024 ], // glance left
+  [8.3,  -0.15,  0.024 ],
   [8.48, 0,      0     ],
   [9.7,  0,      0     ],
-  [9.88, 0.0,    0.06  ], // glance up
-  [10.9, 0.0,    0.06  ],
+  [9.88, 0.0,    0.12  ], // glance up
+  [10.9, 0.0,    0.12  ],
   [11.08,0,      0     ],
   [12.1, 0,      0     ],
-  [12.28,-0.05, -0.035 ], // glance down-left
-  [13.3, -0.05, -0.035 ],
+  [12.28,-0.10, -0.07  ], // glance down-left
+  [13.3, -0.10, -0.07  ],
   [13.48,0,      0     ],
   [14.0, 0,      0     ], // seamless loop
 ];
@@ -246,9 +249,11 @@ const headRots = new Float32Array(GLANCES.length * 4);
 
 GLANCES.forEach(([t, dx, dy], i) => {
   times[i] = t;
-  eyeTrans[i * 3]     = dx;
-  eyeTrans[i * 3 + 1] = EYE_Y + dy;
+  // Eye translation: HeadPivot-local space, scaled up for more movement.
+  eyeTrans[i * 3]     = dx * EYE_SCALE;
+  eyeTrans[i * 3 + 1] = EYE_Y_OFFSET + dy * EYE_SCALE;
   eyeTrans[i * 3 + 2] = EYE_Z;
+  // Head rotation: driven by raw dx/dy — unchanged from before.
   const q = glanceQuat(dx, dy);
   headRots[i * 4]     = q[0];
   headRots[i * 4 + 1] = q[1];
