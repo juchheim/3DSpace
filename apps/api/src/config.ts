@@ -81,6 +81,10 @@ export type AppConfig = {
     enableVerseBuilding: boolean;
     buildPlacementRateLimitPerMinute: number;
     enableAiMeetingNotes: boolean;
+    enableTranslation: boolean;
+    openAiTranslationModel: string;
+    translationRateLimitPerMinute: number;
+    translationMaxInputChars: number;
     openAiTranscriptionModel: string;
     openAiSummaryModel: string;
     aiMeetingNotesMaxDurationMinutes: number;
@@ -256,6 +260,10 @@ function requiredInProduction(config: AppConfig, raw: NodeJS.ProcessEnv) {
     required.push("OPENAI_API_KEY");
   }
 
+  if (config.tuning.enableTranslation) {
+    required.push("OPENAI_API_KEY");
+  }
+
   if (config.tuning.enableAiObjectGeneration && config.tuning.aiObjectProvider === "meshy") {
     required.push("MESHY_API_KEY");
   }
@@ -357,6 +365,10 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       enableVerseBuilding: envBoolean(raw, "ENABLE_VERSE_BUILDING", false),
       buildPlacementRateLimitPerMinute: envNumber(raw, "BUILD_PLACEMENT_RATE_LIMIT_PER_MINUTE", 600),
       enableAiMeetingNotes: envBoolean(raw, "ENABLE_AI_MEETING_NOTES", false),
+      enableTranslation: envBoolean(raw, "ENABLE_TRANSLATION", false),
+      openAiTranslationModel: envString(raw, "OPENAI_TRANSLATION_MODEL") ?? "gpt-4.1-mini",
+      translationRateLimitPerMinute: envNumber(raw, "TRANSLATION_RATE_LIMIT_PER_MINUTE", 240),
+      translationMaxInputChars: envNumber(raw, "TRANSLATION_MAX_INPUT_CHARS", 2000),
       openAiTranscriptionModel: envString(raw, "OPENAI_TRANSCRIPTION_MODEL") ?? "gpt-4o-transcribe",
       openAiSummaryModel: envString(raw, "OPENAI_SUMMARY_MODEL") ?? "gpt-4.1",
       aiMeetingNotesMaxDurationMinutes: envNumber(raw, "AI_MEETING_NOTES_MAX_DURATION_MINUTES", 120),

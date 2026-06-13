@@ -80,7 +80,8 @@ import type {
   ClearWhiteboardResponse,
   SharedBrowserSessionResponse,
   PlacedWorldAsset,
-  WorldAssetRealtimeMessage
+  WorldAssetRealtimeMessage,
+  TranslateResponse
 } from "@3dspace/contracts";
 import type { z } from "zod";
 import { API_URL } from "./config";
@@ -1351,6 +1352,18 @@ export async function downloadMeetingNotesArtifact(
     );
   }
   return response.text();
+}
+
+export function translateText(
+  identity: ApiIdentity,
+  roomId: string,
+  body: { text: string; sourceLang: string; targetLang: string; context?: string[] }
+): Promise<TranslateResponse> {
+  return apiFetch<TranslateResponse>(`/v1/rooms/${roomId}/translate`, {
+    method: "POST",
+    identity,
+    body
+  });
 }
 
 export function listFreeForAllRooms(identity: ApiIdentity, opts?: { classId?: string; limit?: number }) {

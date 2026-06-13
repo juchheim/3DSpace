@@ -1485,7 +1485,9 @@ export const ApiErrorCodeSchema = z.enum([
   "ai-host-file-not-ready",
   "ai-host-file-rejected",
   "ai-host-unavailable",
-  "ai-host-rate-limited"
+  "ai-host-rate-limited",
+  "translation-unavailable",
+  "translation-failed"
 ]);
 
 export function parseRoomObjectParameterSchemaJson(json: string) {
@@ -1526,6 +1528,7 @@ export type RoomTypeFeatureFlags = {
   whiteboards: boolean;
   sharedBrowsers: boolean;
   liveCaptions: boolean;
+  translation: boolean;
   building: boolean;
   logic: boolean;
   physics: boolean;
@@ -1551,6 +1554,7 @@ const NON_CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freez
   whiteboards: true,
   sharedBrowsers: false,
   liveCaptions: false,
+  translation: false,
   building: false,
   logic: false,
   physics: false
@@ -1576,6 +1580,7 @@ const CLASSROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
   whiteboards: true,
   sharedBrowsers: false,
   liveCaptions: false,
+  translation: false,
   building: false,
   logic: false,
   physics: false
@@ -1601,6 +1606,7 @@ const FREE_FOR_ALL_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze
   whiteboards: true,
   sharedBrowsers: true,
   liveCaptions: true,
+  translation: true,
   building: true,
   logic: false,
   physics: true
@@ -1626,6 +1632,7 @@ const ESCAPE_ROOM_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze(
   whiteboards: true,
   sharedBrowsers: false,
   liveCaptions: false,
+  translation: false,
   building: true,
   logic: true,
   physics: false
@@ -1652,6 +1659,7 @@ const VERSE_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
   whiteboards: true,
   sharedBrowsers: true,
   liveCaptions: false,
+  translation: true,
   building: true,
   logic: false,
   physics: true
@@ -1847,7 +1855,11 @@ export const RoomSettingsSchema = z.object({
   /** When true, structural edits are blocked server-side (escape-room play test). */
   playModeEnabled: z.boolean().default(false),
   /** When true, logic/trigger pieces may be authored (escape rooms). */
-  logicEnabled: z.boolean().default(true)
+  logicEnabled: z.boolean().default(true),
+  translation: z.object({
+    enabled: z.boolean().default(true),
+    defaultTargetLanguage: z.string().optional()
+  }).default({ enabled: true })
 });
 
 /** Apply {@link RoomSettingsSchema} defaults to persisted room settings (e.g. `roomObjects` opt-in). */
@@ -3053,6 +3065,84 @@ export type RoomAiHostFileRemovedMessageV1 = z.infer<typeof RoomAiHostFileRemove
 export type LiveCaptionsChunkMessageV1 = z.infer<typeof LiveCaptionsChunkMessageV1Schema>;
 export type LiveCaptionsInterimMessageV1 = z.infer<typeof LiveCaptionsInterimMessageV1Schema>;
 export type LiveCaptionsContributorMessageV1 = z.infer<typeof LiveCaptionsContributorMessageV1Schema>;
+
+export const TranslationUtteranceMessageV1Schema = z.object({
+  type: z.literal("room.translation.utterance.v1"),
+  roomId: z.string(),
+  participantId: z.string(),
+  utteranceId: z.string(),
+  sourceLang: z.string(),
+  text: z.string().max(2000),
+  isFinal: z.boolean(),
+  startMs: z.number().int().nonnegative(),
+  sentAt: z.number().int()
+});
+
+export const TranslationLangMessageV1Schema = z.object({
+  type: z.literal("room.translation.lang.v1"),
+  roomId: z.string(),
+  participantId: z.string(),
+  targetLang: z.string(),
+  active: z.boolean(),
+  sentAt: z.number().int()
+});
+
+export type TranslationUtteranceMessageV1 = z.infer<typeof TranslationUtteranceMessageV1Schema>;
+export type TranslationLangMessageV1 = z.infer<typeof TranslationLangMessageV1Schema>;
+
+export const TranslateRequestSchema = z.object({
+  text: z.string().min(1).max(2000),
+  sourceLang: z.string().min(2).max(20),
+  targetLang: z.string().min(2).max(20),
+  context: z.array(z.string().max(2000)).max(3).optional()
+});
+
+export const TranslateResponseSchema = z.object({
+  translatedText: z.string(),
+  sourceLang: z.string(),
+  targetLang: z.string(),
+  cached: z.boolean(),
+  model: z.string()
+});
+
+export type TranslateRequest = z.infer<typeof TranslateRequestSchema>;
+export type TranslateResponse = z.infer<typeof TranslateResponseSchema>;
+
+export const TRANSLATION_LANGUAGES: Array<{ code: string; label: string }> = [
+  { code: "en", label: "English" },
+  { code: "es", label: "Spanish" },
+  { code: "fr", label: "French" },
+  { code: "de", label: "German" },
+  { code: "it", label: "Italian" },
+  { code: "pt", label: "Portuguese" },
+  { code: "ja", label: "Japanese" },
+  { code: "ko", label: "Korean" },
+  { code: "zh", label: "Chinese" },
+  { code: "ar", label: "Arabic" },
+  { code: "ru", label: "Russian" },
+  { code: "hi", label: "Hindi" },
+  { code: "nl", label: "Dutch" },
+  { code: "pl", label: "Polish" },
+  { code: "sv", label: "Swedish" },
+  { code: "tr", label: "Turkish" },
+  { code: "vi", label: "Vietnamese" },
+  { code: "th", label: "Thai" },
+  { code: "id", label: "Indonesian" },
+  { code: "uk", label: "Ukrainian" }
+];
+
+export function translationLanguageLabel(code: string): string {
+  const normalized = code.split("-")[0]?.toLowerCase() ?? code.toLowerCase();
+  const entry = TRANSLATION_LANGUAGES.find((lang) => lang.code === normalized);
+  if (entry) return entry.label;
+  const display = new Intl.DisplayNames(["en"], { type: "language" });
+  try {
+    const name = display.of(code);
+    return name ?? code;
+  } catch {
+    return code;
+  }
+}
 
 /** Client → server realtime dispatch (roomId comes from the URL). */
 export const RoomObjectRealtimeInboundSchema = z.discriminatedUnion("type", [
@@ -4393,7 +4483,8 @@ export const apiRoutes: ApiRoute[] = [
     tags: ["world-skins"],
     request: CreateWorldSkinUploadRequestSchema,
     response: CreateWorldSkinUploadResponseSchema
-  }
+  },
+  { method: "post", path: "/v1/rooms/{roomId}/translate", summary: "Translate text from one language to another (server-side, cached)", tags: ["translation"], request: TranslateRequestSchema, response: TranslateResponseSchema }
   // Note: GET /v1/world-skin-assets/* serves raw bytes (content-type varies); not registered as a JSON schema route.
 ];
 

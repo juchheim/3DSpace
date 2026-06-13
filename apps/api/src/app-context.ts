@@ -6,6 +6,7 @@ import type { SessionRateLimiter } from "./rooms-core/session-rate-limit.js";
 import type { BuildPlacementRateLimiter } from "./build-pieces/placement-rate-limit.js";
 import type { LogicTimerScheduler } from "./logic-pieces/timer-scheduler.js";
 import type { SharedBrowserOrchestrator } from "./shared-browser/orchestrator.js";
+import type { TranslationCache } from "./translation/cache.js";
 
 export type BuildAppOptions = {
   config?: AppConfig;
@@ -14,6 +15,7 @@ export type BuildAppOptions = {
   sharedBrowserOrchestrator?: SharedBrowserOrchestrator;
   meetingNotesAudioStore?: MeetingNotesAudioStore;
   logicTimerScheduler?: LogicTimerScheduler;
+  translationCache?: TranslationCache;
 };
 
 export type AppContext = {
@@ -25,4 +27,5 @@ export type AppContext = {
   sessionRateLimiter: SessionRateLimiter;
   buildPlacementRateLimiter: BuildPlacementRateLimiter;
   logicTimerScheduler: LogicTimerScheduler;
+  translationCache: TranslationCache;
 };

@@ -98,7 +98,10 @@ export function roomSettings(config: AppConfig) {
     buildingEnabled: true,
     buildDestroyPolicy: "anyone" as const,
     logicEnabled: true,
-    playModeEnabled: false
+    playModeEnabled: false,
+    translation: {
+      enabled: true
+    }
   };
 }
 

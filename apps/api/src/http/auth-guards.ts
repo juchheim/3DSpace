@@ -54,6 +54,14 @@ export async function assertMeetingNotesAvailable(repository: Repository, config
   return room;
 }
 
+export async function assertTranslationAvailable(repository: Repository, config: AppConfig, roomId: string, auth: AuthContext) {
+  const { room } = await requireRoomAccess(repository, roomId, auth);
+  if (!config.tuning.enableTranslation) throw forbidden("Translation is disabled");
+  if (!getRoomTypeFeatureFlags(room.type).translation) throw forbidden("Translation is not available for this room type");
+  if (room.settings.translation?.enabled === false) throw forbidden("Translation is disabled for this room");
+  return room;
+}
+
 export function assertAiObjectsEnabled(room: { type: string; settings: { aiObjects?: { enabled?: boolean } } }, config: AppConfig) {
   if (!config.tuning.enableAiObjectGeneration) throw forbidden("AI object generation is disabled");
   if (!getRoomTypeFeatureFlags(room.type).aiObjects) throw forbidden("AI object generation is not available for this room type");

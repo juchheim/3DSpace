@@ -12,6 +12,7 @@ import { registerDevStorageRoutes } from "./dev-storage.js";
 import { registerFreeForAllRoutes } from "./free-for-all.js";
 import { registerInviteRoutes } from "./invites.js";
 import { registerMeetingNotesRoutes } from "./meeting-notes.js";
+import { registerTranslationRoutes } from "./translation.js";
 import { registerOpsRoutes } from "./ops.js";
 import { registerRoomEventRoutes } from "./room-events.js";
 import { registerRoomObjectRoutes } from "./room-objects.js";
@@ -50,4 +51,5 @@ export async function registerRoutes(app: FastifyInstance, ctx: AppContext) {
   await registerEscapeSessionRoutes(app, ctx);
   await registerAiObjectRoutes(app, ctx);
   await registerAiHostRoutes(app, ctx);
+  await registerTranslationRoutes(app, ctx);
 }

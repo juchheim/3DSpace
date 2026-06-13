@@ -120,8 +120,11 @@ import { PhysicsCard } from "./PhysicsCard";
 import { useDynamicWallAnchors } from "../lib/useDynamicWallAnchors";
 import { useMeetingNotes } from "../lib/useMeetingNotes";
 import { useLiveCaptions } from "../lib/useLiveCaptions";
+import { useTranslation } from "../lib/useTranslation";
 import { MeetingNotesPanel } from "./MeetingNotesPanel";
 import { LiveCaptionsDock } from "./LiveCaptionsDock";
+import { TranslationPanel } from "./TranslationPanel";
+import { TranslationDock } from "./TranslationDock";
 import { AiWorldHostControls } from "./AiWorldHostControls";
 import { WorldHostPanel } from "./WorldHostPanel";
 import { BuildControls } from "./BuildControls";
@@ -377,6 +380,50 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     participantId: session?.participantId ?? identity.userId,
     enabled: liveCaptionsEnabled,
     micEnabled: media.microphoneEnabled,
+    publish: publishRealtime
+  });
+  const translationEnabled = roomTypeFeatures.translation && CLIENT_TUNING.enableTranslation && Boolean(session);
+  const translationStorageKey = `3dspace.translation:${identity.userId}`;
+  const [readLang, setReadLangState] = useState<string>(() => {
+    if (typeof window === "undefined") return "en";
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(translationStorageKey) ?? "{}") as { readLang?: string; speakLang?: string };
+      return stored.readLang ?? navigator.language.split("-")[0] ?? "en";
+    } catch {
+      return navigator.language.split("-")[0] ?? "en";
+    }
+  });
+  const [speakLang, setSpeakLangState] = useState<string>(() => {
+    if (typeof window === "undefined") return "en";
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(translationStorageKey) ?? "{}") as { readLang?: string; speakLang?: string };
+      return stored.speakLang ?? navigator.language.split("-")[0] ?? "en";
+    } catch {
+      return navigator.language.split("-")[0] ?? "en";
+    }
+  });
+  const setReadLang = useCallback((lang: string) => {
+    setReadLangState(lang);
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(translationStorageKey) ?? "{}") as Record<string, string>;
+      window.localStorage.setItem(translationStorageKey, JSON.stringify({ ...stored, readLang: lang }));
+    } catch { /* ignore */ }
+  }, [translationStorageKey]);
+  const setSpeakLang = useCallback((lang: string) => {
+    setSpeakLangState(lang);
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(translationStorageKey) ?? "{}") as Record<string, string>;
+      window.localStorage.setItem(translationStorageKey, JSON.stringify({ ...stored, speakLang: lang }));
+    } catch { /* ignore */ }
+  }, [translationStorageKey]);
+  const translation = useTranslation({
+    identity,
+    roomId: session?.room.id ?? roomId,
+    participantId: session?.participantId ?? identity.userId,
+    enabled: translationEnabled,
+    micEnabled: media.microphoneEnabled,
+    readLang,
+    speakLang,
     publish: publishRealtime
   });
   const aiObjectsEnabled = CLIENT_TUNING.enableAiObjectGeneration && roomTypeFeatures.aiObjects && Boolean(session);
@@ -903,6 +950,8 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   meetingNotesRealtimeHandlerRef.current = meetingNotes.handleRealtimeMessage;
   const liveCaptionsRealtimeHandlerRef = useRef(liveCaptions.handleRealtimeMessage);
   liveCaptionsRealtimeHandlerRef.current = liveCaptions.handleRealtimeMessage;
+  const translationRealtimeHandlerRef = useRef(translation.handleRealtimeMessage);
+  translationRealtimeHandlerRef.current = translation.handleRealtimeMessage;
   const aiObjectsRealtimeHandlerRef = useRef(aiObjectGenerator.handleRealtimeMessage);
   aiObjectsRealtimeHandlerRef.current = aiObjectGenerator.handleRealtimeMessage;
   const sharedBrowserRealtimeHandlerRef = useRef(sharedBrowsers.handleRealtimeMessage);
@@ -1854,6 +1903,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       if (dynamicBoardsRealtimeHandlerRef.current(message)) return;
       if (meetingNotesRealtimeHandlerRef.current(message)) return;
       if (liveCaptionsRealtimeHandlerRef.current(message)) return;
+      if (translationRealtimeHandlerRef.current(message)) return;
       if (aiObjectsRealtimeHandlerRef.current(message)) return;
       if (sharedBrowserRealtimeHandlerRef.current(message)) return;
       if (aiWorldHostRealtimeHandlerRef.current(message)) return;
@@ -1868,6 +1918,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       if (message.type.startsWith("room.board.")) return;
       if (message.type.startsWith("room.meeting-notes.")) return;
       if (message.type.startsWith("room.captions.")) return;
+      if (message.type.startsWith("room.translation.")) return;
       if (message.type.startsWith("room.ai-host.")) return;
 
       if (message.type === "participant.leave.v1") {
@@ -3349,6 +3400,11 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
             CC
           </span>
         ) : null}
+        {translationEnabled && translation.sharing ? (
+          <span className="room-hud-tr-badge" data-testid="translation-sharing-badge">
+            TR
+          </span>
+        ) : null}
         {role === "teacher" && session ? (
           <>
             <div className="room-hud-top-sep" />
@@ -3659,6 +3715,16 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
               identity={identity}
               roomId={session.room.id}
               controller={meetingNotes}
+            />
+          ) : null}
+          {translationEnabled && session ? (
+            <TranslationPanel
+              controller={translation}
+              readLang={readLang}
+              speakLang={speakLang}
+              micEnabled={media.microphoneEnabled}
+              onReadLangChange={setReadLang}
+              onSpeakLangChange={setSpeakLang}
             />
           ) : null}
           {aiWorldHostEnabled && session && manifest ? (
@@ -3992,6 +4058,13 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           speakerLabel={(id) => participantNameMap[id] ?? id}
           selfParticipantId={session.participantId}
           reserveGuideDock={aiWorldHostGuidePanelOpen}
+        />
+      ) : null}
+      {translationEnabled && session ? (
+        <TranslationDock
+          controller={translation}
+          speakerLabel={(id) => participantNameMap[id] ?? id}
+          selfParticipantId={session.participantId}
         />
       ) : null}
       {sitting.sittingPhase !== "none" ? (

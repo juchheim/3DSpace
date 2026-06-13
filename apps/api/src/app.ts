@@ -14,6 +14,7 @@ import { SharedBrowserIdleReaper } from "./shared-browser/idle-reaper.js";
 import { SharedBrowserOccupancyReaper } from "./shared-browser/occupancy-reaper.js";
 import { clearRoomObjectParameterDebounceForTests } from "./room-objects/realtime-dispatch.js";
 import { MeetingNotesAudioStore } from "./meeting-notes/audio-buffer.js";
+import { TranslationCache } from "./translation/cache.js";
 import { SessionRateLimiter } from "./rooms-core/session-rate-limit.js";
 import { BuildPlacementRateLimiter } from "./build-pieces/placement-rate-limit.js";
 import { LogicTimerScheduler } from "./logic-pieces/timer-scheduler.js";
@@ -59,6 +60,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     });
 
   const meetingNotesAudioStore = options.meetingNotesAudioStore ?? new MeetingNotesAudioStore();
+  const translationCache = options.translationCache ?? new TranslationCache();
   const sessionRateLimiter = new SessionRateLimiter(config);
   const buildPlacementRateLimiter = new BuildPlacementRateLimiter(config);
   const logicTimerScheduler = options.logicTimerScheduler ?? new LogicTimerScheduler(repository);
@@ -104,6 +106,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     roomObjectGrabLock,
     sharedBrowserOrchestrator,
     meetingNotesAudioStore,
+    translationCache,
     sessionRateLimiter,
     buildPlacementRateLimiter,
     logicTimerScheduler
