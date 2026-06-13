@@ -18,6 +18,12 @@ export const BUILD_FLOOR_TEXTURE_PRESETS: BuildFloorTexturePreset[] = [
     label: "Dirt",
     fileName: "floor-dirt-v3.png",
     url: "/build/floor-textures/floor-dirt-v3.png"
+  },
+  {
+    slug: "floor-slight-marbled-concrete",
+    label: "Concrete",
+    fileName: "floor-slight-marbled-concrete.jpg",
+    url: "/build/floor-textures/floor-slight-marbled-concrete.jpg"
   }
 ];
 

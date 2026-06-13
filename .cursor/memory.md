@@ -2,7 +2,7 @@
 
 Last updated: 2026-06-13 (Image Floor preset textures)
 
-- **2026-06-13:** **Image Floor preset textures** — built-in Grass (`grass-v2.png`) and Dirt (`floor-dirt-v3.png`) in World Builder Image Floor **In this room** swatches (`apps/web/lib/buildFloorTexturePresets.ts`, public assets under `apps/web/public/build/floor-textures/`). First click uploads to room storage (cached per session); presets always shown alongside textures already laid in the room.
+- **2026-06-13:** **Image Floor preset textures** — built-in Grass (`grass-v2.png`), Dirt (`floor-dirt-v3.png`), and Concrete (`floor-slight-marbled-concrete.jpg`) in World Builder Image Floor **In this room** swatches (`apps/web/lib/buildFloorTexturePresets.ts`, public assets under `apps/web/public/build/floor-textures/`). First click uploads to room storage (cached per session); presets always shown alongside textures already laid in the room.
 
 - **2026-06-12:** **Image Floor build perf** — toggling World Builder remounted `BuildLayer` (separate JSX branches in `BuildPlacementController`), reloading every image-floor tile texture; fixed by keeping `BuildLayer` mounted and only toggling `interactive`/overlay props. Image-floor tops now render once per connected region in `ImageFloorRegionTopLayer` (one `useTexture` + merged geometry) instead of per tile in `BuildPieceMesh`. UI swatches use `loading="lazy"` / `decoding="async"`.
 
