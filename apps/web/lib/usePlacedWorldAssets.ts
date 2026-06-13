@@ -73,8 +73,9 @@ export function usePlacedWorldAssets(input: {
     async (slug: string, position: { x: number; y: number; z: number }, yaw: number) => {
       if (!input.roomId) return;
       const scale = sampleWorldAssetPlacementScale(slug);
-      // Optimistic: assign a temp id
-      const tempId = `tmp-${Date.now()}`;
+      // Optimistic: assign a temp id (unique even when a scatter placement
+      // drops several assets in the same millisecond)
+      const tempId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const optimistic: PlacedChair = { id: tempId, slug, position, yaw, scale };
       setChairsById((prev) => ({ ...prev, [tempId]: optimistic }));
       try {

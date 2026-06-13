@@ -1,3 +1,13 @@
+/** Scatter placement: one click strews several instances across a square. */
+export type WorldAssetScatter = {
+  /** Instances dropped per placement click by default. */
+  defaultCount: number;
+  minCount: number;
+  maxCount: number;
+  /** Side length (m) of the square the instances are strewn across, centred on the click. */
+  areaSize: number;
+};
+
 export type WorldAsset = {
   slug: string;
   displayName: string;
@@ -14,6 +24,10 @@ export type WorldAsset = {
   sittable?: boolean;
   /** When true, sitting on this asset opens the personal desk notebook. */
   deskNotebook?: boolean;
+  /** When set, a placement click strews several instances across a square. */
+  scatter?: WorldAssetScatter;
+  /** When true, the renderer applies a gentle vertex-shader wind sway. */
+  windSway?: boolean;
 };
 
 export const WORLD_ASSET_CATALOG: WorldAsset[] = [
@@ -73,6 +87,16 @@ export const WORLD_ASSET_CATALOG: WorldAsset[] = [
     glbUrl: "/objects/live-oak.glb",
     thumbnailUrl: "/objects/thumbnails/live-oak.jpg",
     scaleVariance: 0.15
+  },
+  {
+    slug: "tall-grass",
+    displayName: "Tall Grass",
+    glbUrl: "/objects/tall-grass.glb",
+    thumbnailUrl: "/objects/thumbnails/tall-grass.jpg",
+    scaleVariance: 0.25,
+    windSway: true,
+    // One build cell (2 m) per click; the density slider picks the patch count.
+    scatter: { defaultCount: 6, minCount: 1, maxCount: 12, areaSize: 2 }
   }
 ];
 
@@ -112,4 +136,39 @@ export function sampleWorldAssetPlacementScale(slug: string): number {
 /** Render scale for a placed instance (persisted scale, else catalog default). */
 export function placedWorldAssetRenderScale(asset: { slug: string; scale?: number }): number {
   return asset.scale ?? worldAssetScale(asset.slug);
+}
+
+export type ScatterOffset = { dx: number; dz: number; yaw: number };
+
+/**
+ * Strew `count` instances across the scatter square: a jittered grid keeps
+ * the spread random-looking without the clumps and bald spots of a pure
+ * uniform sample. Each instance also gets a random yaw.
+ */
+export function scatterWorldAssetOffsets(
+  scatter: WorldAssetScatter,
+  count: number,
+  random: () => number = Math.random
+): ScatterOffset[] {
+  const n = Math.max(scatter.minCount, Math.min(scatter.maxCount, Math.round(count)));
+  const cells = Math.ceil(Math.sqrt(n));
+  const cellSize = scatter.areaSize / cells;
+  const slots: Array<{ cx: number; cz: number }> = [];
+  for (let gx = 0; gx < cells; gx++) {
+    for (let gz = 0; gz < cells; gz++) {
+      slots.push({
+        cx: (gx + 0.5) * cellSize - scatter.areaSize / 2,
+        cz: (gz + 0.5) * cellSize - scatter.areaSize / 2
+      });
+    }
+  }
+  for (let i = slots.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [slots[i], slots[j]] = [slots[j]!, slots[i]!];
+  }
+  return slots.slice(0, n).map((slot) => ({
+    dx: slot.cx + (random() - 0.5) * cellSize * 0.8,
+    dz: slot.cz + (random() - 0.5) * cellSize * 0.8,
+    yaw: random() * Math.PI * 2
+  }));
 }

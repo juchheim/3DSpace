@@ -2,13 +2,28 @@
 
 import { useMemo } from "react";
 import { useGLTF } from "@react-three/drei";
+import { useFrame } from "@react-three/fiber";
 import type { PlacedChair } from "../lib/usePlacedChairs";
 import { chairWithGroundY } from "../lib/usePlacedChairs";
 import { cloneGlbSceneSolid } from "../lib/cloneGlbScene";
-import { WORLD_ASSET_CATALOG, placedWorldAssetRenderScale, worldAssetGlbUrl } from "../lib/worldAssetCatalog";
+import { applyWindSway, windTimeUniform } from "../lib/windSway";
+import {
+  WORLD_ASSET_CATALOG,
+  placedWorldAssetRenderScale,
+  worldAssetBySlug,
+  worldAssetGlbUrl
+} from "../lib/worldAssetCatalog";
 
 for (const asset of WORLD_ASSET_CATALOG) {
   useGLTF.preload(asset.glbUrl);
+}
+
+/** Advances the shared wind clock while any swaying asset is mounted. */
+function WindClock() {
+  useFrame((_, delta) => {
+    windTimeUniform.value += delta;
+  });
+  return null;
 }
 
 function WorldAssetMesh({
@@ -23,9 +38,14 @@ function WorldAssetMesh({
 }) {
   const glbUrl = worldAssetGlbUrl(chair.slug);
   const scale = placedWorldAssetRenderScale(chair);
+  const windSway = worldAssetBySlug(chair.slug)?.windSway === true;
   const { scene } = useGLTF(glbUrl);
 
-  const model = useMemo(() => cloneGlbSceneSolid(scene), [scene]);
+  const model = useMemo(() => {
+    const cloned = cloneGlbSceneSolid(scene);
+    if (windSway) applyWindSway(cloned);
+    return cloned;
+  }, [scene, windSway]);
   const resolved = chairWithGroundY(chair, (x, z) => resolveGroundY(x, z, chair.position.y));
 
   return (
@@ -50,8 +70,10 @@ export function PlacedChairsLayer({
   onDeleteChair?: (id: string) => void;
 }) {
   if (chairs.length === 0) return null;
+  const anyWindSway = chairs.some((chair) => worldAssetBySlug(chair.slug)?.windSway === true);
   return (
     <>
+      {anyWindSway ? <WindClock /> : null}
       {chairs.map((chair) => (
         <WorldAssetMesh key={chair.id} chair={chair} resolveGroundY={resolveGroundY} {...(onDeleteChair ? { onDelete: onDeleteChair } : {})} />
       ))}

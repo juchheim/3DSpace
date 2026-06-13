@@ -21,7 +21,8 @@
     "optimize:lp-glb": "node scripts/optimize-lp-glb.mjs",
     "prepare:lamp-glb": "node scripts/prepare-lamp-glb.mjs",
     "prepare:live-oak-glb": "node scripts/prepare-live-oak-glb.mjs",
-    "prepare:table-glb": "node scripts/prepare-table-glb.mjs"
+    "prepare:table-glb": "node scripts/prepare-table-glb.mjs",
+    "prepare:tall-grass-glb": "node scripts/prepare-tall-grass-glb.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.44.1",

@@ -30,6 +30,8 @@ type AssetPlacementControllerProps = {
   resolveGroundY(x: number, z: number): number;
   /** Pending yaw in degrees — owned by the parent so it survives placements. */
   yawDeg: number;
+  /** Side (m) of the scatter square previewed under the ghost (scatter assets only). */
+  scatterAreaSize?: number;
   /** When true, clicks anchor an adjustable draft instead of committing. */
   finePlacement: boolean;
   /** Called with world position + yaw (radians) when the placement commits. */
@@ -72,6 +74,7 @@ export function AssetPlacementController({
   interceptPlaneY = 0.002,
   resolveGroundY,
   yawDeg,
+  scatterAreaSize,
   finePlacement,
   onPlace,
   onCancel,
@@ -208,16 +211,37 @@ export function AssetPlacementController({
 
   const draftY = draftPos ? resolveGroundY(draftPos.x, draftPos.z) : 0;
 
+  // Scatter assets strew instances across an axis-aligned square centred on
+  // the click — show that square so density and coverage read before placing.
+  const scatterOutline = useMemo(() => {
+    if (!scatterAreaSize) return null;
+    const h = scatterAreaSize / 2;
+    return new Float32Array([-h, -h, 0, h, -h, 0, h, -h, 0, h, h, 0, h, h, 0, -h, h, 0, -h, h, 0, -h, -h, 0]);
+  }, [scatterAreaSize]);
+  const scatterSquare = scatterAreaSize && scatterOutline ? (
+    <group>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.015, 0]}>
+        <planeGeometry args={[scatterAreaSize, scatterAreaSize]} />
+        <meshBasicMaterial color="#35e0a1" transparent opacity={0.1} depthWrite={false} />
+      </mesh>
+      <lineSegments rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[scatterOutline, 3]} />
+        </bufferGeometry>
+        <lineBasicMaterial color="#35e0a1" transparent opacity={0.7} />
+      </lineSegments>
+    </group>
+  ) : null;
+
   return (
     <group>
       {/* Ghost following the cursor (hidden while a draft is anchored) */}
       {!draftPos && ghostPos ? (
-        <group
-          position={[ghostPos.x, resolveGroundY(ghostPos.x, ghostPos.z), ghostPos.z]}
-          rotation={[0, yaw, 0]}
-          scale={scale}
-        >
-          <primitive object={ghostModel} />
+        <group position={[ghostPos.x, resolveGroundY(ghostPos.x, ghostPos.z), ghostPos.z]}>
+          <group rotation={[0, yaw, 0]} scale={scale}>
+            <primitive object={ghostModel} />
+          </group>
+          {scatterSquare}
         </group>
       ) : null}
 
@@ -227,6 +251,7 @@ export function AssetPlacementController({
           <group rotation={[0, yaw, 0]} scale={scale}>
             <primitive object={ghostModel} />
           </group>
+          {scatterSquare}
           <group rotation={[0, yaw, 0]}>
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
               <ringGeometry args={[0.55, 0.62, 48]} />

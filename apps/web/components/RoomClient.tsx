@@ -89,7 +89,7 @@ import { findNearestChair } from "../lib/usePlacedChairs";
 import { usePlacedWorldAssets } from "../lib/usePlacedWorldAssets";
 import { useSitting } from "../lib/useSitting";
 import { AVATAR_KEYBOARD_INTERACT_MAX_HOLD_MS } from "../lib/useAvatarMovement";
-import { hasDeskNotebook, WORLD_ASSET_CATALOG } from "../lib/worldAssetCatalog";
+import { hasDeskNotebook, scatterWorldAssetOffsets, WORLD_ASSET_CATALOG } from "../lib/worldAssetCatalog";
 import { worldAssetGroundY } from "../lib/worldAssetGroundY";
 import { AnchorPanel } from "./AnchorPanel";
 import { AuthGate } from "../lib/auth";
@@ -582,6 +582,8 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   }, [buildPieces.pieces]);
   const [selectedAssetSlug, setSelectedAssetSlug] = useState<string | null>(null);
   const [assetYawDeg, setAssetYawDeg] = useState(0);
+  // Scatter assets (e.g. Tall Grass): instances strewn per placement click.
+  const [assetScatterCount, setAssetScatterCount] = useState(1);
   const [fineAssetPlacement, setFineAssetPlacement] = useState(
     () => typeof window !== "undefined" && window.localStorage.getItem(FINE_PLACEMENT_STORAGE_KEY) === "1"
   );
@@ -3200,8 +3202,22 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
                 glbUrl: asset.glbUrl,
                 ...(asset.scale !== undefined ? { scale: asset.scale } : {}),
                 yawDeg: assetYawDeg,
+                ...(asset.scatter ? { scatterAreaSize: asset.scatter.areaSize } : {}),
                 finePlacement: fineAssetPlacement,
                 onPlace: (position, yaw) => {
+                  const scatter = asset.scatter;
+                  if (scatter) {
+                    // Strew patches across the square; each is its own asset so
+                    // it syncs, persists and erases like any other placement.
+                    for (const offset of scatterWorldAssetOffsets(scatter, assetScatterCount)) {
+                      chairs.placeChair(
+                        asset.slug,
+                        { x: position.x + offset.dx, y: position.y, z: position.z + offset.dz },
+                        offset.yaw
+                      );
+                    }
+                    return;
+                  }
                   chairs.placeChair(selectedAssetSlug, position, yaw);
                 },
                 onCancel: () => setSelectedAssetSlug(null),
@@ -4075,8 +4091,14 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           onSelectAsset={(slug) => {
             setSelectedAssetSlug(slug);
             setAssetYawDeg(0);
-            if (slug) buildMode.selectStamp(null);
+            if (slug) {
+              buildMode.selectStamp(null);
+              const scatter = WORLD_ASSET_CATALOG.find((a) => a.slug === slug)?.scatter;
+              if (scatter) setAssetScatterCount(scatter.defaultCount);
+            }
           }}
+          scatterCount={assetScatterCount}
+          onScatterCountChange={setAssetScatterCount}
           finePlacement={fineAssetPlacement}
           onToggleFinePlacement={toggleFineAssetPlacement}
           onUploadFloorTexture={handleUploadFloorTexture}

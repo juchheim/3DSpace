@@ -1360,6 +1360,36 @@ label {
 }
 .build-dock__fine-sub { font-size: 10px; color: var(--bd-tx-m); }
 
+/* ── Scatter density (objects strewn per click, e.g. Tall Grass) ── */
+.build-dock__scatter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--bd-line-m);
+  border-radius: var(--bd-rs);
+}
+.build-dock__scatter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.build-dock__scatter-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--bd-acc);
+}
+.build-dock__scatter-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--bd-acc);
+  font-variant-numeric: tabular-nums;
+  min-width: 18px;
+  text-align: right;
+}
+.build-dock__scatter-sub { font-size: 10px; color: var(--bd-tx-m); }
+
 .build-dock__place-ahead {
   margin-left: auto;
   padding: 6px 14px;

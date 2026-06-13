@@ -163,6 +163,8 @@ export function BuildControls({
   onRedo,
   selectedAssetSlug = null,
   onSelectAsset,
+  scatterCount = 1,
+  onScatterCountChange,
   finePlacement = false,
   onToggleFinePlacement,
   onUploadFloorTexture,
@@ -184,6 +186,9 @@ export function BuildControls({
   selectedAssetSlug?: string | null;
   /** Called when the user selects / deselects an asset to enter placement mode. */
   onSelectAsset?: (slug: string | null) => void;
+  /** Instances strewn per click for scatter assets (e.g. Tall Grass patches). */
+  scatterCount?: number;
+  onScatterCountChange?: (count: number) => void;
   /** Fine object placement: clicks set down a draft to nudge & rotate in small steps. */
   finePlacement?: boolean;
   onToggleFinePlacement?: () => void;
@@ -225,6 +230,9 @@ export function BuildControls({
 
   const erasing = buildMode.tool === "destroy";
   const toolActive = !selectedAssetSlug && !buildMode.selectedStampId && !erasing;
+  const selectedScatter = selectedAssetSlug
+    ? WORLD_ASSET_CATALOG.find((asset) => asset.slug === selectedAssetSlug)?.scatter
+    : undefined;
 
   return (
     <div
@@ -573,6 +581,29 @@ export function BuildControls({
                     </button>
                   );
                 })}
+              </div>
+            ) : null}
+
+            {/* Scatter density: how many instances one click strews across its square */}
+            {category === "objects" && selectedScatter && onScatterCountChange ? (
+              <div className="build-dock__scatter" role="group" aria-label="Scatter density">
+                <span className="build-dock__prop-label">Patches per square</span>
+                <div className="build-dock__scatter-row">
+                  <input
+                    type="range"
+                    min={selectedScatter.minCount}
+                    max={selectedScatter.maxCount}
+                    step={1}
+                    value={scatterCount}
+                    onChange={(event) => onScatterCountChange(Number(event.target.value))}
+                    aria-label="Patches strewn per placement"
+                  />
+                  <span className="build-dock__scatter-count">{scatterCount}</span>
+                </div>
+                <span className="build-dock__scatter-sub">
+                  Each click strews {scatterCount} patch{scatterCount === 1 ? "" : "es"} across a{" "}
+                  {selectedScatter.areaSize}×{selectedScatter.areaSize} m square.
+                </span>
               </div>
             ) : null}
 

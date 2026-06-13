@@ -476,6 +476,8 @@ export function RoomView3D({
     scale?: number;
     /** Pending yaw in degrees. */
     yawDeg: number;
+    /** Side (m) of the scatter square previewed under the ghost (scatter assets only). */
+    scatterAreaSize?: number;
     /** When true, clicks anchor an adjustable draft (nudge + small rotations) before committing. */
     finePlacement: boolean;
     onPlace(position: { x: number; y: number; z: number }, yaw: number): void;
@@ -606,6 +608,9 @@ export function RoomView3D({
               interceptPlaneY={assetInterceptPlaneY}
               resolveGroundY={resolveAssetPlacementGroundY}
               yawDeg={assetPlacement.yawDeg}
+              {...(assetPlacement.scatterAreaSize !== undefined
+                ? { scatterAreaSize: assetPlacement.scatterAreaSize }
+                : {})}
               finePlacement={assetPlacement.finePlacement}
               onPlace={assetPlacement.onPlace}
               onCancel={assetPlacement.onCancel}
