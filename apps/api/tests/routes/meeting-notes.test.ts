@@ -216,4 +216,34 @@ describe("meeting notes routes", () => {
     expect(response.json().session.status).toBe("recording");
     await app.close();
   });
+
+  it("heals legacy verse rooms that persisted aiMeetingNotes disabled", async () => {
+    const repository = new MemoryRepository();
+    const app = await buildApp({
+      config: meetingNotesConfig(),
+      repository
+    });
+
+    const { roomWithManifest } = await createClassAndRoom(app, "teacher-legacy-verse-notes", "skill-verse");
+    const roomId = roomWithManifest.room.id;
+
+    const rawRoom = (repository as unknown as { rooms: Map<string, { settings: Record<string, unknown> }> }).rooms.get(roomId);
+    expect(rawRoom).toBeDefined();
+    rawRoom!.settings = {
+      ...rawRoom!.settings,
+      aiMeetingNotes: { ...(rawRoom!.settings.aiMeetingNotes as object), enabled: false }
+    };
+
+    const healed = await repository.getRoom(roomId);
+    expect(healed?.settings.aiMeetingNotes.enabled).toBe(true);
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomId}/meeting-notes/sessions`,
+      headers: authHeaders("teacher-legacy-verse-notes", "Ms. Rivera")
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().session.status).toBe("recording");
+    await app.close();
+  });
 });

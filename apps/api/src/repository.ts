@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import {
+  getRoomTypeFeatureFlags,
   parseRoomSettings,
   type AiObjectJob,
   type AvatarAppearance,
@@ -61,7 +62,13 @@ export type SharedBrowserSessionPatch = Partial<SharedBrowserSession> & {
 };
 
 export function normalizeRoomRecord(room: RoomRecord): RoomRecord {
-  return { ...room, settings: parseRoomSettings(room.settings) };
+  const settings = parseRoomSettings(room.settings);
+  const flags = getRoomTypeFeatureFlags(room.type);
+  const healedSettings =
+    flags.aiMeetingNotes && settings.aiMeetingNotes.enabled === false
+      ? { ...settings, aiMeetingNotes: { ...settings.aiMeetingNotes, enabled: true } }
+      : settings;
+  return { ...room, settings: healedSettings };
 }
 
 export type RoomEventRecord = {
