@@ -30,7 +30,7 @@ const OUT_PATH = resolve(process.argv[3] ?? resolve(__dirname, "../GLBs/robot-si
 // --- Tunables -------------------------------------------------------------
 const SPLIT_Y = 2.2;          // head vs body cut (clear empty band 2.15..2.43)
 const HEAD_PIVOT_Y = 3.218;   // head bbox centre Y (scale about this)
-const HEAD_SCALE = 1.16;      // "a bit larger"
+const HEAD_SCALE = 1.05;      // "a bit larger" (reduced from 1.16 per design feedback)
 const TARGET_GAP = 0.14;      // small float gap between body top and head bottom
 const BODY_TOP_Y = 2.044;     // measured body bbox max Y
 
@@ -39,7 +39,7 @@ const EYE_DX = 0.20;          // half the spacing between the two eyes
 const EYE_Y_OFFSET = 0.06;    // above the head centre
 const EYE_Z_PROUD = 0.02;     // sit just proud of the face surface
 const FACE_SURFACE_Z = 0.704; // pre-scale front-most Z at eye height
-const EYE_R = 0.17;           // glow quad half-size
+const EYE_R = 0.21;           // glow quad half-size (scaled up 1.25× to hold visual size after 20% overall shrink)
 // -------------------------------------------------------------------------
 
 const io = new NodeIO().registerExtensions([KHRMaterialsUnlit]);
