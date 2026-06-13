@@ -61,6 +61,8 @@ export function useSpatialAudio(input: {
   wallMediaStreams?: Record<string, { audioStream?: MediaStream | null | undefined }> | undefined;
   audioModes?: Map<string, { mode: ParticipantAudioMode; radiusMeters: number }> | undefined;
   pods?: PodsInput | undefined;
+  duckedParticipantIds?: Set<string> | undefined;
+  duckMode?: "duck" | "replace" | undefined;
 }) {
   const contextRef = useRef<AudioContext | null>(null);
   const nodesRef = useRef(new Map<string, SpatialNode>());
@@ -147,9 +149,12 @@ export function useSpatialAudio(input: {
         sourceRole: participant.role,
         sourceMode: audioMode?.mode ?? "normal"
       });
-      const targetGain = micOn * whisperGain * podGain;
+      const duckFactor = input.duckedParticipantIds?.has(participant.id)
+        ? (input.duckMode === "replace" ? 0 : 0.15)
+        : 1;
+      const targetGain = micOn * whisperGain * podGain * duckFactor;
 
-      if (audioMode?.mode === "whisper" || input.pods?.enabled) {
+      if (audioMode?.mode === "whisper" || input.pods?.enabled || (input.duckedParticipantIds?.size ?? 0) > 0) {
         node.gain.gain.setTargetAtTime(targetGain, context.currentTime, 0.1);
       } else {
         node.gain.gain.value = micOn;
@@ -190,7 +195,7 @@ export function useSpatialAudio(input: {
         nodesRef.current.delete(participantId);
       }
     });
-  }, [input.participants, input.localParticipantId, input.config, input.manifest, input.wallObjects, input.wallMediaStreams, input.audioModes, input.pods]);
+  }, [input.participants, input.localParticipantId, input.config, input.manifest, input.wallObjects, input.wallMediaStreams, input.audioModes, input.pods, input.duckedParticipantIds, input.duckMode]);
 
   useEffect(
     () => () => {

@@ -85,6 +85,12 @@ export type AppConfig = {
     openAiTranslationModel: string;
     translationRateLimitPerMinute: number;
     translationMaxInputChars: number;
+    enableTranslationVoice: boolean;
+    translationTtsProvider: string;
+    openAiTtsModel: string;
+    openAiTtsVoices: string[];
+    openAiTtsFormat: string;
+    translationTtsRateLimitPerMinute: number;
     openAiTranscriptionModel: string;
     openAiSummaryModel: string;
     aiMeetingNotesMaxDurationMinutes: number;
@@ -264,6 +270,10 @@ function requiredInProduction(config: AppConfig, raw: NodeJS.ProcessEnv) {
     required.push("OPENAI_API_KEY");
   }
 
+  if (config.tuning.enableTranslationVoice && config.tuning.translationTtsProvider === "openai") {
+    required.push("OPENAI_API_KEY");
+  }
+
   if (config.tuning.enableAiObjectGeneration && config.tuning.aiObjectProvider === "meshy") {
     required.push("MESHY_API_KEY");
   }
@@ -369,6 +379,12 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       openAiTranslationModel: envString(raw, "OPENAI_TRANSLATION_MODEL") ?? "gpt-4.1-mini",
       translationRateLimitPerMinute: envNumber(raw, "TRANSLATION_RATE_LIMIT_PER_MINUTE", 240),
       translationMaxInputChars: envNumber(raw, "TRANSLATION_MAX_INPUT_CHARS", 2000),
+      enableTranslationVoice: envBoolean(raw, "ENABLE_TRANSLATION_VOICE", false),
+      translationTtsProvider: envString(raw, "TRANSLATION_TTS_PROVIDER") ?? "openai",
+      openAiTtsModel: envString(raw, "OPENAI_TTS_MODEL") ?? "gpt-4o-mini-tts",
+      openAiTtsVoices: envStringList(raw, "OPENAI_TTS_VOICES", ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]),
+      openAiTtsFormat: envString(raw, "OPENAI_TTS_FORMAT") ?? "mp3",
+      translationTtsRateLimitPerMinute: envNumber(raw, "TRANSLATION_TTS_RATE_LIMIT_PER_MINUTE", 120),
       openAiTranscriptionModel: envString(raw, "OPENAI_TRANSCRIPTION_MODEL") ?? "gpt-4o-transcribe",
       openAiSummaryModel: envString(raw, "OPENAI_SUMMARY_MODEL") ?? "gpt-4.1",
       aiMeetingNotesMaxDurationMinutes: envNumber(raw, "AI_MEETING_NOTES_MAX_DURATION_MINUTES", 120),

@@ -39,6 +39,7 @@ export const CLIENT_TUNING = {
   enableAvatarGlbRecolor: process.env.NEXT_PUBLIC_ENABLE_AVATAR_GLB_RECOLOR === "true",
   enableLiveCaptions: process.env.NEXT_PUBLIC_ENABLE_LIVE_CAPTIONS === "true",
   enableTranslation: process.env.NEXT_PUBLIC_ENABLE_TRANSLATION === "true",
+  enableTranslationVoice: process.env.NEXT_PUBLIC_ENABLE_TRANSLATION_VOICE === "true",
   enableAiObjectGeneration: process.env.NEXT_PUBLIC_ENABLE_AI_OBJECT_GENERATION === "true",
   enableWhiteboards: process.env.NEXT_PUBLIC_ENABLE_WHITEBOARDS !== "false",
   enableSharedBrowsers: process.env.NEXT_PUBLIC_ENABLE_SHARED_BROWSERS === "true",

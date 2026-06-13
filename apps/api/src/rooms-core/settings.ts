@@ -100,7 +100,8 @@ export function roomSettings(config: AppConfig) {
     logicEnabled: true,
     playModeEnabled: false,
     translation: {
-      enabled: true
+      enabled: true,
+      voiceEnabled: true
     }
   };
 }

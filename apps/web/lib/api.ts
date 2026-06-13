@@ -1366,6 +1366,30 @@ export function translateText(
   });
 }
 
+export async function translateSpeech(
+  identity: ApiIdentity,
+  roomId: string,
+  body: { text: string; lang: string; voice?: string }
+): Promise<ArrayBuffer | null> {
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    ...identityHeaders(identity)
+  };
+  const token = await identity.getAuthToken?.();
+  if (token) headers.authorization = `Bearer ${token}`;
+  const res = await fetch(`${API_URL}/v1/rooms/${roomId}/translate/speech`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body)
+  });
+  if (res.status === 204 || res.status === 409) return null;
+  if (!res.ok) {
+    const payload = await res.json().catch(() => ({})) as Record<string, unknown>;
+    throw new ApiError(res.status, String(payload.message ?? res.statusText), undefined, payload);
+  }
+  return res.arrayBuffer();
+}
+
 export function listFreeForAllRooms(identity: ApiIdentity, opts?: { classId?: string; limit?: number }) {
   const params = new URLSearchParams();
   if (opts?.classId) params.set("classId", opts.classId);

@@ -90,6 +90,15 @@ async function cachedTranslate(
   return promise;
 }
 
+export type TranslationResolvedItem = {
+  participantId: string;
+  utteranceId: string;
+  sourceLang: string;
+  targetLang: string;
+  text: string;
+  startMs: number;
+};
+
 export function useTranslation(input: {
   identity: ApiIdentity;
   roomId?: string | undefined;
@@ -99,6 +108,7 @@ export function useTranslation(input: {
   readLang: string;
   speakLang: string;
   publish?: ((message: RealtimeMessage) => void) | undefined;
+  onTranslationResolved?: ((item: TranslationResolvedItem) => void) | undefined;
 }) {
   const [lines, setLines] = useState<TranslationLine[]>([]);
   const [sharing, setSharing] = useState(false);
@@ -112,8 +122,10 @@ export function useTranslation(input: {
   const stopRecognitionRef = useRef<() => void>(() => {});
   const readLangRef = useRef(input.readLang);
   const recentFinalTextsRef = useRef<string[]>([]);
+  const onTranslationResolvedRef = useRef(input.onTranslationResolved);
 
   readLangRef.current = input.readLang;
+  onTranslationResolvedRef.current = input.onTranslationResolved;
 
   const supported = speechRecognitionSupported();
 
@@ -264,6 +276,7 @@ export function useTranslation(input: {
       const roomId = input.roomId!;
       const context = recentFinalTextsRef.current.slice(-3);
 
+      const capturedUtterance = utterance;
       cachedTranslate(identity, roomId, utterance.sourceLang, targetLang, utterance.text, context)
         .then((translatedText) => {
           setLines((current) =>
@@ -273,6 +286,14 @@ export function useTranslation(input: {
                 : l
             )
           );
+          onTranslationResolvedRef.current?.({
+            participantId: capturedUtterance.participantId,
+            utteranceId: capturedUtterance.utteranceId,
+            sourceLang: capturedUtterance.sourceLang,
+            targetLang,
+            text: translatedText,
+            startMs: capturedUtterance.startMs
+          });
         })
         .catch(() => {
           setLines((current) =>

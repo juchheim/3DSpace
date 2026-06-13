@@ -121,6 +121,7 @@ import { useDynamicWallAnchors } from "../lib/useDynamicWallAnchors";
 import { useMeetingNotes } from "../lib/useMeetingNotes";
 import { useLiveCaptions } from "../lib/useLiveCaptions";
 import { useTranslation } from "../lib/useTranslation";
+import { useTranslationVoice, type VoiceMode } from "../lib/useTranslationVoice";
 import { MeetingNotesPanel } from "./MeetingNotesPanel";
 import { LiveCaptionsDock } from "./LiveCaptionsDock";
 import { TranslationPanel } from "./TranslationPanel";
@@ -383,6 +384,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     publish: publishRealtime
   });
   const translationEnabled = roomTypeFeatures.translation && CLIENT_TUNING.enableTranslation && Boolean(session);
+  const translationVoiceEnabled = translationEnabled && CLIENT_TUNING.enableTranslationVoice;
   const translationStorageKey = `3dspace.translation:${identity.userId}`;
   const [readLang, setReadLangState] = useState<string>(() => {
     if (typeof window === "undefined") return "en";
@@ -402,6 +404,24 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       return navigator.language.split("-")[0] ?? "en";
     }
   });
+  const [voiceMode, setVoiceModeState] = useState<VoiceMode>(() => {
+    if (typeof window === "undefined") return "off";
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(translationStorageKey) ?? "{}") as { voiceMode?: string };
+      return (stored.voiceMode as VoiceMode | undefined) ?? "off";
+    } catch {
+      return "off";
+    }
+  });
+  const [voiceChoice, setVoiceChoiceState] = useState<string>(() => {
+    if (typeof window === "undefined") return "auto";
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(translationStorageKey) ?? "{}") as { voiceChoice?: string };
+      return stored.voiceChoice ?? "auto";
+    } catch {
+      return "auto";
+    }
+  });
   const setReadLang = useCallback((lang: string) => {
     setReadLangState(lang);
     try {
@@ -416,6 +436,28 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       window.localStorage.setItem(translationStorageKey, JSON.stringify({ ...stored, speakLang: lang }));
     } catch { /* ignore */ }
   }, [translationStorageKey]);
+  const setVoiceMode = useCallback((mode: VoiceMode) => {
+    setVoiceModeState(mode);
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(translationStorageKey) ?? "{}") as Record<string, string>;
+      window.localStorage.setItem(translationStorageKey, JSON.stringify({ ...stored, voiceMode: mode }));
+    } catch { /* ignore */ }
+  }, [translationStorageKey]);
+  const setVoiceChoice = useCallback((voice: string) => {
+    setVoiceChoiceState(voice);
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(translationStorageKey) ?? "{}") as Record<string, string>;
+      window.localStorage.setItem(translationStorageKey, JSON.stringify({ ...stored, voiceChoice: voice }));
+    } catch { /* ignore */ }
+  }, [translationStorageKey]);
+  const translationVoice = useTranslationVoice({
+    identity,
+    roomId: session?.room.id ?? roomId,
+    enabled: translationVoiceEnabled,
+    mode: voiceMode,
+    voiceChoice,
+    provider: "openai"
+  });
   const translation = useTranslation({
     identity,
     roomId: session?.room.id ?? roomId,
@@ -424,7 +466,8 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     micEnabled: media.microphoneEnabled,
     readLang,
     speakLang,
-    publish: publishRealtime
+    publish: publishRealtime,
+    onTranslationResolved: translationVoice.enqueue
   });
   const aiObjectsEnabled = CLIENT_TUNING.enableAiObjectGeneration && roomTypeFeatures.aiObjects && Boolean(session);
   const [dynamicBoardPlacementActive, setDynamicBoardPlacementActive] = useState(false);
@@ -2480,7 +2523,9 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           wallObjects: wall.wallObjects,
           wallMediaStreams,
           audioModes,
-          pods: podsInput
+          pods: podsInput,
+          duckedParticipantIds: translationVoice.duckedParticipantIds,
+          duckMode: voiceMode === "replace" ? "replace" : "duck"
         }
       : { participants: participantList }
   );
@@ -3725,6 +3770,12 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
               micEnabled={media.microphoneEnabled}
               onReadLangChange={setReadLang}
               onSpeakLangChange={setSpeakLang}
+              voiceEnabled={translationVoiceEnabled}
+              voiceMode={voiceMode}
+              voiceChoice={voiceChoice}
+              voiceController={translationVoice}
+              onVoiceModeChange={setVoiceMode}
+              onVoiceChoiceChange={setVoiceChoice}
             />
           ) : null}
           {aiWorldHostEnabled && session && manifest ? (

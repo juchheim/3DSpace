@@ -1,10 +1,12 @@
 "use client";
 
-import { TRANSLATION_LANGUAGES, translationLanguageLabel } from "@3dspace/contracts";
+import { TRANSLATION_LANGUAGES, TRANSLATION_TTS_VOICES, translationLanguageLabel } from "@3dspace/contracts";
 import type { useTranslation } from "../lib/useTranslation";
+import type { useTranslationVoice, VoiceMode } from "../lib/useTranslationVoice";
 import { HudCard } from "./HudCard";
 
 type TranslationController = ReturnType<typeof useTranslation>;
+type VoiceController = ReturnType<typeof useTranslationVoice>;
 
 export function TranslationPanel({
   controller,
@@ -12,7 +14,13 @@ export function TranslationPanel({
   speakLang,
   micEnabled,
   onReadLangChange,
-  onSpeakLangChange
+  onSpeakLangChange,
+  voiceEnabled = false,
+  voiceMode = "off",
+  voiceChoice = "auto",
+  voiceController,
+  onVoiceModeChange,
+  onVoiceChoiceChange
 }: {
   controller: TranslationController;
   readLang: string;
@@ -20,6 +28,12 @@ export function TranslationPanel({
   micEnabled: boolean;
   onReadLangChange: (lang: string) => void;
   onSpeakLangChange: (lang: string) => void;
+  voiceEnabled?: boolean;
+  voiceMode?: VoiceMode;
+  voiceChoice?: string;
+  voiceController?: VoiceController;
+  onVoiceModeChange?: (mode: VoiceMode) => void;
+  onVoiceChoiceChange?: (voice: string) => void;
 }) {
   const isSharing = controller.sharing;
   const shareDisabled = !controller.supported || !micEnabled;
@@ -39,6 +53,18 @@ export function TranslationPanel({
 
   const hasLines = controller.lines.length > 0;
   const hasAlert = Boolean(controller.error);
+
+  let voiceStatusText = "";
+  if (voiceEnabled && voiceController) {
+    if (voiceController.audioBlocked) {
+      voiceStatusText = "Click to enable translation audio";
+    } else if (voiceController.speaking) {
+      const queued = voiceController.queueDepth;
+      voiceStatusText = `Speaking ${translationLanguageLabel(readLang)}…${queued > 0 ? ` (${queued} queued)` : ""}`;
+    } else if (voiceMode !== "off") {
+      voiceStatusText = "Voice ready";
+    }
+  }
 
   return (
     <HudCard
@@ -84,6 +110,55 @@ export function TranslationPanel({
             ))}
           </select>
         </div>
+
+        {voiceEnabled ? (
+          <>
+            <div className="translation-panel__field">
+              <label className="translation-panel__label" htmlFor="translation-voice-mode">
+                Hear translations:
+              </label>
+              <select
+                id="translation-voice-mode"
+                className="translation-panel__select"
+                value={voiceMode}
+                onChange={(e) => onVoiceModeChange?.(e.target.value as VoiceMode)}
+              >
+                <option value="off">Off (subtitles only)</option>
+                <option value="duck">Duck original</option>
+                <option value="replace">Replace original</option>
+              </select>
+            </div>
+
+            {voiceMode !== "off" ? (
+              <div className="translation-panel__field">
+                <label className="translation-panel__label" htmlFor="translation-voice-choice">
+                  Voice:
+                </label>
+                <select
+                  id="translation-voice-choice"
+                  className="translation-panel__select"
+                  value={voiceChoice}
+                  onChange={(e) => onVoiceChoiceChange?.(e.target.value)}
+                >
+                  <option value="auto">Auto (per speaker)</option>
+                  {TRANSLATION_TTS_VOICES.map((v) => (
+                    <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+
+            {voiceStatusText ? (
+              <p
+                className="translation-panel__status"
+                style={{ cursor: voiceController?.audioBlocked ? "pointer" : undefined }}
+                onClick={voiceController?.audioBlocked ? voiceController.resumeAudio : undefined}
+              >
+                {voiceStatusText}
+              </p>
+            ) : null}
+          </>
+        ) : null}
 
         <div className="translation-panel__actions">
           <button

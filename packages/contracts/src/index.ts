@@ -1487,7 +1487,8 @@ export const ApiErrorCodeSchema = z.enum([
   "ai-host-unavailable",
   "ai-host-rate-limited",
   "translation-unavailable",
-  "translation-failed"
+  "translation-failed",
+  "translation-voice-unavailable"
 ]);
 
 export function parseRoomObjectParameterSchemaJson(json: string) {
@@ -1858,8 +1859,9 @@ export const RoomSettingsSchema = z.object({
   logicEnabled: z.boolean().default(true),
   translation: z.object({
     enabled: z.boolean().default(true),
-    defaultTargetLanguage: z.string().optional()
-  }).default({ enabled: true })
+    defaultTargetLanguage: z.string().optional(),
+    voiceEnabled: z.boolean().default(true)
+  }).default({ enabled: true, voiceEnabled: true })
 });
 
 /** Apply {@link RoomSettingsSchema} defaults to persisted room settings (e.g. `roomObjects` opt-in). */
@@ -3108,6 +3110,23 @@ export const TranslateResponseSchema = z.object({
 export type TranslateRequest = z.infer<typeof TranslateRequestSchema>;
 export type TranslateResponse = z.infer<typeof TranslateResponseSchema>;
 
+export const TranslateSpeechRequestSchema = z.object({
+  text: z.string().min(1).max(2000),
+  lang: z.string().min(2).max(20),
+  voice: z.string().min(1).max(40).optional()
+});
+export type TranslateSpeechRequest = z.infer<typeof TranslateSpeechRequestSchema>;
+// Response is binary audio (audio/mpeg) — not a JSON schema.
+
+export const TRANSLATION_TTS_VOICES = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"] as const;
+
+export function voiceForParticipant(participantId: string, voices: readonly string[] = TRANSLATION_TTS_VOICES): string {
+  let h = 0;
+  for (let i = 0; i < participantId.length; i++) h = (h * 31 + participantId.charCodeAt(i)) | 0;
+  const idx = Math.abs(h) % voices.length;
+  return voices[idx] ?? voices[0]!;
+}
+
 export const TRANSLATION_LANGUAGES: Array<{ code: string; label: string }> = [
   { code: "en", label: "English" },
   { code: "es", label: "Spanish" },
@@ -4316,7 +4335,7 @@ type ApiRoute = {
   summary: string;
   tags: string[];
   request?: z.ZodTypeAny;
-  response: z.ZodTypeAny;
+  response?: z.ZodTypeAny;
 };
 
 export const apiRoutes: ApiRoute[] = [
@@ -4484,8 +4503,9 @@ export const apiRoutes: ApiRoute[] = [
     request: CreateWorldSkinUploadRequestSchema,
     response: CreateWorldSkinUploadResponseSchema
   },
-  { method: "post", path: "/v1/rooms/{roomId}/translate", summary: "Translate text from one language to another (server-side, cached)", tags: ["translation"], request: TranslateRequestSchema, response: TranslateResponseSchema }
-  // Note: GET /v1/world-skin-assets/* serves raw bytes (content-type varies); not registered as a JSON schema route.
+  { method: "post", path: "/v1/rooms/{roomId}/translate", summary: "Translate text from one language to another (server-side, cached)", tags: ["translation"], request: TranslateRequestSchema, response: TranslateResponseSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/translate/speech", summary: "Synthesize translated text to audio (server-side, cached; response is audio/mpeg bytes)", tags: ["translation"], request: TranslateSpeechRequestSchema }
+  // Note: GET /v1/world-skin-assets/* and POST /translate/speech serve raw bytes (content-type varies); response schema not registered.
 ];
 
 function asJsonSchema(schema: z.ZodTypeAny) {
@@ -4513,16 +4533,18 @@ export function createOpenApiDocument() {
             }
           }
         : undefined,
-      responses: {
-        "200": {
-          description: "Successful response",
-          content: {
-            "application/json": {
-              schema: asJsonSchema(route.response)
+      responses: route.response
+        ? {
+            "200": {
+              description: "Successful response",
+              content: {
+                "application/json": {
+                  schema: asJsonSchema(route.response)
+                }
+              }
             }
           }
-        }
-      }
+        : { "200": { description: "Successful response" } }
     };
   }
 

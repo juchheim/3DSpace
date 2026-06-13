@@ -7,6 +7,7 @@ import type { BuildPlacementRateLimiter } from "./build-pieces/placement-rate-li
 import type { LogicTimerScheduler } from "./logic-pieces/timer-scheduler.js";
 import type { SharedBrowserOrchestrator } from "./shared-browser/orchestrator.js";
 import type { TranslationCache } from "./translation/cache.js";
+import type { TranslationSpeechCache } from "./translation/speech-cache.js";
 
 export type BuildAppOptions = {
   config?: AppConfig;
@@ -16,6 +17,7 @@ export type BuildAppOptions = {
   meetingNotesAudioStore?: MeetingNotesAudioStore;
   logicTimerScheduler?: LogicTimerScheduler;
   translationCache?: TranslationCache;
+  translationSpeechCache?: TranslationSpeechCache;
 };
 
 export type AppContext = {
@@ -28,4 +30,5 @@ export type AppContext = {
   buildPlacementRateLimiter: BuildPlacementRateLimiter;
   logicTimerScheduler: LogicTimerScheduler;
   translationCache: TranslationCache;
+  translationSpeechCache: TranslationSpeechCache;
 };
