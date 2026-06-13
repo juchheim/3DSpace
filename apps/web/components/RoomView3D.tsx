@@ -53,6 +53,7 @@ import type { z } from "zod";
 import type { ParticipantView } from "./RoomClient";
 import { BlockyAvatar } from "./BlockyAvatar";
 import { LpHostAvatar } from "./LpHostAvatar";
+import { RobotSimpleHostAvatar } from "./RobotSimpleHostAvatar";
 import type { WorldHostAvatarProps } from "./GlbHostAvatar";
 import { useAiWorldHostScene, type AiWorldHostSceneConfig } from "../lib/useAiWorldHost";
 import { RoomObjectsLayer } from "./RoomObjectsLayer";
@@ -731,7 +732,7 @@ export function RoomView3D({
           });
         })()}
         {aiHostScene && (aiHostScene.host || aiHostScene.ghost) ? (
-          <AiHostLayer scene={aiHostScene} />
+          <AiHostLayer scene={aiHostScene} verse={verse != null} />
         ) : null}
         <FollowLocalAvatarCamera
           participants={participants}
@@ -746,18 +747,19 @@ export function RoomView3D({
 }
 
 /**
- * Renders the AI World Host LP robot — the live host and/or a translucent
- * placement ghost during reposition.
+ * Renders the AI World Host avatar — the live host and/or a translucent
+ * placement ghost during reposition. Verse rooms use the simple floating-head
+ * robot; all other rooms use the LP robot.
  */
-function HostAvatar(props: WorldHostAvatarProps) {
+function HostAvatar({ verse, ...props }: WorldHostAvatarProps & { verse?: boolean }) {
   return (
     <Suspense fallback={null}>
-      <LpHostAvatar {...props} />
+      {verse ? <RobotSimpleHostAvatar {...props} /> : <LpHostAvatar {...props} />}
     </Suspense>
   );
 }
 
-function AiHostLayer({ scene }: { scene: AiWorldHostSceneConfig }) {
+function AiHostLayer({ scene, verse }: { scene: AiWorldHostSceneConfig; verse: boolean }) {
   const { skin } = useWorldSkinContext();
   const avatarScale = skin?.overrides.avatarScale ?? 1;
   const { host, ghost, animationState, speechBubbleText, onHostInteract } = scene;
@@ -765,6 +767,7 @@ function AiHostLayer({ scene }: { scene: AiWorldHostSceneConfig }) {
     <>
       {host ? (
         <HostAvatar
+          verse={verse}
           position={host.position}
           rotationY={host.rotationY}
           displayName={host.displayName}
@@ -777,6 +780,7 @@ function AiHostLayer({ scene }: { scene: AiWorldHostSceneConfig }) {
       ) : null}
       {ghost ? (
         <HostAvatar
+          verse={verse}
           position={ghost.position}
           rotationY={ghost.rotationY}
           displayName=""

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Billboard, Html, useGLTF } from "@react-three/drei";
 import {
+  AnimationMixer,
   Color,
   MathUtils,
   type Group,
@@ -42,6 +43,12 @@ export interface GlbHostAvatarProps extends WorldHostAvatarProps {
   nativeHeight: number;
   /** Y coordinate in the GLB where the feet meet the floor (default 0). */
   nativeGroundY?: number;
+  /**
+   * Name of a baked AnimationClip in the GLB to play on loop (e.g. "LookAround").
+   * When provided, the clip drives whatever nodes it targets directly; procedural
+   * irisNode offsets are skipped so the two systems don't fight each other.
+   */
+  idleAnimation?: string;
 }
 
 const TARGET_HEIGHT = 2.0;
@@ -62,6 +69,7 @@ export function GlbHostAvatar({
   url,
   nativeHeight,
   nativeGroundY = 0,
+  idleAnimation,
   position,
   rotationY,
   displayName,
@@ -72,7 +80,7 @@ export function GlbHostAvatar({
   onInteract,
   scale = 1
 }: GlbHostAvatarProps) {
-  const { scene } = useGLTF(url);
+  const { scene, animations } = useGLTF(url);
   const modelScale = TARGET_HEIGHT / nativeHeight;
   const groundYOffset = -nativeGroundY * modelScale;
 
@@ -98,6 +106,15 @@ export function GlbHostAvatar({
     },
     [model]
   );
+
+  // Optional baked animation (e.g. "LookAround" on the robot-simple host).
+  const mixer = useMemo(() => (idleAnimation ? new AnimationMixer(model) : null), [idleAnimation, model]);
+  useEffect(() => {
+    if (!mixer || !idleAnimation) return;
+    const clip = animations.find((a) => a.name === idleAnimation);
+    if (clip) mixer.clipAction(clip).play();
+    return () => { mixer.stopAllAction(); };
+  }, [mixer, animations, idleAnimation]);
 
   // Emissive eye lenses, collected once so the frame loop can pulse them.
   const eyeMaterials = useMemo(() => {
@@ -143,6 +160,8 @@ export function GlbHostAvatar({
   useFrame((state, delta) => {
     const t = state.clock.getElapsedTime();
 
+    mixer?.update(delta);
+
     if (bobRef.current) {
       // Keep groundYOffset in the bob baseline — useFrame runs every tick and would
       // otherwise wipe the JSX position that lifts origin-centered GLBs onto the floor.
@@ -164,8 +183,9 @@ export function GlbHostAvatar({
     }
 
     // Lifelike gaze: both irises wander together with a slow drift plus occasional
-    // quicker shifts (a touch more roving while thinking).
-    if (!ghost && irisNodes.length > 0) {
+    // quicker shifts (a touch more roving while thinking). Skipped when the GLB
+    // drives its own eye movement via a baked animation clip.
+    if (!ghost && !idleAnimation && irisNodes.length > 0) {
       const range = thinking ? 0.016 : 0.012;
       const dart = Math.max(0, Math.sin(t * 0.6 + Math.sin(t * 0.21) * 2.0)) ** 6; // brief look-aways
       const gx = ((Math.sin(t * 0.33) * 0.55 + Math.sin(t * 0.12 + 1.7) * 0.45) + dart * 0.5) * range;
