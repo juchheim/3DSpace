@@ -43,8 +43,8 @@ const FACE_SURFACE_Z = 0.704; // pre-scale front-most Z at eye height
 const EYE_R = 0.21;           // glow quad half-size (scaled up to hold visual size after 20% overall render shrink)
 
 // Head rotation: how far the head turns to follow the eye gaze direction.
-const HEAD_YAW_FACTOR   = 3.5;  // radians of yaw per unit of eye dx  (~15° max)
-const HEAD_PITCH_FACTOR = 2.5;  // radians of pitch per unit of eye dy (~9° max)
+const HEAD_YAW_FACTOR   = 2.2;  // radians of yaw per unit of eye dx  (~9.5° max)
+const HEAD_PITCH_FACTOR = 1.8;  // radians of pitch per unit of eye dy (~6° max)
 // -------------------------------------------------------------------------
 
 const io = new NodeIO().registerExtensions([KHRMaterialsUnlit]);
@@ -232,7 +232,7 @@ const GLANCES = [
 // Quaternion for intrinsic YX rotation: yaw around Y then pitch around local X.
 // GLTF quaternion format: [x, y, z, w].
 function glanceQuat(dx, dy) {
-  const yaw   = -dx * HEAD_YAW_FACTOR;   // negative = turn right when dx > 0
+  const yaw   =  dx * HEAD_YAW_FACTOR;   // positive Y rotation = nose toward +X (robot's own right)
   const pitch = -dy * HEAD_PITCH_FACTOR;  // negative = look up when dy > 0
   const cy = Math.cos(yaw * 0.5),   sy = Math.sin(yaw * 0.5);
   const cp = Math.cos(pitch * 0.5), sp = Math.sin(pitch * 0.5);
