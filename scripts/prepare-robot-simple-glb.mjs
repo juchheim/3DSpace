@@ -41,7 +41,8 @@ const EYE_Y_OFFSET = 0.06;    // above the head centre
 const EYE_Z_PROUD = 0.05;     // sit proud of the face surface (extra clearance when eyes translate sideways)
 const FACE_SURFACE_Z = 0.704; // pre-scale front-most Z at eye height
 const EYE_R = 0.21;           // glow quad half-size (scaled up to hold visual size after 20% overall render shrink)
-const EYE_SCALE = 1.4;        // multiplier on GLANCES dx/dy for eye translation only — head rotation uses raw values
+const EYE_SCALE_X = 0.9;      // horizontal eye travel multiplier (head rotation already covers most of the lateral movement)
+const EYE_SCALE_Y = 1.4;      // vertical eye travel multiplier
 
 // Head rotation: how far the head turns to follow the eye gaze direction.
 const HEAD_YAW_FACTOR   = 2.2;  // radians of yaw per unit of eye dx  (~9.5° max)
@@ -249,9 +250,9 @@ const headRots = new Float32Array(GLANCES.length * 4);
 
 GLANCES.forEach(([t, dx, dy], i) => {
   times[i] = t;
-  // Eye translation: HeadPivot-local space, scaled up for more movement.
-  eyeTrans[i * 3]     = dx * EYE_SCALE;
-  eyeTrans[i * 3 + 1] = EYE_Y_OFFSET + dy * EYE_SCALE;
+  // Eye translation: HeadPivot-local space, scaled independently per axis.
+  eyeTrans[i * 3]     = dx * EYE_SCALE_X;
+  eyeTrans[i * 3 + 1] = EYE_Y_OFFSET + dy * EYE_SCALE_Y;
   eyeTrans[i * 3 + 2] = EYE_Z;
   // Head rotation: driven by raw dx/dy — unchanged from before.
   const q = glanceQuat(dx, dy);
