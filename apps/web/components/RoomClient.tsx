@@ -130,7 +130,9 @@ import { LogicInspector } from "./LogicInspector";
 import { LogicDebugOverlay } from "./LogicDebugOverlay";
 import { useLogicMode } from "../lib/useLogicMode";
 import { ESCAPE_STARTER_KIT, roomStampToTargets } from "../lib/buildStamps";
+import { BUILD_FLOOR_TEXTURE_PRESETS, type BuildFloorTexturePreset } from "../lib/buildFloorTexturePresets";
 import { imageFloorTextureUrl, prepareFloorTextureFile } from "../lib/imageFloorTexture";
+import type { FloorTextureSelection } from "../lib/useBuildMode";
 import { useLogicPieces } from "../lib/useLogicPieces";
 import { useLogicDetection, type LogicDetectionEvent } from "../lib/useLogicDetection";
 import { useEscapeSession } from "../lib/useEscapeSession";
@@ -543,9 +545,10 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   });
   const buildMode = useBuildMode();
   const setFloorTexture = buildMode.setFloorTexture;
+  const floorPresetUploadCacheRef = useRef<Map<string, FloorTextureSelection>>(new Map());
   /** Upload a floor image (downscaled client-side) and select it for the Image Floor tool. */
-  const handleUploadFloorTexture = useCallback(
-    async (file: File) => {
+  const uploadFloorTextureFile = useCallback(
+    async (file: File): Promise<FloorTextureSelection> => {
       const activeRoomId = session?.room.id ?? roomId;
       const prepared = await prepareFloorTextureFile(file);
       const { storageKey, textureUrl, upload } = await createBuildFloorTextureUpload(identity, activeRoomId, {
@@ -558,9 +561,17 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
         body: prepared.blob
       });
       if (!response.ok) throw new Error("Floor image upload failed.");
-      setFloorTexture({ storageKey, url: textureUrl, fileName: prepared.fileName });
+      const selection = { storageKey, url: textureUrl, fileName: prepared.fileName };
+      setFloorTexture(selection);
+      return selection;
     },
     [identity, roomId, session?.room.id, setFloorTexture]
+  );
+  const handleUploadFloorTexture = useCallback(
+    async (file: File) => {
+      await uploadFloorTextureFile(file);
+    },
+    [uploadFloorTextureFile]
   );
   /** Distinct floor images already laid in this room, so a floor can be extended later. */
   const floorTextureOptions = useMemo(() => {
@@ -580,6 +591,26 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     }
     return Array.from(seen.values());
   }, [buildPieces.pieces]);
+  const handleSelectFloorTexturePreset = useCallback(
+    async (preset: BuildFloorTexturePreset) => {
+      const cached = floorPresetUploadCacheRef.current.get(preset.slug);
+      if (cached) {
+        setFloorTexture(cached);
+        return;
+      }
+      const response = await fetch(preset.url);
+      if (!response.ok) throw new Error("Could not load floor preset.");
+      const blob = await response.blob();
+      const file = new File([blob], preset.fileName, {
+        type: blob.type || "image/png"
+      });
+      const selection = await uploadFloorTextureFile(file);
+      const cachedSelection = { ...selection, presetSlug: preset.slug };
+      floorPresetUploadCacheRef.current.set(preset.slug, cachedSelection);
+      setFloorTexture(cachedSelection);
+    },
+    [setFloorTexture, uploadFloorTextureFile]
+  );
   const [selectedAssetSlug, setSelectedAssetSlug] = useState<string | null>(null);
   const [assetYawDeg, setAssetYawDeg] = useState(0);
   // Scatter assets (e.g. Tall Grass): instances strewn per placement click.
@@ -4102,6 +4133,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           finePlacement={fineAssetPlacement}
           onToggleFinePlacement={toggleFineAssetPlacement}
           onUploadFloorTexture={handleUploadFloorTexture}
+          onSelectFloorTexturePreset={handleSelectFloorTexturePreset}
           floorTextureOptions={floorTextureOptions}
         />
       ) : null}

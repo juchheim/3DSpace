@@ -25,6 +25,8 @@ export type FloorTextureSelection = {
   storageKey: string;
   url: string;
   fileName?: string;
+  /** Built-in preset slug, when this texture came from a catalog preset. */
+  presetSlug?: string;
   /** Span used by existing floor pieces with this texture, if known. */
   spanCells?: ImageFloorTextureSpanCells;
 };

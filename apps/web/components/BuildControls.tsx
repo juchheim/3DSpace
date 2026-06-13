@@ -4,6 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { IMAGE_FLOOR_TEXTURE_SPAN_OPTIONS, type BuildPieceMaterial } from "@3dspace/contracts";
 import { BUILD_MATERIAL_OPTIONS } from "./buildMaterials";
 import { BUILTIN_BUILD_STAMPS } from "../lib/buildStamps";
+import {
+  BUILD_FLOOR_TEXTURE_PRESETS,
+  isBuildFloorTexturePresetFileName,
+  type BuildFloorTexturePreset
+} from "../lib/buildFloorTexturePresets";
 import type { BuildModeController, BuildTool, FloorTextureSelection } from "../lib/useBuildMode";
 import { WORLD_ASSET_CATALOG } from "../lib/worldAssetCatalog";
 
@@ -168,6 +173,7 @@ export function BuildControls({
   finePlacement = false,
   onToggleFinePlacement,
   onUploadFloorTexture,
+  onSelectFloorTexturePreset,
   floorTextureOptions = []
 }: {
   buildMode: BuildModeController;
@@ -194,6 +200,8 @@ export function BuildControls({
   onToggleFinePlacement?: () => void;
   /** Uploads a floor image and selects it for the Image Floor tool. */
   onUploadFloorTexture?: (file: File) => Promise<void>;
+  /** Selects a built-in floor preset (uploads to the room on first use). */
+  onSelectFloorTexturePreset?: (preset: BuildFloorTexturePreset) => Promise<void>;
   /** Images already laid as floors in this room, so a floor can be extended later. */
   floorTextureOptions?: FloorTextureSelection[];
 }) {
@@ -216,6 +224,39 @@ export function BuildControls({
     } finally {
       setUploadingTexture(false);
     }
+  }
+
+  async function handleFloorTexturePreset(preset: BuildFloorTexturePreset) {
+    if (!onSelectFloorTexturePreset) return;
+    setUploadingTexture(true);
+    try {
+      await onSelectFloorTexturePreset(preset);
+      buildMode.setStatusMessage("Floor image ready — drag on the ground to lay it.");
+    } catch (err) {
+      buildMode.setStatusMessage(err instanceof Error ? err.message : "Unable to load floor preset.");
+    } finally {
+      setUploadingTexture(false);
+    }
+  }
+
+  const roomFloorTextureOptions = floorTextureOptions.filter(
+    (option) => !isBuildFloorTexturePresetFileName(option.fileName)
+  );
+  const showFloorTextureSwatches =
+    BUILD_FLOOR_TEXTURE_PRESETS.length > 0 || roomFloorTextureOptions.length > 0;
+
+  function isFloorTextureActive(selection: {
+    storageKey?: string;
+    fileName?: string;
+    presetSlug?: string;
+  }) {
+    if (!buildMode.floorTexture) return false;
+    if (selection.presetSlug && buildMode.floorTexture.presetSlug === selection.presetSlug) return true;
+    if (selection.storageKey && buildMode.floorTexture.storageKey === selection.storageKey) return true;
+    return (
+      selection.fileName !== undefined &&
+      buildMode.floorTexture.fileName === selection.fileName
+    );
   }
 
   useEffect(() => {
@@ -464,16 +505,31 @@ export function BuildControls({
                   </div>
                 </div>
 
-                {floorTextureOptions.length > 0 ? (
+                {showFloorTextureSwatches ? (
                   <div className="build-dock__image-floor-recents" role="toolbar" aria-label="Floor images in this room">
                     <span className="build-dock__prop-label">In this room</span>
                     <div className="build-dock__image-floor-swatches">
-                      {floorTextureOptions.map((option) => (
+                      {BUILD_FLOOR_TEXTURE_PRESETS.map((preset) => (
+                        <button
+                          key={preset.slug}
+                          type="button"
+                          className={`build-dock__image-floor-swatch${
+                            isFloorTextureActive({ presetSlug: preset.slug }) ? " is-active" : ""
+                          }`}
+                          title={`${preset.label} floor texture`}
+                          disabled={uploadingTexture || !onSelectFloorTexturePreset}
+                          onClick={() => void handleFloorTexturePreset(preset)}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={preset.url} alt="" loading="lazy" decoding="async" />
+                        </button>
+                      ))}
+                      {roomFloorTextureOptions.map((option) => (
                         <button
                           key={option.storageKey}
                           type="button"
                           className={`build-dock__image-floor-swatch${
-                            buildMode.floorTexture?.storageKey === option.storageKey ? " is-active" : ""
+                            isFloorTextureActive(option) ? " is-active" : ""
                           }`}
                           title={option.fileName ?? "Reuse this floor image (extends the existing floor)"}
                           onClick={() => buildMode.setFloorTexture(option)}
@@ -493,7 +549,7 @@ export function BuildControls({
                       <kbd>4</kbd> erase tiles
                     </>
                   ) : (
-                    <>Pick an image first — PNG, JPEG or WebP.</>
+                    <>Pick a preset below, upload your own, or reuse an image already in this room.</>
                   )}
                 </p>
               </div>
