@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-13 (Image Floor preset textures)
+Last updated: 2026-06-13 (Verse meeting notes)
+
+- **2026-06-13:** **Verse meeting notes** — enabled AI meeting notes in Dream IXR verse rooms: `VERSE_ROOM_TYPE_FEATURE_FLAGS.aiMeetingNotes: true` (contracts); `verseRoomSettings()` no longer disables `aiMeetingNotes` (inherits base `enabled: true`). Existing `MeetingNotesPanel` / API routes / `ENABLE_AI_MEETING_NOTES` env gate unchanged.
 
 - **2026-06-13:** **Image Floor preset textures** — built-in Grass (`grass-v2.png`), Dirt (`floor-dirt-v3.png`), and Concrete (`floor-slight-marbled-concrete.jpg`) in World Builder Image Floor **In this room** swatches (`apps/web/lib/buildFloorTexturePresets.ts`, public assets under `apps/web/public/build/floor-textures/`). First click uploads to room storage (cached per session); presets always shown alongside textures already laid in the room.
 

@@ -140,7 +140,6 @@ export function verseRoomSettings(config: AppConfig) {
       enabled: config.tuning.enableSharedBrowsers
     },
     hallpass: { ...base.hallpass, enabled: false },
-    pods: { ...base.pods, enabled: false },
-    aiMeetingNotes: { ...base.aiMeetingNotes, enabled: false }
+    pods: { ...base.pods, enabled: false }
   };
 }

@@ -1646,7 +1646,7 @@ const VERSE_ROOM_TYPE_FEATURE_FLAGS: RoomTypeFeatureFlags = Object.freeze({
   worldSkins: false,
   dynamicBoards: true,
   openJoin: false,
-  aiMeetingNotes: false,
+  aiMeetingNotes: true,
   aiObjects: false,
   aiWorldHost: true,
   whiteboards: true,

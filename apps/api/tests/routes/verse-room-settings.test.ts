@@ -10,5 +10,6 @@ describe("verseRoomSettings", () => {
     expect(settings.allowLiveStudentShares).toBe(false);
     expect(settings.whiteboards.enabled).toBe(true);
     expect(settings.whiteboards.allowStudentDraw).toBe(true);
+    expect(settings.aiMeetingNotes.enabled).toBe(true);
   });
 });

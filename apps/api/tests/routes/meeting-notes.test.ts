@@ -197,4 +197,23 @@ describe("meeting notes routes", () => {
     expect(response.json().message).toMatch(/not available for this room type/i);
     await app.close();
   });
+
+  it("starts a session in verse rooms", async () => {
+    const app = await buildApp({
+      config: meetingNotesConfig(),
+      repository: new MemoryRepository()
+    });
+
+    const { roomWithManifest } = await createClassAndRoom(app, "teacher-verse-notes", "skill-verse");
+    expect(roomWithManifest.room.settings.aiMeetingNotes.enabled).toBe(true);
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/v1/rooms/${roomWithManifest.room.id}/meeting-notes/sessions`,
+      headers: authHeaders("teacher-verse-notes", "Ms. Rivera")
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().session.status).toBe("recording");
+    await app.close();
+  });
 });
