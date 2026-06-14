@@ -37,19 +37,24 @@ export function TranslationPanel({
 }) {
   const isSharing = controller.sharing;
   const shareDisabled = !controller.supported || !micEnabled;
-  let shareTitle = "";
-  if (!controller.supported) shareTitle = "Chrome or Edge required to share speech";
-  else if (!micEnabled) shareTitle = "Turn on your mic before sharing speech";
 
-  const statusText = isSharing
+  let shareTitle = "";
+  if (!controller.supported) shareTitle = "Speech sharing requires Chrome or Edge";
+  else if (!micEnabled) shareTitle = "Enable your mic to share speech";
+
+  const liveText = isSharing
     ? controller.listening
-      ? `Listening… (${translationLanguageLabel(speakLang)})`
-      : "Starting speech recognition…"
+      ? `Listening in ${translationLanguageLabel(speakLang)}`
+      : "Activating…"
+    : null;
+
+  const footerText = isSharing
+    ? null
     : !controller.supported
-      ? "Chrome or Edge required to share speech."
+      ? "Speech sharing requires Chrome or Edge."
       : !micEnabled
-        ? "Mic off — sharing unavailable."
-        : `Translating to ${translationLanguageLabel(readLang)}`;
+        ? "Enable your mic to share speech."
+        : `Others' speech translates to ${translationLanguageLabel(readLang)}.`;
 
   const hasLines = controller.lines.length > 0;
   const hasAlert = Boolean(controller.error);
@@ -57,10 +62,10 @@ export function TranslationPanel({
   let voiceStatusText = "";
   if (voiceEnabled && voiceController) {
     if (voiceController.audioBlocked) {
-      voiceStatusText = "Click to enable translation audio";
+      voiceStatusText = "Tap to enable audio playback";
     } else if (voiceController.speaking) {
       const queued = voiceController.queueDepth;
-      voiceStatusText = `Speaking ${translationLanguageLabel(readLang)}…${queued > 0 ? ` (${queued} queued)` : ""}`;
+      voiceStatusText = `Speaking ${translationLanguageLabel(readLang)}${queued > 0 ? ` · ${queued} queued` : ""}`;
     } else if (voiceMode !== "off") {
       voiceStatusText = "Voice ready";
     }
@@ -69,7 +74,7 @@ export function TranslationPanel({
   return (
     <HudCard
       title="Translation"
-      ariaLabel="Live translation"
+      ariaLabel="Live translation settings"
       defaultCollapsed
       forceExpanded={isSharing || hasLines}
       hasAlert={hasAlert}
@@ -79,9 +84,16 @@ export function TranslationPanel({
           <p className="translation-panel__error">{controller.error}</p>
         ) : null}
 
+        {liveText ? (
+          <div className="translation-panel__live-status">
+            <span className="translation-panel__live-dot" aria-hidden="true" />
+            <span className="translation-panel__live-text">{liveText}</span>
+          </div>
+        ) : null}
+
         <div className="translation-panel__field">
           <label className="translation-panel__label" htmlFor="translation-read-lang">
-            Show me captions in:
+            Caption language
           </label>
           <select
             id="translation-read-lang"
@@ -97,7 +109,7 @@ export function TranslationPanel({
 
         <div className="translation-panel__field">
           <label className="translation-panel__label" htmlFor="translation-speak-lang">
-            I speak:
+            My language
           </label>
           <select
             id="translation-speak-lang"
@@ -112,10 +124,10 @@ export function TranslationPanel({
         </div>
 
         {voiceEnabled ? (
-          <>
+          <div className="translation-panel__voice-section">
             <div className="translation-panel__field">
               <label className="translation-panel__label" htmlFor="translation-voice-mode">
-                Hear translations:
+                Spoken translation
               </label>
               <select
                 id="translation-voice-mode"
@@ -123,16 +135,16 @@ export function TranslationPanel({
                 value={voiceMode}
                 onChange={(e) => onVoiceModeChange?.(e.target.value as VoiceMode)}
               >
-                <option value="off">Off (subtitles only)</option>
-                <option value="duck">Duck original</option>
-                <option value="replace">Replace original</option>
+                <option value="off">Off – subtitles only</option>
+                <option value="duck">Lower speaker volume</option>
+                <option value="replace">Replace speaker audio</option>
               </select>
             </div>
 
             {voiceMode !== "off" ? (
               <div className="translation-panel__field">
                 <label className="translation-panel__label" htmlFor="translation-voice-choice">
-                  Voice:
+                  Voice
                 </label>
                 <select
                   id="translation-voice-choice"
@@ -140,7 +152,7 @@ export function TranslationPanel({
                   value={voiceChoice}
                   onChange={(e) => onVoiceChoiceChange?.(e.target.value)}
                 >
-                  <option value="auto">Auto (per speaker)</option>
+                  <option value="auto">Auto – match each speaker</option>
                   {TRANSLATION_TTS_VOICES.map((v) => (
                     <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>
                   ))}
@@ -150,29 +162,35 @@ export function TranslationPanel({
 
             {voiceStatusText ? (
               <p
-                className="translation-panel__status"
+                className="translation-panel__voice-status"
                 style={{ cursor: voiceController?.audioBlocked ? "pointer" : undefined }}
                 onClick={voiceController?.audioBlocked ? voiceController.resumeAudio : undefined}
               >
                 {voiceStatusText}
               </p>
             ) : null}
-          </>
+          </div>
         ) : null}
 
         <div className="translation-panel__actions">
           <button
             type="button"
-            className={`translation-panel__button translation-panel__button--share${isSharing ? " translation-panel__button--active" : ""}`}
+            className={`translation-panel__share-btn${isSharing ? " translation-panel__share-btn--live" : ""}`}
             disabled={shareDisabled}
             title={shareTitle}
             onClick={() => controller.toggleSharing()}
           >
-            {isSharing ? "Stop sharing speech" : "Share my speech"}
+            <span
+              className={`translation-panel__share-dot${isSharing ? " translation-panel__share-dot--live" : ""}`}
+              aria-hidden="true"
+            />
+            {isSharing ? "Stop sharing" : "Share my speech"}
           </button>
         </div>
 
-        <p className="translation-panel__status">{statusText}</p>
+        {footerText ? (
+          <p className="translation-panel__footer">{footerText}</p>
+        ) : null}
       </div>
     </HudCard>
   );

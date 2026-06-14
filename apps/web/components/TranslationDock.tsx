@@ -66,52 +66,75 @@ export function TranslationDock({
       <div className="translation-dock translation-dock--idle">
         <button
           type="button"
-          className={`translation-dock__peek hud-btn${controller.sharing ? " translation-dock__peek--live" : ""}`}
+          className={`translation-dock__peek${controller.sharing ? " translation-dock__peek--live" : ""}`}
           onClick={() => controller.setDockOpen(true)}
         >
-          TR · {controller.sharing ? "On" : "Off"}
+          <span
+            className={`translation-dock__peek-dot${controller.sharing ? " translation-dock__peek-dot--live" : ""}`}
+            aria-hidden="true"
+          />
+          Translation
+          {controller.sharing ? <span className="translation-dock__peek-state">· Live</span> : null}
         </button>
       </div>
     );
   }
 
+  const statusText = controller.sharing
+    ? controller.listening
+      ? "Listening…"
+      : "Activating…"
+    : "Active";
+
   return (
     <section
-      className={`translation-dock${expanded ? "" : " translation-dock--collapsed"}${controller.sharing ? " translation-dock--live" : ""}`}
+      className={`translation-dock${expanded ? " translation-dock--expanded" : " translation-dock--collapsed"}${controller.sharing ? " translation-dock--live" : ""}`}
       aria-label="Live translation"
     >
       <div className="translation-dock__bar">
-        <span className={`translation-dock__tr-badge${controller.sharing ? " translation-dock__tr-badge--live" : ""}`}>TR</span>
-        {controller.sharing ? (
-          <span className="translation-dock__status">
-            {controller.listening ? "Listening…" : "Starting speech recognition…"}
+        <div className="translation-dock__bar-start">
+          <span
+            className={`translation-dock__dot${controller.sharing ? " translation-dock__dot--live" : ""}`}
+            aria-hidden="true"
+          />
+          <span className="translation-dock__title">Translation</span>
+          <span className={`translation-dock__status${controller.sharing ? "" : " translation-dock__status--muted"}`}>
+            {statusText}
           </span>
-        ) : (
-          <span className="translation-dock__status translation-dock__status--muted">Translation active</span>
-        )}
-        <div className="translation-dock__actions">
+        </div>
+
+        <div className="translation-dock__bar-end">
+          {!controller.supported ? null : (
+            <button
+              type="button"
+              className={`translation-dock__share-btn${controller.sharing ? " translation-dock__share-btn--live" : ""}`}
+              onClick={() => controller.toggleSharing()}
+            >
+              {controller.sharing ? "Stop" : "Share speech"}
+            </button>
+          )}
           {displayRows.length > 0 ? (
-            <button type="button" className="hud-btn translation-dock__action" onClick={() => controller.clearLines()}>
+            <button
+              type="button"
+              className="translation-dock__action"
+              onClick={() => controller.clearLines()}
+            >
               Clear
             </button>
           ) : null}
           {expanded ? (
-            <button type="button" className="hud-btn translation-dock__action" onClick={() => void controller.copyVisible()}>
+            <button
+              type="button"
+              className="translation-dock__action"
+              onClick={() => void controller.copyVisible()}
+            >
               Copy
             </button>
           ) : null}
           <button
             type="button"
-            className={`hud-btn translation-dock__action${controller.sharing ? " hud-btn--active" : ""}`}
-            disabled={!controller.supported}
-            title={controller.supported ? "Share your speech for translation" : "Chrome or Edge required to share speech"}
-            onClick={() => controller.toggleSharing()}
-          >
-            {controller.sharing ? "Stop sharing" : "Share speech"}
-          </button>
-          <button
-            type="button"
-            className="hud-btn translation-dock__action translation-dock__expand"
+            className="translation-dock__action translation-dock__action--icon"
+            aria-label={expanded ? "Collapse" : "Expand"}
             aria-expanded={expanded}
             onClick={() => setExpanded((v) => !v)}
           >
@@ -119,17 +142,19 @@ export function TranslationDock({
           </button>
           <button
             type="button"
-            className="hud-btn translation-dock__action translation-dock__hide"
-            title="Hide translation dock"
+            className="translation-dock__action translation-dock__action--icon"
+            aria-label="Close translation dock"
             onClick={handleReset}
           >
-            Hide
+            ✕
           </button>
         </div>
       </div>
 
       {!controller.supported ? (
-        <p className="translation-dock__note">Chrome or Edge required to share speech. You can still read others' translations.</p>
+        <p className="translation-dock__note">
+          Speech sharing requires Chrome or Edge. You can still read others' translations.
+        </p>
       ) : null}
       {controller.error ? <p className="translation-dock__error">{controller.error}</p> : null}
 
@@ -138,9 +163,9 @@ export function TranslationDock({
           <p className="translation-dock__empty">
             {controller.sharing
               ? controller.listening
-                ? "Speak clearly — your speech will appear here."
-                : "Waiting for speech recognition to start…"
-              : "Others' translated speech appears here when they share."}
+                ? "Speak clearly — your words will appear here."
+                : "Activating speech recognition…"
+              : "When others share speech, their translations appear here."}
           </p>
         ) : (
           displayRows.map((row, index) => {
@@ -167,10 +192,10 @@ export function TranslationDock({
                 </span>
                 {row.translatedFrom && !isOwnLine ? (
                   <span className="translation-dock__meta">
-                    <span className="translation-dock__translated-from">
-                      translated from {translationLanguageLabel(row.translatedFrom)}
+                    <span className="translation-dock__source-lang">
+                      from {translationLanguageLabel(row.translatedFrom)}
                     </span>
-                    {" · "}
+                    <span className="translation-dock__meta-sep" aria-hidden="true">·</span>
                     <button
                       type="button"
                       className="translation-dock__toggle-original"
