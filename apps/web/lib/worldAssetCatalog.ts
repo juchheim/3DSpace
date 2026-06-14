@@ -28,6 +28,8 @@ export type WorldAsset = {
   scatter?: WorldAssetScatter;
   /** When true, the renderer applies a gentle vertex-shader wind sway. */
   windSway?: boolean;
+  /** When true, avatars can stand & lock at this asset with E (podium/lectern). */
+  podiumStand?: boolean;
 };
 
 export const WORLD_ASSET_CATALOG: WorldAsset[] = [
@@ -103,7 +105,8 @@ export const WORLD_ASSET_CATALOG: WorldAsset[] = [
     displayName: "Podium",
     glbUrl: "/objects/podium.glb",
     thumbnailUrl: "/objects/thumbnails/podium.jpg",
-    scale: 0.42
+    scale: 0.42,
+    podiumStand: true
   }
 ];
 
@@ -124,6 +127,15 @@ export function isSittableWorldAsset(slug: string): boolean {
 /** True when sitting on this asset should open the personal desk notebook. */
 export function hasDeskNotebook(slug: string): boolean {
   return worldAssetBySlug(slug)?.deskNotebook === true;
+}
+
+export function isPodiumWorldAsset(slug: string): boolean {
+  return worldAssetBySlug(slug)?.podiumStand === true;
+}
+
+/** True when standing at this asset should open the importable notebook. */
+export function hasPodiumNotebook(slug: string): boolean {
+  return worldAssetBySlug(slug)?.podiumStand === true;
 }
 
 export function worldAssetScale(slug: string): number {

@@ -6,6 +6,7 @@
 // (applied on .room-shell) themes the cover and accents automatically.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { IMPORT_MAX_BYTES_EXPORT } from "../../lib/useDeskNotebook";
 import { isKeyboardOwnedTarget } from "../../lib/isKeyboardOwnedTarget";
 import {
   notebookHasContent,
@@ -96,6 +97,16 @@ function IconAddPages() {
     </svg>
   );
 }
+function IconImport() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="8" y1="2" x2="8" y2="10" />
+      <polyline points="5,7 8,11 11,7" />
+      <path d="M3 13H13" />
+      <path d="M3 3H6M10 3H13" strokeDasharray="2 1" />
+    </svg>
+  );
+}
 function IconMinimize() {
   return (
     <svg viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
@@ -124,13 +135,17 @@ const TOOL_OPTIONS: Array<{ id: NotebookTool; label: string; icon: React.ReactNo
 export function DeskNotebook({
   roomId,
   userId,
-  roomLabel
+  roomLabel,
+  storageScope,
+  enableTextImport
 }: {
   roomId: string;
   userId: string;
   roomLabel?: string;
+  storageScope?: string;
+  enableTextImport?: boolean;
 }) {
-  const notebook = useDeskNotebook({ roomId, userId });
+  const notebook = useDeskNotebook(storageScope ? { roomId, userId, scope: storageScope } : { roomId, userId });
   const [minimized, setMinimized] = useState(false);
   const [coverStage, setCoverStage] = useState<CoverStage>("closed");
   const [tool, setTool] = useState<NotebookTool>("type");
@@ -139,6 +154,8 @@ export function DeskNotebook({
   const [flip, setFlip] = useState<FlipState>(null);
   const [exporting, setExporting] = useState(false);
   const [scale, setScale] = useState(1);
+  const [importError, setImportError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const minimizedRef = useRef(minimized);
   minimizedRef.current = minimized;
 
@@ -217,6 +234,24 @@ export function DeskNotebook({
       // Export is best-effort; the notes stay safely in the notebook.
     } finally {
       setExporting(false);
+    }
+  }
+
+  async function handleImportFile(file: File | null) {
+    if (!file) return;
+    const isText = file.type === "text/plain" || /\.(txt|md)$/i.test(file.name);
+    if (!isText || file.size > IMPORT_MAX_BYTES_EXPORT) {
+      setImportError("Choose a plain-text file under 200 KB");
+      return;
+    }
+    try {
+      const raw = await file.text();
+      if (notebookHasContent(notebook.pages) &&
+          !window.confirm("Replace the current notebook with the imported text?")) return;
+      notebook.importText(raw);
+      setImportError(null);
+    } catch {
+      setImportError("Could not read that file");
     }
   }
 
@@ -354,6 +389,11 @@ export function DeskNotebook({
           <span className="desk-notebook__pages-label" aria-live="polite">
             {current * 2 + 1}–{current * 2 + 2} / {pages.length}
           </span>
+          {importError ? (
+            <span className="desk-notebook__import-error" role="alert" aria-live="assertive">
+              {importError}
+            </span>
+          ) : null}
           <button
             type="button"
             className="desk-notebook__action"
@@ -364,6 +404,26 @@ export function DeskNotebook({
           >
             <IconAddPages />
           </button>
+          {enableTextImport ? (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".txt,.md,text/plain"
+                style={{ display: "none" }}
+                onChange={(e) => { void handleImportFile(e.target.files?.[0] ?? null); e.target.value = ""; }}
+              />
+              <button
+                type="button"
+                className="desk-notebook__action"
+                onClick={() => fileInputRef.current?.click()}
+                title="Import a text file"
+                aria-label="Import a text file"
+              >
+                <IconImport />
+              </button>
+            </>
+          ) : null}
           <button
             type="button"
             className="desk-notebook__action"

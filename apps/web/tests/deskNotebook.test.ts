@@ -4,8 +4,10 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createNotebookDoc,
+  docFromImportedText,
   notebookHasContent,
   notebookStorageKey,
+  paginateImportedText,
   parseNotebookDoc,
   serializeNotebookDoc,
   useDeskNotebook,
@@ -174,6 +176,123 @@ describe("useDeskNotebook persistence", () => {
       result.current.setSpreadIndex(-4);
     });
     expect(result.current.spreadIndex).toBe(0);
+  });
+});
+
+describe("notebookStorageKey scope isolation", () => {
+  it("scoped key differs from unscoped key", () => {
+    const unscoped = notebookStorageKey("room-1", "user-1");
+    const scoped = notebookStorageKey("room-1", "user-1", "podium");
+    expect(scoped).not.toBe(unscoped);
+    expect(scoped).toContain("podium");
+    expect(scoped).toContain("room-1");
+    expect(scoped).toContain("user-1");
+  });
+
+  it("different scopes produce different keys", () => {
+    const desk = notebookStorageKey("r", "u");
+    const podium = notebookStorageKey("r", "u", "podium");
+    expect(desk).not.toBe(podium);
+  });
+});
+
+describe("paginateImportedText", () => {
+  it("wraps long lines into chunks", () => {
+    const longLine = "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi";
+    const pages = paginateImportedText(longLine, 20, 3);
+    for (const page of pages) {
+      for (const line of page.split("\n")) {
+        expect(line.length).toBeLessThanOrEqual(20);
+      }
+    }
+  });
+
+  it("honours blank lines", () => {
+    const raw = "line one\n\nline three";
+    const pages = paginateImportedText(raw, 52, 60);
+    const joined = pages.join("\n");
+    expect(joined).toContain("\n\n");
+  });
+
+  it("chunks into linesPerPage-sized pages", () => {
+    const raw = Array.from({ length: 20 }, (_, i) => `Line ${i + 1}`).join("\n");
+    const pages = paginateImportedText(raw, 52, 5);
+    expect(pages.length).toBeGreaterThan(1);
+    for (const page of pages.slice(0, -1)) {
+      expect(page.split("\n").length).toBe(5);
+    }
+  });
+
+  it("caps at maxPages", () => {
+    const raw = Array.from({ length: 200 }, (_, i) => `Line ${i + 1}`).join("\n");
+    const pages = paginateImportedText(raw, 52, 3, 10);
+    expect(pages.length).toBeLessThanOrEqual(10);
+  });
+
+  it("returns a single empty page for empty input", () => {
+    expect(paginateImportedText("")).toEqual([""]);
+  });
+});
+
+describe("docFromImportedText", () => {
+  it("returns version 1 and even page count", () => {
+    const doc = docFromImportedText("Hello world");
+    expect(doc.version).toBe(1);
+    expect(doc.pages.length % 2).toBe(0);
+    expect(doc.pages.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("fills pages with the imported text", () => {
+    const raw = Array.from({ length: 50 }, (_, i) => `Paragraph ${i + 1}`).join("\n");
+    const doc = docFromImportedText(raw);
+    const allText = doc.pages.map((p) => p.text).join("\n");
+    expect(allText).toContain("Paragraph 1");
+    expect(allText).toContain("Paragraph 50");
+  });
+});
+
+describe("useDeskNotebook importText", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.useRealTimers();
+  });
+
+  it("replaces doc and persists under the scoped key", () => {
+    const { result } = renderHook(() =>
+      useDeskNotebook({ roomId: "room-imp", userId: "user-imp", scope: "podium" })
+    );
+
+    act(() => {
+      result.current.importText("Hello, podium world!");
+    });
+
+    expect(result.current.pages.some((p) => p.text.includes("Hello, podium world!"))).toBe(true);
+    expect(result.current.spreadIndex).toBe(0);
+
+    const stored = window.localStorage.getItem(notebookStorageKey("room-imp", "user-imp", "podium"));
+    expect(stored).not.toBeNull();
+    const parsed = parseNotebookDoc(stored);
+    expect(parsed).not.toBeNull();
+    expect(parsed!.pages.some((p) => p.text.includes("Hello, podium world!"))).toBe(true);
+  });
+
+  it("importText does not affect the unscoped desk notebook", () => {
+    const { result: deskResult } = renderHook(() =>
+      useDeskNotebook({ roomId: "room-iso", userId: "user-iso" })
+    );
+    const { result: podiumResult } = renderHook(() =>
+      useDeskNotebook({ roomId: "room-iso", userId: "user-iso", scope: "podium" })
+    );
+
+    act(() => {
+      deskResult.current.setPageText(deskResult.current.pages[0]!.id, "desk notes");
+    });
+    act(() => {
+      podiumResult.current.importText("podium script");
+    });
+
+    expect(deskResult.current.pages[0]!.text).toBe("desk notes");
+    expect(podiumResult.current.pages.some((p) => p.text.includes("podium script"))).toBe(true);
   });
 });
 

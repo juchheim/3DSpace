@@ -66,9 +66,62 @@ const INITIAL_PAGE_COUNT = 4;
 const MAX_STROKES_PER_PAGE = 400;
 const MAX_TEXT_LENGTH = 4000;
 
-export function notebookStorageKey(roomId: string, userId: string): string {
-  return `${NOTEBOOK_STORAGE_PREFIX}:${roomId}:${userId}`;
+export function notebookStorageKey(roomId: string, userId: string, scope?: string): string {
+  return scope
+    ? `${NOTEBOOK_STORAGE_PREFIX}:${scope}:${roomId}:${userId}`
+    : `${NOTEBOOK_STORAGE_PREFIX}:${roomId}:${userId}`;
 }
+
+const IMPORT_MAX_BYTES = 200 * 1024;
+const IMPORT_MAX_PAGES = 60;
+const IMPORT_CHARS_PER_LINE = 52;
+const IMPORT_LINES_PER_PAGE = Math.max(
+  6,
+  Math.floor((NOTEBOOK_PAGE.height - NOTEBOOK_PAGE.ruleTop - 18) / NOTEBOOK_PAGE.ruleSpacing)
+);
+
+/** Soft-wrap raw text to ~charsPerLine, then chunk into page-sized strings. */
+export function paginateImportedText(
+  raw: string,
+  charsPerLine = IMPORT_CHARS_PER_LINE,
+  linesPerPage = IMPORT_LINES_PER_PAGE,
+  maxPages = IMPORT_MAX_PAGES
+): string[] {
+  const wrapped: string[] = [];
+  for (const rawLine of raw.replace(/\r\n?/g, "\n").split("\n")) {
+    if (rawLine.length === 0) { wrapped.push(""); continue; }
+    let current = "";
+    for (const word of rawLine.split(" ")) {
+      const candidate = current.length === 0 ? word : `${current} ${word}`;
+      if (current.length > 0 && candidate.length > charsPerLine) {
+        wrapped.push(current);
+        current = word;
+      } else {
+        current = candidate;
+      }
+      while (current.length > charsPerLine) {
+        wrapped.push(current.slice(0, charsPerLine));
+        current = current.slice(charsPerLine);
+      }
+    }
+    wrapped.push(current);
+  }
+  const pages: string[] = [];
+  for (let i = 0; i < wrapped.length && pages.length < maxPages; i += linesPerPage) {
+    pages.push(wrapped.slice(i, i + linesPerPage).join("\n"));
+  }
+  return pages.length > 0 ? pages : [""];
+}
+
+/** Build a fresh doc from paginated text (even page count for spreads). */
+export function docFromImportedText(raw: string): NotebookDoc {
+  const textPages = paginateImportedText(raw);
+  const pages: NotebookPage[] = textPages.map((text) => ({ id: makeId("page"), text, strokes: [] }));
+  if (pages.length % 2 !== 0) pages.push(createNotebookPage());
+  return { version: 1, pages, updatedAt: new Date().toISOString() };
+}
+
+export const IMPORT_MAX_BYTES_EXPORT = IMPORT_MAX_BYTES;
 
 function makeId(prefix: string) {
   return globalThis.crypto?.randomUUID?.() ?? `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -166,10 +219,20 @@ export type UseDeskNotebookReturn = {
   setPageText: (pageId: string, text: string) => void;
   commitStroke: (pageId: string, stroke: NotebookStroke) => void;
   eraseStrokes: (pageId: string, strokeIds: string[]) => void;
+  /** Replace the entire doc with pages from imported text and persist. */
+  importText: (raw: string) => void;
 };
 
-export function useDeskNotebook({ roomId, userId }: { roomId: string; userId: string }): UseDeskNotebookReturn {
-  const storageKey = notebookStorageKey(roomId, userId);
+export function useDeskNotebook({
+  roomId,
+  userId,
+  scope
+}: {
+  roomId: string;
+  userId: string;
+  scope?: string;
+}): UseDeskNotebookReturn {
+  const storageKey = notebookStorageKey(roomId, userId, scope);
   const [doc, setDoc] = useState<NotebookDoc>(() => {
     if (typeof window === "undefined") return createNotebookDoc();
     return parseNotebookDoc(window.localStorage.getItem(storageKey)) ?? createNotebookDoc();
@@ -271,6 +334,17 @@ export function useDeskNotebook({ roomId, userId }: { roomId: string; userId: st
     [mutatePages]
   );
 
+  const importText = useCallback(
+    (raw: string) => {
+      const next = docFromImportedText(raw);
+      setDoc(next);
+      setSpreadIndexState(0);
+      docRef.current = next;
+      persist();
+    },
+    [persist]
+  );
+
   return {
     pages: doc.pages,
     spreadIndex: Math.min(spreadIndex, spreadCount - 1),
@@ -279,6 +353,7 @@ export function useDeskNotebook({ roomId, userId }: { roomId: string; userId: st
     addSpread,
     setPageText,
     commitStroke,
-    eraseStrokes
+    eraseStrokes,
+    importText
   };
 }

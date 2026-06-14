@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  isPodiumWorldAsset,
+  hasPodiumNotebook,
   placedWorldAssetRenderScale,
   sampleWorldAssetPlacementScale,
   scatterWorldAssetOffsets,
   worldAssetBySlug,
   WORLD_ASSET_CATALOG
 } from "../lib/worldAssetCatalog";
+import { podiumStandPose } from "../lib/usePlacedChairs";
+import type { PlacedChair } from "../lib/usePlacedChairs";
 
 describe("worldAssetCatalog", () => {
   it("includes the tree World Builder object with scale variance", () => {
@@ -108,5 +112,47 @@ describe("worldAssetCatalog", () => {
   it("uses persisted instance scale when rendering", () => {
     expect(placedWorldAssetRenderScale({ slug: "tree", scale: 1.08 })).toBe(1.08);
     expect(placedWorldAssetRenderScale({ slug: "table-6-walnut" })).toBe(0.8);
+  });
+});
+
+describe("podium catalog flags", () => {
+  it("isPodiumWorldAsset is true for podium, false for others", () => {
+    expect(isPodiumWorldAsset("podium")).toBe(true);
+    expect(isPodiumWorldAsset("school-desk-chair2")).toBe(false);
+    expect(isPodiumWorldAsset("folding-chair")).toBe(false);
+    expect(isPodiumWorldAsset("unknown-slug")).toBe(false);
+  });
+
+  it("hasPodiumNotebook is true for podium, false for others", () => {
+    expect(hasPodiumNotebook("podium")).toBe(true);
+    expect(hasPodiumNotebook("school-desk-chair2")).toBe(false);
+    expect(hasPodiumNotebook("unknown-slug")).toBe(false);
+  });
+
+  it("podiumStandPose returns a point behind the origin at asset yaw", () => {
+    const asset: PlacedChair = {
+      id: "p1",
+      slug: "podium",
+      position: { x: 0, y: 0, z: 0 },
+      yaw: 0
+    };
+    const pose = podiumStandPose(asset);
+    // yaw=0: forwardX=0, forwardZ=1 → presenter is at z < 0 (behind)
+    expect(pose.position.x).toBeCloseTo(0, 5);
+    expect(pose.position.z).toBeLessThan(0);
+    expect(pose.rotationY).toBeCloseTo(0, 5);
+  });
+
+  it("podiumStandPose respects non-zero yaw", () => {
+    const asset: PlacedChair = {
+      id: "p2",
+      slug: "podium",
+      position: { x: 5, y: 0, z: 5 },
+      yaw: Math.PI / 2
+    };
+    const pose = podiumStandPose(asset);
+    // yaw=π/2: forwardX=1, forwardZ≈0 → presenter is at x < 5
+    expect(pose.position.x).toBeLessThan(5);
+    expect(pose.rotationY).toBeCloseTo(Math.PI / 2, 5);
   });
 });

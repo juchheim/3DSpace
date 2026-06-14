@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { isSittableWorldAsset } from "./worldAssetCatalog";
+import { isPodiumWorldAsset, isSittableWorldAsset } from "./worldAssetCatalog";
 
 export type PlacedChair = {
   id: string;
@@ -68,6 +68,47 @@ export function findNearestChair(
     const d = distanceXZ(avatarPos, chair.position);
     if (d < bestDist) {
       best = chair;
+      bestDist = d;
+    }
+  }
+  return best;
+}
+
+/** Distance (m) the presenter stands behind the podium origin. Tune vs. GLB. */
+const PODIUM_STAND_OFFSET = 0.6;
+
+/** World-space standing pose for an avatar presenting at `podium`. */
+export function podiumStandPose(podium: PlacedChair): {
+  position: { x: number; y: number; z: number };
+  rotationY: number;
+} {
+  // Front faces (sin(yaw), 0, cos(yaw)); the presenter stands opposite the
+  // front and faces the same direction (toward the audience).
+  const forwardX = Math.sin(podium.yaw);
+  const forwardZ = Math.cos(podium.yaw);
+  return {
+    position: {
+      x: podium.position.x - forwardX * PODIUM_STAND_OFFSET,
+      y: podium.position.y,
+      z: podium.position.z - forwardZ * PODIUM_STAND_OFFSET
+    },
+    rotationY: podium.yaw
+  };
+}
+
+/** Nearest podium-station within `radius` metres of `avatarPos`, or null. */
+export function findNearestPodium(
+  avatarPos: { x: number; z: number },
+  assets: PlacedChair[],
+  radius = 1.5
+): PlacedChair | null {
+  let best: PlacedChair | null = null;
+  let bestDist = radius;
+  for (const asset of assets) {
+    if (!isPodiumWorldAsset(asset.slug)) continue;
+    const d = distanceXZ(avatarPos, asset.position);
+    if (d < bestDist) {
+      best = asset;
       bestDist = d;
     }
   }

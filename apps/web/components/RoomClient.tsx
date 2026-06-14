@@ -88,8 +88,9 @@ import { isBoardGrantActive } from "../lib/classroomGrants";
 import { findNearestChair } from "../lib/usePlacedChairs";
 import { usePlacedWorldAssets } from "../lib/usePlacedWorldAssets";
 import { useSitting } from "../lib/useSitting";
+import { useStanding } from "../lib/useStanding";
 import { AVATAR_KEYBOARD_INTERACT_MAX_HOLD_MS } from "../lib/useAvatarMovement";
-import { hasDeskNotebook, scatterWorldAssetOffsets, WORLD_ASSET_CATALOG } from "../lib/worldAssetCatalog";
+import { hasDeskNotebook, hasPodiumNotebook, scatterWorldAssetOffsets, WORLD_ASSET_CATALOG } from "../lib/worldAssetCatalog";
 import { worldAssetGroundY } from "../lib/worldAssetGroundY";
 import { AnchorPanel } from "./AnchorPanel";
 import { AuthGate } from "../lib/auth";
@@ -1189,12 +1190,17 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     getAvatarPosition: () => avatarPositionRef.current,
     resolveGroundY: resolveWorldAssetGroundY
   });
-  // Merge classroom lock and sitting lock; classroom lock wins if set.
-  const combinedLockedPosition = lockedPosition ?? sitting.seatLockedPosition;
+  const standing = useStanding({
+    assets: chairs.chairs,
+    getAvatarPosition: () => avatarPositionRef.current,
+    resolveGroundY: resolveWorldAssetGroundY
+  });
+  // Classroom lock wins, then seat, then podium.
+  const combinedLockedPosition = lockedPosition ?? sitting.seatLockedPosition ?? standing.standLockedPosition;
   const combinedLockedRotationY =
     lockedPosition !== null && lockedPosition !== undefined
       ? null
-      : sitting.seatYaw;
+      : (sitting.seatYaw ?? standing.standYaw);
 
   const movement = useAvatarMovement({
     manifest,
@@ -1230,12 +1236,21 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     sitting.sittingPhase === "seated" &&
     sitting.nearestChair !== null &&
     hasDeskNotebook(sitting.nearestChair.slug);
+  const podiumEngaged = standing.engaged;
+  const podiumNotebook =
+    standing.engaged && standing.nearestPodium !== null && hasPodiumNotebook(standing.nearestPodium.slug);
   const sittingTryInteractRef = useRef(sitting.tryInteract);
   sittingTryInteractRef.current = sitting.tryInteract;
   const sittingPhaseRef = useRef(sitting.sittingPhase);
   sittingPhaseRef.current = sitting.sittingPhase;
   const nearestChairRef = useRef(nearestChairForPrompt);
   nearestChairRef.current = nearestChairForPrompt;
+  const standingTryInteractRef = useRef(standing.tryInteract);
+  standingTryInteractRef.current = standing.tryInteract;
+  const nearestPodiumRef = useRef(standing.nearestPodium);
+  nearestPodiumRef.current = standing.nearestPodium;
+  const podiumEngagedRef = useRef(standing.engaged);
+  podiumEngagedRef.current = standing.engaged;
   const sittingKeyDownTimesRef = useRef(new Map<string, number>());
   const logicDetection = useLogicDetection({
     enabled: logicPlayEnabled,
@@ -1270,8 +1285,11 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       // Sit/stand on release if hold was shorter than interact max (turn starts earlier at turn-hold).
       if (held >= AVATAR_KEYBOARD_INTERACT_MAX_HOLD_MS) return;
       e.preventDefault();
-      // tryInteract no-ops when not seated and no chair is in range.
-      sittingTryInteractRef.current();
+      if (sittingPhaseRef.current !== "none" || nearestChairRef.current) {
+        sittingTryInteractRef.current();
+      } else if (podiumEngagedRef.current || nearestPodiumRef.current) {
+        standingTryInteractRef.current();
+      }
     }
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
@@ -1288,8 +1306,9 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     function onKeyDown(e: KeyboardEvent) {
       if (isKeyboardOwnedTarget(e.target)) return;
       if (e.code !== "KeyE" || e.repeat) return;
-      // Don't trigger logic if the avatar is near a chair or already seated
-      if (sittingPhaseRef.current !== "none" || nearestChairRef.current) return;
+      // Don't trigger logic if the avatar is near a chair/podium or already seated/engaged
+      if (sittingPhaseRef.current !== "none" || nearestChairRef.current ||
+          podiumEngagedRef.current || nearestPodiumRef.current) return;
       e.preventDefault();
       logicTryInteractRef.current();
     }
@@ -1813,6 +1832,18 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sitting.sittingPhase, sitting.seatLockedPosition, sitting.seatYaw]);
+
+  // When engaging a podium, snap avatar position + yaw to the stand pose.
+  const engagedPodiumRef = useRef(standing.engaged);
+  useEffect(() => {
+    if (!standing.engaged) { engagedPodiumRef.current = false; return; }
+    if (engagedPodiumRef.current) return;
+    engagedPodiumRef.current = true;
+    if (standing.standLockedPosition) {
+      movement.teleportToPosition(standing.standLockedPosition, standing.standYaw ?? undefined);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [standing.engaged, standing.standLockedPosition, standing.standYaw]);
 
   const releaseMedia = media.release;
   const teardownSession = useCallback(() => {
@@ -4128,13 +4159,32 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
             </>
           ) : null}
         </div>
+      ) : podiumEngaged ? (
+        <div className="hud-interaction-prompt" role="status" aria-live="polite">
+          <kbd>E</kbd> leave
+          <span aria-hidden="true">·</span>
+          <kbd>N</kbd> notebook
+        </div>
       ) : nearestChairForPrompt ? (
         <div className="hud-interaction-prompt" role="status" aria-live="polite">
           <kbd>E</kbd> sit
         </div>
+      ) : standing.nearestPodium ? (
+        <div className="hud-interaction-prompt" role="status" aria-live="polite">
+          <kbd>E</kbd> present
+        </div>
       ) : null}
       {seatedNotebookDesk && session ? (
         <DeskNotebook roomId={session.room.id} userId={identity.userId} roomLabel={session.room.name} />
+      ) : null}
+      {podiumNotebook && session ? (
+        <DeskNotebook
+          roomId={session.room.id}
+          userId={identity.userId}
+          roomLabel={session.room.name}
+          storageScope="podium"
+          enableTextImport
+        />
       ) : null}
       {logicPlayEnabled && nearestInteractable?.kind === "button" ? (
         <div className="hud-interaction-prompt" role="status" aria-live="polite">
