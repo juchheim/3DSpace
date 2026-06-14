@@ -97,16 +97,23 @@ function ArborCeilingGlbMesh({ piece }: { piece: BuildPiece }) {
 
 /** Map build rotation to GLB yaw; native mesh climbs from +Z (low) to −Z (high). */
 function rampGlbRotationY(rotation: BuildPieceRotation): number {
+  let yaw: number;
   switch (rotation) {
     case 0:
-      return Math.PI;
+      yaw = Math.PI;
+      break;
     case 90:
-      return Math.PI / 2;
+      yaw = Math.PI / 2;
+      break;
     case 180:
-      return 0;
+      yaw = 0;
+      break;
     case 270:
-      return -Math.PI / 2;
+      yaw = -Math.PI / 2;
+      break;
   }
+  // Mesh is authored backwards relative to engine climb; offset 180° so visuals match walk surface.
+  return yaw + Math.PI;
 }
 
 /**
