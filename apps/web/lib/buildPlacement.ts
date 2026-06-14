@@ -18,6 +18,7 @@ import {
   BUILD_STEP_UP_MAX,
   buildPieceStableId,
   buildPieceRequiresEdge,
+  isBuildCellFixtureKind,
   isBuildFloorPieceKind,
   isBuildWallSegmentKind,
   isBuildAllowedAt,
@@ -228,9 +229,9 @@ export function resolveBuildPlacementTarget(input: {
     };
   }
 
-  if (input.tool === "light") {
+  if (input.tool === "light" || input.tool === "arbor-ceiling") {
     return {
-      kind: "light",
+      kind: input.tool,
       cell,
       level: inferPlacementLevel(input.hitY, input.surfacePiece, baseLevel),
       rotation: input.rotation,
@@ -494,11 +495,14 @@ export function findBuildPieceForDestroy(pieces: BuildPiece[], hitX: number, hit
     return edgePieces.sort((a, b) => b.level - a.level)[0] ?? null;
   }
 
-  const lights = pieces.filter(
-    (piece) => piece.kind === "light" && piece.cell.ix === cell.ix && piece.cell.iz === cell.iz
+  const fixtures = pieces.filter(
+    (piece) =>
+      isBuildCellFixtureKind(piece.kind) &&
+      piece.cell.ix === cell.ix &&
+      piece.cell.iz === cell.iz
   );
-  if (lights.length > 0) {
-    return lights.sort((a, b) => b.level - a.level)[0] ?? null;
+  if (fixtures.length > 0) {
+    return fixtures.sort((a, b) => b.level - a.level)[0] ?? null;
   }
 
   const surfaces = pieces.filter(

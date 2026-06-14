@@ -1657,6 +1657,17 @@ label {
 
 /* ── Body / grid ── */
 .build-dock__body { padding: 11px; border-top: 1px solid var(--bd-line); margin-top: -1px; }
+.build-dock__rooms {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--bd-line);
+}
+.build-dock__grid--rooms {
+  grid-template-columns: 1fr;
+}
 .build-dock__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));

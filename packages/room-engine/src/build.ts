@@ -47,6 +47,9 @@ export const BUILD_WALL_SEGMENT_KINDS = ["wall", "simple-wall"] as const;
 /** Walkable floor slabs (fixed-texture GLB floor and image-textured tiled floor). */
 export const BUILD_FLOOR_PIECE_KINDS = ["floor", "image-floor"] as const;
 
+/** Non-colliding cell fixtures (lamps, trellis ceilings) that share a cell with floors. */
+export const BUILD_CELL_FIXTURE_KINDS = ["light", "arbor-ceiling"] as const;
+
 export function buildPieceRequiresEdge(kind: BuildPiece["kind"]): boolean {
   return (BUILD_EDGE_PIECE_KINDS as readonly string[]).includes(kind);
 }
@@ -57,6 +60,10 @@ export function isBuildWallSegmentKind(kind: BuildPiece["kind"]): boolean {
 
 export function isBuildFloorPieceKind(kind: BuildPiece["kind"]): boolean {
   return (BUILD_FLOOR_PIECE_KINDS as readonly string[]).includes(kind);
+}
+
+export function isBuildCellFixtureKind(kind: BuildPiece["kind"]): boolean {
+  return (BUILD_CELL_FIXTURE_KINDS as readonly string[]).includes(kind);
 }
 
 /** Doorway opening: avatar-height band is open (no colliders). */
@@ -302,7 +309,7 @@ export function buildPieceColliders(piece: BuildPiece): BuildPieceColliders {
     };
   }
 
-  if (piece.kind === "light") {
+  if (isBuildCellFixtureKind(piece.kind)) {
     return { walls: [] };
   }
 

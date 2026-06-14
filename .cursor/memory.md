@@ -1,6 +1,18 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-14 (Vienna market GLB audit)
+Last updated: 2026-06-14 (Arbor ceiling build piece)
+
+- **2026-06-14:** **World Builder Arbor ceiling** — new `arbor-ceiling` `BuildPieceKind` (not a stamp): one-cell pergola trellis at the top of a level (perimeter + partial cross beams, open center for sky light); procedural mesh in `arborCeilingBeams.ts` + `BuildPieceMesh`; Build tab fixture tile; stacks with floors/lights; `R` rotates; AI corpus updated. Existing `arbor-4x4` stamp unchanged.
+
+- **2026-06-14:** **World Builder Arbor room** — `arbor-4x4` stamp in `buildStamps.ts`: 4×4 wood floor, corner `simple-wall` posts, level-1 trellis beams (open center for sunlight), south doorway; surfaced on **Build** tab **Rooms** row + **Stamps** tab; AI corpus updated.
+
+- **2026-06-14:** **AI World Host World Builder corpus** — expanded `apps/api/src/ai-host/corpus/world-building-guide.md` + `prompts.ts` persona for full World Builder: tabs (Build/Objects/Scenes/Stamps), Image Floor (`0`) + presets/span/rect-drag, Mirror (`8`), world object catalog (chairs, desks, trees, grass scatter, podium stand+notebook+import), scenes (Vienna Market, Classroom, Mars, Escher Head + walkable colliders), Fine placement, `B` toggle, Erase on objects, FFA vs verse keep-out rules, undo scope (build pieces only). Tests `apps/api/tests/ai-host/prompts.test.ts` updated.
+
+- **2026-06-14:** **Mars World Builder scene** — `GLBs/mars.glb` → `scripts/prepare-mars-glb.mjs` (4096 PNG base+normal → 2048 JPEG q85, ~3.9 MB) → `apps/web/public/objects/mars.glb`; catalog slug `mars` displayName "Mars", `category: "scene"`, `staticCollider: true`; thumbnail `objects/thumbnails/mars.jpg`. Native ~4.5×4.5×1 m terrain patch.
+
+- **2026-06-14:** **Classroom World Builder scene** — `GLBs/classroom-simple.glb` → `scripts/prepare-classroom-simple-glb.mjs` (~1.2 MB JPEG q85) → `apps/web/public/objects/classroom-simple.glb`; catalog slug `classroom-simple` displayName "Classroom", `category: "scene"`, `staticCollider: true`; thumbnail `objects/thumbnails/classroom-simple.jpg`.
+
+- **2026-06-14:** **Vienna Market static collider** — `staticCollider: true` on catalog slug `vienna-market`; `TrimeshColliderSpec` in room-engine physics spec; `worldAssetColliderMesh.ts` + `worldAssetPhysics.ts` extract GLB triangle soup and build world-space Rapier trimeshes from placed assets; `PhysicsController` handles `kind: "trimesh"`; `useAvatarMovement` preloads collider meshes, merges specs into physics world, trusts Rapier Y when physics grounded (no terrain snap); `RoomClient` passes `worldAssetsRef`.
 
 - **2026-06-14:** **Vienna Market World Builder scene** — `scripts/prepare-vienna-market-glb.mjs` (4096→2048 JPEG q85, ~6.3 MB) → `apps/web/public/objects/vienna-market.glb`; catalog slug `vienna-market` with `category: "scene"`; World Builder **Scenes** tab (`WORLD_SCENE_CATALOG` / `WORLD_OBJECT_CATALOG` split in `worldAssetCatalog.ts`, `BuildControls.tsx`).
 

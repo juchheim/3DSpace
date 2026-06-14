@@ -54,6 +54,23 @@ describe("buildStamps", () => {
     expect(targets.some((t) => t.kind === "doorway")).toBe(false);
   });
 
+  it("arbor stamp is an open pergola with overhead beams and no perimeter walls", () => {
+    const stamp = getBuildStamp("arbor-4x4")!;
+    const targets = stampToPlacementTargets(stamp, { ix: 0, iz: 0 }, 0, "stone");
+    const floors = targets.filter((t) => t.kind === "floor");
+    const groundWalls = targets.filter((t) => t.level === 0 && (t.kind === "wall" || t.kind === "simple-wall"));
+    const trellis = targets.filter((t) => t.level === 1 && t.kind === "simple-wall");
+    const doorways = targets.filter((t) => t.kind === "doorway");
+
+    expect(floors).toHaveLength(16);
+    expect(groundWalls).toHaveLength(8);
+    expect(trellis.length).toBeGreaterThanOrEqual(8);
+    expect(doorways).toHaveLength(1);
+    expect(groundWalls.some((t) => t.cell.ix === 1 && t.cell.iz === 0)).toBe(false);
+    expect(trellis.some((t) => t.cell.ix === 1 && t.cell.iz === 1)).toBe(false);
+    expect(BUILTIN_BUILD_STAMPS.length).toBeGreaterThanOrEqual(5);
+  });
+
   it("escape starter kit carries pre-wired logic with a win plate", () => {
     expect(getRoomStamp("escape-starter")).toBe(ESCAPE_STARTER_KIT);
     const { buildTargets, logicTargets } = roomStampToTargets(

@@ -88,6 +88,7 @@ export {
   buildPieceRequiresEdge,
   isBuildWallSegmentKind,
   isBuildFloorPieceKind,
+  isBuildCellFixtureKind,
   buildCellFootprint,
   buildPieceColliders,
   buildPieceStableId,

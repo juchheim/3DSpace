@@ -24,7 +24,7 @@ export function BuildFootprints2D({
         const stroke = buildMaterialStroke(piece.materialId);
         const opacity = levelFillOpacity(piece.level);
 
-        if (piece.kind === "floor") {
+        if (piece.kind === "floor" || piece.kind === "image-floor") {
           const rect = floorFootprintRect(manifest, piece);
           return (
             <rect
@@ -38,6 +38,24 @@ export function BuildFootprints2D({
               stroke={stroke}
               strokeWidth={0.35}
               strokeOpacity={0.9}
+            />
+          );
+        }
+
+        if (piece.kind === "arbor-ceiling") {
+          const rect = floorFootprintRect(manifest, piece);
+          return (
+            <rect
+              key={piece.id}
+              x={rect.x}
+              y={rect.y}
+              width={rect.width}
+              height={rect.height}
+              fill="none"
+              stroke={stroke}
+              strokeWidth={0.55}
+              strokeOpacity={0.85}
+              strokeDasharray="1.2 0.8"
             />
           );
         }

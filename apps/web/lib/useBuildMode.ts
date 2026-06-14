@@ -18,6 +18,7 @@ export type BuildTool =
   | "window"
   | "light"
   | "mirror"
+  | "arbor-ceiling"
   | "destroy";
 
 /** Image selected for the Image Floor tool (uploaded or reused from the room). */

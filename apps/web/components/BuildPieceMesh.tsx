@@ -21,6 +21,7 @@ import {
 } from "@3dspace/room-engine";
 import { buildMaterialProps } from "./buildMaterials";
 import { edgeOpeningFrameParts } from "../lib/buildEdgeOpeningMesh";
+import { arborCeilingBeams } from "../lib/arborCeilingBeams";
 import { wallMeshTransform } from "../lib/buildWallMesh";
 import type { ImageFloorRegion } from "../lib/imageFloorRegions";
 import { LampGlbMesh, LAMP_BULB_NATIVE_Y, LAMP_GLB_NATIVE_H, LAMP_TARGET_HEIGHT } from "./LampGlbMesh";
@@ -249,6 +250,52 @@ function RampGeometry({ rotation }: { rotation: BuildPieceRotation }) {
   return <primitive object={geometry} attach="geometry" />;
 }
 
+function ArborCeilingMesh({
+  piece,
+  materialProps,
+  ghost,
+  valid,
+  pointerProps,
+  pointerEventsPassThrough
+}: {
+  piece: BuildPiece;
+  materialProps: ReturnType<typeof buildMaterialProps>;
+  ghost?: boolean;
+  valid?: boolean;
+  pointerProps: Record<string, unknown>;
+  pointerEventsPassThrough?: boolean;
+}) {
+  const footprint = buildCellFootprint(piece.cell.ix, piece.cell.iz);
+  const centerX = (footprint.minX + footprint.maxX) / 2;
+  const centerZ = (footprint.minZ + footprint.maxZ) / 2;
+  const baseY = piece.level * BUILD_LEVEL_HEIGHT;
+  const rotationY = (piece.rotation * Math.PI) / 180;
+  const beams = arborCeilingBeams();
+
+  return (
+    <group
+      position={[centerX, baseY, centerZ]}
+      rotation={[0, rotationY, 0]}
+      userData={{ buildPieceId: piece.id, buildPiece: piece }}
+      {...(pointerEventsPassThrough ? { raycast: () => {} } : {})}
+      {...pointerProps}
+    >
+      {beams.map((beam, index) => (
+        <mesh key={`${piece.id}-beam-${index}`} position={beam.position}>
+          <boxGeometry args={beam.size} />
+          <meshStandardMaterial {...materialProps} />
+        </mesh>
+      ))}
+      {ghost ? (
+        <mesh position={[0, BUILD_LEVEL_HEIGHT - 0.06, 0]}>
+          <boxGeometry args={[0.01, 0.01, 0.01]} />
+          <Edges color={valid ? "#6dff9a" : "#ff6b6b"} linewidth={2} />
+        </mesh>
+      ) : null}
+    </group>
+  );
+}
+
 export function BuildPieceMesh({
   piece,
   ghost = false,
@@ -422,6 +469,19 @@ export function BuildPieceMesh({
           </mesh>
         ) : null}
       </group>
+    );
+  }
+
+  if (piece.kind === "arbor-ceiling") {
+    return (
+      <ArborCeilingMesh
+        piece={piece}
+        materialProps={materialProps}
+        ghost={ghost}
+        valid={valid}
+        pointerProps={pointerProps}
+        pointerEventsPassThrough={pointerEventsPassThrough}
+      />
     );
   }
 

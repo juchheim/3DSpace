@@ -100,12 +100,13 @@ tool is highlighted. **Erase** (destroy) is a separate utility button and also k
 | **Window** | `6` | Like a wall with a clear gap above a low sill. You **cannot** walk through a window. |
 | **Light** | `7` | Places a light source in the cell to brighten an area. |
 | **Mirror** | `8` | A reflective wall panel on a cell edge. Blocks movement like a wall; the reflective face points toward you when placed. |
+| **Arbor ceiling** | — | A pergola-style trellis overhead in one cell — perimeter beams and partial cross members with an open center so sky light can pass through. Non-colliding; stacks with floors and lights in the same cell. Use **`R`** to rotate the beam layout. |
 
 Notes:
 
 - **Walls, simple walls, doors, windows, and mirrors are "edge" pieces** — they share the same
   edge slots, so a cell edge holds one of them at a time.
-- **Floors, image floors, ramps, and lights are "cell" pieces** — they occupy the cell, not an edge.
+- **Floors, image floors, ramps, lights, and arbor ceilings are "cell" pieces** — they occupy the cell, not an edge.
   Plain **floor** and **image floor** compete for the same cell slot — you cannot have both in one cell.
 - **Doorway vs. window:** a **doorway** is passable; a **window** is **not** passable (low sill,
   opening too high to step through).
@@ -241,6 +242,7 @@ place at the highlighted cell. Press `R` to rotate the whole stamp before placin
 | Stamp | What it places |
 | --- | --- |
 | **Room 3×3** | A floored 3×3 area with surrounding walls and a doorway on the south side. |
+| **Arbor 4×4** | A 4×4 wood-floored pergola: corner posts, sparse overhead trellis beams (open center for sunlight), south doorway — open sides between the posts. Also on the **Build** tab under **Rooms**. |
 | **Corridor** | Two floor cells with side walls and doorways at each end — a hallway segment. |
 | **Floor 2×2** | Four floor tiles, no walls. |
 | **Perimeter 5×5** | A hollow 5×5 box of outer walls only (no floor, no door) — a courtyard or fence. |
@@ -316,7 +318,7 @@ keep-outs — only spawn keep-out, out-of-bounds, level cap, slot conflicts, and
 
 ## 17. Common how-to recipes
 
-**Make a simple room:** Use the **Room 3×3** stamp, or lay **Floor** tiles and **Wall** edges with a **Door** (`5`) for entry.
+**Make a simple room:** Use the **Room 3×3** or **Arbor 4×4** stamp (Build tab → **Rooms**, or Stamps tab), or lay **Floor** tiles and **Wall** edges with a **Door** (`5`) for entry.
 
 **Texture a lawn or path:** Select **Image Floor** (`0`), pick **Grass** or upload an image, set **Image span**, drag a rectangle on the ground.
 

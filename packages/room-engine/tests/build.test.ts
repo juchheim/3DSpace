@@ -133,6 +133,21 @@ describe("buildPieceColliders", () => {
     });
     expect(buildPieceColliders(piece).walls).toHaveLength(0);
   });
+
+  it("arbor-ceiling piece is non-colliding", () => {
+    const piece = BuildPieceSchema.parse({
+      id: `${BUILD_ID_PREFIX}arbor-ceiling:1,1:0`,
+      roomId: "room-1",
+      kind: "arbor-ceiling",
+      cell: { ix: 1, iz: 1 },
+      level: 0,
+      rotation: 0,
+      materialId: "wood",
+      createdByUserId: "u1",
+      createdAt: "2026-05-30T12:00:00.000Z"
+    });
+    expect(buildPieceColliders(piece).walls).toHaveLength(0);
+  });
 });
 
 describe("boardPlacementWalls", () => {
