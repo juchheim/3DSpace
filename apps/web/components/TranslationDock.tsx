@@ -27,7 +27,7 @@ export function TranslationDock({
   speakerLabel: (participantId: string) => string;
   selfParticipantId: string;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const [showOriginalSet, setShowOriginalSet] = useState<Set<string>>(() => new Set());
   const linesRef = useRef<HTMLDivElement | null>(null);
   const prevLineCountRef = useRef(controller.lines.length);
