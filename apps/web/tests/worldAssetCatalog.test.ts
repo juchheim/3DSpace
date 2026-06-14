@@ -53,6 +53,7 @@ describe("worldAssetCatalog", () => {
     expect(podium?.displayName).toBe("Podium");
     expect(podium?.glbUrl).toBe("/objects/podium.glb");
     expect(podium?.thumbnailUrl).toBe("/objects/thumbnails/podium.jpg");
+    expect(podium?.scale).toBe(0.4);
     expect(WORLD_ASSET_CATALOG.some((asset) => asset.slug === "podium")).toBe(true);
   });
 

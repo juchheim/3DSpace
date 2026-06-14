@@ -102,7 +102,8 @@ export const WORLD_ASSET_CATALOG: WorldAsset[] = [
     slug: "podium",
     displayName: "Podium",
     glbUrl: "/objects/podium.glb",
-    thumbnailUrl: "/objects/thumbnails/podium.jpg"
+    thumbnailUrl: "/objects/thumbnails/podium.jpg",
+    scale: 0.4
   }
 ];
 
