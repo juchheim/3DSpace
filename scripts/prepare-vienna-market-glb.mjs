@@ -5,6 +5,10 @@
 //   - PNG / oversized JPEG → JPEG q85 (including normals, per tree.glb convention)
 //   - Prune unused nodes/data
 //
+// When shipping a new scene, also add it to worldAssetCatalog.ts with
+//   category: "scene" and staticCollider: true
+// so Rapier builds a walkable trimesh from this GLB (see worldAssetColliderMesh.ts).
+//
 // Run:  node scripts/prepare-vienna-market-glb.mjs [in.glb] [out.glb]
 // Default: GLBs/vienna-market.glb → apps/web/public/objects/vienna-market.glb
 

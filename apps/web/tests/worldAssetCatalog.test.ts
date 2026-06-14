@@ -126,6 +126,11 @@ describe("worldAssetCatalog", () => {
     expect(WORLD_ASSET_CATALOG).toHaveLength(WORLD_OBJECT_CATALOG.length + WORLD_SCENE_CATALOG.length);
   });
 
+  it("requires static trimesh colliders on every scene catalog entry", () => {
+    expect(WORLD_SCENE_CATALOG.length).toBeGreaterThan(0);
+    expect(WORLD_SCENE_CATALOG.every((asset) => asset.staticCollider === true)).toBe(true);
+  });
+
   it("includes the Vienna Market scene", () => {
     const market = worldAssetBySlug("vienna-market");
     expect(market).toBeDefined();
@@ -134,6 +139,16 @@ describe("worldAssetCatalog", () => {
     expect(market?.thumbnailUrl).toBe("/objects/thumbnails/vienna-market.jpg");
     expect(market?.staticCollider).toBe(true);
     expect(worldAssetCategory(market!)).toBe("scene");
+  });
+
+  it("includes the Classroom scene", () => {
+    const classroom = worldAssetBySlug("classroom-simple");
+    expect(classroom).toBeDefined();
+    expect(classroom?.displayName).toBe("Classroom");
+    expect(classroom?.glbUrl).toBe("/objects/classroom-simple.glb");
+    expect(classroom?.thumbnailUrl).toBe("/objects/thumbnails/classroom-simple.jpg");
+    expect(classroom?.staticCollider).toBe(true);
+    expect(worldAssetCategory(classroom!)).toBe("scene");
   });
 });
 

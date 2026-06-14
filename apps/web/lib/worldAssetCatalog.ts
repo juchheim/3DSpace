@@ -1,6 +1,18 @@
 /** Palette grouping in World Builder. Defaults to `"object"`. */
 export type WorldAssetCategory = "object" | "scene";
 
+/**
+ * When adding a new **scene** (`category: "scene"`) to {@link WORLD_ASSET_CATALOG}:
+ *
+ * 1. Set `staticCollider: true` — scenes are walkable environments; avatars need a
+ *    Rapier static trimesh derived from the GLB (see `worldAssetColliderMesh.ts`,
+ *    `worldAssetPhysics.ts`, `useAvatarMovement`).
+ * 2. Normalize the GLB so its floor sits at local y=0 (prep script + `normalizeMeshGroundY`).
+ * 3. Add a thumbnail and a catalog test asserting `staticCollider`.
+ *
+ * Without `staticCollider`, the mesh renders but physics ignores it (you fall through).
+ */
+
 /** Scatter placement: one click strews several instances across a square. */
 export type WorldAssetScatter = {
   /** Instances dropped per placement click by default. */
@@ -16,7 +28,7 @@ export type WorldAsset = {
   displayName: string;
   glbUrl: string;
   thumbnailUrl: string;
-  /** World Builder tab; `"scene"` entries appear under Scenes. */
+  /** World Builder tab; `"scene"` entries appear under Scenes (must set `staticCollider: true`). */
   category?: WorldAssetCategory;
   /** Uniform catalog render scale before per-placement variance. Defaults to 1. */
   scale?: number;
@@ -35,7 +47,10 @@ export type WorldAsset = {
   windSway?: boolean;
   /** When true, avatars can stand & lock at this asset with E (podium/lectern). */
   podiumStand?: boolean;
-  /** When true, the placed mesh becomes a Rapier static trimesh collider (walk/jump on). */
+  /**
+   * When true, the placed mesh becomes a Rapier static trimesh collider (walk/jump on).
+   * **Required for every scene** (`category: "scene"`); optional for decorative objects.
+   */
   staticCollider?: boolean;
 };
 
@@ -121,7 +136,15 @@ export const WORLD_ASSET_CATALOG: WorldAsset[] = [
     glbUrl: "/objects/vienna-market.glb",
     thumbnailUrl: "/objects/thumbnails/vienna-market.jpg",
     category: "scene",
-    staticCollider: true
+    staticCollider: true // required for scenes — see WorldAssetCategory doc above
+  },
+  {
+    slug: "classroom-simple",
+    displayName: "Classroom",
+    glbUrl: "/objects/classroom-simple.glb",
+    thumbnailUrl: "/objects/thumbnails/classroom-simple.jpg",
+    category: "scene",
+    staticCollider: true // required for scenes — see WorldAssetCategory doc above
   }
 ];
 
@@ -132,6 +155,7 @@ export function worldAssetCategory(asset: WorldAsset): WorldAssetCategory {
 }
 
 export const WORLD_OBJECT_CATALOG = WORLD_ASSET_CATALOG.filter((asset) => worldAssetCategory(asset) === "object");
+/** Scenes tab entries — every member must have `staticCollider: true` (enforced in tests). */
 export const WORLD_SCENE_CATALOG = WORLD_ASSET_CATALOG.filter((asset) => worldAssetCategory(asset) === "scene");
 
 export function worldAssetBySlug(slug: string): WorldAsset | undefined {

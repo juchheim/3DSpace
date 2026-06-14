@@ -154,6 +154,7 @@ export function useAvatarMovement(input: {
 
   const pendingWorldAssetColliderLoadsRef = useRef(new Set<string>());
 
+  /** Loads GLB triangle soup for catalog entries with `staticCollider: true` (required for scenes). */
   function ensureWorldAssetColliderMeshes(worldAssets: PlacedChair[]) {
     for (const asset of worldAssets) {
       if (!isStaticColliderWorldAsset(asset.slug)) continue;

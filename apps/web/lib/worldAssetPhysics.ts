@@ -1,5 +1,11 @@
 import type { TrimeshColliderSpec } from "@3dspace/room-engine";
 
+/**
+ * Builds Rapier trimesh collider specs for placed world assets flagged with
+ * `staticCollider: true` in `worldAssetCatalog.ts`. Every new scene added to
+ * the catalog must set that flag or avatars cannot walk on the geometry.
+ */
+
 import type { PlacedChair } from "./usePlacedChairs";
 import {
   isStaticColliderWorldAsset,

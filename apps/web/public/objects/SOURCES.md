@@ -108,6 +108,14 @@
 - **Format:** glTF 2.0 binary, ~0.6 MB. Native footprint ~1.5 × 3.5 × 1.2 m; scaled to 42% at
   render time (`scale: 0.42` in `worldAssetCatalog.ts`).
 
+## `classroom-simple.glb`
+
+- Simple furnished classroom for the World Builder **Scenes** palette.
+- **Origin:** `GLBs/classroom-simple.glb` (JPEG q85 + ground normalization via
+  `scripts/prepare-classroom-simple-glb.mjs`).
+- **Format:** glTF 2.0 binary, ~3 MB. Native footprint ~15 × 13 × 7 m; floor at local y=0.
+  Walkable via `staticCollider: true` (Rapier trimesh).
+
 ## `floor.glb` / `ramp.glb`
 
 - See `BuildPieceMesh.tsx` for native dimensions and scaling.

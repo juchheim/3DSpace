@@ -1,5 +1,10 @@
 import { NodeIO } from "@gltf-transform/core";
 
+/**
+ * Loads triangle soup from world-asset GLBs for static trimesh colliders.
+ * Used by scenes (`staticCollider: true` in the catalog); see `worldAssetCatalog.ts`.
+ */
+
 export type WorldAssetColliderMesh = {
   vertices: Float32Array;
   indices: Uint32Array;
