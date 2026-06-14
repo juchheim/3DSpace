@@ -186,6 +186,17 @@ export function TranslationPanel({
             />
             {isSharing ? "Stop sharing" : "Share my speech"}
           </button>
+
+          <button
+            type="button"
+            className={`translation-panel__transcript-btn${controller.dockOpen ? " translation-panel__transcript-btn--open" : ""}`}
+            onClick={() => controller.setDockOpen(!controller.dockOpen)}
+          >
+            <span className="translation-panel__transcript-icon" aria-hidden="true">
+              {controller.dockOpen ? "▾" : "▸"}
+            </span>
+            {controller.dockOpen ? "Hide transcript" : "Show transcript"}
+          </button>
         </div>
 
         {footerText ? (

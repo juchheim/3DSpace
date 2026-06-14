@@ -4142,7 +4142,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           reserveGuideDock={aiWorldHostGuidePanelOpen}
         />
       ) : null}
-      {translationEnabled && session ? (
+      {translationEnabled && session && translation.dockOpen ? (
         <TranslationDock
           controller={translation}
           speakerLabel={(id) => participantNameMap[id] ?? id}

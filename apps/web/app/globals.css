@@ -861,62 +861,8 @@ label {
   overflow: hidden;
 }
 
-.translation-dock--idle {
-  background: transparent;
-  border: none;
-  backdrop-filter: none;
-}
-
 .translation-dock--collapsed .translation-dock__lines {
   display: none;
-}
-
-/* Idle peek button */
-.translation-dock__peek {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  font-size: 11px;
-  font-family: 'Barlow', system-ui, sans-serif;
-  font-weight: 500;
-  background: var(--hud-bg);
-  border: 1px solid var(--hud-bd);
-  border-radius: 999px;
-  color: var(--hud-tx-m);
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-}
-
-.translation-dock__peek:hover {
-  background: var(--hud-bg-r);
-  border-color: var(--hud-bd-m);
-  color: var(--hud-tx);
-}
-
-.translation-dock__peek--live {
-  color: var(--hud-tx);
-  border-color: rgba(70, 120, 180, 0.4);
-}
-
-.translation-dock__peek-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--hud-tx-d);
-  flex-shrink: 0;
-  transition: background 0.2s;
-}
-
-.translation-dock__peek-dot--live {
-  background: #9adcff;
-  box-shadow: 0 0 0 2px rgba(154, 220, 255, 0.18);
-  animation: live-captions-pulse 1.8s ease-in-out infinite;
-}
-
-.translation-dock__peek-state {
-  color: #9adcff;
-  font-size: 10px;
 }
 
 /* Dock bar — two-section flex layout */
@@ -1245,8 +1191,11 @@ label {
   line-height: 1.4;
 }
 
-/* Share speech button (primary action) */
+/* Share speech button + transcript toggle */
 .translation-panel__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
   padding-top: 2px;
 }
 
@@ -1302,6 +1251,41 @@ label {
   background: #9adcff;
   box-shadow: 0 0 0 2px rgba(154, 220, 255, 0.2);
   animation: live-captions-pulse 1.8s ease-in-out infinite;
+}
+
+/* Transcript visibility toggle */
+.translation-panel__transcript-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-weight: 500;
+  border-radius: 999px;
+  border: 1px solid var(--hud-bd);
+  background: none;
+  color: var(--hud-tx-m);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.translation-panel__transcript-btn:hover {
+  background: var(--hud-bg-h);
+  color: var(--hud-tx);
+  border-color: var(--hud-bd-m);
+}
+
+.translation-panel__transcript-btn--open {
+  color: var(--hud-tx);
+  border-color: var(--hud-bd-m);
+}
+
+.translation-panel__transcript-icon {
+  font-size: 9px;
+  flex-shrink: 0;
+  color: var(--hud-tx-d);
 }
 
 /* Footer note */

@@ -61,25 +61,6 @@ export function TranslationDock({
     });
   };
 
-  if (!controller.dockOpen) {
-    return (
-      <div className="translation-dock translation-dock--idle">
-        <button
-          type="button"
-          className={`translation-dock__peek${controller.sharing ? " translation-dock__peek--live" : ""}`}
-          onClick={() => controller.setDockOpen(true)}
-        >
-          <span
-            className={`translation-dock__peek-dot${controller.sharing ? " translation-dock__peek-dot--live" : ""}`}
-            aria-hidden="true"
-          />
-          Translation
-          {controller.sharing ? <span className="translation-dock__peek-state">· Live</span> : null}
-        </button>
-      </div>
-    );
-  }
-
   const statusText = controller.sharing
     ? controller.listening
       ? "Listening…"

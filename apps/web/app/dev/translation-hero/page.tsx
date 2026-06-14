@@ -177,27 +177,21 @@ export default function TranslationHero() {
           </div>
         </div>
 
-        {/* Dock */}
+        {/* Dock — only renders when dockOpen=true */}
         <div style={sectionStyle}>
-          <p style={labelStyle}>Translation Dock (bottom-center)</p>
-          <div style={{ position: "relative", height: 300, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, overflow: "hidden" }}>
-            <div style={{ position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)", width: "min(580px, calc(100% - 24px))" }}>
-              <TranslationDock
-                controller={controller}
-                speakerLabel={speakerLabel}
-                selfParticipantId="self"
-              />
-            </div>
-          </div>
-          <p style={{ ...labelStyle, marginTop: 12 }}>Idle peek state</p>
-          <div style={{ position: "relative", height: 80, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, overflow: "hidden" }}>
-            <div style={{ position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)" }}>
-              <TranslationDock
-                controller={{ ...controller, dockOpen: false }}
-                speakerLabel={speakerLabel}
-                selfParticipantId="self"
-              />
-            </div>
+          <p style={labelStyle}>Translation Dock (bottom-center — toggle via panel above)</p>
+          <div style={{ position: "relative", height: dockOpen ? 300 : 60, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, overflow: "hidden", transition: "height 0.2s" }}>
+            {dockOpen ? (
+              <div style={{ position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)", width: "min(580px, calc(100% - 24px))" }}>
+                <TranslationDock
+                  controller={controller}
+                  speakerLabel={speakerLabel}
+                  selfParticipantId="self"
+                />
+              </div>
+            ) : (
+              <p style={{ ...labelStyle, margin: "18px auto", textAlign: "center" }}>Dock hidden — use "Show transcript" in the panel above</p>
+            )}
           </div>
         </div>
       </div>
