@@ -157,6 +157,7 @@ describe("worldAssetCatalog", () => {
     expect(mars?.displayName).toBe("Mars");
     expect(mars?.glbUrl).toBe("/objects/mars.glb");
     expect(mars?.thumbnailUrl).toBe("/objects/thumbnails/mars.jpg");
+    expect(mars?.scale).toBe(1.75);
     expect(mars?.staticCollider).toBe(true);
     expect(worldAssetCategory(mars!)).toBe("scene");
   });

@@ -152,6 +152,7 @@ export const WORLD_ASSET_CATALOG: WorldAsset[] = [
     glbUrl: "/objects/mars.glb",
     thumbnailUrl: "/objects/thumbnails/mars.jpg",
     category: "scene",
+    scale: 1.75,
     staticCollider: true // required for scenes — see WorldAssetCategory doc above
   }
 ];
