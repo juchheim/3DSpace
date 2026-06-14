@@ -65,19 +65,28 @@ const ARBOR_CEILING_GLB_NATIVE_H = 0.12;
 
 useGLTF.preload(ARBOR_CEILING_GLB_URL);
 
-function ArborCeilingGlbMesh({ piece }: { piece: BuildPiece }) {
-  const { scene } = useGLTF(ARBOR_CEILING_GLB_URL);
-  const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
-
+function arborCeilingWorldTransform(piece: BuildPiece) {
   const footprint = buildCellFootprint(piece.cell.ix, piece.cell.iz);
   const centerX = (footprint.minX + footprint.maxX) / 2;
   const centerZ = (footprint.minZ + footprint.maxZ) / 2;
   const baseY = piece.level * BUILD_LEVEL_HEIGHT;
-
   const scale = BUILD_CELL_SIZE / ARBOR_CEILING_GLB_NATIVE_W;
   const scaledH = ARBOR_CEILING_GLB_NATIVE_H * scale;
   const y = baseY + BUILD_LEVEL_HEIGHT - scaledH;
-  const rotationY = (piece.rotation * Math.PI) / 180;
+  return {
+    centerX,
+    centerZ,
+    y,
+    scale,
+    scaledH,
+    rotationY: (piece.rotation * Math.PI) / 180
+  };
+}
+
+function ArborCeilingGlbMesh({ piece }: { piece: BuildPiece }) {
+  const { scene } = useGLTF(ARBOR_CEILING_GLB_URL);
+  const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
+  const { centerX, centerZ, y, scale, rotationY } = arborCeilingWorldTransform(piece);
 
   return (
     <group position={[centerX, y, centerZ]} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
@@ -292,22 +301,19 @@ function ArborCeilingMesh({
   pointerProps: Record<string, unknown>;
   pointerEventsPassThrough?: boolean;
 }) {
-  const footprint = buildCellFootprint(piece.cell.ix, piece.cell.iz);
-  const centerX = (footprint.minX + footprint.maxX) / 2;
-  const centerZ = (footprint.minZ + footprint.maxZ) / 2;
-  const y = piece.level * BUILD_LEVEL_HEIGHT + BUILD_LEVEL_HEIGHT / 2;
-  const boxSize: [number, number, number] = [BUILD_CELL_SIZE, BUILD_LEVEL_HEIGHT * 0.08, BUILD_CELL_SIZE];
+  const { centerX, centerZ, y, scaledH, rotationY } = arborCeilingWorldTransform(piece);
+  const boxSize: [number, number, number] = [BUILD_CELL_SIZE, scaledH, BUILD_CELL_SIZE];
 
   if (ghost) {
     return (
       <group
         position={[centerX, y, centerZ]}
-        rotation={[0, (piece.rotation * Math.PI) / 180, 0]}
+        rotation={[0, rotationY, 0]}
         userData={{ buildPieceId: piece.id, buildPiece: piece }}
         {...(pointerEventsPassThrough ? { raycast: () => {} } : {})}
         {...pointerProps}
       >
-        <mesh>
+        <mesh position={[0, scaledH / 2, 0]}>
           <boxGeometry args={boxSize} />
           <meshStandardMaterial {...materialProps} />
           <Edges color={valid ? "#6dff9a" : "#ff6b6b"} linewidth={2} />
@@ -324,10 +330,12 @@ function ArborCeilingMesh({
     >
       <Suspense
         fallback={
-          <mesh position={[centerX, y, centerZ]}>
-            <boxGeometry args={boxSize} />
-            <meshStandardMaterial {...materialProps} />
-          </mesh>
+          <group position={[centerX, y, centerZ]} rotation={[0, rotationY, 0]}>
+            <mesh position={[0, scaledH / 2, 0]}>
+              <boxGeometry args={boxSize} />
+              <meshStandardMaterial {...materialProps} />
+            </mesh>
+          </group>
         }
       >
         <ArborCeilingGlbMesh piece={piece} />
