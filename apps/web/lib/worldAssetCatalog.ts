@@ -103,7 +103,7 @@ export const WORLD_ASSET_CATALOG: WorldAsset[] = [
     displayName: "Podium",
     glbUrl: "/objects/podium.glb",
     thumbnailUrl: "/objects/thumbnails/podium.jpg",
-    scale: 0.4
+    scale: 0.42
   }
 ];
 

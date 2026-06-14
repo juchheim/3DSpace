@@ -105,8 +105,8 @@
 - Presentation podium for the World Builder **Objects** palette.
 - **Origin:** `GLBs/podium.glb` (base color re-encoded to JPEG q85 via
   `scripts/prepare-podium-glb.mjs`).
-- **Format:** glTF 2.0 binary, ~0.6 MB. Native footprint ~1.5 × 3.5 × 1.2 m; scaled to 40% at
-  render time (`scale: 0.4` in `worldAssetCatalog.ts`).
+- **Format:** glTF 2.0 binary, ~0.6 MB. Native footprint ~1.5 × 3.5 × 1.2 m; scaled to 42% at
+  render time (`scale: 0.42` in `worldAssetCatalog.ts`).
 
 ## `floor.glb` / `ramp.glb`
 
