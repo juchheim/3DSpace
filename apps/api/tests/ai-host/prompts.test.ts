@@ -12,10 +12,26 @@ describe("world-building corpus", () => {
 
   it("documents the shipped tools, shortcuts, and rejection reasons", () => {
     const corpus = loadWorldBuildingCorpus();
-    for (const fact of ["Ramp", "Wall", "Floor", "Door", "Window", "Light", "Destroy"]) {
+    for (const fact of [
+      "Ramp",
+      "Wall",
+      "Floor",
+      "Image Floor",
+      "Mirror",
+      "Door",
+      "Window",
+      "Light",
+      "Erase",
+      "World Builder",
+      "Objects",
+      "Scenes",
+      "Podium",
+      "Student Desk"
+    ]) {
       expect(corpus).toContain(fact);
     }
     expect(corpus).toContain("⌘Z");
+    expect(corpus).toContain("`B`");
     for (const reason of ["spawn-keep-out", "hall-keep-out", "exit-keep-out", "board-keep-out", "level-cap"]) {
       expect(corpus).toContain(reason);
     }
