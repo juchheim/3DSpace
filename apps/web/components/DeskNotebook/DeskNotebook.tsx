@@ -100,10 +100,9 @@ function IconAddPages() {
 function IconImport() {
   return (
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="8" y1="2" x2="8" y2="10" />
-      <polyline points="5,7 8,11 11,7" />
+      <line x1="8" y1="11" x2="8" y2="3" />
+      <polyline points="5,6 8,2 11,6" />
       <path d="M3 13H13" />
-      <path d="M3 3H6M10 3H13" strokeDasharray="2 1" />
     </svg>
   );
 }

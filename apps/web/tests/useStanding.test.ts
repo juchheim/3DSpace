@@ -65,9 +65,9 @@ describe("useStanding", () => {
 
     expect(result.current.engaged).toBe(true);
     expect(result.current.standLockedPosition).not.toBeNull();
-    expect(result.current.standYaw).toBeCloseTo(podium.yaw, 5);
-    // Avatar stands behind the podium (yaw=0: forwardZ=1, so z is reduced)
-    expect(result.current.standLockedPosition!.z).toBeLessThan(podium.position.z);
+    expect(result.current.standYaw).toBeCloseTo(podium.yaw + Math.PI, 5);
+    // Avatar stands on the audience side (yaw=0: forwardZ=1, so z is increased)
+    expect(result.current.standLockedPosition!.z).toBeGreaterThan(podium.position.z);
   });
 
   it("second tryInteract clears engaged state", () => {

@@ -129,7 +129,7 @@ describe("podium catalog flags", () => {
     expect(hasPodiumNotebook("unknown-slug")).toBe(false);
   });
 
-  it("podiumStandPose returns a point behind the origin at asset yaw", () => {
+  it("podiumStandPose returns a point behind the presenter (audience side) at asset yaw", () => {
     const asset: PlacedChair = {
       id: "p1",
       slug: "podium",
@@ -137,10 +137,10 @@ describe("podium catalog flags", () => {
       yaw: 0
     };
     const pose = podiumStandPose(asset);
-    // yaw=0: forwardX=0, forwardZ=1 → presenter is at z < 0 (behind)
+    // yaw=0: forwardX=0, forwardZ=1 → presenter stands at z > 0 (on audience side), faces audience (+π)
     expect(pose.position.x).toBeCloseTo(0, 5);
-    expect(pose.position.z).toBeLessThan(0);
-    expect(pose.rotationY).toBeCloseTo(0, 5);
+    expect(pose.position.z).toBeGreaterThan(0);
+    expect(pose.rotationY).toBeCloseTo(Math.PI, 5);
   });
 
   it("podiumStandPose respects non-zero yaw", () => {
@@ -151,8 +151,8 @@ describe("podium catalog flags", () => {
       yaw: Math.PI / 2
     };
     const pose = podiumStandPose(asset);
-    // yaw=π/2: forwardX=1, forwardZ≈0 → presenter is at x < 5
-    expect(pose.position.x).toBeLessThan(5);
-    expect(pose.rotationY).toBeCloseTo(Math.PI / 2, 5);
+    // yaw=π/2: forwardX=1, forwardZ≈0 → presenter is at x > 5
+    expect(pose.position.x).toBeGreaterThan(5);
+    expect(pose.rotationY).toBeCloseTo(Math.PI / 2 + Math.PI, 5);
   });
 });

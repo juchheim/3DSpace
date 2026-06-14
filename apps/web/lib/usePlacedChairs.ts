@@ -88,11 +88,11 @@ export function podiumStandPose(podium: PlacedChair): {
   const forwardZ = Math.cos(podium.yaw);
   return {
     position: {
-      x: podium.position.x - forwardX * PODIUM_STAND_OFFSET,
+      x: podium.position.x + forwardX * PODIUM_STAND_OFFSET,
       y: podium.position.y,
-      z: podium.position.z - forwardZ * PODIUM_STAND_OFFSET
+      z: podium.position.z + forwardZ * PODIUM_STAND_OFFSET
     },
-    rotationY: podium.yaw
+    rotationY: podium.yaw + Math.PI
   };
 }
 
