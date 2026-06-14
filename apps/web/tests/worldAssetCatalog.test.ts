@@ -7,7 +7,10 @@ import {
   sampleWorldAssetPlacementScale,
   scatterWorldAssetOffsets,
   worldAssetBySlug,
-  WORLD_ASSET_CATALOG
+  WORLD_ASSET_CATALOG,
+  WORLD_OBJECT_CATALOG,
+  WORLD_SCENE_CATALOG,
+  worldAssetCategory
 } from "../lib/worldAssetCatalog";
 import { podiumStandPose } from "../lib/usePlacedChairs";
 import type { PlacedChair } from "../lib/usePlacedChairs";
@@ -112,6 +115,24 @@ describe("worldAssetCatalog", () => {
   it("uses persisted instance scale when rendering", () => {
     expect(placedWorldAssetRenderScale({ slug: "tree", scale: 1.08 })).toBe(1.08);
     expect(placedWorldAssetRenderScale({ slug: "table-6-walnut" })).toBe(0.8);
+  });
+
+  it("partitions catalog entries into object and scene tabs", () => {
+    expect(WORLD_OBJECT_CATALOG.every((asset) => worldAssetCategory(asset) === "object")).toBe(true);
+    expect(WORLD_SCENE_CATALOG.every((asset) => worldAssetCategory(asset) === "scene")).toBe(true);
+    expect(WORLD_OBJECT_CATALOG.some((asset) => asset.slug === "tree")).toBe(true);
+    expect(WORLD_OBJECT_CATALOG.some((asset) => asset.slug === "vienna-market")).toBe(false);
+    expect(WORLD_SCENE_CATALOG.some((asset) => asset.slug === "vienna-market")).toBe(true);
+    expect(WORLD_ASSET_CATALOG).toHaveLength(WORLD_OBJECT_CATALOG.length + WORLD_SCENE_CATALOG.length);
+  });
+
+  it("includes the Vienna Market scene", () => {
+    const market = worldAssetBySlug("vienna-market");
+    expect(market).toBeDefined();
+    expect(market?.displayName).toBe("Vienna Market");
+    expect(market?.glbUrl).toBe("/objects/vienna-market.glb");
+    expect(market?.thumbnailUrl).toBe("/objects/thumbnails/vienna-market.jpg");
+    expect(worldAssetCategory(market!)).toBe("scene");
   });
 });
 

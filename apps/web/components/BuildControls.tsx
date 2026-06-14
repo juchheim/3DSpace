@@ -10,11 +10,16 @@ import {
   type BuildFloorTexturePreset
 } from "../lib/buildFloorTexturePresets";
 import type { BuildModeController, BuildTool, FloorTextureSelection } from "../lib/useBuildMode";
-import { WORLD_ASSET_CATALOG } from "../lib/worldAssetCatalog";
+import {
+  WORLD_OBJECT_CATALOG,
+  WORLD_SCENE_CATALOG,
+  worldAssetBySlug,
+  worldAssetCategory
+} from "../lib/worldAssetCatalog";
 
 const BUILD_COACHMARK_KEY = "3dspace-build-coachmark-dismissed";
 
-type BuildCategory = "build" | "objects" | "stamps";
+type BuildCategory = "build" | "objects" | "scenes" | "stamps";
 
 /** Tools shown in the Build palette. Destroy is surfaced as a separate erase mode. */
 const BUILD_TOOLS: Array<{ id: BuildTool; label: string; shortcut: string; group: "structure" | "fixture" }> = [
@@ -40,14 +45,22 @@ const MATERIAL_LABELS: Record<BuildPieceMaterial, string> = {
 const CATEGORIES: Array<{ id: BuildCategory; label: string }> = [
   { id: "build", label: "Build" },
   { id: "objects", label: "Objects" },
+  { id: "scenes", label: "Scenes" },
   { id: "stamps", label: "Stamps" }
 ];
+
+function buildCategoryForAssetSlug(slug: string | null | undefined): BuildCategory {
+  if (!slug) return "build";
+  const asset = worldAssetBySlug(slug);
+  if (!asset) return "objects";
+  return worldAssetCategory(asset) === "scene" ? "scenes" : "objects";
+}
 
 /** Crisp 16px line icons so the palette reads at a glance (matches the lobby's clean aesthetic). */
 function Glyph({
   id
 }: {
-  id: BuildTool | "stamp" | "object" | "erase" | "tab-build" | "tab-objects" | "tab-stamps";
+  id: BuildTool | "stamp" | "object" | "scene" | "erase" | "tab-build" | "tab-objects" | "tab-scenes" | "tab-stamps";
 }) {
   const common = {
     width: 16,
@@ -140,6 +153,15 @@ function Glyph({
           <path d="M2.6 5.5 8 8.6l5.4-3.1M8 8.6v5" />
         </svg>
       );
+    case "scene":
+    case "tab-scenes":
+      return (
+        <svg {...common}>
+          <path d="M2.2 12.8h11.6" />
+          <path d="M3.4 12.8V8.4l2.2-2.1 2.4 1.8 2.8-2.3 2.6 2.4v4.6" />
+          <path d="M3.4 8.4 5.6 6.3 8 8.1l2.8-2.3 2.6 2.4" />
+        </svg>
+      );
     case "stamp":
     case "tab-stamps":
       return (
@@ -210,8 +232,17 @@ export function BuildControls({
   const [uploadingTexture, setUploadingTexture] = useState(false);
   const floorTextureInputRef = useRef<HTMLInputElement | null>(null);
   const [category, setCategory] = useState<BuildCategory>(() =>
-    selectedAssetSlug ? "objects" : buildMode.selectedStampId ? "stamps" : "build"
+    selectedAssetSlug
+      ? buildCategoryForAssetSlug(selectedAssetSlug)
+      : buildMode.selectedStampId
+        ? "stamps"
+        : "build"
   );
+
+  useEffect(() => {
+    if (!selectedAssetSlug) return;
+    setCategory(buildCategoryForAssetSlug(selectedAssetSlug));
+  }, [selectedAssetSlug]);
 
   async function handleFloorTextureFile(file: File | undefined) {
     if (!file || !onUploadFloorTexture) return;
@@ -272,8 +303,10 @@ export function BuildControls({
   const erasing = buildMode.tool === "destroy";
   const toolActive = !selectedAssetSlug && !buildMode.selectedStampId && !erasing;
   const selectedScatter = selectedAssetSlug
-    ? WORLD_ASSET_CATALOG.find((asset) => asset.slug === selectedAssetSlug)?.scatter
+    ? worldAssetBySlug(selectedAssetSlug)?.scatter
     : undefined;
+  const placementCatalog = category === "scenes" ? WORLD_SCENE_CATALOG : WORLD_OBJECT_CATALOG;
+  const placementModeActive = category === "objects" || category === "scenes";
 
   return (
     <div
@@ -399,7 +432,7 @@ export function BuildControls({
                 className={`build-dock__tab${category === cat.id ? " is-active" : ""}`}
                 onClick={() => setCategory(cat.id)}
               >
-                <Glyph id={`tab-${cat.id}` as "tab-build" | "tab-objects" | "tab-stamps"} />
+                <Glyph id={`tab-${cat.id}` as "tab-build" | "tab-objects" | "tab-scenes" | "tab-stamps"} />
                 {cat.label}
               </button>
             ))}
@@ -555,7 +588,7 @@ export function BuildControls({
               </div>
             ) : null}
 
-            {category === "objects" && onToggleFinePlacement ? (
+            {(category === "objects" || category === "scenes") && onToggleFinePlacement ? (
               <div className="build-dock__fine-row">
                 <button
                   type="button"
@@ -575,9 +608,9 @@ export function BuildControls({
               </div>
             ) : null}
 
-            {category === "objects" ? (
-              <div className="build-dock__grid" role="toolbar" aria-label="World objects">
-                {WORLD_ASSET_CATALOG.map((asset) => {
+            {placementModeActive ? (
+              <div className="build-dock__grid" role="toolbar" aria-label={category === "scenes" ? "World scenes" : "World objects"}>
+                {placementCatalog.map((asset) => {
                   const active = selectedAssetSlug === asset.slug;
                   return (
                     <button
@@ -605,8 +638,10 @@ export function BuildControls({
                     </button>
                   );
                 })}
-                {WORLD_ASSET_CATALOG.length === 0 ? (
-                  <p className="build-dock__placeholder">No objects available yet.</p>
+                {placementCatalog.length === 0 ? (
+                  <p className="build-dock__placeholder">
+                    {category === "scenes" ? "No scenes available yet." : "No objects available yet."}
+                  </p>
                 ) : null}
               </div>
             ) : null}

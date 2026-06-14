@@ -1,3 +1,6 @@
+/** Palette grouping in World Builder. Defaults to `"object"`. */
+export type WorldAssetCategory = "object" | "scene";
+
 /** Scatter placement: one click strews several instances across a square. */
 export type WorldAssetScatter = {
   /** Instances dropped per placement click by default. */
@@ -13,6 +16,8 @@ export type WorldAsset = {
   displayName: string;
   glbUrl: string;
   thumbnailUrl: string;
+  /** World Builder tab; `"scene"` entries appear under Scenes. */
+  category?: WorldAssetCategory;
   /** Uniform catalog render scale before per-placement variance. Defaults to 1. */
   scale?: number;
   /**
@@ -107,10 +112,24 @@ export const WORLD_ASSET_CATALOG: WorldAsset[] = [
     thumbnailUrl: "/objects/thumbnails/podium.jpg",
     scale: 0.42,
     podiumStand: true
+  },
+  {
+    slug: "vienna-market",
+    displayName: "Vienna Market",
+    glbUrl: "/objects/vienna-market.glb",
+    thumbnailUrl: "/objects/thumbnails/vienna-market.jpg",
+    category: "scene"
   }
 ];
 
 const WORLD_ASSET_BY_SLUG = new Map(WORLD_ASSET_CATALOG.map((asset) => [asset.slug, asset]));
+
+export function worldAssetCategory(asset: WorldAsset): WorldAssetCategory {
+  return asset.category ?? "object";
+}
+
+export const WORLD_OBJECT_CATALOG = WORLD_ASSET_CATALOG.filter((asset) => worldAssetCategory(asset) === "object");
+export const WORLD_SCENE_CATALOG = WORLD_ASSET_CATALOG.filter((asset) => worldAssetCategory(asset) === "scene");
 
 export function worldAssetBySlug(slug: string): WorldAsset | undefined {
   return WORLD_ASSET_BY_SLUG.get(slug);

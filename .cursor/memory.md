@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-14 (Podium stand & present planning)
+Last updated: 2026-06-14 (Vienna market GLB audit)
+
+- **2026-06-14:** **Vienna Market World Builder scene** — `scripts/prepare-vienna-market-glb.mjs` (4096→2048 JPEG q85, ~6.3 MB) → `apps/web/public/objects/vienna-market.glb`; catalog slug `vienna-market` with `category: "scene"`; World Builder **Scenes** tab (`WORLD_SCENE_CATALOG` / `WORLD_OBJECT_CATALOG` split in `worldAssetCatalog.ts`, `BuildControls.tsx`).
 
 - **2026-06-14:** **Podium "stand & present" planned** — `docs/planning/podium/PLAN_PODIUM.md` + `IMPL_PODIUM.md`: make the `podium` World Builder object interactive like the Student Desk. Walk up → **E** locks the avatar standing behind it (no sit animation, new `useStanding` hook mirroring `useSitting`'s lock interface; `podiumStandPose`/`findNearestPodium` in `usePlacedChairs.ts`; `podiumStand` catalog flag). While engaged, reuse `DeskNotebook` with two new props (`storageScope="podium"` for separate localStorage, `enableTextImport`). New text-file import: `paginateImportedText`/`docFromImportedText`/`importText` in `useDeskNotebook.ts` + Import toolbar button (.txt/.md, ≤200 KB) → editable pages → existing PDF export. RoomClient wiring: extend `combinedLockedPosition` chain, engage-snap effect, deterministic E-key branch (seat vs podium), logic-suppression guard, prompts (`E present`/`E leave · N notebook`). No server changes, no env flag. Not started.
 
