@@ -1,5 +1,6 @@
 // Prepare vienna-market.glb for World Builder (Scenes tab):
 //   - Remove stray grounded pole near scene center
+//   - Shift geometry down so the market floor sits at y=0 (matches other World Builder GLBs)
 //   - Downscale textures to max 2048 px (room-object limit)
 //   - PNG / oversized JPEG → JPEG q85 (including normals, per tree.glb convention)
 //   - Prune unused nodes/data
@@ -24,13 +25,15 @@ const IN_PATH = resolve(process.argv[2] ?? DEFAULT_IN);
 const OUT_PATH = resolve(process.argv[3] ?? DEFAULT_OUT);
 const MAX_TEXTURE_DIMENSION = 2048;
 
-/** Stray pole near scene center (authored artifact at ground level). */
+/** Stray pole near scene center (authored artifact below the market floor). */
 const STRAY_STICK = {
   centerX: 0,
   centerZ: 2.75,
-  radiusX: 1,
-  radiusZ: 1,
-  maxY: 2.2
+  radiusX: 1.5,
+  radiusZ: 1.5,
+  maxY: 2.25,
+  /** Perimeter floor tiles begin above this Y — only remove debris below it. */
+  marketFloorY: 1.463
 };
 
 const BASE_COLOR_NAMES = new Set(["baked_basecolor", "basecolor", "diffuse", "albedo", "image_0"]);
@@ -143,17 +146,135 @@ function componentBounds(pos, idx, triIndices) {
   };
 }
 
-function isStrayStickComponent(bounds) {
-  return (
-    bounds.minY < 0.5 &&
-    bounds.maxY <= STRAY_STICK.maxY &&
+function stickRemovalThresholds(doc) {
+  let minY = Infinity;
+  for (const mesh of doc.getRoot().listMeshes()) {
+    for (const prim of mesh.listPrimitives()) {
+      const pos = prim.getAttribute("POSITION")?.getArray();
+      if (!pos) continue;
+      for (let i = 1; i < pos.length; i += 3) {
+        minY = Math.min(minY, pos[i]);
+      }
+    }
+  }
+
+  if (minY < 0.1) {
+    // Mesh already normalized — market floor sits near y=0.
+    return {
+      marketFloorY: 0.02,
+      maxY: 0.85,
+      minShardY: 0.08
+    };
+  }
+
+  return {
+    marketFloorY: STRAY_STICK.marketFloorY,
+    maxY: STRAY_STICK.maxY,
+    minShardY: STRAY_STICK.marketFloorY + 0.1
+  };
+}
+
+function isStrayStickComponent(bounds, thresholds) {
+  const inXZ =
     Math.abs(bounds.centerX - STRAY_STICK.centerX) < STRAY_STICK.radiusX &&
-    Math.abs(bounds.centerZ - STRAY_STICK.centerZ) < STRAY_STICK.radiusZ
+    Math.abs(bounds.centerZ - STRAY_STICK.centerZ) < STRAY_STICK.radiusZ;
+  if (!inXZ) return false;
+
+  const height = bounds.maxY - bounds.minY;
+
+  // Grounded pole roots below the market floor slab.
+  if (bounds.minY < thresholds.marketFloorY && bounds.maxY <= thresholds.maxY) {
+    return true;
+  }
+
+  // Small floating shards (stick cap fragments) above the floor plane.
+  return bounds.maxY <= thresholds.maxY && height < 0.35 && bounds.minY > thresholds.minShardY;
+}
+
+/** Triangle centroids in the pole footprint above the floor slab (cap shards). */
+function isStrayStickTriangle(pos, idx, triIndex, thresholds) {
+  let cx = 0;
+  let cy = 0;
+  let cz = 0;
+  for (let k = 0; k < 3; k++) {
+    const vi = idx[triIndex * 3 + k];
+    cx += pos[vi * 3];
+    cy += pos[vi * 3 + 1];
+    cz += pos[vi * 3 + 2];
+  }
+  cx /= 3;
+  cy /= 3;
+  cz /= 3;
+
+  const poleCore =
+    Math.abs(cx - STRAY_STICK.centerX) < 0.65 && Math.abs(cz - STRAY_STICK.centerZ) < 0.65;
+
+  if (thresholds.marketFloorY < 0.1) {
+    return poleCore && cy > thresholds.minShardY && cy < thresholds.maxY;
+  }
+
+  return poleCore && cy > thresholds.minShardY && cy < thresholds.maxY;
+}
+
+function rebuildPrimitive(doc, prim, pos, idx, keepTris) {
+  const oldToNew = new Map();
+  const newPos = [];
+  const newNorm = [];
+  const newUv = [];
+  const normal = prim.getAttribute("NORMAL")?.getArray();
+  const uv = prim.getAttribute("TEXCOORD_0")?.getArray();
+  const newIdx = [];
+
+  const mapVertex = (vi) => {
+    if (oldToNew.has(vi)) return oldToNew.get(vi);
+    const next = oldToNew.size;
+    oldToNew.set(vi, next);
+    newPos.push(pos[vi * 3], pos[vi * 3 + 1], pos[vi * 3 + 2]);
+    if (normal) newNorm.push(normal[vi * 3], normal[vi * 3 + 1], normal[vi * 3 + 2]);
+    if (uv) newUv.push(uv[vi * 2], uv[vi * 2 + 1]);
+    return next;
+  };
+
+  for (const t of keepTris) {
+    newIdx.push(mapVertex(idx[t * 3]), mapVertex(idx[t * 3 + 1]), mapVertex(idx[t * 3 + 2]));
+  }
+
+  const IndexArray = newIdx.some((i) => i > 65535) ? Uint32Array : Uint16Array;
+  prim.setAttribute(
+    "POSITION",
+    doc
+      .createAccessor()
+      .setType("VEC3")
+      .setArray(new Float32Array(newPos))
+  );
+  if (normal) {
+    prim.setAttribute(
+      "NORMAL",
+      doc
+        .createAccessor()
+        .setType("VEC3")
+        .setArray(new Float32Array(newNorm))
+    );
+  }
+  if (uv) {
+    prim.setAttribute(
+      "TEXCOORD_0",
+      doc
+        .createAccessor()
+        .setType("VEC2")
+        .setArray(new Float32Array(newUv))
+    );
+  }
+  prim.setIndices(
+    doc
+      .createAccessor()
+      .setType("SCALAR")
+      .setArray(new IndexArray(newIdx))
   );
 }
 
 /** Drop the grounded pole cluster split across many tiny mesh islands. */
-function removeStrayStickGeometry(doc) {
+function removeStrayStickGeometry(doc, thresholds) {
   let removedTris = 0;
   let removedComponents = 0;
 
@@ -196,79 +317,72 @@ function removeStrayStickGeometry(doc) {
       const keepTris = [];
       let removedFromPrim = 0;
       let removedFromPrimComponents = 0;
+      let removedFromPrimTriangles = 0;
       for (const triIndices of compTris.values()) {
         const bounds = componentBounds(pos, idx, triIndices);
-        if (isStrayStickComponent(bounds)) {
+        if (isStrayStickComponent(bounds, thresholds)) {
           removedFromPrim += triIndices.length;
           removedFromPrimComponents += 1;
           continue;
         }
-        keepTris.push(...triIndices);
+        for (const t of triIndices) {
+          if (isStrayStickTriangle(pos, idx, t, thresholds)) {
+            removedFromPrim += 1;
+            removedFromPrimTriangles += 1;
+            continue;
+          }
+          keepTris.push(t);
+        }
       }
 
       if (removedFromPrim === 0) continue;
 
       removedTris += removedFromPrim;
-      removedComponents += removedFromPrimComponents;
+      removedComponents += removedFromPrimComponents + (removedFromPrimTriangles > 0 ? 1 : 0);
 
-      const oldToNew = new Map();
-      const newPos = [];
-      const newNorm = [];
-      const newUv = [];
-      const normal = prim.getAttribute("NORMAL")?.getArray();
-      const uv = prim.getAttribute("TEXCOORD_0")?.getArray();
-      const newIdx = [];
+      rebuildPrimitive(doc, prim, pos, idx, keepTris);
+    }
+  }
 
-      const mapVertex = (vi) => {
-        if (oldToNew.has(vi)) return oldToNew.get(vi);
-        const next = oldToNew.size;
-        oldToNew.set(vi, next);
-        newPos.push(pos[vi * 3], pos[vi * 3 + 1], pos[vi * 3 + 2]);
-        if (normal) newNorm.push(normal[vi * 3], normal[vi * 3 + 1], normal[vi * 3 + 2]);
-        if (uv) newUv.push(uv[vi * 2], uv[vi * 2 + 1]);
-        return next;
-      };
+  return { removedTris, removedComponents };
+}
 
-      for (const t of keepTris) {
-        newIdx.push(mapVertex(idx[t * 3]), mapVertex(idx[t * 3 + 1]), mapVertex(idx[t * 3 + 2]));
+/** Translate geometry so the lowest vertex sits at y=0 (room floor at placement). */
+function normalizeMeshGroundY(doc) {
+  let minY = Infinity;
+  for (const mesh of doc.getRoot().listMeshes()) {
+    for (const prim of mesh.listPrimitives()) {
+      const pos = prim.getAttribute("POSITION")?.getArray();
+      if (!pos) continue;
+      for (let i = 1; i < pos.length; i += 3) {
+        minY = Math.min(minY, pos[i]);
       }
+    }
+  }
 
-      const IndexArray = newIdx.some((i) => i > 65535) ? Uint32Array : Uint16Array;
+  if (!Number.isFinite(minY) || Math.abs(minY) < 1e-6) {
+    return { offsetY: 0 };
+  }
+
+  for (const mesh of doc.getRoot().listMeshes()) {
+    for (const prim of mesh.listPrimitives()) {
+      const position = prim.getAttribute("POSITION");
+      if (!position) continue;
+      const pos = Float32Array.from(position.getArray());
+      for (let i = 1; i < pos.length; i += 3) {
+        pos[i] -= minY;
+      }
       prim.setAttribute(
         "POSITION",
         doc
           .createAccessor()
           .setType("VEC3")
-          .setArray(new Float32Array(newPos))
-      );
-      if (normal) {
-        prim.setAttribute(
-          "NORMAL",
-          doc
-            .createAccessor()
-            .setType("VEC3")
-            .setArray(new Float32Array(newNorm))
-        );
-      }
-      if (uv) {
-        prim.setAttribute(
-          "TEXCOORD_0",
-          doc
-            .createAccessor()
-            .setType("VEC2")
-            .setArray(new Float32Array(newUv))
-        );
-      }
-      prim.setIndices(
-        doc
-          .createAccessor()
-          .setType("SCALAR")
-          .setArray(new IndexArray(newIdx))
+          .setArray(pos)
       );
     }
   }
 
-  return { removedTris, removedComponents };
+  return { offsetY: minY };
 }
 
 async function main() {
@@ -277,9 +391,23 @@ async function main() {
   const doc = await io.read(IN_PATH);
   const root = doc.getRoot();
 
-  const { removedTris, removedComponents } = removeStrayStickGeometry(doc);
+  const { removedTris, removedComponents } = removeStrayStickGeometry(doc, stickRemovalThresholds(doc));
   if (removedTris > 0) {
     console.log(`Removed stray stick: ${removedTris} triangles across ${removedComponents} mesh islands`);
+  }
+
+  // Cap fragments can sit above the floor slab; repeat until clean, then normalize once.
+  for (let pass = 2; pass <= 3; pass++) {
+    const passResult = removeStrayStickGeometry(doc, stickRemovalThresholds(doc));
+    if (passResult.removedTris === 0) break;
+    console.log(
+      `Removed stray stick (pass ${pass}): ${passResult.removedTris} triangles across ${passResult.removedComponents} mesh islands`
+    );
+  }
+
+  const { offsetY } = normalizeMeshGroundY(doc);
+  if (Math.abs(offsetY) > 1e-6) {
+    console.log(`Normalized ground: lowered scene by ${offsetY.toFixed(3)} m so floor sits at y=0`);
   }
 
   const textureRoles = buildTextureRoleMap(root);
