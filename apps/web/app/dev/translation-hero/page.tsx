@@ -3,16 +3,18 @@
 import { useState } from "react";
 import { TranslationPanel } from "../../../components/TranslationPanel";
 import { TranslationDock } from "../../../components/TranslationDock";
-import type { useTranslation } from "../../../lib/useTranslation";
+import type { useTranslation, TranslationLine } from "../../../lib/useTranslation";
 
 type TranslationController = ReturnType<typeof useTranslation>;
 
-const SAMPLE_LINES = [
+const SAMPLE_LINES: TranslationLine[] = [
   {
     id: "line-1",
     participantId: "participant-a",
+    utteranceId: "utt-1",
     sourceText: "Hola a todos, bienvenidos a la sesión de hoy.",
     displayText: "Hello everyone, welcome to today's session.",
+    sourceLang: "es",
     translatedFrom: "es",
     sentAt: Date.now() - 120000,
     startMs: 12000,
@@ -21,8 +23,10 @@ const SAMPLE_LINES = [
   {
     id: "line-2",
     participantId: "participant-b",
+    utteranceId: "utt-2",
     sourceText: "Merci, c'est un plaisir d'être ici.",
     displayText: "Thank you, it's a pleasure to be here.",
+    sourceLang: "fr",
     translatedFrom: "fr",
     sentAt: Date.now() - 90000,
     startMs: 42000,
@@ -31,8 +35,10 @@ const SAMPLE_LINES = [
   {
     id: "line-3",
     participantId: "self",
+    utteranceId: "utt-3",
     sourceText: "Great, let's get started with the agenda.",
     displayText: "Great, let's get started with the agenda.",
+    sourceLang: "en",
     translatedFrom: null,
     sentAt: Date.now() - 60000,
     startMs: 72000,
@@ -41,8 +47,10 @@ const SAMPLE_LINES = [
   {
     id: "line-4",
     participantId: "participant-a",
+    utteranceId: "utt-4",
     sourceText: "Perfecto, empecemos con la introducción.",
     displayText: "Perfect, let's start with the introduction…",
+    sourceLang: "es",
     translatedFrom: "es",
     sentAt: Date.now() - 10000,
     startMs: 122000,
@@ -56,7 +64,7 @@ function makeController(overrides: Partial<TranslationController>): TranslationC
     sharing: false,
     listening: false,
     supported: true,
-    error: null,
+    error: "",
     dockOpen: true,
     setDockOpen: () => {},
     clearLines: () => {},
@@ -64,7 +72,7 @@ function makeController(overrides: Partial<TranslationController>): TranslationC
     enableSharing: async () => {},
     disableSharing: () => {},
     toggleSharing: () => {},
-    handleRealtimeMessage: () => {},
+    handleRealtimeMessage: () => false,
     copyVisible: async () => {},
     ...overrides,
   };
