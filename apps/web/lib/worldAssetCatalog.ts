@@ -97,6 +97,12 @@ export const WORLD_ASSET_CATALOG: WorldAsset[] = [
     windSway: true,
     // One build cell (2 m) per click; the density slider picks the patch count.
     scatter: { defaultCount: 6, minCount: 1, maxCount: 12, areaSize: 2 }
+  },
+  {
+    slug: "podium",
+    displayName: "Podium",
+    glbUrl: "/objects/podium.glb",
+    thumbnailUrl: "/objects/thumbnails/podium.jpg"
   }
 ];
 

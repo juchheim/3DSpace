@@ -100,6 +100,13 @@
   2×2 m square (`scatter` in `worldAssetCatalog.ts`); each patch persists as its own world asset
   with random yaw and ±25% scale variance (`scaleVariance: 0.25`).
 
+## `podium.glb`
+
+- Presentation podium for the World Builder **Objects** palette.
+- **Origin:** `GLBs/podium.glb` (base color re-encoded to JPEG q85 via
+  `scripts/prepare-podium-glb.mjs`).
+- **Format:** glTF 2.0 binary, ~0.6 MB. Native footprint ~1.5 × 3.5 × 1.2 m.
+
 ## `floor.glb` / `ramp.glb`
 
 - See `BuildPieceMesh.tsx` for native dimensions and scaling.

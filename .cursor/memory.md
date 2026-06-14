@@ -8,6 +8,8 @@ Last updated: 2026-06-13 (Verse voice translation planning)
 
 - **2026-06-13:** **Verse meeting notes** — enabled AI meeting notes in Dream IXR verse rooms: `VERSE_ROOM_TYPE_FEATURE_FLAGS.aiMeetingNotes: true` (contracts); `verseRoomSettings()` no longer disables `aiMeetingNotes` (inherits base `enabled: true`). `normalizeRoomRecord()` heals pre-shipment verse rooms that persisted `aiMeetingNotes.enabled: false`. Existing `MeetingNotesPanel` / API routes / `ENABLE_AI_MEETING_NOTES` env gate unchanged.
 
+- **2026-06-14:** **World Builder podium** — `GLBs/podium.glb` → `apps/web/public/objects/podium.glb` via `scripts/prepare-podium-glb.mjs` (JPEG q85, ~0.59 MB, native ~1.5×3.5×1.2 m). Catalog slug `podium` in `worldAssetCatalog.ts`; thumbnail `objects/thumbnails/podium.jpg`.
+
 - **2026-06-13:** **Image Floor preset textures** — built-in Grass (`grass-v2.png`), Dirt (`floor-dirt-v3.png`), and Concrete (`floor-slight-marbled-concrete.jpg`) in World Builder Image Floor **In this room** swatches (`apps/web/lib/buildFloorTexturePresets.ts`, public assets under `apps/web/public/build/floor-textures/`). First click uploads to room storage (cached per session); presets always shown alongside textures already laid in the room.
 
 - **2026-06-12:** **Image Floor build perf** — toggling World Builder remounted `BuildLayer` (separate JSX branches in `BuildPlacementController`), reloading every image-floor tile texture; fixed by keeping `BuildLayer` mounted and only toggling `interactive`/overlay props. Image-floor tops now render once per connected region in `ImageFloorRegionTopLayer` (one `useTexture` + merged geometry) instead of per tile in `BuildPieceMesh`. UI swatches use `loading="lazy"` / `decoding="async"`.

@@ -47,6 +47,15 @@ describe("worldAssetCatalog", () => {
     expect(oak?.scaleVariance).toBe(0.15);
   });
 
+  it("includes the Podium World Builder object", () => {
+    const podium = worldAssetBySlug("podium");
+    expect(podium).toBeDefined();
+    expect(podium?.displayName).toBe("Podium");
+    expect(podium?.glbUrl).toBe("/objects/podium.glb");
+    expect(podium?.thumbnailUrl).toBe("/objects/thumbnails/podium.jpg");
+    expect(WORLD_ASSET_CATALOG.some((asset) => asset.slug === "podium")).toBe(true);
+  });
+
   it("includes the Tall Grass World Builder object with scatter + wind sway", () => {
     const grass = worldAssetBySlug("tall-grass");
     expect(grass).toBeDefined();
