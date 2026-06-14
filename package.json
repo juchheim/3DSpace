@@ -25,7 +25,8 @@
     "prepare:tall-grass-glb": "node scripts/prepare-tall-grass-glb.mjs",
     "prepare:vienna-market-glb": "node scripts/prepare-vienna-market-glb.mjs",
     "prepare:classroom-simple-glb": "node scripts/prepare-classroom-simple-glb.mjs",
-    "prepare:mars-glb": "node scripts/prepare-mars-glb.mjs"
+    "prepare:mars-glb": "node scripts/prepare-mars-glb.mjs",
+    "prepare:escher-head-glb": "node scripts/prepare-escher-head-glb.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.44.1",

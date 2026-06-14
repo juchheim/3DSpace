@@ -161,6 +161,16 @@ describe("worldAssetCatalog", () => {
     expect(mars?.staticCollider).toBe(true);
     expect(worldAssetCategory(mars!)).toBe("scene");
   });
+
+  it("includes the Escher Head scene", () => {
+    const escher = worldAssetBySlug("escher-head");
+    expect(escher).toBeDefined();
+    expect(escher?.displayName).toBe("Escher Head");
+    expect(escher?.glbUrl).toBe("/objects/escher-head.glb");
+    expect(escher?.thumbnailUrl).toBe("/objects/thumbnails/escher-head.jpg");
+    expect(escher?.staticCollider).toBe(true);
+    expect(worldAssetCategory(escher!)).toBe("scene");
+  });
 });
 
 describe("podium catalog flags", () => {
