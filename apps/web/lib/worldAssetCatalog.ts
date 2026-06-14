@@ -35,6 +35,8 @@ export type WorldAsset = {
   windSway?: boolean;
   /** When true, avatars can stand & lock at this asset with E (podium/lectern). */
   podiumStand?: boolean;
+  /** When true, the placed mesh becomes a Rapier static trimesh collider (walk/jump on). */
+  staticCollider?: boolean;
 };
 
 export const WORLD_ASSET_CATALOG: WorldAsset[] = [
@@ -118,7 +120,8 @@ export const WORLD_ASSET_CATALOG: WorldAsset[] = [
     displayName: "Vienna Market",
     glbUrl: "/objects/vienna-market.glb",
     thumbnailUrl: "/objects/thumbnails/vienna-market.jpg",
-    category: "scene"
+    category: "scene",
+    staticCollider: true
   }
 ];
 
@@ -150,6 +153,10 @@ export function hasDeskNotebook(slug: string): boolean {
 
 export function isPodiumWorldAsset(slug: string): boolean {
   return worldAssetBySlug(slug)?.podiumStand === true;
+}
+
+export function isStaticColliderWorldAsset(slug: string): boolean {
+  return worldAssetBySlug(slug)?.staticCollider === true;
 }
 
 /** True when standing at this asset should open the importable notebook. */

@@ -187,7 +187,8 @@ export {
   type ColliderSpec,
   type CuboidColliderSpec,
   type GroundColliderSpec,
-  type RampColliderSpec
+  type RampColliderSpec,
+  type TrimeshColliderSpec
 } from "./physics-spec.js";
 export { resolvePhysicsTuning } from "./physics-tuning.js";
 

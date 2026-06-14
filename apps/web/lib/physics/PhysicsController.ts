@@ -194,6 +194,11 @@ export class PhysicsController {
       return this.world.createCollider(desc);
     }
 
+    if (spec.kind === "trimesh") {
+      const desc = this.RAPIER.ColliderDesc.trimesh(spec.vertices, spec.indices);
+      return this.world.createCollider(desc);
+    }
+
     const desc = this.RAPIER.ColliderDesc.convexHull(buildRampVertices(spec));
     if (!desc) {
       throw new Error(`Failed to build convex hull for ramp collider ${spec.id}`);

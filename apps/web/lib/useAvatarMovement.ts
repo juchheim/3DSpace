@@ -42,6 +42,10 @@ import {
 } from "./avatarSprint";
 import { isKeyboardOwnedTarget } from "./isKeyboardOwnedTarget";
 import { PhysicsController } from "./physics/PhysicsController";
+import type { PlacedChair } from "./usePlacedChairs";
+import { isStaticColliderWorldAsset, worldAssetGlbUrl } from "./worldAssetCatalog";
+import { loadWorldAssetColliderMesh, type WorldAssetColliderMesh } from "./worldAssetColliderMesh";
+import { buildWorldAssetTrimeshColliderSpecs, worldAssetPhysicsCacheKey } from "./worldAssetPhysics";
 
 /** Radians per second while Q (left) or E (right) is held past {@link AVATAR_KEYBOARD_TURN_HOLD_MS}. */
 export const AVATAR_KEYBOARD_TURN_SPEED_RAD_PER_SEC = 2.75;
@@ -96,6 +100,7 @@ export function useAvatarMovement(input: {
   buildPiecesRef?: MutableRefObject<BuildPiece[]>;
   logicPiecesRef?: MutableRefObject<BuildLogicPiece[]>;
   logicNodesRef?: MutableRefObject<LogicState["nodes"]>;
+  worldAssetsRef?: MutableRefObject<PlacedChair[]>;
 }) {
   const [avatarState, setAvatarState] = useState<AvatarStateMessage | null>(null);
   const keys = useRef(new Set<string>());
@@ -126,6 +131,8 @@ export function useAvatarMovement(input: {
   const physicsWorldSpecKeyRef = useRef("");
   const physicsWorldSpecRef = useRef<ColliderSpec[]>([]);
   const physicsColliderSyncKeyRef = useRef<string | null>(null);
+  const worldAssetColliderMeshesRef = useRef<Map<string, WorldAssetColliderMesh>>(new Map());
+  const worldAssetColliderMeshesGenerationRef = useRef(0);
   const jumpRequestedRef = useRef(false);
   const jumpSprintRef = useRef(false);
 
@@ -141,16 +148,55 @@ export function useAvatarMovement(input: {
     return input.logicNodesRef?.current ?? {};
   }
 
+  function getWorldAssets() {
+    return input.worldAssetsRef?.current ?? [];
+  }
+
+  const pendingWorldAssetColliderLoadsRef = useRef(new Set<string>());
+
+  function ensureWorldAssetColliderMeshes(worldAssets: PlacedChair[]) {
+    for (const asset of worldAssets) {
+      if (!isStaticColliderWorldAsset(asset.slug)) continue;
+      const glbUrl = worldAssetGlbUrl(asset.slug);
+      if (worldAssetColliderMeshesRef.current.has(glbUrl)) continue;
+      if (pendingWorldAssetColliderLoadsRef.current.has(glbUrl)) continue;
+      pendingWorldAssetColliderLoadsRef.current.add(glbUrl);
+      void loadWorldAssetColliderMesh(glbUrl)
+        .then((mesh) => {
+          pendingWorldAssetColliderLoadsRef.current.delete(glbUrl);
+          worldAssetColliderMeshesRef.current.set(glbUrl, mesh);
+          worldAssetColliderMeshesGenerationRef.current += 1;
+        })
+        .catch((error) => {
+          pendingWorldAssetColliderLoadsRef.current.delete(glbUrl);
+          console.error(`Failed to load world asset collider mesh ${glbUrl}`, error);
+        });
+    }
+  }
+
   function syncPhysicsWorldSpec(
     manifest: NonNullable<typeof input.manifest>,
     pieces: BuildPiece[],
     logicPieces: BuildLogicPiece[],
-    logicNodes: LogicState["nodes"]
+    logicNodes: LogicState["nodes"],
+    worldAssets: PlacedChair[]
   ) {
-    const key = physicsWorldSpecCacheKey(manifest, pieces, { pieces: logicPieces, nodes: logicNodes });
+    const baseKey = physicsWorldSpecCacheKey(manifest, pieces, { pieces: logicPieces, nodes: logicNodes });
+    const meshReadyByUrl = new Map<string, boolean>();
+    for (const asset of worldAssets) {
+      if (!isStaticColliderWorldAsset(asset.slug)) continue;
+      const glbUrl = worldAssetGlbUrl(asset.slug);
+      meshReadyByUrl.set(glbUrl, worldAssetColliderMeshesRef.current.has(glbUrl));
+    }
+    const assetKey = worldAssetPhysicsCacheKey(worldAssets, meshReadyByUrl);
+    const key = `${baseKey}::${assetKey}::meshgen:${worldAssetColliderMeshesGenerationRef.current}`;
     if (key !== physicsWorldSpecKeyRef.current) {
       physicsWorldSpecKeyRef.current = key;
-      physicsWorldSpecRef.current = buildPhysicsWorldSpec(manifest, pieces, { pieces: logicPieces, nodes: logicNodes });
+      const meshByUrl = worldAssetColliderMeshesRef.current;
+      physicsWorldSpecRef.current = [
+        ...buildPhysicsWorldSpec(manifest, pieces, { pieces: logicPieces, nodes: logicNodes }),
+        ...buildWorldAssetTrimeshColliderSpecs(worldAssets, meshByUrl)
+      ];
     }
     return { key, spec: physicsWorldSpecRef.current };
   }
@@ -178,7 +224,9 @@ export function useAvatarMovement(input: {
     const pieces = getBuildPieces();
     const logicPieces = getLogicPieces();
     const logicNodes = getLogicNodes();
-    const { spec, key } = syncPhysicsWorldSpec(manifest, pieces, logicPieces, logicNodes);
+    const worldAssets = getWorldAssets();
+    ensureWorldAssetColliderMeshes(worldAssets);
+    const { spec, key } = syncPhysicsWorldSpec(manifest, pieces, logicPieces, logicNodes, worldAssets);
     physicsControllerInitRef.current = PhysicsController.create({
       tuning,
       spec,
@@ -391,7 +439,15 @@ export function useAvatarMovement(input: {
           if (!physicsControllerRef.current) {
             ensurePhysicsController(input.manifest!, current, input.physicsTuning);
           } else {
-            const { spec, key } = syncPhysicsWorldSpec(input.manifest!, pieces, logicPieces, logicNodes);
+            const worldAssets = getWorldAssets();
+            ensureWorldAssetColliderMeshes(worldAssets);
+            const { spec, key } = syncPhysicsWorldSpec(
+              input.manifest!,
+              pieces,
+              logicPieces,
+              logicNodes,
+              worldAssets
+            );
             physicsControllerRef.current.setTuning(input.physicsTuning);
             if (physicsColliderSyncKeyRef.current !== key) {
               physicsControllerRef.current.syncColliders(spec, key);
@@ -408,9 +464,7 @@ export function useAvatarMovement(input: {
               dtSeconds: deltaSeconds,
               sprinting
             });
-            const nextPosition = out.grounded
-              ? applyGroundHeight(input.manifest!, pieces, out.position, "walk")
-              : out.position;
+            const nextPosition = out.position;
             const next = {
               ...current,
               sentAt: Date.now(),

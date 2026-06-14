@@ -39,7 +39,16 @@ export type GroundColliderSpec = {
   y: number;
 };
 
-export type ColliderSpec = CuboidColliderSpec | RampColliderSpec | GroundColliderSpec;
+/** Triangle mesh in world space (e.g. a placed World Builder scene prop). */
+export type TrimeshColliderSpec = {
+  kind: "trimesh";
+  id: string;
+  source: "world-asset";
+  vertices: Float32Array;
+  indices: Uint32Array;
+};
+
+export type ColliderSpec = CuboidColliderSpec | RampColliderSpec | GroundColliderSpec | TrimeshColliderSpec;
 
 type LogicDoorInput = {
   pieces: BuildLogicPiece[];

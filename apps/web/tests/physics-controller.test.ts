@@ -58,6 +58,16 @@ function thinFloorSpec(centerY = 4.05): ColliderSpec {
   };
 }
 
+function trimeshPlatformSpec(centerY: number): ColliderSpec {
+  return {
+    kind: "trimesh",
+    id: `platform:${centerY}`,
+    source: "world-asset",
+    vertices: new Float32Array([-2, centerY, -2, 2, centerY, -2, 2, centerY, 2, -2, centerY, 2]),
+    indices: new Uint32Array([0, 1, 2, 0, 2, 3])
+  };
+}
+
 async function stepMany(
   controller: PhysicsController,
   steps: number,
@@ -380,6 +390,24 @@ describe("PhysicsController", () => {
       const landed = await stepMany(controller, 120, { moveX: 0, moveZ: 0 });
       expect(landed.grounded).toBe(true);
       expect(landed.position.y).toBeCloseTo(0, 1);
+    } finally {
+      controller.dispose();
+    }
+  });
+
+  it("supports standing on a trimesh platform", async () => {
+    const controller = await PhysicsController.create({
+      tuning,
+      spec: [groundSpec(), trimeshPlatformSpec(2.1)],
+      cacheKey: "ground+trimesh",
+      initialPosition: { x: 0, y: 2.15, z: 0 }
+    });
+
+    try {
+      const standing = await stepMany(controller, 5, { moveX: 0, moveZ: 0 });
+      expect(standing.grounded).toBe(true);
+      expect(standing.position.y).toBeCloseTo(2.15, 1);
+      expect(standing.vy).toBe(0);
     } finally {
       controller.dispose();
     }

@@ -85,7 +85,7 @@ import { normalizeRoomManifest } from "../lib/manifest";
 import { createRealtimeClient, type RealtimeClient, type RealtimeMessage } from "../lib/realtime";
 import { useSpatialAudio } from "../lib/useSpatialAudio";
 import { isBoardGrantActive } from "../lib/classroomGrants";
-import { findNearestChair } from "../lib/usePlacedChairs";
+import { findNearestChair, type PlacedChair } from "../lib/usePlacedChairs";
 import { usePlacedWorldAssets } from "../lib/usePlacedWorldAssets";
 import { useSitting } from "../lib/useSitting";
 import { useStanding } from "../lib/useStanding";
@@ -1161,6 +1161,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   }, []);
   const buildPiecesForMovementRef = useRef<BuildPiece[]>([]);
   buildPiecesForMovementRef.current = buildPiecesEnabled ? buildPieces.pieces : [];
+  const worldAssetsForMovementRef = useRef<PlacedChair[]>([]);
   const logicPiecesForMovementRef = useRef<BuildLogicPiece[]>([]);
   logicPiecesForMovementRef.current = logicFeatureEnabled ? logicPieces.pieces : [];
   const logicNodesForMovementRef = useRef<Record<string, Record<string, unknown>>>({});
@@ -1173,6 +1174,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     roomId: session?.room.id ?? roomId,
     publish: publishRealtime
   });
+  worldAssetsForMovementRef.current = chairs.chairs;
   const worldAssetsRealtimeHandlerRef = useRef(chairs.handleRealtimeMessage);
   worldAssetsRealtimeHandlerRef.current = chairs.handleRealtimeMessage;
   // A stable ref so useSitting can always read the latest avatar position without
@@ -1220,7 +1222,8 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     physicsTuning,
     buildPiecesRef: buildPiecesForMovementRef,
     logicPiecesRef: logicPiecesForMovementRef,
-    logicNodesRef: logicNodesForMovementRef
+    logicNodesRef: logicNodesForMovementRef,
+    worldAssetsRef: worldAssetsForMovementRef
   });
   // Keep the position ref in sync with the latest avatar state.
   avatarPositionRef.current = movement.avatarState?.position ?? null;

@@ -132,6 +132,7 @@ describe("worldAssetCatalog", () => {
     expect(market?.displayName).toBe("Vienna Market");
     expect(market?.glbUrl).toBe("/objects/vienna-market.glb");
     expect(market?.thumbnailUrl).toBe("/objects/thumbnails/vienna-market.jpg");
+    expect(market?.staticCollider).toBe(true);
     expect(worldAssetCategory(market!)).toBe("scene");
   });
 });
