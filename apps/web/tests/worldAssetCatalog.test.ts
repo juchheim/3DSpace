@@ -168,6 +168,7 @@ describe("worldAssetCatalog", () => {
     expect(escher?.displayName).toBe("Escher Head");
     expect(escher?.glbUrl).toBe("/objects/escher-head.glb");
     expect(escher?.thumbnailUrl).toBe("/objects/thumbnails/escher-head.jpg");
+    expect(escher?.scale).toBe(1.6);
     expect(escher?.staticCollider).toBe(true);
     expect(worldAssetCategory(escher!)).toBe("scene");
   });

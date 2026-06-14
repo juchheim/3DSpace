@@ -161,6 +161,7 @@ export const WORLD_ASSET_CATALOG: WorldAsset[] = [
     glbUrl: "/objects/escher-head.glb",
     thumbnailUrl: "/objects/thumbnails/escher-head.jpg",
     category: "scene",
+    scale: 1.6,
     staticCollider: true // required for scenes — see WorldAssetCategory doc above
   }
 ];

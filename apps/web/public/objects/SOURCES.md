@@ -130,9 +130,9 @@
 - Escher-style head with interior stairs for the World Builder **Scenes** palette.
 - **Origin:** `GLBs/escher-head.glb` (neck cropped to lowest stair, grayscale JPEG q85 via
   `scripts/prepare-escher-head-glb.mjs`).
-- **Format:** glTF 2.0 binary, ~3.6 MB. Native footprint ~7.6 × 8.4 × 9.2 m after neck crop; floor at
-  local y=0 (lowest stair tread). Grayscale baked texture. Walkable via `staticCollider: true`
-  (Rapier trimesh).
+- **Format:** glTF 2.0 binary, ~3.6 MB. Native footprint ~7.6 × 8.4 × 9.2 m after neck crop; scaled to
+  160% at placement (`scale: 1.6` → ~12 × 13 × 15 m). Floor at local y=0 (lowest stair tread).
+  Grayscale baked texture. Walkable via `staticCollider: true` (Rapier trimesh).
 
 ## `floor.glb` / `ramp.glb`
 
