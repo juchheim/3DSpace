@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { IMAGE_FLOOR_TEXTURE_SPAN_OPTIONS, type BuildPieceMaterial } from "@3dspace/contracts";
 import { BUILD_MATERIAL_OPTIONS } from "./buildMaterials";
-import { BUILTIN_BUILD_STAMPS, buildTabRoomStamps } from "../lib/buildStamps";
+import { BUILTIN_BUILD_STAMPS } from "../lib/buildStamps";
 import {
   BUILD_FLOOR_TEXTURE_PRESETS,
   isBuildFloorTexturePresetFileName,
@@ -32,7 +32,7 @@ const BUILD_TOOLS: Array<{ id: BuildTool; label: string; shortcut?: string; grou
   { id: "window", label: "Window", shortcut: "6", group: "structure" },
   { id: "light", label: "Light", shortcut: "7", group: "fixture" },
   { id: "mirror", label: "Mirror", shortcut: "8", group: "fixture" },
-  { id: "arbor-ceiling", label: "Arbor ceiling", group: "fixture" }
+  { id: "arbor-ceiling", label: "Wood Arbor Ceiling", group: "fixture" }
 ];
 
 const MATERIAL_LABELS: Record<BuildPieceMaterial, string> = {
@@ -450,63 +450,32 @@ export function BuildControls({
           {/* ── Palette body ───────────────────────────────────────────────────── */}
           <div className="build-dock__body">
             {category === "build" ? (
-              <>
-                <div className="build-dock__grid" role="toolbar" aria-label="Build pieces">
-                  {BUILD_TOOLS.map((tool) => {
-                    const active = toolActive && buildMode.tool === tool.id;
-                    return (
-                      <button
-                        key={tool.id}
-                        type="button"
-                        className={`build-dock__tile${active ? " is-active" : ""}`}
-                        aria-pressed={active}
-                        onClick={() => {
-                          onSelectAsset?.(null);
-                          buildMode.setTool(tool.id);
-                        }}
-                        title={tool.shortcut ? `${tool.label} (${tool.shortcut})` : tool.label}
-                      >
-                        <span className="build-dock__tile-icon">
-                          <Glyph id={tool.id} />
-                        </span>
-                        <span className="build-dock__tile-label">{tool.label}</span>
-                        {tool.shortcut ? (
-                          <kbd className="build-dock__tile-key">{tool.shortcut}</kbd>
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="build-dock__rooms" role="group" aria-label="Room stamps">
-                  <span className="build-dock__prop-label">Rooms</span>
-                  <div className="build-dock__grid build-dock__grid--rooms">
-                    {buildTabRoomStamps().map((stamp) => {
-                      const active = buildMode.selectedStampId === stamp.id;
-                      return (
-                        <button
-                          key={stamp.id}
-                          type="button"
-                          className={`build-dock__tile build-dock__tile--wide${active ? " is-active" : ""}`}
-                          aria-pressed={active}
-                          onClick={() => {
-                            onSelectAsset?.(null);
-                            buildMode.selectStamp(active ? null : stamp.id);
-                          }}
-                          title={stamp.description}
-                        >
-                          <span className="build-dock__tile-icon">
-                            <Glyph id="stamp" />
-                          </span>
-                          <span className="build-dock__tile-stack">
-                            <span className="build-dock__tile-label">{stamp.label}</span>
-                            <span className="build-dock__tile-sub">{stamp.description}</span>
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </>
+              <div className="build-dock__grid" role="toolbar" aria-label="Build pieces">
+                {BUILD_TOOLS.map((tool) => {
+                  const active = toolActive && buildMode.tool === tool.id;
+                  return (
+                    <button
+                      key={tool.id}
+                      type="button"
+                      className={`build-dock__tile${active ? " is-active" : ""}`}
+                      aria-pressed={active}
+                      onClick={() => {
+                        onSelectAsset?.(null);
+                        buildMode.setTool(tool.id);
+                      }}
+                      title={tool.shortcut ? `${tool.label} (${tool.shortcut})` : tool.label}
+                    >
+                      <span className="build-dock__tile-icon">
+                        <Glyph id={tool.id} />
+                      </span>
+                      <span className="build-dock__tile-label">{tool.label}</span>
+                      {tool.shortcut ? (
+                        <kbd className="build-dock__tile-key">{tool.shortcut}</kbd>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
             ) : null}
 
             {/* ── Image Floor: pick an image, then drag a rectangle on the ground ── */}

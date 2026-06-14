@@ -64,72 +64,7 @@ function roomShellPieces(size: number): BuildStampPiece[] {
   return pieces;
 }
 
-/**
- * A pergola-style room: wood floor, corner posts, sparse level-1 trellis beams
- * (open center for light from above), and a south doorway — no walls between posts.
- */
-function arborRoomPieces(size: number): BuildStampPiece[] {
-  const last = size - 1;
-  const doorwayIx = Math.floor(size / 2);
-  const pieces: BuildStampPiece[] = [];
-
-  for (let ix = 0; ix < size; ix++) {
-    for (let iz = 0; iz < size; iz++) {
-      pieces.push({ kind: "floor", cell: { ix, iz }, level: 0, materialId: "wood" });
-    }
-  }
-
-  const corners: Array<{ ix: number; iz: number; edges: BuildPieceEdge[] }> = [
-    { ix: 0, iz: 0, edges: ["w", "s"] },
-    { ix: last, iz: 0, edges: ["e", "s"] },
-    { ix: 0, iz: last, edges: ["w", "n"] },
-    { ix: last, iz: last, edges: ["e", "n"] }
-  ];
-  for (const { ix, iz, edges } of corners) {
-    for (const edge of edges) {
-      pieces.push({
-        kind: "simple-wall",
-        cell: { ix, iz },
-        level: 0,
-        edge,
-        materialId: "wood"
-      });
-    }
-  }
-
-  pieces.push({
-    kind: "doorway",
-    cell: { ix: doorwayIx, iz: 0 },
-    level: 0,
-    edge: "s",
-    materialId: "wood"
-  });
-
-  for (let iz = 1; iz < last; iz++) {
-    pieces.push({ kind: "simple-wall", cell: { ix: 0, iz }, level: 1, edge: "n", materialId: "wood" });
-    pieces.push({ kind: "simple-wall", cell: { ix: last, iz }, level: 1, edge: "n", materialId: "wood" });
-  }
-  for (let ix = 1; ix < last; ix++) {
-    pieces.push({ kind: "simple-wall", cell: { ix, iz: 0 }, level: 1, edge: "e", materialId: "wood" });
-    pieces.push({ kind: "simple-wall", cell: { ix, iz: last }, level: 1, edge: "e", materialId: "wood" });
-  }
-
-  return pieces;
-}
-
 export const BUILTIN_BUILD_STAMPS: BuildStamp[] = [
-  {
-    id: "room-3x3",
-    label: "Room 3×3",
-    description: "Floored cell with walls and a south doorway",
-    pieces: roomShellPieces(3)
-  },
-  {
-    id: "arbor-4x4",
-    label: "Arbor 4×4",
-    description: "Open pergola with corner posts, trellis beams, and light from above",
-    pieces: arborRoomPieces(4)
-  },
   {
     id: "corridor",
     label: "Corridor",
@@ -163,14 +98,6 @@ export const BUILTIN_BUILD_STAMPS: BuildStamp[] = [
     pieces: perimeterWallPieces(5)
   }
 ];
-
-/** Room prefabs surfaced on the World Builder **Build** tab (also listed under Stamps). */
-export const BUILD_TAB_ROOM_STAMP_IDS = ["room-3x3", "arbor-4x4"] as const;
-
-export function buildTabRoomStamps(): BuildStamp[] {
-  const ids = new Set<string>(BUILD_TAB_ROOM_STAMP_IDS);
-  return BUILTIN_BUILD_STAMPS.filter((stamp) => ids.has(stamp.id));
-}
 
 export function getBuildStamp(id: string): BuildStamp | undefined {
   return BUILTIN_BUILD_STAMPS.find((stamp) => stamp.id === id);

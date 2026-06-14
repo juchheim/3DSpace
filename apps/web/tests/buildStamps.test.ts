@@ -28,47 +28,13 @@ describe("buildStamps", () => {
     expect(doorway?.edge).toBe("w");
   });
 
-  it("room stamp is an enclosed, floored, enterable room", () => {
-    const stamp = getBuildStamp("room-3x3")!;
-    const targets = stampToPlacementTargets(stamp, { ix: 5, iz: 5 }, 0, "stone");
-    const floors = targets.filter((t) => t.kind === "floor");
-    const walls = targets.filter((t) => t.kind === "wall");
-    const doorways = targets.filter((t) => t.kind === "doorway");
-    // Full floor (3×3), a complete perimeter minus one south doorway, and one opening.
-    expect(floors).toHaveLength(9);
-    expect(walls.length).toBeGreaterThan(10);
-    expect(doorways).toHaveLength(1);
-    // Walls live only on the perimeter — no interior lattice.
-    const interiorWall = walls.find(
-      (t) => t.cell.ix > 5 && t.cell.ix < 7 && t.cell.iz > 5 && t.cell.iz < 7
-    );
-    expect(interiorWall).toBeUndefined();
-    expect(BUILTIN_BUILD_STAMPS.length).toBeGreaterThanOrEqual(4);
-  });
-
   it("perimeter stamp is a hollow box with no floor or doorway", () => {
     const stamp = getBuildStamp("perimeter-5")!;
     const targets = stampToPlacementTargets(stamp, { ix: 0, iz: 0 }, 0, "stone");
     expect(targets.every((t) => t.kind === "wall")).toBe(true);
     expect(targets.some((t) => t.kind === "floor")).toBe(false);
     expect(targets.some((t) => t.kind === "doorway")).toBe(false);
-  });
-
-  it("arbor stamp is an open pergola with overhead beams and no perimeter walls", () => {
-    const stamp = getBuildStamp("arbor-4x4")!;
-    const targets = stampToPlacementTargets(stamp, { ix: 0, iz: 0 }, 0, "stone");
-    const floors = targets.filter((t) => t.kind === "floor");
-    const groundWalls = targets.filter((t) => t.level === 0 && (t.kind === "wall" || t.kind === "simple-wall"));
-    const trellis = targets.filter((t) => t.level === 1 && t.kind === "simple-wall");
-    const doorways = targets.filter((t) => t.kind === "doorway");
-
-    expect(floors).toHaveLength(16);
-    expect(groundWalls).toHaveLength(8);
-    expect(trellis.length).toBeGreaterThanOrEqual(8);
-    expect(doorways).toHaveLength(1);
-    expect(groundWalls.some((t) => t.cell.ix === 1 && t.cell.iz === 0)).toBe(false);
-    expect(trellis.some((t) => t.cell.ix === 1 && t.cell.iz === 1)).toBe(false);
-    expect(BUILTIN_BUILD_STAMPS.length).toBeGreaterThanOrEqual(5);
+    expect(BUILTIN_BUILD_STAMPS).toHaveLength(3);
   });
 
   it("escape starter kit carries pre-wired logic with a win plate", () => {

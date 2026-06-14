@@ -1,10 +1,10 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-14 (Arbor ceiling build piece)
+Last updated: 2026-06-14 (Wood Arbor Ceiling GLB)
 
-- **2026-06-14:** **World Builder Arbor ceiling** — new `arbor-ceiling` `BuildPieceKind` (not a stamp): one-cell pergola trellis at the top of a level (perimeter + partial cross beams, open center for sky light); procedural mesh in `arborCeilingBeams.ts` + `BuildPieceMesh`; Build tab fixture tile; stacks with floors/lights; `R` rotates; AI corpus updated. Existing `arbor-4x4` stamp unchanged.
+- **2026-06-14:** **Wood Arbor Ceiling GLB** — `GLBs/arbor.glb` → `scripts/prepare-arbor-glb.mjs` (JPEG q85, ~0.88 MB) → `apps/web/public/objects/arbor-ceiling.glb`; Build tab **Wood Arbor Ceiling** tile replaces procedural trellis mesh. Removed **Room 3×3** / **Arbor 4×4** stamps and Build tab **Rooms** row.
 
-- **2026-06-14:** **World Builder Arbor room** — `arbor-4x4` stamp in `buildStamps.ts`: 4×4 wood floor, corner `simple-wall` posts, level-1 trellis beams (open center for sunlight), south doorway; surfaced on **Build** tab **Rooms** row + **Stamps** tab; AI corpus updated.
+- **2026-06-14:** **World Builder Arbor ceiling** — `arbor-ceiling` `BuildPieceKind` (not a stamp): one-cell overhead trellis; stacks with floors/lights; `R` rotates; AI corpus updated.
 
 - **2026-06-14:** **AI World Host World Builder corpus** — expanded `apps/api/src/ai-host/corpus/world-building-guide.md` + `prompts.ts` persona for full World Builder: tabs (Build/Objects/Scenes/Stamps), Image Floor (`0`) + presets/span/rect-drag, Mirror (`8`), world object catalog (chairs, desks, trees, grass scatter, podium stand+notebook+import), scenes (Vienna Market, Classroom, Mars, Escher Head + walkable colliders), Fine placement, `B` toggle, Erase on objects, FFA vs verse keep-out rules, undo scope (build pieces only). Tests `apps/api/tests/ai-host/prompts.test.ts` updated.
 

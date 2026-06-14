@@ -21,7 +21,6 @@ import {
 } from "@3dspace/room-engine";
 import { buildMaterialProps } from "./buildMaterials";
 import { edgeOpeningFrameParts } from "../lib/buildEdgeOpeningMesh";
-import { arborCeilingBeams } from "../lib/arborCeilingBeams";
 import { wallMeshTransform } from "../lib/buildWallMesh";
 import type { ImageFloorRegion } from "../lib/imageFloorRegions";
 import { LampGlbMesh, LAMP_BULB_NATIVE_Y, LAMP_GLB_NATIVE_H, LAMP_TARGET_HEIGHT } from "./LampGlbMesh";
@@ -58,6 +57,34 @@ const RAMP_GLB_NATIVE_H = 2.4;       // Y extent (rise)
 const RAMP_GLB_NATIVE_D = 4.2271991; // Z extent (footprint run — model climbs along Z)
 
 useGLTF.preload(RAMP_GLB_URL);
+
+// ── Wood arbor ceiling GLB ────────────────────────────────────────────────────
+const ARBOR_CEILING_GLB_URL = "/objects/arbor-ceiling.glb";
+const ARBOR_CEILING_GLB_NATIVE_W = 0.818297416;
+const ARBOR_CEILING_GLB_NATIVE_H = 0.12;
+
+useGLTF.preload(ARBOR_CEILING_GLB_URL);
+
+function ArborCeilingGlbMesh({ piece }: { piece: BuildPiece }) {
+  const { scene } = useGLTF(ARBOR_CEILING_GLB_URL);
+  const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
+
+  const footprint = buildCellFootprint(piece.cell.ix, piece.cell.iz);
+  const centerX = (footprint.minX + footprint.maxX) / 2;
+  const centerZ = (footprint.minZ + footprint.maxZ) / 2;
+  const baseY = piece.level * BUILD_LEVEL_HEIGHT;
+
+  const scale = BUILD_CELL_SIZE / ARBOR_CEILING_GLB_NATIVE_W;
+  const scaledH = ARBOR_CEILING_GLB_NATIVE_H * scale;
+  const y = baseY + BUILD_LEVEL_HEIGHT - scaledH;
+  const rotationY = (piece.rotation * Math.PI) / 180;
+
+  return (
+    <group position={[centerX, y, centerZ]} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
+      <primitive object={model} />
+    </group>
+  );
+}
 
 /** Map build rotation to GLB yaw; native mesh climbs from +Z (low) to −Z (high). */
 function rampGlbRotationY(rotation: BuildPieceRotation): number {
@@ -268,30 +295,43 @@ function ArborCeilingMesh({
   const footprint = buildCellFootprint(piece.cell.ix, piece.cell.iz);
   const centerX = (footprint.minX + footprint.maxX) / 2;
   const centerZ = (footprint.minZ + footprint.maxZ) / 2;
-  const baseY = piece.level * BUILD_LEVEL_HEIGHT;
-  const rotationY = (piece.rotation * Math.PI) / 180;
-  const beams = arborCeilingBeams();
+  const y = piece.level * BUILD_LEVEL_HEIGHT + BUILD_LEVEL_HEIGHT / 2;
+  const boxSize: [number, number, number] = [BUILD_CELL_SIZE, BUILD_LEVEL_HEIGHT * 0.08, BUILD_CELL_SIZE];
+
+  if (ghost) {
+    return (
+      <group
+        position={[centerX, y, centerZ]}
+        rotation={[0, (piece.rotation * Math.PI) / 180, 0]}
+        userData={{ buildPieceId: piece.id, buildPiece: piece }}
+        {...(pointerEventsPassThrough ? { raycast: () => {} } : {})}
+        {...pointerProps}
+      >
+        <mesh>
+          <boxGeometry args={boxSize} />
+          <meshStandardMaterial {...materialProps} />
+          <Edges color={valid ? "#6dff9a" : "#ff6b6b"} linewidth={2} />
+        </mesh>
+      </group>
+    );
+  }
 
   return (
     <group
-      position={[centerX, baseY, centerZ]}
-      rotation={[0, rotationY, 0]}
       userData={{ buildPieceId: piece.id, buildPiece: piece }}
       {...(pointerEventsPassThrough ? { raycast: () => {} } : {})}
       {...pointerProps}
     >
-      {beams.map((beam, index) => (
-        <mesh key={`${piece.id}-beam-${index}`} position={beam.position}>
-          <boxGeometry args={beam.size} />
-          <meshStandardMaterial {...materialProps} />
-        </mesh>
-      ))}
-      {ghost ? (
-        <mesh position={[0, BUILD_LEVEL_HEIGHT - 0.06, 0]}>
-          <boxGeometry args={[0.01, 0.01, 0.01]} />
-          <Edges color={valid ? "#6dff9a" : "#ff6b6b"} linewidth={2} />
-        </mesh>
-      ) : null}
+      <Suspense
+        fallback={
+          <mesh position={[centerX, y, centerZ]}>
+            <boxGeometry args={boxSize} />
+            <meshStandardMaterial {...materialProps} />
+          </mesh>
+        }
+      >
+        <ArborCeilingGlbMesh piece={piece} />
+      </Suspense>
     </group>
   );
 }
@@ -477,7 +517,7 @@ export function BuildPieceMesh({
       <ArborCeilingMesh
         piece={piece}
         materialProps={materialProps}
-        ghost={ghost}
+        ghost={ghost || trail}
         valid={valid}
         pointerProps={pointerProps}
         pointerEventsPassThrough={pointerEventsPassThrough}
