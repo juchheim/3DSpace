@@ -145,6 +145,14 @@ export const WORLD_ASSET_CATALOG: WorldAsset[] = [
     thumbnailUrl: "/objects/thumbnails/classroom-simple.jpg",
     category: "scene",
     staticCollider: true // required for scenes — see WorldAssetCategory doc above
+  },
+  {
+    slug: "mars",
+    displayName: "Mars",
+    glbUrl: "/objects/mars.glb",
+    thumbnailUrl: "/objects/thumbnails/mars.jpg",
+    category: "scene",
+    staticCollider: true // required for scenes — see WorldAssetCategory doc above
   }
 ];
 

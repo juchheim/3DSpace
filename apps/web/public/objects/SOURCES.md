@@ -116,6 +116,14 @@
 - **Format:** glTF 2.0 binary, ~3 MB. Native footprint ~15 × 13 × 7 m; floor at local y=0.
   Walkable via `staticCollider: true` (Rapier trimesh).
 
+## `mars.glb`
+
+- Martian terrain scene for the World Builder **Scenes** palette.
+- **Origin:** `GLBs/mars.glb` (4096 PNG base/normal → 2048 JPEG q85 via
+  `scripts/prepare-mars-glb.mjs`).
+- **Format:** glTF 2.0 binary, ~3.9 MB. Native footprint ~4.5 × 4.5 × 1 m; floor at local y=0.
+  Walkable via `staticCollider: true` (Rapier trimesh).
+
 ## `floor.glb` / `ramp.glb`
 
 - See `BuildPieceMesh.tsx` for native dimensions and scaling.

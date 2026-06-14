@@ -150,6 +150,16 @@ describe("worldAssetCatalog", () => {
     expect(classroom?.staticCollider).toBe(true);
     expect(worldAssetCategory(classroom!)).toBe("scene");
   });
+
+  it("includes the Mars scene", () => {
+    const mars = worldAssetBySlug("mars");
+    expect(mars).toBeDefined();
+    expect(mars?.displayName).toBe("Mars");
+    expect(mars?.glbUrl).toBe("/objects/mars.glb");
+    expect(mars?.thumbnailUrl).toBe("/objects/thumbnails/mars.jpg");
+    expect(mars?.staticCollider).toBe(true);
+    expect(worldAssetCategory(mars!)).toBe("scene");
+  });
 });
 
 describe("podium catalog flags", () => {
