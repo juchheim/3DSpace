@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { PhysicsTuningSchema } from "@3dspace/contracts";
-import type { ColliderSpec } from "@3dspace/room-engine";
+import {
+  BUILD_CELL_SIZE,
+  BUILD_RAMP_HIGH_Y,
+  BUILD_RAMP_LOW_Y,
+  groundSpecsWithoutRampFootprints,
+  type ColliderSpec,
+  type GroundColliderSpec,
+  type RampColliderSpec
+} from "@3dspace/room-engine";
 
 import { PhysicsController } from "../lib/physics/PhysicsController";
 
@@ -66,6 +74,40 @@ function trimeshPlatformSpec(centerY: number): ColliderSpec {
     vertices: new Float32Array([-2, centerY, -2, 2, centerY, -2, 2, centerY, 2, -2, centerY, 2]),
     indices: new Uint32Array([0, 1, 2, 0, 2, 3])
   };
+}
+
+function rampSpec(): RampColliderSpec {
+  const half = BUILD_CELL_SIZE / 2;
+  return {
+    kind: "ramp",
+    id: "ramp:test",
+    minX: -half,
+    maxX: half,
+    minZ: -half,
+    maxZ: half,
+    lowY: BUILD_RAMP_LOW_Y,
+    highY: BUILD_RAMP_HIGH_Y,
+    climbAxis: "z",
+    climbSign: 1,
+    rotation: 0
+  };
+}
+
+function groundAroundRamp(ramp: RampColliderSpec): GroundColliderSpec[] {
+  return groundSpecsWithoutRampFootprints(
+    [
+      {
+        kind: "ground",
+        id: "ground:0",
+        minX: -20,
+        maxX: 20,
+        minZ: -20,
+        maxZ: 20,
+        y: 0
+      }
+    ],
+    [ramp]
+  );
 }
 
 async function stepMany(
@@ -408,6 +450,31 @@ describe("PhysicsController", () => {
       expect(standing.grounded).toBe(true);
       expect(standing.position.y).toBeCloseTo(2.15, 1);
       expect(standing.vy).toBe(0);
+    } finally {
+      controller.dispose();
+    }
+  });
+
+  it("walks up a build ramp from ground without jumping", async () => {
+    const ramp = rampSpec();
+    const controller = await PhysicsController.create({
+      tuning,
+      spec: [...groundAroundRamp(ramp), ramp],
+      cacheKey: "ground+ramp",
+      initialPosition: { x: 0, y: 0, z: ramp.minZ - 0.4 }
+    });
+
+    try {
+      let last = await stepMany(controller, 5, { moveX: 0, moveZ: 0 });
+      expect(last.grounded).toBe(true);
+      expect(last.position.y).toBeCloseTo(BUILD_RAMP_LOW_Y, 1);
+
+      for (let index = 0; index < 180; index += 1) {
+        last = await stepMany(controller, 1, { moveX: 0, moveZ: 1 });
+      }
+
+      expect(last.position.z).toBeGreaterThan(ramp.minZ + 0.5);
+      expect(last.position.y).toBeGreaterThan(BUILD_RAMP_LOW_Y + 0.5);
     } finally {
       controller.dispose();
     }

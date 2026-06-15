@@ -21,8 +21,8 @@ export const BUILD_LEVEL_HEIGHT = 3.0;
 export const BUILD_WALL_HEIGHT = 3.0;
 export const BUILD_WALL_THICKNESS = 0.2;
 export const BUILD_FLOOR_THICKNESS = 0.3;
-/** Walkable Y at the ramp low foot above the level line (scaled ramp GLB). */
-export const BUILD_RAMP_LOW_Y = 0.525;
+/** Walkable Y at the ramp low foot — flush with the level line so terrain and physics ground meet the slope without a step. */
+export const BUILD_RAMP_LOW_Y = 0;
 /** Walkable Y at the ramp crest; flush with floor top at level+1. */
 export const BUILD_RAMP_HIGH_Y = BUILD_LEVEL_HEIGHT + BUILD_FLOOR_THICKNESS;
 /** Rise from ramp low foot to crest along the walkable surface. */

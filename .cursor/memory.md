@@ -4,7 +4,8 @@ Last updated: 2026-06-15 (World Builder +50% height retune)
 
 - **2026-06-15:** **World Builder +50% height retune** — `BUILD_CELL_SIZE` / `BUILD_LEVEL_HEIGHT` / `BUILD_WALL_HEIGHT` 2→3 m; secondary constants scaled (ramp foot, doorway/window, step-up); shell walls 8→12 m (`VERSE_ROOM_WALL_HEIGHT`, `FFA_WALL_HEIGHT`, classroom/escape/WT); `maxWorldHeight` default 12; doorway frame offsets ×1.5; `free-for-all-build-mask` `BUILD_CELL_SIZE` synced to 3. GLBs/ghosts auto-scale via constants.
 
-- **2026-06-15:** **Ramp GLB yaw fix (correct mapping)** — June 14's blanket `+π` overcorrected rotation 0/180; original mapping had 90/270 signs flipped. `rampGlbRotationY` moved to `apps/web/lib/buildRampMesh.ts` with closed-form yaw from engine climb vs GLB +Z-low/−Z-high; tests `buildRampMesh.test.ts`.
+- **2026-06-15:** **Ramp walk-up fix** — `BUILD_RAMP_LOW_Y` flush with level line (0); physics ground cutouts under ramp footprints; 4-point wedge hull (no flat shelf); physics movement snaps Y via `groundHeightAt` when build pieces present.
+- **2026-06-15:** **Ramp GLB yaw fix (correct mapping)** — `rampGlbRotationY` in `apps/web/lib/buildRampMesh.ts`; tests `buildRampMesh.test.ts`.
 
 - **2026-06-14:** **World Builder Arbor ceiling** — `arbor-ceiling` `BuildPieceKind` (not a stamp): one-cell overhead trellis; stacks with floors/lights; `R` rotates; AI corpus updated.
 

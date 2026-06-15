@@ -67,7 +67,7 @@ function setColliderPose(RAPIER: RapierModule, desc: { setTranslation: (x: numbe
   }
 }
 
-function buildRampVertices(spec: RampColliderSpec) {
+function buildRampSlopeVertices(spec: RampColliderSpec) {
   const highZ = spec.climbAxis === "z" ? (spec.climbSign === 1 ? spec.maxZ : spec.minZ) : spec.maxZ;
   const lowZ = spec.climbAxis === "z" ? (spec.climbSign === 1 ? spec.minZ : spec.maxZ) : spec.minZ;
   const highX = spec.climbAxis === "x" ? (spec.climbSign === 1 ? spec.maxX : spec.minX) : spec.maxX;
@@ -77,8 +77,6 @@ function buildRampVertices(spec: RampColliderSpec) {
     return new Float32Array([
       spec.minX, spec.lowY, lowZ,
       spec.maxX, spec.lowY, lowZ,
-      spec.minX, spec.lowY, highZ,
-      spec.maxX, spec.lowY, highZ,
       spec.minX, spec.highY, highZ,
       spec.maxX, spec.highY, highZ
     ]);
@@ -86,10 +84,8 @@ function buildRampVertices(spec: RampColliderSpec) {
 
   return new Float32Array([
     lowX, spec.lowY, spec.minZ,
-    lowX, spec.lowY, spec.maxZ,
+    lowX, spec.highY, spec.maxZ,
     highX, spec.lowY, spec.minZ,
-    highX, spec.lowY, spec.maxZ,
-    highX, spec.highY, spec.minZ,
     highX, spec.highY, spec.maxZ
   ]);
 }
@@ -199,7 +195,8 @@ export class PhysicsController {
       return this.world.createCollider(desc);
     }
 
-    const desc = this.RAPIER.ColliderDesc.convexHull(buildRampVertices(spec));
+    const vertices = buildRampSlopeVertices(spec);
+    const desc = this.RAPIER.ColliderDesc.convexHull(vertices);
     if (!desc) {
       throw new Error(`Failed to build convex hull for ramp collider ${spec.id}`);
     }

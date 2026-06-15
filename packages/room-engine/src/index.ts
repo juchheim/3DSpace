@@ -184,6 +184,7 @@ export {
 } from "./ground-height.js";
 export {
   buildPhysicsWorldSpec,
+  groundSpecsWithoutRampFootprints,
   physicsWorldSpecCacheKey,
   type ColliderSpec,
   type CuboidColliderSpec,

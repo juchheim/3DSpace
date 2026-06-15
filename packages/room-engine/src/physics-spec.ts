@@ -1,6 +1,6 @@
 import type { BuildLogicPiece, BuildPiece, LogicState, RoomManifest, Vector3 } from "@3dspace/contracts";
 
-import { BUILD_FLOOR_THICKNESS, collectCollisionWalls, type WallCollider } from "./build.js";
+import { BUILD_FLOOR_THICKNESS, collectCollisionWalls, type RampSurface, type WallCollider } from "./build.js";
 import { BuildSurfaceIndex } from "./ground-height.js";
 import { collectLogicDoorColliders } from "./logic.js";
 
@@ -124,12 +124,59 @@ function buildGroundSpecs(manifest: RoomManifest): GroundColliderSpec[] {
   return specs;
 }
 
+type FootprintRect = { minX: number; maxX: number; minZ: number; maxZ: number };
+
+/** Remove a ramp footprint from a ground slab, leaving up to four surrounding strips. */
+function subtractFootprintFromGroundSlab(slab: GroundColliderSpec, hole: FootprintRect): GroundColliderSpec[] {
+  if (hole.maxX <= slab.minX || hole.minX >= slab.maxX || hole.maxZ <= slab.minZ || hole.minZ >= slab.maxZ) {
+    return [slab];
+  }
+
+  const ix0 = Math.max(slab.minX, hole.minX);
+  const ix1 = Math.min(slab.maxX, hole.maxX);
+  const iz0 = Math.max(slab.minZ, hole.minZ);
+  const iz1 = Math.min(slab.maxZ, hole.maxZ);
+  const out: GroundColliderSpec[] = [];
+
+  if (slab.maxZ > iz1 + 1e-6) {
+    out.push({ kind: "ground", id: `${slab.id}:top`, minX: slab.minX, maxX: slab.maxX, minZ: iz1, maxZ: slab.maxZ, y: slab.y });
+  }
+  if (slab.minZ < iz0 - 1e-6) {
+    out.push({ kind: "ground", id: `${slab.id}:bot`, minX: slab.minX, maxX: slab.maxX, minZ: slab.minZ, maxZ: iz0, y: slab.y });
+  }
+  if (slab.minX < ix0 - 1e-6) {
+    out.push({ kind: "ground", id: `${slab.id}:left`, minX: slab.minX, maxX: ix0, minZ: iz0, maxZ: iz1, y: slab.y });
+  }
+  if (slab.maxX > ix1 + 1e-6) {
+    out.push({ kind: "ground", id: `${slab.id}:right`, minX: ix1, maxX: slab.maxX, minZ: iz0, maxZ: iz1, y: slab.y });
+  }
+
+  return out;
+}
+
+/** Flat ground must not sit under ramp wedges or the character controller stays on y=0. */
+export function groundSpecsWithoutRampFootprints(
+  ground: GroundColliderSpec[],
+  ramps: RampSurface[]
+): GroundColliderSpec[] {
+  if (ramps.length === 0) return ground;
+
+  let pieces = ground;
+  for (const ramp of ramps) {
+    const hole: FootprintRect = { minX: ramp.minX, maxX: ramp.maxX, minZ: ramp.minZ, maxZ: ramp.maxZ };
+    pieces = pieces.flatMap((slab) => subtractFootprintFromGroundSlab(slab, hole));
+  }
+  return pieces;
+}
+
 export function buildPhysicsWorldSpec(
   manifest: RoomManifest,
   buildPieces: BuildPiece[],
   logicDoors?: LogicDoorInput
 ): ColliderSpec[] {
-  const ground = buildGroundSpecs(manifest);
+  const surfaceIndex = BuildSurfaceIndex.fromPieces(buildPieces);
+  const { floors, ramps } = surfaceIndex.allSurfaces();
+  const ground = groundSpecsWithoutRampFootprints(buildGroundSpecs(manifest), ramps);
 
   const staticWalls = collectCollisionWalls(
     {
@@ -153,8 +200,6 @@ export function buildPhysicsWorldSpec(
         .sort((a, b) => a.id.localeCompare(b.id))
     : [];
 
-  const surfaceIndex = BuildSurfaceIndex.fromPieces(buildPieces);
-  const { floors, ramps } = surfaceIndex.allSurfaces();
   const floorSpecs: CuboidColliderSpec[] = floors.map((floor) => ({
     kind: "cuboid",
     id: floor.id,

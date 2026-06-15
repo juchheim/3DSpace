@@ -7,6 +7,7 @@ import {
   BUILD_RAMP_HIGH_Y,
   BUILD_RAMP_LOW_Y,
   createDefaultRoomManifest,
+  groundSpecsWithoutRampFootprints,
   physicsWorldSpecCacheKey
 } from "../src/index.js";
 
@@ -163,6 +164,26 @@ describe("buildPhysicsWorldSpec", () => {
       source: "door"
     });
     expect(open.find((entry) => entry.kind === "cuboid" && entry.id === piece.id)).toBeUndefined();
+  });
+
+  it("cuts flat ground out from under ramp footprints", () => {
+    const ramp = buildPhysicsWorldSpec(manifestWithoutWalls(), [rampPiece(0)]).find(
+      (entry) => entry.kind === "ramp"
+    )!;
+    const grounds = groundSpecsWithoutRampFootprints(
+      [{ kind: "ground", id: "ground:0", minX: 0, maxX: 30, minZ: 0, maxZ: 30, y: 0 }],
+      [ramp]
+    );
+
+    expect(grounds.length).toBeGreaterThan(1);
+    for (const ground of grounds) {
+      const overlapsRamp =
+        ground.maxX > ramp.minX &&
+        ground.minX < ramp.maxX &&
+        ground.maxZ > ramp.minZ &&
+        ground.minZ < ramp.maxZ;
+      expect(overlapsRamp).toBe(false);
+    }
   });
 
   it("creates tier-aware ground slices from manifest tiers", () => {

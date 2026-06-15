@@ -465,7 +465,10 @@ export function useAvatarMovement(input: {
               dtSeconds: deltaSeconds,
               sprinting
             });
-            const nextPosition = out.position;
+            let nextPosition = out.position;
+            if (pieces.length > 0 && (out.grounded || out.vy <= 0)) {
+              nextPosition = applyGroundHeight(input.manifest!, pieces, out.position, "walk");
+            }
             const next = {
               ...current,
               sentAt: Date.now(),
