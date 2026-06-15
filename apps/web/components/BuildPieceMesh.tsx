@@ -21,6 +21,7 @@ import {
 } from "@3dspace/room-engine";
 import { buildMaterialProps } from "./buildMaterials";
 import { edgeOpeningFrameParts } from "../lib/buildEdgeOpeningMesh";
+import { rampGlbRotationY } from "../lib/buildRampMesh";
 import { wallMeshTransform } from "../lib/buildWallMesh";
 import type { ImageFloorRegion } from "../lib/imageFloorRegions";
 import { LampGlbMesh, LAMP_BULB_NATIVE_Y, LAMP_GLB_NATIVE_H, LAMP_TARGET_HEIGHT } from "./LampGlbMesh";
@@ -93,27 +94,6 @@ function ArborCeilingGlbMesh({ piece }: { piece: BuildPiece }) {
       <primitive object={model} />
     </group>
   );
-}
-
-/** Map build rotation to GLB yaw; native mesh climbs from +Z (low) to −Z (high). */
-function rampGlbRotationY(rotation: BuildPieceRotation): number {
-  let yaw: number;
-  switch (rotation) {
-    case 0:
-      yaw = Math.PI;
-      break;
-    case 90:
-      yaw = Math.PI / 2;
-      break;
-    case 180:
-      yaw = 0;
-      break;
-    case 270:
-      yaw = -Math.PI / 2;
-      break;
-  }
-  // Mesh is authored backwards relative to engine climb; offset 180° so visuals match walk surface.
-  return yaw + Math.PI;
 }
 
 /**
