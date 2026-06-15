@@ -34,7 +34,8 @@ const BUILD_TOOLS: Array<{ id: BuildTool; label: string; shortcut?: string; grou
   { id: "mirror", label: "Mirror", shortcut: "8", group: "fixture" },
   { id: "arbor-ceiling", label: "Wood Arbor Ceiling", group: "fixture" },
   { id: "arbor-futuristic-ceiling", label: "Futuristic Arbor Ceiling", group: "fixture" },
-  { id: "ceiling-futuristic-lighting", label: "Futuristic Lighting Ceiling", group: "fixture" }
+  { id: "ceiling-futuristic-lighting", label: "Futuristic Lighting Ceiling", group: "fixture" },
+  { id: "ceiling-futuristic-dark", label: "Futuristic Dark Ceiling", group: "fixture" }
 ];
 
 const MATERIAL_LABELS: Record<BuildPieceMaterial, string> = {
@@ -144,6 +145,7 @@ function Glyph({
     case "arbor-ceiling":
     case "arbor-futuristic-ceiling":
     case "ceiling-futuristic-lighting":
+    case "ceiling-futuristic-dark":
       return (
         <svg {...common}>
           <rect x="2.5" y="2.5" width="11" height="11" rx="1" strokeDasharray="2 1.6" />
@@ -153,6 +155,8 @@ function Glyph({
               <circle cx="8" cy="8" r="1.6" fill="currentColor" stroke="none" opacity="0.35" />
               <path d="M8 4.8v6.4M5.6 8h4.8" />
             </>
+          ) : id === "ceiling-futuristic-dark" ? (
+            <rect x="5.5" y="5.5" width="5" height="5" rx="0.6" fill="currentColor" stroke="none" opacity="0.35" />
           ) : (
             <rect x="5.5" y="5.5" width="5" height="5" rx="0.6" strokeDasharray="1.2 1" />
           )}

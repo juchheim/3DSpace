@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-15 (futuristic arbor ceiling placement fix)
+Last updated: 2026-06-15 (futuristic dark ceiling)
+
+- **2026-06-15:** **Futuristic Dark ceiling** — `GLBs/ceiling-futuristic-dark.glb` → `scripts/prepare-ceiling-futuristic-dark-glb.mjs` (JPEG q85 ~0.31 MB, −90° X rotation to lay flat) → `apps/web/public/objects/ceiling-futuristic-dark.glb`; new `ceiling-futuristic-dark` `BuildPieceKind` in World Builder **Build** tab ("Futuristic Dark Ceiling"); flat panel placement like lighting ceiling.
 
 - **2026-06-15:** **Futuristic arbor ceiling placement** — `arbor-futuristic-ceiling` GLB is vertically centered (`nativeMinY ≈ -0.16`) vs wood arbor bottom at `y=0`; `arborCeilingWorldTransform` now aligns `nativeMaxY` to level top so both variants match wood placement.
 

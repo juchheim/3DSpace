@@ -26,6 +26,7 @@ import { wallMeshTransform } from "../lib/buildWallMesh";
 import type { ImageFloorRegion } from "../lib/imageFloorRegions";
 import { LampGlbMesh, LAMP_BULB_NATIVE_Y, LAMP_GLB_NATIVE_H, LAMP_TARGET_HEIGHT } from "./LampGlbMesh";
 import { FuturisticLightingCeilingMesh } from "./FuturisticLightingCeilingMesh";
+import { FuturisticDarkCeilingMesh } from "./FuturisticDarkCeilingMesh";
 
 // ── Custom wall GLB ───────────────────────────────────────────────────────────
 const WALL_GLB_URL = "/objects/wall.glb";
@@ -559,6 +560,19 @@ export function BuildPieceMesh({
   if (piece.kind === "ceiling-futuristic-lighting") {
     return (
       <FuturisticLightingCeilingMesh
+        piece={piece}
+        materialId={materialId}
+        ghost={ghost || trail}
+        valid={valid}
+        pointerProps={pointerProps}
+        pointerEventsPassThrough={pointerEventsPassThrough}
+      />
+    );
+  }
+
+  if (piece.kind === "ceiling-futuristic-dark") {
+    return (
+      <FuturisticDarkCeilingMesh
         piece={piece}
         materialId={materialId}
         ghost={ghost || trail}
