@@ -119,9 +119,15 @@ export function AssetPlacementController({
     [draftPos]
   );
 
-  const handlePointerDown = useCallback((e: ThreeEvent<PointerEvent>) => {
-    e.stopPropagation();
-  }, []);
+  const handlePointerDown = useCallback(
+    (e: ThreeEvent<PointerEvent>) => {
+      e.stopPropagation();
+      // Seed the ghost at the press point so a tap with no preceding pointer-move
+      // (touch, or a cursor that arrived over an intercepting object) still previews.
+      if (!finePlacement && !draftPos) setGhostPos({ x: e.point.x, z: e.point.z });
+    },
+    [draftPos, finePlacement]
+  );
 
   const handleClick = useCallback(
     (e: ThreeEvent<MouseEvent>) => {
@@ -132,11 +138,15 @@ export function AssetPlacementController({
         setGhostPos(null);
         return;
       }
-      if (!ghostPos) return;
-      const y = resolveGroundY(ghostPos.x, ghostPos.z);
-      onPlace({ x: ghostPos.x, y, z: ghostPos.z }, yaw);
+      // Commit at the click's own ground point — never depend on stale hover
+      // state. A brushed-past object (pointer-out) or a no-move tap could leave
+      // `ghostPos` null and silently drop the click.
+      const x = e.point.x;
+      const z = e.point.z;
+      setGhostPos({ x, z });
+      onPlace({ x, y: resolveGroundY(x, z), z }, yaw);
     },
-    [finePlacement, ghostPos, onPlace, resolveGroundY, yaw]
+    [finePlacement, onPlace, resolveGroundY, yaw]
   );
 
   const handlePointerOut = useCallback(() => {

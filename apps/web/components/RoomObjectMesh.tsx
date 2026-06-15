@@ -73,7 +73,8 @@ export function RoomObjectMesh({
   localIsHolder,
   selected,
   actions,
-  onSelect
+  onSelect,
+  interactionDisabled = false
 }: {
   manifest: RoomManifest;
   object: RoomObject;
@@ -85,6 +86,9 @@ export function RoomObjectMesh({
   selected: boolean;
   actions: RoomObjectActions;
   onSelect(): void;
+  /** While placing build pieces / world assets, the object yields the pointer to the
+   *  placement plane: no ray handlers and no DOM-capturing label. */
+  interactionDisabled?: boolean;
 }) {
   const { camera, raycaster, pointer, gl } = useThree();
   const rootRef = useRef<Group>(null);
@@ -227,18 +231,27 @@ export function RoomObjectMesh({
 
   const labelOffsetY = 1.1;
 
+  // While placing build pieces / world assets, drop every pointer handler so R3F stops
+  // raycasting this object for events — the placement plane behind it owns the cursor, so
+  // the ghost still follows and clicks still place when the cursor is over an object.
+  const interactionHandlers = interactionDisabled
+    ? {}
+    : {
+        onPointerDown,
+        onWheel,
+        onPointerOver: (event: ThreeEvent<PointerEvent>) => {
+          event.stopPropagation();
+          setHovered(true);
+        },
+        onPointerOut: () => setHovered(false)
+      };
+
   return (
     <group
       ref={rootRef}
       position={[pose.position.x, pose.position.y, pose.position.z]}
       rotation={[pitch, yaw, roll]}
-      onPointerDown={onPointerDown}
-      onWheel={onWheel}
-      onPointerOver={(event) => {
-        event.stopPropagation();
-        setHovered(true);
-      }}
-      onPointerOut={() => setHovered(false)}
+      {...interactionHandlers}
     >
       <group ref={exportRootRef} scale={scale}>
         {template.renderer === "procedural" && template.proceduralId ? (
@@ -281,24 +294,26 @@ export function RoomObjectMesh({
           ) : null}
         </mesh>
 
-        <Html
-          transform
-          center
-          position={[0, labelOffsetY, 0]}
-          scale={0.12}
-          className="room-object-html"
-        >
-          <button
-            type="button"
-            className="room-object-label room-object-label--select"
-            onPointerDown={(event) => {
-              event.stopPropagation();
-              onSelect();
-            }}
+        {interactionDisabled ? null : (
+          <Html
+            transform
+            center
+            position={[0, labelOffsetY, 0]}
+            scale={0.12}
+            className="room-object-html"
           >
-            <span className="room-object-label__name">{object.displayName}</span>
-          </button>
-        </Html>
+            <button
+              type="button"
+              className="room-object-label room-object-label--select"
+              onPointerDown={(event) => {
+                event.stopPropagation();
+                onSelect();
+              }}
+            >
+              <span className="room-object-label__name">{object.displayName}</span>
+            </button>
+          </Html>
+        )}
       </group>
     </group>
   );

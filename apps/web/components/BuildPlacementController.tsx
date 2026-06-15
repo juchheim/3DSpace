@@ -18,15 +18,16 @@ import {
 } from "@3dspace/room-engine";
 import { getBuildStamp, stampToPlacementTargets } from "../lib/buildStamps";
 import {
-  avatarStandingLevel,
   buildPlacementPreviewPiece,
   buildPlacementStatusMessage,
   checkBuildCapsForPlacements,
   evaluateBuildPlacement,
+  findSurfacePieceAtCell,
   placementTargetKey,
   resolveBuildPlacementTarget,
   type BuildPlacementTarget
 } from "../lib/buildPlacement";
+import { useStablePlacementLevel } from "../lib/useStablePlacementLevel";
 import type { BuildModeController, BuildTool } from "../lib/useBuildMode";
 import { BuildLayer } from "./BuildLayer";
 import { BuildPieceMesh } from "./BuildPieceMesh";
@@ -34,7 +35,6 @@ import { BuildPieceMesh } from "./BuildPieceMesh";
 const DRAG_BATCH_INTERVAL_MS = BUILD_PLACEMENT_RATE_LIMIT_MS;
 const GHOST_TRAIL_MAX = 4;
 const GRID_RADIUS_CELLS = 8;
-const DRAG_CLICK_SUPPRESS_MS = 250;
 /** Max cells per side of an image-floor drag rectangle (keeps preview evaluation cheap). */
 const IMAGE_FLOOR_RECT_MAX_SPAN = 24;
 
@@ -142,11 +142,22 @@ export function BuildPlacementController({
   const dragTargetsRef = useRef<Map<string, BuildPlacementTarget>>(new Map());
   const draggingRef = useRef(false);
   const didDragRef = useRef(false);
-  const suppressClickUntilRef = useRef(0);
+  // One-shot: a drag's trailing synthetic click must not place an extra single piece.
+  // Set on drag-end, consumed by the very next click, and cleared on the next pointerdown
+  // so it can never poison a later genuine click (the old time-window could under/over-shoot).
+  const ignoreNextClickRef = useRef(false);
   const lastBatchAtRef = useRef(0);
   const lastSinglePlaceAtRef = useRef(0);
+  // Key of the last committed single/stamp target — used to throttle only *repeat* commits of
+  // the same target (double-fire guard), so distinct placements in quick succession all land.
+  const lastSinglePlaceKeyRef = useRef<string | null>(null);
   const pendingBatchRef = useRef<BuildPlacementTarget[]>([]);
   const lastTrailKeyRef = useRef("");
+  // The exact target the single-piece ghost is currently previewing. Committing
+  // this (rather than re-deriving from the click's own raycast) guarantees the
+  // click places precisely what the green ghost shows — the click ray can resolve
+  // to a different surface/cell than the last hover did.
+  const currentGhostTargetRef = useRef<BuildPlacementTarget | null>(null);
   // Image-floor tool: click-drag sweeps out a rectangle of tiles committed on release.
   const imageFloorRectMode = buildMode.tool === "image-floor" && !stampMode;
   const floorTextureKey = buildMode.tool === "image-floor" ? buildMode.floorTexture?.storageKey : undefined;
@@ -169,7 +180,7 @@ export function BuildPlacementController({
   // plane, the floor you stand on occludes the ground point of the cell at its edge, so the
   // nearest cell is unreachable; lifting the plane to your level makes that cell selectable.
   // Destroy keeps the plane at the ground so it never occludes lower pieces you want to remove.
-  const standingLevel = avatarStandingLevel(localAvatarPosition.y);
+  const standingLevel = useStablePlacementLevel(localAvatarPosition.y);
   const fixturePlacementActive =
     buildMode.tool !== "destroy" && !stampMode && isBuildCellFixtureKind(buildMode.tool);
   const placementPlaneY =
@@ -268,7 +279,7 @@ export function BuildPlacementController({
           : {}),
         // The raycast `hitY` is the ground under the cursor; the level we build at when the
         // cursor lands on empty ground comes from where the avatar is standing.
-        baseLevel: avatarStandingLevel(localAvatarPosition.y),
+        baseLevel: standingLevel,
         // Avatar X/Z let a placed wall orient its front toward the player.
         avatarX: localAvatarPosition.x,
         avatarZ: localAvatarPosition.z,
@@ -282,12 +293,30 @@ export function BuildPlacementController({
       floorTextureKey,
       floorTextureSpanCells,
       localAvatarPosition.x,
-      localAvatarPosition.y,
       localAvatarPosition.z,
       piecesById,
       roomId,
+      standingLevel,
       userId
     ]
+  );
+
+  /**
+   * Resolve the surface piece (floor/ramp) under a world X/Z from the *cell*, not from
+   * whichever mesh the ray physically struck. Hovering a piece-top vs the build plane used
+   * to flip `surfacePiece` (and thus the level/edge) as the cursor crossed a piece edge,
+   * making the ghost jump. Deriving the surface from the cell — the same way the 2D /
+   * place-ahead paths do — keeps the ghost stable for a given cursor cell. The
+   * `effectiveSurfacePiece` rule still drops floors/ramps above the standing level so you
+   * build at your own level, not on an upper floor.
+   */
+  const resolveSurfaceForPlacement = useCallback(
+    (worldX: number, worldZ: number): BuildPiece | null => {
+      const cell = worldToCell(worldX, worldZ);
+      const surface = findSurfacePieceAtCell(pieces, cell, localAvatarPosition.y);
+      return effectiveSurfacePiece(surface, standingLevel, fixturePlacementActive);
+    },
+    [fixturePlacementActive, localAvatarPosition.y, pieces, standingLevel]
   );
 
   /**
@@ -437,10 +466,12 @@ export function BuildPlacementController({
   const updateGhostFromHit = useCallback(
     (hitX: number, hitY: number, hitZ: number, surfacePiece: BuildPiece | null, tool: BuildTool) => {
       if (tool === "destroy" && !stampMode) {
+        currentGhostTargetRef.current = null;
         setGhost(null);
         return;
       }
       if (stampMode && activeStamp) {
+        currentGhostTargetRef.current = null;
         const stampResult = evaluateStampTargets(stampTargetsFromHit(hitX, hitZ));
         setGhost({
           pieces: stampResult.previews,
@@ -450,6 +481,9 @@ export function BuildPlacementController({
         return;
       }
       const target = targetFromHit(tool as Exclude<BuildTool, "destroy">, hitX, hitY, hitZ, surfacePiece);
+      // Record the previewed target so a click commits exactly this, not a freshly
+      // re-derived (and possibly different) target from the click's own raycast.
+      currentGhostTargetRef.current = target;
       const preview = previewPlacement(target);
       // The image-floor tool needs an image picked first; show the ghost as blocked until then.
       const missingTexture = tool === "image-floor" && !floorTextureKey;
@@ -488,29 +522,34 @@ export function BuildPlacementController({
       if (!buildMode.enabled) return;
       event.stopPropagation();
       if (buildMode.tool === "destroy" && !stampMode) {
+        // Destroy still picks the exact piece the ray struck (you remove what you point at).
         if (surfacePiece) setHighlightedPieceId(surfacePiece.id);
         setGhost(null);
         return;
       }
-      const effectivePiece = effectiveSurfacePiece(surfacePiece, standingLevel, fixturePlacementActive);
-      const hitY = effectivePiece !== surfacePiece ? placementPlaneY : event.point.y;
+      // Resolve the surface from the cursor cell (not the hit mesh) so the ghost is stable.
+      // `hitY` is the build plane at the standing level; the level itself comes from the
+      // resolved surface or `baseLevel`, so it no longer depends on `event.point.y`.
+      const x = event.point.x;
+      const z = event.point.z;
+      const effectivePiece = resolveSurfaceForPlacement(x, z);
       // While sweeping out an image-floor rectangle, the rect ghost replaces the cell ghost.
       if (imageFloorRectMode && draggingRef.current && rectAnchorRef.current) {
-        const cursorCell = worldToCell(event.point.x, event.point.z);
+        const cursorCell = worldToCell(x, z);
         updateImageFloorRect(cursorCell.ix, cursorCell.iz);
         setGhost(null);
         return;
       }
-      updateGhostFromHit(event.point.x, hitY, event.point.z, effectivePiece, buildMode.tool);
-      tryDragPlacement(event.point.x, hitY, event.point.z, effectivePiece);
+      updateGhostFromHit(x, placementPlaneY, z, effectivePiece, buildMode.tool);
+      tryDragPlacement(x, placementPlaneY, z, effectivePiece);
     },
     [
       buildMode.enabled,
       buildMode.tool,
       imageFloorRectMode,
-      fixturePlacementActive,
       placementPlaneY,
-      standingLevel,
+      resolveSurfaceForPlacement,
+      stampMode,
       tryDragPlacement,
       updateGhostFromHit,
       updateImageFloorRect
@@ -520,8 +559,10 @@ export function BuildPlacementController({
   const commitPlacement = useCallback(
     async (target: BuildPlacementTarget) => {
       const now = Date.now();
-      if (now - lastSinglePlaceAtRef.current < BUILD_PLACEMENT_RATE_LIMIT_MS) {
-        onStatus?.("Slow down…");
+      const key = placementTargetKey(target);
+      // Throttle only a *repeat* of the same target (a double-fired event), so placing a
+      // different piece immediately after another is never rejected with "Slow down…".
+      if (key === lastSinglePlaceKeyRef.current && now - lastSinglePlaceAtRef.current < BUILD_PLACEMENT_RATE_LIMIT_MS) {
         return;
       }
       const preview = previewPlacement(target);
@@ -530,6 +571,7 @@ export function BuildPlacementController({
         return;
       }
       lastSinglePlaceAtRef.current = now;
+      lastSinglePlaceKeyRef.current = key;
       try {
         await actions.place(
           target.kind,
@@ -552,8 +594,11 @@ export function BuildPlacementController({
   const commitStampPlacement = useCallback(
     async (hitX: number, hitZ: number) => {
       const now = Date.now();
-      if (now - lastSinglePlaceAtRef.current < BUILD_PLACEMENT_RATE_LIMIT_MS) {
-        onStatus?.("Slow down…");
+      const cell = worldToCell(hitX, hitZ);
+      const key = `stamp:${cell.ix}:${cell.iz}`;
+      // Same throttle policy as single placement: only block a repeat stamp at the same
+      // anchor cell (double-fire), not a deliberate next stamp elsewhere.
+      if (key === lastSinglePlaceKeyRef.current && now - lastSinglePlaceAtRef.current < BUILD_PLACEMENT_RATE_LIMIT_MS) {
         return;
       }
       const targets = stampTargetsFromHit(hitX, hitZ);
@@ -563,6 +608,7 @@ export function BuildPlacementController({
         return;
       }
       lastSinglePlaceAtRef.current = now;
+      lastSinglePlaceKeyRef.current = key;
       try {
         await actions.placeBatch(targets);
         onStatus?.(`Placed stamp (${targets.length} pieces).`);
@@ -577,6 +623,9 @@ export function BuildPlacementController({
     (event: ThreeEvent<PointerEvent>, surfacePiece: BuildPiece | null) => {
       if (!buildMode.enabled || event.button !== 0) return;
       event.stopPropagation();
+      // A fresh gesture begins — its click should count. (If this becomes a drag, the
+      // drag-end re-arms the ignore so only the drag's trailing click is dropped.)
+      ignoreNextClickRef.current = false;
       if (buildMode.tool === "destroy" && !stampMode) return;
       draggingRef.current = true;
       didDragRef.current = false;
@@ -584,27 +633,27 @@ export function BuildPlacementController({
       pendingBatchRef.current = [];
       setGhostTrail([]);
       lastTrailKeyRef.current = "";
-      const effectivePiece = effectiveSurfacePiece(surfacePiece, standingLevel, fixturePlacementActive);
-      const hitY = effectivePiece !== surfacePiece ? placementPlaneY : event.point.y;
+      const x = event.point.x;
+      const z = event.point.z;
+      const effectivePiece = resolveSurfaceForPlacement(x, z);
       if (imageFloorRectMode) {
         // Anchor the drag rectangle; level comes from the resolved target so the rect
         // sits on the surface under the cursor (or the standing level on empty ground).
-        const anchorTarget = targetFromHit("image-floor", event.point.x, hitY, event.point.z, effectivePiece);
+        const anchorTarget = targetFromHit("image-floor", x, placementPlaneY, z, effectivePiece);
         rectAnchorRef.current = { ix: anchorTarget.cell.ix, iz: anchorTarget.cell.iz, level: anchorTarget.level };
         updateImageFloorRect(anchorTarget.cell.ix, anchorTarget.cell.iz);
         setGhost(null);
         return;
       }
-      updateGhostFromHit(event.point.x, hitY, event.point.z, effectivePiece, buildMode.tool);
+      updateGhostFromHit(x, placementPlaneY, z, effectivePiece, buildMode.tool);
     },
     [
       buildMode.enabled,
       buildMode.tool,
-      fixturePlacementActive,
       imageFloorRectMode,
       placementPlaneY,
+      resolveSurfaceForPlacement,
       stampMode,
-      standingLevel,
       targetFromHit,
       updateGhostFromHit,
       updateImageFloorRect
@@ -617,12 +666,12 @@ export function BuildPlacementController({
     if (rectAnchorRef.current) {
       // Image-floor: the whole rectangle (even a single click's 1×1) commits here,
       // so the follow-up click event must not place a second piece.
-      suppressClickUntilRef.current = Date.now() + DRAG_CLICK_SUPPRESS_MS;
+      ignoreNextClickRef.current = true;
       await commitImageFloorRect();
       return;
     }
     if (didDragRef.current) {
-      suppressClickUntilRef.current = Date.now() + DRAG_CLICK_SUPPRESS_MS;
+      ignoreNextClickRef.current = true;
     }
     await flushPendingBatch();
     dragTargetsRef.current.clear();
@@ -648,8 +697,10 @@ export function BuildPlacementController({
     async (event: ThreeEvent<MouseEvent>, surfacePiece: BuildPiece | null) => {
       if (!buildMode.enabled) return;
       event.stopPropagation();
-      if (Date.now() < suppressClickUntilRef.current || didDragRef.current) {
-        didDragRef.current = false;
+      // Swallow exactly the one synthetic click a drag emits on release; a fresh click
+      // (its own pointerdown cleared the flag) always proceeds.
+      if (ignoreNextClickRef.current) {
+        ignoreNextClickRef.current = false;
         return;
       }
 
@@ -672,18 +723,23 @@ export function BuildPlacementController({
       // Image-floor placement is committed by pointer-up (rectangle flow), never by click.
       if (imageFloorRectMode) return;
 
-      // When a floor/ramp above the standing level intercepts the ray, treat the hit as
-      // landing on the placement plane at the current level instead of the upper surface.
-      const effectivePiece = effectiveSurfacePiece(surfacePiece, standingLevel, fixturePlacementActive);
-      const hitY = effectivePiece !== surfacePiece ? placementPlaneY : event.point.y;
-
-      const target = targetFromHit(
-        buildMode.tool as Exclude<BuildTool, "destroy">,
-        event.point.x,
-        hitY,
-        event.point.z,
-        effectivePiece
-      );
+      // Commit exactly what the ghost is previewing (computed on the latest pointer
+      // move / press), so a valid green ghost always places that piece — even if this
+      // click's raycast resolves to a slightly different surface or cell. Fall back to
+      // re-deriving from the click only if no ghost target was recorded.
+      let target = currentGhostTargetRef.current;
+      if (!target) {
+        // Cell-based surface (same as the ghost) so the fallback matches what was previewed.
+        const x = event.point.x;
+        const z = event.point.z;
+        target = targetFromHit(
+          buildMode.tool as Exclude<BuildTool, "destroy">,
+          x,
+          placementPlaneY,
+          z,
+          resolveSurfaceForPlacement(x, z)
+        );
+      }
       await commitPlacement(target);
     },
     [
@@ -692,12 +748,11 @@ export function BuildPlacementController({
       buildMode.tool,
       commitPlacement,
       commitStampPlacement,
-      fixturePlacementActive,
       imageFloorRectMode,
       onStatus,
       placementPlaneY,
+      resolveSurfaceForPlacement,
       stampMode,
-      standingLevel,
       targetFromHit
     ]
   );
@@ -720,6 +775,12 @@ export function BuildPlacementController({
     : null;
 
   const placementActive = buildMode.enabled && !placementSuspended;
+  // Only the destroy tool needs to pick a specific piece by ray. For every other tool the
+  // build plane owns the cursor: making pieces raycast-transparent means the resolved world
+  // X/Z always comes from the plane (no ~0.3 m parallax jump as the ray flips between a piece
+  // top and the plane at a floor edge), so the ghost stays put. Cell-based surface resolution
+  // (resolveSurfaceForPlacement) recovers the level/edge without needing the hit piece.
+  const destroyToolActive = buildMode.tool === "destroy" && !stampMode;
 
   return (
     <group>
@@ -728,7 +789,7 @@ export function BuildPlacementController({
         interactive={placementActive}
         highlightedPieceId={placementActive ? highlightedPieceId : null}
         pointerEventsPassThrough={
-          fixturePlacementActive || (!placementActive && boardPlacementPassthrough)
+          placementActive ? !destroyToolActive : boardPlacementPassthrough
         }
         {...(placementActive
           ? {

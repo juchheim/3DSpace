@@ -88,7 +88,7 @@ import {
   levelToY,
   VERSE_SKYBOX_GALAXY_POSITION
 } from "@3dspace/room-engine";
-import { avatarStandingLevel } from "../lib/buildPlacement";
+import { useStablePlacementLevel } from "../lib/useStablePlacementLevel";
 import { worldAssetGroundY, worldAssetPlacementGroundY } from "../lib/worldAssetGroundY";
 
 type Wall = z.infer<typeof WallPlaneSchema>;
@@ -513,10 +513,10 @@ export function RoomView3D({
     return map;
   }, [classroomGroups]);
   const localParticipantPosition = participants.find((participant) => participant.id === localParticipantId)?.state.position;
-  const assetInterceptPlaneY = useMemo(() => {
-    const avatarY = localParticipantPosition?.y ?? 0;
-    return levelToY(avatarStandingLevel(avatarY)) + 0.003;
-  }, [localParticipantPosition?.y]);
+  // Build level with hysteresis so the intercept plane / ground resolver don't flip a whole
+  // level (and jump the asset ghost) from transient Y noise near a level boundary.
+  const placementLevel = useStablePlacementLevel(localParticipantPosition?.y ?? 0);
+  const assetInterceptPlaneY = useMemo(() => levelToY(placementLevel) + 0.003, [placementLevel]);
   const localPodGroup = podsEnabled ? (podGroupByParticipantId.get(localParticipantId) ?? null) : null;
   const mergedManifest = useMemo(
     () => dynamicWallAnchors?.length
@@ -544,16 +544,15 @@ export function RoomView3D({
     [mergedManifest, buildScene?.pieces]
   );
 
-  // For placement only: pre-bind the avatar's standing level so the intercept plane
-  // stays stable across fine-grained avatar position updates.
-  const avatarStandingLevelForPlacement = avatarStandingLevel(localParticipantPosition?.y ?? 0);
+  // For placement only: pre-bind the avatar's (hysteresis-stabilised) standing level so the
+  // intercept plane and ground resolver stay stable across fine-grained avatar position updates.
   const resolveAssetPlacementGroundY = useMemo(
     () => {
-      const currentY = levelToY(avatarStandingLevelForPlacement);
+      const currentY = levelToY(placementLevel);
       return (x: number, z: number) =>
         worldAssetPlacementGroundY(mergedManifest, buildScene?.pieces ?? [], x, z, currentY);
     },
-    [mergedManifest, buildScene?.pieces, avatarStandingLevelForPlacement]
+    [mergedManifest, buildScene?.pieces, placementLevel]
   );
 
   useEffect(() => bindCamera(canvasElement), [bindCamera, canvasElement]);
@@ -600,6 +599,7 @@ export function RoomView3D({
             selectedObjectId={selectedRoomObjectId ?? null}
             onSelectObject={onSelectRoomObject}
             actions={roomObjectActions}
+            interactionDisabled={Boolean(assetPlacement) || Boolean(buildScene?.buildMode.enabled)}
           />
         ) : null}
         {assetPlacement ? (

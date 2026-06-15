@@ -4468,6 +4468,16 @@ button.hud-heading-btn:hover {
   overflow: visible;
 }
 
+/* While placing build pieces / world assets, board + room-object DOM overlays must not
+   swallow placement clicks — the 3D placement plane owns the pointer. Scoped to the
+   placement-active body flag (set by RoomClient) so normal interaction is unaffected. */
+body.wb-placement-active .wall-object-html,
+body.wb-placement-active .wall-object-html *,
+body.wb-placement-active .room-object-html,
+body.wb-placement-active .room-object-html * {
+  pointer-events: none !important;
+}
+
 .wall-object-html--board {
   overflow: visible;
 }

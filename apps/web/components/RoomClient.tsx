@@ -943,6 +943,14 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       setAssetYawDeg(0);
     }
   }, [buildMode.enabled]);
+  // While placing build pieces / world assets, flag the body so interactive board / object
+  // DOM overlays (drei <Html>) stop swallowing placement clicks — the 3D placement plane
+  // owns the pointer. CSS scopes the passthrough to `body.wb-placement-active`.
+  useEffect(() => {
+    const active = buildMode.enabled || Boolean(selectedAssetSlug);
+    document.body.classList.toggle("wb-placement-active", active);
+    return () => document.body.classList.remove("wb-placement-active");
+  }, [buildMode.enabled, selectedAssetSlug]);
   const handleAiObjectJobDeleted = useCallback(
     (payload: { jobId: string; templateId?: string | undefined }) => {
       if (payload.templateId) {

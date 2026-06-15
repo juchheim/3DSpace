@@ -37,7 +37,8 @@ export function RoomObjectsLayer({
   getAppearance,
   selectedObjectId,
   onSelectObject,
-  actions
+  actions,
+  interactionDisabled = false
 }: {
   manifest: RoomManifest;
   objects: RoomObject[];
@@ -53,6 +54,9 @@ export function RoomObjectsLayer({
   selectedObjectId: string | null;
   onSelectObject(objectId: string | null): void;
   actions: RoomObjectActions;
+  /** While a build/asset placement is active, objects must not capture the placement
+   *  ray or DOM clicks (the placement plane owns the pointer). */
+  interactionDisabled?: boolean;
 }) {
   const selectedObject = useMemo(
     () => objects.find((object) => object.id === selectedObjectId) ?? null,
@@ -215,6 +219,7 @@ export function RoomObjectsLayer({
             selected={selectedObjectId === object.id}
             actions={actions}
             onSelect={() => onSelectObject(object.id)}
+            interactionDisabled={interactionDisabled}
           />
         );
       })}
