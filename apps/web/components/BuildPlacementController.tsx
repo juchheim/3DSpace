@@ -183,12 +183,15 @@ export function BuildPlacementController({
   const standingLevel = useStablePlacementLevel(localAvatarPosition.y);
   const fixturePlacementActive =
     buildMode.tool !== "destroy" && !stampMode && isBuildCellFixtureKind(buildMode.tool);
+  // Overhead fixtures (lights/ceilings) AIM at the standing-level floor plane, not at a plane
+  // lifted to the ceiling. A ceiling-height plane sits ~1.4 m above the camera, so the ray
+  // grazes it: tiny mouse moves fling the hit across the room, the cursor lands far from the
+  // ghost, and near the horizon the ray misses the plane entirely (ghost won't appear / click
+  // hits nothing). Aiming at the floor is a steep, stable hit; the ghost still renders at the
+  // ceiling because the fixture's level (fixturePlacementLevel, hitY-independent) drives its Y.
+  // A floor footprint + vertical connector (below) keep "aim the tile, ceiling goes above" clear.
   const placementPlaneY =
-    buildMode.tool === "destroy" && !stampMode
-      ? 0
-      : fixturePlacementActive
-        ? levelToY(standingLevel) + BUILD_LEVEL_HEIGHT - 0.02
-        : levelToY(standingLevel);
+    buildMode.tool === "destroy" && !stampMode ? 0 : levelToY(standingLevel);
 
   const gridCenter = useMemo(
     () =>
@@ -865,6 +868,31 @@ export function BuildPlacementController({
           </Html>
         </group>
       ) : null}
+
+      {/* Fixture placement aims at the floor but the ghost sits on the ceiling — draw the
+          aimed floor cell + a connector up to the ghost so the relationship is obvious. */}
+      {ghost && fixturePlacementActive && ghost.pieces[0]
+        ? (() => {
+            const cellPiece = ghost.pieces[0]!;
+            const cx = (cellPiece.cell.ix + 0.5) * BUILD_CELL_SIZE;
+            const cz = (cellPiece.cell.iz + 0.5) * BUILD_CELL_SIZE;
+            const footY = levelToY(cellPiece.level) + 0.04;
+            const color = ghost.valid ? "#6dff9a" : "#ff6b6b";
+            return (
+              <group>
+                <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, footY, cz]}>
+                  <planeGeometry args={[BUILD_CELL_SIZE * 0.94, BUILD_CELL_SIZE * 0.94]} />
+                  <meshBasicMaterial color={color} transparent opacity={0.22} depthWrite={false} />
+                  <Edges color={color} />
+                </mesh>
+                <mesh position={[cx, footY + (BUILD_LEVEL_HEIGHT - 0.04) / 2, cz]}>
+                  <boxGeometry args={[0.05, BUILD_LEVEL_HEIGHT - 0.04, 0.05]} />
+                  <meshBasicMaterial color={color} transparent opacity={0.4} depthWrite={false} />
+                </mesh>
+              </group>
+            );
+          })()
+        : null}
 
       {ghost ? (
         <group>

@@ -1,6 +1,6 @@
 # IMPL — World Builder placement robustness
 
-_Companion to `PLAN_WORLD_BUILDER_PLACEMENT.md`. Last updated: 2026-06-15._
+_Companion to `PLAN_WORLD_BUILDER_PLACEMENT.md`. Last updated: 2026-06-15 (Phase 5: ceiling aiming)._
 
 Status legend: ✅ done · 🚧 in progress · ⬜ not started
 
@@ -190,6 +190,55 @@ File: `apps/web/components/BuildPlacementController.tsx`.
   paint a row then immediately single-click a new cell (the new click places, no
   dropped first click); single-click the exact same cell twice fast (second is a
   no-op, no "Slow down…").
+
+---
+
+## Phase 5 — Overhead fixture (ceiling/light) aiming ✅ (shipped 2026-06-15)
+File: `apps/web/components/BuildPlacementController.tsx`.
+
+Symptom (post-Phase 1–4): ceilings/lights were still very hard to place — the ghost
+wouldn't land where you wanted, the cursor often sat well below the ghost, and
+clicking a green ghost frequently did nothing.
+
+### Root cause
+Overhead fixtures raycast an intercept plane **lifted to the ceiling**
+(`levelToY(standingLevel) + BUILD_LEVEL_HEIGHT − 0.02 ≈ 2.98 m`, with
+`BUILD_LEVEL_HEIGHT = 3.0`). That plane sits ~1.4 m **above** the camera, so the ray
+hits it at a **grazing angle**:
+- tiny vertical mouse moves move the world hit metres → can't aim the ghost;
+- the usable aim band maps high on screen and far away → cursor sits well below the
+  rendered ghost;
+- near the horizon the ray is parallel to / diverges from the plane → misses the
+  finite plane → no hit → ghost won't appear and the click lands on nothing.
+
+The plane was originally raised (see the earlier "ceiling fixture placement fix") to
+avoid the ray striking wall/ceiling meshes mid-height and inferring the wrong level.
+That reason is now **obsolete**: Phase 2 makes all pieces raycast-transparent for
+non-destroy tools, `fixturePlacementLevel` already ignores `hitY` (level comes from
+the resolved surface / standing level), and Phase 1 commits the cached ghost target.
+
+### 5a. Aim fixtures at the floor plane ✅
+- `placementPlaneY` no longer special-cases fixtures: every non-destroy tool now
+  uses `levelToY(standingLevel)` (the same steep, stable plane the floor tool uses).
+  The cursor aims at the floor cell; the ghost still renders on the ceiling because
+  fixture meshes (`arborCeilingWorldTransform`, light, futuristic ceilings) derive
+  their Y purely from `piece.level`, and that level comes from `fixturePlacementLevel`
+  (hit-Y-independent). This makes aiming precise and clicks reliable.
+
+### 5b. Floor footprint + vertical connector ✅
+- Because the cursor is now on the floor and the ghost on the ceiling (a fixed,
+  predictable offset rather than the old erratic one), fixture placement draws a
+  translucent **floor footprint** at the aimed cell plus a thin **vertical connector**
+  up to the ceiling ghost (green when valid, red when blocked). This makes the
+  "aim the tile → ceiling fills above it" model immediately legible.
+
+### Phase 5 validation ✅
+- `npm run typecheck -w @3dspace/web` (clean); `vitest` 43 pass (logic unchanged —
+  `fixturePlacementLevel` behaviour is the same; only the intercept-plane height and
+  ghost affordances changed).
+- Manual (recommended): pick a ceiling/light, point at floor cells — the ghost tracks
+  precisely on the ceiling above the footprint, and every green-ghost click places.
+  Place on the ground level and on an upper floor reached by ramp.
 
 ---
 
