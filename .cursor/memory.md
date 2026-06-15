@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-15 (futuristic ceiling replaces dark)
+Last updated: 2026-06-15 (ceiling fixture placement fix)
+
+- **2026-06-15:** **Ceiling fixture placement fix** — overhead tools (`light`, arbor/flat ceilings) now raycast on a plane at the level top (`levelToY + BUILD_LEVEL_HEIGHT`), pass through existing wall/ceiling meshes, and use `fixturePlacementLevel()` (standing/floor level — not mid-wall hit Y). Fixes clicks on green ghost not committing.
 
 - **2026-06-15:** **Futuristic flat ceilings placement** — `ceiling-futuristic` + `ceiling-futuristic-lighting` align `nativeMaxY` to level top (centered GLB meshes; old `BUILD_LEVEL_HEIGHT - scaledH` left a gap). Futuristic ceiling GLB also baked with 45° Y diamond orientation.
 

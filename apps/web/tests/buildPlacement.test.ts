@@ -9,6 +9,7 @@ import {
   evaluateBuildPlacement,
   findBuildPieceForDestroy,
   findSurfacePieceAtCell,
+  fixturePlacementLevel,
   inferRampRotationFromHit,
   nearestWallEdge,
   resolveBuildPlacementTarget,
@@ -586,5 +587,75 @@ describe("image-floor placement", () => {
 
   it("has a friendly message for the missing-texture state", () => {
     expect(buildPlacementStatusMessage("floor-texture-missing")).toBe("Upload or pick a floor image first");
+  });
+});
+
+describe("fixturePlacementLevel", () => {
+  it("uses the standing level on empty ground", () => {
+    expect(fixturePlacementLevel(null, 0)).toBe(0);
+    expect(fixturePlacementLevel(null, 1)).toBe(1);
+  });
+
+  it("uses the floor level when aiming at a floor top", () => {
+    const floor = BuildPieceSchema.parse({
+      id: "build:floor:2,2:1",
+      roomId: "room-placement",
+      kind: "floor",
+      cell: { ix: 2, iz: 2 },
+      level: 1,
+      rotation: 0,
+      materialId: "stone",
+      createdByUserId: "user-1",
+      createdAt: "2026-05-31T00:00:00.000Z"
+    });
+    expect(fixturePlacementLevel(floor, 0)).toBe(1);
+  });
+
+  it("ignores wall hit height and keeps the standing level", () => {
+    const wall = wallPieceAt(3, 3, "n");
+    expect(fixturePlacementLevel(wall, 0)).toBe(0);
+  });
+});
+
+describe("ceiling fixture placement target", () => {
+  it("places at the standing level even when the ray hits mid-wall", () => {
+    const wall = wallPieceAt(3, 3, "n");
+    const target = resolveBuildPlacementTarget({
+      tool: "ceiling-futuristic",
+      hitX: SAFE_PLACE_X,
+      hitY: 6,
+      hitZ: SAFE_PLACE_Z,
+      rotation: 0,
+      materialId: "stone",
+      surfacePiece: wall,
+      baseLevel: 0
+    });
+    expect(target.level).toBe(0);
+    expect(target.kind).toBe("ceiling-futuristic");
+  });
+
+  it("does not treat an existing ceiling hit as level 1", () => {
+    const existing = BuildPieceSchema.parse({
+      id: "build:ceiling-futuristic:3,3:0",
+      roomId: "room-placement",
+      kind: "ceiling-futuristic",
+      cell: { ix: 3, iz: 3 },
+      level: 0,
+      rotation: 0,
+      materialId: "stone",
+      createdByUserId: "user-1",
+      createdAt: "2026-05-31T00:00:00.000Z"
+    });
+    const target = resolveBuildPlacementTarget({
+      tool: "ceiling-futuristic",
+      hitX: 12,
+      hitY: 2.9,
+      hitZ: 12,
+      rotation: 0,
+      materialId: "stone",
+      surfacePiece: existing,
+      baseLevel: 0
+    });
+    expect(target.level).toBe(0);
   });
 });

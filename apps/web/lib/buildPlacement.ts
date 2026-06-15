@@ -123,6 +123,21 @@ export function wallFacingRotation(
   return refX >= lineX ? 0 : 180;
 }
 
+/**
+ * Level for overhead cell fixtures (lights, ceilings). Always the story the builder is
+ * working at — never inferred from a wall or existing ceiling hit (mid-wall Y would
+ * pick the wrong level).
+ */
+export function fixturePlacementLevel(surfacePiece?: BuildPiece | null, baseLevel = 0) {
+  if (surfacePiece && isBuildFloorPieceKind(surfacePiece.kind)) {
+    return clampLevel(surfacePiece.level);
+  }
+  if (surfacePiece?.kind === "ramp") {
+    return clampLevel(surfacePiece.level + 1);
+  }
+  return clampLevel(baseLevel);
+}
+
 export function inferPlacementLevel(hitY: number, surfacePiece?: BuildPiece | null, baseLevel = 0) {
   if (surfacePiece && isBuildFloorPieceKind(surfacePiece.kind)) {
     // Hitting a floor's top face means "extend at this level," not "stack above."
@@ -233,7 +248,7 @@ export function resolveBuildPlacementTarget(input: {
     return {
       kind: input.tool,
       cell,
-      level: inferPlacementLevel(input.hitY, input.surfacePiece, baseLevel),
+      level: fixturePlacementLevel(input.surfacePiece, baseLevel),
       rotation: input.rotation,
       materialId: input.materialId
     };

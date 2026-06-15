@@ -8,8 +8,10 @@ import type { ThreeEvent } from "@react-three/fiber";
 import {
   BUILD_CELL_SIZE,
   BUILD_FLOOR_THICKNESS,
+  BUILD_LEVEL_HEIGHT,
   BUILD_PLACEMENT_RATE_LIMIT_MS,
   buildPieceStableId,
+  isBuildCellFixtureKind,
   isBuildFloorPieceKind,
   levelToY,
   worldToCell
@@ -87,6 +89,25 @@ function pieceFromIntersection(event: ThreeEvent<PointerEvent>): BuildPiece | nu
   return null;
 }
 
+/** Raycast hit piece for placement — overhead fixtures ignore walls/ceilings and aim at the ceiling plane. */
+function effectiveSurfacePiece(
+  surfacePiece: BuildPiece | null,
+  standingLevel: number,
+  fixturePlacement: boolean
+): BuildPiece | null {
+  if (!surfacePiece) return null;
+  if (fixturePlacement) {
+    return isBuildFloorPieceKind(surfacePiece.kind) || surfacePiece.kind === "ramp" ? surfacePiece : null;
+  }
+  if (
+    (isBuildFloorPieceKind(surfacePiece.kind) || surfacePiece.kind === "ramp") &&
+    surfacePiece.level > standingLevel
+  ) {
+    return null;
+  }
+  return surfacePiece;
+}
+
 export function BuildPlacementController({
   manifest,
   roomId,
@@ -149,7 +170,14 @@ export function BuildPlacementController({
   // nearest cell is unreachable; lifting the plane to your level makes that cell selectable.
   // Destroy keeps the plane at the ground so it never occludes lower pieces you want to remove.
   const standingLevel = avatarStandingLevel(localAvatarPosition.y);
-  const placementPlaneY = buildMode.tool === "destroy" && !stampMode ? 0 : levelToY(standingLevel);
+  const fixturePlacementActive =
+    buildMode.tool !== "destroy" && !stampMode && isBuildCellFixtureKind(buildMode.tool);
+  const placementPlaneY =
+    buildMode.tool === "destroy" && !stampMode
+      ? 0
+      : fixturePlacementActive
+        ? levelToY(standingLevel) + BUILD_LEVEL_HEIGHT - 0.02
+        : levelToY(standingLevel);
 
   const gridCenter = useMemo(
     () =>
@@ -464,14 +492,7 @@ export function BuildPlacementController({
         setGhost(null);
         return;
       }
-      // When a floor/ramp above the standing level intercepts the ray, treat the hit as
-      // landing on the placement plane at the current level instead of the upper surface.
-      const effectivePiece =
-        surfacePiece &&
-        (isBuildFloorPieceKind(surfacePiece.kind) || surfacePiece.kind === "ramp") &&
-        surfacePiece.level > standingLevel
-          ? null
-          : surfacePiece;
+      const effectivePiece = effectiveSurfacePiece(surfacePiece, standingLevel, fixturePlacementActive);
       const hitY = effectivePiece !== surfacePiece ? placementPlaneY : event.point.y;
       // While sweeping out an image-floor rectangle, the rect ghost replaces the cell ghost.
       if (imageFloorRectMode && draggingRef.current && rectAnchorRef.current) {
@@ -487,6 +508,7 @@ export function BuildPlacementController({
       buildMode.enabled,
       buildMode.tool,
       imageFloorRectMode,
+      fixturePlacementActive,
       placementPlaneY,
       standingLevel,
       tryDragPlacement,
@@ -562,12 +584,7 @@ export function BuildPlacementController({
       pendingBatchRef.current = [];
       setGhostTrail([]);
       lastTrailKeyRef.current = "";
-      const effectivePiece =
-        surfacePiece &&
-        (isBuildFloorPieceKind(surfacePiece.kind) || surfacePiece.kind === "ramp") &&
-        surfacePiece.level > standingLevel
-          ? null
-          : surfacePiece;
+      const effectivePiece = effectiveSurfacePiece(surfacePiece, standingLevel, fixturePlacementActive);
       const hitY = effectivePiece !== surfacePiece ? placementPlaneY : event.point.y;
       if (imageFloorRectMode) {
         // Anchor the drag rectangle; level comes from the resolved target so the rect
@@ -583,6 +600,7 @@ export function BuildPlacementController({
     [
       buildMode.enabled,
       buildMode.tool,
+      fixturePlacementActive,
       imageFloorRectMode,
       placementPlaneY,
       stampMode,
@@ -656,12 +674,7 @@ export function BuildPlacementController({
 
       // When a floor/ramp above the standing level intercepts the ray, treat the hit as
       // landing on the placement plane at the current level instead of the upper surface.
-      const effectivePiece =
-        surfacePiece &&
-        (isBuildFloorPieceKind(surfacePiece.kind) || surfacePiece.kind === "ramp") &&
-        surfacePiece.level > standingLevel
-          ? null
-          : surfacePiece;
+      const effectivePiece = effectiveSurfacePiece(surfacePiece, standingLevel, fixturePlacementActive);
       const hitY = effectivePiece !== surfacePiece ? placementPlaneY : event.point.y;
 
       const target = targetFromHit(
@@ -679,6 +692,7 @@ export function BuildPlacementController({
       buildMode.tool,
       commitPlacement,
       commitStampPlacement,
+      fixturePlacementActive,
       imageFloorRectMode,
       onStatus,
       placementPlaneY,
@@ -713,7 +727,9 @@ export function BuildPlacementController({
         pieces={pieces}
         interactive={placementActive}
         highlightedPieceId={placementActive ? highlightedPieceId : null}
-        pointerEventsPassThrough={!placementActive && boardPlacementPassthrough}
+        pointerEventsPassThrough={
+          fixturePlacementActive || (!placementActive && boardPlacementPassthrough)
+        }
         {...(placementActive
           ? {
               onPiecePointerMove: (piece: BuildPiece, event: ThreeEvent<PointerEvent>) =>
