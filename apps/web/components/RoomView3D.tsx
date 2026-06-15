@@ -2059,7 +2059,9 @@ function RoomGeometry({
         )}
       </Suspense>
       <gridHelper
-        args={[Math.max(manifest.dimensions.width, manifest.dimensions.depth), 24, "#4c6b58", "#31473b"]}
+        args={[Math.max(manifest.dimensions.width, manifest.dimensions.depth), 24,
+          verse != null ? "#1a4466" : "#4c6b58",
+          verse != null ? "#0d2b44" : "#31473b"]}
         position={[0, 0.01, 0]}
       />
       {/* Raised rear terraces — tiled deck, wood skirt, bullnose at each step front */}
