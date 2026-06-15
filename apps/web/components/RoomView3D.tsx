@@ -575,6 +575,7 @@ export function RoomView3D({
           dynamicBoardPlacement={dynamicBoardPlacement}
           boardPlacementWalls={boardWalls}
           overlayOcclusionWalls={boardPlacementWallSet}
+          verse={verse}
         />
         {roomObjects &&
         roomObjectTemplatesById &&
@@ -1988,7 +1989,8 @@ function RoomGeometry({
   spotlightAnchorId,
   dynamicBoardPlacement,
   boardPlacementWalls: placementWalls,
-  overlayOcclusionWalls
+  overlayOcclusionWalls,
+  verse
 }: {
   manifest: RoomManifest;
   onMoveToPoint(point: { x: number; z: number }): void;
@@ -1997,6 +1999,7 @@ function RoomGeometry({
   dynamicBoardPlacement?: DynamicBoardPlacementConfig | null | undefined;
   boardPlacementWalls: Wall[];
   overlayOcclusionWalls: Wall[];
+  verse?: import("../lib/verses").Verse | null;
 }) {
   const anchorsWithObjects = useMemo(
     () => new Set(wallObjects.filter((object) => object.status !== "removed").map((object) => object.wallAnchorId)),
@@ -2007,7 +2010,8 @@ function RoomGeometry({
   const { skin, panoramaUrl } = useWorldSkinContext();
 
   const floorTextureUrl = skin?.overrides.floor?.textureStorageKey ?? null;
-  const floorColor = skin?.overrides.floor?.colorHex ?? "#d8c99f";
+  const floorColor = verse != null ? "#aaddff" : (skin?.overrides.floor?.colorHex ?? "#d8c99f");
+  const floorOpacity = verse != null ? 0.08 : 1;
   const floorRoughness = skin?.overrides.floor?.roughness ?? 0.92;
   const tierOverride = skin?.overrides.tiers;
   const defaultTierColors = ["#cac0a2", "#bfb498"] as const;
@@ -2030,6 +2034,7 @@ function RoomGeometry({
             depth={manifest.dimensions.depth}
             color={floorColor}
             roughness={floorRoughness}
+            opacity={floorOpacity}
             onMoveToPoint={onMoveToPoint}
           />
         }
@@ -2048,6 +2053,7 @@ function RoomGeometry({
             depth={manifest.dimensions.depth}
             color={floorColor}
             roughness={floorRoughness}
+            opacity={floorOpacity}
             onMoveToPoint={onMoveToPoint}
           />
         )}
@@ -2397,8 +2403,8 @@ function DomeCeilingMesh({
 
 // ── Floor helpers ─────────────────────────────────────────────────────────────
 
-function FloorMesh({ width, depth, color, roughness, onMoveToPoint }: {
-  width: number; depth: number; color: string; roughness: number;
+function FloorMesh({ width, depth, color, roughness, opacity = 1, onMoveToPoint }: {
+  width: number; depth: number; color: string; roughness: number; opacity?: number;
   onMoveToPoint(point: { x: number; z: number }): void;
 }) {
   return (
@@ -2409,7 +2415,7 @@ function FloorMesh({ width, depth, color, roughness, onMoveToPoint }: {
       onDoubleClick={(e) => { e.stopPropagation(); onMoveToPoint({ x: e.point.x, z: e.point.z }); }}
     >
       <planeGeometry args={[width, depth]} />
-      <meshStandardMaterial color={color} roughness={roughness} />
+      <meshStandardMaterial color={color} roughness={roughness} transparent={opacity < 1} opacity={opacity} />
     </mesh>
   );
 }
