@@ -26,9 +26,13 @@ const UNDERSIDE_LIGHT_POSITIONS: [number, number, number][] = [
   [0.42, 0.03, 0.42]
 ];
 
-const PANEL_GLOW = "#8ce8ff";
-const PANEL_CORE = "#d8f8ff";
+const PANEL_ACCENT = "#6eb8d4";
+const PANEL_ACCENT_INTENSITY = 0.22;
 const LIGHT_COLOR = "#c8f0ff";
+
+/** Just below the panel underside — spots aim down so they do not wash out the panel mesh. */
+const EMITTER_Y = -0.14;
+const SPOT_TARGET_DROP = 8;
 
 useGLTF.preload(CEILING_FUTURISTIC_LIGHTING_GLB_URL);
 
@@ -66,56 +70,46 @@ function FuturisticLightingCeilingGlbMesh({
   const { scene } = useGLTF(CEILING_FUTURISTIC_LIGHTING_GLB_URL);
   const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
   const { centerX, centerZ, y, scale, rotationY } = futuristicLightingCeilingWorldTransform(piece);
-  const glowIntensity = ghost ? 0.55 : 1.35;
+  const accentIntensity = ghost ? 0.12 : PANEL_ACCENT_INTENSITY;
 
   useEffect(() => {
-    const glow = new Color(PANEL_GLOW);
-    const core = new Color(PANEL_CORE);
+    const accent = new Color(PANEL_ACCENT);
 
     model.traverse((object) => {
       if (!isMesh(object)) return;
       const source = object.material as MeshStandardMaterial;
       const material = source.clone();
       object.material = material;
-      material.emissive.copy(glow);
-      material.emissiveIntensity = glowIntensity;
-      material.color.lerp(core, ghost ? 0.2 : 0.45);
-      material.roughness = Math.min(material.roughness, 0.35);
-      material.metalness = Math.max(material.metalness, 0.15);
+      // Keep the baked underside readable; a hint of emissive only when lights are off.
+      material.emissive.copy(accent);
+      material.emissiveIntensity = emitRealLight ? accentIntensity * 0.35 : accentIntensity;
+      material.roughness = Math.min(material.roughness, 0.55);
+      material.metalness = Math.max(material.metalness, 0.1);
       material.side = DoubleSide;
       if (ghost) {
         material.transparent = true;
         material.opacity = 0.72;
       }
     });
-  }, [model, ghost, glowIntensity]);
+  }, [model, ghost, accentIntensity, emitRealLight]);
 
   return (
     <group position={[centerX, y, centerZ]} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
       <primitive object={model} />
-      {!ghost
-        ? UNDERSIDE_LIGHT_POSITIONS.map((position, index) => (
-            <mesh key={`panel-glow-${index}`} position={position}>
-              <sphereGeometry args={[0.045, 10, 10]} />
-              <meshStandardMaterial
-                color={PANEL_CORE}
-                emissive={PANEL_GLOW}
-                emissiveIntensity={emitRealLight ? 2.4 : 1.6}
-                toneMapped={false}
-              />
-            </mesh>
-          ))
-        : null}
       {emitRealLight && !ghost
-        ? UNDERSIDE_LIGHT_POSITIONS.map((position, index) => (
-            <pointLight
+        ? UNDERSIDE_LIGHT_POSITIONS.map(([x, , z], index) => (
+            <spotLight
               key={`ceiling-light-${index}`}
-              position={position}
-              intensity={2.4}
-              distance={16}
-              decay={1.8}
+              position={[x, EMITTER_Y, z]}
+              intensity={3.2}
+              angle={Math.PI / 2.4}
+              penumbra={0.5}
+              distance={20}
+              decay={2}
               color={LIGHT_COLOR}
-            />
+            >
+              <object3D position={[0, -SPOT_TARGET_DROP, 0]} />
+            </spotLight>
           ))
         : null}
     </group>
@@ -156,8 +150,8 @@ export function FuturisticLightingCeilingMesh({
           <boxGeometry args={boxSize} />
           <meshStandardMaterial
             {...materialProps}
-            emissive={PANEL_GLOW}
-            emissiveIntensity={0.75}
+            emissive={PANEL_ACCENT}
+            emissiveIntensity={0.35}
           />
           <Edges color={valid ? "#6dff9a" : "#ff6b6b"} linewidth={2} />
         </mesh>
@@ -178,8 +172,8 @@ export function FuturisticLightingCeilingMesh({
               <boxGeometry args={boxSize} />
               <meshStandardMaterial
                 {...materialProps}
-                emissive={PANEL_GLOW}
-                emissiveIntensity={1.1}
+                emissive={PANEL_ACCENT}
+                emissiveIntensity={0.35}
               />
             </mesh>
           </group>
