@@ -13,8 +13,8 @@
         "storageKey": "world-skins/default-theater/v1/panorama.webp",
         "widthPx": 8192,
         "heightPx": 1024,
-        "horizonWorldY": 5,
-        "maxWorldHeight": 8,
+        "horizonWorldY": 7.5,
+        "maxWorldHeight": 12,
         "unwrapOrder": [
           "wall-left", "wall-front", "wall-right", "wall-back-lo",
           "wall-back-li", "wall-back-c", "wall-back-ri", "wall-back-ro"
@@ -86,8 +86,8 @@
         "storageKey": "world-skins/mars-surface/v1/panorama.webp",
         "widthPx": 8192,
         "heightPx": 1024,
-        "horizonWorldY": 5,
-        "maxWorldHeight": 8,
+        "horizonWorldY": 7.5,
+        "maxWorldHeight": 12,
         "unwrapOrder": [
           "wall-left", "wall-front", "wall-right", "wall-back-lo",
           "wall-back-li", "wall-back-c", "wall-back-ri", "wall-back-ro"
@@ -172,8 +172,8 @@
         "storageKey": "world-skins/cell-interior/v1/panorama.webp",
         "widthPx": 8192,
         "heightPx": 1024,
-        "horizonWorldY": 5,
-        "maxWorldHeight": 8,
+        "horizonWorldY": 7.5,
+        "maxWorldHeight": 12,
         "unwrapOrder": [
           "wall-left", "wall-front", "wall-right", "wall-back-lo",
           "wall-back-li", "wall-back-c", "wall-back-ri", "wall-back-ro"
@@ -253,8 +253,8 @@
         "storageKey": "world-skins/roman-forum/v1/panorama.webp",
         "widthPx": 8192,
         "heightPx": 1024,
-        "horizonWorldY": 5,
-        "maxWorldHeight": 8,
+        "horizonWorldY": 7.5,
+        "maxWorldHeight": 12,
         "unwrapOrder": [
           "wall-left", "wall-front", "wall-right", "wall-back-lo",
           "wall-back-li", "wall-back-c", "wall-back-ri", "wall-back-ro"
@@ -337,8 +337,8 @@
         "storageKey": "world-skins/rainforest-canopy/v1/panorama.webp",
         "widthPx": 8192,
         "heightPx": 1024,
-        "horizonWorldY": 5,
-        "maxWorldHeight": 8,
+        "horizonWorldY": 7.5,
+        "maxWorldHeight": 12,
         "unwrapOrder": [
           "wall-left", "wall-front", "wall-right", "wall-back-lo",
           "wall-back-li", "wall-back-c", "wall-back-ri", "wall-back-ro"
@@ -421,8 +421,8 @@
         "storageKey": "world-skins/art-studio/v1/panorama.webp",
         "widthPx": 8192,
         "heightPx": 1024,
-        "horizonWorldY": 5,
-        "maxWorldHeight": 8,
+        "horizonWorldY": 7.5,
+        "maxWorldHeight": 12,
         "unwrapOrder": [
           "wall-left", "wall-front", "wall-right", "wall-back-lo",
           "wall-back-li", "wall-back-c", "wall-back-ri", "wall-back-ro"

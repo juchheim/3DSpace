@@ -21,7 +21,7 @@ export function edgeOpeningFrameParts(piece: BuildPiece): OpeningFramePart[] {
   const centerX = (footprint.minX + footprint.maxX) / 2;
   const centerZ = (footprint.minZ + footprint.maxZ) / 2;
   const baseY = piece.level * BUILD_LEVEL_HEIGHT;
-  const postW = 0.28;
+  const postW = 0.42;
   const depth = BUILD_WALL_THICKNESS;
   const span = BUILD_CELL_SIZE;
   const halfSpan = span / 2;
@@ -34,14 +34,14 @@ export function edgeOpeningFrameParts(piece: BuildPiece): OpeningFramePart[] {
       return [
         { position: [centerX - halfSpan + postW / 2, baseY + postH / 2, z], size: [postW, postH, depth] },
         { position: [centerX + halfSpan - postW / 2, baseY + postH / 2, z], size: [postW, postH, depth] },
-        { position: [centerX, baseY + BUILD_WALL_HEIGHT - 0.12, z], size: [gapW + postW, 0.24, depth] }
+        { position: [centerX, baseY + BUILD_WALL_HEIGHT - 0.18, z], size: [gapW + postW, 0.36, depth] }
       ];
     }
     const x = edge === "e" ? footprint.maxX : footprint.minX;
     return [
       { position: [x, baseY + postH / 2, centerZ - halfSpan + postW / 2], size: [depth, postH, postW] },
       { position: [x, baseY + postH / 2, centerZ + halfSpan - postW / 2], size: [depth, postH, postW] },
-      { position: [x, baseY + BUILD_WALL_HEIGHT - 0.12, centerZ], size: [depth, 0.24, gapW + postW] }
+      { position: [x, baseY + BUILD_WALL_HEIGHT - 0.18, centerZ], size: [depth, 0.36, gapW + postW] }
     ];
   }
 

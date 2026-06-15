@@ -1,7 +1,7 @@
 import { DYNAMIC_WALL_ANCHOR_MAX_WIDTH_M, type RoomManifest, type Vector3 } from "@3dspace/contracts";
 
 export const VERSE_ROOM_HALF_EXTENT = 40;
-export const VERSE_ROOM_WALL_HEIGHT = 8;
+export const VERSE_ROOM_WALL_HEIGHT = 12;
 export const VERSE_ROOM_MANIFEST_FEATURE = "verse-canvas";
 
 /** World-space galaxy centre for verse skyboxes — keep in sync with `GALAXY_POS` in `RoomView3D.tsx`. */

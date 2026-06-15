@@ -18,8 +18,8 @@ function logicPiece(input: BuildLogicPiece) {
 
 describe("logic detection helpers", () => {
   it("derives avatar cell from world position", () => {
-    expect(avatarCellFromPosition(5, 0.1, 5)).toEqual({ ix: 2, iz: 2, level: 0 });
-    expect(avatarCellFromPosition(5, 2.1, 5).level).toBe(1);
+    expect(avatarCellFromPosition(5, 0.1, 5)).toEqual({ ix: 1, iz: 1, level: 0 });
+    expect(avatarCellFromPosition(5, 3.3, 5).level).toBe(1);
   });
 
   it("detects step-on pieces on the same cell", () => {
@@ -53,7 +53,7 @@ describe("logic detection helpers", () => {
     });
     const fp = footprintForZone(zone);
     expect(fp.maxX - fp.minX).toBeGreaterThan(2);
-    expect(pointInLogicFootprint(zone, 11.5, 11.5, 0)).toBe(true);
-    expect(findProximityZonesContaining([zone], 11.5, 11.5, 0)).toHaveLength(1);
+    expect(pointInLogicFootprint(zone, 16.5, 16.5, 0)).toBe(true);
+    expect(findProximityZonesContaining([zone], 16.5, 16.5, 0)).toHaveLength(1);
   });
 });

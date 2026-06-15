@@ -22,14 +22,14 @@ const ROOM_DEPTH = 30;
 type WallDef = { id: string; sx: number; sz: number; ex: number; ez: number; h: number };
 
 const CLASSROOM_WALLS: WallDef[] = [
-  { id: "wall-front",    sx: -15, sz: -15, ex:  15,  ez: -15,  h: 8 },
-  { id: "wall-left",     sx: -15, sz: -15, ex: -15,  ez:  15,  h: 8 },
-  { id: "wall-right",    sx:  15, sz: -15, ex:  15,  ez:  15,  h: 8 },
-  { id: "wall-back-lo",  sx: -15, sz:  15, ex:  -9,  ez:  15,  h: 8 },
-  { id: "wall-back-li",  sx:  -9, sz:  15, ex:  -3,  ez:  15,  h: 8 },
-  { id: "wall-back-c",   sx:  -3, sz:  15, ex:   3,  ez:  15,  h: 8 },
-  { id: "wall-back-ri",  sx:   3, sz:  15, ex:   9,  ez:  15,  h: 8 },
-  { id: "wall-back-ro",  sx:   9, sz:  15, ex:  15,  ez:  15,  h: 8 },
+  { id: "wall-front",    sx: -15, sz: -15, ex:  15,  ez: -15,  h: 12 },
+  { id: "wall-left",     sx: -15, sz: -15, ex: -15,  ez:  15,  h: 12 },
+  { id: "wall-right",    sx:  15, sz: -15, ex:  15,  ez:  15,  h: 12 },
+  { id: "wall-back-lo",  sx: -15, sz:  15, ex:  -9,  ez:  15,  h: 12 },
+  { id: "wall-back-li",  sx:  -9, sz:  15, ex:  -3,  ez:  15,  h: 12 },
+  { id: "wall-back-c",   sx:  -3, sz:  15, ex:   3,  ez:  15,  h: 12 },
+  { id: "wall-back-ri",  sx:   3, sz:  15, ex:   9,  ez:  15,  h: 12 },
+  { id: "wall-back-ro",  sx:   9, sz:  15, ex:  15,  ez:  15,  h: 12 },
 ];
 
 type TierDef = { minZ: number; maxZ: number; floorY: number };

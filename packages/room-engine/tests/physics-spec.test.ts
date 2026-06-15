@@ -106,8 +106,8 @@ describe("buildPhysicsWorldSpec", () => {
       kind: "cuboid",
       id: piece.id,
       source: "wall",
-      center: { x: 4, y: 1, z: 5 },
-      half: { x: 1, y: 1, z: 0.1 },
+      center: { x: 6, y: 1.5, z: 7.5 },
+      half: { x: 1.5, y: 1.5, z: 0.1 },
       rotationY: Math.PI / 2
     });
   });
@@ -121,8 +121,8 @@ describe("buildPhysicsWorldSpec", () => {
       kind: "cuboid",
       id: piece.id,
       source: "floor",
-      center: { x: 7, y: 2 + BUILD_FLOOR_THICKNESS / 2, z: 9 },
-      half: { x: 1, y: BUILD_FLOOR_THICKNESS / 2, z: 1 }
+      center: { x: 10.5, y: 3 + BUILD_FLOOR_THICKNESS / 2, z: 13.5 },
+      half: { x: 1.5, y: BUILD_FLOOR_THICKNESS / 2, z: 1.5 }
     });
   });
 
@@ -134,10 +134,10 @@ describe("buildPhysicsWorldSpec", () => {
     expect(ramp).toMatchObject({
       kind: "ramp",
       id: piece.id,
-      minX: 10,
-      maxX: 12,
-      minZ: 12,
-      maxZ: 14,
+      minX: 15,
+      maxX: 18,
+      minZ: 18,
+      maxZ: 21,
       lowY: BUILD_RAMP_LOW_Y,
       highY: BUILD_RAMP_HIGH_Y,
       climbAxis: "x",

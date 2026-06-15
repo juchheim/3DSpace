@@ -65,13 +65,13 @@ Selecting a stamp or object/scene deselects the single-piece build tool, and vic
 
 Building snaps to a fixed grid. Knowing the grid explains most "why did it go there" questions.
 
-- **Cell size:** every cell is **2 meters × 2 meters**. Floors, image floors, and ramps fill one cell.
-- **Level height:** each vertical level is **2 meters** tall. Walls are exactly one level tall,
+- **Cell size:** every cell is **3 meters × 3 meters**. Floors, image floors, and ramps fill one cell.
+- **Level height:** each vertical level is **3 meters** tall. Walls are exactly one level tall,
   which keeps floor tops flush with wall tops when you stack.
 - **Levels:** pieces live on levels **0 through 4** (5 levels total). Level 0 is the ground
-  floor. The **maximum build height is level 4** — you cannot place above it.
+  floor. The **maximum build height is level 4 (12 m)** — you cannot place above it.
 - **Wall thickness:** ~0.2 m. **Floor thickness:** ~0.3 m.
-- Because a cell, a level, and a wall are all 2 m, a single-cell ramp rises one level over one
+- Because a cell, a level, and a wall are all 3 m, a single-cell ramp rises one level over one
   cell — a clean **45° ramp**.
 
 Pieces are placed where your cursor highlights a cell or a cell edge. Edge pieces (walls, doors,
@@ -92,7 +92,7 @@ tool is highlighted. **Erase** (destroy) is a separate utility button and also k
 | --- | --- | --- |
 | **Wall** | `1` | Places a solid wall along the nearest cell edge. Blocks movement. Boards can be hung on walls. The wall's front faces you when you place it. |
 | **Simple Wall** | `9` | Like a wall but uses a plainer mesh. Same collision and board rules as a wall. |
-| **Floor** | `2` | Places a 2×2 m floor tile filling the cell. Walkable surface; stack on higher levels to make upper storeys. |
+| **Floor** | `2` | Places a 3×3 m floor tile filling the cell. Walkable surface; stack on higher levels to make upper storeys. |
 | **Image Floor** | `0` | A floor tile whose top face shows an uploaded or preset image. See section 8. |
 | **Ramp** | `3` | Places a 45° ramp filling the cell, rising one level. Walk up it to reach the next floor. Use `R` to aim it. |
 | **Erase** (Destroy) | `4` | Removes the build piece **or placed world object** you click. Anyone can erase in FFA/verse rooms. |
@@ -205,7 +205,7 @@ at 90° rotations.
 | **Tree** | Outdoor prop; each placement gets a slightly random size (natural variation). |
 | **Tree in a Pot** | Potted tree; slight random size per placement. |
 | **Southern Live Oak** | Large tree; slight random size per placement. |
-| **Tall Grass** | **Scatter** placement: one click strews several grass patches across a 2×2 m square. Use the **Patches per square** slider (1–12, default 6). Grass gently sways in the wind. |
+| **Tall Grass** | **Scatter** placement: one click strews several grass patches across a 3×3 m square. Use the **Patches per square** slider (1–12, default 6). Grass gently sways in the wind. |
 | **Podium** | Walk up and tap **E** to **stand & present** (locks you behind the lectern facing the room). While at the podium, press **`N`** for a **presentation notebook** (same editor as the desk, plus **Import** for `.txt`/`.md` files up to 200 KB). Tap **E** again to leave. |
 
 Undo/redo applies to **build pieces only**, not placed world objects.
@@ -353,8 +353,8 @@ keep-outs — only spawn keep-out, out-of-bounds, level cap, slot conflicts, and
 - **Q: What does key `8` do?** A: Selects **Mirror**.
 - **Q: What does key `3` do?** A: Selects **Ramp**.
 - **Q: What's the difference between a door and a window?** A: Doorways are passable; windows are not.
-- **Q: How tall can I build?** A: Up to **level 4** (5 levels, 0–4); each level is 2 m.
-- **Q: How big is a cell?** A: **2 m × 2 m**.
+- **Q: How tall can I build?** A: Up to **level 4** (5 levels, 0–4); each level is 3 m (12 m max).
+- **Q: How big is a cell?** A: **3 m × 3 m**.
 - **Q: Can I recolor build pieces?** A: Choose a **material** (stone, wood, metal, glass, neon) before placing. Image floors use uploaded images instead.
 - **Q: Why can't I build here?** A: Keep-out zone, out of bounds, height cap, occupied slot, or piece limit — see section 16.
 - **Q: Why can't I build in the hall?** A: That rule applies in **Free-for-All** rooms only. Verse and escape rooms don't have FFA halls.

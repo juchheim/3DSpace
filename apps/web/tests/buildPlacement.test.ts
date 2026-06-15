@@ -18,6 +18,10 @@ import {
   wallFacingRotation
 } from "../lib/buildPlacement";
 
+/** FFA spawns sit on a radius-10 ring; stay outside spawn keep-out with 3 m cells. */
+const SAFE_PLACE_X = -18;
+const SAFE_PLACE_Z = -18;
+
 function wallPieceAt(ix: number, iz: number, edge: "n" | "s" | "e" | "w") {
   return BuildPieceSchema.parse({
     id: `build:wall:${ix},${iz}:0:${edge}`,
@@ -71,24 +75,24 @@ describe("alignWallEdgeToNeighbors", () => {
 
 describe("wallFacingRotation", () => {
   it("flips a wall so its front faces the placer", () => {
-    // North edge of cell (3,3) sits at world z = 8.
+    // North edge of cell (3,3) sits at world z = 12.
     expect(wallFacingRotation("n", { ix: 3, iz: 3 }, 7, 6)).toBe(180); // placer south of the line
-    expect(wallFacingRotation("n", { ix: 3, iz: 3 }, 7, 9)).toBe(0); // placer north of the line
-    // East edge of cell (3,3) sits at world x = 8.
-    expect(wallFacingRotation("e", { ix: 3, iz: 3 }, 9, 7)).toBe(0); // placer east of the line
+    expect(wallFacingRotation("n", { ix: 3, iz: 3 }, 7, 13)).toBe(0); // placer north of the line
+    // East edge of cell (3,3) sits at world x = 12.
+    expect(wallFacingRotation("e", { ix: 3, iz: 3 }, 13, 7)).toBe(0); // placer east of the line
     expect(wallFacingRotation("e", { ix: 3, iz: 3 }, 6, 7)).toBe(180); // placer west of the line
   });
 
   it("orients a placed wall toward the avatar", () => {
     const south = resolveBuildPlacementTarget({
       tool: "wall",
-      hitX: 7,
+      hitX: 10.5,
       hitY: 0,
-      hitZ: 7.8,
+      hitZ: 11.2,
       rotation: 0,
       materialId: "stone",
-      avatarX: 7,
-      avatarZ: 6
+      avatarX: 10.5,
+      avatarZ: 10
     });
     expect(south.edge).toBe("n");
     expect(south.rotation).toBe(180);
@@ -99,18 +103,18 @@ describe("buildPlacement", () => {
   const manifest = createFreeForAllManifest({ roomId: "room-placement" });
 
   it("picks the nearest wall edge from a hit point", () => {
-    expect(nearestWallEdge(23.8, 11, 11, 5)).toBe("e");
-    expect(nearestWallEdge(11, 23.8, 5, 11)).toBe("n");
+    expect(nearestWallEdge(35, 16.5, 11, 5)).toBe("e");
+    expect(nearestWallEdge(16.5, 35, 5, 11)).toBe("n");
   });
 
   it("derives the avatar's standing level from feet height", () => {
     expect(avatarStandingLevel(0)).toBe(0); // ground
-    expect(avatarStandingLevel(2.3)).toBe(1); // on a level-1 floor (levelToY(1) + floor thickness)
-    expect(avatarStandingLevel(4.3)).toBe(2);
+    expect(avatarStandingLevel(3.3)).toBe(1); // on a level-1 floor (levelToY(1) + floor thickness)
+    expect(avatarStandingLevel(6.5)).toBe(2);
   });
 
   it("extends a floor at the avatar's standing level when the cursor hits empty ground", () => {
-    // Standing on a level-1 floor (feet ≈ 2.3); aim at the empty neighbour cell, where the
+    // Standing on a level-1 floor (feet ≈ 3.3); aim at the empty neighbour cell, where the
     // ray hits the ground plane (hitY ≈ 0, no surface piece). Without baseLevel this fell to 0.
     const target = resolveBuildPlacementTarget({
       tool: "floor",
@@ -120,7 +124,7 @@ describe("buildPlacement", () => {
       rotation: 0,
       materialId: "stone",
       surfacePiece: null,
-      baseLevel: avatarStandingLevel(2.3)
+      baseLevel: avatarStandingLevel(3.3)
     });
     expect(target.kind).toBe("floor");
     expect(target.level).toBe(1);
@@ -143,13 +147,13 @@ describe("buildPlacement", () => {
   it("rejects hall-overlapping wall targets consistently with floors", () => {
     const target = resolveBuildPlacementTarget({
       tool: "wall",
-      hitX: 23,
+      hitX: 25.5,
       hitY: 0,
-      hitZ: 1.9,
+      hitZ: 2.5,
       rotation: 0,
       materialId: "stone"
     });
-    expect(target.cell).toEqual({ ix: 11, iz: 0 });
+    expect(target.cell).toEqual({ ix: 8, iz: 0 });
     expect(target.edge).toBe("n");
     const preview = evaluateBuildPlacement(manifest, target, "room-placement", "user-1");
     expect(preview.allowed).toBe(false);
@@ -159,9 +163,9 @@ describe("buildPlacement", () => {
   it("rejects a second ramp in the same cell and level when ids differ", () => {
     const rampTarget = resolveBuildPlacementTarget({
       tool: "ramp",
-      hitX: 10,
+      hitX: SAFE_PLACE_X,
       hitY: 0,
-      hitZ: 10,
+      hitZ: SAFE_PLACE_Z,
       rotation: 0,
       materialId: "stone"
     });
@@ -179,9 +183,9 @@ describe("buildPlacement", () => {
   it("allows a floor and ramp to share the same cell and level", () => {
     const target = resolveBuildPlacementTarget({
       tool: "floor",
-      hitX: 10,
+      hitX: SAFE_PLACE_X,
       hitY: 0,
-      hitZ: 10,
+      hitZ: SAFE_PLACE_Z,
       rotation: 0,
       materialId: "stone"
     });
@@ -190,9 +194,9 @@ describe("buildPlacement", () => {
 
     const rampTarget = resolveBuildPlacementTarget({
       tool: "ramp",
-      hitX: 10,
+      hitX: SAFE_PLACE_X,
       hitY: 0,
-      hitZ: 10,
+      hitZ: SAFE_PLACE_Z,
       rotation: 0,
       materialId: "stone"
     });
@@ -325,7 +329,7 @@ describe("buildPlacement", () => {
     });
     const target = resolvePlaceAheadBuildTarget({
       tool: "floor",
-      avatarPosition: { x: 10, y: 0.3, z: 10 },
+      avatarPosition: { x: 16.5, y: 0.3, z: 16.5 },
       rotationY: 0,
       rotation: 0,
       materialId: "stone",
@@ -378,9 +382,9 @@ describe("buildPlacement", () => {
   it("checkBuildCapsForPlacements rejects user and room caps", () => {
     const target = resolveBuildPlacementTarget({
       tool: "floor",
-      hitX: 10,
+      hitX: SAFE_PLACE_X,
       hitY: 0,
-      hitZ: 10,
+      hitZ: SAFE_PLACE_Z,
       rotation: 0,
       materialId: "stone"
     });
@@ -428,9 +432,9 @@ describe("buildPlacement", () => {
   it("evaluateBuildPlacement returns friendly cap messages", () => {
     const target = resolveBuildPlacementTarget({
       tool: "floor",
-      hitX: 10,
+      hitX: SAFE_PLACE_X,
       hitY: 0,
-      hitZ: 10,
+      hitZ: SAFE_PLACE_Z,
       rotation: 0,
       materialId: "stone"
     });
@@ -455,9 +459,9 @@ describe("buildPlacement", () => {
   it("allows replacing a piece at the same stable slot", () => {
     const target = resolveBuildPlacementTarget({
       tool: "floor",
-      hitX: 10,
+      hitX: SAFE_PLACE_X,
       hitY: 0,
-      hitZ: 10,
+      hitZ: SAFE_PLACE_Z,
       rotation: 0,
       materialId: "stone"
     });
@@ -478,9 +482,9 @@ describe("image-floor placement", () => {
   function imageFloorTarget(texture?: string, textureSpanCells?: 2 | 4 | 8) {
     return resolveBuildPlacementTarget({
       tool: "image-floor",
-      hitX: 10,
+      hitX: SAFE_PLACE_X,
       hitY: 0,
-      hitZ: 10,
+      hitZ: SAFE_PLACE_Z,
       rotation: 0,
       materialId: "stone",
       ...(texture ? { textureStorageKey: texture } : {}),
@@ -503,9 +507,9 @@ describe("image-floor placement", () => {
   it("blocks an image floor where a plain floor already sits (and vice versa)", () => {
     const floorTarget = resolveBuildPlacementTarget({
       tool: "floor",
-      hitX: 10,
+      hitX: SAFE_PLACE_X,
       hitY: 0,
-      hitZ: 10,
+      hitZ: SAFE_PLACE_Z,
       rotation: 0,
       materialId: "stone"
     });
@@ -537,7 +541,7 @@ describe("image-floor placement", () => {
   it("allows repainting an image floor in place with a different texture", () => {
     const existing = {
       ...evaluateBuildPlacement(manifest, imageFloorTarget(TEXTURE_A), "room-placement", "user-1").piece,
-      id: "build:image-floor:5,5:0:legacy"
+      id: "build:image-floor:-6,-6:0:legacy"
     };
     const repaint = evaluateBuildPlacement(
       manifest,
@@ -552,7 +556,7 @@ describe("image-floor placement", () => {
   it("allows repainting an image floor in place with a different texture span", () => {
     const existing = {
       ...evaluateBuildPlacement(manifest, imageFloorTarget(TEXTURE_A, 4), "room-placement", "user-1").piece,
-      id: "build:image-floor:5,5:0:legacy"
+      id: "build:image-floor:-6,-6:0:legacy"
     };
     const repaint = evaluateBuildPlacement(
       manifest,
@@ -567,7 +571,7 @@ describe("image-floor placement", () => {
   it("rejects the same texture in an occupied slot when ids differ (no-op sweep)", () => {
     const existing = {
       ...evaluateBuildPlacement(manifest, imageFloorTarget(TEXTURE_A), "room-placement", "user-1").piece,
-      id: "build:image-floor:5,5:0:legacy"
+      id: "build:image-floor:-6,-6:0:legacy"
     };
     const samePaint = evaluateBuildPlacement(
       manifest,

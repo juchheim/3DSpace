@@ -363,7 +363,7 @@ export function createDefaultRoomManifest(input: {
     dimensions: {
       width: 30,
       depth: 30,
-      height: 8
+      height: 12
     },
     bounds: {
       minX: -13.5,
@@ -414,14 +414,14 @@ export function createDefaultRoomManifest(input: {
       { id: "spawn-back-12", label: "Back 12", position: { x:  12.0, y: 1.0, z: 10.8 }, rotation: { y: Math.PI } }
     ],
     walls: [
-      { id: "wall-front", label: "Front wall", start: { x: -15, y: 0, z: -15 }, end: { x: 15, y: 0, z: -15 }, height: 8, anchorIds: ["anchor-board", "anchor-media-left"] },
-      { id: "wall-left",  label: "Left wall",  start: { x: -15, y: 0, z: -15 }, end: { x: -15, y: 0, z: 15 }, height: 8, anchorIds: ["anchor-left"] },
-      { id: "wall-right", label: "Right wall", start: { x:  15, y: 0, z: -15 }, end: { x:  15, y: 0, z: 15 }, height: 8, anchorIds: ["anchor-right"] },
-      { id: "wall-back-lo", label: "Back left outer",  start: { x: -15, y: 0, z: 15 }, end: { x: -9, y: 0, z: 15 }, height: 8, anchorIds: [] },
-      { id: "wall-back-li", label: "Back left inner",  start: { x:  -9, y: 0, z: 15 }, end: { x: -3, y: 0, z: 15 }, height: 8, anchorIds: [] },
-      { id: "wall-back-c",  label: "Back center",      start: { x:  -3, y: 0, z: 15 }, end: { x:  3, y: 0, z: 15 }, height: 8, anchorIds: ["anchor-back"] },
-      { id: "wall-back-ri", label: "Back right inner", start: { x:   3, y: 0, z: 15 }, end: { x:  9, y: 0, z: 15 }, height: 8, anchorIds: [] },
-      { id: "wall-back-ro", label: "Back right outer", start: { x:   9, y: 0, z: 15 }, end: { x: 15, y: 0, z: 15 }, height: 8, anchorIds: [] }
+      { id: "wall-front", label: "Front wall", start: { x: -15, y: 0, z: -15 }, end: { x: 15, y: 0, z: -15 }, height: 12, anchorIds: ["anchor-board", "anchor-media-left"] },
+      { id: "wall-left",  label: "Left wall",  start: { x: -15, y: 0, z: -15 }, end: { x: -15, y: 0, z: 15 }, height: 12, anchorIds: ["anchor-left"] },
+      { id: "wall-right", label: "Right wall", start: { x:  15, y: 0, z: -15 }, end: { x:  15, y: 0, z: 15 }, height: 12, anchorIds: ["anchor-right"] },
+      { id: "wall-back-lo", label: "Back left outer",  start: { x: -15, y: 0, z: 15 }, end: { x: -9, y: 0, z: 15 }, height: 12, anchorIds: [] },
+      { id: "wall-back-li", label: "Back left inner",  start: { x:  -9, y: 0, z: 15 }, end: { x: -3, y: 0, z: 15 }, height: 12, anchorIds: [] },
+      { id: "wall-back-c",  label: "Back center",      start: { x:  -3, y: 0, z: 15 }, end: { x:  3, y: 0, z: 15 }, height: 12, anchorIds: ["anchor-back"] },
+      { id: "wall-back-ri", label: "Back right inner", start: { x:   3, y: 0, z: 15 }, end: { x:  9, y: 0, z: 15 }, height: 12, anchorIds: [] },
+      { id: "wall-back-ro", label: "Back right outer", start: { x:   9, y: 0, z: 15 }, end: { x: 15, y: 0, z: 15 }, height: 12, anchorIds: [] }
     ],
     wallAnchors: [
       {
@@ -553,7 +553,7 @@ export function createDefaultRoomManifest(input: {
 
 export const WT_CENTRAL_WIDTH = 40;   // x ∈ [-20, 20]
 export const WT_CENTRAL_DEPTH = 40;   // z ∈ [-20, 20]
-export const WT_WALL_HEIGHT   = 8;
+export const WT_WALL_HEIGHT   = 12;
 export const WT_HALLWAY_WIDTH = 4;
 export const WT_SIDE_ROOM_SIZE = 10;
 export const WT_ENTRANCE_WIDTH = 3;   // doorway opening width on each entrance wall
@@ -851,7 +851,7 @@ export function createWorkforceTrainingManifest(input: {
 // walls are thick + impassable (matches workforce-training collision style).
 
 export const FFA_MAIN_RADIUS = 23;
-export const FFA_WALL_HEIGHT = 8;
+export const FFA_WALL_HEIGHT = 12;
 export const FFA_WALL_THICKNESS = 0.3;
 export const FFA_HALL_LENGTH = 6;
 export const FFA_HALL_WIDTH = 4;

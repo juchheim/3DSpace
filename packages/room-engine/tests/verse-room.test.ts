@@ -32,7 +32,7 @@ describe("createVerseRoomManifest", () => {
   });
 
   it("uses 80×80 m bounds centered on the origin", () => {
-    expect(manifest.dimensions).toEqual({ width: 80, depth: 80, height: 8 });
+    expect(manifest.dimensions).toEqual({ width: 80, depth: 80, height: 12 });
     expect(manifest.bounds).toEqual({
       minX: -VERSE_ROOM_HALF_EXTENT,
       maxX: VERSE_ROOM_HALF_EXTENT,

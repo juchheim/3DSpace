@@ -1,7 +1,7 @@
 import type { RoomManifest } from "@3dspace/contracts";
 
-/** Keep in sync with `build.ts` / `index.ts` FFA layout constants. */
-const BUILD_CELL_SIZE = 2.0;
+/** Keep in sync with `BUILD_CELL_SIZE` in `build.ts`. */
+const BUILD_CELL_SIZE = 3.0;
 export const FFA_MAIN_RADIUS = 23;
 export const FFA_HALL_LENGTH = 6;
 export const FFA_HALL_WIDTH = 4;

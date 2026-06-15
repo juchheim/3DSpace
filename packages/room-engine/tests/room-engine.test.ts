@@ -190,7 +190,7 @@ describe("room engine", () => {
     };
     const updated = applyDefaultRoomGeometry(stale);
 
-    expect(new Set(updated.walls.map((wall) => wall.height))).toEqual(new Set([8]));
+    expect(new Set(updated.walls.map((wall) => wall.height))).toEqual(new Set([12]));
     expect(updated.bounds.maxZ).toBe(13.5);
     expect(updated.tiers).toEqual([
       { minZ: 4, maxZ: 8.5, floorY: 0.5 },
@@ -357,7 +357,7 @@ describe("workforce training manifest", () => {
     expect(manifest.roomId).toBe("room-wt-1");
     expect(manifest.dimensions.width).toBe(68);
     expect(manifest.dimensions.depth).toBe(54);
-    expect(manifest.dimensions.height).toBe(8);
+    expect(manifest.dimensions.height).toBe(12);
   });
 
   it("has exactly 16 wall anchors", () => {
@@ -561,7 +561,7 @@ describe("free-for-all wall collisions", () => {
       .map((wall) => wall.height);
 
     expect(new Set(centralHeights)).toEqual(new Set([12]));
-    expect(new Set(perimeterHeights)).toEqual(new Set([8]));
+    expect(new Set(perimeterHeights)).toEqual(new Set([12]));
     expect(manifest.dimensions.height).toBe(12);
   });
 

@@ -26,7 +26,7 @@ describe("createEscapeRoomManifest", () => {
   });
 
   it("uses 80×80 m bounds centered on the origin", () => {
-    expect(manifest.dimensions).toEqual({ width: 80, depth: 80, height: 8 });
+    expect(manifest.dimensions).toEqual({ width: 80, depth: 80, height: 12 });
     expect(manifest.bounds).toEqual({
       minX: -ESCAPE_ROOM_HALF_EXTENT,
       maxX: ESCAPE_ROOM_HALF_EXTENT,
@@ -68,10 +68,10 @@ describe("escape room build mask", () => {
   const ffaManifest = createFreeForAllManifest({ roomId: "room-ffa-build" });
 
   const hallCellPiece = BuildPieceSchema.parse({
-    id: `${BUILD_ID_PREFIX}floor:12,0:0`,
+    id: `${BUILD_ID_PREFIX}floor:8,0:0`,
     roomId: "room-escape-build",
     kind: "floor",
-    cell: { ix: 12, iz: 0 },
+    cell: { ix: 8, iz: 0 },
     level: 0,
     rotation: 0,
     materialId: "stone",

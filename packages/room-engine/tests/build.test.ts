@@ -115,8 +115,8 @@ describe("buildPieceColliders", () => {
     const { walls } = buildPieceColliders(piece);
     expect(walls).toHaveLength(2);
     expect(walls[0]!.baseY).toBe(0);
-    expect(walls[0]!.height).toBeLessThanOrEqual(1.01);
-    expect(walls[1]!.baseY).toBeGreaterThanOrEqual(1.39);
+    expect(walls[0]!.height).toBeLessThanOrEqual(1.51);
+    expect(walls[1]!.baseY).toBeGreaterThanOrEqual(2.09);
   });
 
   it("light piece is non-colliding", () => {
@@ -389,10 +389,10 @@ describe("isBuildAllowedAt", () => {
 
   it("rejects placements in FFA hall corridors", () => {
     const piece = BuildPieceSchema.parse({
-      id: `${BUILD_ID_PREFIX}floor:12,0:0`,
+      id: `${BUILD_ID_PREFIX}floor:8,0:0`,
       roomId: "room-1",
       kind: "floor",
-      cell: { ix: 12, iz: 0 },
+      cell: { ix: 8, iz: 0 },
       level: 0,
       rotation: 0,
       materialId: "stone",
@@ -403,9 +403,9 @@ describe("isBuildAllowedAt", () => {
   });
 
   it("rejects walls in partially hall-overlapping cells using cell bounds, not edge endpoints", () => {
-    const cell = { ix: 11, iz: 0 };
+    const cell = { ix: 8, iz: 0 };
     const floor = BuildPieceSchema.parse({
-      id: `${BUILD_ID_PREFIX}floor:11,0:0`,
+      id: `${BUILD_ID_PREFIX}floor:8,0:0`,
       roomId: "room-1",
       kind: "floor",
       cell,
@@ -418,7 +418,7 @@ describe("isBuildAllowedAt", () => {
     expect(isBuildAllowedAt(manifest, floor)).toEqual({ ok: false, reason: "hall-keep-out" });
 
     const northWall = BuildPieceSchema.parse({
-      id: `${BUILD_ID_PREFIX}wall:11,0:0:n`,
+      id: `${BUILD_ID_PREFIX}wall:8,0:0:n`,
       roomId: "room-1",
       kind: "wall",
       cell,

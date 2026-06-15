@@ -1,8 +1,10 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-14 (Wood Arbor Ceiling GLB)
+Last updated: 2026-06-15 (World Builder +50% height retune)
 
-- **2026-06-14:** **Wood Arbor Ceiling GLB** — `GLBs/arbor.glb` → `scripts/prepare-arbor-glb.mjs` (JPEG q85, ~0.88 MB) → `apps/web/public/objects/arbor-ceiling.glb`; Build tab **Wood Arbor Ceiling** tile replaces procedural trellis mesh. Removed **Room 3×3** / **Arbor 4×4** stamps and Build tab **Rooms** row.
+- **2026-06-15:** **World Builder +50% height retune** — `BUILD_CELL_SIZE` / `BUILD_LEVEL_HEIGHT` / `BUILD_WALL_HEIGHT` 2→3 m; secondary constants scaled (ramp foot, doorway/window, step-up); shell walls 8→12 m (`VERSE_ROOM_WALL_HEIGHT`, `FFA_WALL_HEIGHT`, classroom/escape/WT); `maxWorldHeight` default 12; doorway frame offsets ×1.5; `free-for-all-build-mask` `BUILD_CELL_SIZE` synced to 3. GLBs/ghosts auto-scale via constants.
+
+- **2026-06-14:** **Ramp GLB visual flip** — `rampGlbRotationY` in `BuildPieceMesh.tsx` adds π yaw so ramp mesh slope matches engine walk surface (collision unchanged).
 
 - **2026-06-14:** **World Builder Arbor ceiling** — `arbor-ceiling` `BuildPieceKind` (not a stamp): one-cell overhead trellis; stacks with floors/lights; `R` rotates; AI corpus updated.
 

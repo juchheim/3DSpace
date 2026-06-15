@@ -16,20 +16,20 @@ export { BUILD_MAX_LEVEL };
 // Equal run and rise make a single-cell ramp exactly 45° (a 3 m rise over a 2 m run is a
 // near-unwalkable 56°), and a wall being exactly one level tall keeps floor tops aligned with
 // wall tops. Tune all three together; never independently.
-export const BUILD_CELL_SIZE = 2.0;
-export const BUILD_LEVEL_HEIGHT = 2.0;
-export const BUILD_WALL_HEIGHT = 2.0;
+export const BUILD_CELL_SIZE = 3.0;
+export const BUILD_LEVEL_HEIGHT = 3.0;
+export const BUILD_WALL_HEIGHT = 3.0;
 export const BUILD_WALL_THICKNESS = 0.2;
 export const BUILD_FLOOR_THICKNESS = 0.3;
 /** Walkable Y at the ramp low foot above the level line (scaled ramp GLB). */
-export const BUILD_RAMP_LOW_Y = 0.35;
+export const BUILD_RAMP_LOW_Y = 0.525;
 /** Walkable Y at the ramp crest; flush with floor top at level+1. */
 export const BUILD_RAMP_HIGH_Y = BUILD_LEVEL_HEIGHT + BUILD_FLOOR_THICKNESS;
 /** Rise from ramp low foot to crest along the walkable surface. */
 export const BUILD_RAMP_WALK_RISE = BUILD_RAMP_HIGH_Y - BUILD_RAMP_LOW_Y;
 /** Crest height above level line — alias kept for mesh scale and legacy imports. */
 export const BUILD_RAMP_RISE = BUILD_RAMP_HIGH_Y;
-export const BUILD_STEP_UP_MAX = 0.6;
+export const BUILD_STEP_UP_MAX = 0.9;
 /** When true, avatars ease down instead of snapping when above ground (web movement reads this). */
 export const BUILD_ENABLE_EASED_FALL = false;
 export const BUILD_FALL_GRAVITY = 28;
@@ -67,10 +67,10 @@ export function isBuildCellFixtureKind(kind: BuildPiece["kind"]): boolean {
 }
 
 /** Doorway opening: avatar-height band is open (no colliders). */
-export const BUILD_DOORWAY_PASSABLE_TOP = 2.2;
+export const BUILD_DOORWAY_PASSABLE_TOP = 3.3;
 /** Window sill blocks feet; gap above sill is too low to walk through. */
-export const BUILD_WINDOW_SILL_HEIGHT = 1.0;
-export const BUILD_WINDOW_LINTEL_BASE = 1.4;
+export const BUILD_WINDOW_SILL_HEIGHT = 1.5;
+export const BUILD_WINDOW_LINTEL_BASE = 2.1;
 
 export const BUILD_MAX_ACTIVE_LIGHTS = 8;
 

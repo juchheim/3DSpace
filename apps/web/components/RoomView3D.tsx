@@ -2681,7 +2681,7 @@ function WallMesh({
   const materialRef = useRef<MeshStandardMaterial | MeshBasicMaterial | null>(null);
   const plane = useMemo(() => wallPlane(wall), [wall]);
   const verticalRepeat = useMemo(
-    () => panoramaVerticalRepeat(wall.height, maxWorldHeight ?? 8),
+    () => panoramaVerticalRepeat(wall.height, maxWorldHeight ?? 12),
     [wall.height, maxWorldHeight]
   );
   const cameraOffset = useMemo(() => new Vector3(), []);

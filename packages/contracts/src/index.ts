@@ -695,8 +695,8 @@ export const WorldSkinPanoramaWallSchema = z.object({
   storageKey: z.string().min(1),
   widthPx: z.literal(8192),
   heightPx: z.literal(1024),
-  horizonWorldY: z.number().positive().default(5),
-  maxWorldHeight: z.number().positive().default(8),
+  horizonWorldY: z.number().positive().default(7.5),
+  maxWorldHeight: z.number().positive().default(12),
   unwrapOrder: z.array(WorldSkinWallIdSchema).length(8),
   slices: z.record(WorldSkinWallIdSchema, WorldSkinPanoramaSliceSchema)
 });
