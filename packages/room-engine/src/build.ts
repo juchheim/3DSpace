@@ -56,7 +56,7 @@ export const BUILD_CELL_FIXTURE_KINDS = [
 ] as const;
 
 /** Build pieces that cast real-time point lights (nearest-N budget in BuildLayer). */
-export const BUILD_REAL_LIGHT_KINDS = ["light", "ceiling-futuristic-lighting"] as const;
+export const BUILD_REAL_LIGHT_KINDS = ["light"] as const;
 
 export function buildPieceRequiresEdge(kind: BuildPiece["kind"]): boolean {
   return (BUILD_EDGE_PIECE_KINDS as readonly string[]).includes(kind);

@@ -1,10 +1,8 @@
 "use client";
 
-import { Suspense, useEffect, useMemo } from "react";
+import { Suspense, useMemo } from "react";
 import { Edges, useGLTF } from "@react-three/drei";
-import { Color, DoubleSide, Mesh as ThreeMesh } from "three";
 import type { Group } from "three";
-import { MeshStandardMaterial } from "three";
 import { SkeletonUtils } from "three-stdlib";
 import type { BuildPiece, BuildPieceMaterial } from "@3dspace/contracts";
 import {
@@ -18,27 +16,7 @@ export const CEILING_FUTURISTIC_LIGHTING_GLB_URL = "/objects/ceiling-futuristic-
 export const CEILING_FUTURISTIC_LIGHTING_NATIVE_W = 1.9121090173721313;
 export const CEILING_FUTURISTIC_LIGHTING_NATIVE_H = 0.12597297504544258;
 
-/** Four down-facing emitters across the panel underside (native model space). */
-const UNDERSIDE_LIGHT_POSITIONS: [number, number, number][] = [
-  [-0.42, 0.03, -0.42],
-  [0.42, 0.03, -0.42],
-  [-0.42, 0.03, 0.42],
-  [0.42, 0.03, 0.42]
-];
-
-const PANEL_ACCENT = "#6eb8d4";
-const PANEL_ACCENT_INTENSITY = 0.22;
-const LIGHT_COLOR = "#c8f0ff";
-
-/** Just below the panel underside — spots aim down so they do not wash out the panel mesh. */
-const EMITTER_Y = -0.14;
-const SPOT_TARGET_DROP = 8;
-
 useGLTF.preload(CEILING_FUTURISTIC_LIGHTING_GLB_URL);
-
-function isMesh(object: unknown): object is ThreeMesh {
-  return Boolean(object) && (object as ThreeMesh).isMesh === true;
-}
 
 export function futuristicLightingCeilingWorldTransform(piece: BuildPiece) {
   const footprint = buildCellFootprint(piece.cell.ix, piece.cell.iz);
@@ -58,60 +36,14 @@ export function futuristicLightingCeilingWorldTransform(piece: BuildPiece) {
   };
 }
 
-function FuturisticLightingCeilingGlbMesh({
-  piece,
-  ghost = false,
-  emitRealLight = false
-}: {
-  piece: BuildPiece;
-  ghost?: boolean;
-  emitRealLight?: boolean;
-}) {
+function FuturisticLightingCeilingGlbMesh({ piece }: { piece: BuildPiece }) {
   const { scene } = useGLTF(CEILING_FUTURISTIC_LIGHTING_GLB_URL);
   const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
   const { centerX, centerZ, y, scale, rotationY } = futuristicLightingCeilingWorldTransform(piece);
-  const accentIntensity = ghost ? 0.12 : PANEL_ACCENT_INTENSITY;
-
-  useEffect(() => {
-    const accent = new Color(PANEL_ACCENT);
-
-    model.traverse((object) => {
-      if (!isMesh(object)) return;
-      const source = object.material as MeshStandardMaterial;
-      const material = source.clone();
-      object.material = material;
-      // Keep the baked underside readable; a hint of emissive only when lights are off.
-      material.emissive.copy(accent);
-      material.emissiveIntensity = emitRealLight ? accentIntensity * 0.35 : accentIntensity;
-      material.roughness = Math.min(material.roughness, 0.55);
-      material.metalness = Math.max(material.metalness, 0.1);
-      material.side = DoubleSide;
-      if (ghost) {
-        material.transparent = true;
-        material.opacity = 0.72;
-      }
-    });
-  }, [model, ghost, accentIntensity, emitRealLight]);
 
   return (
     <group position={[centerX, y, centerZ]} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
       <primitive object={model} />
-      {emitRealLight && !ghost
-        ? UNDERSIDE_LIGHT_POSITIONS.map(([x, , z], index) => (
-            <spotLight
-              key={`ceiling-light-${index}`}
-              position={[x, EMITTER_Y, z]}
-              intensity={3.2}
-              angle={Math.PI / 2.4}
-              penumbra={0.5}
-              distance={20}
-              decay={2}
-              color={LIGHT_COLOR}
-            >
-              <object3D position={[0, -SPOT_TARGET_DROP, 0]} />
-            </spotLight>
-          ))
-        : null}
     </group>
   );
 }
@@ -121,7 +53,6 @@ export function FuturisticLightingCeilingMesh({
   materialId,
   ghost = false,
   valid = true,
-  emitRealLight = false,
   pointerProps,
   pointerEventsPassThrough
 }: {
@@ -129,7 +60,6 @@ export function FuturisticLightingCeilingMesh({
   materialId: BuildPieceMaterial;
   ghost?: boolean;
   valid?: boolean;
-  emitRealLight?: boolean;
   pointerProps: Record<string, unknown>;
   pointerEventsPassThrough?: boolean;
 }) {
@@ -148,11 +78,7 @@ export function FuturisticLightingCeilingMesh({
       >
         <mesh position={[0, scaledH / 2, 0]}>
           <boxGeometry args={boxSize} />
-          <meshStandardMaterial
-            {...materialProps}
-            emissive={PANEL_ACCENT}
-            emissiveIntensity={0.35}
-          />
+          <meshStandardMaterial {...materialProps} />
           <Edges color={valid ? "#6dff9a" : "#ff6b6b"} linewidth={2} />
         </mesh>
       </group>
@@ -170,16 +96,12 @@ export function FuturisticLightingCeilingMesh({
           <group position={[centerX, y, centerZ]} rotation={[0, rotationY, 0]}>
             <mesh position={[0, scaledH / 2, 0]}>
               <boxGeometry args={boxSize} />
-              <meshStandardMaterial
-                {...materialProps}
-                emissive={PANEL_ACCENT}
-                emissiveIntensity={0.35}
-              />
+              <meshStandardMaterial {...materialProps} />
             </mesh>
           </group>
         }
       >
-        <FuturisticLightingCeilingGlbMesh piece={piece} emitRealLight={emitRealLight} />
+        <FuturisticLightingCeilingGlbMesh piece={piece} />
       </Suspense>
     </group>
   );

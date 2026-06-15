@@ -4,7 +4,7 @@ Last updated: 2026-06-15 (futuristic arbor ceiling placement fix)
 
 - **2026-06-15:** **Futuristic arbor ceiling placement** — `arbor-futuristic-ceiling` GLB is vertically centered (`nativeMinY ≈ -0.16`) vs wood arbor bottom at `y=0`; `arborCeilingWorldTransform` now aligns `nativeMaxY` to level top so both variants match wood placement.
 
-- **2026-06-15:** **Futuristic Lighting ceiling** — `GLBs/ceiling-futuristic-lighting.glb` → `prepare-arbor-glb.mjs` (PNG→JPEG q85, ~0.89 MB) → `apps/web/public/objects/ceiling-futuristic-lighting.glb`; new `ceiling-futuristic-lighting` `BuildPieceKind` ("Futuristic Lighting Ceiling"); four underside point lights + emissive panel (`FuturisticLightingCeilingMesh.tsx`); shares nearest-N real-light budget with lamps via `isBuildRealLightKind`.
+- **2026-06-15:** **Futuristic Lighting ceiling** — `ceiling-futuristic-lighting` build piece; GLB-only render (no real-time emitters — baked panel look); pair with **Light** tool for room illumination.
 
 - **2026-06-15:** **Futuristic Arbor ceiling** — `GLBs/arbor-futuristic.glb` → `scripts/prepare-arbor-glb.mjs` (PNG→JPEG q85, ~1.16 MB) → `apps/web/public/objects/arbor-futuristic-ceiling.glb`; new `arbor-futuristic-ceiling` `BuildPieceKind` in World Builder **Build** tab ("Futuristic Arbor Ceiling"); shares arbor ceiling placement/render with wood variant (different native scale).
 

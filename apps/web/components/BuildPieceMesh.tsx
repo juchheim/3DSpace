@@ -563,7 +563,6 @@ export function BuildPieceMesh({
         materialId={materialId}
         ghost={ghost || trail}
         valid={valid}
-        emitRealLight={emitRealLight}
         pointerProps={pointerProps}
         pointerEventsPassThrough={pointerEventsPassThrough}
       />

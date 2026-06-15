@@ -22,12 +22,8 @@ function useNearestLightPieceIds(pieces: BuildPiece[]) {
       .sort((a, b) => {
         const ac = cellToWorldCenter(a.cell.ix, a.cell.iz);
         const bc = cellToWorldCenter(b.cell.ix, b.cell.iz);
-        const ay =
-          a.level * BUILD_LEVEL_HEIGHT +
-          (a.kind === "ceiling-futuristic-lighting" ? BUILD_LEVEL_HEIGHT : 1);
-        const by =
-          b.level * BUILD_LEVEL_HEIGHT +
-          (b.kind === "ceiling-futuristic-lighting" ? BUILD_LEVEL_HEIGHT : 1);
+        const ay = a.level * BUILD_LEVEL_HEIGHT + 1;
+        const by = b.level * BUILD_LEVEL_HEIGHT + 1;
         const da =
           (ac.x - camera.position.x) ** 2 +
           (ay - camera.position.y) ** 2 +
