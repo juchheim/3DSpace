@@ -207,6 +207,46 @@ describe("useAvatarMovement physics branch", () => {
     expect(result.current.avatarState?.airborneState).toBe("jumping");
   });
 
+  it("does not snap Y to build surfaces at jump apex while airborne", async () => {
+    const buildPiecesRef = { current: [floorPiece()] };
+    controller.step.mockReturnValue({
+      position: { x: 4, y: 2.4, z: 5 },
+      grounded: false,
+      vy: 0,
+      airborne: true
+    });
+
+    const { result } = renderHook(() =>
+      useAvatarMovement({
+        manifest,
+        participantId: "p1",
+        role: "student",
+        occupiedPositions: [],
+        viewMode: "3d",
+        media: { cameraEnabled: false, microphoneEnabled: false, speaking: false },
+        physicsTuning,
+        buildPiecesRef
+      })
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(80);
+      await Promise.resolve();
+    });
+
+    act(() => {
+      result.current.setTouchVector({ x: 0, z: -1 });
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(50);
+      await Promise.resolve();
+    });
+
+    expect(result.current.avatarState?.position.y).toBeCloseTo(2.4, 5);
+    expect(result.current.avatarState?.airborneState).toBe("falling");
+  });
+
   it("only resyncs colliders when build geometry changes", async () => {
     const buildPiecesRef = { current: [] as ReturnType<typeof floorPiece>[] };
     renderHook(() =>

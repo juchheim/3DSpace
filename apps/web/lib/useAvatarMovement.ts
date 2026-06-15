@@ -466,7 +466,8 @@ export function useAvatarMovement(input: {
               sprinting
             });
             let nextPosition = out.position;
-            if (pieces.length > 0 && (out.grounded || out.vy <= 0)) {
+            // Only snap Y while grounded — vy crosses zero at jump apex while still airborne.
+            if (pieces.length > 0 && out.grounded) {
               nextPosition = applyGroundHeight(input.manifest!, pieces, out.position, "walk");
             }
             const next = {
