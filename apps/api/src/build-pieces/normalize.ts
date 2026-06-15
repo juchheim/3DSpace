@@ -1,9 +1,12 @@
 import type { BuildPiece } from "@3dspace/contracts";
 import { buildPieceRequiresEdge } from "@3dspace/room-engine";
 
-/** Strip invalid `edge`/`textureStorageKey` values so persisted Mongo docs pass `BuildPieceSchema`. */
+/** Strip invalid fields and heal retired build-piece kinds for persisted Mongo docs. */
 export function normalizeBuildPiece(piece: BuildPiece): BuildPiece {
-  let normalized = piece;
+  let normalized: BuildPiece =
+    (piece.kind as string) === "ceiling-futuristic-dark"
+      ? { ...piece, kind: "ceiling-futuristic" }
+      : piece;
   if (!buildPieceRequiresEdge(normalized.kind) && normalized.edge !== undefined) {
     const { edge: _edge, ...rest } = normalized;
     normalized = rest;

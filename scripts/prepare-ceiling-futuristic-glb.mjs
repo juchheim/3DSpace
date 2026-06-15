@@ -1,10 +1,10 @@
-// Prepare ceiling-futuristic-dark.glb for World Builder:
+// Prepare ceiling-futuristic.glb for World Builder:
 //   - Base-color PNGs → JPEG q85 (normals stay PNG)
 //   - Rotate -90° around X so the panel lies flat (XZ) like other ceiling pieces
 //
 // Run:
-//   node scripts/prepare-ceiling-futuristic-dark-glb.mjs
-//   node scripts/prepare-ceiling-futuristic-dark-glb.mjs [in.glb] [out.glb]
+//   node scripts/prepare-ceiling-futuristic-glb.mjs
+//   node scripts/prepare-ceiling-futuristic-glb.mjs [in.glb] [out.glb]
 
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -16,8 +16,8 @@ import { prune } from "@gltf-transform/functions";
 import sharp from "sharp";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
-const DEFAULT_IN = resolve(__dirname, "../GLBs/ceiling-futuristic-dark.glb");
-const DEFAULT_OUT = resolve(__dirname, "../apps/web/public/objects/ceiling-futuristic-dark.glb");
+const DEFAULT_IN = resolve(__dirname, "../GLBs/ceiling-futuristic.glb");
+const DEFAULT_OUT = resolve(__dirname, "../apps/web/public/objects/ceiling-futuristic.glb");
 
 const IN_PATH = resolve(process.argv[2] ?? DEFAULT_IN);
 const OUT_PATH = resolve(process.argv[3] ?? DEFAULT_OUT);
@@ -58,7 +58,7 @@ async function reencodeTexture(texture, kind) {
   const before = src.byteLength;
   const mime = texture.getMimeType() ?? "";
 
-  if (kind === "baseColor" || kind === "emissive") {
+  if (kind === "baseColor" || kind === "emissive" || kind === "normal") {
     const jpeg = await sharp(Buffer.from(src))
       .jpeg({ quality: 85, mozjpeg: true })
       .toBuffer();
@@ -66,18 +66,6 @@ async function reencodeTexture(texture, kind) {
     texture.setMimeType("image/jpeg");
     const note = mime.includes("png") ? "PNG→JPEG" : mime.includes("webp") ? "WebP→JPEG" : "JPEG q85";
     return { kind, before, after: jpeg.byteLength, note };
-  }
-
-  if (kind === "normal") {
-    const png = await sharp(Buffer.from(src))
-      .png({ compressionLevel: 9, adaptiveFiltering: true })
-      .toBuffer();
-    if (png.byteLength < before) {
-      texture.setImage(png);
-      texture.setMimeType("image/png");
-      return { kind, before, after: png.byteLength, note: "recompressed PNG" };
-    }
-    return { kind, before, after: before, note: "kept original PNG" };
   }
 
   if (mime === "image/png") {

@@ -46,7 +46,7 @@ export function BuildFootprints2D({
           piece.kind === "arbor-ceiling" ||
           piece.kind === "arbor-futuristic-ceiling" ||
           piece.kind === "ceiling-futuristic-lighting" ||
-          piece.kind === "ceiling-futuristic-dark"
+          piece.kind === "ceiling-futuristic"
         ) {
           const rect = floorFootprintRect(manifest, piece);
           return (

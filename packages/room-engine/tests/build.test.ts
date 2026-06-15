@@ -179,11 +179,11 @@ describe("buildPieceColliders", () => {
     expect(buildPieceColliders(piece).walls).toHaveLength(0);
   });
 
-  it("ceiling-futuristic-dark piece is non-colliding", () => {
+  it("ceiling-futuristic piece is non-colliding", () => {
     const piece = BuildPieceSchema.parse({
-      id: `${BUILD_ID_PREFIX}ceiling-futuristic-dark:1,1:0`,
+      id: `${BUILD_ID_PREFIX}ceiling-futuristic:1,1:0`,
       roomId: "room-1",
-      kind: "ceiling-futuristic-dark",
+      kind: "ceiling-futuristic",
       cell: { ix: 1, iz: 1 },
       level: 0,
       rotation: 0,

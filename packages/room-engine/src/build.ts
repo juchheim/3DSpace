@@ -53,7 +53,7 @@ export const BUILD_CELL_FIXTURE_KINDS = [
   "arbor-ceiling",
   "arbor-futuristic-ceiling",
   "ceiling-futuristic-lighting",
-  "ceiling-futuristic-dark"
+  "ceiling-futuristic"
 ] as const;
 
 /** Build pieces that cast real-time point lights (nearest-N budget in BuildLayer). */

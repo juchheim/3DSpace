@@ -936,7 +936,7 @@ export const BuildPieceKindSchema = z.enum([
   "arbor-ceiling",
   "arbor-futuristic-ceiling",
   "ceiling-futuristic-lighting",
-  "ceiling-futuristic-dark"
+  "ceiling-futuristic"
 ]);
 
 /** Allowed MIME types for image-floor texture uploads. */

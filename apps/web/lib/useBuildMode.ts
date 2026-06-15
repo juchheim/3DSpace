@@ -21,7 +21,7 @@ export type BuildTool =
   | "arbor-ceiling"
   | "arbor-futuristic-ceiling"
   | "ceiling-futuristic-lighting"
-  | "ceiling-futuristic-dark"
+  | "ceiling-futuristic"
   | "destroy";
 
 /** Image selected for the Image Floor tool (uploaded or reused from the room). */

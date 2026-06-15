@@ -103,7 +103,7 @@ tool is highlighted. **Erase** (destroy) is a separate utility button and also k
 | **Wood Arbor Ceiling** | — | A wood pergola trellis overhead in one cell — open gaps let sky light through. Non-colliding; stacks with floors and lights in the same cell. Use **`R`** to rotate. |
 | **Futuristic Arbor Ceiling** | — | A sci-fi pergola trellis overhead in one cell — same rules as the wood arbor ceiling. Non-colliding; stacks with floors and lights. Use **`R`** to rotate. |
 | **Futuristic Lighting Ceiling** | — | A flat sci-fi light panel mounted overhead in one cell — visual only (baked emissive in the GLB). Use the **Light** tool to brighten the area below. Non-colliding; stacks with floors and other fixtures. Use **`R`** to rotate. |
-| **Futuristic Dark Ceiling** | — | A flat dark sci-fi ceiling panel in one cell — visual only. Non-colliding; stacks with floors, lights, and other fixtures. Use **`R`** to rotate. |
+| **Futuristic Ceiling** | — | A flat sci-fi ceiling panel in one cell — visual only. Non-colliding; stacks with floors, lights, and other fixtures. Use **`R`** to rotate. |
 
 Notes:
 

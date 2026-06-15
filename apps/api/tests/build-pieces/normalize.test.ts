@@ -51,4 +51,20 @@ describe("normalizeBuildPiece", () => {
     });
     expect(piece.edge).toBe("n");
   });
+
+  it("renames retired ceiling-futuristic-dark kind", () => {
+    const piece = normalizeBuildPiece({
+      id: "build:ceiling-futuristic-dark:1,1:0",
+      roomId: "room-1",
+      kind: "ceiling-futuristic-dark" as "ceiling-futuristic",
+      cell: { ix: 1, iz: 1 },
+      level: 0,
+      rotation: 0,
+      materialId: "metal",
+      createdByUserId: "user-1",
+      createdAt: "2026-01-01T00:00:00.000Z"
+    });
+    expect(piece.kind).toBe("ceiling-futuristic");
+    expect(() => BuildPieceSchema.parse(piece)).not.toThrow();
+  });
 });
