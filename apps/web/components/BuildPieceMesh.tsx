@@ -25,6 +25,7 @@ import { rampGlbRotationY } from "../lib/buildRampMesh";
 import { wallMeshTransform } from "../lib/buildWallMesh";
 import type { ImageFloorRegion } from "../lib/imageFloorRegions";
 import { LampGlbMesh, LAMP_BULB_NATIVE_Y, LAMP_GLB_NATIVE_H, LAMP_TARGET_HEIGHT } from "./LampGlbMesh";
+import { FuturisticLightingCeilingMesh } from "./FuturisticLightingCeilingMesh";
 
 // ── Custom wall GLB ───────────────────────────────────────────────────────────
 const WALL_GLB_URL = "/objects/wall.glb";
@@ -59,20 +60,40 @@ const RAMP_GLB_NATIVE_D = 4.2271991; // Z extent (footprint run — model climbs
 
 useGLTF.preload(RAMP_GLB_URL);
 
-// ── Wood arbor ceiling GLB ────────────────────────────────────────────────────
-const ARBOR_CEILING_GLB_URL = "/objects/arbor-ceiling.glb";
-const ARBOR_CEILING_GLB_NATIVE_W = 0.818297416;
-const ARBOR_CEILING_GLB_NATIVE_H = 0.12;
+// ── Arbor ceiling GLBs ─────────────────────────────────────────────────────────
+type ArborCeilingKind = "arbor-ceiling" | "arbor-futuristic-ceiling";
 
-useGLTF.preload(ARBOR_CEILING_GLB_URL);
+const ARBOR_CEILING_CONFIG: Record<
+  ArborCeilingKind,
+  { url: string; nativeW: number; nativeH: number }
+> = {
+  "arbor-ceiling": {
+    url: "/objects/arbor-ceiling.glb",
+    nativeW: 0.818297416,
+    nativeH: 0.12
+  },
+  "arbor-futuristic-ceiling": {
+    url: "/objects/arbor-futuristic-ceiling.glb",
+    nativeW: 1.9117590188980103,
+    nativeH: 0.3149130046367645
+  }
+};
 
-function arborCeilingWorldTransform(piece: BuildPiece) {
+for (const config of Object.values(ARBOR_CEILING_CONFIG)) {
+  useGLTF.preload(config.url);
+}
+
+function isArborCeilingKind(kind: BuildPiece["kind"]): kind is ArborCeilingKind {
+  return kind in ARBOR_CEILING_CONFIG;
+}
+
+function arborCeilingWorldTransform(piece: BuildPiece, config: (typeof ARBOR_CEILING_CONFIG)[ArborCeilingKind]) {
   const footprint = buildCellFootprint(piece.cell.ix, piece.cell.iz);
   const centerX = (footprint.minX + footprint.maxX) / 2;
   const centerZ = (footprint.minZ + footprint.maxZ) / 2;
   const baseY = piece.level * BUILD_LEVEL_HEIGHT;
-  const scale = BUILD_CELL_SIZE / ARBOR_CEILING_GLB_NATIVE_W;
-  const scaledH = ARBOR_CEILING_GLB_NATIVE_H * scale;
+  const scale = BUILD_CELL_SIZE / config.nativeW;
+  const scaledH = config.nativeH * scale;
   const y = baseY + BUILD_LEVEL_HEIGHT - scaledH;
   return {
     centerX,
@@ -84,10 +105,16 @@ function arborCeilingWorldTransform(piece: BuildPiece) {
   };
 }
 
-function ArborCeilingGlbMesh({ piece }: { piece: BuildPiece }) {
-  const { scene } = useGLTF(ARBOR_CEILING_GLB_URL);
+function ArborCeilingGlbMesh({
+  piece,
+  config
+}: {
+  piece: BuildPiece;
+  config: (typeof ARBOR_CEILING_CONFIG)[ArborCeilingKind];
+}) {
+  const { scene } = useGLTF(config.url);
   const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
-  const { centerX, centerZ, y, scale, rotationY } = arborCeilingWorldTransform(piece);
+  const { centerX, centerZ, y, scale, rotationY } = arborCeilingWorldTransform(piece, config);
 
   return (
     <group position={[centerX, y, centerZ]} rotation={[0, rotationY, 0]} scale={[scale, scale, scale]}>
@@ -275,6 +302,7 @@ function RampGeometry({ rotation }: { rotation: BuildPieceRotation }) {
 
 function ArborCeilingMesh({
   piece,
+  config,
   materialProps,
   ghost,
   valid,
@@ -282,13 +310,14 @@ function ArborCeilingMesh({
   pointerEventsPassThrough
 }: {
   piece: BuildPiece;
+  config: (typeof ARBOR_CEILING_CONFIG)[ArborCeilingKind];
   materialProps: ReturnType<typeof buildMaterialProps>;
   ghost?: boolean;
   valid?: boolean;
   pointerProps: Record<string, unknown>;
   pointerEventsPassThrough?: boolean;
 }) {
-  const { centerX, centerZ, y, scaledH, rotationY } = arborCeilingWorldTransform(piece);
+  const { centerX, centerZ, y, scaledH, rotationY } = arborCeilingWorldTransform(piece, config);
   const boxSize: [number, number, number] = [BUILD_CELL_SIZE, scaledH, BUILD_CELL_SIZE];
 
   if (ghost) {
@@ -325,7 +354,7 @@ function ArborCeilingMesh({
           </group>
         }
       >
-        <ArborCeilingGlbMesh piece={piece} />
+        <ArborCeilingGlbMesh piece={piece} config={config} />
       </Suspense>
     </group>
   );
@@ -507,13 +536,28 @@ export function BuildPieceMesh({
     );
   }
 
-  if (piece.kind === "arbor-ceiling") {
+  if (isArborCeilingKind(piece.kind)) {
     return (
       <ArborCeilingMesh
         piece={piece}
+        config={ARBOR_CEILING_CONFIG[piece.kind]}
         materialProps={materialProps}
         ghost={ghost || trail}
         valid={valid}
+        pointerProps={pointerProps}
+        pointerEventsPassThrough={pointerEventsPassThrough}
+      />
+    );
+  }
+
+  if (piece.kind === "ceiling-futuristic-lighting") {
+    return (
+      <FuturisticLightingCeilingMesh
+        piece={piece}
+        materialId={materialId}
+        ghost={ghost || trail}
+        valid={valid}
+        emitRealLight={emitRealLight}
         pointerProps={pointerProps}
         pointerEventsPassThrough={pointerEventsPassThrough}
       />

@@ -2,6 +2,10 @@
 
 Last updated: 2026-06-15 (World Builder +50% height retune)
 
+- **2026-06-15:** **Futuristic Lighting ceiling** — `GLBs/ceiling-futuristic-lighting.glb` → `prepare-arbor-glb.mjs` (PNG→JPEG q85, ~0.89 MB) → `apps/web/public/objects/ceiling-futuristic-lighting.glb`; new `ceiling-futuristic-lighting` `BuildPieceKind` ("Futuristic Lighting Ceiling"); four underside point lights + emissive panel (`FuturisticLightingCeilingMesh.tsx`); shares nearest-N real-light budget with lamps via `isBuildRealLightKind`.
+
+- **2026-06-15:** **Futuristic Arbor ceiling** — `GLBs/arbor-futuristic.glb` → `scripts/prepare-arbor-glb.mjs` (PNG→JPEG q85, ~1.16 MB) → `apps/web/public/objects/arbor-futuristic-ceiling.glb`; new `arbor-futuristic-ceiling` `BuildPieceKind` in World Builder **Build** tab ("Futuristic Arbor Ceiling"); shares arbor ceiling placement/render with wood variant (different native scale).
+
 - **2026-06-15:** **World Builder +50% height retune** — `BUILD_CELL_SIZE` / `BUILD_LEVEL_HEIGHT` / `BUILD_WALL_HEIGHT` 2→3 m; secondary constants scaled (ramp foot, doorway/window, step-up); shell walls 8→12 m (`VERSE_ROOM_WALL_HEIGHT`, `FFA_WALL_HEIGHT`, classroom/escape/WT); `maxWorldHeight` default 12; doorway frame offsets ×1.5; `free-for-all-build-mask` `BUILD_CELL_SIZE` synced to 3. GLBs/ghosts auto-scale via constants.
 
 - **2026-06-15:** **Ramp walk-up fix** — `BUILD_RAMP_LOW_Y` flush with level line (0); physics ground cutouts under ramp footprints; 4-point wedge hull (no flat shelf); physics movement snaps Y via `groundHeightAt` when build pieces present.

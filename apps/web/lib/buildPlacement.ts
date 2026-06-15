@@ -229,7 +229,7 @@ export function resolveBuildPlacementTarget(input: {
     };
   }
 
-  if (input.tool === "light" || input.tool === "arbor-ceiling") {
+  if (isBuildCellFixtureKind(input.tool)) {
     return {
       kind: input.tool,
       cell,

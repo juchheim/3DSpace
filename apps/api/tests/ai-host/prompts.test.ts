@@ -22,6 +22,8 @@ describe("world-building corpus", () => {
       "Window",
       "Light",
       "Wood Arbor Ceiling",
+      "Futuristic Arbor Ceiling",
+      "Futuristic Lighting Ceiling",
       "Erase",
       "World Builder",
       "Objects",

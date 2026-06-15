@@ -101,12 +101,14 @@ tool is highlighted. **Erase** (destroy) is a separate utility button and also k
 | **Light** | `7` | Places a light source in the cell to brighten an area. |
 | **Mirror** | `8` | A reflective wall panel on a cell edge. Blocks movement like a wall; the reflective face points toward you when placed. |
 | **Wood Arbor Ceiling** | — | A wood pergola trellis overhead in one cell — open gaps let sky light through. Non-colliding; stacks with floors and lights in the same cell. Use **`R`** to rotate. |
+| **Futuristic Arbor Ceiling** | — | A sci-fi pergola trellis overhead in one cell — same rules as the wood arbor ceiling. Non-colliding; stacks with floors and lights. Use **`R`** to rotate. |
+| **Futuristic Lighting Ceiling** | — | A flat sci-fi light panel mounted overhead in one cell. Emits strong cool light downward from four underside emitters; always glows visually, with the brightest real-time lights on the nearest panels (same budget as lamps). Non-colliding; stacks with floors and other fixtures. Use **`R`** to rotate. |
 
 Notes:
 
 - **Walls, simple walls, doors, windows, and mirrors are "edge" pieces** — they share the same
   edge slots, so a cell edge holds one of them at a time.
-- **Floors, image floors, ramps, lights, and Wood Arbor Ceilings are "cell" pieces** — they occupy the cell, not an edge.
+- **Floors, image floors, ramps, lights, and arbor ceilings are "cell" pieces** — they occupy the cell, not an edge.
   Plain **floor** and **image floor** compete for the same cell slot — you cannot have both in one cell.
 - **Doorway vs. window:** a **doorway** is passable; a **window** is **not** passable (low sill,
   opening too high to step through).

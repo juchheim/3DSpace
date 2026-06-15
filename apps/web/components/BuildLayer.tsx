@@ -7,7 +7,8 @@ import type { ThreeEvent } from "@react-three/fiber";
 import {
   BUILD_LEVEL_HEIGHT,
   BUILD_MAX_ACTIVE_LIGHTS,
-  cellToWorldCenter
+  cellToWorldCenter,
+  isBuildRealLightKind
 } from "@3dspace/room-engine";
 import { computeImageFloorRegions } from "../lib/imageFloorRegions";
 import { ImageFloorRegionTopLayer } from "./ImageFloorRegionTopLayer";
@@ -16,13 +17,17 @@ import { BuildPieceMesh } from "./BuildPieceMesh";
 function useNearestLightPieceIds(pieces: BuildPiece[]) {
   const camera = useThree((state) => state.camera);
   return useMemo(() => {
-    const lights = pieces.filter((piece) => piece.kind === "light");
+    const lights = pieces.filter((piece) => isBuildRealLightKind(piece.kind));
     return [...lights]
       .sort((a, b) => {
         const ac = cellToWorldCenter(a.cell.ix, a.cell.iz);
         const bc = cellToWorldCenter(b.cell.ix, b.cell.iz);
-        const ay = a.level * BUILD_LEVEL_HEIGHT + 1;
-        const by = b.level * BUILD_LEVEL_HEIGHT + 1;
+        const ay =
+          a.level * BUILD_LEVEL_HEIGHT +
+          (a.kind === "ceiling-futuristic-lighting" ? BUILD_LEVEL_HEIGHT : 1);
+        const by =
+          b.level * BUILD_LEVEL_HEIGHT +
+          (b.kind === "ceiling-futuristic-lighting" ? BUILD_LEVEL_HEIGHT : 1);
         const da =
           (ac.x - camera.position.x) ** 2 +
           (ay - camera.position.y) ** 2 +

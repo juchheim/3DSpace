@@ -42,7 +42,11 @@ export function BuildFootprints2D({
           );
         }
 
-        if (piece.kind === "arbor-ceiling") {
+        if (
+          piece.kind === "arbor-ceiling" ||
+          piece.kind === "arbor-futuristic-ceiling" ||
+          piece.kind === "ceiling-futuristic-lighting"
+        ) {
           const rect = floorFootprintRect(manifest, piece);
           return (
             <rect

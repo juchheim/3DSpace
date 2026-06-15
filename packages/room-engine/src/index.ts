@@ -89,6 +89,8 @@ export {
   isBuildWallSegmentKind,
   isBuildFloorPieceKind,
   isBuildCellFixtureKind,
+  isBuildRealLightKind,
+  BUILD_REAL_LIGHT_KINDS,
   buildCellFootprint,
   buildPieceColliders,
   buildPieceStableId,

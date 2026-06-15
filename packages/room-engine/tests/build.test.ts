@@ -148,6 +148,36 @@ describe("buildPieceColliders", () => {
     });
     expect(buildPieceColliders(piece).walls).toHaveLength(0);
   });
+
+  it("arbor-futuristic-ceiling piece is non-colliding", () => {
+    const piece = BuildPieceSchema.parse({
+      id: `${BUILD_ID_PREFIX}arbor-futuristic-ceiling:1,1:0`,
+      roomId: "room-1",
+      kind: "arbor-futuristic-ceiling",
+      cell: { ix: 1, iz: 1 },
+      level: 0,
+      rotation: 0,
+      materialId: "metal",
+      createdByUserId: "u1",
+      createdAt: "2026-05-30T12:00:00.000Z"
+    });
+    expect(buildPieceColliders(piece).walls).toHaveLength(0);
+  });
+
+  it("ceiling-futuristic-lighting piece is non-colliding", () => {
+    const piece = BuildPieceSchema.parse({
+      id: `${BUILD_ID_PREFIX}ceiling-futuristic-lighting:1,1:0`,
+      roomId: "room-1",
+      kind: "ceiling-futuristic-lighting",
+      cell: { ix: 1, iz: 1 },
+      level: 0,
+      rotation: 0,
+      materialId: "neon",
+      createdByUserId: "u1",
+      createdAt: "2026-05-30T12:00:00.000Z"
+    });
+    expect(buildPieceColliders(piece).walls).toHaveLength(0);
+  });
 });
 
 describe("boardPlacementWalls", () => {

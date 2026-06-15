@@ -1,8 +1,13 @@
-// Prepare arbor.glb for World Builder arbor-ceiling piece:
+// Prepare arbor GLBs for World Builder ceiling pieces:
 //   - Base-color PNGs → JPEG q85 (normals stay PNG)
 //
 // Run:  node scripts/prepare-arbor-glb.mjs [in.glb] [out.glb]
-// Default: GLBs/arbor.glb → apps/web/public/objects/arbor-ceiling.glb
+// Defaults:
+//   GLBs/arbor.glb → apps/web/public/objects/arbor-ceiling.glb
+// Futuristic variant:
+//   node scripts/prepare-arbor-glb.mjs GLBs/arbor-futuristic.glb apps/web/public/objects/arbor-futuristic-ceiling.glb
+// Lighting ceiling:
+//   node scripts/prepare-arbor-glb.mjs GLBs/ceiling-futuristic-lighting.glb apps/web/public/objects/ceiling-futuristic-lighting.glb
 
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";

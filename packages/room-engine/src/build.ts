@@ -48,7 +48,15 @@ export const BUILD_WALL_SEGMENT_KINDS = ["wall", "simple-wall"] as const;
 export const BUILD_FLOOR_PIECE_KINDS = ["floor", "image-floor"] as const;
 
 /** Non-colliding cell fixtures (lamps, trellis ceilings) that share a cell with floors. */
-export const BUILD_CELL_FIXTURE_KINDS = ["light", "arbor-ceiling"] as const;
+export const BUILD_CELL_FIXTURE_KINDS = [
+  "light",
+  "arbor-ceiling",
+  "arbor-futuristic-ceiling",
+  "ceiling-futuristic-lighting"
+] as const;
+
+/** Build pieces that cast real-time point lights (nearest-N budget in BuildLayer). */
+export const BUILD_REAL_LIGHT_KINDS = ["light", "ceiling-futuristic-lighting"] as const;
 
 export function buildPieceRequiresEdge(kind: BuildPiece["kind"]): boolean {
   return (BUILD_EDGE_PIECE_KINDS as readonly string[]).includes(kind);
@@ -64,6 +72,10 @@ export function isBuildFloorPieceKind(kind: BuildPiece["kind"]): boolean {
 
 export function isBuildCellFixtureKind(kind: BuildPiece["kind"]): boolean {
   return (BUILD_CELL_FIXTURE_KINDS as readonly string[]).includes(kind);
+}
+
+export function isBuildRealLightKind(kind: BuildPiece["kind"]): boolean {
+  return (BUILD_REAL_LIGHT_KINDS as readonly string[]).includes(kind);
 }
 
 /** Doorway opening: avatar-height band is open (no colliders). */
