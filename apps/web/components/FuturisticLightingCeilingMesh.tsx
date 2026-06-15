@@ -14,7 +14,8 @@ import { buildMaterialProps } from "./buildMaterials";
 
 export const CEILING_FUTURISTIC_LIGHTING_GLB_URL = "/objects/ceiling-futuristic-lighting.glb";
 export const CEILING_FUTURISTIC_LIGHTING_NATIVE_W = 1.9121090173721313;
-export const CEILING_FUTURISTIC_LIGHTING_NATIVE_H = 0.12597297504544258;
+export const CEILING_FUTURISTIC_LIGHTING_NATIVE_MIN_Y = -0.0639151781797409;
+export const CEILING_FUTURISTIC_LIGHTING_NATIVE_MAX_Y = 0.062057796865701675;
 
 useGLTF.preload(CEILING_FUTURISTIC_LIGHTING_GLB_URL);
 
@@ -24,14 +25,19 @@ export function futuristicLightingCeilingWorldTransform(piece: BuildPiece) {
   const centerZ = (footprint.minZ + footprint.maxZ) / 2;
   const baseY = piece.level * BUILD_LEVEL_HEIGHT;
   const scale = BUILD_CELL_SIZE / CEILING_FUTURISTIC_LIGHTING_NATIVE_W;
-  const scaledH = CEILING_FUTURISTIC_LIGHTING_NATIVE_H * scale;
-  const y = baseY + BUILD_LEVEL_HEIGHT - scaledH;
+  const nativeH =
+    CEILING_FUTURISTIC_LIGHTING_NATIVE_MAX_Y - CEILING_FUTURISTIC_LIGHTING_NATIVE_MIN_Y;
+  const scaledH = nativeH * scale;
+  const y = baseY + BUILD_LEVEL_HEIGHT - CEILING_FUTURISTIC_LIGHTING_NATIVE_MAX_Y * scale;
+  const boxCenterY =
+    ((CEILING_FUTURISTIC_LIGHTING_NATIVE_MIN_Y + CEILING_FUTURISTIC_LIGHTING_NATIVE_MAX_Y) / 2) * scale;
   return {
     centerX,
     centerZ,
     y,
     scale,
     scaledH,
+    boxCenterY,
     rotationY: (piece.rotation * Math.PI) / 180
   };
 }
@@ -64,7 +70,8 @@ export function FuturisticLightingCeilingMesh({
   pointerEventsPassThrough?: boolean;
 }) {
   const materialProps = buildMaterialProps(materialId, { ghost });
-  const { centerX, centerZ, y, scaledH, rotationY } = futuristicLightingCeilingWorldTransform(piece);
+  const { centerX, centerZ, y, scaledH, boxCenterY, rotationY } =
+    futuristicLightingCeilingWorldTransform(piece);
   const boxSize: [number, number, number] = [BUILD_CELL_SIZE, scaledH, BUILD_CELL_SIZE];
 
   if (ghost) {
@@ -76,7 +83,7 @@ export function FuturisticLightingCeilingMesh({
         {...(pointerEventsPassThrough ? { raycast: () => {} } : {})}
         {...pointerProps}
       >
-        <mesh position={[0, scaledH / 2, 0]}>
+        <mesh position={[0, boxCenterY, 0]}>
           <boxGeometry args={boxSize} />
           <meshStandardMaterial {...materialProps} />
           <Edges color={valid ? "#6dff9a" : "#ff6b6b"} linewidth={2} />
@@ -94,7 +101,7 @@ export function FuturisticLightingCeilingMesh({
       <Suspense
         fallback={
           <group position={[centerX, y, centerZ]} rotation={[0, rotationY, 0]}>
-            <mesh position={[0, scaledH / 2, 0]}>
+            <mesh position={[0, boxCenterY, 0]}>
               <boxGeometry args={boxSize} />
               <meshStandardMaterial {...materialProps} />
             </mesh>

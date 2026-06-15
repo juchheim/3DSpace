@@ -1,6 +1,7 @@
 // Prepare ceiling-futuristic.glb for World Builder:
 //   - Base-color PNGs → JPEG q85 (normals stay PNG)
 //   - Rotate -90° around X so the panel lies flat (XZ) like other ceiling pieces
+//   - Rotate 45° around Y so the panel sits diamond-oriented in the cell
 //
 // Run:
 //   node scripts/prepare-ceiling-futuristic-glb.mjs
@@ -92,13 +93,16 @@ async function reencodeTexture(texture, kind) {
   return { kind, before, after: before, skipped: true, reason: "unrecognized" };
 }
 
-/** Lay the panel flat: source mesh spans XY with thin Z; ceiling pieces span XZ with thin Y. */
-function layFlatForCeiling(root) {
+/** Lay the panel flat and diamond-orient it 45° on Y for the cell grid. */
+function orientForCeiling(root) {
   const scene = root.getDefaultScene() ?? root.listScenes()[0];
   if (!scene) return;
 
-  const half = -Math.PI / 4;
-  const rotation = [Math.sin(half), 0, 0, Math.cos(half)];
+  const flatHalf = -Math.PI / 4;
+  const qx = [Math.sin(flatHalf), 0, 0, Math.cos(flatHalf)];
+  const yawHalf = Math.PI / 8;
+  const qy = [0, Math.sin(yawHalf), 0, Math.cos(yawHalf)];
+  const rotation = multiplyQuat(qy, qx);
 
   for (const node of scene.listChildren()) {
     node.setRotation(rotation);
@@ -107,6 +111,17 @@ function layFlatForCeiling(root) {
 
   const node = root.listNodes()[0];
   if (node) node.setRotation(rotation);
+}
+
+function multiplyQuat(a, b) {
+  const [ax, ay, az, aw] = a;
+  const [bx, by, bz, bw] = b;
+  return [
+    aw * bx + ax * bw + ay * bz - az * by,
+    aw * by - ax * bz + ay * bw + az * bx,
+    aw * bz + ax * by - ay * bx + az * bw,
+    aw * bw - ax * bx - ay * by - az * bz
+  ];
 }
 
 async function main() {
@@ -122,7 +137,7 @@ async function main() {
     results.push({ name: texture.getName(), kind, ...(await reencodeTexture(texture, kind)) });
   }
 
-  layFlatForCeiling(root);
+  orientForCeiling(root);
   await doc.transform(prune());
 
   await io.write(OUT_PATH, doc);

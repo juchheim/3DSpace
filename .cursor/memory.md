@@ -2,7 +2,7 @@
 
 Last updated: 2026-06-15 (futuristic ceiling replaces dark)
 
-- **2026-06-15:** **Futuristic Ceiling** — `GLBs/ceiling-futuristic.glb` → `scripts/prepare-ceiling-futuristic-glb.mjs` (PNG→JPEG q85 ~2.48 MB, −90° X rotation to lay flat) → `apps/web/public/objects/ceiling-futuristic.glb`; replaces retired `ceiling-futuristic-dark` as `ceiling-futuristic` `BuildPieceKind` ("Futuristic Ceiling"); API `normalizeBuildPiece` heals legacy dark kind on read.
+- **2026-06-15:** **Futuristic flat ceilings placement** — `ceiling-futuristic` + `ceiling-futuristic-lighting` align `nativeMaxY` to level top (centered GLB meshes; old `BUILD_LEVEL_HEIGHT - scaledH` left a gap). Futuristic ceiling GLB also baked with 45° Y diamond orientation.
 
 - **2026-06-15:** **Futuristic Dark ceiling** (retired) — superseded by Futuristic Ceiling above.
 
