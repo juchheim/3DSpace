@@ -65,17 +65,19 @@ type ArborCeilingKind = "arbor-ceiling" | "arbor-futuristic-ceiling";
 
 const ARBOR_CEILING_CONFIG: Record<
   ArborCeilingKind,
-  { url: string; nativeW: number; nativeH: number }
+  { url: string; nativeW: number; nativeMinY: number; nativeMaxY: number }
 > = {
   "arbor-ceiling": {
     url: "/objects/arbor-ceiling.glb",
     nativeW: 0.818297416,
-    nativeH: 0.12
+    nativeMinY: 0,
+    nativeMaxY: 0.12
   },
   "arbor-futuristic-ceiling": {
     url: "/objects/arbor-futuristic-ceiling.glb",
     nativeW: 1.9117590188980103,
-    nativeH: 0.3149130046367645
+    nativeMinY: -0.15832698345184326,
+    nativeMaxY: 0.15658602118492126
   }
 };
 
@@ -93,14 +95,18 @@ function arborCeilingWorldTransform(piece: BuildPiece, config: (typeof ARBOR_CEI
   const centerZ = (footprint.minZ + footprint.maxZ) / 2;
   const baseY = piece.level * BUILD_LEVEL_HEIGHT;
   const scale = BUILD_CELL_SIZE / config.nativeW;
-  const scaledH = config.nativeH * scale;
-  const y = baseY + BUILD_LEVEL_HEIGHT - scaledH;
+  const nativeH = config.nativeMaxY - config.nativeMinY;
+  const scaledH = nativeH * scale;
+  // Align model top (nativeMaxY) with the level ceiling; wood sits on y=0, futuristic is centered.
+  const y = baseY + BUILD_LEVEL_HEIGHT - config.nativeMaxY * scale;
+  const boxCenterY = ((config.nativeMinY + config.nativeMaxY) / 2) * scale;
   return {
     centerX,
     centerZ,
     y,
     scale,
     scaledH,
+    boxCenterY,
     rotationY: (piece.rotation * Math.PI) / 180
   };
 }
@@ -317,7 +323,7 @@ function ArborCeilingMesh({
   pointerProps: Record<string, unknown>;
   pointerEventsPassThrough?: boolean;
 }) {
-  const { centerX, centerZ, y, scaledH, rotationY } = arborCeilingWorldTransform(piece, config);
+  const { centerX, centerZ, y, scaledH, boxCenterY, rotationY } = arborCeilingWorldTransform(piece, config);
   const boxSize: [number, number, number] = [BUILD_CELL_SIZE, scaledH, BUILD_CELL_SIZE];
 
   if (ghost) {
@@ -329,7 +335,7 @@ function ArborCeilingMesh({
         {...(pointerEventsPassThrough ? { raycast: () => {} } : {})}
         {...pointerProps}
       >
-        <mesh position={[0, scaledH / 2, 0]}>
+        <mesh position={[0, boxCenterY, 0]}>
           <boxGeometry args={boxSize} />
           <meshStandardMaterial {...materialProps} />
           <Edges color={valid ? "#6dff9a" : "#ff6b6b"} linewidth={2} />
@@ -347,7 +353,7 @@ function ArborCeilingMesh({
       <Suspense
         fallback={
           <group position={[centerX, y, centerZ]} rotation={[0, rotationY, 0]}>
-            <mesh position={[0, scaledH / 2, 0]}>
+            <mesh position={[0, boxCenterY, 0]}>
               <boxGeometry args={boxSize} />
               <meshStandardMaterial {...materialProps} />
             </mesh>
