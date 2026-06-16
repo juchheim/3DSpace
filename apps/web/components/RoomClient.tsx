@@ -691,6 +691,8 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   const [selectedAssetSlug, setSelectedAssetSlug] = useState<string | null>(null);
   const [selectedCustomAssetId, setSelectedCustomAssetId] = useState<string | null>(null);
   const [assetYawDeg, setAssetYawDeg] = useState(0);
+  // Per-placement size multiplier for custom uploads (×0.25–×4 of the model's base).
+  const [customAssetScale, setCustomAssetScale] = useState(1);
   // Scatter assets (e.g. Tall Grass): instances strewn per placement click.
   const [assetScatterCount, setAssetScatterCount] = useState(1);
   const [fineAssetPlacement, setFineAssetPlacement] = useState(() =>
@@ -929,7 +931,9 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     if (!buildMode.enabled) {
       setBuild2dPreview(null);
       setSelectedAssetSlug(null);
+      setSelectedCustomAssetId(null);
       setAssetYawDeg(0);
+      setCustomAssetScale(1);
     }
   }, [buildMode.enabled]);
   // While placing build pieces / world assets, flag the body so interactive board / object
@@ -2499,9 +2503,11 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           ? customAssets.assets.find((a) => a.id === selectedCustomAssetId)
           : undefined;
         if (custom && manifest) {
+          // Final scale = model's base scale × the user's per-placement size.
+          const placeScale = (custom.scale ?? 1) * customAssetScale;
           return {
             glbUrl: custom.glbUrl,
-            ...(custom.scale !== undefined ? { scale: custom.scale } : {}),
+            scale: placeScale,
             yawDeg: assetYawDeg,
             finePlacement: false,
             placement: custom.placement,
@@ -2519,7 +2525,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
                   placement: custom.placement,
                   ...(custom.thumbnailUrl ? { thumbnailUrl: custom.thumbnailUrl } : {})
                 },
-                ...(custom.scale !== undefined ? { scale: custom.scale } : {})
+                scale: placeScale
               });
             },
             onCancel: () => setSelectedCustomAssetId(null),
@@ -3029,7 +3035,12 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
         setSelectedCustomAssetId(assetId);
         if (assetId) setSelectedAssetSlug(null);
         setAssetYawDeg(0);
+        setCustomAssetScale(1);
       }}
+      customScale={customAssetScale}
+      onCustomScaleChange={setCustomAssetScale}
+      assetYawDeg={assetYawDeg}
+      onRotateAsset={() => setAssetYawDeg((d) => (((d + 90) % 360) + 360) % 360)}
     />
   ) : null;
 

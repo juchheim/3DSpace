@@ -242,7 +242,11 @@ export function BuildControls({
   selectedCustomAssetId = null,
   onUploadCustomAsset,
   onDeleteCustomAsset,
-  onSelectCustomAsset
+  onSelectCustomAsset,
+  customScale = 1,
+  onCustomScaleChange,
+  assetYawDeg = 0,
+  onRotateAsset
 }: {
   buildMode: BuildModeController;
   pieceCount: number;
@@ -287,6 +291,13 @@ export function BuildControls({
   onDeleteCustomAsset?: (assetId: string) => Promise<void>;
   /** Select / deselect a custom asset to enter placement mode. */
   onSelectCustomAsset?: (assetId: string | null) => void;
+  /** Per-placement size multiplier for the selected custom asset. */
+  customScale?: number;
+  onCustomScaleChange?: (scale: number) => void;
+  /** Pending placement yaw (degrees) for the selected asset — shown on the rotator. */
+  assetYawDeg?: number;
+  /** Rotate the pending placement asset (catalog or custom) by a step. */
+  onRotateAsset?: () => void;
 }) {
   const [clearing, setClearing] = useState(false);
   const [showCoachmark, setShowCoachmark] = useState(false);
@@ -925,9 +936,30 @@ export function BuildControls({
                   ) : null}
                 </div>
 
+                {selectedCustomAssetId && onCustomScaleChange ? (
+                  <div className="build-dock__scatter" role="group" aria-label="Model size">
+                    <span className="build-dock__prop-label">Size</span>
+                    <div className="build-dock__scatter-row">
+                      <input
+                        type="range"
+                        min={0.25}
+                        max={4}
+                        step={0.05}
+                        value={customScale}
+                        onChange={(event) => onCustomScaleChange(Number(event.target.value))}
+                        aria-label="Placement size multiplier"
+                      />
+                      <span className="build-dock__scatter-count">{customScale.toFixed(2)}×</span>
+                    </div>
+                    <span className="build-dock__scatter-sub">
+                      Resize before placing — the ghost updates live. Each placement keeps its own size.
+                    </span>
+                  </div>
+                ) : null}
+
                 {selectedCustomAssetId ? (
                   <p className="build-dock__inline-hint">
-                    Click in the world to place · <kbd>R</kbd> rotate · <kbd>Esc</kbd> cancel
+                    Click in the world to place · <kbd>R</kbd> or the rotator to turn · <kbd>Esc</kbd> cancel
                   </p>
                 ) : null}
               </div>
@@ -994,10 +1026,24 @@ export function BuildControls({
 
             <div className="build-dock__prop">
               <span className="build-dock__prop-label">Rotate</span>
-              <button type="button" className="build-dock__rotate" onClick={buildMode.rotate} title="Rotate (R)">
-                <span className="build-dock__rotate-icon">↻</span>
-                <span className="build-dock__rotate-deg">{buildMode.rotation}°</span>
-              </button>
+              {(() => {
+                // While placing an asset (catalog or custom) the rotator turns the
+                // pending asset; otherwise it sets the build-piece rotation.
+                const rotatingAsset = Boolean((selectedAssetSlug || selectedCustomAssetId) && onRotateAsset);
+                return (
+                  <button
+                    type="button"
+                    className="build-dock__rotate"
+                    onClick={rotatingAsset ? onRotateAsset : buildMode.rotate}
+                    title="Rotate (R)"
+                  >
+                    <span className="build-dock__rotate-icon">↻</span>
+                    <span className="build-dock__rotate-deg">
+                      {rotatingAsset ? Math.round(((assetYawDeg % 360) + 360) % 360) : buildMode.rotation}°
+                    </span>
+                  </button>
+                );
+              })()}
             </div>
 
             {onPlaceAhead ? (
