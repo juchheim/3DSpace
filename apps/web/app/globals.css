@@ -665,6 +665,36 @@ label {
   letter-spacing: 0.12em;
 }
 
+.room-hud-fps {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 8px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
+
+.room-hud-fps--good {
+  background: rgba(24, 132, 56, 0.18);
+  border: 1px solid rgba(80, 220, 120, 0.4);
+  color: #7ef0a4;
+}
+
+.room-hud-fps--ok {
+  background: rgba(196, 132, 24, 0.18);
+  border: 1px solid rgba(255, 196, 110, 0.42);
+  color: #ffd89a;
+}
+
+.room-hud-fps--bad {
+  background: rgba(176, 24, 24, 0.18);
+  border: 1px solid rgba(255, 110, 110, 0.4);
+  color: #ffb1b1;
+}
+
 .room-captions-dock {
   position: absolute;
   top: calc(var(--hud-th) + 12px);

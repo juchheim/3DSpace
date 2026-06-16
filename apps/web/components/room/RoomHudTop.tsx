@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { FpsMonitor } from "./FpsMonitor";
 
 type RoomHudTopProps = {
   leaving: boolean;
@@ -111,6 +112,7 @@ export function RoomHudTop({
         </>
       ) : null}
       <div className="room-hud-top-fill" />
+      <FpsMonitor />
       <div className="room-hud-top-sep" />
       <div className="toggle" aria-label="View mode">
         <button
