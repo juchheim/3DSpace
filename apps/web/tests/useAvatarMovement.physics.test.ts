@@ -115,7 +115,7 @@ describe("useAvatarMovement physics branch", () => {
 
     expect(controller.setTuning).toHaveBeenCalledWith(physicsTuning);
     expect(controller.syncColliders).not.toHaveBeenCalled();
-    expect(result.current.avatarState?.position).toEqual({ x: 4, y: 0, z: 5 });
+    expect(result.current.avatarState?.position).toEqual({ x: 4, y: 1, z: 5 });
     expect(result.current.avatarState?.movement).toBe("walking");
     expect(result.current.avatarState?.airborneState).toBe("grounded");
   });

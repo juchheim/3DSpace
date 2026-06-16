@@ -46,6 +46,7 @@ import type { PlacedChair } from "./usePlacedChairs";
 import { isStaticColliderWorldAsset, worldAssetGlbUrl } from "./worldAssetCatalog";
 import { loadWorldAssetColliderMesh, type WorldAssetColliderMesh } from "./worldAssetColliderMesh";
 import { buildWorldAssetTrimeshColliderSpecs, worldAssetPhysicsCacheKey } from "./worldAssetPhysics";
+import { hasWalkableSceneAssets, worldAssetGroundHeightAt } from "./worldAssetWalkHeight";
 
 /** Radians per second while Q (left) or E (right) is held past {@link AVATAR_KEYBOARD_TURN_HOLD_MS}. */
 export const AVATAR_KEYBOARD_TURN_SPEED_RAD_PER_SEC = 2.75;
@@ -203,7 +204,9 @@ export function useAvatarMovement(input: {
   }
 
   function physicsEnabled() {
-    return Boolean(input.physicsTuning?.enabled) && input.viewMode === "3d";
+    if (input.viewMode !== "3d" || !input.physicsTuning) return false;
+    if (input.physicsTuning.enabled) return true;
+    return hasWalkableSceneAssets(getWorldAssets());
   }
 
   function disposePhysicsController() {
@@ -274,6 +277,30 @@ export function useAvatarMovement(input: {
       ...position,
       y: groundHeightAt(position.x, position.z, ctx, position.y, mode)
     };
+  }
+
+  function applyWalkHeight(
+    manifest: NonNullable<typeof input.manifest>,
+    pieces: BuildPiece[],
+    position: { x: number; y: number; z: number },
+    mode: "walk" | "snap" | "teleport" = "walk"
+  ) {
+    const buildPosition = applyGroundHeight(manifest, pieces, position, mode);
+    const worldAssets = getWorldAssets();
+    if (!hasWalkableSceneAssets(worldAssets)) return buildPosition;
+
+    ensureWorldAssetColliderMeshes(worldAssets);
+    const sceneMode = mode === "teleport" ? "snap" : mode;
+    const sceneY = worldAssetGroundHeightAt(
+      position.x,
+      position.z,
+      position.y,
+      worldAssets,
+      worldAssetColliderMeshesRef.current,
+      sceneMode
+    );
+    if (sceneY === null) return buildPosition;
+    return { ...position, y: Math.max(buildPosition.y, sceneY) };
   }
 
   useEffect(() => {
@@ -466,9 +493,9 @@ export function useAvatarMovement(input: {
               sprinting
             });
             let nextPosition = out.position;
-            // Only snap Y while grounded — vy crosses zero at jump apex while still airborne.
-            if (pieces.length > 0 && out.grounded) {
-              nextPosition = applyGroundHeight(input.manifest!, pieces, out.position, "walk");
+            if (out.grounded) {
+              const snapped = applyWalkHeight(input.manifest!, pieces, out.position, "walk");
+              nextPosition = { ...out.position, y: Math.max(out.position.y, snapped.y) };
             }
             const next = {
               ...current,
@@ -517,7 +544,7 @@ export function useAvatarMovement(input: {
           resolved = { ...rawNext, x: collisionResolved.x, z: collisionResolved.z };
         }
         const groundMode = buildSurfacesChanged && pieces.length > 0 ? "snap" : "walk";
-        let nextPosition = applyGroundHeight(input.manifest!, pieces, resolved, groundMode);
+        let nextPosition = applyWalkHeight(input.manifest!, pieces, resolved, groundMode);
         if (BUILD_ENABLE_EASED_FALL && !buildSurfacesChanged) {
           const { ctx } = syncGroundHeightContext(input.manifest!, pieces);
           const groundY = groundHeightAt(resolved.x, resolved.z, ctx, resolved.y, "walk");
@@ -575,7 +602,7 @@ export function useAvatarMovement(input: {
       if (!input.manifest || !stateRef.current || lockedPositionRef.current) return;
       const pieces = input.buildPiecesRef?.current ?? [];
       const projected = unprojectPointFrom2D(input.manifest, point);
-      const nextPosition = applyGroundHeight(input.manifest, pieces, projected, "teleport");
+      const nextPosition = applyWalkHeight(input.manifest, pieces, projected, "teleport");
       const next = {
         ...stateRef.current,
         position: nextPosition,
@@ -606,7 +633,7 @@ export function useAvatarMovement(input: {
         newPos: { x: boundedX, z: boundedZ },
         avatarBaseY: current.position.y
       });
-      const nextPosition = applyGroundHeight(
+      const nextPosition = applyWalkHeight(
         input.manifest,
         pieces,
         {
@@ -639,7 +666,7 @@ export function useAvatarMovement(input: {
     (point: { x: number; y: number; z: number }, rotationY?: number) => {
       if (!input.manifest || !stateRef.current) return;
       const pieces = input.buildPiecesRef?.current ?? [];
-      const position = applyGroundHeight(input.manifest, pieces, point, "teleport");
+      const position = applyWalkHeight(input.manifest, pieces, point, "teleport");
       verticalVelocityRef.current = 0;
       jumpRequestedRef.current = false;
       const next = {
@@ -684,7 +711,7 @@ export function useAvatarMovement(input: {
       newPos: { x: spawn.position.x, z: spawn.position.z },
       avatarBaseY: current.position.y
     });
-    const position = applyGroundHeight(
+    const position = applyWalkHeight(
       input.manifest,
       pieces,
       { x: resolved.x, y: spawn.position.y, z: resolved.z },

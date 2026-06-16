@@ -83,7 +83,7 @@ import { useCustomWorldAssets } from "../lib/useCustomWorldAssets";
 import { useSitting } from "../lib/useSitting";
 import { useStanding } from "../lib/useStanding";
 import { AVATAR_KEYBOARD_INTERACT_MAX_HOLD_MS } from "../lib/useAvatarMovement";
-import { hasDeskNotebook, hasPodiumNotebook, scatterWorldAssetOffsets, WORLD_ASSET_CATALOG } from "../lib/worldAssetCatalog";
+import { hasDeskNotebook, hasPodiumNotebook, isStaticColliderWorldAsset, scatterWorldAssetOffsets, WORLD_ASSET_CATALOG } from "../lib/worldAssetCatalog";
 import { worldAssetGroundY } from "../lib/worldAssetGroundY";
 import { AuthGate } from "../lib/auth";
 import { RoomView2D } from "./RoomView2D";
@@ -1098,28 +1098,6 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     if (physics.snapToGroundDist !== undefined) next.snapToGroundDist = physics.snapToGroundDist;
     return Object.keys(next).length > 0 ? next : undefined;
   }, [parsedRoomSettings?.physics]);
-  const physicsTuning = useMemo(() => {
-    if (!session) return undefined;
-    return resolvePhysicsTuning({
-      defaults: {
-        enabled: CLIENT_TUNING.physics.enablePhysics,
-        gravity: CLIENT_TUNING.physics.gravity,
-        moveSpeed: CLIENT_TUNING.physics.moveSpeed,
-        jumpHeight: CLIENT_TUNING.physics.jumpHeight,
-        maxFallSpeed: CLIENT_TUNING.physics.maxFallSpeed,
-        airControl: CLIENT_TUNING.physics.airControl,
-        coyoteTimeMs: CLIENT_TUNING.physics.coyoteTimeMs,
-        capsuleRadius: CLIENT_TUNING.physics.capsuleRadius,
-        capsuleHeight: CLIENT_TUNING.physics.capsuleHeight,
-        maxSlopeClimbDeg: CLIENT_TUNING.physics.maxSlopeClimbDeg,
-        autoStepHeight: CLIENT_TUNING.physics.autoStepHeight,
-        snapToGroundDist: CLIENT_TUNING.physics.snapToGroundDist
-      },
-      skin: activeSkinForRoom?.overrides,
-      room: physicsRoomOverrides,
-      featureEnabled: physicsEnvEnabled(session.room.type) && roomTypeFeatures.physics
-    });
-  }, [activeSkinForRoom?.overrides, physicsRoomOverrides, roomTypeFeatures.physics, session]);
   const buildPiecesForMovementRef = useRef<BuildPiece[]>([]);
   buildPiecesForMovementRef.current = buildPiecesEnabled ? buildPieces.pieces : [];
   const worldAssetsForMovementRef = useRef<PlacedChair[]>([]);
@@ -1138,6 +1116,37 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   // ── Custom GLB library (per-user, reusable across rooms) ─────────────────
   const customAssets = useCustomWorldAssets({ identity });
   worldAssetsForMovementRef.current = chairs.chairs;
+  const hasWalkableSceneAssets = chairs.chairs.some((asset) => isStaticColliderWorldAsset(asset.slug));
+  const physicsTuning = useMemo(() => {
+    if (!session) return undefined;
+    const sceneWalkPhysics = hasWalkableSceneAssets && roomTypeFeatures.physics;
+    return resolvePhysicsTuning({
+      defaults: {
+        enabled: CLIENT_TUNING.physics.enablePhysics || sceneWalkPhysics,
+        gravity: CLIENT_TUNING.physics.gravity,
+        moveSpeed: CLIENT_TUNING.physics.moveSpeed,
+        jumpHeight: CLIENT_TUNING.physics.jumpHeight,
+        maxFallSpeed: CLIENT_TUNING.physics.maxFallSpeed,
+        airControl: CLIENT_TUNING.physics.airControl,
+        coyoteTimeMs: CLIENT_TUNING.physics.coyoteTimeMs,
+        capsuleRadius: CLIENT_TUNING.physics.capsuleRadius,
+        capsuleHeight: CLIENT_TUNING.physics.capsuleHeight,
+        maxSlopeClimbDeg: CLIENT_TUNING.physics.maxSlopeClimbDeg,
+        autoStepHeight: CLIENT_TUNING.physics.autoStepHeight,
+        snapToGroundDist: CLIENT_TUNING.physics.snapToGroundDist
+      },
+      skin: activeSkinForRoom?.overrides,
+      room: physicsRoomOverrides,
+      featureEnabled:
+        roomTypeFeatures.physics && (physicsEnvEnabled(session.room.type) || sceneWalkPhysics)
+    });
+  }, [
+    activeSkinForRoom?.overrides,
+    hasWalkableSceneAssets,
+    physicsRoomOverrides,
+    roomTypeFeatures.physics,
+    session
+  ]);
   const worldAssetsRealtimeHandlerRef = useRef(chairs.handleRealtimeMessage);
   worldAssetsRealtimeHandlerRef.current = chairs.handleRealtimeMessage;
   // A stable ref so useSitting can always read the latest avatar position without
