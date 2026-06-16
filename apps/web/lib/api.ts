@@ -80,6 +80,11 @@ import type {
   ClearWhiteboardResponse,
   SharedBrowserSessionResponse,
   PlacedWorldAsset,
+  PlacedCustomAsset,
+  CustomWorldAsset,
+  CreateCustomAssetRequest,
+  CreateCustomAssetUploadRequest,
+  CreateCustomAssetUploadResponse,
   WorldAssetRealtimeMessage,
   TranslateResponse
 } from "@3dspace/contracts";
@@ -817,7 +822,13 @@ export function listWorldAssets(identity: ApiIdentity, roomId: string) {
 export function createWorldAsset(
   identity: ApiIdentity,
   roomId: string,
-  input: { slug: string; position: { x: number; y: number; z: number }; yaw: number; scale?: number }
+  input: {
+    slug: string;
+    position: { x: number; y: number; z: number };
+    yaw: number;
+    scale?: number;
+    custom?: PlacedCustomAsset;
+  }
 ) {
   return apiFetch<{ asset: PlacedWorldAsset; realtimeMessages: WorldAssetRealtimeMessage[] }>(
     `/v1/rooms/${roomId}/world-assets`,
@@ -830,6 +841,34 @@ export function deleteWorldAsset(identity: ApiIdentity, roomId: string, assetId:
     `/v1/rooms/${roomId}/world-assets/${assetId}`,
     { method: "DELETE", identity }
   );
+}
+
+// ── Custom (user-uploaded) asset library ─────────────────────────────────────
+
+export function listCustomAssets(identity: ApiIdentity) {
+  return apiFetch<{ assets: CustomWorldAsset[] }>(`/v1/users/me/custom-assets`, { identity }).then(
+    (r) => r.assets
+  );
+}
+
+export function createCustomAssetUpload(identity: ApiIdentity, input: CreateCustomAssetUploadRequest) {
+  return apiFetch<CreateCustomAssetUploadResponse>(`/v1/users/me/custom-assets/uploads`, {
+    method: "POST",
+    identity,
+    body: input
+  });
+}
+
+export function createCustomAsset(identity: ApiIdentity, input: CreateCustomAssetRequest) {
+  return apiFetch<{ asset: CustomWorldAsset }>(`/v1/users/me/custom-assets`, {
+    method: "POST",
+    identity,
+    body: input
+  }).then((r) => r.asset);
+}
+
+export function deleteCustomAsset(identity: ApiIdentity, assetId: string) {
+  return apiFetch<{ ok: true }>(`/v1/users/me/custom-assets/${assetId}`, { method: "DELETE", identity });
 }
 
 function normalizeLogicPieceMutationResult(response: {

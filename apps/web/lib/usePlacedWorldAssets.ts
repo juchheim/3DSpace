@@ -19,13 +19,14 @@ import { sampleWorldAssetPlacementScale } from "./worldAssetCatalog";
 
 const REFRESH_INTERVAL_MS = 30_000;
 
-function toChair(asset: Pick<PlacedWorldAsset, "id" | "slug" | "position" | "yaw" | "scale">): PlacedChair {
+function toChair(asset: Pick<PlacedWorldAsset, "id" | "slug" | "position" | "yaw" | "scale" | "custom">): PlacedChair {
   return {
     id: asset.id,
     slug: asset.slug,
     position: asset.position,
     yaw: asset.yaw,
-    ...(asset.scale !== undefined ? { scale: asset.scale } : {})
+    ...(asset.scale !== undefined ? { scale: asset.scale } : {}),
+    ...(asset.custom !== undefined ? { custom: asset.custom } : {})
   };
 }
 
@@ -70,20 +71,28 @@ export function usePlacedWorldAssets(input: {
 
   // ── Place ────────────────────────────────────────────────────────────────
   const placeChair = useCallback(
-    async (slug: string, position: { x: number; y: number; z: number }, yaw: number) => {
+    async (
+      slug: string,
+      position: { x: number; y: number; z: number },
+      yaw: number,
+      options?: { custom?: import("@3dspace/contracts").PlacedCustomAsset; scale?: number }
+    ) => {
       if (!input.roomId) return;
-      const scale = sampleWorldAssetPlacementScale(slug);
+      // Custom assets carry their own scale; catalog assets sample placement variance.
+      const scale = options?.scale ?? sampleWorldAssetPlacementScale(slug);
+      const custom = options?.custom;
       // Optimistic: assign a temp id (unique even when a scatter placement
       // drops several assets in the same millisecond)
       const tempId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const optimistic: PlacedChair = { id: tempId, slug, position, yaw, scale };
+      const optimistic: PlacedChair = { id: tempId, slug, position, yaw, scale, ...(custom ? { custom } : {}) };
       setChairsById((prev) => ({ ...prev, [tempId]: optimistic }));
       try {
         const result = await createWorldAsset(input.identity, input.roomId, {
           slug,
           position,
           yaw,
-          scale
+          scale,
+          ...(custom ? { custom } : {})
         });
         const chair = toChair(result.asset);
         // Replace temp entry with the real one

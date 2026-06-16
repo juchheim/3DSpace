@@ -16,8 +16,22 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Html, useGLTF } from "@react-three/drei";
 import type { ThreeEvent } from "@react-three/fiber";
+import type { WorldAssetPlacementKind } from "@3dspace/contracts";
 import { cloneGlbSceneGhost } from "../lib/cloneGlbScene";
 import { isKeyboardOwnedTarget } from "../lib/isKeyboardOwnedTarget";
+import {
+  placementPitch,
+  placementSnapsToSurface,
+  resolveCustomPlacement,
+  type XZ
+} from "../lib/worldAssetCustomPlacement";
+
+/** Wall/ceiling snapping context, supplied for custom assets that mount to surfaces. */
+export type PlacementSnapContext = {
+  walls: Array<{ start: { x: number; z: number }; end: { x: number; z: number } }>;
+  dimensions: { height: number };
+  interior?: XZ;
+};
 
 type AssetPlacementControllerProps = {
   /** GLB URL of the asset being placed. */
@@ -34,6 +48,10 @@ type AssetPlacementControllerProps = {
   scatterAreaSize?: number;
   /** When true, clicks anchor an adjustable draft instead of committing. */
   finePlacement: boolean;
+  /** Placement classification (custom assets). Defaults to "other" (free floor placement). */
+  placement?: WorldAssetPlacementKind;
+  /** Wall/ceiling snapping context — required for "wall"/"ceiling" placement. */
+  snap?: PlacementSnapContext;
   /** Called with world position + yaw (radians) when the placement commits. */
   onPlace(position: { x: number; y: number; z: number }, yaw: number): void;
   /** Called when the user cancels (Escape or the button in BuildControls). */
@@ -76,6 +94,8 @@ export function AssetPlacementController({
   yawDeg,
   scatterAreaSize,
   finePlacement,
+  placement = "other",
+  snap,
   onPlace,
   onCancel,
   onRotateBy
@@ -89,6 +109,35 @@ export function AssetPlacementController({
 
   const yaw = (yawDeg * Math.PI) / 180;
   const yawDisplay = ((Math.round(yawDeg) % 360) + 360) % 360;
+  // Wall/ceiling auto-snap: surface placements override free floor placement and
+  // disable fine-draft mode (their transform is computed, not nudged).
+  const snapsToSurface = placementSnapsToSurface(placement);
+  const effectiveFine = finePlacement && !snapsToSurface;
+  const ghostPitch = placementPitch(placement);
+
+  /**
+   * Resolve the final placement transform for a cursor floor point. Wall items
+   * snap to the nearest wall (auto-oriented); ceiling items rise to the ceiling
+   * and keep the user's yaw; floor/other rest on the ground with the user's yaw.
+   */
+  const placementFor = useCallback(
+    (p: XZ): { position: { x: number; y: number; z: number }; yaw: number } => {
+      if (snapsToSurface && snap) {
+        const resolved = resolveCustomPlacement(placement, p, {
+          walls: snap.walls,
+          dimensions: snap.dimensions,
+          groundY: resolveGroundY,
+          ...(snap.interior ? { interior: snap.interior } : {})
+        });
+        if (resolved) {
+          // Wall yaw is wall-driven; ceiling keeps the user's spin.
+          return { position: resolved.position, yaw: placement === "ceiling" ? yaw : resolved.yaw };
+        }
+      }
+      return { position: { x: p.x, y: resolveGroundY(p.x, p.z), z: p.z }, yaw };
+    },
+    [placement, snap, snapsToSurface, resolveGroundY, yaw]
+  );
 
   // Switching assets or leaving fine mode discards any pending draft.
   useEffect(() => {
@@ -124,29 +173,30 @@ export function AssetPlacementController({
       e.stopPropagation();
       // Seed the ghost at the press point so a tap with no preceding pointer-move
       // (touch, or a cursor that arrived over an intercepting object) still previews.
-      if (!finePlacement && !draftPos) setGhostPos({ x: e.point.x, z: e.point.z });
+      if (!effectiveFine && !draftPos) setGhostPos({ x: e.point.x, z: e.point.z });
     },
-    [draftPos, finePlacement]
+    [draftPos, effectiveFine]
   );
 
   const handleClick = useCallback(
     (e: ThreeEvent<MouseEvent>) => {
       e.stopPropagation();
-      if (finePlacement) {
+      if (effectiveFine) {
         // Anchor (or relocate) the draft — commit happens via ✓ / Enter.
         setDraftPos({ x: e.point.x, z: e.point.z });
         setGhostPos(null);
         return;
       }
-      // Commit at the click's own ground point — never depend on stale hover
-      // state. A brushed-past object (pointer-out) or a no-move tap could leave
-      // `ghostPos` null and silently drop the click.
+      // Commit at the click's own point — never depend on stale hover state.
+      // A brushed-past object (pointer-out) or a no-move tap could leave
+      // `ghostPos` null and silently drop the click. Surface placements snap.
       const x = e.point.x;
       const z = e.point.z;
       setGhostPos({ x, z });
-      onPlace({ x, y: resolveGroundY(x, z), z }, yaw);
+      const t = placementFor({ x, z });
+      onPlace(t.position, t.yaw);
     },
-    [finePlacement, onPlace, resolveGroundY, yaw]
+    [effectiveFine, onPlace, placementFor]
   );
 
   const handlePointerOut = useCallback(() => {
@@ -245,15 +295,19 @@ export function AssetPlacementController({
 
   return (
     <group>
-      {/* Ghost following the cursor (hidden while a draft is anchored) */}
-      {!draftPos && ghostPos ? (
-        <group position={[ghostPos.x, resolveGroundY(ghostPos.x, ghostPos.z), ghostPos.z]}>
-          <group rotation={[0, yaw, 0]} scale={scale}>
-            <primitive object={ghostModel} />
+      {/* Ghost following the cursor (hidden while a draft is anchored).
+          Surface placements snap the ghost to the wall/ceiling in real time. */}
+      {!draftPos && ghostPos ? (() => {
+        const t = placementFor(ghostPos);
+        return (
+          <group position={[t.position.x, t.position.y, t.position.z]}>
+            <group rotation={[ghostPitch, t.yaw, 0]} scale={scale}>
+              <primitive object={ghostModel} />
+            </group>
+            {scatterSquare}
           </group>
-          {scatterSquare}
-        </group>
-      ) : null}
+        );
+      })() : null}
 
       {/* Anchored draft: ghost + selection ring + facing tick + control puck */}
       {draftPos ? (

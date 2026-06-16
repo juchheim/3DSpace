@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { IMAGE_FLOOR_TEXTURE_SPAN_OPTIONS, type BuildPieceMaterial } from "@3dspace/contracts";
+import {
+  IMAGE_FLOOR_TEXTURE_SPAN_OPTIONS,
+  type BuildPieceMaterial,
+  type CustomWorldAsset,
+  type WorldAssetPlacementKind
+} from "@3dspace/contracts";
 import { BUILD_MATERIAL_OPTIONS } from "./buildMaterials";
 import {
   BUILD_FLOOR_TEXTURE_PRESETS,
@@ -18,7 +23,20 @@ import {
 
 const BUILD_COACHMARK_KEY = "3dspace-build-coachmark-dismissed";
 
-type BuildCategory = "build" | "objects" | "scenes";
+type BuildCategory = "build" | "objects" | "scenes" | "uploads";
+
+/** Classification choices for an uploaded GLB, with the placement rule each implies. */
+const PLACEMENT_OPTIONS: Array<{
+  id: WorldAssetPlacementKind;
+  label: string;
+  hint: string;
+  glyph: BuildTool;
+}> = [
+  { id: "other", label: "Object", hint: "Rests on the floor · rotate freely (chairs, props).", glyph: "wall" },
+  { id: "floor", label: "Floor", hint: "Lies flat on the ground (rugs, decals).", glyph: "floor" },
+  { id: "wall", label: "Wall", hint: "Snaps flat against the nearest wall, facing in.", glyph: "window" },
+  { id: "ceiling", label: "Ceiling", hint: "Mounts up at ceiling height, facing down.", glyph: "arbor-ceiling" }
+];
 
 /** Tools shown in the Build palette. Destroy is surfaced as a separate erase mode. */
 const BUILD_TOOLS: Array<{ id: BuildTool; label: string; shortcut?: string; group: "structure" | "fixture" }> = [
@@ -48,8 +66,12 @@ const MATERIAL_LABELS: Record<BuildPieceMaterial, string> = {
 const CATEGORIES: Array<{ id: BuildCategory; label: string }> = [
   { id: "build", label: "Build" },
   { id: "objects", label: "Objects" },
-  { id: "scenes", label: "Scenes" }
+  { id: "scenes", label: "Scenes" },
+  { id: "uploads", label: "Uploads" }
 ];
+
+/** Max uploaded GLB size (bytes) — mirrors CUSTOM_ASSET_MAX_GLB_BYTES on the server. */
+const MAX_GLB_BYTES = 25 * 1024 * 1024;
 
 function buildCategoryForAssetSlug(slug: string | null | undefined): BuildCategory {
   if (!slug) return "build";
@@ -62,7 +84,7 @@ function buildCategoryForAssetSlug(slug: string | null | undefined): BuildCatego
 function Glyph({
   id
 }: {
-  id: BuildTool | "object" | "scene" | "erase" | "tab-build" | "tab-objects" | "tab-scenes";
+  id: BuildTool | "object" | "scene" | "erase" | "tab-build" | "tab-objects" | "tab-scenes" | "tab-uploads";
 }) {
   const common = {
     width: 16,
@@ -182,6 +204,14 @@ function Glyph({
           <path d="M3.4 8.4 5.6 6.3 8 8.1l2.8-2.3 2.6 2.4" />
         </svg>
       );
+    case "tab-uploads":
+      return (
+        <svg {...common}>
+          <path d="M8 10.2V2.6" />
+          <path d="M5.2 5.4 8 2.6l2.8 2.8" />
+          <path d="M2.8 9.4v2.6a1 1 0 0 0 1 1h8.4a1 1 0 0 0 1-1V9.4" />
+        </svg>
+      );
     default:
       return null;
   }
@@ -207,7 +237,12 @@ export function BuildControls({
   onToggleFinePlacement,
   onUploadFloorTexture,
   onSelectFloorTexturePreset,
-  floorTextureOptions = []
+  floorTextureOptions = [],
+  customAssets = [],
+  selectedCustomAssetId = null,
+  onUploadCustomAsset,
+  onDeleteCustomAsset,
+  onSelectCustomAsset
 }: {
   buildMode: BuildModeController;
   pieceCount: number;
@@ -237,6 +272,21 @@ export function BuildControls({
   onSelectFloorTexturePreset?: (preset: BuildFloorTexturePreset) => Promise<void>;
   /** Images already laid as floors in this room, so a floor can be extended later. */
   floorTextureOptions?: FloorTextureSelection[];
+  /** The signed-in user's private uploaded-GLB library. */
+  customAssets?: CustomWorldAsset[];
+  /** Currently selected custom asset id (placement mode), or null. */
+  selectedCustomAssetId?: string | null;
+  /** Upload + register a new custom GLB. Resolves once it joins the library. */
+  onUploadCustomAsset?: (input: {
+    glb: File;
+    thumbnail: File;
+    displayName: string;
+    placement: WorldAssetPlacementKind;
+  }) => Promise<void>;
+  /** Remove a custom asset from the library. */
+  onDeleteCustomAsset?: (assetId: string) => Promise<void>;
+  /** Select / deselect a custom asset to enter placement mode. */
+  onSelectCustomAsset?: (assetId: string | null) => void;
 }) {
   const [clearing, setClearing] = useState(false);
   const [showCoachmark, setShowCoachmark] = useState(false);
@@ -246,10 +296,85 @@ export function BuildControls({
     selectedAssetSlug ? buildCategoryForAssetSlug(selectedAssetSlug) : "build"
   );
 
+  // ── Custom-upload form state ───────────────────────────────────────────────
+  const glbInputRef = useRef<HTMLInputElement | null>(null);
+  const thumbInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploadGlb, setUploadGlb] = useState<File | null>(null);
+  const [uploadThumb, setUploadThumb] = useState<File | null>(null);
+  const [uploadName, setUploadName] = useState("");
+  const [uploadPlacement, setUploadPlacement] = useState<WorldAssetPlacementKind>("other");
+  const [uploadError, setUploadError] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  const thumbPreviewUrl = useRef<string | null>(null);
+  useEffect(() => {
+    if (thumbPreviewUrl.current) URL.revokeObjectURL(thumbPreviewUrl.current);
+    thumbPreviewUrl.current = uploadThumb ? URL.createObjectURL(uploadThumb) : null;
+    return () => {
+      if (thumbPreviewUrl.current) URL.revokeObjectURL(thumbPreviewUrl.current);
+    };
+  }, [uploadThumb]);
+
+  function pickGlb(file: File | undefined) {
+    setUploadError("");
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".glb")) {
+      setUploadError("Choose a .glb file.");
+      return;
+    }
+    if (file.size > MAX_GLB_BYTES) {
+      setUploadError("That model is over 25 MB — please use a smaller .glb.");
+      return;
+    }
+    setUploadGlb(file);
+    if (!uploadName) setUploadName(file.name.replace(/\.glb$/i, "").slice(0, 120));
+  }
+
+  function pickThumb(file: File | undefined) {
+    setUploadError("");
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Thumbnail must be an image.");
+      return;
+    }
+    setUploadThumb(file);
+  }
+
+  function resetUploadForm() {
+    setUploadGlb(null);
+    setUploadThumb(null);
+    setUploadName("");
+    setUploadPlacement("other");
+  }
+
+  async function handleUploadSubmit() {
+    if (!onUploadCustomAsset || !uploadGlb || !uploadThumb || !uploadName.trim()) return;
+    setUploading(true);
+    setUploadError("");
+    try {
+      await onUploadCustomAsset({
+        glb: uploadGlb,
+        thumbnail: uploadThumb,
+        displayName: uploadName.trim(),
+        placement: uploadPlacement
+      });
+      resetUploadForm();
+      buildMode.setStatusMessage("Upload added to your library — pick it to place.");
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   useEffect(() => {
     if (!selectedAssetSlug) return;
     setCategory(buildCategoryForAssetSlug(selectedAssetSlug));
   }, [selectedAssetSlug]);
+
+  useEffect(() => {
+    if (selectedCustomAssetId) setCategory("uploads");
+  }, [selectedCustomAssetId]);
 
   async function handleFloorTextureFile(file: File | undefined) {
     if (!file || !onUploadFloorTexture) return;
@@ -649,6 +774,160 @@ export function BuildControls({
                 {placementCatalog.length === 0 ? (
                   <p className="build-dock__placeholder">
                     {category === "scenes" ? "No scenes available yet." : "No objects available yet."}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {/* ── Uploads: bring your own GLB, classify it, then place ──────────── */}
+            {category === "uploads" ? (
+              <div className="build-dock__uploads" role="group" aria-label="Your uploads">
+                <div className="build-dock__upload-card">
+                  <input
+                    ref={glbInputRef}
+                    type="file"
+                    accept=".glb,model/gltf-binary"
+                    hidden
+                    onChange={(event) => {
+                      pickGlb(event.target.files?.[0]);
+                      event.target.value = "";
+                    }}
+                  />
+                  <input
+                    ref={thumbInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    hidden
+                    onChange={(event) => {
+                      pickThumb(event.target.files?.[0]);
+                      event.target.value = "";
+                    }}
+                  />
+
+                  <div className="build-dock__upload-files">
+                    <button
+                      type="button"
+                      className={`build-dock__upload-drop${uploadGlb ? " is-set" : ""}`}
+                      onClick={() => glbInputRef.current?.click()}
+                      title="Choose a .glb model (max 25 MB)"
+                    >
+                      <Glyph id="tab-uploads" />
+                      <span className="build-dock__upload-drop-text">
+                        {uploadGlb ? uploadGlb.name : "Choose .glb model"}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`build-dock__upload-thumb${uploadThumb ? " is-set" : ""}`}
+                      onClick={() => thumbInputRef.current?.click()}
+                      title="Choose a thumbnail image"
+                    >
+                      {uploadThumb && thumbPreviewUrl.current ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={thumbPreviewUrl.current} alt="" />
+                      ) : (
+                        <span className="build-dock__upload-thumb-empty">Thumbnail</span>
+                      )}
+                    </button>
+                  </div>
+
+                  <input
+                    type="text"
+                    className="build-dock__upload-name"
+                    placeholder="Name your model"
+                    maxLength={120}
+                    value={uploadName}
+                    onChange={(event) => setUploadName(event.target.value)}
+                  />
+
+                  <div className="build-dock__class-grid" role="radiogroup" aria-label="How should it be placed?">
+                    {PLACEMENT_OPTIONS.map((option) => {
+                      const active = uploadPlacement === option.id;
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={active}
+                          className={`build-dock__class${active ? " is-active" : ""}`}
+                          onClick={() => setUploadPlacement(option.id)}
+                          title={option.hint}
+                        >
+                          <span className="build-dock__class-icon">
+                            <Glyph id={option.glyph} />
+                          </span>
+                          <span className="build-dock__class-label">{option.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="build-dock__class-hint">
+                    {PLACEMENT_OPTIONS.find((o) => o.id === uploadPlacement)?.hint}
+                  </p>
+
+                  {uploadError ? <p className="build-dock__upload-error">{uploadError}</p> : null}
+
+                  <button
+                    type="button"
+                    className="build-dock__upload-submit"
+                    disabled={uploading || !uploadGlb || !uploadThumb || !uploadName.trim() || !onUploadCustomAsset}
+                    onClick={() => void handleUploadSubmit()}
+                  >
+                    {uploading ? "Uploading…" : "Add to library"}
+                  </button>
+                </div>
+
+                <div className="build-dock__grid" role="toolbar" aria-label="Your uploaded models">
+                  {customAssets.map((asset) => {
+                    const active = selectedCustomAssetId === asset.id;
+                    return (
+                      <div
+                        key={asset.id}
+                        className={`build-dock__tile build-dock__tile--object build-dock__tile--upload${active ? " is-active" : ""}`}
+                      >
+                        <button
+                          type="button"
+                          className="build-dock__tile-main"
+                          aria-pressed={active}
+                          title={active
+                            ? `${asset.displayName} — click to cancel · click in world to place`
+                            : `${asset.displayName} (${asset.placement}) — click to start placing`}
+                          onClick={() => onSelectCustomAsset?.(active ? null : asset.id)}
+                        >
+                          <span className="build-dock__tile-icon build-dock__tile-icon--thumb">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={asset.thumbnailUrl} alt="" />
+                          </span>
+                          <span className="build-dock__tile-label">{asset.displayName}</span>
+                          <span className="build-dock__tile-badge">{asset.placement}</span>
+                        </button>
+                        {onDeleteCustomAsset ? (
+                          <button
+                            type="button"
+                            className="build-dock__tile-delete"
+                            title="Delete from your library"
+                            aria-label={`Delete ${asset.displayName}`}
+                            onClick={() => {
+                              if (!window.confirm(`Delete "${asset.displayName}" from your library?`)) return;
+                              void onDeleteCustomAsset(asset.id);
+                            }}
+                          >
+                            ✕
+                          </button>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                  {customAssets.length === 0 ? (
+                    <p className="build-dock__placeholder">
+                      No uploads yet — add a .glb above to start your library.
+                    </p>
+                  ) : null}
+                </div>
+
+                {selectedCustomAssetId ? (
+                  <p className="build-dock__inline-hint">
+                    Click in the world to place · <kbd>R</kbd> rotate · <kbd>Esc</kbd> cancel
                   </p>
                 ) : null}
               </div>

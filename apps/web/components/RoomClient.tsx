@@ -87,6 +87,7 @@ import { useSpatialAudio } from "../lib/useSpatialAudio";
 import { isBoardGrantActive } from "../lib/classroomGrants";
 import { findNearestChair, type PlacedChair } from "../lib/usePlacedChairs";
 import { usePlacedWorldAssets } from "../lib/usePlacedWorldAssets";
+import { useCustomWorldAssets } from "../lib/useCustomWorldAssets";
 import { useSitting } from "../lib/useSitting";
 import { useStanding } from "../lib/useStanding";
 import { AVATAR_KEYBOARD_INTERACT_MAX_HOLD_MS } from "../lib/useAvatarMovement";
@@ -703,6 +704,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     [setFloorTexture, uploadFloorTextureFile]
   );
   const [selectedAssetSlug, setSelectedAssetSlug] = useState<string | null>(null);
+  const [selectedCustomAssetId, setSelectedCustomAssetId] = useState<string | null>(null);
   const [assetYawDeg, setAssetYawDeg] = useState(0);
   // Scatter assets (e.g. Tall Grass): instances strewn per placement click.
   const [assetScatterCount, setAssetScatterCount] = useState(1);
@@ -1182,6 +1184,8 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     roomId: session?.room.id ?? roomId,
     publish: publishRealtime
   });
+  // ── Custom GLB library (per-user, reusable across rooms) ─────────────────
+  const customAssets = useCustomWorldAssets({ identity });
   worldAssetsForMovementRef.current = chairs.chairs;
   const worldAssetsRealtimeHandlerRef = useRef(chairs.handleRealtimeMessage);
   worldAssetsRealtimeHandlerRef.current = chairs.handleRealtimeMessage;
@@ -3368,6 +3372,43 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
             localParticipantSittingPhase={sitting.sittingPhase}
             onLocalParticipantSitAnimationFinished={sitting.onAnimationFinished}
             assetPlacement={(() => {
+              const rotateBy = (deltaDeg: number) =>
+                setAssetYawDeg((deg) => (((deg + deltaDeg) % 360) + 360) % 360);
+
+              // Custom (user-uploaded) GLB placement — classification drives the
+              // ghost + snapping; the render info is denormalized onto each placement.
+              const custom = selectedCustomAssetId
+                ? customAssets.assets.find((a) => a.id === selectedCustomAssetId)
+                : undefined;
+              if (custom && manifest) {
+                return {
+                  glbUrl: custom.glbUrl,
+                  ...(custom.scale !== undefined ? { scale: custom.scale } : {}),
+                  yawDeg: assetYawDeg,
+                  finePlacement: false,
+                  placement: custom.placement,
+                  snap: {
+                    walls: manifest.walls.map((w) => ({
+                      start: { x: w.start.x, z: w.start.z },
+                      end: { x: w.end.x, z: w.end.z }
+                    })),
+                    dimensions: { height: manifest.dimensions.height }
+                  },
+                  onPlace: (position: { x: number; y: number; z: number }, yaw: number) => {
+                    chairs.placeChair(custom.id, position, yaw, {
+                      custom: {
+                        glbUrl: custom.glbUrl,
+                        placement: custom.placement,
+                        ...(custom.thumbnailUrl ? { thumbnailUrl: custom.thumbnailUrl } : {})
+                      },
+                      ...(custom.scale !== undefined ? { scale: custom.scale } : {})
+                    });
+                  },
+                  onCancel: () => setSelectedCustomAssetId(null),
+                  onRotateBy: rotateBy
+                };
+              }
+
               if (!selectedAssetSlug) return null;
               const asset = WORLD_ASSET_CATALOG.find((a) => a.slug === selectedAssetSlug);
               if (!asset) return null;
@@ -3394,7 +3435,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
                   chairs.placeChair(selectedAssetSlug, position, yaw);
                 },
                 onCancel: () => setSelectedAssetSlug(null),
-                onRotateBy: (deltaDeg) => setAssetYawDeg((deg) => (((deg + deltaDeg) % 360) + 360) % 360)
+                onRotateBy: rotateBy
               };
             })()}
           />
@@ -4310,6 +4351,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           selectedAssetSlug={selectedAssetSlug}
           onSelectAsset={(slug) => {
             setSelectedAssetSlug(slug);
+            if (slug) setSelectedCustomAssetId(null);
             setAssetYawDeg(0);
             if (slug) {
               const scatter = WORLD_ASSET_CATALOG.find((a) => a.slug === slug)?.scatter;
@@ -4323,6 +4365,18 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           onUploadFloorTexture={handleUploadFloorTexture}
           onSelectFloorTexturePreset={handleSelectFloorTexturePreset}
           floorTextureOptions={floorTextureOptions}
+          customAssets={customAssets.assets}
+          selectedCustomAssetId={selectedCustomAssetId}
+          onUploadCustomAsset={(input) => customAssets.upload(input).then(() => undefined)}
+          onDeleteCustomAsset={(assetId) => {
+            if (selectedCustomAssetId === assetId) setSelectedCustomAssetId(null);
+            return customAssets.remove(assetId);
+          }}
+          onSelectCustomAsset={(assetId) => {
+            setSelectedCustomAssetId(assetId);
+            if (assetId) setSelectedAssetSlug(null);
+            setAssetYawDeg(0);
+          }}
         />
       ) : null}
     </main>

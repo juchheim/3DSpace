@@ -31,6 +31,9 @@ import {
   type BuildPieceRotation,
   type ImageFloorTextureSpanCells,
   type PlacedWorldAsset,
+  type PlacedCustomAsset,
+  type CustomWorldAsset,
+  type WorldAssetPlacementKind,
   type LogicPieceKind,
   type EscapeSession,
   type RoomAiHost,
@@ -220,9 +223,22 @@ export type Repository = {
     position: { x: number; y: number; z: number };
     yaw: number;
     scale?: number;
+    custom?: PlacedCustomAsset;
     placedByUserId: string;
   }): Promise<PlacedWorldAsset>;
   deleteWorldAsset(roomId: string, assetId: string): Promise<void>;
+  listCustomAssetsForOwner(ownerUserId: string): Promise<CustomWorldAsset[]>;
+  createCustomAsset(input: {
+    ownerUserId: string;
+    displayName: string;
+    glbStorageKey: string;
+    glbUrl: string;
+    thumbnailStorageKey: string;
+    thumbnailUrl: string;
+    placement: WorldAssetPlacementKind;
+    scale?: number;
+  }): Promise<CustomWorldAsset>;
+  deleteCustomAsset(ownerUserId: string, assetId: string): Promise<void>;
   listBuildPiecesForRoom(roomId: string): Promise<BuildPiece[]>;
   findBuildPieceByPlacement(
     roomId: string,
@@ -400,6 +416,7 @@ export class MemoryRepository implements Repository {
   private roomObjects = new Map<string, RoomObject>();
   private buildPieces = new Map<string, BuildPiece>();
   private worldAssets = new Map<string, PlacedWorldAsset>();
+  private customAssets = new Map<string, CustomWorldAsset>();
   private logicPieces = new Map<string, BuildLogicPiece>();
   private logicStates = new Map<string, LogicState>();
   private escapeSessions = new Map<string, EscapeSession>();
@@ -1180,6 +1197,7 @@ export class MemoryRepository implements Repository {
     position: { x: number; y: number; z: number };
     yaw: number;
     scale?: number;
+    custom?: PlacedCustomAsset;
     placedByUserId: string;
   }): Promise<PlacedWorldAsset> {
     const id = `wa-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -1190,11 +1208,51 @@ export class MemoryRepository implements Repository {
       position: input.position,
       yaw: input.yaw,
       ...(input.scale !== undefined ? { scale: input.scale } : {}),
+      ...(input.custom !== undefined ? { custom: input.custom } : {}),
       placedByUserId: input.placedByUserId,
       createdAt: new Date().toISOString()
     };
     this.worldAssets.set(id, asset);
     return asset;
+  }
+
+  async listCustomAssetsForOwner(ownerUserId: string) {
+    return Array.from(this.customAssets.values())
+      .filter((a) => a.ownerUserId === ownerUserId)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  async createCustomAsset(input: {
+    ownerUserId: string;
+    displayName: string;
+    glbStorageKey: string;
+    glbUrl: string;
+    thumbnailStorageKey: string;
+    thumbnailUrl: string;
+    placement: WorldAssetPlacementKind;
+    scale?: number;
+  }): Promise<CustomWorldAsset> {
+    const id = `ca-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const asset: CustomWorldAsset = {
+      id,
+      ownerUserId: input.ownerUserId,
+      displayName: input.displayName,
+      glbStorageKey: input.glbStorageKey,
+      glbUrl: input.glbUrl,
+      thumbnailStorageKey: input.thumbnailStorageKey,
+      thumbnailUrl: input.thumbnailUrl,
+      placement: input.placement,
+      ...(input.scale !== undefined ? { scale: input.scale } : {}),
+      createdAt: new Date().toISOString()
+    };
+    this.customAssets.set(id, asset);
+    return asset;
+  }
+
+  async deleteCustomAsset(ownerUserId: string, assetId: string) {
+    const asset = this.customAssets.get(assetId);
+    if (!asset || asset.ownerUserId !== ownerUserId) throw new Error("Custom asset not found");
+    this.customAssets.delete(assetId);
   }
 
   async deleteWorldAsset(roomId: string, assetId: string) {

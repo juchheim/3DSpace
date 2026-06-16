@@ -1118,16 +1118,34 @@ export const RoomBuildRealtimeMessageSchema = z.discriminatedUnion("type", [
 
 // ── World Assets (placed furniture etc.) ─────────────────────────────────────
 
+/** How a custom-uploaded GLB is placed; drives the ghost + snapping rules. */
+export const WorldAssetPlacementKindSchema = z.enum(["floor", "wall", "ceiling", "other"]);
+export type WorldAssetPlacementKind = z.infer<typeof WorldAssetPlacementKindSchema>;
+
+/**
+ * Render info denormalized onto a placed asset when it comes from a user's
+ * private custom-asset library. Carried on the placement so every participant
+ * in the room can render it without access to the owner's library.
+ */
+export const PlacedCustomAssetSchema = z.object({
+  glbUrl: z.string().min(1),
+  placement: WorldAssetPlacementKindSchema,
+  thumbnailUrl: z.string().optional()
+});
+export type PlacedCustomAsset = z.infer<typeof PlacedCustomAssetSchema>;
+
 export const PlacedWorldAssetSchema = z.object({
   id: z.string(),
   roomId: z.string(),
-  /** Asset catalog slug, e.g. "folding-chair". */
+  /** Asset catalog slug, e.g. "folding-chair". For custom assets, the library asset id. */
   slug: z.string().min(1),
   position: z.object({ x: z.number(), y: z.number(), z: z.number() }),
   /** Y-axis rotation in radians. */
   yaw: z.number(),
   /** Instance render scale (catalog base scale × placement variance). Defaults to 1. */
   scale: z.number().positive().optional(),
+  /** Present when this placement is a user-uploaded custom GLB (see schema). */
+  custom: PlacedCustomAssetSchema.optional(),
   placedByUserId: z.string(),
   createdAt: z.string()
 });
@@ -1136,7 +1154,8 @@ export const CreateWorldAssetRequestSchema = z.object({
   slug: z.string().min(1),
   position: z.object({ x: z.number(), y: z.number(), z: z.number() }),
   yaw: z.number(),
-  scale: z.number().positive().optional()
+  scale: z.number().positive().optional(),
+  custom: PlacedCustomAssetSchema.optional()
 });
 
 const WorldAssetUpsertMessageSchema = z.object({
@@ -1175,6 +1194,76 @@ export const DeleteWorldAssetResponseSchema = z.object({
 
 export type PlacedWorldAsset = z.infer<typeof PlacedWorldAssetSchema>;
 export type WorldAssetRealtimeMessage = z.infer<typeof WorldAssetRealtimeMessageSchema>;
+
+// ── Custom (user-uploaded) world-asset library ─────────────────────────────────
+
+/** Content types accepted for an uploaded custom GLB. */
+export const CUSTOM_ASSET_GLB_CONTENT_TYPES = ["model/gltf-binary", "application/octet-stream"] as const;
+/** Content types accepted for a custom-asset thumbnail. */
+export const CUSTOM_ASSET_THUMBNAIL_CONTENT_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
+/** Hard ceiling on uploaded GLB size (bytes); also enforced client-side. */
+export const CUSTOM_ASSET_MAX_GLB_BYTES = 25 * 1024 * 1024;
+
+/** A user's private, reusable uploaded GLB (catalog entry, not a placement). */
+export const CustomWorldAssetSchema = z.object({
+  id: z.string(),
+  ownerUserId: z.string(),
+  displayName: z.string().min(1).max(120),
+  glbStorageKey: z.string().min(1),
+  glbUrl: z.string().min(1),
+  thumbnailStorageKey: z.string().min(1),
+  thumbnailUrl: z.string().min(1),
+  placement: WorldAssetPlacementKindSchema,
+  scale: z.number().positive().optional(),
+  createdAt: z.string()
+});
+export type CustomWorldAsset = z.infer<typeof CustomWorldAssetSchema>;
+
+/** Presign request: reserve storage keys + upload targets for the GLB + thumbnail. */
+export const CreateCustomAssetUploadRequestSchema = z.object({
+  glbFileName: z.string().min(1).max(200),
+  glbContentType: z.enum(CUSTOM_ASSET_GLB_CONTENT_TYPES),
+  thumbnailFileName: z.string().min(1).max(200),
+  thumbnailContentType: z.enum(CUSTOM_ASSET_THUMBNAIL_CONTENT_TYPES)
+});
+
+const CustomAssetUploadSlotSchema = z.object({
+  storageKey: z.string(),
+  url: z.string(),
+  upload: z.object({
+    url: z.string(),
+    method: z.literal("PUT"),
+    headers: z.record(z.string(), z.string())
+  })
+});
+
+export const CreateCustomAssetUploadResponseSchema = z.object({
+  glb: CustomAssetUploadSlotSchema,
+  thumbnail: CustomAssetUploadSlotSchema
+});
+
+/** Finalize: create the library record from already-uploaded blobs. */
+export const CreateCustomAssetRequestSchema = z.object({
+  displayName: z.string().min(1).max(120),
+  glbStorageKey: z.string().min(1),
+  glbUrl: z.string().min(1),
+  thumbnailStorageKey: z.string().min(1),
+  thumbnailUrl: z.string().min(1),
+  placement: WorldAssetPlacementKindSchema,
+  scale: z.number().positive().optional()
+});
+
+export const CreateCustomAssetResponseSchema = z.object({
+  asset: CustomWorldAssetSchema
+});
+
+export const ListCustomAssetsResponseSchema = z.object({
+  assets: z.array(CustomWorldAssetSchema)
+});
+
+export type CreateCustomAssetUploadRequest = z.infer<typeof CreateCustomAssetUploadRequestSchema>;
+export type CreateCustomAssetUploadResponse = z.infer<typeof CreateCustomAssetUploadResponseSchema>;
+export type CreateCustomAssetRequest = z.infer<typeof CreateCustomAssetRequestSchema>;
 
 export const CreateBuildPieceResponseSchema = z.object({
   piece: BuildPieceSchema,

@@ -65,6 +65,7 @@ export async function registerWorldAssetRoutes(app: FastifyInstance, ctx: AppCon
       position: body.position,
       yaw: body.yaw,
       ...(body.scale !== undefined ? { scale: body.scale } : {}),
+      ...(body.custom !== undefined ? { custom: body.custom } : {}),
       placedByUserId: auth.userId
     });
     const realtimeMessages = [buildUpsertMessage({ roomId, asset, senderId: auth.userId })];

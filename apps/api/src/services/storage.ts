@@ -50,6 +50,16 @@ export function buildFloorTextureStorageKeyFor(input: { roomId: string; fileName
   return `${buildFloorTextureStoragePrefix(input.roomId)}${crypto.randomUUID()}-${safeName}`;
 }
 
+/** Storage key for a user's private custom-asset upload (GLB or thumbnail). */
+export function userAssetStorageKeyFor(input: {
+  userId: string;
+  kind: "glb" | "thumbnail";
+  fileName: string;
+}) {
+  const safeName = safeStorageName(input.fileName);
+  return `users/${input.userId}/custom-assets/${input.kind}/${crypto.randomUUID()}-${safeName}`;
+}
+
 export async function createUploadTarget(
   config: AppConfig,
   input: {

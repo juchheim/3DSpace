@@ -2013,6 +2013,157 @@ label {
   box-shadow: 0 0 9px -2px var(--bd-acc);
 }
 
+/* ── Uploads: bring-your-own GLB (Verse glass panel, lobby-style classifier) ── */
+.build-dock__uploads { display: flex; flex-direction: column; gap: 10px; }
+.build-dock__upload-card {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 11px;
+  background: linear-gradient(color-mix(in oklch, var(--bd-acc) 8%, transparent), transparent),
+    rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--bd-line);
+  border-radius: var(--bd-rs);
+}
+.build-dock__upload-files { display: flex; gap: 9px; }
+.build-dock__upload-drop {
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: left;
+  color: var(--bd-tx);
+  background: var(--bd-tint);
+  border: 1px dashed var(--bd-line-m);
+  border-radius: var(--bd-rs);
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+}
+.build-dock__upload-drop:hover { border-color: var(--bd-acc); background: var(--bd-tint-s); box-shadow: 0 0 12px -4px var(--bd-acc); }
+.build-dock__upload-drop svg { flex: none; color: var(--bd-acc); }
+.build-dock__upload-drop.is-set { border-style: solid; border-color: color-mix(in oklch, var(--bd-acc) 55%, transparent); }
+.build-dock__upload-drop-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.build-dock__upload-thumb {
+  flex: none;
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 0;
+  background: var(--bd-glass-r);
+  border: 1px dashed var(--bd-line-m);
+  border-radius: var(--bd-rs);
+  cursor: pointer;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.build-dock__upload-thumb:hover { border-color: var(--bd-acc); box-shadow: 0 0 12px -4px var(--bd-acc); }
+.build-dock__upload-thumb.is-set { border-style: solid; border-color: var(--bd-line-m); }
+.build-dock__upload-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.build-dock__upload-thumb-empty { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--bd-tx-d); }
+.build-dock__upload-name {
+  padding: 9px 11px;
+  font-size: 12px;
+  color: var(--bd-tx);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--bd-line);
+  border-radius: var(--bd-rs);
+  outline: none;
+  transition: border-color 0.12s;
+}
+.build-dock__upload-name:focus { border-color: var(--bd-acc); }
+.build-dock__upload-name::placeholder { color: var(--bd-tx-d); }
+
+.build-dock__class-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.build-dock__class {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 9px 4px 7px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--bd-line);
+  border-radius: var(--bd-rs);
+  color: var(--bd-tx-m);
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, color 0.12s, box-shadow 0.12s;
+}
+.build-dock__class:hover { border-color: var(--bd-line-m); background: rgba(255, 255, 255, 0.05); }
+.build-dock__class.is-active {
+  color: var(--bd-acc);
+  border-color: color-mix(in oklch, var(--bd-acc) 70%, transparent);
+  background: var(--bd-tint-s);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--bd-acc) 50%, transparent);
+}
+.build-dock__class-icon { display: grid; place-items: center; width: 26px; height: 26px; }
+.build-dock__class-label { font-size: 10px; font-weight: 600; line-height: 1; }
+.build-dock__class-hint { margin: 0; font-size: 10.5px; line-height: 1.4; color: var(--bd-tx-m); }
+
+.build-dock__upload-error { margin: 0; font-size: 10.5px; color: #ff9f9f; }
+.build-dock__upload-submit {
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--bd-acc-s);
+  border: 1px solid transparent;
+  border-radius: var(--bd-rs);
+  cursor: pointer;
+  transition: filter 0.12s, opacity 0.12s;
+}
+.build-dock__upload-submit:hover:not(:disabled) { filter: brightness(1.08); }
+.build-dock__upload-submit:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Custom-library tile: a select button plus a corner delete control. */
+.build-dock__tile--upload { padding: 0; overflow: visible; }
+.build-dock__tile-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 11px 8px 9px;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+}
+.build-dock__tile-badge {
+  font-size: 8.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--bd-tx-d);
+}
+.build-dock__tile--upload.is-active .build-dock__tile-badge { color: var(--bd-acc); }
+.build-dock__tile-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  color: var(--bd-tx-d);
+  background: var(--bd-glass-r);
+  border: 1px solid var(--bd-line);
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s, color 0.12s, border-color 0.12s;
+}
+.build-dock__tile--upload:hover .build-dock__tile-delete { opacity: 1; }
+.build-dock__tile-delete:hover { color: #ff9f9f; border-color: color-mix(in oklch, #ff9f9f 55%, transparent); }
+
 /* ── Status ── */
 .build-dock__status {
   margin: 0;

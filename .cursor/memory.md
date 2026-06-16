@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-16 (World Builder Stamps tab removed)
+Last updated: 2026-06-16 (Refactor priority audit)
+
+- **2026-06-16:** **Refactor priority audit** — `docs/refactors/REFACTOR_PRIORITY_AUDIT.md`: tiered ranking of largest/most-mixed files (line counts + SoC heuristics). Tier 1: `RoomClient.tsx` (4,386), `packages/contracts/src/index.ts` (4,661), `repository.ts`+`mongoose.ts` (~3,360 combined, ~100 mirrored methods), `smoke.test.ts` (3,353). Tier 2: `RoomView3D.tsx`, `room-engine/src/index.ts`, `apps/web/lib/api.ts`, `LessonStudio.tsx`, `lesson-runtime.ts`, `realtime.ts`. API `app.ts` decomposition marked complete (~189 lines). README updated.
 
 - **2026-06-16:** **World Builder Stamps tab removed** — deleted **Stamps** tab from `BuildControls.tsx` (Corridor, Floor 2×2, Perimeter 5×5); removed `selectedStampId`/`selectStamp` from `useBuildMode.ts`; removed stamp placement mode from `BuildPlacementController.tsx`; removed `BUILTIN_BUILD_STAMPS`/`getBuildStamp`/`stampToPlacementTargets` from `buildStamps.ts` (escape-room `ESCAPE_STARTER_KIT` + `roomStampToTargets` kept for LogicControls starter kit). AI corpus `world-building-guide.md` updated (3 tabs: Build/Objects/Scenes).
 

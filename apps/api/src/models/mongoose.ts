@@ -22,6 +22,9 @@ import type {
   BuildPieceRotation,
   ImageFloorTextureSpanCells,
   PlacedWorldAsset,
+  PlacedCustomAsset,
+  CustomWorldAsset,
+  WorldAssetPlacementKind,
   LogicPieceKind,
   LogicState,
   EscapeSession,
@@ -84,6 +87,7 @@ type Models = {
   RoomObject: Model<any>;
   BuildPiece: Model<any>;
   PlacedWorldAsset: Model<any>;
+  CustomWorldAsset: Model<any>;
   LogicPiece: Model<any>;
   LogicState: Model<any>;
   EscapeSession: Model<any>;
@@ -435,11 +439,27 @@ export function createModels(connection: Connection): Models {
     },
     yaw: { type: Number, required: true, default: 0 },
     scale: { type: Number, required: false },
+    custom: { type: Schema.Types.Mixed, required: false },
     placedByUserId: { type: String, required: true },
     createdAt: { type: String, required: true }
   });
   placedWorldAssetSchema.index({ roomId: 1 });
   placedWorldAssetSchema.index({ roomId: 1, id: 1 }, { unique: true });
+
+  const customWorldAssetSchema = new Schema({
+    id: { type: String, required: true },
+    ownerUserId: { type: String, required: true },
+    displayName: { type: String, required: true },
+    glbStorageKey: { type: String, required: true },
+    glbUrl: { type: String, required: true },
+    thumbnailStorageKey: { type: String, required: true },
+    thumbnailUrl: { type: String, required: true },
+    placement: { type: String, required: true },
+    scale: { type: Number, required: false },
+    createdAt: { type: String, required: true }
+  });
+  customWorldAssetSchema.index({ ownerUserId: 1, createdAt: 1 });
+  customWorldAssetSchema.index({ id: 1 }, { unique: true });
 
   const logicPieceSchema = new Schema({
     id: { type: String, required: true },
@@ -733,6 +753,7 @@ export function createModels(connection: Connection): Models {
     RoomObject: connection.model("RoomObject", roomObjectSchema),
     BuildPiece: connection.model("BuildPiece", buildPieceSchema),
     PlacedWorldAsset: connection.model("PlacedWorldAsset", placedWorldAssetSchema),
+    CustomWorldAsset: connection.model("CustomWorldAsset", customWorldAssetSchema),
     LogicPiece: connection.model("LogicPiece", logicPieceSchema),
     LogicState: connection.model("LogicState", logicStateSchema),
     EscapeSession: connection.model("EscapeSession", escapeSessionSchema),
@@ -1696,6 +1717,7 @@ export class MongoRepository implements Repository {
 
   private toWorldAsset(doc: Record<string, unknown>): PlacedWorldAsset {
     const scale = doc.scale;
+    const custom = doc.custom as PlacedCustomAsset | undefined;
     return {
       id: doc.id as string,
       roomId: doc.roomId as string,
@@ -1703,6 +1725,7 @@ export class MongoRepository implements Repository {
       position: doc.position as { x: number; y: number; z: number },
       yaw: doc.yaw as number,
       ...(typeof scale === "number" && Number.isFinite(scale) ? { scale } : {}),
+      ...(custom && typeof custom.glbUrl === "string" ? { custom } : {}),
       placedByUserId: doc.placedByUserId as string,
       createdAt: doc.createdAt as string
     };
@@ -1719,6 +1742,7 @@ export class MongoRepository implements Repository {
     position: { x: number; y: number; z: number };
     yaw: number;
     scale?: number;
+    custom?: PlacedCustomAsset;
     placedByUserId: string;
   }): Promise<PlacedWorldAsset> {
     const id = `wa-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -1729,6 +1753,7 @@ export class MongoRepository implements Repository {
       position: input.position,
       yaw: input.yaw,
       ...(input.scale !== undefined ? { scale: input.scale } : {}),
+      ...(input.custom !== undefined ? { custom: input.custom } : {}),
       placedByUserId: input.placedByUserId,
       createdAt: new Date().toISOString()
     };
@@ -1738,6 +1763,58 @@ export class MongoRepository implements Repository {
 
   async deleteWorldAsset(roomId: string, assetId: string): Promise<void> {
     await this.models.PlacedWorldAsset.deleteOne({ roomId, id: assetId });
+  }
+
+  private toCustomAsset(doc: Record<string, unknown>): CustomWorldAsset {
+    const scale = doc.scale;
+    return {
+      id: doc.id as string,
+      ownerUserId: doc.ownerUserId as string,
+      displayName: doc.displayName as string,
+      glbStorageKey: doc.glbStorageKey as string,
+      glbUrl: doc.glbUrl as string,
+      thumbnailStorageKey: doc.thumbnailStorageKey as string,
+      thumbnailUrl: doc.thumbnailUrl as string,
+      placement: doc.placement as WorldAssetPlacementKind,
+      ...(typeof scale === "number" && Number.isFinite(scale) ? { scale } : {}),
+      createdAt: doc.createdAt as string
+    };
+  }
+
+  async listCustomAssetsForOwner(ownerUserId: string): Promise<CustomWorldAsset[]> {
+    const docs = await this.models.CustomWorldAsset.find({ ownerUserId }).sort({ createdAt: 1 }).lean();
+    return (docs as Record<string, unknown>[]).map((doc) => this.toCustomAsset(doc));
+  }
+
+  async createCustomAsset(input: {
+    ownerUserId: string;
+    displayName: string;
+    glbStorageKey: string;
+    glbUrl: string;
+    thumbnailStorageKey: string;
+    thumbnailUrl: string;
+    placement: WorldAssetPlacementKind;
+    scale?: number;
+  }): Promise<CustomWorldAsset> {
+    const id = `ca-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const asset: CustomWorldAsset = {
+      id,
+      ownerUserId: input.ownerUserId,
+      displayName: input.displayName,
+      glbStorageKey: input.glbStorageKey,
+      glbUrl: input.glbUrl,
+      thumbnailStorageKey: input.thumbnailStorageKey,
+      thumbnailUrl: input.thumbnailUrl,
+      placement: input.placement,
+      ...(input.scale !== undefined ? { scale: input.scale } : {}),
+      createdAt: new Date().toISOString()
+    };
+    await this.models.CustomWorldAsset.create(asset);
+    return asset;
+  }
+
+  async deleteCustomAsset(ownerUserId: string, assetId: string): Promise<void> {
+    await this.models.CustomWorldAsset.deleteOne({ ownerUserId, id: assetId });
   }
 
   // ── Build pieces ───────────────────────────────────────────────────────────

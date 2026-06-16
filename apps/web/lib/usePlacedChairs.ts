@@ -5,7 +5,7 @@ import { isPodiumWorldAsset, isSittableWorldAsset } from "./worldAssetCatalog";
 
 export type PlacedChair = {
   id: string;
-  /** Catalog slug, e.g. "folding-chair". */
+  /** Catalog slug, e.g. "folding-chair". For custom assets, the library asset id. */
   slug: string;
   /** World-space position of the asset centre (Y = walkable ground). */
   position: { x: number; y: number; z: number };
@@ -13,6 +13,8 @@ export type PlacedChair = {
   yaw: number;
   /** Instance render scale (catalog base × placement variance). */
   scale?: number;
+  /** Present when this is a user-uploaded custom GLB; carries render + placement info. */
+  custom?: import("@3dspace/contracts").PlacedCustomAsset;
 };
 
 /** Euclidean distance on the XZ plane between two XZ points. */

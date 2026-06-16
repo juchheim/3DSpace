@@ -13,6 +13,7 @@ import {
   worldAssetBySlug,
   worldAssetGlbUrl
 } from "../lib/worldAssetCatalog";
+import { placementPitch } from "../lib/worldAssetCustomPlacement";
 
 for (const asset of WORLD_ASSET_CATALOG) {
   useGLTF.preload(asset.glbUrl);
@@ -36,9 +37,10 @@ function WorldAssetMesh({
   resolveGroundY: (x: number, z: number, currentY: number) => number;
   onDelete?: (id: string) => void;
 }) {
-  const glbUrl = worldAssetGlbUrl(chair.slug);
-  const scale = placedWorldAssetRenderScale(chair);
-  const windSway = worldAssetBySlug(chair.slug)?.windSway === true;
+  const custom = chair.custom;
+  const glbUrl = custom?.glbUrl ?? worldAssetGlbUrl(chair.slug);
+  const scale = custom ? chair.scale ?? 1 : placedWorldAssetRenderScale(chair);
+  const windSway = !custom && worldAssetBySlug(chair.slug)?.windSway === true;
   const { scene } = useGLTF(glbUrl);
 
   const model = useMemo(() => {
@@ -46,12 +48,19 @@ function WorldAssetMesh({
     if (windSway) applyWindSway(cloned);
     return cloned;
   }, [scene, windSway]);
-  const resolved = chairWithGroundY(chair, (x, z) => resolveGroundY(x, z, chair.position.y));
+
+  // Wall/ceiling assets carry an authoritative Y (mount height / ceiling) and a
+  // pitch so they hang correctly — they must not be snapped back to the floor.
+  const pinnedToSurface = custom?.placement === "wall" || custom?.placement === "ceiling";
+  const resolved = pinnedToSurface
+    ? chair
+    : chairWithGroundY(chair, (x, z) => resolveGroundY(x, z, chair.position.y));
+  const pitch = custom ? placementPitch(custom.placement) : 0;
 
   return (
     <group
       position={[resolved.position.x, resolved.position.y, resolved.position.z]}
-      rotation={[0, resolved.yaw, 0]}
+      rotation={[pitch, resolved.yaw, 0]}
       scale={scale}
       {...(onDelete ? { onClick: (e) => { e.stopPropagation(); onDelete(chair.id); } } : {})}
     >
