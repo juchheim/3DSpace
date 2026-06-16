@@ -31,12 +31,17 @@ describe("avatar body routes", () => {
     });
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body.items).toHaveLength(5);
+    expect(body.items).toHaveLength(10);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "azure-vanguard")).toBe(true);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "azure-vanguard-hd")).toBe(true);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "sit-test")).toBe(true);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "ixr-female-20k")).toBe(true);
-    expect(body.items.some((entry: { slug: string }) => entry.slug === "teacher-white-male")).toBe(true);
+    expect(body.items.some((entry: { slug: string }) => entry.slug === "teacher-male")).toBe(true);
+    expect(body.items.some((entry: { slug: string }) => entry.slug === "teacher-female")).toBe(true);
+    expect(body.items.some((entry: { slug: string }) => entry.slug === "teacher-male-2")).toBe(true);
+    expect(body.items.some((entry: { slug: string }) => entry.slug === "teacher-female-2")).toBe(true);
+    expect(body.items.some((entry: { slug: string }) => entry.slug === "student-male")).toBe(true);
+    expect(body.items.some((entry: { slug: string }) => entry.slug === "student-female-2")).toBe(true);
     await app.close();
   });
 
@@ -63,7 +68,7 @@ describe("avatar body routes", () => {
     await app.close();
   });
 
-  it("PATCH /v1/users/me/body accepts teacher-white-male from the catalog", async () => {
+  it("PATCH /v1/users/me/body accepts teacher-male from the catalog", async () => {
     const app = await buildBodiesApp();
     await ensureUser(app);
 
@@ -71,10 +76,100 @@ describe("avatar body routes", () => {
       method: "PATCH",
       url: "/v1/users/me/body",
       headers: authHeaders(userId, "Alex Rivera"),
-      payload: { bodySlug: "teacher-white-male" }
+      payload: { bodySlug: "teacher-male" }
     });
     expect(patch.statusCode).toBe(200);
-    expect(patch.json().avatar.bodySlug).toBe("teacher-white-male");
+    expect(patch.json().avatar.bodySlug).toBe("teacher-male");
+    await app.close();
+  });
+
+  it("PATCH /v1/users/me/body accepts teacher-female from the catalog", async () => {
+    const app = await buildBodiesApp();
+    await ensureUser(app);
+
+    const patch = await app.inject({
+      method: "PATCH",
+      url: "/v1/users/me/body",
+      headers: authHeaders(userId, "Alex Rivera"),
+      payload: { bodySlug: "teacher-female" }
+    });
+    expect(patch.statusCode).toBe(200);
+    expect(patch.json().avatar.bodySlug).toBe("teacher-female");
+    await app.close();
+  });
+
+  it("PATCH /v1/users/me/body accepts teacher-male-2 from the catalog", async () => {
+    const app = await buildBodiesApp();
+    await ensureUser(app);
+
+    const patch = await app.inject({
+      method: "PATCH",
+      url: "/v1/users/me/body",
+      headers: authHeaders(userId, "Alex Rivera"),
+      payload: { bodySlug: "teacher-male-2" }
+    });
+    expect(patch.statusCode).toBe(200);
+    expect(patch.json().avatar.bodySlug).toBe("teacher-male-2");
+    await app.close();
+  });
+
+  it("PATCH /v1/users/me/body accepts teacher-female-2 from the catalog", async () => {
+    const app = await buildBodiesApp();
+    await ensureUser(app);
+
+    const patch = await app.inject({
+      method: "PATCH",
+      url: "/v1/users/me/body",
+      headers: authHeaders(userId, "Alex Rivera"),
+      payload: { bodySlug: "teacher-female-2" }
+    });
+    expect(patch.statusCode).toBe(200);
+    expect(patch.json().avatar.bodySlug).toBe("teacher-female-2");
+    await app.close();
+  });
+
+  it("PATCH /v1/users/me/body accepts student-male from the catalog", async () => {
+    const app = await buildBodiesApp();
+    await ensureUser(app);
+
+    const patch = await app.inject({
+      method: "PATCH",
+      url: "/v1/users/me/body",
+      headers: authHeaders(userId, "Alex Rivera"),
+      payload: { bodySlug: "student-male" }
+    });
+    expect(patch.statusCode).toBe(200);
+    expect(patch.json().avatar.bodySlug).toBe("student-male");
+    await app.close();
+  });
+
+  it("PATCH /v1/users/me/body accepts student-female-2 from the catalog", async () => {
+    const app = await buildBodiesApp();
+    await ensureUser(app);
+
+    const patch = await app.inject({
+      method: "PATCH",
+      url: "/v1/users/me/body",
+      headers: authHeaders(userId, "Alex Rivera"),
+      payload: { bodySlug: "student-female-2" }
+    });
+    expect(patch.statusCode).toBe(200);
+    expect(patch.json().avatar.bodySlug).toBe("student-female-2");
+    await app.close();
+  });
+
+  it("PATCH /v1/users/me/body normalizes legacy teacher slugs", async () => {
+    const app = await buildBodiesApp();
+    await ensureUser(app);
+
+    const patch = await app.inject({
+      method: "PATCH",
+      url: "/v1/users/me/body",
+      headers: authHeaders(userId, "Alex Rivera"),
+      payload: { bodySlug: "teacher-white-female" }
+    });
+    expect(patch.statusCode).toBe(200);
+    expect(patch.json().avatar.bodySlug).toBe("teacher-female");
     await app.close();
   });
 

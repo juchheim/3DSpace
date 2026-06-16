@@ -13,9 +13,9 @@ const catalog: AvatarBodyCatalogEntry[] = [
     neutralAlbedoUrl: "/avatars/azure-vanguard-albedo-neutral.jpg"
   },
   {
-    slug: "teacher-white-male",
-    displayName: "Teacher",
-    glbUrl: "/avatars/teacher-white-male.glb",
+    slug: "teacher-male",
+    displayName: "Teacher (male)",
+    glbUrl: "/avatars/teacher-male.glb",
     nativeHeight: 1.65,
     clips: {
       idle: "Idle_11",
@@ -24,15 +24,19 @@ const catalog: AvatarBodyCatalogEntry[] = [
       sit: "Look_Back_and_Sit",
       standFromSit: "Sit_to_Stand_Transition_M"
     },
-    zoneMaskUrl: "/avatars/teacher-white-male-zone-mask.png",
-    neutralAlbedoUrl: "/avatars/teacher-white-male-albedo-neutral.jpg",
+    zoneMaskUrl: "/avatars/teacher-male-zone-mask.png",
+    neutralAlbedoUrl: "/avatars/teacher-male-albedo-neutral.jpg",
     verseOnly: true
   }
 ];
 
 describe("validateAvatarBodySlug", () => {
   it("accepts slugs present in the catalog without a contracts enum gate", () => {
-    expect(validateAvatarBodySlug("teacher-white-male", catalog)).toBe("teacher-white-male");
+    expect(validateAvatarBodySlug("teacher-male", catalog)).toBe("teacher-male");
+  });
+
+  it("normalizes legacy teacher slugs to the renamed catalog entries", () => {
+    expect(validateAvatarBodySlug("teacher-white-male", catalog)).toBe("teacher-male");
   });
 
   it("rejects unknown slugs", () => {

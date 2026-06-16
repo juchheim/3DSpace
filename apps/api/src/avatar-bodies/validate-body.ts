@@ -1,5 +1,5 @@
 import type { AvatarBodyCatalogEntry, AvatarBodySlug } from "@3dspace/contracts";
-import { getBuiltinAvatarBodyCatalog } from "@3dspace/avatar-bodies";
+import { getBuiltinAvatarBodyCatalog, normalizeAvatarBodySlug } from "@3dspace/avatar-bodies";
 import { z } from "zod";
 import { badRequest } from "../errors.js";
 
@@ -11,9 +11,9 @@ export function validateAvatarBodySlug(
   bodySlug: string,
   catalog: AvatarBodyCatalogEntry[] = getBuiltinAvatarBodyCatalog()
 ): AvatarBodySlug {
-  const slug = bodySlug.trim();
+  const slug = normalizeAvatarBodySlug(bodySlug.trim());
   if (!catalog.some((entry) => entry.slug === slug)) {
-    throw badRequest(`Unknown avatar body slug: ${slug}`);
+    throw badRequest(`Unknown avatar body slug: ${bodySlug}`);
   }
   return slug as AvatarBodySlug;
 }

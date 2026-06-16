@@ -3,6 +3,7 @@ export {
   DEFAULT_AVATAR_BODY_SLUG,
   getBuiltinAvatarBodyBySlug,
   getBuiltinAvatarBodyCatalog,
+  normalizeAvatarBodySlug,
   resolveAvatarBodySlug
 } from "./builtin-catalog";
 

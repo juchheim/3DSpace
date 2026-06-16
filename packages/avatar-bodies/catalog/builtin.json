@@ -56,9 +56,9 @@
     "thumbnailUrl": "/avatars/thumbnails/ixr-female-20k.jpg"
   },
   {
-    "slug": "teacher-white-male",
-    "displayName": "Teacher",
-    "glbUrl": "/avatars/teacher-white-male.glb",
+    "slug": "teacher-male",
+    "displayName": "Teacher (male)",
+    "glbUrl": "/avatars/teacher-male.glb",
     "nativeHeight": 1.65,
     "clips": {
       "idle": "Idle_11",
@@ -67,9 +67,94 @@
       "sit": "Look_Back_and_Sit",
       "standFromSit": "Sit_to_Stand_Transition_M"
     },
-    "zoneMaskUrl": "/avatars/teacher-white-male-zone-mask.png",
-    "neutralAlbedoUrl": "/avatars/teacher-white-male-albedo-neutral.jpg",
-    "thumbnailUrl": "/avatars/thumbnails/teacher-white-male.jpg",
+    "zoneMaskUrl": "/avatars/teacher-male-zone-mask.png",
+    "neutralAlbedoUrl": "/avatars/teacher-male-albedo-neutral.jpg",
+    "thumbnailUrl": "/avatars/thumbnails/teacher-male.jpg",
+    "verseOnly": true
+  },
+  {
+    "slug": "teacher-female",
+    "displayName": "Teacher (female)",
+    "glbUrl": "/avatars/teacher-female.glb",
+    "nativeHeight": 1.65,
+    "clips": {
+      "idle": "Idle_11",
+      "walking": "Walking",
+      "running": "Running",
+      "sit": "Look_Back_and_Sit",
+      "standFromSit": "Sit_to_standTransition_Female_2"
+    },
+    "zoneMaskUrl": "/avatars/teacher-female-zone-mask.png",
+    "neutralAlbedoUrl": "/avatars/teacher-female-albedo-neutral.jpg",
+    "thumbnailUrl": "/avatars/thumbnails/teacher-female.jpg",
+    "verseOnly": true
+  },
+  {
+    "slug": "teacher-male-2",
+    "displayName": "Teacher (male)",
+    "glbUrl": "/avatars/teacher-male-2.glb",
+    "nativeHeight": 1.65,
+    "clips": {
+      "idle": "Idle_11",
+      "walking": "Walking",
+      "running": "Running",
+      "sit": "Look_Back_and_Sit",
+      "standFromSit": "Sit_to_Stand_Transition_M"
+    },
+    "zoneMaskUrl": "/avatars/teacher-male-2-zone-mask.png",
+    "neutralAlbedoUrl": "/avatars/teacher-male-2-albedo-neutral.jpg",
+    "thumbnailUrl": "/avatars/thumbnails/teacher-male-2.jpg",
+    "verseOnly": true
+  },
+  {
+    "slug": "teacher-female-2",
+    "displayName": "Teacher (female)",
+    "glbUrl": "/avatars/teacher-female-2.glb",
+    "nativeHeight": 1.65,
+    "clips": {
+      "idle": "Idle_11",
+      "walking": "Walking",
+      "running": "Running",
+      "sit": "Look_Back_and_Sit",
+      "standFromSit": "Sit_to_standTransition_Female_2"
+    },
+    "zoneMaskUrl": "/avatars/teacher-female-2-zone-mask.png",
+    "neutralAlbedoUrl": "/avatars/teacher-female-2-albedo-neutral.jpg",
+    "thumbnailUrl": "/avatars/thumbnails/teacher-female-2.jpg",
+    "verseOnly": true
+  },
+  {
+    "slug": "student-male",
+    "displayName": "Student (male)",
+    "glbUrl": "/avatars/student-male.glb",
+    "nativeHeight": 1.65,
+    "clips": {
+      "idle": "Idle_11",
+      "walking": "Walking",
+      "running": "Running",
+      "sit": "Look_Back_and_Sit",
+      "standFromSit": "Sit_to_Stand_Transition_M"
+    },
+    "zoneMaskUrl": "/avatars/student-male-zone-mask.png",
+    "neutralAlbedoUrl": "/avatars/student-male-albedo-neutral.jpg",
+    "thumbnailUrl": "/avatars/thumbnails/student-male.jpg",
+    "verseOnly": true
+  },
+  {
+    "slug": "student-female-2",
+    "displayName": "Student (female)",
+    "glbUrl": "/avatars/student-female-2.glb",
+    "nativeHeight": 1.65,
+    "clips": {
+      "idle": "Idle_11",
+      "walking": "Walking",
+      "running": "Running",
+      "sit": "Look_Back_and_Sit",
+      "standFromSit": "Sit_to_standTransition_Female_2"
+    },
+    "zoneMaskUrl": "/avatars/student-female-2-zone-mask.png",
+    "neutralAlbedoUrl": "/avatars/student-female-2-albedo-neutral.jpg",
+    "thumbnailUrl": "/avatars/thumbnails/student-female-2.jpg",
     "verseOnly": true
   }
 ]

@@ -1,6 +1,18 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-16 (Refactor priority audit)
+Last updated: 2026-06-16 (Student female-2 avatar)
+
+- **2026-06-16:** **Student (female) variant 2** — `GLBs/student-black-female.glb` → `student-female-2` catalog entry (`verseOnly`, female sit clips); optimized GLB (~1.68 MB) + recolor assets + thumbnail; legacy alias `student-black-female`.
+
+- **2026-06-16:** **Student (male) avatar** — `GLBs/student-white-male.glb` → `student-male` catalog entry (`verseOnly`, male sit clips); optimized GLB (~1.49 MB) + recolor assets + thumbnail; legacy alias `student-white-male`.
+
+- **2026-06-16:** **Teacher (female) variant 2** — `GLBs/teacher-black-female.glb` → `teacher-female-2` catalog entry (`verseOnly`, female sit clips); optimized GLB + recolor assets + thumbnail; legacy alias `teacher-black-female`.
+
+- **2026-06-16:** **Teacher avatar rename** — slugs `teacher-male`, `teacher-female`, `teacher-male-2` (was teacher-white-male / teacher-white-female / teacher-black-male); display names `Teacher (male)` / `Teacher (female)`; public assets renamed to match; legacy slug aliases in `normalizeAvatarBodySlug()` for persisted user rows.
+
+- **2026-06-16:** **Teacher (Black) avatar** — `GLBs/teacher-black-male.glb` → `scripts/prepare-teacher-black-male-glb.mjs` (PNG→JPEG q85, ~1.33 MB) → `apps/web/public/avatars/teacher-black-male.glb`; recolor assets + thumbnail; new `teacher-black-male` catalog entry (`verseOnly: true`, male sit clips).
+
+- **2026-06-16:** **Teacher (Female) avatar** — `GLBs/teacher-white-female.glb` → `scripts/prepare-teacher-white-female-glb.mjs` (PNG→JPEG q85 via `optimize-lp-glb.mjs`, ~1.28 MB) → `apps/web/public/avatars/teacher-white-female.glb`; recolor assets `teacher-white-female-albedo-neutral.jpg` + `teacher-white-female-zone-mask.png`; thumbnail `avatars/thumbnails/teacher-white-female.jpg`. New `teacher-white-female` body in `@3dspace/avatar-bodies` catalog (`verseOnly: true`, sit clips `Look_Back_and_Sit` / `Sit_to_standTransition_Female_2`).
 
 - **2026-06-16:** **Refactor priority audit** — `docs/refactors/REFACTOR_PRIORITY_AUDIT.md`: tiered ranking of largest/most-mixed files (line counts + SoC heuristics). Tier 1: `RoomClient.tsx` (4,386), `packages/contracts/src/index.ts` (4,661), `repository.ts`+`mongoose.ts` (~3,360 combined, ~100 mirrored methods), `smoke.test.ts` (3,353). Tier 2: `RoomView3D.tsx`, `room-engine/src/index.ts`, `apps/web/lib/api.ts`, `LessonStudio.tsx`, `lesson-runtime.ts`, `realtime.ts`. API `app.ts` decomposition marked complete (~189 lines). README updated.
 

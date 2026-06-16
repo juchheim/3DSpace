@@ -1,17 +1,17 @@
-// Optimize teacher-white-male.glb for avatar runtime:
+// Optimize student-male.glb for avatar runtime:
 //   - Baked base color / emissive PNG → JPEG (quality 85)
 //
-// Run:  node scripts/prepare-teacher-white-male-glb.mjs
-// In:   GLBs/teacher-white-male.glb
-// Out:  apps/web/public/avatars/teacher-white-male.glb
+// Run:  node scripts/prepare-student-male-glb.mjs
+// In:   GLBs/student-white-male.glb
+// Out:  apps/web/public/avatars/student-male.glb
 
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
-const IN_PATH = resolve(__dirname, "../GLBs/teacher-white-male.glb");
-const OUT_PATH = resolve(__dirname, "../apps/web/public/avatars/teacher-white-male.glb");
+const IN_PATH = resolve(__dirname, "../GLBs/student-white-male.glb");
+const OUT_PATH = resolve(__dirname, "../apps/web/public/avatars/student-male.glb");
 const OPTIMIZE = resolve(__dirname, "optimize-lp-glb.mjs");
 
 const result = spawnSync(process.execPath, [OPTIMIZE, IN_PATH, OUT_PATH], { stdio: "inherit" });

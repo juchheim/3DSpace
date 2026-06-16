@@ -298,7 +298,12 @@ export const AvatarBodySlugSchema = z.enum([
   "azure-vanguard-hd",
   "ixr-female-20k",
   "sit-test",
-  "teacher-white-male"
+  "teacher-male",
+  "teacher-female",
+  "teacher-male-2",
+  "teacher-female-2",
+  "student-male",
+  "student-female-2"
 ]);
 
 export const AvatarBodyClipsSchema = z.object({
