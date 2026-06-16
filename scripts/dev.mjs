@@ -1,9 +1,33 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const children = [];
+
+function buildWorkspacePackages() {
+  const result = spawnSync(
+    "npm",
+    [
+      "run",
+      "build",
+      "-w",
+      "@3dspace/contracts",
+      "-w",
+      "@3dspace/avatar-accessories",
+      "-w",
+      "@3dspace/avatar-bodies",
+      "-w",
+      "@3dspace/room-engine"
+    ],
+    { cwd: root, stdio: "inherit", shell: true }
+  );
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+  }
+}
+
+buildWorkspacePackages();
 
 function start(label, script) {
   const child = spawn("npm", ["run", script], {

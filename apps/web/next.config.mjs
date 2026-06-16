@@ -9,7 +9,12 @@ nextEnv.loadEnvConfig(repoRoot);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ["@3dspace/contracts", "@3dspace/room-engine", "@3dspace/avatar-accessories"],
+  transpilePackages: [
+    "@3dspace/contracts",
+    "@3dspace/room-engine",
+    "@3dspace/avatar-accessories",
+    "@3dspace/avatar-bodies"
+  ],
   experimental: {
     externalDir: true
   }

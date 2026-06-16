@@ -63,6 +63,21 @@ describe("avatar body routes", () => {
     await app.close();
   });
 
+  it("PATCH /v1/users/me/body accepts teacher-white-male from the catalog", async () => {
+    const app = await buildBodiesApp();
+    await ensureUser(app);
+
+    const patch = await app.inject({
+      method: "PATCH",
+      url: "/v1/users/me/body",
+      headers: authHeaders(userId, "Alex Rivera"),
+      payload: { bodySlug: "teacher-white-male" }
+    });
+    expect(patch.statusCode).toBe(200);
+    expect(patch.json().avatar.bodySlug).toBe("teacher-white-male");
+    await app.close();
+  });
+
   it("returns 404 when ENABLE_AVATAR_BODIES is false", async () => {
     const app = await buildBodiesApp({ NODE_ENV: "test", ENABLE_AVATAR_BODIES: "false" });
     const res = await app.inject({
