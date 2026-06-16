@@ -22,6 +22,10 @@ export function useRoomSession(input: UseRoomSessionInput) {
   const [status, setStatus] = useState("Connecting...");
   const [error, setError] = useState("");
   const joinGenerationRef = useRef(0);
+  const identityRef = useRef(input.identity);
+  identityRef.current = input.identity;
+  const onJoinedRef = useRef(input.onJoined);
+  onJoinedRef.current = input.onJoined;
 
   useEffect(() => {
     if (!input.identityLoaded) return;
@@ -31,7 +35,7 @@ export function useRoomSession(input: UseRoomSessionInput) {
     setStatus("Joining room...");
     setError("");
     joinRoom(
-      input.identity,
+      identityRef.current,
       input.roomId,
       input.inviteCode ? { viewMode: input.viewMode, inviteCode: input.inviteCode } : { viewMode: input.viewMode }
     )
@@ -39,7 +43,7 @@ export function useRoomSession(input: UseRoomSessionInput) {
         if (generation !== joinGenerationRef.current) return;
         const normalizedManifest = normalizeRoomManifest(nextSession.manifest, nextSession.room.type);
         const normalizedSession = { ...nextSession, manifest: normalizedManifest };
-        input.onJoined?.(normalizedSession);
+        onJoinedRef.current?.(normalizedSession);
         setSession(normalizedSession);
         setManifest(normalizedManifest);
         setStatus("Joined room. Connecting to LiveKit...");
@@ -53,11 +57,10 @@ export function useRoomSession(input: UseRoomSessionInput) {
     };
   }, [
     input.authRequired,
-    input.identity,
+    input.identity.userId,
     input.identityLoaded,
     input.inviteCode,
     input.leaving,
-    input.onJoined,
     input.roomId,
     input.signedIn,
     input.viewMode
@@ -67,15 +70,15 @@ export function useRoomSession(input: UseRoomSessionInput) {
     if (!session || input.leaving) return;
     const activeRoomId = session.room.id;
     const tick = () => {
-      void heartbeatRoomSession(input.identity, activeRoomId).catch(() => undefined);
+      void heartbeatRoomSession(identityRef.current, activeRoomId).catch(() => undefined);
     };
     tick();
     const interval = window.setInterval(tick, 30_000);
     return () => {
       window.clearInterval(interval);
-      void leaveRoomSession(input.identity, activeRoomId).catch(() => undefined);
+      void leaveRoomSession(identityRef.current, activeRoomId).catch(() => undefined);
     };
-  }, [input.identity, input.leaving, session]);
+  }, [input.identity.userId, input.leaving, session]);
 
   return {
     session,

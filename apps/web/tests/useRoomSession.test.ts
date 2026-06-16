@@ -101,6 +101,32 @@ describe("useRoomSession", () => {
     expect(api.joinRoom).not.toHaveBeenCalled();
   });
 
+  it("does not rejoin when the onJoined callback identity changes", async () => {
+    const { rerender } = renderHook(
+      ({ onJoined }) =>
+        useRoomSession({
+          identity,
+          identityLoaded: true,
+          authRequired: false,
+          signedIn: true,
+          roomId: "room-1",
+          viewMode: "3d",
+          leaving: false,
+          onJoined
+        }),
+      { initialProps: { onJoined: vi.fn() } }
+    );
+
+    await waitFor(() => {
+      expect(api.joinRoom).toHaveBeenCalledTimes(1);
+    });
+
+    rerender({ onJoined: vi.fn() });
+    rerender({ onJoined: vi.fn() });
+
+    expect(api.joinRoom).toHaveBeenCalledTimes(1);
+  });
+
   it("starts heartbeat for an active session and leaves the room on cleanup", async () => {
     const { unmount } = renderHook(() =>
       useRoomSession({
