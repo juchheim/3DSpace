@@ -303,6 +303,8 @@ export const AvatarBodySlugSchema = z.enum([
   "teacher-male-2",
   "teacher-female-2",
   "student-male",
+  "student-female",
+  "student-male-2",
   "student-female-2"
 ]);
 

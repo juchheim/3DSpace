@@ -26,6 +26,8 @@ const LEGACY_AVATAR_BODY_SLUGS: Record<string, AvatarBodySlug> = {
   "teacher-black-male": "teacher-male-2",
   "teacher-black-female": "teacher-female-2",
   "student-white-male": "student-male",
+  "student-white-female": "student-female",
+  "student-black-male": "student-male-2",
   "student-black-female": "student-female-2"
 };
 

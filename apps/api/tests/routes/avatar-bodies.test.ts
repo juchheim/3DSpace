@@ -31,7 +31,7 @@ describe("avatar body routes", () => {
     });
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body.items).toHaveLength(10);
+    expect(body.items).toHaveLength(12);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "azure-vanguard")).toBe(true);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "azure-vanguard-hd")).toBe(true);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "sit-test")).toBe(true);
@@ -41,6 +41,8 @@ describe("avatar body routes", () => {
     expect(body.items.some((entry: { slug: string }) => entry.slug === "teacher-male-2")).toBe(true);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "teacher-female-2")).toBe(true);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "student-male")).toBe(true);
+    expect(body.items.some((entry: { slug: string }) => entry.slug === "student-female")).toBe(true);
+    expect(body.items.some((entry: { slug: string }) => entry.slug === "student-male-2")).toBe(true);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "student-female-2")).toBe(true);
     await app.close();
   });
@@ -140,6 +142,36 @@ describe("avatar body routes", () => {
     });
     expect(patch.statusCode).toBe(200);
     expect(patch.json().avatar.bodySlug).toBe("student-male");
+    await app.close();
+  });
+
+  it("PATCH /v1/users/me/body accepts student-female from the catalog", async () => {
+    const app = await buildBodiesApp();
+    await ensureUser(app);
+
+    const patch = await app.inject({
+      method: "PATCH",
+      url: "/v1/users/me/body",
+      headers: authHeaders(userId, "Alex Rivera"),
+      payload: { bodySlug: "student-female" }
+    });
+    expect(patch.statusCode).toBe(200);
+    expect(patch.json().avatar.bodySlug).toBe("student-female");
+    await app.close();
+  });
+
+  it("PATCH /v1/users/me/body accepts student-male-2 from the catalog", async () => {
+    const app = await buildBodiesApp();
+    await ensureUser(app);
+
+    const patch = await app.inject({
+      method: "PATCH",
+      url: "/v1/users/me/body",
+      headers: authHeaders(userId, "Alex Rivera"),
+      payload: { bodySlug: "student-male-2" }
+    });
+    expect(patch.statusCode).toBe(200);
+    expect(patch.json().avatar.bodySlug).toBe("student-male-2");
     await app.close();
   });
 

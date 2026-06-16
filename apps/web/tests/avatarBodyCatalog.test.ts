@@ -17,6 +17,8 @@ describe("avatarBodyCatalogForRoom", () => {
     expect(filtered.some((entry) => entry.slug === "teacher-male-2")).toBe(true);
     expect(filtered.some((entry) => entry.slug === "teacher-female-2")).toBe(true);
     expect(filtered.some((entry) => entry.slug === "student-male")).toBe(true);
+    expect(filtered.some((entry) => entry.slug === "student-female")).toBe(true);
+    expect(filtered.some((entry) => entry.slug === "student-male-2")).toBe(true);
     expect(filtered.some((entry) => entry.slug === "student-female-2")).toBe(true);
   });
 });

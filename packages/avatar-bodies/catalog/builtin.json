@@ -141,6 +141,40 @@
     "verseOnly": true
   },
   {
+    "slug": "student-female",
+    "displayName": "Student (female)",
+    "glbUrl": "/avatars/student-female.glb",
+    "nativeHeight": 1.65,
+    "clips": {
+      "idle": "Idle_11",
+      "walking": "Walking",
+      "running": "Running",
+      "sit": "Look_Back_and_Sit",
+      "standFromSit": "Sit_to_standTransition_Female_2"
+    },
+    "zoneMaskUrl": "/avatars/student-female-zone-mask.png",
+    "neutralAlbedoUrl": "/avatars/student-female-albedo-neutral.jpg",
+    "thumbnailUrl": "/avatars/thumbnails/student-female.jpg",
+    "verseOnly": true
+  },
+  {
+    "slug": "student-male-2",
+    "displayName": "Student (male)",
+    "glbUrl": "/avatars/student-male-2.glb",
+    "nativeHeight": 1.65,
+    "clips": {
+      "idle": "Idle_11",
+      "walking": "Walking",
+      "running": "Running",
+      "sit": "Look_Back_and_Sit",
+      "standFromSit": "Sit_to_Stand_Transition_M"
+    },
+    "zoneMaskUrl": "/avatars/student-male-2-zone-mask.png",
+    "neutralAlbedoUrl": "/avatars/student-male-2-albedo-neutral.jpg",
+    "thumbnailUrl": "/avatars/thumbnails/student-male-2.jpg",
+    "verseOnly": true
+  },
+  {
     "slug": "student-female-2",
     "displayName": "Student (female)",
     "glbUrl": "/avatars/student-female-2.glb",
