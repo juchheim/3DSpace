@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { RoomManifest, RoomSessionResponse, ViewMode } from "@3dspace/contracts";
 import { heartbeatRoomSession, joinRoom, leaveRoomSession } from "../api";
 import type { ApiIdentity } from "../identity";
@@ -12,8 +12,9 @@ type UseRoomSessionInput = {
   roomId: string;
   inviteCode?: string | undefined;
   viewMode: ViewMode;
-  leaving: boolean;
   onJoined?(session: RoomSessionResponse): void;
+  onLeaveCleanup?(): void;
+  onLeaveNavigate?(): void;
 };
 
 export function useRoomSession(input: UseRoomSessionInput) {
@@ -21,16 +22,37 @@ export function useRoomSession(input: UseRoomSessionInput) {
   const [manifest, setManifest] = useState<RoomManifest | null>(null);
   const [status, setStatus] = useState("Connecting...");
   const [error, setError] = useState("");
+  const [leaving, setLeaving] = useState(false);
   const joinGenerationRef = useRef(0);
   const identityRef = useRef(input.identity);
   identityRef.current = input.identity;
   const onJoinedRef = useRef(input.onJoined);
   onJoinedRef.current = input.onJoined;
+  const onLeaveCleanupRef = useRef(input.onLeaveCleanup);
+  onLeaveCleanupRef.current = input.onLeaveCleanup;
+  const onLeaveNavigateRef = useRef(input.onLeaveNavigate);
+  onLeaveNavigateRef.current = input.onLeaveNavigate;
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+
+  const leaveForLobby = useCallback(() => {
+    if (leaving) return;
+    setLeaving(true);
+    setStatus("Leaving room...");
+    const activeRoomId = sessionRef.current?.room.id ?? input.roomId;
+    void leaveRoomSession(identityRef.current, activeRoomId).catch(() => undefined);
+    onLeaveCleanupRef.current?.();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        onLeaveNavigateRef.current?.();
+      });
+    });
+  }, [input.roomId, leaving]);
 
   useEffect(() => {
     if (!input.identityLoaded) return;
     if (input.authRequired && !input.signedIn) return;
-    if (input.leaving) return;
+    if (leaving) return;
     const generation = ++joinGenerationRef.current;
     setStatus("Joining room...");
     setError("");
@@ -60,14 +82,14 @@ export function useRoomSession(input: UseRoomSessionInput) {
     input.identity.userId,
     input.identityLoaded,
     input.inviteCode,
-    input.leaving,
     input.roomId,
     input.signedIn,
-    input.viewMode
+    input.viewMode,
+    leaving
   ]);
 
   useEffect(() => {
-    if (!session || input.leaving) return;
+    if (!session || leaving) return;
     const activeRoomId = session.room.id;
     const tick = () => {
       void heartbeatRoomSession(identityRef.current, activeRoomId).catch(() => undefined);
@@ -78,7 +100,7 @@ export function useRoomSession(input: UseRoomSessionInput) {
       window.clearInterval(interval);
       void leaveRoomSession(identityRef.current, activeRoomId).catch(() => undefined);
     };
-  }, [input.identity.userId, input.leaving, session]);
+  }, [input.identity.userId, leaving, session]);
 
   return {
     session,
@@ -88,6 +110,8 @@ export function useRoomSession(input: UseRoomSessionInput) {
     status,
     setStatus,
     error,
-    setError
+    setError,
+    leaving,
+    leaveForLobby
   };
 }

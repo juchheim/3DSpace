@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDefaultRoomManifest } from "@3dspace/room-engine";
 import * as api from "../lib/api";
@@ -56,6 +56,7 @@ describe("useRoomSession", () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("joins once identity is ready and reports normalized session state", async () => {
@@ -68,7 +69,6 @@ describe("useRoomSession", () => {
         signedIn: true,
         roomId: "room-1",
         viewMode: "3d",
-        leaving: false,
         onJoined
       })
     );
@@ -93,8 +93,7 @@ describe("useRoomSession", () => {
         authRequired: true,
         signedIn: false,
         roomId: "room-1",
-        viewMode: "3d",
-        leaving: false
+        viewMode: "3d"
       })
     );
 
@@ -111,7 +110,6 @@ describe("useRoomSession", () => {
           signedIn: true,
           roomId: "room-1",
           viewMode: "3d",
-          leaving: false,
           onJoined
         }),
       { initialProps: { onJoined: vi.fn() } }
@@ -135,8 +133,7 @@ describe("useRoomSession", () => {
         authRequired: false,
         signedIn: true,
         roomId: "room-1",
-        viewMode: "3d",
-        leaving: false
+        viewMode: "3d"
       })
     );
 
@@ -147,5 +144,41 @@ describe("useRoomSession", () => {
     unmount();
 
     expect(api.leaveRoomSession).toHaveBeenCalledWith(identity, "room-1");
+  });
+
+  it("owns leaving state and runs leave callbacks through leaveForLobby", async () => {
+    const onLeaveCleanup = vi.fn();
+    const onLeaveNavigate = vi.fn();
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      cb(0);
+      return 1;
+    });
+
+    const { result } = renderHook(() =>
+      useRoomSession({
+        identity,
+        identityLoaded: true,
+        authRequired: false,
+        signedIn: true,
+        roomId: "room-1",
+        viewMode: "3d",
+        onLeaveCleanup,
+        onLeaveNavigate
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.session?.room.id).toBe("room-1");
+    });
+
+    act(() => {
+      result.current.leaveForLobby();
+    });
+
+    expect(result.current.leaving).toBe(true);
+    expect(result.current.status).toBe("Leaving room...");
+    expect(api.leaveRoomSession).toHaveBeenCalledWith(identity, "room-1");
+    expect(onLeaveCleanup).toHaveBeenCalledTimes(1);
+    expect(onLeaveNavigate).toHaveBeenCalledTimes(1);
   });
 });

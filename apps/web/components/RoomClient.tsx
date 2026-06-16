@@ -31,7 +31,6 @@ import {
   createAttachment,
   createAttachmentDownload,
   finalizeAttachment,
-  leaveRoomSession,
   listClasses,
   listClassMembers,
   patchRoom,
@@ -74,7 +73,7 @@ import { useWorldSkin } from "../lib/useWorldSkin";
 import { SkinLayer } from "./worldSkins/SkinLayer";
 import { usePersistentIdentity } from "../lib/usePersistentIdentity";
 import { navigateToLobby } from "../lib/navigateToLobby";
-import { createRealtimeClient, type RealtimeClient, type RealtimeMessage } from "../lib/realtime";
+import { type RealtimeClient, type RealtimeMessage } from "../lib/realtime";
 import { useSpatialAudio } from "../lib/useSpatialAudio";
 import { isBoardGrantActive } from "../lib/classroomGrants";
 import { findNearestChair, type PlacedChair } from "../lib/usePlacedChairs";
@@ -150,6 +149,7 @@ import {
 import { useRoomAvatarActions } from "../lib/room/useRoomAvatarActions";
 import { useRoomEnvironmentActions } from "../lib/room/useRoomEnvironmentActions";
 import { useRoomFloorTextureActions } from "../lib/room/useRoomFloorTextureActions";
+import { useRoomRealtime } from "../lib/room/useRoomRealtime";
 import { useRoomWallActions } from "../lib/room/useRoomWallActions";
 import { useRoomSession } from "../lib/room/useRoomSession";
 
@@ -219,9 +219,9 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [viewMode]);
   const [participants, setParticipants] = useState<Record<string, ParticipantView>>({});
-  const [leaving, setLeaving] = useState(false);
   const realtimeRef = useRef<RealtimeClient | null>(null);
   const realtimeGenerationRef = useRef(0);
+  const leaveCleanupRef = useRef<() => void>(() => undefined);
   const avatarStateRef = useRef<AvatarStateMessage | null>(null);
   const memberNamesRef = useRef(new Map<string, string>());
   const localAppearanceRef = useRef<AvatarAppearance>(DEFAULT_APPEARANCE);
@@ -265,7 +265,9 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     status,
     setStatus,
     error,
-    setError
+    setError,
+    leaving,
+    leaveForLobby
   } = useRoomSession({
     identity,
     identityLoaded,
@@ -274,8 +276,9 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     roomId,
     inviteCode,
     viewMode,
-    leaving,
-    onJoined: handleSessionJoined
+    onJoined: handleSessionJoined,
+    onLeaveCleanup: () => leaveCleanupRef.current(),
+    onLeaveNavigate: () => navigateToLobby(router)
   });
   const [whisperMode, setWhisperMode] = useState<"normal" | "whisper">("normal");
   const whisperModeRef = useRef(whisperMode);
@@ -1355,6 +1358,66 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   onExitStepOnRef.current = () => {
     void escapeSession.actions.win();
   };
+  useEffect(() => {
+    avatarStateRef.current = movement.avatarState ?? null;
+  }, [movement.avatarState]);
+  useRoomRealtime({
+    roomId,
+    session,
+    leaving,
+    identityDisplayName: identity.displayName,
+    localAvatarState: movement.avatarState,
+    mediaCameraStream: media.cameraStream,
+    mediaMicStream: media.micStream,
+    avatarAccessoriesEnabled: CLIENT_TUNING.enableAvatarAccessories,
+    avatarBodiesEnabled: CLIENT_TUNING.enableAvatarBodies,
+    wallObjects: wall.wallObjects,
+    realtimeRef,
+    realtimeGenerationRef,
+    avatarStateRef,
+    displayNameRef,
+    memberNamesRef,
+    seenParticipantsRef,
+    localAppearanceRef,
+    localAppearanceCustomizedRef,
+    localAccessoriesRef,
+    localBodySlugRef,
+    waveTriggeredRef,
+    handlerRegistry: [
+      wallRealtimeHandlerRef,
+      whiteboardRealtimeHandlerRef,
+      roomObjectsRealtimeHandlerRef,
+      buildPiecesRealtimeHandlerRef,
+      logicPiecesRealtimeHandlerRef,
+      escapeSessionRealtimeHandlerRef,
+      classroomRealtimeHandlerRef,
+      dynamicBoardsRealtimeHandlerRef,
+      meetingNotesRealtimeHandlerRef,
+      liveCaptionsRealtimeHandlerRef,
+      translationRealtimeHandlerRef,
+      aiObjectsRealtimeHandlerRef,
+      sharedBrowserRealtimeHandlerRef,
+      aiWorldHostRealtimeHandlerRef,
+      worldAssetsRealtimeHandlerRef
+    ],
+    setStatus,
+    setError,
+    setSession,
+    setParticipants,
+    setRemoteWallMedia,
+    setLocalWallMedia,
+    receiveAppearance,
+    receiveAccessories,
+    receiveBody,
+    receiveReaction,
+    receiveAudioMode,
+    dropReaction,
+    dropAudioMode,
+    dropCaptionsContributor: liveCaptions.dropContributor,
+    setTargetSkinId,
+    setTargetDayNightMode,
+    warmPermissions: warmSafariLiveKitPermissions
+  });
   const logicScene = useMemo(
     () =>
       logicAuthoringEnabled && manifest && session && movement.avatarState
@@ -1825,19 +1888,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     setRemoteWallMedia({});
     setLocalWallMedia({});
   }, [displayMedia.stop, releaseMedia]);
-
-  const leaveForLobby = useCallback(() => {
-    if (leaving) return;
-    setLeaving(true);
-    setStatus("Leaving room...");
-    void leaveRoomSession(identity, roomId).catch(() => undefined);
-    teardownSession();
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        navigateToLobby(router);
-      });
-    });
-  }, [identity, leaving, roomId, router, setStatus, teardownSession]);
+  leaveCleanupRef.current = teardownSession;
 
   useEffect(() => {
     if (!session) return;
@@ -1881,438 +1932,6 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       cancelled = true;
     };
   }, [verseId, session?.room.classId, identity.userId]);
-
-  useEffect(() => {
-    if (!session || leaving) return;
-    const activeSession = session;
-    const generation = ++realtimeGenerationRef.current;
-
-    function handleMessage(message: RealtimeMessage) {
-      if (wallRealtimeHandlerRef.current(message)) return;
-      if (whiteboardRealtimeHandlerRef.current(message)) return;
-      if (roomObjectsRealtimeHandlerRef.current(message)) return;
-      if (buildPiecesRealtimeHandlerRef.current(message)) return;
-      if (logicPiecesRealtimeHandlerRef.current(message)) return;
-      if (escapeSessionRealtimeHandlerRef.current(message)) return;
-      if (classroomRealtimeHandlerRef.current(message)) return;
-      if (dynamicBoardsRealtimeHandlerRef.current(message)) return;
-      if (meetingNotesRealtimeHandlerRef.current(message)) return;
-      if (liveCaptionsRealtimeHandlerRef.current(message)) return;
-      if (translationRealtimeHandlerRef.current(message)) return;
-      if (aiObjectsRealtimeHandlerRef.current(message)) return;
-      if (sharedBrowserRealtimeHandlerRef.current(message)) return;
-      if (aiWorldHostRealtimeHandlerRef.current(message)) return;
-      if (worldAssetsRealtimeHandlerRef.current(message)) return;
-      if (message.type.startsWith("wall.")) return;
-      if (message.type.startsWith("room.whiteboard.")) return;
-      if (message.type.startsWith("room.shared-browser.")) return;
-      if (message.type.startsWith("room.object.")) return;
-      if (message.type.startsWith("room.build.")) return;
-      if (message.type.startsWith("room.logic.")) return;
-      if (message.type.startsWith("room.session.")) return;
-      if (message.type.startsWith("room.board.")) return;
-      if (message.type.startsWith("room.meeting-notes.")) return;
-      if (message.type.startsWith("room.captions.")) return;
-      if (message.type.startsWith("room.translation.")) return;
-      if (message.type.startsWith("room.ai-host.")) return;
-
-      if (message.type === "participant.leave.v1") {
-        dropReaction(message.participantId);
-        liveCaptions.dropContributor(message.participantId);
-        dropAudioMode(message.participantId);
-        setParticipants((current) => {
-          const next = { ...current };
-          delete next[message.participantId];
-          return next;
-        });
-        return;
-      }
-
-      if (message.type === "participant.audio-mode.v1") {
-        const parsed = ParticipantAudioModeMessageSchema.safeParse(message);
-        if (parsed.success) receiveAudioMode(parsed.data);
-        return;
-      }
-
-      if (message.type === "participant.presence.v1") {
-        if (!seenParticipantsRef.current.has(message.participantId)) {
-          seenParticipantsRef.current.add(message.participantId);
-          realtimeRef.current?.publish({
-            type: "avatar.appearance.v1",
-            participantId: activeSession.participantId,
-            appearance: localAppearanceRef.current,
-            customized: localAppearanceCustomizedRef.current,
-          });
-          if (CLIENT_TUNING.enableAvatarAccessories) {
-            realtimeRef.current?.publish({
-              type: "avatar.accessories.v1",
-              participantId: activeSession.participantId,
-              accessories: localAccessoriesRef.current,
-            });
-          }
-          if (CLIENT_TUNING.enableAvatarBodies) {
-            realtimeRef.current?.publish({
-              type: "avatar.body.v1",
-              participantId: activeSession.participantId,
-              bodySlug: localBodySlugRef.current,
-            });
-          }
-        }
-        setParticipants((current) => {
-          const existing = current[message.participantId];
-          const displayName = pickDisplayName(
-            message.participantId,
-            message.displayName,
-            existing?.displayName,
-            memberNamesRef.current.get(message.participantId)
-          );
-          if (!existing) {
-            return {
-              ...current,
-              [message.participantId]: {
-                id: message.participantId,
-                displayName,
-                role: message.role,
-                local: false,
-                state: createAvatarState({
-                  manifest: activeSession.manifest,
-                  participantId: message.participantId,
-                  role: message.role,
-                  viewMode: activeSession.room.settings.defaultViewMode
-                }),
-                lastSeenAt: Date.now()
-              }
-            };
-          }
-          return {
-            ...current,
-            [message.participantId]: {
-              ...existing,
-              displayName,
-              role: message.role,
-              lastSeenAt: Date.now()
-            }
-          };
-        });
-        return;
-      }
-
-      if (message.type === "avatar.appearance.v1") {
-        const parsed = AvatarAppearanceMessageSchema.safeParse(message);
-        if (parsed.success) {
-          receiveAppearance(parsed.data.participantId, parsed.data.appearance, parsed.data.customized);
-        }
-        return;
-      }
-
-      if (message.type === "avatar.accessories.v1") {
-        const parsed = AvatarAccessoriesMessageSchema.safeParse(message);
-        if (parsed.success) {
-          receiveAccessories(parsed.data.participantId, parsed.data.accessories);
-        }
-        return;
-      }
-
-      if (message.type === "avatar.body.v1") {
-        const parsed = AvatarBodyMessageSchema.safeParse(message);
-        if (parsed.success) {
-          receiveBody(parsed.data.participantId, parsed.data.bodySlug);
-        }
-        return;
-      }
-
-      if (message.type === "avatar.reaction.v1") {
-        const parsed = AvatarReactionMessageSchema.safeParse(message);
-        if (parsed.success) receiveReaction(parsed.data);
-        return;
-      }
-
-      if (message.type === "room.skin.v1") {
-        const parsed = RoomSkinMessageSchema.safeParse(message);
-        if (parsed.success) {
-          setTargetSkinId(parsed.data.skinId);
-          setTargetDayNightMode(parsed.data.dayNight);
-        }
-        return;
-      }
-
-      if (message.type === "room.play-mode.v1") {
-        const parsed = RoomPlayModeMessageSchema.safeParse(message);
-        if (parsed.success && parsed.data.roomId === roomId) {
-          setSession((current) =>
-            current
-              ? {
-                  ...current,
-                  room: {
-                    ...current.room,
-                    settings: {
-                      ...current.room.settings,
-                      playModeEnabled: parsed.data.playModeEnabled
-                    }
-                  }
-                }
-              : current
-          );
-        }
-        return;
-      }
-
-      if (message.type !== "avatar.state.v1") return;
-
-      setParticipants((current) => {
-        const existing = current[message.participantId];
-        return {
-          ...current,
-          [message.participantId]: {
-            ...existing,
-            id: message.participantId,
-            displayName: pickDisplayName(
-              message.participantId,
-              existing?.displayName,
-              memberNamesRef.current.get(message.participantId)
-            ),
-            role: existing?.role ?? "student",
-            local: false,
-            state: message,
-            lastSeenAt: Date.now()
-          }
-        };
-      });
-    }
-
-    seenParticipantsRef.current = new Set();
-    setStatus("Connecting to LiveKit...");
-    void warmSafariLiveKitPermissions()
-      .then(() =>
-        createRealtimeClient({
-          roomId,
-          session,
-          displayName: displayNameRef.current,
-          isStale: () => generation !== realtimeGenerationRef.current,
-          onMessage: handleMessage,
-          onRemoteMedia(update) {
-            if (update.wallObjectId) {
-              setRemoteWallMedia((current) => ({
-                ...current,
-                [update.wallObjectId!]: {
-                  ...(current[update.wallObjectId!] ?? {}),
-                  ...(update.wallVideoStream !== undefined ? { videoStream: update.wallVideoStream } : {}),
-                  ...(update.wallAudioStream !== undefined ? { audioStream: update.wallAudioStream } : {})
-                }
-              }));
-              return;
-            }
-            setParticipants((current) => {
-              const existing =
-                current[update.participantId] ??
-                ({
-                  id: update.participantId,
-                  displayName: pickDisplayName(update.participantId, undefined, memberNamesRef.current.get(update.participantId)),
-                  role: "student",
-                  local: false,
-                  state: createAvatarState({
-                    manifest: activeSession.manifest,
-                    participantId: update.participantId,
-                    viewMode: activeSession.room.settings.defaultViewMode
-                  }),
-                  lastSeenAt: Date.now()
-                } satisfies ParticipantView);
-              const nextParticipant: ParticipantView = {
-                ...existing,
-                state: {
-                  ...existing.state,
-                  media: {
-                    cameraEnabled: update.cameraStream !== undefined ? Boolean(update.cameraStream) : Boolean(existing.state.media?.cameraEnabled),
-                    microphoneEnabled:
-                      update.microphoneStream !== undefined ? Boolean(update.microphoneStream) : Boolean(existing.state.media?.microphoneEnabled),
-                    speaking: Boolean(existing.state.media?.speaking)
-                  }
-                },
-                lastSeenAt: Date.now()
-              };
-              if (update.cameraStream !== undefined) nextParticipant.cameraStream = update.cameraStream;
-              if (update.microphoneStream !== undefined) nextParticipant.microphoneStream = update.microphoneStream;
-              return {
-                ...current,
-                [update.participantId]: nextParticipant
-              };
-            });
-          },
-          onStatus: setStatus
-        })
-      )
-      .then((client) => {
-        if (generation !== realtimeGenerationRef.current) {
-          void client.close();
-          return;
-        }
-        realtimeRef.current = client;
-        client.publish({
-          type: "participant.presence.v1",
-          participantId: session.participantId,
-          displayName: displayNameRef.current,
-          role: session.role
-        });
-        client.publish({
-          type: "avatar.appearance.v1",
-          participantId: session.participantId,
-          appearance: localAppearanceRef.current,
-          customized: localAppearanceCustomizedRef.current,
-        });
-        if (CLIENT_TUNING.enableAvatarAccessories) {
-          client.publish({
-            type: "avatar.accessories.v1",
-            participantId: session.participantId,
-            accessories: localAccessoriesRef.current,
-          });
-        }
-        if (CLIENT_TUNING.enableAvatarBodies) {
-          client.publish({
-            type: "avatar.body.v1",
-            participantId: session.participantId,
-            bodySlug: localBodySlugRef.current,
-          });
-        }
-        client.syncParticipants();
-      })
-      .catch((error) => {
-        if (generation !== realtimeGenerationRef.current) return;
-        const message = error instanceof Error ? error.message : "Unable to connect to LiveKit.";
-        setError(message);
-        setStatus(message);
-      });
-
-    return () => {
-      realtimeGenerationRef.current += 1;
-      const client = realtimeRef.current;
-      realtimeRef.current = null;
-      void client?.close();
-    };
-  }, [session?.participantId, roomId, leaving]);
-
-  useEffect(() => {
-    if (!session || !movement.avatarState) return;
-    avatarStateRef.current = movement.avatarState;
-    setParticipants((current) => ({
-      ...current,
-      [session.participantId]: {
-        id: session.participantId,
-        displayName: identity.displayName,
-        role: session.role,
-        local: true,
-        state: movement.avatarState!,
-        cameraStream: media.cameraStream,
-        microphoneStream: media.micStream,
-        lastSeenAt: Date.now()
-      }
-    }));
-  }, [session?.participantId, movement.avatarState, identity.displayName, media.cameraStream]);
-
-  useEffect(() => {
-    if (!session) return;
-    setParticipants((current) => {
-      const existing = current[session.participantId];
-      if (!existing) return current;
-      if (existing.microphoneStream === media.micStream) return current;
-      return {
-        ...current,
-        [session.participantId]: {
-          ...existing,
-          microphoneStream: media.micStream,
-          lastSeenAt: Date.now()
-        }
-      };
-    });
-  }, [session?.participantId, media.micStream]);
-
-  useEffect(() => {
-    if (!session) return;
-    const interval = window.setInterval(() => {
-      const state = avatarStateRef.current;
-      if (!state) return;
-      const waving = waveTriggeredRef.current || undefined;
-      realtimeRef.current?.publish(waving ? { ...state, waving } : state);
-    }, Math.max(60, 1000 / session.tuning.avatarSendHz));
-    return () => window.clearInterval(interval);
-  }, [session?.participantId, session?.tuning.avatarSendHz]);
-
-  useEffect(() => {
-    if (!session || leaving) return;
-    const sync = () => {
-      realtimeRef.current?.syncParticipants();
-    };
-    sync();
-    const interval = window.setInterval(sync, 3_000);
-    return () => window.clearInterval(interval);
-  }, [session?.participantId, leaving]);
-
-  useEffect(() => {
-    if (!session) return;
-    let cancelled = false;
-    const publish = () => {
-      if (cancelled) return;
-      void realtimeRef.current?.setLocalMedia({
-        cameraStream: media.cameraStream,
-        micStream: media.micStream
-      });
-    };
-    const frame = requestAnimationFrame(() => {
-      requestAnimationFrame(publish);
-    });
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(frame);
-    };
-  }, [media.cameraStream, media.micStream, session]);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      const cutoff = Date.now() - 30_000;
-      setParticipants((current) =>
-        Object.fromEntries(Object.entries(current).filter(([id, participant]) => participant.local || participant.lastSeenAt > cutoff || id === session?.participantId))
-      );
-    }, 4_000);
-    return () => window.clearInterval(interval);
-  }, [session?.participantId]);
-
-  useEffect(() => {
-    if (!session) return;
-    const localCameraObjectIds = new Set(
-      wall.wallObjects
-        .filter(
-          (object) => {
-            if (object.type !== "camera.live") return false;
-            if (object.source.kind !== "livekit-track") return false;
-            if (object.source.participantId !== session.participantId) return false;
-            const terminalStatus = object.status === "removed" || object.status === "source_ended" || object.status === "failed" || object.status === "rejected";
-            return !terminalStatus;
-          }
-        )
-        .map((object) => object.id)
-    );
-
-    setLocalWallMedia((current) => {
-      let next = current;
-      for (const objectId of localCameraObjectIds) {
-        if (current[objectId]?.videoStream === media.cameraStream) continue;
-        if (next === current) next = { ...current };
-        next[objectId] = { ...(next[objectId] ?? {}), videoStream: media.cameraStream };
-      }
-      for (const objectId of Object.keys(current)) {
-        if (localCameraObjectIds.has(objectId)) {
-          if (media.cameraStream) continue;
-          if (next === current) next = { ...current };
-          next[objectId] = { ...(next[objectId] ?? {}), videoStream: null };
-          continue;
-        }
-        const object = wall.wallObjects.find((candidate) => candidate.id === objectId);
-        if (object?.type !== "camera.live") continue;
-        if (next === current) next = { ...current };
-        delete next[objectId];
-      }
-      return next;
-    });
-  }, [media.cameraStream, session?.participantId, wall.wallObjects]);
 
   const participantList = useMemo(
     () => participantListFromRecord(participants),
