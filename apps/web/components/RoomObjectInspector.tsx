@@ -10,7 +10,7 @@ import type {
   RoomObjectTouchPolicy
 } from "@3dspace/contracts";
 import { parseRoomObjectParameterSchemaJson } from "@3dspace/contracts";
-import type { ParticipantView } from "./RoomClient";
+import type { ParticipantView } from "../lib/room/types";
 import {
   canEditRoomObjectTransform,
   canTouchRoomObject,

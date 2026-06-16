@@ -30,17 +30,10 @@ import {
   archiveRoomObjectTemplate,
   createAttachment,
   createAttachmentDownload,
-  createBuildFloorTextureUpload,
   finalizeAttachment,
-  heartbeatRoomSession,
-  joinRoom,
   leaveRoomSession,
   listClasses,
   listClassMembers,
-  clearAvatarAppearance,
-  patchAvatarAppearance,
-  patchAvatarAccessories,
-  patchAvatarBody,
   patchRoom,
   postRoomEvent,
   uploadRoomObjectGlb
@@ -81,7 +74,6 @@ import { useWorldSkin } from "../lib/useWorldSkin";
 import { SkinLayer } from "./worldSkins/SkinLayer";
 import { usePersistentIdentity } from "../lib/usePersistentIdentity";
 import { navigateToLobby } from "../lib/navigateToLobby";
-import { normalizeRoomManifest } from "../lib/manifest";
 import { createRealtimeClient, type RealtimeClient, type RealtimeMessage } from "../lib/realtime";
 import { useSpatialAudio } from "../lib/useSpatialAudio";
 import { isBoardGrantActive } from "../lib/classroomGrants";
@@ -93,42 +85,26 @@ import { useStanding } from "../lib/useStanding";
 import { AVATAR_KEYBOARD_INTERACT_MAX_HOLD_MS } from "../lib/useAvatarMovement";
 import { hasDeskNotebook, hasPodiumNotebook, scatterWorldAssetOffsets, WORLD_ASSET_CATALOG } from "../lib/worldAssetCatalog";
 import { worldAssetGroundY } from "../lib/worldAssetGroundY";
-import { AnchorPanel } from "./AnchorPanel";
 import { AuthGate } from "../lib/auth";
-import { ClassroomPanel } from "./ClassroomPanel";
-import { FocusPanel } from "./FocusPanel";
-import { GroupsPanel } from "./GroupsPanel";
-import { PrivateChecksPanel } from "./PrivateChecksPanel";
-import { MediaControls } from "./MediaControls";
-import { MovementPad } from "./MovementPad";
 import { RoomView2D } from "./RoomView2D";
 import { BoardAccessSidePanel } from "./BoardAccessSidePanel";
 import { activeGrantMap, Roster, StudentDetailPanel } from "./Roster";
 import { useClassroomState } from "../lib/useClassroomState";
 import { useLessonRun } from "../lib/useLessonRun";
-import { LessonScriptCard, LessonStudio } from "./LessonStudio";
-import { LessonRunControls } from "./LessonRunControls";
-import { LessonStudentCallout } from "./LessonStudentCallout";
-import { LessonTimelinePanel } from "./LessonTimelinePanel";
+import { LessonStudio } from "./LessonStudio";
 import { LessonRecapPanel } from "./LessonRecapPanel";
 import { AvatarEditorPanel } from "./AvatarEditorPanel";
 import { CopyRoomInviteButton } from "./CopyRoomInviteButton";
 import { WallObjectContent } from "./WallObjectCard";
-import { RoomObjectsToolbar } from "./RoomObjectsToolbar";
 import { RoomObjectInspector } from "./RoomObjectInspector";
 import { buildSpawnPoseInFront } from "../lib/roomObjectInteraction";
-import { EnvironmentCard } from "./EnvironmentCard";
-import { PhysicsCard } from "./PhysicsCard";
 import { useDynamicWallAnchors } from "../lib/useDynamicWallAnchors";
 import { useMeetingNotes } from "../lib/useMeetingNotes";
 import { useLiveCaptions } from "../lib/useLiveCaptions";
 import { useTranslation } from "../lib/useTranslation";
 import { useTranslationVoice, type VoiceMode } from "../lib/useTranslationVoice";
-import { MeetingNotesPanel } from "./MeetingNotesPanel";
 import { LiveCaptionsDock } from "./LiveCaptionsDock";
-import { TranslationPanel } from "./TranslationPanel";
 import { TranslationDock } from "./TranslationDock";
-import { AiWorldHostControls } from "./AiWorldHostControls";
 import { WorldHostPanel } from "./WorldHostPanel";
 import { BuildControls } from "./BuildControls";
 import { LogicControls } from "./LogicControls";
@@ -136,9 +112,7 @@ import { LogicInspector } from "./LogicInspector";
 import { LogicDebugOverlay } from "./LogicDebugOverlay";
 import { useLogicMode } from "../lib/useLogicMode";
 import { ESCAPE_STARTER_KIT, roomStampToTargets } from "../lib/buildStamps";
-import { BUILD_FLOOR_TEXTURE_PRESETS, type BuildFloorTexturePreset } from "../lib/buildFloorTexturePresets";
-import { imageFloorTextureUrl, prepareFloorTextureFile } from "../lib/imageFloorTexture";
-import type { FloorTextureSelection } from "../lib/useBuildMode";
+import { imageFloorTextureUrl } from "../lib/imageFloorTexture";
 import { useLogicPieces } from "../lib/useLogicPieces";
 import { useLogicDetection, type LogicDetectionEvent } from "../lib/useLogicDetection";
 import { useEscapeSession } from "../lib/useEscapeSession";
@@ -147,8 +121,37 @@ import { EscapeTimerHud } from "./EscapeTimerHud";
 import { ApiError, signalLogicPiece } from "../lib/api";
 import type { BuildLogicPiece } from "@3dspace/contracts";
 import { useAiObjectGenerator } from "../lib/useAiObjectGenerator";
-import { AiObjectPanel } from "./AiObjectPanel";
 import { DYNAMIC_BOARD_DEFAULT_HEIGHT, DYNAMIC_BOARD_DEFAULT_WIDTH } from "./RoomView3D";
+import { RoomHudTop } from "./room/RoomHudTop";
+import { RoomLeftHud } from "./room/RoomLeftHud";
+import { RoomOverlayStack } from "./room/RoomOverlayStack";
+import { RoomRightRail } from "./room/RoomRightRail";
+import { RoomStage } from "./room/RoomStage";
+import type { ParticipantView } from "../lib/room/types";
+import {
+  activeHelpRequestUserIds as activeHelpRequestUserIdsFromRequests,
+  boardGrantWallAnchors,
+  findLocalParticipant,
+  findSelectedRoomObject,
+  findSelectedRoomObjectTemplate,
+  groupByUserId,
+  memberGroupIdsForUser,
+  mergeWallMediaStreams,
+  participantListFromRecord,
+  participantNameMapFromList,
+  roomObjectTemplatesById
+} from "../lib/room/selectors";
+import {
+  readFinePlacement,
+  readTranslationPreferences,
+  writeFinePlacement,
+  writeTranslationPreference
+} from "../lib/room/storage";
+import { useRoomAvatarActions } from "../lib/room/useRoomAvatarActions";
+import { useRoomEnvironmentActions } from "../lib/room/useRoomEnvironmentActions";
+import { useRoomFloorTextureActions } from "../lib/room/useRoomFloorTextureActions";
+import { useRoomWallActions } from "../lib/room/useRoomWallActions";
+import { useRoomSession } from "../lib/room/useRoomSession";
 
 const RoomView3D = dynamic(() => import("./RoomView3D").then((module) => module.RoomView3D), {
   ssr: false,
@@ -159,9 +162,6 @@ const DeskNotebook = dynamic(
   () => import("./DeskNotebook/DeskNotebook").then((module) => module.DeskNotebook),
   { ssr: false }
 );
-
-/** Remembered across sessions: fine object placement (small rotations + nudge). */
-const FINE_PLACEMENT_STORAGE_KEY = "3dspace-fine-placement";
 
 function isActiveLiveWallObject(object: WallObject) {
   return object.type.endsWith(".live") && object.status === "active";
@@ -198,17 +198,6 @@ async function warmSafariLiveKitPermissions() {
   }
 }
 
-export type ParticipantView = {
-  id: string;
-  displayName: string;
-  role: Role;
-  local: boolean;
-  state: AvatarStateMessage;
-  cameraStream?: MediaStream | null | undefined;
-  microphoneStream?: MediaStream | null | undefined;
-  lastSeenAt: number;
-};
-
 export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; inviteCode?: string; verseId?: string }) {
   const router = useRouter();
   const { identity, loaded: identityLoaded, authRequired, signedIn } = usePersistentIdentity();
@@ -229,15 +218,10 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [viewMode]);
-  const [session, setSession] = useState<RoomSessionResponse | null>(null);
-  const [manifest, setManifest] = useState<RoomManifest | null>(null);
   const [participants, setParticipants] = useState<Record<string, ParticipantView>>({});
-  const [status, setStatus] = useState("Connecting...");
   const [leaving, setLeaving] = useState(false);
-  const [error, setError] = useState("");
   const realtimeRef = useRef<RealtimeClient | null>(null);
   const realtimeGenerationRef = useRef(0);
-  const joinGenerationRef = useRef(0);
   const avatarStateRef = useRef<AvatarStateMessage | null>(null);
   const memberNamesRef = useRef(new Map<string, string>());
   const localAppearanceRef = useRef<AvatarAppearance>(DEFAULT_APPEARANCE);
@@ -257,6 +241,42 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   getAccessoriesRef.current = getAccessories;
   const { receive: receiveReaction, drop: dropReaction, getReaction, log } = useAvatarReactions();
   const { receive: receiveAudioMode, drop: dropAudioMode, all: audioModes } = useAudioModes();
+  const handleSessionJoined = useCallback((nextSession: RoomSessionResponse) => {
+    const initialAppearance = nextSession.avatarAppearance ?? DEFAULT_APPEARANCE;
+    const initialAppearanceCustomized = nextSession.avatarAppearance != null;
+    const initialAccessories = AvatarEquippedAccessoriesSchema.parse(
+      nextSession.avatarAccessories ?? undefined
+    );
+    const initialBodySlug = AvatarBodySlugSchema.parse(
+      nextSession.avatarBodySlug ?? DEFAULT_AVATAR_BODY_SLUG
+    );
+    localAppearanceRef.current = initialAppearance;
+    localAppearanceCustomizedRef.current = initialAppearanceCustomized;
+    localAccessoriesRef.current = initialAccessories;
+    localBodySlugRef.current = initialBodySlug;
+    setLocalAppearance(nextSession.participantId, initialAppearance, initialAppearanceCustomized);
+    setLocalAccessories(nextSession.participantId, initialAccessories);
+    setLocalBody(nextSession.participantId, initialBodySlug);
+  }, [setLocalAppearance, setLocalAccessories, setLocalBody]);
+  const {
+    session,
+    setSession,
+    manifest,
+    status,
+    setStatus,
+    error,
+    setError
+  } = useRoomSession({
+    identity,
+    identityLoaded,
+    authRequired,
+    signedIn,
+    roomId,
+    inviteCode,
+    viewMode,
+    leaving,
+    onJoined: handleSessionJoined
+  });
   const [whisperMode, setWhisperMode] = useState<"normal" | "whisper">("normal");
   const whisperModeRef = useRef(whisperMode);
   whisperModeRef.current = whisperMode;
@@ -297,6 +317,23 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   const publishRealtime = useCallback((message: RealtimeMessage) => {
     realtimeRef.current?.publish(message);
   }, []);
+  const {
+    resetToDefaultSkin,
+    saveAppearance: saveAvatarAppearance,
+    saveAccessories: saveAvatarAccessories,
+    saveBody: saveAvatarBody
+  } = useRoomAvatarActions({
+    identity,
+    participantId: session?.participantId,
+    localAppearanceRef,
+    localAppearanceCustomizedRef,
+    localAccessoriesRef,
+    localBodySlugRef,
+    setLocalAppearance,
+    setLocalAccessories,
+    setLocalBody,
+    publishRealtime
+  });
   const wall = useWallObjects({
     identity,
     roomId: session?.room.id ?? roomId,
@@ -388,69 +425,46 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   const translationEnabled = roomTypeFeatures.translation && CLIENT_TUNING.enableTranslation && Boolean(session);
   const translationVoiceEnabled = translationEnabled && CLIENT_TUNING.enableTranslationVoice;
   const translationStorageKey = `3dspace.translation:${identity.userId}`;
-  const [readLang, setReadLangState] = useState<string>(() => {
-    if (typeof window === "undefined") return "en";
-    try {
-      const stored = JSON.parse(window.localStorage.getItem(translationStorageKey) ?? "{}") as { readLang?: string; speakLang?: string };
-      return stored.readLang ?? navigator.language.split("-")[0] ?? "en";
-    } catch {
-      return navigator.language.split("-")[0] ?? "en";
-    }
-  });
-  const [speakLang, setSpeakLangState] = useState<string>(() => {
-    if (typeof window === "undefined") return "en";
-    try {
-      const stored = JSON.parse(window.localStorage.getItem(translationStorageKey) ?? "{}") as { readLang?: string; speakLang?: string };
-      return stored.speakLang ?? navigator.language.split("-")[0] ?? "en";
-    } catch {
-      return navigator.language.split("-")[0] ?? "en";
-    }
-  });
-  const [voiceMode, setVoiceModeState] = useState<VoiceMode>(() => {
-    if (typeof window === "undefined") return "off";
-    try {
-      const stored = JSON.parse(window.localStorage.getItem(translationStorageKey) ?? "{}") as { voiceMode?: string };
-      return (stored.voiceMode as VoiceMode | undefined) ?? "off";
-    } catch {
-      return "off";
-    }
-  });
-  const [voiceChoice, setVoiceChoiceState] = useState<string>(() => {
-    if (typeof window === "undefined") return "auto";
-    try {
-      const stored = JSON.parse(window.localStorage.getItem(translationStorageKey) ?? "{}") as { voiceChoice?: string };
-      return stored.voiceChoice ?? "auto";
-    } catch {
-      return "auto";
-    }
-  });
+  const initialTranslationPrefs = useMemo(
+    () =>
+      readTranslationPreferences({
+        storage: typeof window === "undefined" ? undefined : window.localStorage,
+        storageKey: translationStorageKey,
+        navigatorLanguage: typeof navigator === "undefined" ? undefined : navigator.language
+      }),
+    [translationStorageKey]
+  );
+  const [readLang, setReadLangState] = useState<string>(initialTranslationPrefs.readLang);
+  const [speakLang, setSpeakLangState] = useState<string>(initialTranslationPrefs.speakLang);
+  const [voiceMode, setVoiceModeState] = useState<VoiceMode>(initialTranslationPrefs.voiceMode);
+  const [voiceChoice, setVoiceChoiceState] = useState<string>(initialTranslationPrefs.voiceChoice);
   const setReadLang = useCallback((lang: string) => {
     setReadLangState(lang);
-    try {
-      const stored = JSON.parse(window.localStorage.getItem(translationStorageKey) ?? "{}") as Record<string, string>;
-      window.localStorage.setItem(translationStorageKey, JSON.stringify({ ...stored, readLang: lang }));
-    } catch { /* ignore */ }
+    writeTranslationPreference(
+      { storage: typeof window === "undefined" ? undefined : window.localStorage, storageKey: translationStorageKey },
+      { readLang: lang }
+    );
   }, [translationStorageKey]);
   const setSpeakLang = useCallback((lang: string) => {
     setSpeakLangState(lang);
-    try {
-      const stored = JSON.parse(window.localStorage.getItem(translationStorageKey) ?? "{}") as Record<string, string>;
-      window.localStorage.setItem(translationStorageKey, JSON.stringify({ ...stored, speakLang: lang }));
-    } catch { /* ignore */ }
+    writeTranslationPreference(
+      { storage: typeof window === "undefined" ? undefined : window.localStorage, storageKey: translationStorageKey },
+      { speakLang: lang }
+    );
   }, [translationStorageKey]);
   const setVoiceMode = useCallback((mode: VoiceMode) => {
     setVoiceModeState(mode);
-    try {
-      const stored = JSON.parse(window.localStorage.getItem(translationStorageKey) ?? "{}") as Record<string, string>;
-      window.localStorage.setItem(translationStorageKey, JSON.stringify({ ...stored, voiceMode: mode }));
-    } catch { /* ignore */ }
+    writeTranslationPreference(
+      { storage: typeof window === "undefined" ? undefined : window.localStorage, storageKey: translationStorageKey },
+      { voiceMode: mode }
+    );
   }, [translationStorageKey]);
   const setVoiceChoice = useCallback((voice: string) => {
     setVoiceChoiceState(voice);
-    try {
-      const stored = JSON.parse(window.localStorage.getItem(translationStorageKey) ?? "{}") as Record<string, string>;
-      window.localStorage.setItem(translationStorageKey, JSON.stringify({ ...stored, voiceChoice: voice }));
-    } catch { /* ignore */ }
+    writeTranslationPreference(
+      { storage: typeof window === "undefined" ? undefined : window.localStorage, storageKey: translationStorageKey },
+      { voiceChoice: voice }
+    );
   }, [translationStorageKey]);
   const translationVoice = useTranslationVoice({
     identity,
@@ -544,11 +558,6 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     const { floor: _floor, panoramaWall: _panorama, ...rest } = activeSkin.skin.overrides;
     return { ...activeSkin.skin, overrides: rest };
   }, [activeSkin.skin, session?.room.type, skinId]);
-  // Local ambient gain: teacher slider gives immediate audio feedback while patchRoom debounces.
-  const [localAmbientGain, setLocalAmbientGain] = useState<number | null>(null);
-  const ambientDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const physicsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const physicsPatchGenerationRef = useRef(0);
 
   const roomObjectCustomUploadsEnabled = roomObjectsEnabled && roomObjectsSettings?.customUploadsEnabled === true;
   const roomObjectsTeacherToolbarVisible = CLIENT_TUNING.enableRoomObjects && role === "teacher" && Boolean(manifest);
@@ -636,35 +645,28 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     publish: publishRealtime
   });
   const buildMode = useBuildMode();
-  const setFloorTexture = buildMode.setFloorTexture;
-  const floorPresetUploadCacheRef = useRef<Map<string, FloorTextureSelection>>(new Map());
-  /** Upload a floor image (downscaled client-side) and select it for the Image Floor tool. */
-  const uploadFloorTextureFile = useCallback(
-    async (file: File): Promise<FloorTextureSelection> => {
-      const activeRoomId = session?.room.id ?? roomId;
-      const prepared = await prepareFloorTextureFile(file);
-      const { storageKey, textureUrl, upload } = await createBuildFloorTextureUpload(identity, activeRoomId, {
-        fileName: prepared.fileName,
-        contentType: prepared.contentType
-      });
-      const response = await fetch(upload.url, {
-        method: upload.method,
-        headers: upload.headers,
-        body: prepared.blob
-      });
-      if (!response.ok) throw new Error("Floor image upload failed.");
-      const selection = { storageKey, url: textureUrl, fileName: prepared.fileName };
-      setFloorTexture(selection);
-      return selection;
-    },
-    [identity, roomId, session?.room.id, setFloorTexture]
-  );
-  const handleUploadFloorTexture = useCallback(
-    async (file: File) => {
-      await uploadFloorTextureFile(file);
-    },
-    [uploadFloorTextureFile]
-  );
+  const {
+    localAmbientGain,
+    runSkinAction,
+    changeAmbientGain,
+    scheduleRoomPhysicsSettings,
+    resetRoomPhysicsSettings
+  } = useRoomEnvironmentActions({
+    identity,
+    roomId: session?.room.id,
+    worldSkinSettings: parsedRoomSettings?.worldSkins,
+    setSession,
+    setTargetSkinId,
+    setTargetDayNightMode,
+    publishRealtime,
+    runClassroomAction: classroom.runAction
+  });
+  const { handleUploadFloorTexture, handleSelectFloorTexturePreset } =
+    useRoomFloorTextureActions({
+      identity,
+      roomId: session?.room.id ?? roomId,
+      setFloorTexture: buildMode.setFloorTexture
+    });
   /** Distinct floor images already laid in this room, so a floor can be extended later. */
   const floorTextureOptions = useMemo(() => {
     const seen = new Map<
@@ -683,39 +685,21 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     }
     return Array.from(seen.values());
   }, [buildPieces.pieces]);
-  const handleSelectFloorTexturePreset = useCallback(
-    async (preset: BuildFloorTexturePreset) => {
-      const cached = floorPresetUploadCacheRef.current.get(preset.slug);
-      if (cached) {
-        setFloorTexture(cached);
-        return;
-      }
-      const response = await fetch(preset.url);
-      if (!response.ok) throw new Error("Could not load floor preset.");
-      const blob = await response.blob();
-      const file = new File([blob], preset.fileName, {
-        type: blob.type || "image/png"
-      });
-      const selection = await uploadFloorTextureFile(file);
-      const cachedSelection = { ...selection, presetSlug: preset.slug };
-      floorPresetUploadCacheRef.current.set(preset.slug, cachedSelection);
-      setFloorTexture(cachedSelection);
-    },
-    [setFloorTexture, uploadFloorTextureFile]
-  );
   const [selectedAssetSlug, setSelectedAssetSlug] = useState<string | null>(null);
   const [selectedCustomAssetId, setSelectedCustomAssetId] = useState<string | null>(null);
   const [assetYawDeg, setAssetYawDeg] = useState(0);
   // Scatter assets (e.g. Tall Grass): instances strewn per placement click.
   const [assetScatterCount, setAssetScatterCount] = useState(1);
-  const [fineAssetPlacement, setFineAssetPlacement] = useState(
-    () => typeof window !== "undefined" && window.localStorage.getItem(FINE_PLACEMENT_STORAGE_KEY) === "1"
+  const [fineAssetPlacement, setFineAssetPlacement] = useState(() =>
+    readFinePlacement(typeof window === "undefined" ? undefined : window.localStorage)
   );
   const toggleFineAssetPlacement = useCallback(() => {
     setFineAssetPlacement((value) => {
       const next = !value;
-      window.localStorage.setItem(FINE_PLACEMENT_STORAGE_KEY, next ? "1" : "0");
-      return next;
+      return writeFinePlacement(
+        typeof window === "undefined" ? undefined : window.localStorage,
+        next
+      );
     });
   }, []);
   const logicFeatureEnabled =
@@ -1136,39 +1120,6 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       featureEnabled: physicsEnvEnabled(session.room.type) && roomTypeFeatures.physics
     });
   }, [activeSkinForRoom?.overrides, physicsRoomOverrides, roomTypeFeatures.physics, session]);
-  const persistRoomPhysicsSettings = useCallback(
-    (nextPhysics: Partial<PhysicsTuning>) => {
-      if (!session?.room.id) return;
-      const activeRoomId = session.room.id;
-      const generation = ++physicsPatchGenerationRef.current;
-      void patchRoom(identity, activeRoomId, {
-        settings: {
-          physics: nextPhysics
-        }
-      }).then((updated) => {
-        if (physicsPatchGenerationRef.current !== generation) return;
-        const nextSettings = parseRoomSettings(updated.settings);
-        setSession((current) =>
-          current?.room.id === activeRoomId
-            ? { ...current, room: { ...current.room, settings: { ...current.room.settings, ...nextSettings } } }
-            : current
-        );
-      }).catch(() => undefined);
-    },
-    [identity, session?.room.id]
-  );
-  const scheduleRoomPhysicsSettings = useCallback(
-    (nextPhysics: Partial<PhysicsTuning>) => {
-      if (physicsDebounceRef.current) clearTimeout(physicsDebounceRef.current);
-      physicsDebounceRef.current = setTimeout(() => {
-        persistRoomPhysicsSettings(nextPhysics);
-      }, 250);
-    },
-    [persistRoomPhysicsSettings]
-  );
-  useEffect(() => () => {
-    if (physicsDebounceRef.current) clearTimeout(physicsDebounceRef.current);
-  }, []);
   const buildPiecesForMovementRef = useRef<BuildPiece[]>([]);
   buildPiecesForMovementRef.current = buildPiecesEnabled ? buildPieces.pieces : [];
   const worldAssetsForMovementRef = useRef<PlacedChair[]>([]);
@@ -1828,11 +1779,6 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   }, [role, spotlight?.anchorId, spotlight?.mode, manifest, camera.yawRef]);
 
   useEffect(() => {
-    setManifest((current) => (current ? normalizeRoomManifest(current, session?.room.type ?? "classroom") : current));
-    setSession((current) => (current ? { ...current, manifest: normalizeRoomManifest(current.manifest, current.room.type) } : current));
-  }, []);
-
-  useEffect(() => {
     if (!movement.avatarState || viewMode !== "3d") return;
     camera.yawRef.current = movement.avatarState.rotation.y;
   }, [movement.avatarState?.participantId, movement.avatarState?.rotation.y, viewMode]);
@@ -1882,42 +1828,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
         navigateToLobby(router);
       });
     });
-  }, [leaving, router, teardownSession]);
-
-  useEffect(() => {
-    if (!identityLoaded) return;
-    if (authRequired && !signedIn) return;
-    if (leaving) return;
-    const generation = ++joinGenerationRef.current;
-    setStatus("Joining room...");
-    setError("");
-    joinRoom(identity, roomId, inviteCode ? { viewMode, inviteCode } : { viewMode })
-      .then((nextSession) => {
-        if (generation !== joinGenerationRef.current) return;
-        const normalizedManifest = normalizeRoomManifest(nextSession.manifest, nextSession.room.type);
-        const initialAppearance = nextSession.avatarAppearance ?? DEFAULT_APPEARANCE;
-        const initialAppearanceCustomized = nextSession.avatarAppearance != null;
-        const initialAccessories = AvatarEquippedAccessoriesSchema.parse(nextSession.avatarAccessories ?? undefined);
-        const initialBodySlug = AvatarBodySlugSchema.parse(nextSession.avatarBodySlug ?? DEFAULT_AVATAR_BODY_SLUG);
-        localAppearanceRef.current = initialAppearance;
-        localAppearanceCustomizedRef.current = initialAppearanceCustomized;
-        localAccessoriesRef.current = initialAccessories;
-        localBodySlugRef.current = initialBodySlug;
-        setLocalAppearance(nextSession.participantId, initialAppearance, initialAppearanceCustomized);
-        setLocalAccessories(nextSession.participantId, initialAccessories);
-        setLocalBody(nextSession.participantId, initialBodySlug);
-        setSession({ ...nextSession, manifest: normalizedManifest });
-        setManifest(normalizedManifest);
-        setStatus("Joined room. Connecting to LiveKit...");
-      })
-      .catch((err) => {
-        if (generation !== joinGenerationRef.current) return;
-        setError(err instanceof Error ? err.message : "Unable to join room.");
-      });
-    return () => {
-      joinGenerationRef.current += 1;
-    };
-  }, [identityLoaded, authRequired, signedIn, identity.userId, roomId, inviteCode, leaving, viewMode]);
+  }, [identity, leaving, roomId, router, setStatus, teardownSession]);
 
   useEffect(() => {
     if (!session) return;
@@ -1961,20 +1872,6 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       cancelled = true;
     };
   }, [verseId, session?.room.classId, identity.userId]);
-
-  useEffect(() => {
-    if (!session || leaving) return;
-    const activeRoomId = session.room.id;
-    const tick = () => {
-      void heartbeatRoomSession(identity, activeRoomId).catch(() => undefined);
-    };
-    tick();
-    const interval = window.setInterval(tick, 30_000);
-    return () => {
-      window.clearInterval(interval);
-      void leaveRoomSession(identity, activeRoomId).catch(() => undefined);
-    };
-  }, [identity, leaving, session]);
 
   useEffect(() => {
     if (!session || leaving) return;
@@ -2408,18 +2305,18 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     });
   }, [media.cameraStream, session?.participantId, wall.wallObjects]);
 
-  const participantList = useMemo(() => Object.values(participants), [participants]);
+  const participantList = useMemo(
+    () => participantListFromRecord(participants),
+    [participants]
+  );
   const participantNameMap = useMemo(
-    () => Object.fromEntries(participantList.map((participant) => [participant.id, participant.displayName])),
+    () => participantNameMapFromList(participantList),
     [participantList]
   );
-  const roomObjectTemplatesById = useMemo(() => {
-    const map: Record<string, RoomObjectTemplate> = {};
-    for (const template of roomObjectTemplates.templates) {
-      map[template.id] = template;
-    }
-    return map;
-  }, [roomObjectTemplates.templates]);
+  const roomObjectTemplatesByIdMap = useMemo(
+    () => roomObjectTemplatesById(roomObjectTemplates.templates),
+    [roomObjectTemplates.templates]
+  );
 
   useEffect(() => {
     if (!roomObjectsEnabled || !session?.room.id) return;
@@ -2427,7 +2324,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       ...new Set(
         roomObjects.objects
           .map((object) => object.templateId)
-          .filter((templateId) => !roomObjectTemplatesById[templateId])
+          .filter((templateId) => !roomObjectTemplatesByIdMap[templateId])
       )
     ];
     if (missingTemplateIds.length === 0) return;
@@ -2441,40 +2338,28 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     return () => {
       cancelled = true;
     };
-  }, [roomObjects.objects, roomObjectTemplates.resolveTemplate, roomObjectTemplatesById, roomObjectsEnabled, session?.room.id]);
+  }, [roomObjects.objects, roomObjectTemplates.resolveTemplate, roomObjectTemplatesByIdMap, roomObjectsEnabled, session?.room.id]);
 
   const memberGroupIdsForRoomObjects = useMemo(
-    () =>
-      (classroom.state?.groups ?? [])
-        .filter((group) => group.status === "active" && group.memberUserIds.includes(identity.userId))
-        .map((group) => group.id),
+    () => memberGroupIdsForUser(classroom.state?.groups, identity.userId),
     [classroom.state?.groups, identity.userId]
   );
   const localParticipantForRoomObjects = useMemo(
-    () =>
-      participantList.find((participant) => participant.id === session?.participantId) ??
-      participantList.find((participant) => participant.local) ??
-      null,
+    () => findLocalParticipant(participantList, session?.participantId),
     [participantList, session?.participantId]
   );
   const selectedRoomObject = useMemo(
-    () => roomObjects.objects.find((object) => object.id === selectedRoomObjectId) ?? null,
+    () => findSelectedRoomObject(roomObjects.objects, selectedRoomObjectId),
     [roomObjects.objects, selectedRoomObjectId]
   );
   const selectedRoomObjectTemplate = useMemo(
-    () => (selectedRoomObject ? roomObjectTemplatesById[selectedRoomObject.templateId] : undefined),
-    [roomObjectTemplatesById, selectedRoomObject]
+    () => findSelectedRoomObjectTemplate(selectedRoomObject, roomObjectTemplatesByIdMap),
+    [roomObjectTemplatesByIdMap, selectedRoomObject]
   );
-  const groupByUserId = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const group of classroom.state?.groups ?? []) {
-      if (group.status !== "active" || !group.targetPosition) continue;
-      for (const userId of group.memberUserIds) {
-        map.set(userId, group.id);
-      }
-    }
-    return map;
-  }, [classroom.state?.groups]);
+  const groupByUserIdMap = useMemo(
+    () => groupByUserId(classroom.state?.groups),
+    [classroom.state?.groups]
+  );
 
   useEffect(() => {
     if (selectedStudentId && !participantList.some((p) => p.id === selectedStudentId)) {
@@ -2498,38 +2383,16 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       ) ?? null,
     [classroom.state?.boardAccessGrants, identity.userId]
   );
-  const wallMediaStreams = useMemo(() => {
-    const next: Record<string, { videoStream?: MediaStream | null; audioStream?: MediaStream | null }> = {
-      ...remoteWallMedia,
-      ...localWallMedia
-    };
-    for (const object of wall.wallObjects) {
-      if (object.type.endsWith(".live") && !isActiveLiveWallObject(object)) {
-        const participantTrackType = object.type === "camera.live" || object.type === "microphone.live";
-        const terminalStatus = object.status === "removed" || object.status === "source_ended" || object.status === "failed" || object.status === "rejected";
-        if (!participantTrackType || terminalStatus) {
-          if (next[object.id]) {
-            next[object.id] = { ...(next[object.id] ?? {}), videoStream: null, audioStream: null };
-          }
-          continue;
-        }
-        // camera.live and microphone.live in non-terminal states: fall through to use participant streams
-      }
-      const source = object.source;
-      if (source.kind !== "livekit-track") continue;
-      const participant = participantList.find((candidate) => candidate.id === source.participantId);
-      if (!participant) continue;
-      if (object.type === "camera.live") {
-        const existing = next[object.id] ?? {};
-        next[object.id] = { ...existing, videoStream: existing.videoStream !== undefined ? existing.videoStream : (participant.cameraStream ?? null) };
-      }
-      if (object.type === "microphone.live") {
-        const existing = next[object.id] ?? {};
-        next[object.id] = { ...existing, audioStream: existing.audioStream !== undefined ? existing.audioStream : (participant.microphoneStream ?? null) };
-      }
-    }
-    return next;
-  }, [localWallMedia, participantList, remoteWallMedia, wall.wallObjects]);
+  const wallMediaStreams = useMemo(
+    () =>
+      mergeWallMediaStreams({
+        remoteWallMedia,
+        localWallMedia,
+        wallObjects: wall.wallObjects,
+        participants: participantList
+      }),
+    [localWallMedia, participantList, remoteWallMedia, wall.wallObjects]
+  );
   const canWriteWhiteboard = useCallback((object: WallObject) => {
     if (!session || object.type !== "whiteboard") return false;
     if (session.role === "teacher") return true;
@@ -2543,11 +2406,10 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       activeBoardGrant.allowedObjectTypes.includes("whiteboard")
     );
   }, [activeBoardGrant, parsedRoomSettings?.whiteboards.allowStudentDraw, roomTypeFeatures.peoplePanelTeacherControls, session]);
-  const boardGrantWallAnchors = useMemo(() => {
-    if (!manifest) return [];
-    const dynamic = dynamicBoards.anchors ?? [];
-    return dynamic.length ? [...manifest.wallAnchors, ...dynamic] : manifest.wallAnchors;
-  }, [dynamicBoards.anchors, manifest]);
+  const boardGrantWallAnchorsList = useMemo(
+    () => boardGrantWallAnchors(manifest?.wallAnchors, dynamicBoards.anchors),
+    [dynamicBoards.anchors, manifest?.wallAnchors]
+  );
   const podsInput = useMemo(() => {
     if (!roomTypeFeatures.breakoutPods || !CLIENT_TUNING.enableBreakoutPods) return undefined;
     const runtime = classroom.state?.podsRuntime;
@@ -2556,9 +2418,9 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       enabled: true,
       murmurFloor: session?.room.settings.pods?.podMurmurFloor ?? 0.08,
       broadcastUserIds: new Set(runtime.broadcastFromUserIds),
-      groupByUserId
+      groupByUserId: groupByUserIdMap
     };
-  }, [classroom.state?.podsRuntime, groupByUserId, roomTypeFeatures.breakoutPods, session]);
+  }, [classroom.state?.podsRuntime, groupByUserIdMap, roomTypeFeatures.breakoutPods, session]);
   useSpatialAudio(
     session
       ? {
@@ -2577,160 +2439,29 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   );
 
   const getAudioMode = useCallback((id: string) => audioModes.get(id), [audioModes]);
-
-  const createFileObject = useCallback(
-    async (input: { anchorId: string; file: File; title: string; altText?: string | undefined; caption?: string | undefined }) => {
-      await wall.createFileObject(input);
-    },
-    [wall.createFileObject]
-  );
-
-  const createNote = useCallback(
-    async (input: { anchorId: string; title: string; text: string }) => {
-      await wall.createInlineObject({ anchorId: input.anchorId, type: "note", title: input.title, data: { text: input.text } });
-    },
-    [wall.createInlineObject]
-  );
-
-  const createWhiteboard = useCallback(
-    async (input: { anchorId: string; title: string }) => {
-      await wall.createInlineObject({ anchorId: input.anchorId, type: "whiteboard", title: input.title, data: {} });
-    },
-    [wall.createInlineObject]
-  );
-
-  const createSharedBrowser = useCallback(
-    async (input: { anchorId: string; title: string; startUrl: string }) => {
-      await wall.createInlineObject({
-        anchorId: input.anchorId,
-        type: "web.browser.shared",
-        title: input.title,
-        data: { startUrl: input.startUrl }
-      });
-    },
-    [wall.createInlineObject]
-  );
-
-  const createTimer = useCallback(
-    async (input: { anchorId: string; title: string; seconds: number }) => {
-      await wall.createInlineObject({ anchorId: input.anchorId, type: "timer", title: input.title, data: { seconds: input.seconds } });
-    },
-    [wall.createInlineObject]
-  );
-
-  const createPoll = useCallback(
-    async (input: { anchorId: string; title: string; question: string; choices: string[] }) => {
-      await wall.createInlineObject({ anchorId: input.anchorId, type: "poll", title: input.title, data: { question: input.question, choices: input.choices } });
-    },
-    [wall.createInlineObject]
-  );
-
-  const createLink = useCallback(
-    async (input: { anchorId: string; title: string; url: string }) => {
-      await wall.createLinkObject({ anchorId: input.anchorId, title: input.title, url: input.url });
-    },
-    [wall.createLinkObject]
-  );
-
-  const pinCamera = useCallback(
-    async (anchorId: string) => {
-      if (!media.cameraEnabled) media.setCameraEnabled(true);
-      await media.waitForCameraStream();
-      await wall.createLiveShareObject({ anchorId, type: "camera.live", title: "Pinned camera" });
-    },
-    [media.cameraEnabled, media.setCameraEnabled, media.waitForCameraStream, wall.createLiveShareObject]
-  );
-
-  const pinMicrophone = useCallback(
-    async (anchorId: string) => {
-      if (!media.microphoneEnabled) media.setMicrophoneEnabled(true);
-      await wall.createLiveShareObject({ anchorId, type: "microphone.live", title: "Pinned microphone" });
-    },
-    [media.microphoneEnabled, media.setMicrophoneEnabled, wall.createLiveShareObject]
-  );
-
-  const shareScreen = useCallback(
-    async (anchorId: string) => {
-      const share = await wall.createLiveShareObject({ anchorId, type: "browser-tab.live", title: "Shared screen" });
-      try {
-        const stream = await displayMedia.start();
-        const audioStream = stream.getAudioTracks().length > 0 ? new MediaStream(stream.getAudioTracks()) : null;
-        setLocalWallMedia((current) => ({
-          ...current,
-          [share.object.id]: {
-            videoStream: new MediaStream(stream.getVideoTracks()),
-            audioStream
-          }
-        }));
-        await realtimeRef.current?.setLocalWallShare({
-          objectId: share.object.id,
-          screenStream: stream,
-          audioStream,
-          publicationName: share.publicationName
-        });
-        stream.getTracks().forEach((track) => {
-          track.addEventListener("ended", () => {
-            setLocalWallMedia((current) => {
-              const next = { ...current };
-              delete next[share.object.id];
-              return next;
-            });
-            void realtimeRef.current?.setLocalWallShare({ objectId: share.object.id, screenStream: null });
-            void wall.endShare(share.object.id).catch(() => undefined);
-          });
-        });
-      } catch (err) {
-        await wall.endShare(share.object.id).catch(() => undefined);
-        throw err;
-      }
-    },
-    [displayMedia, wall.createLiveShareObject, wall.endShare]
-  );
-
-  const stopShare = useCallback(
-    async (objectId: string) => {
-      displayMedia.stop();
-      setLocalWallMedia((current) => {
-        const next = { ...current };
-        delete next[objectId];
-        return next;
-      });
-      setRemoteWallMedia((current) => {
-        if (!current[objectId]) return current;
-        const next = { ...current };
-        delete next[objectId];
-        return next;
-      });
-      await realtimeRef.current?.setLocalWallShare({ objectId, screenStream: null });
-      await wall.endShare(objectId);
-    },
-    [displayMedia, wall.endShare]
-  );
-
-  const controlWallObject = useCallback(
-    async (
-      objectId: string,
-      action: "play" | "pause" | "mute" | "unmute" | "seek" | "vote" | "close-poll" | "reopen-poll" | "set-slide",
-      positionSeconds?: number,
-      choiceId?: string,
-      slideIndex?: number
-    ) => {
-      await wall.controlObject(objectId, {
-        action,
-        ...(positionSeconds !== undefined ? { positionSeconds } : {}),
-        ...(choiceId ? { choiceId } : {}),
-        ...(slideIndex !== undefined ? { slideIndex } : {})
-      });
-    },
-    [wall.controlObject]
-  );
-
-  const moderateWallObject = useCallback(
-    async (objectId: string, action: "approve" | "reject") => {
-      await wall.controlObject(objectId, { action });
-    },
-    [wall.controlObject]
-  );
+  const {
+    createFileObject,
+    createNote,
+    createWhiteboard,
+    createSharedBrowser,
+    createTimer,
+    createPoll,
+    createLink,
+    pinCamera,
+    pinMicrophone,
+    shareScreen,
+    stopShare,
+    controlWallObject,
+    moderateWallObject,
+    removeWallObject
+  } = useRoomWallActions({
+    wall,
+    media,
+    displayMedia,
+    realtimeRef,
+    setLocalWallMedia,
+    setRemoteWallMedia
+  });
 
   const uploadSlideImage = useCallback(
     async (file: File, wallAnchorId: string) => {
@@ -2869,29 +2600,6 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     </button>
   );
 
-  if (error) {
-    return (
-      <main className="app-shell">
-        <div className="panel stack">
-          {exitToLobby("Back to lobby")}
-          <div className="alert">{error}</div>
-        </div>
-      </main>
-    );
-  }
-
-  if (identityLoaded && authRequired && !signedIn) {
-    return (
-      <main className="app-shell">
-        <div className="panel stack">
-          {exitToLobby("Back to lobby")}
-          <AuthGate />
-          <div className="alert">Sign in to join this production room.</div>
-        </div>
-      </main>
-    );
-  }
-
   const activeVerse = verseById(
     verseId ?? derivedVerseId ?? verseIdFromRoomType(session?.room.type) ?? undefined
   );
@@ -2910,10 +2618,10 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     .toUpperCase() || "?";
   const roomName = session?.room.name ?? "Joining...";
 
-  const activeHelpRequestUserIds = useMemo(() => {
-    const reqs = classroom.state?.helpRequests ?? [];
-    return new Set(reqs.filter((r) => r.status === "raised" || r.status === "acknowledged").map((r) => r.userId));
-  }, [classroom.state?.helpRequests]);
+  const activeHelpRequestUserIds = useMemo(
+    () => activeHelpRequestUserIdsFromRequests(classroom.state?.helpRequests),
+    [classroom.state?.helpRequests]
+  );
   const spotlightActive = Boolean(classroom.state?.spotlight);
   const podsEnabled = classroom.state?.podsRuntime?.podsEnabled === true;
   const broadcastFromUserIds = classroom.state?.podsRuntime?.broadcastFromUserIds ?? [];
@@ -3006,227 +2714,696 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     publishAudioMode("normal");
   }, [publishAudioMode, role, session, studentHasBroadcastGrant]);
 
+  if (error) {
+    return (
+      <main className="app-shell">
+        <div className="panel stack">
+          {exitToLobby("Back to lobby")}
+          <div className="alert">{error}</div>
+        </div>
+      </main>
+    );
+  }
+
+  if (identityLoaded && authRequired && !signedIn) {
+    return (
+      <main className="app-shell">
+        <div className="panel stack">
+          {exitToLobby("Back to lobby")}
+          <AuthGate />
+          <div className="alert">Sign in to join this production room.</div>
+        </div>
+      </main>
+    );
+  }
+
   const showPlayModeToggle =
     role === "teacher" && buildingFeatureEnabled && session?.room.type === "escape-room";
   const showPlayModeDock = playModeEnabled && Boolean(session) && manifest && isEscapeRoomManifest(manifest);
 
-  const leftHudControls = (
-    <>
-      {showPlayModeToggle ? (
-        <div className="hud-panel">
-          <button
-            type="button"
-            className="hud-btn hud-btn-pri"
-            disabled={playModeBusy}
-            onClick={() => void togglePlayMode()}
-          >
-            {playModeBusy ? "…" : playModeEnabled ? "Edit layout" : "Play test"}
-          </button>
-          {playModeEnabled ? (
-            <p className="hud-ctx-sub" style={{ marginTop: "0.35rem" }}>
-              Play mode — walking only. Players cannot edit structure.
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-
-      {/* Teacher: spotlight active indicator */}
-      {roomTypeFeatures.focus && role === "teacher" && spotlightActive ? (
-        <div className="hud-panel hud-ctx-panel">
-          <div className="hud-ctx-card">
-            <span className="hud-ctx-lbl">Focus active</span>
-            <span className="hud-ctx-val">
-              {classroom.state?.spotlight?.anchorId ?? "Board"}
-            </span>
-            <span className="hud-ctx-sub">
-              {classroom.state?.spotlight?.mode === "force"
-                ? "Force — camera locked"
-                : classroom.state?.spotlight?.mode === "guide"
-                ? "Guide — look-at prompted"
-                : "Highlight — board indicated"}
-            </span>
-          </div>
-        </div>
-      ) : null}
-
-      {/* Student: group + hand status */}
-      {roomTypeFeatures.classroomState && role === "student" ? (
-        <div className="hud-panel">
-          {studentGroup ? (
-            <div className="hud-ctx-card" style={{ borderBottom: handRaised ? "1px solid rgba(255,255,255,0.08)" : undefined }}>
-              <span className="hud-ctx-lbl" style={{ color: studentGroup.color ?? "#4678b4" }}>My Group</span>
-              <span className="hud-ctx-val">
-                <span className="hud-ctx-dot" style={{ background: studentGroup.color ?? "#4678b4" }} />
-                {studentGroup.label} · {studentGroup.memberUserIds.length} members
-              </span>
-            </div>
-          ) : null}
-          {handRaised ? (
-            <div className="hud-ctx-card">
-              <span className="hud-ctx-lbl acc">Hand raised</span>
-              <span className="hud-ctx-sub">Waiting for your {roleLabels.hostSingular.toLowerCase()}</span>
-            </div>
-          ) : null}
-          {CLIENT_TUNING.enableHallPass && session?.room.settings.hallpass.enabled ? (() => {
-            const hp = session.room.settings.hallpass;
-            const periodLimitReached = !myActiveHallpass && hp.perPeriodLimit > 0 && myTodayPassCount >= hp.perPeriodLimit;
-            return (
-              <div className="hud-ctx-card">
-                {myActiveHallpass?.status === "acknowledged" ? (
-                  <div className="hallpass-hud-row">
-                    <span className="hud-ctx-lbl">Hall pass · {formatElapsed(hallpassElapsedSeconds)}</span>
-                    <button
-                      type="button"
-                      className="hud-btn hallpass-btn--out"
-                      disabled={hallpassBusy}
-                      onClick={() => {
-                        setHallpassBusy(true);
-                        void classroom.runAction({ type: "return-from-hallpass", requestId: myActiveHallpass.id })
-                          .catch(() => undefined)
-                          .finally(() => setHallpassBusy(false));
-                      }}
-                    >
-                      🚪 I'm back
-                    </button>
-                  </div>
-                ) : periodLimitReached ? (
-                  <p className="hud-ctx-sub" style={{ fontSize: "10px" }}>You've reached today's hall-pass limit.</p>
-                ) : (
-                  <button
-                    type="button"
-                    className="hud-btn"
-                    disabled={hallpassBusy || Boolean(myActiveHallpass)}
-                    onClick={() => {
-                      setHallpassBusy(true);
-                      void classroom.runAction({ type: "request-hallpass" })
-                        .catch(() => undefined)
-                        .finally(() => setHallpassBusy(false));
-                    }}
-                  >
-                    {myActiveHallpass?.status === "raised" ? "🚪 Pending..." : "🚪 Step out"}
-                  </button>
-                )}
-              </div>
-            );
-          })() : null}
-        </div>
-      ) : null}
-
-      {roomTypeFeatures.breakoutPods && role === "student" && (studentPodTarget || (podsEnabled && studentHasBroadcastGrant)) ? (
-        <div className="hud-panel">
-          {studentPodTarget ? (
-            <button type="button" className="hud-btn" onClick={moveToMyPod}>
-              Go to my pod
-            </button>
-          ) : null}
-          {podsEnabled && studentHasBroadcastGrant ? (
-            <button
-              type="button"
-              className={`hud-btn hud-btn--broadcast${broadcastMode === "broadcast" ? " hud-btn--active" : ""}`}
-              data-testid="student-broadcast-toggle"
-              onClick={toggleBroadcast}
-            >
-              {broadcastMode === "broadcast" ? "Broadcast on" : "Broadcast off"}
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-
-      {/* Identity + media controls + avatar editor button */}
-      <div className="hud-panel">
-        <div className="hud-id-card">
-          <div className="hud-av" style={{ background: avatarColor }}>{initials}</div>
-          <div className="hud-id-text">
-            <div className="hud-id-name">{identity.displayName}</div>
-            <div className="hud-id-sub">{roomRoleLabel} · {roomName}</div>
-          </div>
-        </div>
-        <MediaControls media={media} canUseCamera={canUseCamera} canUseMicrophone={canUseMicrophone} />
-        {viewMode === "3d" ? (
-          <div className="hud-person-actions">
-            <div className="hud-person-actions__cam-spacer" aria-hidden="true" />
-            <div className="hud-person-actions__buttons">
-              <div className="toggle hud-person-actions__perspective" aria-label="Camera perspective" title="First-person view (V)">
-                <button
-                  type="button"
-                  aria-pressed={firstPerson}
-                  disabled={!manifest}
-                  onClick={() => setFirstPerson(true)}
-                >
-                  1P
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={!firstPerson}
-                  disabled={!manifest}
-                  onClick={() => setFirstPerson(false)}
-                >
-                  3P
-                </button>
-              </div>
-              <button
-                type="button"
-                className={`avatar-editor__hud-btn hud-person-actions__avatar${avatarEditorOpen ? " avatar-editor__hud-btn--active" : ""}${avatarEditorLocked ? " avatar-editor__hud-btn--locked" : ""}`}
-                onClick={() => setAvatarEditorOpen((prev) => !prev)}
-                aria-pressed={avatarEditorOpen}
-                aria-label={avatarEditorLocked ? "Avatar editing paused during lesson" : "Edit your avatar"}
-                disabled={avatarEditorLocked}
-              >
-                {avatarEditorLocked ? "🔒 Avatar" : "👤 Avatar"}
-              </button>
-            </div>
-          </div>
-        ) : null}
-        {mediaPermissionText ? <p className="hud-permission" style={{ padding: "4px 9px", fontSize: "9.5px", color: "var(--hud-tx-m)" }}>{mediaPermissionText}</p> : null}
-      </div>
-
-      {/* Reactions */}
-      {CLIENT_TUNING.enableAvatarReactions ? (
-        <div className="hud-panel">
-          <div className="hud-reactions" aria-label="Reactions">
-            {(["thumbs-up", "confused", "question", "me", "pause", "celebrate"] as const).map((slug) => (
-              <button
-                key={slug}
-                type="button"
-                aria-label={slug}
-                disabled={!!classroom.state?.reactionsLocked}
-                onClick={() => fireReaction(slug)}
-              >
-                {slug === "thumbs-up" ? "👍" : slug === "confused" ? "😕" : slug === "question" ? "❓" : slug === "me" ? "🙋" : slug === "pause" ? "🤚" : "🎉"}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {/* Whisper toggle (students only, when allowed) */}
-      {roomTypeFeatures.whisper && CLIENT_TUNING.enableWhisper && role === "student" && whisperAllowed ? (
-        <div className="hud-panel">
-          <button
-            type="button"
-            className={`hud-btn${whisperMode === "whisper" ? " hud-btn--active" : ""}${whisperSuggested ? " hud-btn--glow" : ""}`}
-            onClick={toggleWhisper}
-          >
-            {whisperMode === "whisper" ? "🔇 Whisper on" : "🔊 Normal"}
-          </button>
-          {whisperSuggested ? <p className="hud-ctx-sub" style={{ fontSize: "10px", padding: "2px 0" }}>Suggested for group work</p> : null}
-        </div>
-      ) : null}
-
-      {/* D-pad */}
-      <div className="hud-panel dpad-card">
-        <MovementPad
-          onVector={movement.setTouchVector}
-          onJump={physicsTuning?.enabled && viewMode === "3d" ? movement.requestJump : undefined}
-        />
-      </div>
-    </>
-  );
+  const hallpassStatus =
+    CLIENT_TUNING.enableHallPass && session?.room.settings.hallpass.enabled
+      ? myActiveHallpass?.status === "acknowledged"
+        ? {
+            mode: "active" as const,
+            elapsedLabel: formatElapsed(hallpassElapsedSeconds),
+            busy: hallpassBusy
+          }
+        : !myActiveHallpass &&
+            session.room.settings.hallpass.perPeriodLimit > 0 &&
+            myTodayPassCount >= session.room.settings.hallpass.perPeriodLimit
+          ? { mode: "limit" as const }
+          : {
+              mode: "request" as const,
+              pending: myActiveHallpass?.status === "raised",
+              busy: hallpassBusy
+            }
+      : null;
 
   // localAmbientGain takes precedence once the teacher has moved the slider.
   const ambientGainOverride = localAmbientGain ?? parsedRoomSettings?.worldSkins?.ambientGainOverride ?? null;
   // Mute ambient while the teacher's microphone is live (voice is primary).
   const muteAmbient = media.microphoneEnabled && role === "teacher";
+  const room3dView = manifest && session ? (
+    <RoomView3D
+      manifest={manifest}
+      dynamicWallAnchors={dynamicBoards.anchors}
+      participants={participantList}
+      localParticipantId={session.participantId}
+      verse={skinId === null ? activeVerse : null}
+      getAppearance={effectiveGetAppearance}
+      getAppearanceCustomized={effectiveGetAppearanceCustomized}
+      localEditorPreviewActive={localEditorPreviewActive}
+      getAccessories={effectiveGetAccessories}
+      getBodySlug={effectiveGetBodySlug}
+      getReaction={(id) => getReaction(id)?.reaction}
+      getAudioMode={getAudioMode}
+      recordingActive={Boolean(meetingNotes.activeSession)}
+      activeHelpRequestUserIds={activeHelpRequestUserIds}
+      onSelfClick={() => setAvatarEditorOpen(true)}
+      localWaveTriggered={waveTriggered}
+      onLocalWaveComplete={() => setWaveTriggered(false)}
+      quality={session.room.settings.defaultQuality}
+      cameraYawRef={camera.yawRef}
+      cameraPitchRef={camera.pitchRef}
+      bindCamera={camera.bind}
+      firstPerson={firstPerson}
+      hallpassZone={hallpassZone}
+      onMoveToPoint={(point) => {
+        if (camera.consumeClickSuppress()) return;
+        if (manifest && aiWorldHostEnabled && aiWorldHost.placementMode !== "idle") {
+          const fallbackY = movement.avatarState?.position.y ?? floorYFromZ(manifest, point.z);
+          const position = aiHostPlacementPosition(
+            manifest,
+            point.x,
+            point.z,
+            buildPieces.pieces,
+            fallbackY
+          );
+          aiWorldHost.handleGroundClick(position);
+          return;
+        }
+        if (positioningGroupId) {
+          void classroom.runAction({
+            type: "update-group",
+            groupId: positioningGroupId,
+            targetPosition: {
+              x: point.x,
+              y: manifest ? floorYFromZ(manifest, point.z) : 0,
+              z: point.z
+            },
+            hold: { enabled: true, mode: "hard", radiusMeters: 2 }
+          }).then(() => setPositioningGroupId(""));
+        } else {
+          movement.moveTo3DPoint(point);
+        }
+      }}
+      wallObjects={wall.wallObjects}
+      assetUrls={wall.assetUrls}
+      wallMediaStreams={wallMediaStreams}
+      canManageWallObjects={session.role === "teacher"}
+      currentUserId={identity.userId}
+      classroomGroups={classroom.state?.groups ?? []}
+      podsEnabled={podsVisualEnabled}
+      podRadiusMeters={podRadiusMeters}
+      drawPodPartitions={podDrawPartitions}
+      privateChecks={classroom.state?.privateChecks ?? []}
+      spotlight={classroom.state?.spotlight}
+      onWallObjectControl={controlWallObject}
+      onWallObjectRemove={removeWallObject}
+      onWallObjectStopShare={stopShare}
+      onWallObjectModerate={moderateWallObject}
+      onWallObjectFullscreen={setFullscreenObjectId}
+      whiteboardController={whiteboards}
+      whiteboardParticipantNames={participantNameMap}
+      canWriteWhiteboard={canWriteWhiteboard}
+      sharedBrowserController={sharedBrowsers}
+      sharedBrowserIdentity={identity}
+      sharedBrowserRoomId={session.room.id}
+      dynamicBoardPlacement={dynamicBoardPlacement}
+      placementHighlightAnchorId={focusAnchorId}
+      {...(roomObjectsEnabled && manifest
+        ? {
+            roomObjects: roomObjects.objects,
+            roomObjectTemplatesById: roomObjectTemplatesByIdMap,
+            roomObjectGrabs: roomObjects.grabs,
+            myActiveRoomObjectGrabId: roomObjects.myActiveGrab?.objectId ?? null,
+            roomObjectRole: role,
+            roomObjectCurrentUserId: identity.userId,
+            roomObjectMemberGroupIds: memberGroupIdsForRoomObjects,
+            selectedRoomObjectId,
+            onSelectRoomObject: setSelectedRoomObjectId,
+            roomObjectActions: roomObjects.actions
+          }
+        : {})}
+      buildScene={buildScene}
+      logicScene={logicScene}
+      logicPlayLayer={logicPlayLayer}
+      placedChairs={chairs.chairs}
+      {...(buildMode.tool === "destroy" ? { onDeleteChair: (id: string) => void chairs.removeChair(id) } : {})}
+      localParticipantSittingPhase={sitting.sittingPhase}
+      onLocalParticipantSitAnimationFinished={sitting.onAnimationFinished}
+      assetPlacement={(() => {
+        const rotateBy = (deltaDeg: number) =>
+          setAssetYawDeg((deg) => (((deg + deltaDeg) % 360) + 360) % 360);
+
+        const custom = selectedCustomAssetId
+          ? customAssets.assets.find((a) => a.id === selectedCustomAssetId)
+          : undefined;
+        if (custom && manifest) {
+          return {
+            glbUrl: custom.glbUrl,
+            ...(custom.scale !== undefined ? { scale: custom.scale } : {}),
+            yawDeg: assetYawDeg,
+            finePlacement: false,
+            placement: custom.placement,
+            snap: {
+              walls: manifest.walls.map((w) => ({
+                start: { x: w.start.x, z: w.start.z },
+                end: { x: w.end.x, z: w.end.z }
+              })),
+              dimensions: { height: manifest.dimensions.height }
+            },
+            onPlace: (position: { x: number; y: number; z: number }, yaw: number) => {
+              chairs.placeChair(custom.id, position, yaw, {
+                custom: {
+                  glbUrl: custom.glbUrl,
+                  placement: custom.placement,
+                  ...(custom.thumbnailUrl ? { thumbnailUrl: custom.thumbnailUrl } : {})
+                },
+                ...(custom.scale !== undefined ? { scale: custom.scale } : {})
+              });
+            },
+            onCancel: () => setSelectedCustomAssetId(null),
+            onRotateBy: rotateBy
+          };
+        }
+
+        if (!selectedAssetSlug) return null;
+        const asset = WORLD_ASSET_CATALOG.find((a) => a.slug === selectedAssetSlug);
+        if (!asset) return null;
+        return {
+          glbUrl: asset.glbUrl,
+          ...(asset.scale !== undefined ? { scale: asset.scale } : {}),
+          yawDeg: assetYawDeg,
+          ...(asset.scatter ? { scatterAreaSize: asset.scatter.areaSize } : {}),
+          finePlacement: fineAssetPlacement,
+          onPlace: (position, yaw) => {
+            const scatter = asset.scatter;
+            if (scatter) {
+              for (const offset of scatterWorldAssetOffsets(scatter, assetScatterCount)) {
+                chairs.placeChair(
+                  asset.slug,
+                  { x: position.x + offset.dx, y: position.y, z: position.z + offset.dz },
+                  offset.yaw
+                );
+              }
+              return;
+            }
+            chairs.placeChair(selectedAssetSlug, position, yaw);
+          },
+          onCancel: () => setSelectedAssetSlug(null),
+          onRotateBy: rotateBy
+        };
+      })()}
+    />
+  ) : null;
+  const room2dView = manifest && session ? (
+    <RoomView2D
+      manifest={manifest}
+      dynamicWallAnchors={dynamicBoards.anchors}
+      participants={participantList}
+      hallpassZone={hallpassZone}
+      onMoveToPoint={(point) => {
+        if (manifest && aiWorldHostEnabled && aiWorldHost.placementMode !== "idle" && point.x >= 0) {
+          const world = unprojectPointFrom2D(manifest, point);
+          const fallbackY = movement.avatarState?.position.y ?? floorYFromZ(manifest, world.z);
+          const position = aiHostPlacementPosition(manifest, world.x, world.z, buildPieces.pieces, fallbackY);
+          aiWorldHost.handleGroundClick(position);
+          return;
+        }
+        if (positioningGroupId && manifest) {
+          const worldPos = unprojectPointFrom2D(manifest, point);
+          void classroom.runAction({
+            type: "update-group",
+            groupId: positioningGroupId,
+            targetPosition: { x: worldPos.x, y: floorYFromZ(manifest, worldPos.z), z: worldPos.z },
+            hold: { enabled: true, mode: "hard", radiusMeters: 2 }
+          }).then(() => setPositioningGroupId(""));
+        } else {
+          movement.moveTo2DPoint(point);
+        }
+      }}
+      wallObjects={wall.wallObjects}
+      assetUrls={wall.assetUrls}
+      wallMediaStreams={wallMediaStreams}
+      currentUserId={identity.userId}
+      whiteboardController={whiteboards}
+      whiteboardParticipantNames={participantNameMap}
+      canWriteWhiteboard={canWriteWhiteboard}
+      sharedBrowserController={sharedBrowsers}
+      sharedBrowserIdentity={identity}
+      sharedBrowserRoomId={session.room.id}
+      classroomGroups={classroom.state?.groups ?? []}
+      podsEnabled={podsVisualEnabled}
+      podRadiusMeters={podRadiusMeters}
+      privateChecks={classroom.state?.privateChecks ?? []}
+      spotlight={classroom.state?.spotlight}
+      positioningMode={Boolean(positioningGroupId)}
+      getReaction={(id) => getReaction(id)?.reaction}
+      getAudioMode={getAudioMode}
+      {...(roomObjectsEnabled && manifest
+        ? {
+            roomObjects: roomObjects.objects,
+            roomObjectTemplatesById: roomObjectTemplatesByIdMap,
+            roomObjectGrabs: roomObjects.grabs,
+            myActiveRoomObjectGrabId: roomObjects.myActiveGrab?.objectId ?? null,
+            roomObjectRole: role,
+            roomObjectCurrentUserId: identity.userId,
+            roomObjectMemberGroupIds: memberGroupIdsForRoomObjects,
+            selectedRoomObjectId,
+            onSelectRoomObject: setSelectedRoomObjectId,
+            roomObjectActions: roomObjects.actions,
+            getAppearance: effectiveGetAppearance
+          }
+        : {})}
+      buildPieces={buildPiecesEnabled ? buildPieces.pieces : []}
+      {...(buildPiecesEnabled && buildMode.enabled
+        ? {
+            buildInteraction: {
+              enabled: true,
+              tool: buildMode.tool,
+              preview: build2dPreview,
+              onPointerMove: updateBuild2dPreview,
+              onPointerDown: handleBuild2dPointerDown
+            }
+          }
+        : {})}
+    />
+  ) : null;
+  const inviteControl = role === "teacher" && session ? (
+    <CopyRoomInviteButton
+      identity={identity}
+      roomId={roomId}
+      className="room-exit-btn"
+      disabled={leaving}
+    />
+  ) : null;
+  const aiWorldHostGuideDock = aiWorldHostGuidePanelOpen && session ? (
+    <aside
+      className="room-hud-right-secondary ai-world-host-guide-dock"
+      aria-label="AI guide chat"
+      data-testid="ai-world-host-guide-dock"
+    >
+      <div className="hud-panel">
+        <WorldHostPanel
+          controller={aiWorldHost}
+          buildHelpContext={{
+            buildModeEnabled: buildMode.enabled,
+            selectedTool: buildMode.enabled ? buildMode.tool : null,
+            pieceCount: buildPieces.pieces.length
+          }}
+        />
+      </div>
+    </aside>
+  ) : null;
+  const roomObjectInspectorDock = roomObjectInspectorDockOpen && selectedRoomObject && selectedRoomObjectTemplate ? (
+    <aside
+      className={`room-hud-right-secondary room-object-inspector-dock${roomObjectInspectorStacked ? " room-hud-right-secondary--stacked" : ""}`}
+      aria-label={`${selectedRoomObject.displayName} inspector`}
+      data-testid="room-object-inspector-dock"
+    >
+      <div className="hud-panel">
+        <RoomObjectInspector
+          key={selectedRoomObject.id}
+          object={selectedRoomObject}
+          template={selectedRoomObjectTemplate}
+          role={role}
+          currentUserId={identity.userId}
+          memberGroupIds={memberGroupIdsForRoomObjects}
+          participants={participantList}
+          classroomGroups={classroom.state?.groups ?? []}
+          visible={true}
+          actions={roomObjects.actions}
+          onClose={() => setSelectedRoomObjectId(null)}
+        />
+      </div>
+    </aside>
+  ) : null;
+  const lessonStudioOverlay =
+    roomTypeFeatures.lessons && CLIENT_TUNING.enableClassroomLessons && role === "teacher" && lessonStudioOpen ? (
+      <LessonStudio
+        run={lesson.run}
+        state={classroom.state}
+        manifest={manifest}
+        wallAnchors={allWallAnchors}
+        participants={participantList.map((participant) => ({
+          id: participant.id,
+          displayName: participant.displayName,
+          role: participant.role
+        }))}
+        loading={lesson.loading}
+        error={lesson.error}
+        runAction={lesson.runAction}
+        stepStatus={lesson.stepStatus}
+        onClose={() => setLessonStudioOpen(false)}
+        uploadSlideImage={uploadSlideImage}
+        resolveSlideImage={resolveSlideImage}
+        slideImageUrls={wall.assetUrls}
+      />
+    ) : null;
+  const peopleDetailPanel = roomTypeFeatures.peoplePanelTeacherControls
+    ? (() => {
+        if (helpBoardAccessUserId && manifest && classroom.state) {
+          const helpStudent = participantList.find((p) => p.id === helpBoardAccessUserId) ?? null;
+          const helpRequest =
+            classroom.state.helpRequests.find(
+              (r) =>
+                r.userId === helpBoardAccessUserId &&
+                (r.status === "raised" || r.status === "acknowledged")
+            ) ?? null;
+          if (helpStudent) {
+            return (
+              <BoardAccessSidePanel
+                key={`help-board-${helpStudent.id}`}
+                userId={helpStudent.id}
+                displayName={helpStudent.displayName}
+                helpRequest={helpRequest}
+                activeGrants={activeGrantMap(classroom.state).get(helpStudent.id) ?? []}
+                manifest={manifest}
+                wallAnchors={boardGrantWallAnchorsList}
+                studentMediaRuntime={classroom.state.studentMediaRuntime}
+                error={classroom.error}
+                onRunAction={async (action) => {
+                  await classroom.runAction(action);
+                }}
+                onClose={() => setHelpBoardAccessUserId("")}
+              />
+            );
+          }
+        }
+
+        const selectedStudent = selectedStudentId
+          ? participantList.find((p) => p.id === selectedStudentId) ?? null
+          : null;
+        const helpRequest =
+          selectedStudent && classroom.state
+            ? (classroom.state.helpRequests.find(
+                (r) =>
+                  r.userId === selectedStudent.id &&
+                  (r.status === "raised" || r.status === "acknowledged")
+              ) ?? null)
+            : null;
+        const studentActiveGrants =
+          selectedStudent && classroom.state
+            ? activeGrantMap(classroom.state).get(selectedStudent.id) ?? []
+            : [];
+        return selectedStudent && manifest ? (
+          <StudentDetailPanel
+            key={selectedStudent.id}
+            participant={selectedStudent}
+            helpRequest={helpRequest}
+            activeGrants={studentActiveGrants}
+            manifest={manifest}
+            wallAnchors={boardGrantWallAnchorsList}
+            studentMediaRuntime={classroom.state?.studentMediaRuntime}
+            error={classroom.error}
+            onRunAction={async (action) => {
+              await classroom.runAction(action);
+            }}
+            onClose={() => setSelectedStudentId("")}
+          />
+        ) : null;
+      })()
+    : null;
+  const lessonRecapOverlay =
+    roomTypeFeatures.lessons &&
+    CLIENT_TUNING.enableClassroomLessons &&
+    role === "teacher" &&
+    recapOpen &&
+    recapRunId &&
+    session ? (
+      <LessonRecapPanel
+        identity={identity}
+        roomId={session.room.id}
+        runId={recapRunId}
+        onClose={() => setRecapOpen(false)}
+      />
+    ) : null;
+  const avatarEditorOverlay = avatarEditorOpen && session ? (
+    <AvatarEditorPanel
+      savedAppearance={localAppearanceRef.current}
+      appearanceCustomized={localAppearanceCustomizedRef.current}
+      savedAccessories={localAccessoriesRef.current}
+      savedBodySlug={localBodySlugRef.current}
+      bodyCatalog={avatarBodyCatalog}
+      onResetToDefaultSkin={resetToDefaultSkin}
+      onSave={saveAvatarAppearance}
+      {...(CLIENT_TUNING.enableAvatarAccessories
+        ? {
+            onSaveAccessories: saveAvatarAccessories,
+            onDraftAccessoriesChange: (draft: AvatarEquippedAccessories) =>
+              setLocalDraftAccessories(draft)
+          }
+        : {})}
+      {...(CLIENT_TUNING.enableAvatarBodies
+        ? {
+            onSaveBody: saveAvatarBody,
+            onDraftBodyChange: (draft: AvatarBodySlug) => setLocalDraftBodySlug(draft)
+          }
+        : {})}
+      onDraftChange={(draft, dirty) => setLocalDraftAppearance(dirty ? draft : null)}
+      onClose={() => {
+        setAvatarEditorOpen(false);
+        setLocalDraftAppearance(null);
+        setLocalDraftAccessories(null);
+        setLocalDraftBodySlug(null);
+      }}
+      onTriggerWave={() => setWaveTriggered(true)}
+      waveActive={waveTriggered}
+      locked={avatarEditorLocked}
+    />
+  ) : null;
+  const fullscreenWallObjectOverlay = (() => {
+    if (!fullscreenObjectId) return null;
+    const fsObject = wall.wallObjects.find(
+      (object) => object.id === fullscreenObjectId && object.status !== "removed"
+    );
+    if (!fsObject) return null;
+    const fsStreams = wallMediaStreams[fullscreenObjectId] ?? {};
+    return (
+      <div className="board-fullscreen-overlay" role="dialog" aria-label={`${fsObject.title} — fullscreen`}>
+        <div className="board-fullscreen-header">
+          <span className="board-fullscreen-title">{fsObject.title}</span>
+          <button
+            type="button"
+            className="board-fullscreen-close"
+            onClick={() => setFullscreenObjectId(null)}
+            aria-label="Exit fullscreen"
+          >
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
+              <path
+                d="M3 1v3H1M7 1v3h2M3 9v-3H1M7 9v-3h2"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            Exit fullscreen
+          </button>
+        </div>
+        <div className="board-fullscreen-body">
+          <WallObjectContent
+            object={fsObject}
+            canManage={session?.role === "teacher"}
+            currentUserId={identity.userId}
+            surface={false}
+            assetUrl={wall.assetUrls[fullscreenObjectId]}
+            slideImageUrls={wall.assetUrls}
+            videoStream={fsStreams.videoStream}
+            audioStream={fsStreams.audioStream}
+            whiteboardController={whiteboards}
+            whiteboardParticipantNames={participantNameMap}
+            canWriteWhiteboard={canWriteWhiteboard}
+            sharedBrowserController={sharedBrowsers}
+            sharedBrowserIdentity={identity}
+            sharedBrowserRoomId={session?.room.id ?? roomId}
+            {...(fsObject.type === "web.browser.shared"
+              ? { hyperbeamEmbedVisible: true }
+              : {})}
+            onControl={controlWallObject}
+          />
+        </div>
+      </div>
+    );
+  })();
+  const interactionPrompt =
+    sitting.sittingPhase !== "none" ? (
+      <div className="hud-interaction-prompt" role="status" aria-live="polite">
+        <kbd>E</kbd> stand up
+        {seatedNotebookDesk ? (
+          <>
+            <span aria-hidden="true">·</span>
+            <kbd>N</kbd> notebook
+          </>
+        ) : null}
+      </div>
+    ) : podiumEngaged ? (
+      <div className="hud-interaction-prompt" role="status" aria-live="polite">
+        <kbd>E</kbd> leave
+        <span aria-hidden="true">·</span>
+        <kbd>N</kbd> notebook
+      </div>
+    ) : nearestChairForPrompt ? (
+      <div className="hud-interaction-prompt" role="status" aria-live="polite">
+        <kbd>E</kbd> sit
+      </div>
+    ) : standing.nearestPodium ? (
+      <div className="hud-interaction-prompt" role="status" aria-live="polite">
+        <kbd>E</kbd> present
+      </div>
+    ) : null;
+  const logicInteractionPrompt = logicPlayEnabled && nearestInteractable?.kind === "button" ? (
+    <div className="hud-interaction-prompt" role="status" aria-live="polite">
+      <kbd>E</kbd> use button
+    </div>
+  ) : null;
+  const playModeDockOverlay = showPlayModeDock ? (
+    <div className="play-mode-dock" role="status" aria-live="polite">
+      <strong>Play test</strong>
+      {logicPlayEnabled ? (
+        <ul className="play-mode-dock__how">
+          {playVerbs.hasExit ? (
+            <li>🎯 Reach the exit pad before the timer runs out.</li>
+          ) : (
+            <li>🎯 Solve the puzzle to open the locked doors.</li>
+          )}
+          {playVerbs.hasButton ? <li><kbd>E</kbd> (or click) a button to trigger it.</li> : null}
+          {playVerbs.hasPlate ? <li>Stand on a pressure plate to hold its signal.</li> : null}
+          {playVerbs.hasZone ? <li>Walk into a glowing zone to trip it.</li> : null}
+          {playVerbs.hasTeleporter ? <li>Step onto a glowing pad to teleport to its linked pad.</li> : null}
+          <li>Closed doors are locked until their channel is powered.</li>
+          {role === "teacher" ? <li>Author: click a door to force it open/closed.</li> : null}
+        </ul>
+      ) : (
+        <span>Explore the layout — you can&apos;t edit walls while play mode is on.</span>
+      )}
+      {playStatusMessage ? (
+        <span className="play-mode-dock__toast" role="alert">
+          {playStatusMessage}
+        </span>
+      ) : null}
+      {logicPlayEnabled ? (
+        <EscapeTimerHud
+          session={escapeSession.session}
+          isAuthor={role === "teacher"}
+          busy={escapeSession.busy}
+          onStart={() => void escapeSession.actions.start()}
+          onReset={() => void escapeSession.actions.reset()}
+        />
+      ) : null}
+      <button type="button" className="hud-btn" onClick={movement.returnToSpawn}>
+        Return to spawn
+      </button>
+      {logicPlayEnabled ? (
+        <div className="logic-debug-hud" aria-label="Logic detection events">
+          <strong>Logic signals</strong>
+          {logicDebugEvents.length === 0 ? (
+            <span className="logic-debug-empty">
+              Step on plates, enter zones, or press E near buttons.
+            </span>
+          ) : (
+            <ul>
+              {logicDebugEvents.map((event) => (
+                <li key={`${event.pieceId}-${event.kind}-${event.at}`}>
+                  <code>{event.kind}</code> · {event.pieceKind} · {event.pieceId.slice(-12)}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : null}
+      {logicPlayEnabled && role === "teacher" ? (
+        <LogicDebugOverlay pieces={logicPieces.pieces} logicState={logicPieces.logicState} />
+      ) : null}
+    </div>
+  ) : null;
+  const logicAuthoringOverlay = logicAuthoringEnabled && session ? (
+    <>
+      <LogicControls
+        logicMode={logicMode}
+        pieceCount={logicPieces.pieces.length}
+        existingChannels={existingLogicChannels}
+        canApplyStarterKit={session.room.type === "escape-room"}
+        onApplyStarterKit={applyStarterKit}
+        onClearAll={logicPieces.actions.clearAll}
+      />
+      {selectedLogicPieceId && logicPieces.piecesById[selectedLogicPieceId] ? (
+        <LogicInspector
+          piece={logicPieces.piecesById[selectedLogicPieceId]!}
+          pieces={logicPieces.pieces}
+          logicState={logicPieces.logicState}
+          onUpdate={logicPieces.actions.update}
+          onRemove={async (pieceId) => {
+            await logicPieces.actions.destroy(pieceId);
+            setSelectedLogicPieceId(null);
+          }}
+          onSelect={setSelectedLogicPieceId}
+          onClose={() => setSelectedLogicPieceId(null)}
+        />
+      ) : null}
+    </>
+  ) : null;
+  const buildControlsOverlay = buildPiecesEnabled && session ? (
+    <BuildControls
+      buildMode={buildMode}
+      pieceCount={buildPieces.pieces.length}
+      error={buildPieces.error}
+      emptyCanvasHint={session?.room.type === "escape-room"}
+      onClearAll={buildActionsWithHistory.clearAll}
+      onReturnToSpawn={movement.returnToSpawn}
+      onPlaceAhead={handlePlaceAhead}
+      placeAheadDisabled={
+        !buildMode.enabled || buildMode.tool === "destroy" || Boolean(selectedAssetSlug)
+      }
+      onUndo={() =>
+        void buildHistory.undo().then((did) => did && buildMode.setStatusMessage("Undid."))
+      }
+      onRedo={() =>
+        void buildHistory.redo().then((did) => did && buildMode.setStatusMessage("Redid."))
+      }
+      selectedAssetSlug={selectedAssetSlug}
+      onSelectAsset={(slug) => {
+        setSelectedAssetSlug(slug);
+        if (slug) setSelectedCustomAssetId(null);
+        setAssetYawDeg(0);
+        if (slug) {
+          const scatter = WORLD_ASSET_CATALOG.find((asset) => asset.slug === slug)?.scatter;
+          if (scatter) setAssetScatterCount(scatter.defaultCount);
+        }
+      }}
+      scatterCount={assetScatterCount}
+      onScatterCountChange={setAssetScatterCount}
+      finePlacement={fineAssetPlacement}
+      onToggleFinePlacement={toggleFineAssetPlacement}
+      onUploadFloorTexture={handleUploadFloorTexture}
+      onSelectFloorTexturePreset={handleSelectFloorTexturePreset}
+      floorTextureOptions={floorTextureOptions}
+      customAssets={customAssets.assets}
+      selectedCustomAssetId={selectedCustomAssetId}
+      onUploadCustomAsset={(input) => customAssets.upload(input).then(() => undefined)}
+      onDeleteCustomAsset={(assetId) => {
+        if (selectedCustomAssetId === assetId) setSelectedCustomAssetId(null);
+        return customAssets.remove(assetId);
+      }}
+      onSelectCustomAsset={(assetId) => {
+        setSelectedCustomAssetId(assetId);
+        if (assetId) setSelectedAssetSlug(null);
+        setAssetYawDeg(0);
+      }}
+    />
+  ) : null;
 
   return (
     <AiWorldHostSceneContext.Provider value={aiWorldHostEnabled ? aiWorldHost.scene : null}>
@@ -3237,357 +3414,54 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       muteAmbient={muteAmbient}
     >
     <main className="app-shell room-shell" style={verseStyle}>
-      {/* Stage fills the full viewport */}
-      <div className="room-stage" aria-label="Shared classroom">
-        {/* Walk-speed toast — shown once when entering a skin with non-1× walk multiplier */}
-        {CLIENT_TUNING.enableWorldSkins && walkToastVisible ? (
-          <div className="world-skin-walk-toast" role="status" aria-live="polite">
-            Lower gravity — you move slower.
-          </div>
-        ) : null}
-        {dynamicBoardPlacementActive ? (
-          <div className="dynamic-board-placement-toast" role="status" aria-live="polite">
-            <strong>Place board</strong>
-            <span>
-              {dynamicBoardPlacementMessage ||
-                (buildPiecesEnabled
-                  ? "Click a wall in the 3D room. Built walls merge into longer surfaces for larger boards."
-                  : "Click a wall in the 3D room.")}
-            </span>
-            <button
-              type="button"
-              className="dynamic-board-placement-toast__cancel"
-              disabled={dynamicBoardPlacementBusy}
-              onClick={() => {
-                setDynamicBoardPlacementActive(false);
-                setDynamicBoardPlacementMessage("");
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        ) : null}
-        {aiWorldHostEnabled && aiWorldHost.placementMode !== "idle" ? (
-          <div className="dynamic-board-placement-toast ai-world-host-placement-toast" role="status" aria-live="polite">
-            <strong>{aiWorldHost.placementMode === "summon" ? "Place AI guide" : "Reposition AI guide"}</strong>
-            <span>Click the ground in the 3D room, then confirm in the AI guide card.</span>
-            <button type="button" className="dynamic-board-placement-toast__cancel" disabled={aiWorldHost.busy} onClick={aiWorldHost.cancelPlacement}>
-              Cancel
-            </button>
-          </div>
-        ) : null}
-        {leaving ? (
-          <div className="fallback-view">Leaving...</div>
-        ) : !manifest || !session ? (
-          <div className="fallback-view">Joining...</div>
-        ) : viewMode === "3d" ? (
-          <RoomView3D
-            manifest={manifest}
-            dynamicWallAnchors={dynamicBoards.anchors}
-            participants={participantList}
-            localParticipantId={session.participantId}
-            verse={skinId === null ? activeVerse : null}
-            getAppearance={effectiveGetAppearance}
-            getAppearanceCustomized={effectiveGetAppearanceCustomized}
-            localEditorPreviewActive={localEditorPreviewActive}
-            getAccessories={effectiveGetAccessories}
-            getBodySlug={effectiveGetBodySlug}
-            getReaction={(id) => getReaction(id)?.reaction}
-            getAudioMode={getAudioMode}
-            recordingActive={Boolean(meetingNotes.activeSession)}
-            activeHelpRequestUserIds={activeHelpRequestUserIds}
-            onSelfClick={() => setAvatarEditorOpen(true)}
-            localWaveTriggered={waveTriggered}
-            onLocalWaveComplete={() => setWaveTriggered(false)}
-            quality={session.room.settings.defaultQuality}
-            cameraYawRef={camera.yawRef}
-            cameraPitchRef={camera.pitchRef}
-            bindCamera={camera.bind}
-            firstPerson={firstPerson}
-            hallpassZone={hallpassZone}
-            onMoveToPoint={(point) => {
-              if (camera.consumeClickSuppress()) return;
-              if (manifest && aiWorldHostEnabled && aiWorldHost.placementMode !== "idle") {
-                const fallbackY = movement.avatarState?.position.y ?? floorYFromZ(manifest, point.z);
-                const position = aiHostPlacementPosition(manifest, point.x, point.z, buildPieces.pieces, fallbackY);
-                aiWorldHost.handleGroundClick(position);
-                return;
-              }
-              if (positioningGroupId) {
-                void classroom.runAction({
-                  type: "update-group",
-                  groupId: positioningGroupId,
-                  targetPosition: { x: point.x, y: manifest ? floorYFromZ(manifest, point.z) : 0, z: point.z },
-                  hold: { enabled: true, mode: "hard", radiusMeters: 2 }
-                }).then(() => setPositioningGroupId(""));
-              } else {
-                movement.moveTo3DPoint(point);
-              }
-            }}
-            wallObjects={wall.wallObjects}
-            assetUrls={wall.assetUrls}
-            wallMediaStreams={wallMediaStreams}
-            canManageWallObjects={session.role === "teacher"}
-            currentUserId={identity.userId}
-            classroomGroups={classroom.state?.groups ?? []}
-            podsEnabled={podsVisualEnabled}
-            podRadiusMeters={podRadiusMeters}
-            drawPodPartitions={podDrawPartitions}
-            privateChecks={classroom.state?.privateChecks ?? []}
-            spotlight={classroom.state?.spotlight}
-            onWallObjectControl={controlWallObject}
-            onWallObjectRemove={async (objectId) => {
-              await wall.removeObject(objectId);
-            }}
-            onWallObjectStopShare={stopShare}
-            onWallObjectModerate={moderateWallObject}
-            onWallObjectFullscreen={setFullscreenObjectId}
-            whiteboardController={whiteboards}
-            whiteboardParticipantNames={participantNameMap}
-            canWriteWhiteboard={canWriteWhiteboard}
-            sharedBrowserController={sharedBrowsers}
-            sharedBrowserIdentity={identity}
-            sharedBrowserRoomId={session.room.id}
-            dynamicBoardPlacement={dynamicBoardPlacement}
-            placementHighlightAnchorId={focusAnchorId}
-            {...(roomObjectsEnabled && manifest
-              ? {
-                  roomObjects: roomObjects.objects,
-                  roomObjectTemplatesById,
-                  roomObjectGrabs: roomObjects.grabs,
-                  myActiveRoomObjectGrabId: roomObjects.myActiveGrab?.objectId ?? null,
-                  roomObjectRole: role,
-                  roomObjectCurrentUserId: identity.userId,
-                  roomObjectMemberGroupIds: memberGroupIdsForRoomObjects,
-                  selectedRoomObjectId,
-                  onSelectRoomObject: setSelectedRoomObjectId,
-                  roomObjectActions: roomObjects.actions
-                }
-              : {})}
-            buildScene={buildScene}
-            logicScene={logicScene}
-            logicPlayLayer={logicPlayLayer}
-            placedChairs={chairs.chairs}
-            {...(buildMode.tool === "destroy" ? { onDeleteChair: (id: string) => void chairs.removeChair(id) } : {})}
-            localParticipantSittingPhase={sitting.sittingPhase}
-            onLocalParticipantSitAnimationFinished={sitting.onAnimationFinished}
-            assetPlacement={(() => {
-              const rotateBy = (deltaDeg: number) =>
-                setAssetYawDeg((deg) => (((deg + deltaDeg) % 360) + 360) % 360);
+      <RoomStage
+        walkToastVisible={walkToastVisible}
+        worldSkinsEnabled={CLIENT_TUNING.enableWorldSkins}
+        dynamicBoardPlacementActive={dynamicBoardPlacementActive}
+        dynamicBoardPlacementBusy={dynamicBoardPlacementBusy}
+        dynamicBoardPlacementMessage={dynamicBoardPlacementMessage}
+        buildPiecesEnabled={buildPiecesEnabled}
+        onCancelDynamicBoardPlacement={() => {
+          setDynamicBoardPlacementActive(false);
+          setDynamicBoardPlacementMessage("");
+        }}
+        aiWorldHostPlacementActive={aiWorldHostEnabled && aiWorldHost.placementMode !== "idle"}
+        aiWorldHostPlacementMode={aiWorldHost.placementMode}
+        aiWorldHostBusy={aiWorldHost.busy}
+        onCancelAiWorldHostPlacement={aiWorldHost.cancelPlacement}
+        leaving={leaving}
+        manifestReady={Boolean(manifest)}
+        sessionReady={Boolean(session)}
+        viewMode={viewMode}
+        threeDView={room3dView}
+        twoDView={room2dView}
+      />
 
-              // Custom (user-uploaded) GLB placement — classification drives the
-              // ghost + snapping; the render info is denormalized onto each placement.
-              const custom = selectedCustomAssetId
-                ? customAssets.assets.find((a) => a.id === selectedCustomAssetId)
-                : undefined;
-              if (custom && manifest) {
-                return {
-                  glbUrl: custom.glbUrl,
-                  ...(custom.scale !== undefined ? { scale: custom.scale } : {}),
-                  yawDeg: assetYawDeg,
-                  finePlacement: false,
-                  placement: custom.placement,
-                  snap: {
-                    walls: manifest.walls.map((w) => ({
-                      start: { x: w.start.x, z: w.start.z },
-                      end: { x: w.end.x, z: w.end.z }
-                    })),
-                    dimensions: { height: manifest.dimensions.height }
-                  },
-                  onPlace: (position: { x: number; y: number; z: number }, yaw: number) => {
-                    chairs.placeChair(custom.id, position, yaw, {
-                      custom: {
-                        glbUrl: custom.glbUrl,
-                        placement: custom.placement,
-                        ...(custom.thumbnailUrl ? { thumbnailUrl: custom.thumbnailUrl } : {})
-                      },
-                      ...(custom.scale !== undefined ? { scale: custom.scale } : {})
-                    });
-                  },
-                  onCancel: () => setSelectedCustomAssetId(null),
-                  onRotateBy: rotateBy
-                };
-              }
-
-              if (!selectedAssetSlug) return null;
-              const asset = WORLD_ASSET_CATALOG.find((a) => a.slug === selectedAssetSlug);
-              if (!asset) return null;
-              return {
-                glbUrl: asset.glbUrl,
-                ...(asset.scale !== undefined ? { scale: asset.scale } : {}),
-                yawDeg: assetYawDeg,
-                ...(asset.scatter ? { scatterAreaSize: asset.scatter.areaSize } : {}),
-                finePlacement: fineAssetPlacement,
-                onPlace: (position, yaw) => {
-                  const scatter = asset.scatter;
-                  if (scatter) {
-                    // Strew patches across the square; each is its own asset so
-                    // it syncs, persists and erases like any other placement.
-                    for (const offset of scatterWorldAssetOffsets(scatter, assetScatterCount)) {
-                      chairs.placeChair(
-                        asset.slug,
-                        { x: position.x + offset.dx, y: position.y, z: position.z + offset.dz },
-                        offset.yaw
-                      );
-                    }
-                    return;
-                  }
-                  chairs.placeChair(selectedAssetSlug, position, yaw);
-                },
-                onCancel: () => setSelectedAssetSlug(null),
-                onRotateBy: rotateBy
-              };
-            })()}
-          />
-        ) : (
-          <RoomView2D
-            manifest={manifest}
-            dynamicWallAnchors={dynamicBoards.anchors}
-            participants={participantList}
-            hallpassZone={hallpassZone}
-            onMoveToPoint={(point) => {
-              if (manifest && aiWorldHostEnabled && aiWorldHost.placementMode !== "idle" && point.x >= 0) {
-                const world = unprojectPointFrom2D(manifest, point);
-                const fallbackY = movement.avatarState?.position.y ?? floorYFromZ(manifest, world.z);
-                const position = aiHostPlacementPosition(manifest, world.x, world.z, buildPieces.pieces, fallbackY);
-                aiWorldHost.handleGroundClick(position);
-                return;
-              }
-              if (positioningGroupId && manifest) {
-                const worldPos = unprojectPointFrom2D(manifest, point);
-                void classroom.runAction({
-                  type: "update-group",
-                  groupId: positioningGroupId,
-                  targetPosition: { x: worldPos.x, y: floorYFromZ(manifest, worldPos.z), z: worldPos.z },
-                  hold: { enabled: true, mode: "hard", radiusMeters: 2 }
-                }).then(() => setPositioningGroupId(""));
-              } else {
-                movement.moveTo2DPoint(point);
-              }
-            }}
-            wallObjects={wall.wallObjects}
-            assetUrls={wall.assetUrls}
-            wallMediaStreams={wallMediaStreams}
-            currentUserId={identity.userId}
-            whiteboardController={whiteboards}
-            whiteboardParticipantNames={participantNameMap}
-            canWriteWhiteboard={canWriteWhiteboard}
-            sharedBrowserController={sharedBrowsers}
-            sharedBrowserIdentity={identity}
-            sharedBrowserRoomId={session.room.id}
-            classroomGroups={classroom.state?.groups ?? []}
-            podsEnabled={podsVisualEnabled}
-            podRadiusMeters={podRadiusMeters}
-            privateChecks={classroom.state?.privateChecks ?? []}
-            spotlight={classroom.state?.spotlight}
-            positioningMode={Boolean(positioningGroupId)}
-            getReaction={(id) => getReaction(id)?.reaction}
-            getAudioMode={getAudioMode}
-            {...(roomObjectsEnabled && manifest
-              ? {
-                  roomObjects: roomObjects.objects,
-                  roomObjectTemplatesById,
-                  roomObjectGrabs: roomObjects.grabs,
-                  myActiveRoomObjectGrabId: roomObjects.myActiveGrab?.objectId ?? null,
-                  roomObjectRole: role,
-                  roomObjectCurrentUserId: identity.userId,
-                  roomObjectMemberGroupIds: memberGroupIdsForRoomObjects,
-                  selectedRoomObjectId,
-                  onSelectRoomObject: setSelectedRoomObjectId,
-                  roomObjectActions: roomObjects.actions,
-                  getAppearance: effectiveGetAppearance
-                }
-              : {})}
-            buildPieces={buildPiecesEnabled ? buildPieces.pieces : []}
-            {...(buildPiecesEnabled && buildMode.enabled
-              ? {
-                  buildInteraction: {
-                    enabled: true,
-                    tool: buildMode.tool,
-                    preview: build2dPreview,
-                    onPointerMove: updateBuild2dPreview,
-                    onPointerDown: handleBuild2dPointerDown
-                  }
-                }
-              : {})}
-          />
-        )}
-      </div>
-
-      {/* Top HUD bar */}
-      <header className="room-hud-top">
-        <button type="button" className="room-exit-btn" disabled={leaving} onClick={leaveForLobby}>
-          {leaving ? "Leaving..." : "← Lobby"}
-        </button>
-        <div className="room-hud-top-sep" />
-        <span className="room-hud-name">{roomName}</span>
-        <span className="room-hud-meta">{roomRoleLabel} · {status}</span>
-        {meetingNotes.activeSession ? (
-          <span className="room-hud-rec-badge" data-testid="meeting-notes-rec-badge">
-            REC
-          </span>
-        ) : null}
-        {liveCaptionsEnabled && liveCaptions.contributors.size > 0 ? (
-          <span className="room-hud-cc-badge" data-testid="live-captions-cc-badge">
-            CC
-          </span>
-        ) : null}
-        {translationEnabled && translation.sharing ? (
-          <span className="room-hud-tr-badge" data-testid="translation-sharing-badge">
-            TR
-          </span>
-        ) : null}
-        {role === "teacher" && session ? (
-          <>
-            <div className="room-hud-top-sep" />
-            <CopyRoomInviteButton
-              identity={identity}
-              roomId={roomId}
-              className="room-exit-btn"
-              disabled={leaving}
-            />
-          </>
-        ) : null}
-        {roomTypeFeatures.breakoutPods && podsEnabled ? (
-          <>
-            <div className="room-hud-top-sep" />
-            <div className="hud-pill--pods" data-testid="pods-indicator">
-              {role === "student" && studentPositionedGroup ? (
-                <>
-                  <span className="group-dot" style={{ background: studentPositionedGroup.color ?? "#4678b4" }} />
-                  <span>Pods on</span>
-                </>
-              ) : role === "student" ? (
-                <span>Pods on · unassigned</span>
-              ) : (
-                <>
-                  <span>Pods on</span>
-                  <button
-                    type="button"
-                    className="hud-pill--pods__off"
-                    disabled={classroom.loading}
-                    onClick={() => {
-                      void classroom.runAction({ type: "toggle-pods", enabled: false });
-                    }}
-                  >
-                    off
-                  </button>
-                </>
-              )}
-            </div>
-          </>
-        ) : null}
-        <div className="room-hud-top-fill" />
-        <div className="room-hud-top-sep" />
-        <div className="toggle" aria-label="View mode">
-          <button aria-pressed={viewMode === "3d"} onClick={() => setViewMode("3d")} disabled={!manifest}>
-            3D
-          </button>
-          <button aria-pressed={viewMode === "2d"} onClick={() => setViewMode("2d")} disabled={!manifest?.capabilities.twoDAnalog}>
-            2D
-          </button>
-        </div>
-      </header>
+      <RoomHudTop
+        leaving={leaving}
+        roomName={roomName}
+        roomRoleLabel={roomRoleLabel}
+        status={status}
+        meetingNotesActive={Boolean(meetingNotes.activeSession)}
+        liveCaptionsEnabled={liveCaptionsEnabled}
+        liveCaptionsContributorCount={liveCaptions.contributors.size}
+        translationEnabled={translationEnabled}
+        translationSharing={translation.sharing}
+        showInviteControl={role === "teacher" && Boolean(session)}
+        inviteControl={inviteControl}
+        podsVisible={roomTypeFeatures.breakoutPods && podsEnabled}
+        role={role}
+        studentPositionedGroup={studentPositionedGroup}
+        classroomLoading={classroom.loading}
+        onDisablePods={() => {
+          void classroom.runAction({ type: "toggle-pods", enabled: false });
+        }}
+        viewMode={viewMode}
+        manifestReady={Boolean(manifest)}
+        canUse2D={Boolean(manifest?.capabilities.twoDAnalog)}
+        onViewModeChange={setViewMode}
+        onLeave={leaveForLobby}
+      />
 
       <aside className="room-hud-people room-hud-people--dock-top" aria-label="Participants">
         <div className="hud-panel room-hud-people-panel">
@@ -3606,779 +3480,509 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
         </div>
       </aside>
 
-      {/* Left HUD: identity / media / movement */}
-      <div className="room-hud-left">{leftHudControls}</div>
-
-      {/* Right HUD: unified collapsible panel */}
-      <aside className="room-hud-right" aria-label="Room details">
-        <div className="hud-panel">
-          {roomTypeFeatures.lessons && CLIENT_TUNING.enableClassroomLessons && role === "student" ? (
-            <LessonStudentCallout
-              run={lesson.run}
-              currentStep={lesson.currentStep}
-              state={classroom.state}
-              manifest={manifest}
-              currentUserId={identity.userId}
-              onRunAction={classroom.runAction}
-            />
-          ) : null}
-          {roomObjectsTeacherToolbarVisible ? (
-            <RoomObjectsToolbar
-              templates={roomObjectTemplates.catalogTemplates}
-              objects={roomObjects.objects}
-              roomTypeLabel={roomTypeLabel}
-              manifest={manifest!}
-              roomObjectsReady={roomObjectsEnabled}
-              gateSyncing={roomObjectsGateSyncing}
-              localAvatarPosition={
-                localParticipantForRoomObjects?.state.position ?? { x: 0, y: 0, z: 0 }
-              }
-              localAvatarYaw={localParticipantForRoomObjects?.state.rotation.y ?? 0}
-              loading={roomObjects.loading || roomObjectTemplates.status === "loading"}
-              error={roomObjects.error || (roomObjectTemplates.status === "error" ? "Unable to load object catalog." : "")}
-              selectedObjectId={selectedRoomObjectId}
-              onSelectObject={setSelectedRoomObjectId}
-              onInstantiate={async (templateId) => {
-                const template = roomObjectTemplatesById[templateId];
-                const pose =
-                  template && localParticipantForRoomObjects
-                    ? buildSpawnPoseInFront({
-                        manifest: manifest!,
-                        avatarPosition: localParticipantForRoomObjects.state.position,
-                        avatarYaw: localParticipantForRoomObjects.state.rotation.y,
-                        template
-                      })
-                    : undefined;
-                const object = await roomObjects.actions.instantiate(templateId, pose);
-                setSelectedRoomObjectId(object.id);
-              }}
-              onRemove={async (objectId) => {
-                await roomObjects.actions.remove(objectId);
-                setSelectedRoomObjectId((current) => (current === objectId ? null : current));
-              }}
-              onDeleteTemplate={async (templateId) => {
-                const placed = roomObjects.objects.filter((object) => object.templateId === templateId);
-                for (const object of placed) {
-                  await roomObjects.actions.remove(object.id);
-                }
-                await archiveRoomObjectTemplate(identity, templateId);
-                if (placed.some((object) => object.id === selectedRoomObjectId)) {
-                  setSelectedRoomObjectId(null);
-                }
-                await roomObjectTemplates.refetch();
-              }}
-              customUploadsEnabled={roomObjectCustomUploadsEnabled}
-              onUpload={async (input) => {
-                const activeRoomId = session?.room.id ?? roomId;
-                if (!activeRoomId) throw new Error("Room is not ready.");
-                await uploadRoomObjectGlb(identity, {
-                  roomId: activeRoomId,
-                  ...input
-                });
-                await roomObjectTemplates.refetch();
-              }}
-            />
-          ) : null}
-          {roomTypeFeatures.classroomState ? (
-            <ClassroomPanel
-              role={role}
-              state={classroom.state}
-              loading={classroom.loading}
-              error={classroom.error}
-              activeHelpRequest={classroom.activeHelpRequest}
-              manifest={manifest}
-              currentUserId={identity.userId}
-              boardAccessUserId={helpBoardAccessUserId}
-              reactionLog={log}
-              hallpassSettings={session?.room.settings.hallpass}
-              hostSingular={roleLabels.hostSingular}
-              onOpenBoardAccess={(userId) => {
-                setSelectedStudentId("");
-                setHelpBoardAccessUserId((current) => (current === userId ? "" : userId));
-              }}
-              onRunAction={async (action) => {
-                await classroom.runAction(action);
-              }}
-            />
-          ) : null}
-          {roomTypeFeatures.lessons && CLIENT_TUNING.enableClassroomLessons && role === "teacher" ? (
-            <>
-              <LessonRunControls
-                run={lesson.run}
-                currentStep={lesson.currentStep}
-                nextStep={lesson.nextStep}
-                loading={lesson.loading}
-                error={lesson.error}
-                runAction={lesson.runAction}
-                slideDeckObject={lessonSlideDeckObject}
-                onSetSlide={setLessonSlide}
-                avatarEditorLocked={avatarEditorLocked}
-                onToggleAvatarLock={() => void classroom.runAction({
-                  type: "set-avatar-editor-locked",
-                  locked: !avatarEditorLocked
-                })}
-                onOpenRecap={() => {
-                  if (lesson.run?.id) openLessonRecap(lesson.run.id);
-                }}
-              />
-              <LessonScriptCard
-                run={lesson.run}
-                loading={lesson.loading}
-                error={lesson.error}
-                onOpenStudio={() => setLessonStudioOpen(true)}
-              />
-              <LessonTimelinePanel run={lesson.run} />
-            </>
-          ) : null}
-          {roomTypeFeatures.privateChecks ? (
-            <PrivateChecksPanel
-              role={role}
-              state={classroom.state}
-              loading={classroom.loading}
-              currentUserId={identity.userId}
-              manifest={manifest}
-              forceExpanded={studentQuickCheckActive}
-              onRunAction={async (action) => {
-                await classroom.runAction(action);
-              }}
-            />
-          ) : null}
-          {roomTypeFeatures.groups ? (
-            <GroupsPanel
-              role={role}
-              state={classroom.state}
-              loading={classroom.loading}
-              participants={participantList}
-              currentUserId={identity.userId}
-              positioningGroupId={positioningGroupId}
-              podsEnabled={classroom.state?.podsRuntime?.podsEnabled === true}
-              broadcastUserIds={classroom.state?.podsRuntime?.broadcastFromUserIds ?? []}
-              podsAllowedInRoom={CLIENT_TUNING.enableBreakoutPods && session?.room.settings.pods?.enabled === true}
-              {...(manifest ? { manifestAnchors: manifest.wallAnchors } : {})}
-              onRunAction={async (action) => {
-                await classroom.runAction(action);
-              }}
-              onEnterPositioningMode={(groupId) => setPositioningGroupId(groupId)}
-              onCancelPositioning={() => setPositioningGroupId("")}
-            />
-          ) : null}
-          {roomTypeFeatures.focus ? (
-            <FocusPanel
-              role={role}
-              state={classroom.state}
-              loading={classroom.loading}
-              manifest={manifest}
-              currentUserId={identity.userId}
-              hostSingular={roleLabels.hostSingular}
-              onRunAction={async (action) => {
-                await classroom.runAction(action);
-              }}
-              onLookAtFocus={lookAtFocus}
-            />
-          ) : null}
-          {manifest && session ? (
-            <AnchorPanel
-              identity={identity}
-              roomId={session.room.id}
-              manifest={manifest}
-              dynamicWallAnchors={dynamicBoards.anchors}
-              wallObjects={wall.wallObjects}
-              assetUrls={wall.assetUrls}
-              wallMediaStreams={wallMediaStreams}
-              canCreate={session.role === "teacher" || session.room.settings.wallObjectCreation !== "teacher-only" || Boolean(activeBoardGrant)}
-              canManage={session.role === "teacher"}
-              canCreateDynamicAnchor={
-                roomTypeFeatures.dynamicBoards &&
-                (session.role === "teacher" || !roomTypeFeatures.peoplePanelTeacherControls)
-              }
-              dynamicAnchorPlacementActive={dynamicBoardPlacementActive}
-              role={session.role}
-              activeBoardGrant={activeBoardGrant}
-              loading={wall.loading}
-              error={wall.error || displayMedia.error}
-              onStartDynamicAnchorPlacement={() => {
-                setViewMode("3d");
-                setDynamicBoardPlacementActive(true);
-                setDynamicBoardPlacementMessage("Click a wall in the 3D room.");
-              }}
-              onCancelDynamicAnchorPlacement={() => {
-                setDynamicBoardPlacementActive(false);
-                setDynamicBoardPlacementMessage("");
-              }}
-              placementBoardWidth={placementBoardWidth}
-              placementBoardHeight={placementBoardHeight}
-              onPlacementBoardWidthChange={(width) =>
-                setPlacementBoardWidth(Math.min(DYNAMIC_WALL_ANCHOR_MAX_WIDTH_M, Math.max(DYNAMIC_WALL_ANCHOR_MIN_WIDTH_M, width)))
-              }
-              onPlacementBoardHeightChange={(height) =>
-                setPlacementBoardHeight(Math.min(DYNAMIC_WALL_ANCHOR_MAX_HEIGHT_M, Math.max(DYNAMIC_WALL_ANCHOR_MIN_HEIGHT_M, height)))
-              }
-              onRemoveDynamicAnchor={async (anchorId) => {
-                await dynamicBoards.remove(anchorId);
-                if (focusAnchorId === anchorId) setFocusAnchorId(null);
-              }}
-              focusAnchorId={focusAnchorId}
-              onCreateFile={createFileObject}
-              onCreateWhiteboard={createWhiteboard}
-              onCreateSharedBrowser={createSharedBrowser}
-              onCreateNote={createNote}
-              onCreateTimer={createTimer}
-              onCreatePoll={createPoll}
-              onCreateLink={createLink}
-              onPinCamera={pinCamera}
-              onPinMicrophone={pinMicrophone}
-              onShareScreen={shareScreen}
-              onRemove={async (objectId) => {
-                await wall.removeObject(objectId);
-              }}
-              onStopShare={stopShare}
-              onControl={controlWallObject}
-              onModerate={moderateWallObject}
-              whiteboardController={whiteboards}
-              whiteboardParticipantNames={participantNameMap}
-              canWriteWhiteboard={canWriteWhiteboard}
-              sharedBrowserController={sharedBrowsers}
-              sharedBrowserEnabled={CLIENT_TUNING.enableSharedBrowsers && roomTypeFeatures.sharedBrowsers && session.room.settings.sharedBrowsers.enabled}
-              hostSingular={roleLabels.hostSingular}
-            />
-          ) : null}
-          {meetingNotesEnabled && session ? (
-            <MeetingNotesPanel
-              identity={identity}
-              roomId={session.room.id}
-              controller={meetingNotes}
-            />
-          ) : null}
-          {translationEnabled && session ? (
-            <TranslationPanel
-              controller={translation}
-              readLang={readLang}
-              speakLang={speakLang}
-              micEnabled={media.microphoneEnabled}
-              onReadLangChange={setReadLang}
-              onSpeakLangChange={setSpeakLang}
-              voiceEnabled={translationVoiceEnabled}
-              voiceMode={voiceMode}
-              voiceChoice={voiceChoice}
-              voiceController={translationVoice}
-              onVoiceModeChange={setVoiceMode}
-              onVoiceChoiceChange={setVoiceChoice}
-            />
-          ) : null}
-          {aiWorldHostEnabled && session && manifest ? (
-            <AiWorldHostControls
-              controller={aiWorldHost}
-              manifest={manifest}
-              buildPieces={buildPieces.pieces}
-              localAvatarPosition={movement.avatarState?.position ?? null}
-              localAvatarRotationY={movement.avatarState?.rotation.y ?? 0}
-            />
-          ) : null}
-          {aiObjectsEnabled && session ? (
-            <AiObjectPanel controller={{
-              ...aiObjectGenerator,
-              place: async (jobId) => {
-                const avatarPos = localParticipantForRoomObjects?.state.position;
-                const avatarYaw = localParticipantForRoomObjects?.state.rotation.y ?? 0;
-                const pose = avatarPos && manifest ? {
-                  position: {
-                    x: avatarPos.x + Math.sin(avatarYaw) * 1.5,
-                    y: 1.1,
-                    z: avatarPos.z + Math.cos(avatarYaw) * 1.5
-                  },
-                  rotation: { yaw: avatarYaw, pitch: 0, roll: 0 }
-                } : undefined;
-                const result = await aiObjectGenerator.place(jobId, pose);
-                if (result?.template) {
-                  roomObjectTemplates.registerTemplate(result.template);
-                }
-              }
-            }} />
-          ) : null}
-          {roomTypeFeatures.worldSkins && CLIENT_TUNING.enableWorldSkins && role === "teacher" && session ? (
-            <EnvironmentCard
-              identity={identity}
-              skin={activeSkin.skin ?? null}
-              dayNightMode={skinDayNightMode}
-              ambientGain={ambientGainOverride}
-              onRunAction={async (action) => {
-                const result = await classroom.runAction(action);
-                // The skin API handler returns { skinId, realtimeMessages } rather than a
-                // full ClassroomState, so applyState silently ignores it.  Apply the
-                // optimistic local override here, then broadcast the room.skin.v1 message
-                // so all other participants update immediately via LiveKit.
-                if (action.type === "set-room-skin") {
-                  setTargetSkinId(action.skinId);
-                }
-                if (action.type === "set-room-skin-day-night") {
-                  setTargetDayNightMode(action.mode);
-                }
-                const msgs = (result as { realtimeMessages?: RealtimeMessage[] }).realtimeMessages ?? [];
-                for (const msg of msgs) publishRealtime(msg);
-                return result;
-              }}
-              onAmbientChange={(gain) => {
-                setLocalAmbientGain(gain);
-                if (ambientDebounceRef.current) clearTimeout(ambientDebounceRef.current);
-                ambientDebounceRef.current = setTimeout(() => {
-                  const activeRoomId = session.room.id;
-                  void patchRoom(identity, activeRoomId, {
-                    settings: {
-                      worldSkins: {
-                        enabled: parsedRoomSettings?.worldSkins?.enabled ?? true,
-                        skinId: parsedRoomSettings?.worldSkins?.skinId ?? null,
-                        skinDayNightMode: parsedRoomSettings?.worldSkins?.skinDayNightMode ?? "day",
-                        ambientGainOverride: gain
-                      }
-                    }
-                  });
-                }, 400);
-              }}
-            />
-          ) : null}
-          {roomTypeFeatures.physics && role === "teacher" && session && physicsTuning ? (
-            <PhysicsCard
-              effectiveTuning={physicsTuning}
-              roomOverride={physicsRoomOverrides}
-              featureGateEnabled={physicsEnvEnabled(session.room.type) && roomTypeFeatures.physics}
-              onChange={(nextPhysics) => {
-                scheduleRoomPhysicsSettings(nextPhysics);
-              }}
-              onReset={() => {
-                if (physicsDebounceRef.current) clearTimeout(physicsDebounceRef.current);
-                persistRoomPhysicsSettings({});
-              }}
-            />
-          ) : null}
-        </div>
-      </aside>
-      {aiWorldHostGuidePanelOpen && session ? (
-        <aside
-          className="room-hud-right-secondary ai-world-host-guide-dock"
-          aria-label="AI guide chat"
-          data-testid="ai-world-host-guide-dock"
-        >
-          <div className="hud-panel">
-            <WorldHostPanel
-              controller={aiWorldHost}
-              buildHelpContext={{
-                buildModeEnabled: buildMode.enabled,
-                selectedTool: buildMode.enabled ? buildMode.tool : null,
-                pieceCount: buildPieces.pieces.length
-              }}
-            />
-          </div>
-        </aside>
-      ) : null}
-      {roomObjectInspectorDockOpen && selectedRoomObject && selectedRoomObjectTemplate ? (
-        <aside
-          className={`room-hud-right-secondary room-object-inspector-dock${roomObjectInspectorStacked ? " room-hud-right-secondary--stacked" : ""}`}
-          aria-label={`${selectedRoomObject.displayName} inspector`}
-          data-testid="room-object-inspector-dock"
-        >
-          <div className="hud-panel">
-            <RoomObjectInspector
-              key={selectedRoomObject.id}
-              object={selectedRoomObject}
-              template={selectedRoomObjectTemplate}
-              role={role}
-              currentUserId={identity.userId}
-              memberGroupIds={memberGroupIdsForRoomObjects}
-              participants={participantList}
-              classroomGroups={classroom.state?.groups ?? []}
-              visible={true}
-              actions={roomObjects.actions}
-              onClose={() => setSelectedRoomObjectId(null)}
-            />
-          </div>
-        </aside>
-      ) : null}
-      {roomTypeFeatures.lessons && CLIENT_TUNING.enableClassroomLessons && role === "teacher" && lessonStudioOpen ? (
-        <LessonStudio
-          run={lesson.run}
-          state={classroom.state}
-          manifest={manifest}
-          wallAnchors={allWallAnchors}
-          participants={participantList.map((participant) => ({
-            id: participant.id,
-            displayName: participant.displayName,
-            role: participant.role
-          }))}
-          loading={lesson.loading}
-          error={lesson.error}
-          runAction={lesson.runAction}
-          stepStatus={lesson.stepStatus}
-          onClose={() => setLessonStudioOpen(false)}
-          uploadSlideImage={uploadSlideImage}
-          resolveSlideImage={resolveSlideImage}
-          slideImageUrls={wall.assetUrls}
-        />
-      ) : null}
-      {roomTypeFeatures.peoplePanelTeacherControls ? (() => {
-        if (helpBoardAccessUserId && manifest && classroom.state) {
-          const helpStudent = participantList.find((p) => p.id === helpBoardAccessUserId) ?? null;
-          const helpRequest =
-            classroom.state.helpRequests.find(
-              (r) => r.userId === helpBoardAccessUserId && (r.status === "raised" || r.status === "acknowledged")
-            ) ?? null;
-          if (helpStudent) {
-            return (
-              <BoardAccessSidePanel
-                key={`help-board-${helpStudent.id}`}
-                userId={helpStudent.id}
-                displayName={helpStudent.displayName}
-                helpRequest={helpRequest}
-                activeGrants={activeGrantMap(classroom.state).get(helpStudent.id) ?? []}
-                manifest={manifest}
-                wallAnchors={boardGrantWallAnchors}
-                studentMediaRuntime={classroom.state.studentMediaRuntime}
-                error={classroom.error}
-                onRunAction={async (action) => {
-                  await classroom.runAction(action);
-                }}
-                onClose={() => setHelpBoardAccessUserId("")}
-              />
-            );
-          }
+      <RoomLeftHud
+        showPlayModeToggle={showPlayModeToggle}
+        playModeBusy={playModeBusy}
+        playModeEnabled={playModeEnabled}
+        onTogglePlayMode={() => {
+          void togglePlayMode();
+        }}
+        showSpotlightIndicator={roomTypeFeatures.focus && role === "teacher" && spotlightActive}
+        spotlightAnchorLabel={classroom.state?.spotlight?.anchorId ?? "Board"}
+        spotlightModeLabel={
+          classroom.state?.spotlight?.mode === "force"
+            ? "Force — camera locked"
+            : classroom.state?.spotlight?.mode === "guide"
+              ? "Guide — look-at prompted"
+              : "Highlight — board indicated"
         }
+        showStudentClassroomState={roomTypeFeatures.classroomState && role === "student"}
+        studentGroup={
+          studentGroup
+            ? {
+                color: studentGroup.color,
+                label: studentGroup.label,
+                memberCount: studentGroup.memberUserIds.length
+              }
+            : null
+        }
+        handRaised={handRaised}
+        hostSingular={roleLabels.hostSingular}
+        hallpassStatus={hallpassStatus}
+        onRequestHallpass={() => {
+          setHallpassBusy(true);
+          void classroom
+            .runAction({ type: "request-hallpass" })
+            .catch(() => undefined)
+            .finally(() => setHallpassBusy(false));
+        }}
+        onReturnFromHallpass={() => {
+          if (!myActiveHallpass) return;
+          setHallpassBusy(true);
+          void classroom
+            .runAction({ type: "return-from-hallpass", requestId: myActiveHallpass.id })
+            .catch(() => undefined)
+            .finally(() => setHallpassBusy(false));
+        }}
+        showPodControls={
+          roomTypeFeatures.breakoutPods &&
+          role === "student" &&
+          (Boolean(studentPodTarget) || (podsEnabled && studentHasBroadcastGrant))
+        }
+        showGoToPod={Boolean(studentPodTarget)}
+        onMoveToPod={moveToMyPod}
+        showBroadcastToggle={podsEnabled && studentHasBroadcastGrant}
+        broadcastActive={broadcastMode === "broadcast"}
+        onToggleBroadcast={toggleBroadcast}
+        avatarColor={avatarColor}
+        initials={initials}
+        displayName={identity.displayName}
+        roomRoleLabel={roomRoleLabel}
+        roomName={roomName}
+        mediaControlsProps={{ media, canUseCamera, canUseMicrophone }}
+        viewMode={viewMode}
+        firstPerson={firstPerson}
+        manifestReady={Boolean(manifest)}
+        onSetFirstPerson={() => setFirstPerson(true)}
+        onSetThirdPerson={() => setFirstPerson(false)}
+        avatarEditorOpen={avatarEditorOpen}
+        avatarEditorLocked={avatarEditorLocked}
+        onToggleAvatarEditor={() => setAvatarEditorOpen((prev) => !prev)}
+        mediaPermissionText={mediaPermissionText}
+        reactionsEnabled={CLIENT_TUNING.enableAvatarReactions}
+        reactionsLocked={Boolean(classroom.state?.reactionsLocked)}
+        onFireReaction={fireReaction}
+        showWhisperToggle={
+          roomTypeFeatures.whisper &&
+          CLIENT_TUNING.enableWhisper &&
+          role === "student" &&
+          whisperAllowed
+        }
+        whisperMode={whisperMode}
+        whisperSuggested={whisperSuggested}
+        onToggleWhisper={toggleWhisper}
+        movementPadProps={{
+          onVector: movement.setTouchVector,
+          onJump: physicsTuning?.enabled && viewMode === "3d" ? movement.requestJump : undefined
+        }}
+      />
 
-        const selectedStudent = selectedStudentId ? participantList.find((p) => p.id === selectedStudentId) ?? null : null;
-        const helpRequest = selectedStudent && classroom.state
-          ? (classroom.state.helpRequests.find(
-              (r) => r.userId === selectedStudent.id && (r.status === "raised" || r.status === "acknowledged")
-            ) ?? null)
-          : null;
-        const studentActiveGrants = selectedStudent && classroom.state
-          ? (activeGrantMap(classroom.state).get(selectedStudent.id) ?? [])
-          : [];
-        return selectedStudent && manifest ? (
-          <StudentDetailPanel
-            key={selectedStudent.id}
-            participant={selectedStudent}
-            helpRequest={helpRequest}
-            activeGrants={studentActiveGrants}
-            manifest={manifest}
-            wallAnchors={boardGrantWallAnchors}
-            studentMediaRuntime={classroom.state?.studentMediaRuntime}
-            error={classroom.error}
-            onRunAction={async (action) => { await classroom.runAction(action); }}
-            onClose={() => setSelectedStudentId("")}
-          />
-        ) : null;
-      })() : null}
-      {roomTypeFeatures.lessons && CLIENT_TUNING.enableClassroomLessons && role === "teacher" && recapOpen && recapRunId && session ? (
-        <LessonRecapPanel
-          identity={identity}
-          roomId={session.room.id}
-          runId={recapRunId}
-          onClose={() => setRecapOpen(false)}
-        />
-      ) : null}
-      {avatarEditorOpen && session ? (
-        <AvatarEditorPanel
-          savedAppearance={localAppearanceRef.current}
-          appearanceCustomized={localAppearanceCustomizedRef.current}
-          savedAccessories={localAccessoriesRef.current}
-          savedBodySlug={localBodySlugRef.current}
-          bodyCatalog={avatarBodyCatalog}
-          onResetToDefaultSkin={async () => {
-            await clearAvatarAppearance(identity);
-            localAppearanceRef.current = DEFAULT_APPEARANCE;
-            localAppearanceCustomizedRef.current = false;
-            setLocalAppearance(session.participantId, DEFAULT_APPEARANCE, false);
-            publishRealtime({
-              type: "avatar.appearance.v1",
-              participantId: session.participantId,
-              appearance: DEFAULT_APPEARANCE,
-              customized: false,
-            });
-          }}
-          onSave={async (appearance) => {
-            await patchAvatarAppearance(identity, appearance);
-            localAppearanceRef.current = appearance;
-            localAppearanceCustomizedRef.current = true;
-            setLocalAppearance(session.participantId, appearance, true);
-            publishRealtime({
-              type: "avatar.appearance.v1",
-              participantId: session.participantId,
-              appearance,
-              customized: true,
-            });
-          }}
-          {...(CLIENT_TUNING.enableAvatarAccessories
+      <RoomRightRail
+        lessonStudentCalloutProps={
+          roomTypeFeatures.lessons && CLIENT_TUNING.enableClassroomLessons && role === "student"
             ? {
-                onSaveAccessories: async (accessories: AvatarEquippedAccessories) => {
-                  await patchAvatarAccessories(identity, accessories);
-                  localAccessoriesRef.current = accessories;
-                  setLocalAccessories(session.participantId, accessories);
-                  publishRealtime({
-                    type: "avatar.accessories.v1",
-                    participantId: session.participantId,
-                    accessories,
-                  });
-                },
-                onDraftAccessoriesChange: (draft: AvatarEquippedAccessories) => setLocalDraftAccessories(draft)
+                run: lesson.run,
+                currentStep: lesson.currentStep,
+                state: classroom.state,
+                manifest,
+                currentUserId: identity.userId,
+                onRunAction: classroom.runAction
               }
-            : {})}
-          {...(CLIENT_TUNING.enableAvatarBodies
+            : undefined
+        }
+        roomObjectsToolbarProps={
+          roomObjectsTeacherToolbarVisible
             ? {
-                onSaveBody: async (bodySlug: AvatarBodySlug) => {
-                  await patchAvatarBody(identity, bodySlug);
-                  localBodySlugRef.current = bodySlug;
-                  setLocalBody(session.participantId, bodySlug);
-                  publishRealtime({
-                    type: "avatar.body.v1",
-                    participantId: session.participantId,
-                    bodySlug,
-                  });
+                templates: roomObjectTemplates.catalogTemplates,
+                objects: roomObjects.objects,
+                roomTypeLabel,
+                manifest: manifest!,
+                roomObjectsReady: roomObjectsEnabled,
+                gateSyncing: roomObjectsGateSyncing,
+                localAvatarPosition:
+                  localParticipantForRoomObjects?.state.position ?? { x: 0, y: 0, z: 0 },
+                localAvatarYaw: localParticipantForRoomObjects?.state.rotation.y ?? 0,
+                loading: roomObjects.loading || roomObjectTemplates.status === "loading",
+                error:
+                  roomObjects.error ||
+                  (roomObjectTemplates.status === "error"
+                    ? "Unable to load object catalog."
+                    : ""),
+                selectedObjectId: selectedRoomObjectId,
+                onSelectObject: setSelectedRoomObjectId,
+                onInstantiate: async (templateId) => {
+                  const template = roomObjectTemplatesByIdMap[templateId];
+                  const pose =
+                    template && localParticipantForRoomObjects
+                      ? buildSpawnPoseInFront({
+                          manifest: manifest!,
+                          avatarPosition: localParticipantForRoomObjects.state.position,
+                          avatarYaw: localParticipantForRoomObjects.state.rotation.y,
+                          template
+                        })
+                      : undefined;
+                  const object = await roomObjects.actions.instantiate(templateId, pose);
+                  setSelectedRoomObjectId(object.id);
                 },
-                onDraftBodyChange: (draft: AvatarBodySlug) => setLocalDraftBodySlug(draft)
+                onRemove: async (objectId) => {
+                  await roomObjects.actions.remove(objectId);
+                  setSelectedRoomObjectId((current) => (current === objectId ? null : current));
+                },
+                onDeleteTemplate: async (templateId) => {
+                  const placed = roomObjects.objects.filter(
+                    (object) => object.templateId === templateId
+                  );
+                  for (const object of placed) {
+                    await roomObjects.actions.remove(object.id);
+                  }
+                  await archiveRoomObjectTemplate(identity, templateId);
+                  if (placed.some((object) => object.id === selectedRoomObjectId)) {
+                    setSelectedRoomObjectId(null);
+                  }
+                  await roomObjectTemplates.refetch();
+                },
+                customUploadsEnabled: roomObjectCustomUploadsEnabled,
+                onUpload: async (input) => {
+                  const activeRoomId = session?.room.id ?? roomId;
+                  if (!activeRoomId) throw new Error("Room is not ready.");
+                  await uploadRoomObjectGlb(identity, {
+                    roomId: activeRoomId,
+                    ...input
+                  });
+                  await roomObjectTemplates.refetch();
+                }
               }
-            : {})}
-          onDraftChange={(draft, dirty) => setLocalDraftAppearance(dirty ? draft : null)}
-          onClose={() => {
-            setAvatarEditorOpen(false);
-            setLocalDraftAppearance(null);
-            setLocalDraftAccessories(null);
-            setLocalDraftBodySlug(null);
-          }}
-          onTriggerWave={() => setWaveTriggered(true)}
-          waveActive={waveTriggered}
-          locked={avatarEditorLocked}
-        />
-      ) : null}
-      {(() => {
-        if (!fullscreenObjectId) return null;
-        const fsObject = wall.wallObjects.find((o) => o.id === fullscreenObjectId && o.status !== "removed");
-        if (!fsObject) return null;
-        const fsStreams = wallMediaStreams[fullscreenObjectId] ?? {};
-        return (
-          <div className="board-fullscreen-overlay" role="dialog" aria-label={`${fsObject.title} — fullscreen`}>
-            <div className="board-fullscreen-header">
-              <span className="board-fullscreen-title">{fsObject.title}</span>
-              <button
-                type="button"
-                className="board-fullscreen-close"
-                onClick={() => setFullscreenObjectId(null)}
-                aria-label="Exit fullscreen"
-              >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
-                  <path d="M3 1v3H1M7 1v3h2M3 9v-3H1M7 9v-3h2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Exit fullscreen
-              </button>
-            </div>
-            <div className="board-fullscreen-body">
-              <WallObjectContent
-                object={fsObject}
-                canManage={session?.role === "teacher"}
-                currentUserId={identity.userId}
-                surface={false}
-                assetUrl={wall.assetUrls[fullscreenObjectId]}
-                slideImageUrls={wall.assetUrls}
-                videoStream={fsStreams.videoStream}
-                audioStream={fsStreams.audioStream}
-                whiteboardController={whiteboards}
-                whiteboardParticipantNames={participantNameMap}
-                canWriteWhiteboard={canWriteWhiteboard}
-                sharedBrowserController={sharedBrowsers}
-                sharedBrowserIdentity={identity}
-                sharedBrowserRoomId={session?.room.id ?? roomId}
-                {...(fsObject.type === "web.browser.shared" ? { hyperbeamEmbedVisible: true } : {})}
-                onControl={controlWallObject}
-              />
-            </div>
-          </div>
-        );
-      })()}
-      {liveCaptionsEnabled && session ? (
-        <LiveCaptionsDock
-          controller={liveCaptions}
-          speakerLabel={(id) => participantNameMap[id] ?? id}
-          selfParticipantId={session.participantId}
-          reserveGuideDock={aiWorldHostGuidePanelOpen}
-        />
-      ) : null}
-      {translationEnabled && session && translation.dockOpen ? (
-        <TranslationDock
-          controller={translation}
-          speakerLabel={(id) => participantNameMap[id] ?? id}
-          selfParticipantId={session.participantId}
-        />
-      ) : null}
-      {sitting.sittingPhase !== "none" ? (
-        <div className="hud-interaction-prompt" role="status" aria-live="polite">
-          <kbd>E</kbd> stand up
-          {seatedNotebookDesk ? (
-            <>
-              <span aria-hidden="true">·</span>
-              <kbd>N</kbd> notebook
-            </>
-          ) : null}
-        </div>
-      ) : podiumEngaged ? (
-        <div className="hud-interaction-prompt" role="status" aria-live="polite">
-          <kbd>E</kbd> leave
-          <span aria-hidden="true">·</span>
-          <kbd>N</kbd> notebook
-        </div>
-      ) : nearestChairForPrompt ? (
-        <div className="hud-interaction-prompt" role="status" aria-live="polite">
-          <kbd>E</kbd> sit
-        </div>
-      ) : standing.nearestPodium ? (
-        <div className="hud-interaction-prompt" role="status" aria-live="polite">
-          <kbd>E</kbd> present
-        </div>
-      ) : null}
-      {seatedNotebookDesk && session ? (
-        <DeskNotebook roomId={session.room.id} userId={identity.userId} roomLabel={session.room.name} />
-      ) : null}
-      {podiumNotebook && session ? (
-        <DeskNotebook
-          roomId={session.room.id}
-          userId={identity.userId}
-          roomLabel={session.room.name}
-          storageScope="podium"
-          enableTextImport
-        />
-      ) : null}
-      {logicPlayEnabled && nearestInteractable?.kind === "button" ? (
-        <div className="hud-interaction-prompt" role="status" aria-live="polite">
-          <kbd>E</kbd> use button
-        </div>
-      ) : null}
-      {showPlayModeDock ? (
-        <div className="play-mode-dock" role="status" aria-live="polite">
-          <strong>Play test</strong>
-          {logicPlayEnabled ? (
-            <ul className="play-mode-dock__how">
-              {playVerbs.hasExit ? (
-                <li>🎯 Reach the exit pad before the timer runs out.</li>
-              ) : (
-                <li>🎯 Solve the puzzle to open the locked doors.</li>
-              )}
-              {playVerbs.hasButton ? <li><kbd>E</kbd> (or click) a button to trigger it.</li> : null}
-              {playVerbs.hasPlate ? <li>Stand on a pressure plate to hold its signal.</li> : null}
-              {playVerbs.hasZone ? <li>Walk into a glowing zone to trip it.</li> : null}
-              {playVerbs.hasTeleporter ? <li>Step onto a glowing pad to teleport to its linked pad.</li> : null}
-              <li>Closed doors are locked until their channel is powered.</li>
-              {role === "teacher" ? <li>Author: click a door to force it open/closed.</li> : null}
-            </ul>
-          ) : (
-            <span>Explore the layout — you can&apos;t edit walls while play mode is on.</span>
-          )}
-          {playStatusMessage ? (
-            <span className="play-mode-dock__toast" role="alert">
-              {playStatusMessage}
-            </span>
-          ) : null}
-          {logicPlayEnabled ? (
-            <EscapeTimerHud
-              session={escapeSession.session}
-              isAuthor={role === "teacher"}
-              busy={escapeSession.busy}
-              onStart={() => void escapeSession.actions.start()}
-              onReset={() => void escapeSession.actions.reset()}
+            : undefined
+        }
+        classroomPanelProps={
+          roomTypeFeatures.classroomState
+            ? {
+                role,
+                state: classroom.state,
+                loading: classroom.loading,
+                error: classroom.error,
+                activeHelpRequest: classroom.activeHelpRequest,
+                manifest,
+                currentUserId: identity.userId,
+                boardAccessUserId: helpBoardAccessUserId,
+                reactionLog: log,
+                hallpassSettings: session?.room.settings.hallpass,
+                hostSingular: roleLabels.hostSingular,
+                onOpenBoardAccess: (userId) => {
+                  setSelectedStudentId("");
+                  setHelpBoardAccessUserId((current) => (current === userId ? "" : userId));
+                },
+                onRunAction: async (action) => {
+                  await classroom.runAction(action);
+                }
+              }
+            : undefined
+        }
+        lessonRunControlsProps={
+          roomTypeFeatures.lessons && CLIENT_TUNING.enableClassroomLessons && role === "teacher"
+            ? {
+                run: lesson.run,
+                currentStep: lesson.currentStep,
+                nextStep: lesson.nextStep,
+                loading: lesson.loading,
+                error: lesson.error,
+                runAction: lesson.runAction,
+                slideDeckObject: lessonSlideDeckObject,
+                onSetSlide: setLessonSlide,
+                avatarEditorLocked,
+                onToggleAvatarLock: () =>
+                  void classroom.runAction({
+                    type: "set-avatar-editor-locked",
+                    locked: !avatarEditorLocked
+                  }),
+                onOpenRecap: () => {
+                  if (lesson.run?.id) openLessonRecap(lesson.run.id);
+                }
+              }
+            : undefined
+        }
+        lessonScriptCardProps={
+          roomTypeFeatures.lessons && CLIENT_TUNING.enableClassroomLessons && role === "teacher"
+            ? {
+                run: lesson.run,
+                loading: lesson.loading,
+                error: lesson.error,
+                onOpenStudio: () => setLessonStudioOpen(true)
+              }
+            : undefined
+        }
+        lessonTimelinePanelProps={
+          roomTypeFeatures.lessons && CLIENT_TUNING.enableClassroomLessons && role === "teacher"
+            ? { run: lesson.run }
+            : undefined
+        }
+        privateChecksPanelProps={
+          roomTypeFeatures.privateChecks
+            ? {
+                role,
+                state: classroom.state,
+                loading: classroom.loading,
+                currentUserId: identity.userId,
+                manifest,
+                forceExpanded: studentQuickCheckActive,
+                onRunAction: async (action) => {
+                  await classroom.runAction(action);
+                }
+              }
+            : undefined
+        }
+        groupsPanelProps={
+          roomTypeFeatures.groups
+            ? {
+                role,
+                state: classroom.state,
+                loading: classroom.loading,
+                participants: participantList,
+                currentUserId: identity.userId,
+                positioningGroupId,
+                podsEnabled: classroom.state?.podsRuntime?.podsEnabled === true,
+                broadcastUserIds: classroom.state?.podsRuntime?.broadcastFromUserIds ?? [],
+                podsAllowedInRoom:
+                  CLIENT_TUNING.enableBreakoutPods &&
+                  session?.room.settings.pods?.enabled === true,
+                ...(manifest ? { manifestAnchors: manifest.wallAnchors } : {}),
+                onRunAction: async (action) => {
+                  await classroom.runAction(action);
+                },
+                onEnterPositioningMode: (groupId) => setPositioningGroupId(groupId),
+                onCancelPositioning: () => setPositioningGroupId("")
+              }
+            : undefined
+        }
+        focusPanelProps={
+          roomTypeFeatures.focus
+            ? {
+                role,
+                state: classroom.state,
+                loading: classroom.loading,
+                manifest,
+                currentUserId: identity.userId,
+                hostSingular: roleLabels.hostSingular,
+                onRunAction: async (action) => {
+                  await classroom.runAction(action);
+                },
+                onLookAtFocus: lookAtFocus
+              }
+            : undefined
+        }
+        anchorPanelProps={
+          manifest && session
+            ? {
+                identity,
+                roomId: session.room.id,
+                manifest,
+                dynamicWallAnchors: dynamicBoards.anchors,
+                wallObjects: wall.wallObjects,
+                assetUrls: wall.assetUrls,
+                wallMediaStreams,
+                canCreate:
+                  session.role === "teacher" ||
+                  session.room.settings.wallObjectCreation !== "teacher-only" ||
+                  Boolean(activeBoardGrant),
+                canManage: session.role === "teacher",
+                canCreateDynamicAnchor:
+                  roomTypeFeatures.dynamicBoards &&
+                  (session.role === "teacher" || !roomTypeFeatures.peoplePanelTeacherControls),
+                dynamicAnchorPlacementActive: dynamicBoardPlacementActive,
+                role: session.role,
+                activeBoardGrant,
+                loading: wall.loading,
+                error: wall.error || displayMedia.error,
+                onStartDynamicAnchorPlacement: () => {
+                  setViewMode("3d");
+                  setDynamicBoardPlacementActive(true);
+                  setDynamicBoardPlacementMessage("Click a wall in the 3D room.");
+                },
+                onCancelDynamicAnchorPlacement: () => {
+                  setDynamicBoardPlacementActive(false);
+                  setDynamicBoardPlacementMessage("");
+                },
+                placementBoardWidth,
+                placementBoardHeight,
+                onPlacementBoardWidthChange: (width) =>
+                  setPlacementBoardWidth(
+                    Math.min(
+                      DYNAMIC_WALL_ANCHOR_MAX_WIDTH_M,
+                      Math.max(DYNAMIC_WALL_ANCHOR_MIN_WIDTH_M, width)
+                    )
+                  ),
+                onPlacementBoardHeightChange: (height) =>
+                  setPlacementBoardHeight(
+                    Math.min(
+                      DYNAMIC_WALL_ANCHOR_MAX_HEIGHT_M,
+                      Math.max(DYNAMIC_WALL_ANCHOR_MIN_HEIGHT_M, height)
+                    )
+                  ),
+                onRemoveDynamicAnchor: async (anchorId) => {
+                  await dynamicBoards.remove(anchorId);
+                  if (focusAnchorId === anchorId) setFocusAnchorId(null);
+                },
+                focusAnchorId,
+                onCreateFile: createFileObject,
+                onCreateWhiteboard: createWhiteboard,
+                onCreateSharedBrowser: createSharedBrowser,
+                onCreateNote: createNote,
+                onCreateTimer: createTimer,
+                onCreatePoll: createPoll,
+                onCreateLink: createLink,
+                onPinCamera: pinCamera,
+                onPinMicrophone: pinMicrophone,
+                onShareScreen: shareScreen,
+                onRemove: removeWallObject,
+                onStopShare: stopShare,
+                onControl: controlWallObject,
+                onModerate: moderateWallObject,
+                whiteboardController: whiteboards,
+                whiteboardParticipantNames: participantNameMap,
+                canWriteWhiteboard,
+                sharedBrowserController: sharedBrowsers,
+                sharedBrowserEnabled:
+                  CLIENT_TUNING.enableSharedBrowsers &&
+                  roomTypeFeatures.sharedBrowsers &&
+                  session.room.settings.sharedBrowsers.enabled,
+                hostSingular: roleLabels.hostSingular
+              }
+            : undefined
+        }
+        meetingNotesPanelProps={
+          meetingNotesEnabled && session
+            ? {
+                identity,
+                roomId: session.room.id,
+                controller: meetingNotes
+              }
+            : undefined
+        }
+        translationPanelProps={
+          translationEnabled && session
+            ? {
+                controller: translation,
+                readLang,
+                speakLang,
+                micEnabled: media.microphoneEnabled,
+                onReadLangChange: setReadLang,
+                onSpeakLangChange: setSpeakLang,
+                voiceEnabled: translationVoiceEnabled,
+                voiceMode,
+                voiceChoice,
+                voiceController: translationVoice,
+                onVoiceModeChange: setVoiceMode,
+                onVoiceChoiceChange: setVoiceChoice
+              }
+            : undefined
+        }
+        aiWorldHostControlsProps={
+          aiWorldHostEnabled && session && manifest
+            ? {
+                controller: aiWorldHost,
+                manifest,
+                buildPieces: buildPieces.pieces,
+                localAvatarPosition: movement.avatarState?.position ?? null,
+                localAvatarRotationY: movement.avatarState?.rotation.y ?? 0
+              }
+            : undefined
+        }
+        aiObjectPanelProps={
+          aiObjectsEnabled && session
+            ? {
+                controller: {
+                  ...aiObjectGenerator,
+                  place: async (jobId) => {
+                    const avatarPos = localParticipantForRoomObjects?.state.position;
+                    const avatarYaw = localParticipantForRoomObjects?.state.rotation.y ?? 0;
+                    const pose =
+                      avatarPos && manifest
+                        ? {
+                            position: {
+                              x: avatarPos.x + Math.sin(avatarYaw) * 1.5,
+                              y: 1.1,
+                              z: avatarPos.z + Math.cos(avatarYaw) * 1.5
+                            },
+                            rotation: { yaw: avatarYaw, pitch: 0, roll: 0 }
+                          }
+                        : undefined;
+                    const result = await aiObjectGenerator.place(jobId, pose);
+                    if (result?.template) {
+                      roomObjectTemplates.registerTemplate(result.template);
+                    }
+                  }
+                }
+              }
+            : undefined
+        }
+        environmentCardProps={
+          roomTypeFeatures.worldSkins && CLIENT_TUNING.enableWorldSkins && role === "teacher" && session
+            ? {
+                identity,
+                skin: activeSkin.skin ?? null,
+                dayNightMode: skinDayNightMode,
+                ambientGain: ambientGainOverride,
+                onRunAction: runSkinAction,
+                onAmbientChange: changeAmbientGain
+              }
+            : undefined
+        }
+        physicsCardProps={
+          roomTypeFeatures.physics && role === "teacher" && session && physicsTuning
+            ? {
+                effectiveTuning: physicsTuning,
+                roomOverride: physicsRoomOverrides,
+                featureGateEnabled:
+                  physicsEnvEnabled(session.room.type) && roomTypeFeatures.physics,
+                onChange: scheduleRoomPhysicsSettings,
+                onReset: resetRoomPhysicsSettings
+              }
+            : undefined
+        }
+      />
+      <RoomOverlayStack
+        guideDock={aiWorldHostGuideDock}
+        objectInspectorDock={roomObjectInspectorDock}
+        lessonStudio={lessonStudioOverlay}
+        peopleDetailPanel={peopleDetailPanel}
+        lessonRecap={lessonRecapOverlay}
+        avatarEditor={avatarEditorOverlay}
+        fullscreenWallObject={fullscreenWallObjectOverlay}
+        liveCaptionsDock={
+          liveCaptionsEnabled && session ? (
+            <LiveCaptionsDock
+              controller={liveCaptions}
+              speakerLabel={(id) => participantNameMap[id] ?? id}
+              selfParticipantId={session.participantId}
+              reserveGuideDock={aiWorldHostGuidePanelOpen}
             />
-          ) : null}
-          <button type="button" className="hud-btn" onClick={movement.returnToSpawn}>
-            Return to spawn
-          </button>
-          {logicPlayEnabled ? (
-            <div className="logic-debug-hud" aria-label="Logic detection events">
-              <strong>Logic signals</strong>
-              {logicDebugEvents.length === 0 ? (
-                <span className="logic-debug-empty">Step on plates, enter zones, or press E near buttons.</span>
-              ) : (
-                <ul>
-                  {logicDebugEvents.map((event) => (
-                    <li key={`${event.pieceId}-${event.kind}-${event.at}`}>
-                      <code>{event.kind}</code> · {event.pieceKind} · {event.pieceId.slice(-12)}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ) : null}
-          {logicPlayEnabled && role === "teacher" ? (
-            <LogicDebugOverlay pieces={logicPieces.pieces} logicState={logicPieces.logicState} />
-          ) : null}
-        </div>
-      ) : null}
-      {logicAuthoringEnabled && session ? (
-        <>
-          <LogicControls
-            logicMode={logicMode}
-            pieceCount={logicPieces.pieces.length}
-            existingChannels={existingLogicChannels}
-            canApplyStarterKit={session.room.type === "escape-room"}
-            onApplyStarterKit={applyStarterKit}
-            onClearAll={logicPieces.actions.clearAll}
-          />
-          {selectedLogicPieceId && logicPieces.piecesById[selectedLogicPieceId] ? (
-            <LogicInspector
-              piece={logicPieces.piecesById[selectedLogicPieceId]!}
-              pieces={logicPieces.pieces}
-              logicState={logicPieces.logicState}
-              onUpdate={logicPieces.actions.update}
-              onRemove={async (pieceId) => {
-                await logicPieces.actions.destroy(pieceId);
-                setSelectedLogicPieceId(null);
-              }}
-              onSelect={setSelectedLogicPieceId}
-              onClose={() => setSelectedLogicPieceId(null)}
+          ) : null
+        }
+        translationDock={
+          translationEnabled && session && translation.dockOpen ? (
+            <TranslationDock
+              controller={translation}
+              speakerLabel={(id) => participantNameMap[id] ?? id}
+              selfParticipantId={session.participantId}
             />
-          ) : null}
-        </>
-      ) : null}
-      {buildPiecesEnabled && session ? (
-        <BuildControls
-          buildMode={buildMode}
-          pieceCount={buildPieces.pieces.length}
-          error={buildPieces.error}
-          emptyCanvasHint={session?.room.type === "escape-room"}
-          onClearAll={buildActionsWithHistory.clearAll}
-          onReturnToSpawn={movement.returnToSpawn}
-          onPlaceAhead={handlePlaceAhead}
-          placeAheadDisabled={
-            !buildMode.enabled ||
-            buildMode.tool === "destroy" ||
-            Boolean(selectedAssetSlug)
-          }
-          onUndo={() => void buildHistory.undo().then((did) => did && buildMode.setStatusMessage("Undid."))}
-          onRedo={() => void buildHistory.redo().then((did) => did && buildMode.setStatusMessage("Redid."))}
-          selectedAssetSlug={selectedAssetSlug}
-          onSelectAsset={(slug) => {
-            setSelectedAssetSlug(slug);
-            if (slug) setSelectedCustomAssetId(null);
-            setAssetYawDeg(0);
-            if (slug) {
-              const scatter = WORLD_ASSET_CATALOG.find((a) => a.slug === slug)?.scatter;
-              if (scatter) setAssetScatterCount(scatter.defaultCount);
-            }
-          }}
-          scatterCount={assetScatterCount}
-          onScatterCountChange={setAssetScatterCount}
-          finePlacement={fineAssetPlacement}
-          onToggleFinePlacement={toggleFineAssetPlacement}
-          onUploadFloorTexture={handleUploadFloorTexture}
-          onSelectFloorTexturePreset={handleSelectFloorTexturePreset}
-          floorTextureOptions={floorTextureOptions}
-          customAssets={customAssets.assets}
-          selectedCustomAssetId={selectedCustomAssetId}
-          onUploadCustomAsset={(input) => customAssets.upload(input).then(() => undefined)}
-          onDeleteCustomAsset={(assetId) => {
-            if (selectedCustomAssetId === assetId) setSelectedCustomAssetId(null);
-            return customAssets.remove(assetId);
-          }}
-          onSelectCustomAsset={(assetId) => {
-            setSelectedCustomAssetId(assetId);
-            if (assetId) setSelectedAssetSlug(null);
-            setAssetYawDeg(0);
-          }}
-        />
-      ) : null}
+          ) : null
+        }
+        interactionPrompt={interactionPrompt}
+        seatedNotebook={
+          seatedNotebookDesk && session ? (
+            <DeskNotebook
+              roomId={session.room.id}
+              userId={identity.userId}
+              roomLabel={session.room.name}
+            />
+          ) : null
+        }
+        podiumNotebook={
+          podiumNotebook && session ? (
+            <DeskNotebook
+              roomId={session.room.id}
+              userId={identity.userId}
+              roomLabel={session.room.name}
+              storageScope="podium"
+              enableTextImport
+            />
+          ) : null
+        }
+        logicInteractionPrompt={logicInteractionPrompt}
+        playModeDock={playModeDockOverlay}
+        logicAuthoringOverlay={logicAuthoringOverlay}
+        buildControls={buildControlsOverlay}
+      />
     </main>
     </SkinLayer>
     </AiWorldHostSceneContext.Provider>

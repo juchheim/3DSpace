@@ -16,7 +16,7 @@ import type {
   WallObject
 } from "@3dspace/contracts";
 import { computeGroupMemberPosition, projectAnchorRectTo2D, projectPositionTo2D } from "@3dspace/room-engine";
-import type { ParticipantView } from "./RoomClient";
+import type { ParticipantView } from "../lib/room/types";
 import { useAiWorldHostScene } from "../lib/useAiWorldHost";
 import { useWorldSkinContext } from "./worldSkins/SkinLayer";
 import { RoomObjectIcon2D } from "./RoomObjectIcon2D";

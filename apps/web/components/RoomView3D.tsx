@@ -50,7 +50,7 @@ import type {
   WallPlaneSchema
 } from "@3dspace/contracts";
 import type { z } from "zod";
-import type { ParticipantView } from "./RoomClient";
+import type { ParticipantView } from "../lib/room/types";
 import { BlockyAvatar } from "./BlockyAvatar";
 import { LpHostAvatar } from "./LpHostAvatar";
 import { RobotSimpleHostAvatar } from "./RobotSimpleHostAvatar";

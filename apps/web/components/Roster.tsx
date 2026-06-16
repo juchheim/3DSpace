@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { HudCard } from "./HudCard";
 import type { ClassroomAction, ClassroomBoardAccessGrant, ClassroomGroup, ClassroomHelpRequest, ClassroomState, Role, RoomManifest, WallAnchor } from "@3dspace/contracts";
-import type { ParticipantView } from "./RoomClient";
+import type { ParticipantView } from "../lib/room/types";
 import { groupByUserId } from "./GroupsPanel";
 import { isBoardGrantActive } from "../lib/classroomGrants";
 import { BoardAccessSidePanel } from "./BoardAccessSidePanel";

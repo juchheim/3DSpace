@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ClassroomAction, ClassroomGroup, ClassroomState, Role } from "@3dspace/contracts";
-import type { ParticipantView } from "./RoomClient";
+import type { ParticipantView } from "../lib/room/types";
 import { HudCard } from "./HudCard";
 
 const GROUP_COLOR_PRESETS = [

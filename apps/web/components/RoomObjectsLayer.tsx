@@ -4,7 +4,7 @@ import { useEffect, useMemo } from "react";
 import type { AvatarAppearance, ClassroomGroup, Role, RoomManifest, RoomObject, RoomObjectTemplate } from "@3dspace/contracts";
 import { canGrabRoomObject, snapPosition, snapScale, snapYaw } from "../lib/roomObjectInteraction";
 import { RoomObjectMesh } from "./RoomObjectMesh";
-import type { ParticipantView } from "./RoomClient";
+import type { ParticipantView } from "../lib/room/types";
 
 type GrabInfo = { holderUserId: string; expiresAt: string };
 

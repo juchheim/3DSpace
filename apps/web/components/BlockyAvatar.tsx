@@ -26,7 +26,7 @@ import type {
   ParticipantAudioMode
 } from "@3dspace/contracts";
 import type { SittingPhase } from "../lib/useSitting";
-import type { ParticipantView } from "./RoomClient";
+import type { ParticipantView } from "../lib/room/types";
 import { CLIENT_TUNING } from "../lib/config";
 import { AvatarAccessoryLayer } from "./AvatarAccessoryLayer";
 import { BUILTIN_AVATAR_ACCESSORY_CATALOG } from "../lib/avatarAccessoryCatalog";

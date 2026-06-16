@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { ParticipantAudioMode, RoomManifest, SpatialAudioConfig, WallObject } from "@3dspace/contracts";
 import { getWallAnchorAudioPosition } from "@3dspace/room-engine";
-import type { ParticipantView } from "../components/RoomClient";
+import type { ParticipantView } from "./room/types";
 
 type SpatialNode = {
   source: MediaStreamAudioSourceNode;
