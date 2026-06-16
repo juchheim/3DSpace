@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-16 (Teacher avatar for verse rooms)
+Last updated: 2026-06-16 (World Builder Stamps tab removed)
+
+- **2026-06-16:** **World Builder Stamps tab removed** — deleted **Stamps** tab from `BuildControls.tsx` (Corridor, Floor 2×2, Perimeter 5×5); removed `selectedStampId`/`selectStamp` from `useBuildMode.ts`; removed stamp placement mode from `BuildPlacementController.tsx`; removed `BUILTIN_BUILD_STAMPS`/`getBuildStamp`/`stampToPlacementTargets` from `buildStamps.ts` (escape-room `ESCAPE_STARTER_KIT` + `roomStampToTargets` kept for LogicControls starter kit). AI corpus `world-building-guide.md` updated (3 tabs: Build/Objects/Scenes).
 
 - **2026-06-16:** **Teacher avatar (verse rooms)** — `GLBs/teacher-white-male.glb` → `scripts/prepare-teacher-white-male-glb.mjs` (PNG→JPEG q85 via `optimize-lp-glb.mjs`, ~1.35 MB) → `apps/web/public/avatars/teacher-white-male.glb`; recolor assets `teacher-white-male-albedo-neutral.jpg` + `teacher-white-male-zone-mask.png`; thumbnail `avatars/thumbnails/teacher-white-male.jpg`. New `teacher-white-male` body in `@3dspace/avatar-bodies` catalog (`verseOnly: true`, sit clips `Look_Back_and_Sit` / `Sit_to_Stand_Transition_M`); `avatarBodyCatalogForRoom()` filters editor to verse room types. Requires `ENABLE_AVATAR_BODIES` / `NEXT_PUBLIC_ENABLE_AVATAR_BODIES`.
 

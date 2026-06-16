@@ -16,7 +16,6 @@ import {
   levelToY,
   worldToCell
 } from "@3dspace/room-engine";
-import { getBuildStamp, stampToPlacementTargets } from "../lib/buildStamps";
 import {
   buildPlacementPreviewPiece,
   buildPlacementStatusMessage,
@@ -135,8 +134,6 @@ export function BuildPlacementController({
   placementSuspended?: boolean;
 }) {
   const [ghost, setGhost] = useState<{ pieces: BuildPiece[]; valid: boolean; reason?: string } | null>(null);
-  const stampMode = Boolean(buildMode.selectedStampId);
-  const activeStamp = buildMode.selectedStampId ? getBuildStamp(buildMode.selectedStampId) : undefined;
   const [ghostTrail, setGhostTrail] = useState<BuildPiece[]>([]);
   const [highlightedPieceId, setHighlightedPieceId] = useState<string | null>(null);
   const dragTargetsRef = useRef<Map<string, BuildPlacementTarget>>(new Map());
@@ -148,7 +145,7 @@ export function BuildPlacementController({
   const ignoreNextClickRef = useRef(false);
   const lastBatchAtRef = useRef(0);
   const lastSinglePlaceAtRef = useRef(0);
-  // Key of the last committed single/stamp target — used to throttle only *repeat* commits of
+  // Key of the last committed single target — used to throttle only *repeat* commits of
   // the same target (double-fire guard), so distinct placements in quick succession all land.
   const lastSinglePlaceKeyRef = useRef<string | null>(null);
   const pendingBatchRef = useRef<BuildPlacementTarget[]>([]);
@@ -159,7 +156,7 @@ export function BuildPlacementController({
   // to a different surface/cell than the last hover did.
   const currentGhostTargetRef = useRef<BuildPlacementTarget | null>(null);
   // Image-floor tool: click-drag sweeps out a rectangle of tiles committed on release.
-  const imageFloorRectMode = buildMode.tool === "image-floor" && !stampMode;
+  const imageFloorRectMode = buildMode.tool === "image-floor";
   const floorTextureKey = buildMode.tool === "image-floor" ? buildMode.floorTexture?.storageKey : undefined;
   const floorTextureSpanCells =
     buildMode.tool === "image-floor" ? buildMode.floorTextureSpanCells : undefined;
@@ -182,7 +179,7 @@ export function BuildPlacementController({
   // Destroy keeps the plane at the ground so it never occludes lower pieces you want to remove.
   const standingLevel = useStablePlacementLevel(localAvatarPosition.y);
   const fixturePlacementActive =
-    buildMode.tool !== "destroy" && !stampMode && isBuildCellFixtureKind(buildMode.tool);
+    buildMode.tool !== "destroy" && isBuildCellFixtureKind(buildMode.tool);
   // Overhead fixtures (lights/ceilings) AIM at the standing-level floor plane, not at a plane
   // lifted to the ceiling. A ceiling-height plane sits ~1.4 m above the camera, so the ray
   // grazes it: tiny mouse moves fling the hit across the room, the cursor lands far from the
@@ -191,7 +188,7 @@ export function BuildPlacementController({
   // ceiling because the fixture's level (fixturePlacementLevel, hitY-independent) drives its Y.
   // A floor footprint + vertical connector (below) keep "aim the tile, ceiling goes above" clear.
   const placementPlaneY =
-    buildMode.tool === "destroy" && !stampMode ? 0 : levelToY(standingLevel);
+    buildMode.tool === "destroy" ? 0 : levelToY(standingLevel);
 
   const gridCenter = useMemo(
     () =>
@@ -211,43 +208,6 @@ export function BuildPlacementController({
         augmentedPieces[previewPiece.id] = previewPiece;
       }
       return evaluateBuildPlacement(manifest, target, roomId, userId, augmentedPieces);
-    },
-    [manifest, piecesById, roomId, userId]
-  );
-
-  const stampTargetsFromHit = useCallback(
-    (hitX: number, hitZ: number): BuildPlacementTarget[] => {
-      if (!activeStamp) return [];
-      const anchor = worldToCell(hitX, hitZ);
-      return stampToPlacementTargets(activeStamp, anchor, buildMode.rotation, buildMode.materialId);
-    },
-    [activeStamp, buildMode.materialId, buildMode.rotation]
-  );
-
-  const evaluateStampTargets = useCallback(
-    (targets: BuildPlacementTarget[]) => {
-      const augmentedPieces: Record<string, BuildPiece> = { ...piecesById };
-      const previews: BuildPiece[] = [];
-      let firstReason: string | undefined;
-      let allAllowed = true;
-      for (const target of targets) {
-        const preview = buildPlacementPreviewPiece(roomId, target, userId);
-        previews.push(preview);
-        augmentedPieces[preview.id] = preview;
-      }
-      for (const target of targets) {
-        const result = evaluateBuildPlacement(manifest, target, roomId, userId, augmentedPieces);
-        if (!result.allowed) {
-          allAllowed = false;
-          firstReason ??= result.reason;
-        }
-      }
-      const capCheck = checkBuildCapsForPlacements(Object.values(piecesById), userId, targets);
-      if (!capCheck.ok) {
-        allAllowed = false;
-        firstReason ??= capCheck.reason;
-      }
-      return { previews, allowed: allAllowed, reason: firstReason };
     },
     [manifest, piecesById, roomId, userId]
   );
@@ -468,19 +428,9 @@ export function BuildPlacementController({
 
   const updateGhostFromHit = useCallback(
     (hitX: number, hitY: number, hitZ: number, surfacePiece: BuildPiece | null, tool: BuildTool) => {
-      if (tool === "destroy" && !stampMode) {
+      if (tool === "destroy") {
         currentGhostTargetRef.current = null;
         setGhost(null);
-        return;
-      }
-      if (stampMode && activeStamp) {
-        currentGhostTargetRef.current = null;
-        const stampResult = evaluateStampTargets(stampTargetsFromHit(hitX, hitZ));
-        setGhost({
-          pieces: stampResult.previews,
-          valid: stampResult.allowed,
-          ...(stampResult.reason ? { reason: stampResult.reason } : {})
-        });
         return;
       }
       const target = targetFromHit(tool as Exclude<BuildTool, "destroy">, hitX, hitY, hitZ, surfacePiece);
@@ -495,7 +445,7 @@ export function BuildPlacementController({
         valid: preview.allowed && !missingTexture,
         ...(missingTexture ? { reason: "floor-texture-missing" } : preview.reason ? { reason: preview.reason } : {})
       });
-      if (draggingRef.current && preview.allowed && !stampMode) {
+      if (draggingRef.current && preview.allowed) {
         const trailKey = placementTargetKey(target);
         if (trailKey !== lastTrailKeyRef.current) {
           lastTrailKeyRef.current = trailKey;
@@ -503,13 +453,13 @@ export function BuildPlacementController({
         }
       }
     },
-    [activeStamp, evaluateStampTargets, floorTextureKey, previewPlacement, stampMode, stampTargetsFromHit, targetFromHit]
+    [floorTextureKey, previewPlacement, targetFromHit]
   );
 
   const tryDragPlacement = useCallback(
     (hitX: number, hitY: number, hitZ: number, surfacePiece: BuildPiece | null) => {
       // Image-floor drags sweep a rectangle committed on release instead of painting cells.
-      if (!draggingRef.current || buildMode.tool === "destroy" || buildMode.tool === "image-floor" || stampMode)
+      if (!draggingRef.current || buildMode.tool === "destroy" || buildMode.tool === "image-floor")
         return;
       const target = targetFromHit(buildMode.tool, hitX, hitY, hitZ, surfacePiece);
       const preview = previewPlacement(target);
@@ -517,14 +467,14 @@ export function BuildPlacementController({
         scheduleBatchPlacement(target);
       }
     },
-    [buildMode.tool, previewPlacement, scheduleBatchPlacement, stampMode, targetFromHit]
+    [buildMode.tool, previewPlacement, scheduleBatchPlacement, targetFromHit]
   );
 
   const handleSurfacePointer = useCallback(
     (event: ThreeEvent<PointerEvent>, surfacePiece: BuildPiece | null) => {
       if (!buildMode.enabled) return;
       event.stopPropagation();
-      if (buildMode.tool === "destroy" && !stampMode) {
+      if (buildMode.tool === "destroy") {
         // Destroy still picks the exact piece the ray struck (you remove what you point at).
         if (surfacePiece) setHighlightedPieceId(surfacePiece.id);
         setGhost(null);
@@ -552,7 +502,6 @@ export function BuildPlacementController({
       imageFloorRectMode,
       placementPlaneY,
       resolveSurfaceForPlacement,
-      stampMode,
       tryDragPlacement,
       updateGhostFromHit,
       updateImageFloorRect
@@ -594,34 +543,6 @@ export function BuildPlacementController({
     [actions, onStatus, previewPlacement]
   );
 
-  const commitStampPlacement = useCallback(
-    async (hitX: number, hitZ: number) => {
-      const now = Date.now();
-      const cell = worldToCell(hitX, hitZ);
-      const key = `stamp:${cell.ix}:${cell.iz}`;
-      // Same throttle policy as single placement: only block a repeat stamp at the same
-      // anchor cell (double-fire), not a deliberate next stamp elsewhere.
-      if (key === lastSinglePlaceKeyRef.current && now - lastSinglePlaceAtRef.current < BUILD_PLACEMENT_RATE_LIMIT_MS) {
-        return;
-      }
-      const targets = stampTargetsFromHit(hitX, hitZ);
-      const stampResult = evaluateStampTargets(targets);
-      if (!stampResult.allowed) {
-        onStatus?.(buildPlacementStatusMessage(stampResult.reason));
-        return;
-      }
-      lastSinglePlaceAtRef.current = now;
-      lastSinglePlaceKeyRef.current = key;
-      try {
-        await actions.placeBatch(targets);
-        onStatus?.(`Placed stamp (${targets.length} pieces).`);
-      } catch (err) {
-        onStatus?.(err instanceof Error ? err.message : "Unable to place stamp.");
-      }
-    },
-    [actions, evaluateStampTargets, onStatus, stampTargetsFromHit]
-  );
-
   const handlePointerDown = useCallback(
     (event: ThreeEvent<PointerEvent>, surfacePiece: BuildPiece | null) => {
       if (!buildMode.enabled || event.button !== 0) return;
@@ -629,7 +550,7 @@ export function BuildPlacementController({
       // A fresh gesture begins — its click should count. (If this becomes a drag, the
       // drag-end re-arms the ignore so only the drag's trailing click is dropped.)
       ignoreNextClickRef.current = false;
-      if (buildMode.tool === "destroy" && !stampMode) return;
+      if (buildMode.tool === "destroy") return;
       draggingRef.current = true;
       didDragRef.current = false;
       dragTargetsRef.current.clear();
@@ -656,7 +577,6 @@ export function BuildPlacementController({
       imageFloorRectMode,
       placementPlaneY,
       resolveSurfaceForPlacement,
-      stampMode,
       targetFromHit,
       updateGhostFromHit,
       updateImageFloorRect
@@ -687,7 +607,7 @@ export function BuildPlacementController({
     return () => window.removeEventListener("pointerup", handlePointerUp);
   }, [handlePointerUp]);
 
-  // Abandon any in-progress rectangle when the tool or stamp selection changes.
+  // Abandon any in-progress rectangle when the image-floor tool is deselected.
   useEffect(() => {
     if (!imageFloorRectMode) {
       rectAnchorRef.current = null;
@@ -707,7 +627,7 @@ export function BuildPlacementController({
         return;
       }
 
-      if (buildMode.tool === "destroy" && !stampMode) {
+      if (buildMode.tool === "destroy") {
         if (!surfacePiece) return;
         try {
           await actions.destroy(surfacePiece.id);
@@ -715,11 +635,6 @@ export function BuildPlacementController({
         } catch (err) {
           onStatus?.(err instanceof Error ? err.message : "Unable to remove piece.");
         }
-        return;
-      }
-
-      if (stampMode) {
-        await commitStampPlacement(event.point.x, event.point.z);
         return;
       }
 
@@ -750,12 +665,10 @@ export function BuildPlacementController({
       buildMode.enabled,
       buildMode.tool,
       commitPlacement,
-      commitStampPlacement,
       imageFloorRectMode,
       onStatus,
       placementPlaneY,
       resolveSurfaceForPlacement,
-      stampMode,
       targetFromHit
     ]
   );
@@ -783,7 +696,7 @@ export function BuildPlacementController({
   // X/Z always comes from the plane (no ~0.3 m parallax jump as the ray flips between a piece
   // top and the plane at a floor edge), so the ghost stays put. Cell-based surface resolution
   // (resolveSurfaceForPlacement) recovers the level/edge without needing the hit piece.
-  const destroyToolActive = buildMode.tool === "destroy" && !stampMode;
+  const destroyToolActive = buildMode.tool === "destroy";
 
   return (
     <group>

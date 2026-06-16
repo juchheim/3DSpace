@@ -8,7 +8,6 @@ import type {
 } from "@3dspace/contracts";
 import type { BuildPlacementTarget } from "./buildPlacement";
 
-/** Relative placement within a stamp (origin cell 0,0). */
 export type BuildStampPiece = {
   kind: BuildPieceKind;
   cell: { ix: number; iz: number };
@@ -16,13 +15,6 @@ export type BuildStampPiece = {
   edge?: BuildPieceEdge;
   rotation?: BuildPieceRotation;
   materialId?: BuildPieceMaterial;
-};
-
-export type BuildStamp = {
-  id: string;
-  label: string;
-  description: string;
-  pieces: BuildStampPiece[];
 };
 
 /** Outer-perimeter walls of a `size`×`size` footprint — a complete hollow box, no floor or openings. */
@@ -64,45 +56,6 @@ function roomShellPieces(size: number): BuildStampPiece[] {
   return pieces;
 }
 
-export const BUILTIN_BUILD_STAMPS: BuildStamp[] = [
-  {
-    id: "corridor",
-    label: "Corridor",
-    description: "Two cells with side walls and doorways at each end",
-    pieces: [
-      { kind: "floor", cell: { ix: 0, iz: 0 }, level: 0, materialId: "stone" },
-      { kind: "floor", cell: { ix: 1, iz: 0 }, level: 0, materialId: "stone" },
-      { kind: "wall", cell: { ix: 0, iz: 0 }, level: 0, edge: "w", materialId: "stone" },
-      { kind: "wall", cell: { ix: 1, iz: 0 }, level: 0, edge: "w", materialId: "stone" },
-      { kind: "wall", cell: { ix: 0, iz: 0 }, level: 0, edge: "e", materialId: "stone" },
-      { kind: "wall", cell: { ix: 1, iz: 0 }, level: 0, edge: "e", materialId: "stone" },
-      { kind: "doorway", cell: { ix: 0, iz: 0 }, level: 0, edge: "s", materialId: "wood" },
-      { kind: "doorway", cell: { ix: 1, iz: 0 }, level: 0, edge: "n", materialId: "wood" }
-    ]
-  },
-  {
-    id: "floor-2x2",
-    label: "Floor 2×2",
-    description: "Four floor tiles",
-    pieces: [
-      { kind: "floor", cell: { ix: 0, iz: 0 }, level: 0, materialId: "wood" },
-      { kind: "floor", cell: { ix: 1, iz: 0 }, level: 0, materialId: "wood" },
-      { kind: "floor", cell: { ix: 0, iz: 1 }, level: 0, materialId: "wood" },
-      { kind: "floor", cell: { ix: 1, iz: 1 }, level: 0, materialId: "wood" }
-    ]
-  },
-  {
-    id: "perimeter-5",
-    label: "Perimeter 5×5",
-    description: "Hollow box — outer walls only",
-    pieces: perimeterWallPieces(5)
-  }
-];
-
-export function getBuildStamp(id: string): BuildStamp | undefined {
-  return BUILTIN_BUILD_STAMPS.find((stamp) => stamp.id === id);
-}
-
 function rotateCell(ix: number, iz: number, rotation: BuildPieceRotation): { ix: number; iz: number } {
   switch (rotation) {
     case 0:
@@ -121,26 +74,6 @@ function rotateEdge(edge: BuildPieceEdge, rotation: BuildPieceRotation): BuildPi
   const index = order.indexOf(edge);
   const steps = rotation / 90;
   return order[(index + steps) % 4]!;
-}
-
-/** Translate and rotate a stamp to an anchor cell in world grid space. */
-export function stampToPlacementTargets(
-  stamp: BuildStamp,
-  anchor: { ix: number; iz: number },
-  rotation: BuildPieceRotation,
-  defaultMaterialId: BuildPieceMaterial
-): BuildPlacementTarget[] {
-  return stamp.pieces.map((piece) => {
-    const rotated = rotateCell(piece.cell.ix, piece.cell.iz, rotation);
-    return {
-      kind: piece.kind,
-      cell: { ix: anchor.ix + rotated.ix, iz: anchor.iz + rotated.iz },
-      level: piece.level,
-      ...(piece.edge ? { edge: rotateEdge(piece.edge, rotation) } : {}),
-      rotation: piece.rotation ?? 0,
-      materialId: piece.materialId ?? defaultMaterialId
-    };
-  });
 }
 
 // ── Room stamps: build pieces + pre-wired logic (Phase 10.5) ──────────────────

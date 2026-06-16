@@ -38,7 +38,6 @@ export type FloorTextureSelection = {
 export function useBuildMode() {
   const [enabled, setEnabled] = useState(false);
   const [tool, setToolState] = useState<BuildTool>("wall");
-  const [selectedStampId, setSelectedStampId] = useState<string | null>(null);
   const [materialId, setMaterialId] = useState<BuildPieceMaterial>("stone");
   const [rotation, setRotation] = useState<BuildPieceRotation>(0);
   const [statusMessage, setStatusMessage] = useState("");
@@ -50,12 +49,6 @@ export function useBuildMode() {
 
   const setTool = useCallback((next: BuildTool) => {
     setToolState(next);
-    setSelectedStampId(null);
-    setRampRotationOverride(false);
-  }, []);
-
-  const selectStamp = useCallback((stampId: string | null) => {
-    setSelectedStampId(stampId);
     setRampRotationOverride(false);
   }, []);
 
@@ -84,8 +77,6 @@ export function useBuildMode() {
     setEnabled,
     tool,
     setTool,
-    selectedStampId,
-    selectStamp,
     materialId,
     setMaterialId,
     rotation,

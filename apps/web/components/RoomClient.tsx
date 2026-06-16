@@ -4303,7 +4303,6 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           placeAheadDisabled={
             !buildMode.enabled ||
             buildMode.tool === "destroy" ||
-            Boolean(buildMode.selectedStampId) ||
             Boolean(selectedAssetSlug)
           }
           onUndo={() => void buildHistory.undo().then((did) => did && buildMode.setStatusMessage("Undid."))}
@@ -4313,7 +4312,6 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
             setSelectedAssetSlug(slug);
             setAssetYawDeg(0);
             if (slug) {
-              buildMode.selectStamp(null);
               const scatter = WORLD_ASSET_CATALOG.find((a) => a.slug === slug)?.scatter;
               if (scatter) setAssetScatterCount(scatter.defaultCount);
             }

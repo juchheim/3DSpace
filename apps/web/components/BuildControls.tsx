@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { IMAGE_FLOOR_TEXTURE_SPAN_OPTIONS, type BuildPieceMaterial } from "@3dspace/contracts";
 import { BUILD_MATERIAL_OPTIONS } from "./buildMaterials";
-import { BUILTIN_BUILD_STAMPS } from "../lib/buildStamps";
 import {
   BUILD_FLOOR_TEXTURE_PRESETS,
   isBuildFloorTexturePresetFileName,
@@ -19,7 +18,7 @@ import {
 
 const BUILD_COACHMARK_KEY = "3dspace-build-coachmark-dismissed";
 
-type BuildCategory = "build" | "objects" | "scenes" | "stamps";
+type BuildCategory = "build" | "objects" | "scenes";
 
 /** Tools shown in the Build palette. Destroy is surfaced as a separate erase mode. */
 const BUILD_TOOLS: Array<{ id: BuildTool; label: string; shortcut?: string; group: "structure" | "fixture" }> = [
@@ -49,8 +48,7 @@ const MATERIAL_LABELS: Record<BuildPieceMaterial, string> = {
 const CATEGORIES: Array<{ id: BuildCategory; label: string }> = [
   { id: "build", label: "Build" },
   { id: "objects", label: "Objects" },
-  { id: "scenes", label: "Scenes" },
-  { id: "stamps", label: "Stamps" }
+  { id: "scenes", label: "Scenes" }
 ];
 
 function buildCategoryForAssetSlug(slug: string | null | undefined): BuildCategory {
@@ -64,7 +62,7 @@ function buildCategoryForAssetSlug(slug: string | null | undefined): BuildCatego
 function Glyph({
   id
 }: {
-  id: BuildTool | "stamp" | "object" | "scene" | "erase" | "tab-build" | "tab-objects" | "tab-scenes" | "tab-stamps";
+  id: BuildTool | "object" | "scene" | "erase" | "tab-build" | "tab-objects" | "tab-scenes";
 }) {
   const common = {
     width: 16,
@@ -184,15 +182,6 @@ function Glyph({
           <path d="M3.4 8.4 5.6 6.3 8 8.1l2.8-2.3 2.6 2.4" />
         </svg>
       );
-    case "stamp":
-    case "tab-stamps":
-      return (
-        <svg {...common}>
-          <rect x="2.5" y="3" width="11" height="10" rx="1" />
-          <path d="M6.4 13v-2.6h3.2V13" />
-          <path d="M2.5 6.4h11" />
-        </svg>
-      );
     default:
       return null;
   }
@@ -254,11 +243,7 @@ export function BuildControls({
   const [uploadingTexture, setUploadingTexture] = useState(false);
   const floorTextureInputRef = useRef<HTMLInputElement | null>(null);
   const [category, setCategory] = useState<BuildCategory>(() =>
-    selectedAssetSlug
-      ? buildCategoryForAssetSlug(selectedAssetSlug)
-      : buildMode.selectedStampId
-        ? "stamps"
-        : "build"
+    selectedAssetSlug ? buildCategoryForAssetSlug(selectedAssetSlug) : "build"
   );
 
   useEffect(() => {
@@ -323,7 +308,7 @@ export function BuildControls({
   }
 
   const erasing = buildMode.tool === "destroy";
-  const toolActive = !selectedAssetSlug && !buildMode.selectedStampId && !erasing;
+  const toolActive = !selectedAssetSlug && !erasing;
   const selectedScatter = selectedAssetSlug
     ? worldAssetBySlug(selectedAssetSlug)?.scatter
     : undefined;
@@ -365,7 +350,7 @@ export function BuildControls({
           ) : null}
 
           {emptyCanvasHint && pieceCount === 0 ? (
-            <p className="build-dock__empty">Build walls to make your first room, or drop a Room stamp below.</p>
+            <p className="build-dock__empty">Build walls to make your first room.</p>
           ) : null}
 
           {/* ── Header: power, title, live count, history & utilities ───────────── */}
@@ -454,7 +439,7 @@ export function BuildControls({
                 className={`build-dock__tab${category === cat.id ? " is-active" : ""}`}
                 onClick={() => setCategory(cat.id)}
               >
-                <Glyph id={`tab-${cat.id}` as "tab-build" | "tab-objects" | "tab-scenes" | "tab-stamps"} />
+                <Glyph id={`tab-${cat.id}` as "tab-build" | "tab-objects" | "tab-scenes"} />
                 {cat.label}
               </button>
             ))}
@@ -650,7 +635,6 @@ export function BuildControls({
                           onSelectAsset?.(null);
                           return;
                         }
-                        buildMode.selectStamp(null);
                         onSelectAsset?.(asset.slug);
                       }}
                     >
@@ -667,35 +651,6 @@ export function BuildControls({
                     {category === "scenes" ? "No scenes available yet." : "No objects available yet."}
                   </p>
                 ) : null}
-              </div>
-            ) : null}
-
-            {category === "stamps" ? (
-              <div className="build-dock__grid" role="toolbar" aria-label="Build stamps">
-                {BUILTIN_BUILD_STAMPS.map((stamp) => {
-                  const active = buildMode.selectedStampId === stamp.id;
-                  return (
-                    <button
-                      key={stamp.id}
-                      type="button"
-                      className={`build-dock__tile build-dock__tile--wide${active ? " is-active" : ""}`}
-                      aria-pressed={active}
-                      onClick={() => {
-                        onSelectAsset?.(null);
-                        buildMode.selectStamp(active ? null : stamp.id);
-                      }}
-                      title={stamp.description}
-                    >
-                      <span className="build-dock__tile-icon">
-                        <Glyph id="stamp" />
-                      </span>
-                      <span className="build-dock__tile-stack">
-                        <span className="build-dock__tile-label">{stamp.label}</span>
-                        <span className="build-dock__tile-sub">{stamp.description}</span>
-                      </span>
-                    </button>
-                  );
-                })}
               </div>
             ) : null}
 
@@ -722,7 +677,7 @@ export function BuildControls({
               </div>
             ) : null}
 
-            {/* Contextual placement hint for object / stamp modes */}
+            {/* Contextual placement hint for object modes */}
             {selectedAssetSlug ? (
               <p className="build-dock__inline-hint">
                 {finePlacement ? (
@@ -770,7 +725,7 @@ export function BuildControls({
               <button
                 type="button"
                 className="build-dock__place-ahead build-dock__mobile-only"
-                disabled={placeAheadDisabled || erasing || Boolean(buildMode.selectedStampId)}
+                disabled={placeAheadDisabled || erasing}
                 onClick={onPlaceAhead}
                 title="Place in the cell ahead of you"
               >

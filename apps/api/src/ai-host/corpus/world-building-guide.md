@@ -17,7 +17,6 @@ The **World Builder** lets participants place and remove 3D content in supported
 - **Grid build pieces** — walls, floors, image floors, ramps, doorways, windows, lights, and mirrors.
 - **World objects** — furniture, trees, grass, podiums, and other props from the **Objects** tab.
 - **World scenes** — large pre-made environments (market, classroom, Mars terrain, etc.) from the **Scenes** tab.
-- **Stamps** — prefab shortcuts that drop several build pieces at once.
 
 Building is **collaborative and live**: placements appear for everyone in real time. In
 Free-for-All and Dream IXR **verse** rooms, **anyone can build or remove anyone's work**
@@ -37,7 +36,7 @@ Build toggle is not visible, building is turned off for that room or environment
 - Find the **Build** toggle in the **World Builder** dock (bottom of the screen). It reads
   **"Build off"** when inactive and **"Build on"** when active.
 - Click it, or press **`B`**, to enter build mode. The dock expands with category tabs, the
-  tool palette, stamps, materials, and the live piece counter.
+  tool palette, materials, and the live piece counter.
 - Click **Build on** again (or press **`B`**) to leave build mode and walk around normally.
   Closing build mode also **cancels any selected world object or scene** you were about to place.
 
@@ -48,16 +47,15 @@ or remove."
 
 ## 3. World Builder categories (tabs)
 
-When build mode is on, four tabs organize the dock:
+When build mode is on, three tabs organize the dock:
 
 | Tab | What it contains |
 | --- | --- |
 | **Build** | Grid pieces (walls, floors, ramps, doors, windows, lights, mirrors, image floors) plus material and rotation controls. |
 | **Objects** | Smaller props — chairs, tables, trees, grass, podiums. Click one, then click in the world to place. |
 | **Scenes** | Large environment meshes — Vienna Market, Classroom, Mars, Escher Head. One placement drops a whole scene. |
-| **Stamps** | Prefab shortcuts (Corridor, Floor 2×2, etc.) that place many build pieces at once. |
 
-Selecting a stamp or object/scene deselects the single-piece build tool, and vice versa.
+Selecting an object or scene deselects the single-piece build tool, and vice versa.
 
 ---
 
@@ -237,21 +235,6 @@ Place scenes on open ground with enough clearance — they are much larger than 
 
 ---
 
-## 12. Stamps (prefab shortcuts)
-
-Stamps drop several build pieces at once. Select a stamp from the **Stamps** tab, then click to
-place at the highlighted cell. Press `R` to rotate the whole stamp before placing.
-
-| Stamp | What it places |
-| --- | --- |
-| **Corridor** | Two floor cells with side walls and doorways at each end — a hallway segment. |
-| **Floor 2×2** | Four floor tiles, no walls. |
-| **Perimeter 5×5** | A hollow 5×5 box of outer walls only (no floor, no door) — a courtyard or fence. |
-
-Selecting a stamp deselects tools and objects; click the stamp again to deselect.
-
----
-
 ## 13. Undo, redo, clear, and getting unstuck
 
 - **Undo:** `⌘Z` / `Ctrl+Z`, or the **Undo** button. Reverses your last **build-piece** action
@@ -260,7 +243,7 @@ Selecting a stamp deselects tools and objects; click the stamp again to deselect
 - **Clear all:** the **Clear** button removes **every build piece** in the room (confirms first).
   It does **not** remove placed world objects or scenes — erase those individually with **Erase** (`4`).
 - **Place ahead** (mobile): places a build piece in the cell directly in front of your avatar.
-  Disabled for Erase and while a stamp is selected.
+  Disabled for Erase and while placing a world object or scene.
 - **Return to spawn** (⌂): teleports you back to a spawn point if boxed in or stuck.
 - **Piece counter:** the number in the dock header counts **build pieces** only, not world objects.
 
@@ -319,7 +302,7 @@ keep-outs — only spawn keep-out, out-of-bounds, level cap, slot conflicts, and
 
 ## 17. Common how-to recipes
 
-**Make a simple room:** Lay **Floor** tiles and **Wall** edges with a **Door** (`5`) for entry, or use the **Corridor** stamp for a quick hallway segment.
+**Make a simple room:** Lay **Floor** tiles and **Wall** edges with a **Door** (`5`) for entry.
 
 **Texture a lawn or path:** Select **Image Floor** (`0`), pick **Grass** or upload an image, set **Image span**, drag a rectangle on the ground.
 
@@ -350,7 +333,7 @@ keep-outs — only spawn keep-out, out-of-bounds, level cap, slot conflicts, and
 ## 18. Quick FAQ
 
 - **Q: How do I open the World Builder?** A: Click **Build off** in the dock, or press **`B`**.
-- **Q: What tabs are in the World Builder?** A: **Build**, **Objects**, **Scenes**, and **Stamps**.
+- **Q: What tabs are in the World Builder?** A: **Build**, **Objects**, and **Scenes**.
 - **Q: How do I undo?** A: `⌘Z` / `Ctrl+Z` for build pieces. World objects are removed with Erase (`4`), not undo.
 - **Q: What does key `0` do?** A: Selects **Image Floor**.
 - **Q: What does key `8` do?** A: Selects **Mirror**.

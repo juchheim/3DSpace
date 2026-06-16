@@ -1,42 +1,7 @@
 import { describe, expect, it } from "vitest";
-import {
-  BUILTIN_BUILD_STAMPS,
-  ESCAPE_STARTER_KIT,
-  getBuildStamp,
-  getRoomStamp,
-  roomStampToTargets,
-  stampToPlacementTargets
-} from "../lib/buildStamps";
+import { ESCAPE_STARTER_KIT, getRoomStamp, roomStampToTargets } from "../lib/buildStamps";
 
 describe("buildStamps", () => {
-  it("translates stamp cells to the anchor", () => {
-    const stamp = getBuildStamp("floor-2x2")!;
-    const targets = stampToPlacementTargets(stamp, { ix: 10, iz: 20 }, 0, "stone");
-    expect(targets).toHaveLength(4);
-    expect(targets.map((t) => `${t.cell.ix},${t.cell.iz}`).sort()).toEqual([
-      "10,20",
-      "10,21",
-      "11,20",
-      "11,21"
-    ]);
-  });
-
-  it("rotates stamp cells and edges 90°", () => {
-    const stamp = getBuildStamp("corridor")!;
-    const targets = stampToPlacementTargets(stamp, { ix: 0, iz: 0 }, 90, "stone");
-    const doorway = targets.find((t) => t.kind === "doorway" && t.cell.ix === 0 && t.cell.iz === 0);
-    expect(doorway?.edge).toBe("w");
-  });
-
-  it("perimeter stamp is a hollow box with no floor or doorway", () => {
-    const stamp = getBuildStamp("perimeter-5")!;
-    const targets = stampToPlacementTargets(stamp, { ix: 0, iz: 0 }, 0, "stone");
-    expect(targets.every((t) => t.kind === "wall")).toBe(true);
-    expect(targets.some((t) => t.kind === "floor")).toBe(false);
-    expect(targets.some((t) => t.kind === "doorway")).toBe(false);
-    expect(BUILTIN_BUILD_STAMPS).toHaveLength(3);
-  });
-
   it("escape starter kit carries pre-wired logic with a win plate", () => {
     expect(getRoomStamp("escape-starter")).toBe(ESCAPE_STARTER_KIT);
     const { buildTargets, logicTargets } = roomStampToTargets(
