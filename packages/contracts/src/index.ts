@@ -293,7 +293,13 @@ export const ListAvatarAccessoriesResponseSchema = z.object({
   items: z.array(AvatarAccessoryCatalogEntrySchema)
 });
 
-export const AvatarBodySlugSchema = z.enum(["azure-vanguard", "azure-vanguard-hd", "ixr-female-20k", "sit-test"]);
+export const AvatarBodySlugSchema = z.enum([
+  "azure-vanguard",
+  "azure-vanguard-hd",
+  "ixr-female-20k",
+  "sit-test",
+  "teacher-white-male"
+]);
 
 export const AvatarBodyClipsSchema = z.object({
   idle: z.string().min(1),
@@ -313,7 +319,9 @@ export const AvatarBodyCatalogEntrySchema = z.object({
   clips: AvatarBodyClipsSchema,
   zoneMaskUrl: z.string().min(1),
   neutralAlbedoUrl: z.string().min(1),
-  thumbnailUrl: z.string().optional()
+  thumbnailUrl: z.string().optional(),
+  /** When true, the body appears in the avatar editor only in Dream IXR verse rooms. */
+  verseOnly: z.boolean().optional()
 });
 
 export const AvatarBodyMessageSchema = z.object({

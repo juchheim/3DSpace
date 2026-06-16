@@ -28,3 +28,11 @@ export function resolveAvatarBodyEntry(bodySlug: AvatarBodySlug | string | null 
 export function avatarBodyModelScale(entry: AvatarBodyCatalogEntry): number {
   return TARGET_HEIGHT / entry.nativeHeight;
 }
+
+/** Verse-only bodies are hidden outside Dream IXR verse room types. */
+export function avatarBodyCatalogForRoom(
+  catalog: AvatarBodyCatalogEntry[],
+  isVerseRoom: boolean
+): AvatarBodyCatalogEntry[] {
+  return catalog.filter((entry) => !entry.verseOnly || isVerseRoom);
+}

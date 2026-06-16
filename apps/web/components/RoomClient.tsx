@@ -51,7 +51,7 @@ import { useAvatarMovement } from "../lib/useAvatarMovement";
 import { useAvatarAppearance } from "../lib/useAvatarAppearance";
 import { DEFAULT_EQUIPPED_ACCESSORIES, useAvatarAccessories } from "../lib/useAvatarAccessories";
 import { useAvatarBody } from "../lib/useAvatarBody";
-import { DEFAULT_AVATAR_BODY_SLUG } from "../lib/avatarBodyCatalog";
+import { BUILTIN_AVATAR_BODY_CATALOG, DEFAULT_AVATAR_BODY_SLUG, avatarBodyCatalogForRoom } from "../lib/avatarBodyCatalog";
 import { useAvatarReactions } from "../lib/useAvatarReactions";
 import { useAudioModes } from "../lib/useAudioModes";
 import { isKeyboardOwnedTarget } from "../lib/isKeyboardOwnedTarget";
@@ -2892,6 +2892,10 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     verseId ?? derivedVerseId ?? verseIdFromRoomType(session?.room.type) ?? undefined
   );
   const verseStyle = activeVerse ? (verseRoomThemeVars(activeVerse.hue) as CSSProperties) : undefined;
+  const avatarBodyCatalog = useMemo(
+    () => avatarBodyCatalogForRoom(BUILTIN_AVATAR_BODY_CATALOG, isVerseRoomType(session?.room.type)),
+    [session?.room.type]
+  );
 
   const avatarColor = role === "teacher" ? "#c07834" : "#389060";
   const initials = identity.displayName
@@ -4035,6 +4039,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           appearanceCustomized={localAppearanceCustomizedRef.current}
           savedAccessories={localAccessoriesRef.current}
           savedBodySlug={localBodySlugRef.current}
+          bodyCatalog={avatarBodyCatalog}
           onResetToDefaultSkin={async () => {
             await clearAvatarAppearance(identity);
             localAppearanceRef.current = DEFAULT_APPEARANCE;

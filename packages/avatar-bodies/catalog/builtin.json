@@ -54,5 +54,22 @@
     "zoneMaskUrl": "/avatars/ixr-female-20k-zone-mask.png",
     "neutralAlbedoUrl": "/avatars/ixr-female-20k-albedo-neutral.jpg",
     "thumbnailUrl": "/avatars/thumbnails/ixr-female-20k.jpg"
+  },
+  {
+    "slug": "teacher-white-male",
+    "displayName": "Teacher",
+    "glbUrl": "/avatars/teacher-white-male.glb",
+    "nativeHeight": 1.65,
+    "clips": {
+      "idle": "Idle_11",
+      "walking": "Walking",
+      "running": "Running",
+      "sit": "Look_Back_and_Sit",
+      "standFromSit": "Sit_to_Stand_Transition_M"
+    },
+    "zoneMaskUrl": "/avatars/teacher-white-male-zone-mask.png",
+    "neutralAlbedoUrl": "/avatars/teacher-white-male-albedo-neutral.jpg",
+    "thumbnailUrl": "/avatars/thumbnails/teacher-white-male.jpg",
+    "verseOnly": true
   }
 ]

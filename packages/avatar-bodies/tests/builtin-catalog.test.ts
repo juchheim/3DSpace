@@ -13,7 +13,8 @@ describe("avatar body builtin catalog", () => {
       "azure-vanguard",
       "azure-vanguard-hd",
       "sit-test",
-      "ixr-female-20k"
+      "ixr-female-20k",
+      "teacher-white-male"
     ]);
   });
 
@@ -24,6 +25,18 @@ describe("avatar body builtin catalog", () => {
 
   it("finds catalog entries by slug", () => {
     expect(getBuiltinAvatarBodyBySlug("ixr-female-20k")?.clips.idle).toBe("Idle_11");
+  });
+
+  it("marks teacher-white-male as verse-only with sit clips", () => {
+    const entry = getBuiltinAvatarBodyBySlug("teacher-white-male");
+    expect(entry?.verseOnly).toBe(true);
+    expect(entry?.clips).toEqual({
+      idle: "Idle_11",
+      walking: "Walking",
+      running: "Running",
+      sit: "Look_Back_and_Sit",
+      standFromSit: "Sit_to_Stand_Transition_M"
+    });
   });
 
   it("maps sit-test clips to the correctly labeled animation data", () => {

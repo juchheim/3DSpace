@@ -31,11 +31,12 @@ describe("avatar body routes", () => {
     });
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body.items).toHaveLength(4);
+    expect(body.items).toHaveLength(5);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "azure-vanguard")).toBe(true);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "azure-vanguard-hd")).toBe(true);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "sit-test")).toBe(true);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "ixr-female-20k")).toBe(true);
+    expect(body.items.some((entry: { slug: string }) => entry.slug === "teacher-white-male")).toBe(true);
     await app.close();
   });
 
