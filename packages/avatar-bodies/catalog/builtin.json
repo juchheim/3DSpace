@@ -127,7 +127,7 @@
     "slug": "student-male",
     "displayName": "Student (male)",
     "glbUrl": "/avatars/student-male.glb",
-    "nativeHeight": 1.65,
+    "nativeHeight": 1.864,
     "clips": {
       "idle": "Idle_11",
       "walking": "Walking",
@@ -144,7 +144,7 @@
     "slug": "student-female",
     "displayName": "Student (female)",
     "glbUrl": "/avatars/student-female.glb",
-    "nativeHeight": 1.65,
+    "nativeHeight": 1.852,
     "clips": {
       "idle": "Idle_11",
       "walking": "Walking",
@@ -161,7 +161,7 @@
     "slug": "student-male-2",
     "displayName": "Student (male)",
     "glbUrl": "/avatars/student-male-2.glb",
-    "nativeHeight": 1.65,
+    "nativeHeight": 1.875,
     "clips": {
       "idle": "Idle_11",
       "walking": "Walking",
@@ -178,7 +178,7 @@
     "slug": "student-female-2",
     "displayName": "Student (female)",
     "glbUrl": "/avatars/student-female-2.glb",
-    "nativeHeight": 1.65,
+    "nativeHeight": 1.875,
     "clips": {
       "idle": "Idle_11",
       "walking": "Walking",

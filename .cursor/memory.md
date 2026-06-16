@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-16 (Student female-2 avatar)
+Last updated: 2026-06-16 (Student avatar lineup complete)
+
+- **2026-06-16:** **Student avatar lineup complete** — added `student-female` (from `student-white-female.glb`) and `student-male-2` (from `student-black-male.glb`); full four-variant student set now mirrors teachers.
 
 - **2026-06-16:** **Student (female) variant 2** — `GLBs/student-black-female.glb` → `student-female-2` catalog entry (`verseOnly`, female sit clips); optimized GLB (~1.68 MB) + recolor assets + thumbnail; legacy alias `student-black-female`.
 
