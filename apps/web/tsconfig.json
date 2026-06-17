@@ -9,8 +9,7 @@
     "moduleResolution": "Bundler",
     "plugins": [{ "name": "next" }],
     "paths": {
-      "@/*": ["./*"],
-      "@3dspace/contracts": ["../../packages/contracts/src/index.ts"]
+      "@/*": ["./*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
