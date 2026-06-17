@@ -1103,7 +1103,7 @@ export function BuildControls({
               <div className="build-dock__lighting">
                 {/* Lighting coachmark */}
                 <p className="build-dock__coachmark build-dock__coachmark--lighting">
-                  Click <strong>Add Light</strong> to place a light. Select it to adjust color, intensity, and position. Enable <strong>Environment</strong> to override the room&apos;s global lighting.
+                  Click <strong>Add Light</strong> to place a light. Select it to adjust color, intensity, and position. Enable <strong>Environment</strong>{" "}to override the room&apos;s global lighting.
                 </p>
 
                 {/* Add Light tiles */}

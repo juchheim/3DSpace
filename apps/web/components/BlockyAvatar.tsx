@@ -490,7 +490,7 @@ export function BlockyAvatar({
             </Billboard>
           ) : null}
           <Billboard position={[0, 1.92, 0]}>
-            <Html center distanceFactor={nameplateDistanceFactor} style={{ pointerEvents: "none" }}>
+            <Html center distanceFactor={nameplateDistanceFactor} zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
               <div
                 className={`avatar-nameplate${crossPodOutlineColor ? " avatar-nameplate--cross-pod" : ""}`}
                 data-testid={`participant-${participant.id}-nameplate`}

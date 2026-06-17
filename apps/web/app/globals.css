@@ -1692,6 +1692,7 @@ label {
   padding: 11px;
   border-top: 1px solid var(--bd-line);
   margin-top: -1px;
+  color: var(--bd-tx);
   /* Scrollable when content overflows the capped panel height */
   min-height: 0;
   flex: 1 1 auto;
@@ -12501,6 +12502,15 @@ body.dixr-dark::before {
 }
 
 /* ── Lighting tab ──────────────────────────────────────────────────────── */
+.build-dock__section-label {
+  margin: 0 0 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--bd-tx-m);
+}
+
 .build-dock__lighting {
   display: flex;
   flex-direction: column;
@@ -12672,6 +12682,10 @@ body.dixr-dark::before {
   font-size: 11px;
   color: var(--bd-text-muted, rgba(255,255,255,0.5));
   white-space: nowrap;
+}
+/* Checkbox rows are half-width; don't push checkbox away from its label text */
+.env-panel__row:has(input[type="checkbox"]) .env-panel__label {
+  min-width: 0;
 }
 
 .env-panel__slider {
