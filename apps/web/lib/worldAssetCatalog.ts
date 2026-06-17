@@ -99,7 +99,7 @@ export const WORLD_ASSET_CATALOG: WorldAsset[] = [
     deskNotebook: true,
     // The desk's GLB origin sits near the writing surface, so the default
     // forward nudge plants the avatar too close to the desk. Pull them back.
-    seatForwardOffset: 0.0
+    seatForwardOffset: 0.15
   },
   {
     slug: "tree",

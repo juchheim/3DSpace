@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-17 (Custom asset object roles)
+Last updated: 2026-06-17 (Student desk seat offset)
+
+- **2026-06-17:** **Student desk seat offset** — `seatForwardOffset` on `WorldAsset` catalog entries; `school-desk-chair2` uses `0.0` (origin near writing surface); `chairSeatPose` reads `seatForwardOffset(slug)` instead of hardcoded `0.42`. Pushed `25dec9f` on `verse`.
 
 - **2026-06-17:** **Custom asset object roles** — uploaded object GLBs can be classified as `chair` or `podium` at upload time (`WorldAssetObjectRole` in contracts; `objectRole` on `CustomWorldAsset`/`PlacedCustomAsset`); `BuildControls` role picker; `placedAssetIsSittable`/`placedAssetIsPodium`/`placedAssetHasDeskNotebook`/`placedAssetHasPodiumNotebook` in `worldAssetCatalog.ts` resolve behaviour for custom + catalog assets; `RoomClient`/`usePlacedChairs` wired. Pushed `bc32164` on `verse`. **Post-upload reclassification** — `PATCH /v1/users/me/custom-assets/:assetId` + library-tile role dropdown (`useCustomWorldAssets.setObjectRole`); pushed `2802fe6`.
 
