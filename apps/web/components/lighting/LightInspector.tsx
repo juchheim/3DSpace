@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { RoomLight } from "@3dspace/contracts";
 import { LIGHT_MAX_INTENSITY, LIGHT_MAX_DISTANCE, LIGHT_MAX_AREA_SIZE } from "@3dspace/contracts";
 
@@ -7,6 +7,68 @@ interface Props {
   light: RoomLight;
   onUpdate: (patch: Partial<RoomLight>, commit?: boolean) => void;
   onDelete: () => void;
+}
+
+function StableRange({
+  value,
+  min,
+  max,
+  step,
+  className,
+  "aria-label": ariaLabel,
+  onPreview,
+  onCommit
+}: {
+  value: number;
+  min: number | string;
+  max: number | string;
+  step: number | string;
+  className?: string;
+  "aria-label"?: string;
+  onPreview: (value: number) => void;
+  onCommit: (value: number) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [dragging, setDragging] = useState(false);
+
+  useEffect(() => {
+    if (!dragging) setDraft(value);
+  }, [dragging, value]);
+
+  function preview(next: number) {
+    setDraft(next);
+    onPreview(next);
+  }
+
+  function commit(next: number) {
+    setDraft(next);
+    onCommit(next);
+    setDragging(false);
+  }
+
+  return (
+    <input
+      type="range"
+      min={min}
+      max={max}
+      step={step}
+      className={className}
+      value={draft}
+      aria-label={ariaLabel}
+      onPointerDown={() => setDragging(true)}
+      onInput={(e) => preview(Number(e.currentTarget.value))}
+      onPointerUp={(e) => commit(Number(e.currentTarget.value))}
+      onPointerCancel={(e) => commit(Number(e.currentTarget.value))}
+      onBlur={(e) => {
+        if (dragging) commit(Number(e.currentTarget.value));
+      }}
+      onKeyUp={(e) => {
+        if (e.key.startsWith("Arrow") || e.key === "Home" || e.key === "End" || e.key === "PageUp" || e.key === "PageDown") {
+          commit(Number(e.currentTarget.value));
+        }
+      }}
+    />
+  );
 }
 
 export function LightInspector({ light, onUpdate, onDelete }: Props) {
@@ -63,15 +125,14 @@ export function LightInspector({ light, onUpdate, onDelete }: Props) {
       {/* Intensity */}
       <div className="light-inspector__row">
         <span className="light-inspector__label">Intensity</span>
-        <input
-          type="range"
+        <StableRange
           className="light-inspector__slider"
           min={0}
           max={LIGHT_MAX_INTENSITY}
           step={0.1}
           value={light.intensity}
-          onInput={(e) => onUpdate({ intensity: Number(e.currentTarget.value) }, false)}
-          onPointerUp={(e) => onUpdate({ intensity: Number((e.currentTarget as HTMLInputElement).value) }, true)}
+          onPreview={(value) => onUpdate({ intensity: value }, false)}
+          onCommit={(value) => onUpdate({ intensity: value }, true)}
         />
         <span style={{ fontSize: 11, minWidth: 32, textAlign: "right", color: "var(--bd-text, #fff)" }}>
           {light.intensity.toFixed(1)}
@@ -112,15 +173,14 @@ export function LightInspector({ light, onUpdate, onDelete }: Props) {
           <p className="light-inspector__section">Falloff</p>
           <div className="light-inspector__row">
             <span className="light-inspector__label">Distance</span>
-            <input
-              type="range"
+            <StableRange
               className="light-inspector__slider"
               min={0}
               max={LIGHT_MAX_DISTANCE}
               step={0.5}
               value={light.distance ?? 0}
-              onInput={(e) => onUpdate({ distance: Number(e.currentTarget.value) }, false)}
-              onPointerUp={(e) => onUpdate({ distance: Number((e.currentTarget as HTMLInputElement).value) }, true)}
+              onPreview={(value) => onUpdate({ distance: value }, false)}
+              onCommit={(value) => onUpdate({ distance: value }, true)}
             />
             <span style={{ fontSize: 11, minWidth: 32, textAlign: "right", color: "var(--bd-text, #fff)" }}>
               {(light.distance ?? 0).toFixed(0)}m
@@ -128,15 +188,14 @@ export function LightInspector({ light, onUpdate, onDelete }: Props) {
           </div>
           <div className="light-inspector__row">
             <span className="light-inspector__label">Decay</span>
-            <input
-              type="range"
+            <StableRange
               className="light-inspector__slider"
               min={0}
               max={4}
               step={0.1}
               value={light.decay ?? 2}
-              onInput={(e) => onUpdate({ decay: Number(e.currentTarget.value) }, false)}
-              onPointerUp={(e) => onUpdate({ decay: Number((e.currentTarget as HTMLInputElement).value) }, true)}
+              onPreview={(value) => onUpdate({ decay: value }, false)}
+              onCommit={(value) => onUpdate({ decay: value }, true)}
             />
             <span style={{ fontSize: 11, minWidth: 32, textAlign: "right", color: "var(--bd-text, #fff)" }}>
               {(light.decay ?? 2).toFixed(1)}
@@ -151,15 +210,14 @@ export function LightInspector({ light, onUpdate, onDelete }: Props) {
           <p className="light-inspector__section">Spot</p>
           <div className="light-inspector__row">
             <span className="light-inspector__label">Angle</span>
-            <input
-              type="range"
+            <StableRange
               className="light-inspector__slider"
               min={1}
               max={90}
               step={1}
               value={light.angleDeg ?? 30}
-              onInput={(e) => onUpdate({ angleDeg: Number(e.currentTarget.value) }, false)}
-              onPointerUp={(e) => onUpdate({ angleDeg: Number((e.currentTarget as HTMLInputElement).value) }, true)}
+              onPreview={(value) => onUpdate({ angleDeg: value }, false)}
+              onCommit={(value) => onUpdate({ angleDeg: value }, true)}
             />
             <span style={{ fontSize: 11, minWidth: 36, textAlign: "right", color: "var(--bd-text, #fff)" }}>
               {(light.angleDeg ?? 30).toFixed(0)}°
@@ -167,15 +225,14 @@ export function LightInspector({ light, onUpdate, onDelete }: Props) {
           </div>
           <div className="light-inspector__row">
             <span className="light-inspector__label">Penumbra</span>
-            <input
-              type="range"
+            <StableRange
               className="light-inspector__slider"
               min={0}
               max={1}
               step={0.01}
               value={light.penumbra ?? 0}
-              onInput={(e) => onUpdate({ penumbra: Number(e.currentTarget.value) }, false)}
-              onPointerUp={(e) => onUpdate({ penumbra: Number((e.currentTarget as HTMLInputElement).value) }, true)}
+              onPreview={(value) => onUpdate({ penumbra: value }, false)}
+              onCommit={(value) => onUpdate({ penumbra: value }, true)}
             />
             <span style={{ fontSize: 11, minWidth: 32, textAlign: "right", color: "var(--bd-text, #fff)" }}>
               {(light.penumbra ?? 0).toFixed(2)}
@@ -217,15 +274,14 @@ export function LightInspector({ light, onUpdate, onDelete }: Props) {
           <p className="light-inspector__section">Area Size</p>
           <div className="light-inspector__row">
             <span className="light-inspector__label">Width</span>
-            <input
-              type="range"
+            <StableRange
               className="light-inspector__slider"
               min={0.1}
               max={LIGHT_MAX_AREA_SIZE}
               step={0.1}
               value={light.width ?? 2}
-              onInput={(e) => onUpdate({ width: Number(e.currentTarget.value) }, false)}
-              onPointerUp={(e) => onUpdate({ width: Number((e.currentTarget as HTMLInputElement).value) }, true)}
+              onPreview={(value) => onUpdate({ width: value }, false)}
+              onCommit={(value) => onUpdate({ width: value }, true)}
             />
             <span style={{ fontSize: 11, minWidth: 36, textAlign: "right", color: "var(--bd-text, #fff)" }}>
               {(light.width ?? 2).toFixed(1)}m
@@ -233,15 +289,14 @@ export function LightInspector({ light, onUpdate, onDelete }: Props) {
           </div>
           <div className="light-inspector__row">
             <span className="light-inspector__label">Height</span>
-            <input
-              type="range"
+            <StableRange
               className="light-inspector__slider"
               min={0.1}
               max={LIGHT_MAX_AREA_SIZE}
               step={0.1}
               value={light.height ?? 2}
-              onInput={(e) => onUpdate({ height: Number(e.currentTarget.value) }, false)}
-              onPointerUp={(e) => onUpdate({ height: Number((e.currentTarget as HTMLInputElement).value) }, true)}
+              onPreview={(value) => onUpdate({ height: value }, false)}
+              onCommit={(value) => onUpdate({ height: value }, true)}
             />
             <span style={{ fontSize: 11, minWidth: 36, textAlign: "right", color: "var(--bd-text, #fff)" }}>
               {(light.height ?? 2).toFixed(1)}m

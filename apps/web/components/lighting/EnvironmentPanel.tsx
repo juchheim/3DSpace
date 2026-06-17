@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useState } from "react";
 import type { RoomEnvironment } from "@3dspace/contracts";
 import { LIGHTING_PRESETS, LIGHTING_PRESET_IDS } from "../../lib/lightingPresets";
 
@@ -11,6 +12,68 @@ interface Props {
   onUpdate: (patch: Partial<RoomEnvironment>, commit?: boolean) => void;
 }
 
+function StableRange({
+  value,
+  min,
+  max,
+  step,
+  className,
+  "aria-label": ariaLabel,
+  onPreview,
+  onCommit
+}: {
+  value: number;
+  min: number | string;
+  max: number | string;
+  step: number | string;
+  className?: string;
+  "aria-label"?: string;
+  onPreview: (value: number) => void;
+  onCommit: (value: number) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [dragging, setDragging] = useState(false);
+
+  useEffect(() => {
+    if (!dragging) setDraft(value);
+  }, [dragging, value]);
+
+  function preview(next: number) {
+    setDraft(next);
+    onPreview(next);
+  }
+
+  function commit(next: number) {
+    setDraft(next);
+    onCommit(next);
+    setDragging(false);
+  }
+
+  return (
+    <input
+      type="range"
+      min={min}
+      max={max}
+      step={step}
+      className={className}
+      value={draft}
+      aria-label={ariaLabel}
+      onPointerDown={() => setDragging(true)}
+      onInput={(e) => preview(Number(e.currentTarget.value))}
+      onPointerUp={(e) => commit(Number(e.currentTarget.value))}
+      onPointerCancel={(e) => commit(Number(e.currentTarget.value))}
+      onBlur={(e) => {
+        if (dragging) commit(Number(e.currentTarget.value));
+      }}
+      onKeyUp={(e) => {
+        if (e.key.startsWith("Arrow") || e.key === "Home" || e.key === "End" || e.key === "PageUp" || e.key === "PageDown") {
+          commit(Number(e.currentTarget.value));
+        }
+      }}
+    />
+  );
+}
+
 export function EnvironmentPanel({ environment, onUpdate }: Props) {
   const sun = environment.sun;
   const sky = environment.sky;
@@ -21,13 +84,16 @@ export function EnvironmentPanel({ environment, onUpdate }: Props) {
   return (
     <div className="env-panel">
       {/* Enable toggle */}
-      <label className="env-panel__row">
-        <span className="env-panel__label">Override Environment</span>
+      <label className={`env-panel__override${environment.enabled ? " is-enabled" : ""}`}>
         <input
           type="checkbox"
           checked={environment.enabled}
           onChange={(e) => onUpdate({ enabled: e.target.checked }, true)}
         />
+        <span className="env-panel__override-copy">
+          <span className="env-panel__override-title">Override Environment</span>
+          <span className="env-panel__override-sub">Use custom sun, sky, fog, IBL, and exposure for this room.</span>
+        </span>
       </label>
 
       {environment.enabled ? (
@@ -77,34 +143,34 @@ export function EnvironmentPanel({ environment, onUpdate }: Props) {
           </label>
           <label className="env-panel__row">
             <span className="env-panel__label">Azimuth</span>
-            <input
-              type="range" min="0" max="360" step="1"
+            <StableRange
+              min="0" max="360" step="1"
               className="env-panel__slider"
               value={sun.azimuthDeg}
-              onInput={(e) => onUpdate({ sun: { ...sun, azimuthDeg: Number((e.target as HTMLInputElement).value) } })}
-              onPointerUp={(e) => onUpdate({ sun: { ...sun, azimuthDeg: Number((e.target as HTMLInputElement).value) } }, true)}
+              onPreview={(value) => onUpdate({ sun: { ...sun, azimuthDeg: value } })}
+              onCommit={(value) => onUpdate({ sun: { ...sun, azimuthDeg: value } }, true)}
             />
             <span className="env-panel__value">{sun.azimuthDeg}°</span>
           </label>
           <label className="env-panel__row">
             <span className="env-panel__label">Elevation</span>
-            <input
-              type="range" min="-10" max="90" step="1"
+            <StableRange
+              min="-10" max="90" step="1"
               className="env-panel__slider"
               value={sun.elevationDeg}
-              onInput={(e) => onUpdate({ sun: { ...sun, elevationDeg: Number((e.target as HTMLInputElement).value) } })}
-              onPointerUp={(e) => onUpdate({ sun: { ...sun, elevationDeg: Number((e.target as HTMLInputElement).value) } }, true)}
+              onPreview={(value) => onUpdate({ sun: { ...sun, elevationDeg: value } })}
+              onCommit={(value) => onUpdate({ sun: { ...sun, elevationDeg: value } }, true)}
             />
             <span className="env-panel__value">{sun.elevationDeg}°</span>
           </label>
           <label className="env-panel__row">
             <span className="env-panel__label">Sun Intensity</span>
-            <input
-              type="range" min="0" max="4" step="0.05"
+            <StableRange
+              min="0" max="4" step="0.05"
               className="env-panel__slider"
               value={sun.intensity}
-              onInput={(e) => onUpdate({ sun: { ...sun, intensity: Number((e.target as HTMLInputElement).value) } })}
-              onPointerUp={(e) => onUpdate({ sun: { ...sun, intensity: Number((e.target as HTMLInputElement).value) } }, true)}
+              onPreview={(value) => onUpdate({ sun: { ...sun, intensity: value } })}
+              onCommit={(value) => onUpdate({ sun: { ...sun, intensity: value } }, true)}
             />
             <span className="env-panel__value">{sun.intensity.toFixed(1)}</span>
           </label>
@@ -147,23 +213,23 @@ export function EnvironmentPanel({ environment, onUpdate }: Props) {
           {/* Intensity sliders — full-width */}
           <label className="env-panel__row">
             <span className="env-panel__label">Hemi Intensity</span>
-            <input
-              type="range" min="0" max="3" step="0.05"
+            <StableRange
+              min="0" max="3" step="0.05"
               className="env-panel__slider"
               value={sky.hemisphereIntensity}
-              onInput={(e) => onUpdate({ sky: { ...sky, hemisphereIntensity: Number((e.target as HTMLInputElement).value) } })}
-              onPointerUp={(e) => onUpdate({ sky: { ...sky, hemisphereIntensity: Number((e.target as HTMLInputElement).value) } }, true)}
+              onPreview={(value) => onUpdate({ sky: { ...sky, hemisphereIntensity: value } })}
+              onCommit={(value) => onUpdate({ sky: { ...sky, hemisphereIntensity: value } }, true)}
             />
             <span className="env-panel__value">{sky.hemisphereIntensity.toFixed(2)}</span>
           </label>
           <label className="env-panel__row">
             <span className="env-panel__label">Ambient Intensity</span>
-            <input
-              type="range" min="0" max="3" step="0.05"
+            <StableRange
+              min="0" max="3" step="0.05"
               className="env-panel__slider"
               value={sky.ambientIntensity}
-              onInput={(e) => onUpdate({ sky: { ...sky, ambientIntensity: Number((e.target as HTMLInputElement).value) } })}
-              onPointerUp={(e) => onUpdate({ sky: { ...sky, ambientIntensity: Number((e.target as HTMLInputElement).value) } }, true)}
+              onPreview={(value) => onUpdate({ sky: { ...sky, ambientIntensity: value } })}
+              onCommit={(value) => onUpdate({ sky: { ...sky, ambientIntensity: value } }, true)}
             />
             <span className="env-panel__value">{sky.ambientIntensity.toFixed(2)}</span>
           </label>
@@ -183,12 +249,12 @@ export function EnvironmentPanel({ environment, onUpdate }: Props) {
           {ibl.preset !== "none" ? (
             <label className="env-panel__row">
               <span className="env-panel__label">IBL Intensity</span>
-              <input
-                type="range" min="0" max="3" step="0.05"
+              <StableRange
+                min="0" max="3" step="0.05"
                 className="env-panel__slider"
                 value={ibl.intensity}
-                onPointerUp={(e) => onUpdate({ ibl: { ...ibl, intensity: Number((e.target as HTMLInputElement).value) } }, true)}
-                onInput={(e) => onUpdate({ ibl: { ...ibl, intensity: Number((e.target as HTMLInputElement).value) } })}
+                onPreview={(value) => onUpdate({ ibl: { ...ibl, intensity: value } })}
+                onCommit={(value) => onUpdate({ ibl: { ...ibl, intensity: value } }, true)}
               />
               <span className="env-panel__value">{ibl.intensity.toFixed(2)}</span>
             </label>
@@ -216,23 +282,23 @@ export function EnvironmentPanel({ environment, onUpdate }: Props) {
               </label>
               <label className="env-panel__row">
                 <span className="env-panel__label">Fog Near</span>
-                <input
-                  type="range" min="1" max="50" step="1"
+                <StableRange
+                  min="1" max="50" step="1"
                   className="env-panel__slider"
                   value={fog.near}
-                  onPointerUp={(e) => onUpdate({ fog: { ...fog, near: Number((e.target as HTMLInputElement).value) } }, true)}
-                  onInput={(e) => onUpdate({ fog: { ...fog, near: Number((e.target as HTMLInputElement).value) } })}
+                  onPreview={(value) => onUpdate({ fog: { ...fog, near: value } })}
+                  onCommit={(value) => onUpdate({ fog: { ...fog, near: value } }, true)}
                 />
                 <span className="env-panel__value">{fog.near}</span>
               </label>
               <label className="env-panel__row">
                 <span className="env-panel__label">Fog Far</span>
-                <input
-                  type="range" min="10" max="200" step="5"
+                <StableRange
+                  min="10" max="200" step="5"
                   className="env-panel__slider"
                   value={fog.far}
-                  onPointerUp={(e) => onUpdate({ fog: { ...fog, far: Number((e.target as HTMLInputElement).value) } }, true)}
-                  onInput={(e) => onUpdate({ fog: { ...fog, far: Number((e.target as HTMLInputElement).value) } })}
+                  onPreview={(value) => onUpdate({ fog: { ...fog, far: value } })}
+                  onCommit={(value) => onUpdate({ fog: { ...fog, far: value } }, true)}
                 />
                 <span className="env-panel__value">{fog.far}</span>
               </label>
@@ -256,12 +322,12 @@ export function EnvironmentPanel({ environment, onUpdate }: Props) {
           </label>
           <label className="env-panel__row">
             <span className="env-panel__label">Exposure</span>
-            <input
-              type="range" min="0.1" max="3" step="0.05"
+            <StableRange
+              min="0.1" max="3" step="0.05"
               className="env-panel__slider"
               value={exp.exposure}
-              onPointerUp={(e) => onUpdate({ exposure: { ...exp, exposure: Number((e.target as HTMLInputElement).value) } }, true)}
-              onInput={(e) => onUpdate({ exposure: { ...exp, exposure: Number((e.target as HTMLInputElement).value) } })}
+              onPreview={(value) => onUpdate({ exposure: { ...exp, exposure: value } })}
+              onCommit={(value) => onUpdate({ exposure: { ...exp, exposure: value } }, true)}
             />
             <span className="env-panel__value">{exp.exposure.toFixed(2)}</span>
           </label>

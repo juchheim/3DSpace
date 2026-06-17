@@ -309,6 +309,7 @@ export function BuildControls({
   onCustomScaleChange,
   assetYawDeg = 0,
   onRotateAsset,
+  onCategoryChange,
   lights,
   selectedLightId,
   roomEnvironment,
@@ -371,6 +372,8 @@ export function BuildControls({
   assetYawDeg?: number;
   /** Rotate the pending placement asset (catalog or custom) by a step. */
   onRotateAsset?: () => void;
+  /** Reports the active builder category so the scene can route pointer input. */
+  onCategoryChange?: (category: BuildCategory) => void;
   // Lighting tab props (flag-gated, all optional)
   lights?: import("@3dspace/contracts").RoomLight[];
   selectedLightId?: string | null;
@@ -472,6 +475,10 @@ export function BuildControls({
   useEffect(() => {
     if (selectedCustomAssetId) setCategory("uploads");
   }, [selectedCustomAssetId]);
+
+  useEffect(() => {
+    onCategoryChange?.(category);
+  }, [category, onCategoryChange]);
 
   async function handleFloorTextureFile(file: File | undefined) {
     if (!file || !onUploadFloorTexture) return;

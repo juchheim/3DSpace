@@ -12655,10 +12655,67 @@ body.dixr-dark::before {
    and the top-level override toggle */
 .env-panel__section,
 .env-panel__preset-chips,
-.env-panel > .env-panel__row:first-child,
+.env-panel__override,
 .env-panel__row:has(.env-panel__slider),
 .env-panel__row:has(.env-panel__select) {
   grid-column: 1 / -1;
+}
+
+.env-panel__override {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  min-height: 58px;
+  padding: 10px;
+  color: var(--bd-tx);
+  background:
+    radial-gradient(circle at 12% 8%, color-mix(in oklch, var(--bd-acc) 26%, transparent), transparent 48%),
+    linear-gradient(135deg, color-mix(in oklch, var(--bd-acc) 17%, transparent), rgba(255, 255, 255, 0.035));
+  border: 1px solid color-mix(in oklch, var(--bd-acc) 42%, transparent);
+  border-radius: var(--bd-rs);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 10px 28px -22px var(--bd-acc);
+  cursor: pointer;
+}
+
+.env-panel__override:hover {
+  border-color: color-mix(in oklch, var(--bd-acc) 64%, transparent);
+  background:
+    radial-gradient(circle at 12% 8%, color-mix(in oklch, var(--bd-acc) 34%, transparent), transparent 48%),
+    linear-gradient(135deg, color-mix(in oklch, var(--bd-acc) 22%, transparent), rgba(255, 255, 255, 0.05));
+}
+
+.env-panel__override.is-enabled {
+  border-color: color-mix(in oklch, var(--bd-acc) 72%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 0 0 1px color-mix(in oklch, var(--bd-acc) 42%, transparent), 0 10px 30px -20px var(--bd-acc);
+}
+
+.env-panel__override-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.env-panel__override-title {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--bd-tx);
+}
+
+.env-panel__override-sub {
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--bd-tx-m);
+}
+
+.env-panel__override input[type="checkbox"] {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--bd-acc);
+  cursor: pointer;
 }
 
 .env-panel__section {

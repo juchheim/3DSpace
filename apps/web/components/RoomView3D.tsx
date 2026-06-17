@@ -385,6 +385,7 @@ export function RoomView3D({
   buildScene,
   logicScene,
   logicPlayLayer,
+  buildPlacementSuspended = false,
   placedChairs = [],
   onDeleteChair,
   localParticipantSittingPhase = "none",
@@ -479,6 +480,8 @@ export function RoomView3D({
     setParameters(objectId: string, parameters: Record<string, unknown>): void;
   };
   buildScene?: BuildSceneConfig | null | undefined;
+  /** Suppresses build-piece cursor ownership while another builder panel owns world input. */
+  buildPlacementSuspended?: boolean;
   logicScene?: LogicSceneConfig | null | undefined;
   logicPlayLayer?: LogicPlayLayerConfig | null | undefined;
   /** Chairs placed in the world (client-side; rendered as static GLBs). */
@@ -701,7 +704,7 @@ export function RoomView3D({
             localAvatarPosition={localParticipantPosition ?? { x: 0, y: 0, z: 0 }}
             actions={buildScene.actions}
             boardPlacementPassthrough={Boolean(dynamicBoardPlacement?.active)}
-            placementSuspended={Boolean(assetPlacement)}
+            placementSuspended={Boolean(assetPlacement) || buildPlacementSuspended}
             {...(buildScene.onStatus ? { onStatus: buildScene.onStatus } : {})}
           />
         ) : null}

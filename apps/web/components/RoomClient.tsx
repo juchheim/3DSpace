@@ -160,6 +160,8 @@ const RoomView3D = dynamic(() => import("./RoomView3D").then((module) => module.
   loading: () => <div className="fallback-view">Loading the 3D room...</div>
 });
 
+type ActiveBuildCategory = "build" | "objects" | "scenes" | "uploads" | "lighting";
+
 const DeskNotebook = dynamic(
   () => import("./DeskNotebook/DeskNotebook").then((module) => module.DeskNotebook),
   { ssr: false }
@@ -1138,6 +1140,8 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   );
   const [selectedLightId, setSelectedLightId] = useState<string | null>(null);
   const [pendingLightType, setPendingLightType] = useState<import("@3dspace/contracts").RoomLightType | null>(null);
+  const [activeBuildCategory, setActiveBuildCategory] = useState<ActiveBuildCategory>("build");
+  const buildPlacementSuspended = activeBuildCategory === "lighting" || Boolean(pendingLightType);
   worldAssetsForMovementRef.current = chairs.chairs;
   const hasWalkableSceneAssets = chairs.chairs.some((asset) => isStaticColliderWorldAsset(asset.slug));
   const physicsTuning = useMemo(() => {
@@ -1551,7 +1555,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     }
   }, [logicAuthoringEnabled, logicPieces.piecesById, selectedLogicPieceId]);
   const handlePlaceAhead = useCallback(() => {
-    if (!manifest || !session || !buildMode.enabled || buildMode.tool === "destroy" || selectedAssetSlug) return;
+    if (!manifest || !session || !buildMode.enabled || buildPlacementSuspended || buildMode.tool === "destroy" || selectedAssetSlug) return;
     const avatar = movement.avatarState;
     if (!avatar) return;
     if (buildMode.tool === "image-floor" && !buildMode.floorTexture) {
@@ -1601,6 +1605,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       );
   }, [
     buildMode,
+    buildPlacementSuspended,
     buildPieces.actions,
     buildPieces.pieces,
     buildPieces.piecesById,
@@ -1613,7 +1618,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
 
   const updateBuild2dPreview = useCallback(
     (point: { x: number; y: number }) => {
-      if (!manifest || !session || !buildMode.enabled || point.x < 0) {
+      if (!manifest || !session || !buildMode.enabled || buildPlacementSuspended || point.x < 0) {
         setBuild2dPreview(null);
         return;
       }
@@ -1660,6 +1665,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       buildMode.rampRotationOverride,
       buildMode.rotation,
       buildMode.tool,
+      buildPlacementSuspended,
       buildPieces.pieces,
       buildPieces.piecesById,
       identity.userId,
@@ -1671,7 +1677,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
 
   const handleBuild2dPointerDown = useCallback(
     (point: { x: number; y: number }) => {
-      if (!manifest || !session || !buildMode.enabled) return;
+      if (!manifest || !session || !buildMode.enabled || buildPlacementSuspended) return;
       const world = unprojectPointFrom2D(manifest, point);
       const hitY = movement.avatarState?.position.y ?? 0;
 
@@ -1741,6 +1747,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     },
     [
       buildMode,
+      buildPlacementSuspended,
       buildPieces.actions,
       buildPieces.pieces,
       buildPieces.piecesById,
@@ -2541,6 +2548,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           }
         : {})}
       buildScene={buildScene}
+      buildPlacementSuspended={buildPlacementSuspended}
       logicScene={logicScene}
       logicPlayLayer={logicPlayLayer}
       placedChairs={chairs.chairs}
@@ -2701,7 +2709,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           }
         : {})}
       buildPieces={buildPiecesEnabled ? buildPieces.pieces : []}
-      {...(buildPiecesEnabled && buildMode.enabled
+      {...(buildPiecesEnabled && buildMode.enabled && !buildPlacementSuspended
         ? {
             buildInteraction: {
               enabled: true,
@@ -3079,7 +3087,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       onReturnToSpawn={movement.returnToSpawn}
       onPlaceAhead={handlePlaceAhead}
       placeAheadDisabled={
-        !buildMode.enabled || buildMode.tool === "destroy" || Boolean(selectedAssetSlug)
+        !buildMode.enabled || buildPlacementSuspended || buildMode.tool === "destroy" || Boolean(selectedAssetSlug)
       }
       onUndo={() =>
         void buildHistory.undo().then((did) => did && buildMode.setStatusMessage("Undid."))
@@ -3122,6 +3130,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       onCustomScaleChange={setCustomAssetScale}
       assetYawDeg={assetYawDeg}
       onRotateAsset={() => setAssetYawDeg((d) => (((d + 90) % 360) + 360) % 360)}
+      onCategoryChange={setActiveBuildCategory}
       {...(lightingEnabled ? {
         lights: roomLights.lights,
         selectedLightId,
