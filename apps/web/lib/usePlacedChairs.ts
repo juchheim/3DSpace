@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { isPodiumWorldAsset, isSittableWorldAsset } from "./worldAssetCatalog";
+import { placedAssetIsPodium, placedAssetIsSittable } from "./worldAssetCatalog";
 
 export type PlacedChair = {
   id: string;
@@ -66,7 +66,7 @@ export function findNearestChair(
   let best: PlacedChair | null = null;
   let bestDist = radius;
   for (const chair of chairs) {
-    if (!isSittableWorldAsset(chair.slug)) continue;
+    if (!placedAssetIsSittable(chair)) continue;
     const d = distanceXZ(avatarPos, chair.position);
     if (d < bestDist) {
       best = chair;
@@ -107,7 +107,7 @@ export function findNearestPodium(
   let best: PlacedChair | null = null;
   let bestDist = radius;
   for (const asset of assets) {
-    if (!isPodiumWorldAsset(asset.slug)) continue;
+    if (!placedAssetIsPodium(asset)) continue;
     const d = distanceXZ(avatarPos, asset.position);
     if (d < bestDist) {
       best = asset;

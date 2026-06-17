@@ -455,6 +455,7 @@ export function createModels(connection: Connection): Models {
     thumbnailStorageKey: { type: String, required: true },
     thumbnailUrl: { type: String, required: true },
     placement: { type: String, required: true },
+    objectRole: { type: String, required: false },
     scale: { type: Number, required: false },
     createdAt: { type: String, required: true }
   });
@@ -1776,6 +1777,7 @@ export class MongoRepository implements Repository {
       thumbnailStorageKey: doc.thumbnailStorageKey as string,
       thumbnailUrl: doc.thumbnailUrl as string,
       placement: doc.placement as WorldAssetPlacementKind,
+      ...(doc.objectRole ? { objectRole: doc.objectRole as CustomWorldAsset["objectRole"] } : {}),
       ...(typeof scale === "number" && Number.isFinite(scale) ? { scale } : {}),
       createdAt: doc.createdAt as string
     };
@@ -1794,6 +1796,7 @@ export class MongoRepository implements Repository {
     thumbnailStorageKey: string;
     thumbnailUrl: string;
     placement: WorldAssetPlacementKind;
+    objectRole?: CustomWorldAsset["objectRole"];
     scale?: number;
   }): Promise<CustomWorldAsset> {
     const id = `ca-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -1806,6 +1809,7 @@ export class MongoRepository implements Repository {
       thumbnailStorageKey: input.thumbnailStorageKey,
       thumbnailUrl: input.thumbnailUrl,
       placement: input.placement,
+      ...(input.objectRole ? { objectRole: input.objectRole } : {}),
       ...(input.scale !== undefined ? { scale: input.scale } : {}),
       createdAt: new Date().toISOString()
     };

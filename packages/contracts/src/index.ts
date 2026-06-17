@@ -1130,6 +1130,16 @@ export const WorldAssetPlacementKindSchema = z.enum(["floor", "wall", "ceiling",
 export type WorldAssetPlacementKind = z.infer<typeof WorldAssetPlacementKindSchema>;
 
 /**
+ * Optional interactive behaviour an uploaded **object** (placement `"other"`)
+ * can be classified as. A `"chair"` becomes sittable and opens the personal
+ * notebook when sat in; a `"podium"` becomes a presenter station that opens the
+ * importable notebook when stood at. Only meaningful for objects — floor / wall
+ * / ceiling placements ignore it.
+ */
+export const WorldAssetObjectRoleSchema = z.enum(["chair", "podium"]);
+export type WorldAssetObjectRole = z.infer<typeof WorldAssetObjectRoleSchema>;
+
+/**
  * Render info denormalized onto a placed asset when it comes from a user's
  * private custom-asset library. Carried on the placement so every participant
  * in the room can render it without access to the owner's library.
@@ -1137,7 +1147,9 @@ export type WorldAssetPlacementKind = z.infer<typeof WorldAssetPlacementKindSche
 export const PlacedCustomAssetSchema = z.object({
   glbUrl: z.string().min(1),
   placement: WorldAssetPlacementKindSchema,
-  thumbnailUrl: z.string().optional()
+  thumbnailUrl: z.string().optional(),
+  /** Interactive behaviour (chair / podium) the owner classified this object as. */
+  objectRole: WorldAssetObjectRoleSchema.optional()
 });
 export type PlacedCustomAsset = z.infer<typeof PlacedCustomAssetSchema>;
 
@@ -1221,6 +1233,8 @@ export const CustomWorldAssetSchema = z.object({
   thumbnailStorageKey: z.string().min(1),
   thumbnailUrl: z.string().min(1),
   placement: WorldAssetPlacementKindSchema,
+  /** Interactive behaviour (chair / podium) classified for an object upload. */
+  objectRole: WorldAssetObjectRoleSchema.optional(),
   scale: z.number().positive().optional(),
   createdAt: z.string()
 });
@@ -1257,6 +1271,7 @@ export const CreateCustomAssetRequestSchema = z.object({
   thumbnailStorageKey: z.string().min(1),
   thumbnailUrl: z.string().min(1),
   placement: WorldAssetPlacementKindSchema,
+  objectRole: WorldAssetObjectRoleSchema.optional(),
   scale: z.number().positive().optional()
 });
 

@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-16 (Student avatar lineup complete)
+Last updated: 2026-06-16 (Custom asset placement sizing)
+
+- **2026-06-16:** **Custom asset placement sizing** — `BuildControls.tsx` + `RoomClient.tsx`: per-placement size slider (×0.25–×4) for custom GLB uploads; dock rotator turns pending asset yaw during catalog/custom placement; `IMPL_ROOMCLIENT_DECOMPOSITION.md` added and README updated marking PR1–PR8 complete. Pushed `f95bef9` on `verse`.
 
 - **2026-06-16:** **Student avatar lineup complete** — added `student-female` (from `student-white-female.glb`) and `student-male-2` (from `student-black-male.glb`); full four-variant student set now mirrors teachers.
 

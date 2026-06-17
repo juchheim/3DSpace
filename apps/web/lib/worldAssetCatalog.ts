@@ -206,6 +206,42 @@ export function hasPodiumNotebook(slug: string): boolean {
   return worldAssetBySlug(slug)?.podiumStand === true;
 }
 
+/**
+ * A placed asset, which may be a catalog entry (behaviour keyed off `slug`) or a
+ * user-uploaded custom GLB (behaviour keyed off the owner's `objectRole`
+ * classification). The helpers below resolve interactive behaviour from whichever
+ * source applies so chairs/podiums work identically for both.
+ */
+type PlacedAssetLike = {
+  slug: string;
+  custom?: import("@3dspace/contracts").PlacedCustomAsset;
+};
+
+/** True when an avatar can sit on this placed asset. */
+export function placedAssetIsSittable(asset: PlacedAssetLike): boolean {
+  if (asset.custom) return asset.custom.objectRole === "chair";
+  return isSittableWorldAsset(asset.slug);
+}
+
+/** True when an avatar can stand & present at this placed asset. */
+export function placedAssetIsPodium(asset: PlacedAssetLike): boolean {
+  if (asset.custom) return asset.custom.objectRole === "podium";
+  return isPodiumWorldAsset(asset.slug);
+}
+
+/** True when sitting on this placed asset should open the personal notebook. */
+export function placedAssetHasDeskNotebook(asset: PlacedAssetLike): boolean {
+  // A custom chair gains the full chair experience, notebook included.
+  if (asset.custom) return asset.custom.objectRole === "chair";
+  return hasDeskNotebook(asset.slug);
+}
+
+/** True when standing at this placed asset should open the importable notebook. */
+export function placedAssetHasPodiumNotebook(asset: PlacedAssetLike): boolean {
+  if (asset.custom) return asset.custom.objectRole === "podium";
+  return hasPodiumNotebook(asset.slug);
+}
+
 export function worldAssetScale(slug: string): number {
   return worldAssetBySlug(slug)?.scale ?? 1;
 }

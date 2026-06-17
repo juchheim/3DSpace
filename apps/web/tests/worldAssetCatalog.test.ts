@@ -3,6 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   isPodiumWorldAsset,
   hasPodiumNotebook,
+  placedAssetHasDeskNotebook,
+  placedAssetHasPodiumNotebook,
+  placedAssetIsPodium,
+  placedAssetIsSittable,
   placedWorldAssetRenderScale,
   sampleWorldAssetPlacementScale,
   scatterWorldAssetOffsets,
@@ -213,5 +217,52 @@ describe("podium catalog flags", () => {
     // yaw=π/2: forwardX=1, forwardZ≈0 → presenter is at x > 5
     expect(pose.position.x).toBeGreaterThan(5);
     expect(pose.rotationY).toBeCloseTo(Math.PI / 2 + Math.PI, 5);
+  });
+});
+
+describe("custom-asset interactive roles", () => {
+  const customWith = (objectRole?: "chair" | "podium"): PlacedChair => ({
+    id: "ca1",
+    slug: "ca-123", // a library asset id, not a catalog slug
+    position: { x: 0, y: 0, z: 0 },
+    yaw: 0,
+    custom: {
+      glbUrl: "https://cdn/x.glb",
+      placement: "other",
+      ...(objectRole ? { objectRole } : {})
+    }
+  });
+
+  it("treats a custom asset classified as a chair as sittable with a notebook", () => {
+    const chair = customWith("chair");
+    expect(placedAssetIsSittable(chair)).toBe(true);
+    expect(placedAssetHasDeskNotebook(chair)).toBe(true);
+    expect(placedAssetIsPodium(chair)).toBe(false);
+    expect(placedAssetHasPodiumNotebook(chair)).toBe(false);
+  });
+
+  it("treats a custom asset classified as a podium as a presenter station with a notebook", () => {
+    const podium = customWith("podium");
+    expect(placedAssetIsPodium(podium)).toBe(true);
+    expect(placedAssetHasPodiumNotebook(podium)).toBe(true);
+    expect(placedAssetIsSittable(podium)).toBe(false);
+    expect(placedAssetHasDeskNotebook(podium)).toBe(false);
+  });
+
+  it("treats an unclassified custom object as a plain, non-interactive prop", () => {
+    const prop = customWith(undefined);
+    expect(placedAssetIsSittable(prop)).toBe(false);
+    expect(placedAssetIsPodium(prop)).toBe(false);
+    expect(placedAssetHasDeskNotebook(prop)).toBe(false);
+    expect(placedAssetHasPodiumNotebook(prop)).toBe(false);
+  });
+
+  it("falls back to the catalog slug for built-in (non-custom) placements", () => {
+    const desk: PlacedChair = { id: "d", slug: "school-desk-chair2", position: { x: 0, y: 0, z: 0 }, yaw: 0 };
+    expect(placedAssetIsSittable(desk)).toBe(true);
+    expect(placedAssetHasDeskNotebook(desk)).toBe(true);
+    const podium: PlacedChair = { id: "p", slug: "podium", position: { x: 0, y: 0, z: 0 }, yaw: 0 };
+    expect(placedAssetIsPodium(podium)).toBe(true);
+    expect(placedAssetHasPodiumNotebook(podium)).toBe(true);
   });
 });

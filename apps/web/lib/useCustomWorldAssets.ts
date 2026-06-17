@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import type { CustomWorldAsset, WorldAssetPlacementKind } from "@3dspace/contracts";
+import type { CustomWorldAsset, WorldAssetObjectRole, WorldAssetPlacementKind } from "@3dspace/contracts";
 import { createCustomAsset, createCustomAssetUpload, deleteCustomAsset, listCustomAssets } from "./api";
 import type { ApiIdentity } from "./identity";
 import { prepareFloorTextureFile } from "./imageFloorTexture";
@@ -20,6 +20,8 @@ export type UploadCustomAssetInput = {
   thumbnail: File;
   displayName: string;
   placement: WorldAssetPlacementKind;
+  /** Optional interactive behaviour for object uploads (chair / podium). */
+  objectRole?: WorldAssetObjectRole;
 };
 
 async function putBlob(target: { url: string; method: "PUT"; headers: Record<string, string> }, body: Blob) {
@@ -70,7 +72,8 @@ export function useCustomWorldAssets(input: { identity: ApiIdentity; enabled?: b
         glbUrl: targets.glb.url,
         thumbnailStorageKey: targets.thumbnail.storageKey,
         thumbnailUrl: targets.thumbnail.url,
-        placement: req.placement
+        placement: req.placement,
+        ...(req.objectRole ? { objectRole: req.objectRole } : {})
       });
 
       setAssets((prev) => [...prev, asset]);

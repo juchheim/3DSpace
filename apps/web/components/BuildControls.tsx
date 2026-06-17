@@ -5,6 +5,7 @@ import {
   IMAGE_FLOOR_TEXTURE_SPAN_OPTIONS,
   type BuildPieceMaterial,
   type CustomWorldAsset,
+  type WorldAssetObjectRole,
   type WorldAssetPlacementKind
 } from "@3dspace/contracts";
 import { BUILD_MATERIAL_OPTIONS } from "./buildMaterials";
@@ -36,6 +37,17 @@ const PLACEMENT_OPTIONS: Array<{
   { id: "floor", label: "Floor", hint: "Lies flat on the ground (rugs, decals).", glyph: "floor" },
   { id: "wall", label: "Wall", hint: "Snaps flat against the nearest wall, facing in.", glyph: "window" },
   { id: "ceiling", label: "Ceiling", hint: "Mounts up at ceiling height, facing down.", glyph: "arbor-ceiling" }
+];
+
+/**
+ * Optional interactive behaviour for an **object** upload. `null` = a plain prop.
+ * Picking one gives the placed model the matching built-in behaviour: a chair
+ * can be sat in (and opens the notebook); a podium can be presented at.
+ */
+const OBJECT_ROLE_OPTIONS: Array<{ id: WorldAssetObjectRole | null; label: string; hint: string }> = [
+  { id: null, label: "None", hint: "A plain prop — decoration only." },
+  { id: "chair", label: "Chair", hint: "Sit in it with E; opens the personal notebook." },
+  { id: "podium", label: "Podium", hint: "Present at it with E; opens the importable notebook." }
 ];
 
 /** Tools shown in the Build palette. Destroy is surfaced as a separate erase mode. */
@@ -286,6 +298,7 @@ export function BuildControls({
     thumbnail: File;
     displayName: string;
     placement: WorldAssetPlacementKind;
+    objectRole?: WorldAssetObjectRole;
   }) => Promise<void>;
   /** Remove a custom asset from the library. */
   onDeleteCustomAsset?: (assetId: string) => Promise<void>;
@@ -314,6 +327,7 @@ export function BuildControls({
   const [uploadThumb, setUploadThumb] = useState<File | null>(null);
   const [uploadName, setUploadName] = useState("");
   const [uploadPlacement, setUploadPlacement] = useState<WorldAssetPlacementKind>("other");
+  const [uploadObjectRole, setUploadObjectRole] = useState<WorldAssetObjectRole | null>(null);
   const [uploadError, setUploadError] = useState("");
   const [uploading, setUploading] = useState(false);
 
@@ -356,6 +370,7 @@ export function BuildControls({
     setUploadThumb(null);
     setUploadName("");
     setUploadPlacement("other");
+    setUploadObjectRole(null);
   }
 
   async function handleUploadSubmit() {
@@ -367,7 +382,9 @@ export function BuildControls({
         glb: uploadGlb,
         thumbnail: uploadThumb,
         displayName: uploadName.trim(),
-        placement: uploadPlacement
+        placement: uploadPlacement,
+        // Only objects carry an interactive role; other placements ignore it.
+        ...(uploadPlacement === "other" && uploadObjectRole ? { objectRole: uploadObjectRole } : {})
       });
       resetUploadForm();
       buildMode.setStatusMessage("Upload added to your library — pick it to place.");
@@ -876,6 +893,37 @@ export function BuildControls({
                     {PLACEMENT_OPTIONS.find((o) => o.id === uploadPlacement)?.hint}
                   </p>
 
+                  {uploadPlacement === "other" ? (
+                    <>
+                      <p className="build-dock__class-section">Make it interactive (optional)</p>
+                      <div
+                        className="build-dock__class-grid build-dock__class-grid--roles"
+                        role="radiogroup"
+                        aria-label="Interactive behaviour"
+                      >
+                        {OBJECT_ROLE_OPTIONS.map((option) => {
+                          const active = uploadObjectRole === option.id;
+                          return (
+                            <button
+                              key={option.id ?? "none"}
+                              type="button"
+                              role="radio"
+                              aria-checked={active}
+                              className={`build-dock__class${active ? " is-active" : ""}`}
+                              onClick={() => setUploadObjectRole(option.id)}
+                              title={option.hint}
+                            >
+                              <span className="build-dock__class-label">{option.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="build-dock__class-hint">
+                        {OBJECT_ROLE_OPTIONS.find((o) => o.id === uploadObjectRole)?.hint}
+                      </p>
+                    </>
+                  ) : null}
+
                   {uploadError ? <p className="build-dock__upload-error">{uploadError}</p> : null}
 
                   <button
@@ -902,7 +950,7 @@ export function BuildControls({
                           aria-pressed={active}
                           title={active
                             ? `${asset.displayName} — click to cancel · click in world to place`
-                            : `${asset.displayName} (${asset.placement}) — click to start placing`}
+                            : `${asset.displayName} (${asset.objectRole ?? asset.placement}) — click to start placing`}
                           onClick={() => onSelectCustomAsset?.(active ? null : asset.id)}
                         >
                           <span className="build-dock__tile-icon build-dock__tile-icon--thumb">
@@ -910,7 +958,7 @@ export function BuildControls({
                             <img src={asset.thumbnailUrl} alt="" />
                           </span>
                           <span className="build-dock__tile-label">{asset.displayName}</span>
-                          <span className="build-dock__tile-badge">{asset.placement}</span>
+                          <span className="build-dock__tile-badge">{asset.objectRole ?? asset.placement}</span>
                         </button>
                         {onDeleteCustomAsset ? (
                           <button

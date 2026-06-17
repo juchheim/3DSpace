@@ -74,6 +74,7 @@ export async function registerCustomAssetRoutes(app: FastifyInstance, ctx: AppCo
       thumbnailStorageKey: body.thumbnailStorageKey,
       thumbnailUrl: body.thumbnailUrl,
       placement: body.placement,
+      ...(body.objectRole ? { objectRole: body.objectRole } : {}),
       ...(body.scale !== undefined ? { scale: body.scale } : {})
     });
     return CreateCustomAssetResponseSchema.parse({ asset });

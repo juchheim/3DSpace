@@ -82,7 +82,7 @@ import { useCustomWorldAssets } from "../lib/useCustomWorldAssets";
 import { useSitting } from "../lib/useSitting";
 import { useStanding } from "../lib/useStanding";
 import { AVATAR_KEYBOARD_INTERACT_MAX_HOLD_MS } from "../lib/useAvatarMovement";
-import { hasDeskNotebook, hasPodiumNotebook, isStaticColliderWorldAsset, scatterWorldAssetOffsets, WORLD_ASSET_CATALOG } from "../lib/worldAssetCatalog";
+import { placedAssetHasDeskNotebook, placedAssetHasPodiumNotebook, isStaticColliderWorldAsset, scatterWorldAssetOffsets, WORLD_ASSET_CATALOG } from "../lib/worldAssetCatalog";
 import { worldAssetGroundY } from "../lib/worldAssetGroundY";
 import { AuthGate } from "../lib/auth";
 import { RoomView2D } from "./RoomView2D";
@@ -1217,10 +1217,10 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   const seatedNotebookDesk =
     sitting.sittingPhase === "seated" &&
     sitting.nearestChair !== null &&
-    hasDeskNotebook(sitting.nearestChair.slug);
+    placedAssetHasDeskNotebook(sitting.nearestChair);
   const podiumEngaged = standing.engaged;
   const podiumNotebook =
-    standing.engaged && standing.nearestPodium !== null && hasPodiumNotebook(standing.nearestPodium.slug);
+    standing.engaged && standing.nearestPodium !== null && placedAssetHasPodiumNotebook(standing.nearestPodium);
   const sittingTryInteractRef = useRef(sitting.tryInteract);
   sittingTryInteractRef.current = sitting.tryInteract;
   const sittingPhaseRef = useRef(sitting.sittingPhase);
@@ -2523,7 +2523,8 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
                 custom: {
                   glbUrl: custom.glbUrl,
                   placement: custom.placement,
-                  ...(custom.thumbnailUrl ? { thumbnailUrl: custom.thumbnailUrl } : {})
+                  ...(custom.thumbnailUrl ? { thumbnailUrl: custom.thumbnailUrl } : {}),
+                  ...(custom.objectRole ? { objectRole: custom.objectRole } : {})
                 },
                 scale: placeScale
               });
