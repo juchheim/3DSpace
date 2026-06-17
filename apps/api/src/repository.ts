@@ -34,6 +34,11 @@ import {
   type PlacedCustomAsset,
   type CustomWorldAsset,
   type WorldAssetPlacementKind,
+  type RoomLight,
+  type RoomEnvironment,
+  defaultRoomEnvironment,
+  ROOM_LIGHT_MAX_PER_ROOM,
+  ROOM_LIGHT_MAX_AREA,
   type LogicPieceKind,
   type EscapeSession,
   type RoomAiHost,
@@ -227,6 +232,29 @@ export type Repository = {
     placedByUserId: string;
   }): Promise<PlacedWorldAsset>;
   deleteWorldAsset(roomId: string, assetId: string): Promise<void>;
+  listRoomLights(roomId: string): Promise<RoomLight[]>;
+  createRoomLight(input: {
+    roomId: string;
+    type: RoomLight["type"];
+    name?: string;
+    position: RoomLight["position"];
+    target?: RoomLight["target"];
+    rotation?: RoomLight["rotation"];
+    color: string;
+    intensity: number;
+    castShadow: boolean;
+    distance?: number;
+    decay?: number;
+    angleDeg?: number;
+    penumbra?: number;
+    width?: number;
+    height?: number;
+    createdByUserId: string;
+  }): Promise<RoomLight>;
+  updateRoomLight(roomId: string, lightId: string, patch: Partial<Omit<RoomLight, "id" | "roomId" | "createdByUserId" | "createdAt">>): Promise<RoomLight | null>;
+  deleteRoomLight(roomId: string, lightId: string): Promise<void>;
+  getRoomEnvironment(roomId: string): Promise<RoomEnvironment>;
+  setRoomEnvironment(roomId: string, patch: Partial<RoomEnvironment>): Promise<RoomEnvironment>;
   listCustomAssetsForOwner(ownerUserId: string): Promise<CustomWorldAsset[]>;
   createCustomAsset(input: {
     ownerUserId: string;
@@ -440,6 +468,8 @@ export class MemoryRepository implements Repository {
   private oauthStates = new Map<string, OAuthStateRecord>();
   private authExchangeCodes = new Map<string, AuthExchangeCodeRecord>();
   private authRefreshSessions = new Map<string, AuthRefreshSessionRecord>();
+  private roomLights = new Map<string, RoomLight>();
+  private roomEnvironments = new Map<string, RoomEnvironment>();
 
   async close() {
     return;
@@ -1281,6 +1311,87 @@ export class MemoryRepository implements Repository {
     const asset = this.worldAssets.get(assetId);
     if (!asset || asset.roomId !== roomId) throw new Error("World asset not found");
     this.worldAssets.delete(assetId);
+  }
+
+  async listRoomLights(roomId: string) {
+    return [...this.roomLights.values()].filter((l) => l.roomId === roomId);
+  }
+
+  async createRoomLight(input: {
+    roomId: string;
+    type: RoomLight["type"];
+    name?: string;
+    position: RoomLight["position"];
+    target?: RoomLight["target"];
+    rotation?: RoomLight["rotation"];
+    color: string;
+    intensity: number;
+    castShadow: boolean;
+    distance?: number;
+    decay?: number;
+    angleDeg?: number;
+    penumbra?: number;
+    width?: number;
+    height?: number;
+    createdByUserId: string;
+  }): Promise<RoomLight> {
+    const existing = await this.listRoomLights(input.roomId);
+    if (existing.length >= ROOM_LIGHT_MAX_PER_ROOM) {
+      throw new Error("room-light-cap");
+    }
+    if (input.type === "area") {
+      const areaCount = existing.filter((l) => l.type === "area").length;
+      if (areaCount >= ROOM_LIGHT_MAX_AREA) throw new Error("room-light-area-cap");
+    }
+    const now = new Date().toISOString();
+    const light: RoomLight = {
+      id: `light-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      roomId: input.roomId,
+      type: input.type,
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      enabled: true,
+      position: input.position,
+      ...(input.target !== undefined ? { target: input.target } : {}),
+      ...(input.rotation !== undefined ? { rotation: input.rotation } : {}),
+      color: input.color,
+      intensity: input.intensity,
+      castShadow: input.castShadow,
+      ...(input.distance !== undefined ? { distance: input.distance } : {}),
+      ...(input.decay !== undefined ? { decay: input.decay } : {}),
+      ...(input.angleDeg !== undefined ? { angleDeg: input.angleDeg } : {}),
+      ...(input.penumbra !== undefined ? { penumbra: input.penumbra } : {}),
+      ...(input.width !== undefined ? { width: input.width } : {}),
+      ...(input.height !== undefined ? { height: input.height } : {}),
+      createdByUserId: input.createdByUserId,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.roomLights.set(light.id, light);
+    return light;
+  }
+
+  async updateRoomLight(roomId: string, lightId: string, patch: Partial<Omit<RoomLight, "id" | "roomId" | "createdByUserId" | "createdAt">>) {
+    const existing = this.roomLights.get(lightId);
+    if (!existing || existing.roomId !== roomId) return null;
+    const updated: RoomLight = { ...existing, ...patch, updatedAt: new Date().toISOString() };
+    this.roomLights.set(lightId, updated);
+    return updated;
+  }
+
+  async deleteRoomLight(roomId: string, lightId: string) {
+    const existing = this.roomLights.get(lightId);
+    if (existing?.roomId === roomId) this.roomLights.delete(lightId);
+  }
+
+  async getRoomEnvironment(roomId: string) {
+    return this.roomEnvironments.get(roomId) ?? defaultRoomEnvironment();
+  }
+
+  async setRoomEnvironment(roomId: string, patch: Partial<RoomEnvironment>) {
+    const current = await this.getRoomEnvironment(roomId);
+    const updated = { ...current, ...patch };
+    this.roomEnvironments.set(roomId, updated);
+    return updated;
   }
 
   async listBuildPiecesForRoom(roomId: string) {

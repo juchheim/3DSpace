@@ -333,7 +333,7 @@ keep-outs — only spawn keep-out, out-of-bounds, level cap, slot conflicts, and
 ## 18. Quick FAQ
 
 - **Q: How do I open the World Builder?** A: Click **Build off** in the dock, or press **`B`**.
-- **Q: What tabs are in the World Builder?** A: **Build**, **Objects**, and **Scenes**.
+- **Q: What tabs are in the World Builder?** A: **Build**, **Objects**, **Scenes**, **Uploads**, and **Lighting** (when enabled).
 - **Q: How do I undo?** A: `⌘Z` / `Ctrl+Z` for build pieces. World objects are removed with Erase (`4`), not undo.
 - **Q: What does key `0` do?** A: Selects **Image Floor**.
 - **Q: What does key `8` do?** A: Selects **Mirror**.
@@ -349,6 +349,56 @@ keep-outs — only spawn keep-out, out-of-bounds, level cap, slot conflicts, and
 - **Q: How do I rotate a ramp?** A: Press `R`, then place.
 - **Q: How do I clear the whole room?** A: **Clear all** removes all **build pieces** (confirms first). Erase objects/scenes one by one with `4`.
 - **Q: Can the guide build for me?** A: No — the World Host gives advice only; it cannot place or remove pieces.
+
+---
+
+---
+
+## 20. Lighting (World Builder — Lighting tab)
+
+> Only available when the Lighting feature is enabled.
+
+The **Lighting** tab (spark icon) in the World Builder lets teachers add dynamic lights and customize the room's global atmosphere.
+
+### Light types
+| Type | Use |
+|------|-----|
+| **Bulb** (point) | Radiates in all directions — lamps, lanterns, glowing orbs. |
+| **Spot** | Cone beam from a source toward a target — stage lights, desk lamps. |
+| **Panel** (area) | Soft rectangular emitter — skylights, screens, soft-boxes. |
+
+### Adding a light
+1. Open the World Builder (`B`), click the **Lighting** tab.
+2. Click **Bulb**, **Spot**, or **Panel** in the "Add Light" section.
+3. Click on the floor (or any surface) in the 3D view to place it.
+4. The light is selected automatically — use the inspector on the right to adjust color, intensity, and position.
+
+### Adjusting lights
+- **Color**: click the color swatch and pick from the color picker.
+- **Intensity**: drag the slider (0–20). Keyboard: `[` decreases, `]` increases.
+- **Position X/Y/Z**: type values directly in the fields, or drag the handle in the 3D view.
+- **Shadow**: tick the checkbox (point/spot only; not available on Panel lights). Shadows increase render cost — use sparingly.
+- **Spot extras**: Angle (beam width, 1–90°), Penumbra (soft edge, 0–1), Target X/Y/Z.
+- **Panel extras**: Width and Height (up to 10 m each).
+- **Toggle on/off**: click the ● / ○ button next to the light in the list.
+- **Delete**: click × next to the light, or press `Delete` / `Backspace` when selected.
+
+### Light budget
+The number of active lights rendered depends on quality:
+- **Low quality**: 4 active lights, 0 shadow casters.
+- **Medium quality**: 8 active lights, 1 shadow caster.
+- **High quality**: 12 active lights, 3 shadow casters.
+Lights beyond the budget are shown as glyphs only (no illumination). Place the most important lights closest to where students work.
+
+### Environment override
+Toggle **Override Environment** to replace the room's default sky/fog with a custom atmosphere.
+- **Presets**: Studio, Warm Interior, Night, Stage, Overcast — one click to apply.
+- **Sun**: azimuth (direction) and elevation (height), color, and intensity.
+- **Sky**: sky-dome color and ground color for hemisphere ambient fill.
+- **IBL**: image-based lighting preset (studio, sunset, warehouse, etc.) for realistic reflections.
+- **Fog**: enable fog and set color, near, and far distances.
+- **Tone Mapping**: None, ACES Filmic, AgX, Neutral — affects overall image look.
+- **Exposure**: global brightness multiplier (0.1–3).
 
 ---
 

@@ -195,6 +195,11 @@ export {
   type TrimeshColliderSpec
 } from "./physics-spec.js";
 export { resolvePhysicsTuning } from "./physics-tuning.js";
+export {
+  LIGHTING_BUDGET,
+  selectActiveLights,
+  type LightBudgetTier
+} from "./lighting-budget.js";
 
 type WallPlane = RoomManifest["walls"][number];
 type WallAnchor = RoomManifest["wallAnchors"][number];

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import * as foundation from "./foundation.js";
 import type { RoomType } from "./foundation.js";
+import { RoomEnvironmentSchema } from "./lighting.js";
 
 const {
   AttachmentKindSchema,
@@ -382,7 +383,10 @@ export const RoomSettingsSchema = z.object({
     enabled: z.boolean().default(true),
     defaultTargetLanguage: z.string().optional(),
     voiceEnabled: z.boolean().default(true)
-  }).default({ enabled: true, voiceEnabled: true })
+  }).default({ enabled: true, voiceEnabled: true }),
+  lighting: z.object({
+    environment: RoomEnvironmentSchema.optional(),
+  }).default({}),
 });
 
 /** Apply {@link RoomSettingsSchema} defaults to persisted room settings (e.g. `roomObjects` opt-in). */

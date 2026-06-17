@@ -42,6 +42,7 @@ export const CLIENT_TUNING = {
   enableTranslationVoice: process.env.NEXT_PUBLIC_ENABLE_TRANSLATION_VOICE === "true",
   enableAiObjectGeneration: process.env.NEXT_PUBLIC_ENABLE_AI_OBJECT_GENERATION === "true",
   enableWhiteboards: process.env.NEXT_PUBLIC_ENABLE_WHITEBOARDS !== "false",
+  enableWorldBuilderLighting: process.env.NEXT_PUBLIC_ENABLE_WORLD_BUILDER_LIGHTING === "true",
   enableSharedBrowsers: process.env.NEXT_PUBLIC_ENABLE_SHARED_BROWSERS === "true",
   sharedBrowserHyperbeamRegion: process.env.NEXT_PUBLIC_SHARED_BROWSER_HYPERBEAM_REGION?.trim() || undefined,
   /** When true, Hyperbeam buffers frames for smoother motion (higher latency). */

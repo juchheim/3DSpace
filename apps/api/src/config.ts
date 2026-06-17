@@ -119,6 +119,7 @@ export type AppConfig = {
     aiObjectMaxJobsPerUserPerDay: number;
     aiObjectRetentionDays: number;
     aiObjectUseTestFixture: boolean;
+    enableWorldBuilderLighting: boolean;
     enableSharedBrowsers: boolean;
     sharedBrowserViewportWidth: number;
     sharedBrowserViewportHeight: number;
@@ -417,6 +418,7 @@ export function loadConfig(raw: NodeJS.ProcessEnv = process.env): AppConfig {
       aiObjectMaxJobsPerUserPerDay: envNumber(raw, "AI_OBJECT_MAX_JOBS_PER_USER_PER_DAY", 20),
       aiObjectRetentionDays: envNumber(raw, "AI_OBJECT_RETENTION_DAYS", 30),
       aiObjectUseTestFixture: envBoolean(raw, "AI_OBJECT_USE_TEST_FIXTURE", false),
+      enableWorldBuilderLighting: envBoolean(raw, "ENABLE_WORLD_BUILDER_LIGHTING", false),
       enableSharedBrowsers: envBoolean(raw, "ENABLE_SHARED_BROWSERS", false),
       sharedBrowserViewportWidth: envNumber(raw, "SHARED_BROWSER_VIEWPORT_WIDTH", 1280),
       sharedBrowserViewportHeight: envNumber(raw, "SHARED_BROWSER_VIEWPORT_HEIGHT", 720),

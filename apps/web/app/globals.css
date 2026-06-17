@@ -12486,3 +12486,223 @@ body.dixr-dark::before {
     animation-duration: 1ms;
   }
 }
+
+/* ── Lighting tab ──────────────────────────────────────────────────────── */
+.build-dock__lighting {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.build-dock__lighting-tiles {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.build-dock__lighting-add .build-dock__tile {
+  min-width: 72px;
+}
+
+.build-dock__lighting-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.light-list__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: var(--bd-surface, rgba(255,255,255,0.05));
+  transition: background 0.15s;
+}
+
+.light-list__item:hover,
+.light-list__item.is-selected {
+  background: var(--bd-active, rgba(100,160,255,0.18));
+}
+
+.light-list__name {
+  flex: 1;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.light-list__toggle,
+.light-list__delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--bd-text, rgba(255,255,255,0.7));
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.light-list__delete:hover {
+  color: #f87171;
+}
+
+/* ── Light inspector ───────────────────────────────────────────────────── */
+.light-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: var(--bd-surface, rgba(255,255,255,0.05));
+  border-radius: 8px;
+}
+
+.light-inspector__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.light-inspector__label {
+  font-size: 11px;
+  color: var(--bd-text-muted, rgba(255,255,255,0.5));
+  min-width: 64px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.light-inspector__input {
+  flex: 1;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 4px;
+  color: var(--bd-text, #fff);
+  padding: 3px 6px;
+  font-size: 12px;
+}
+
+.light-inspector__slider {
+  flex: 1;
+  accent-color: #60a5fa;
+}
+
+.light-inspector__section {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--bd-text-muted, rgba(255,255,255,0.4));
+  margin: 4px 0 2px;
+}
+
+.light-inspector__delete {
+  width: 100%;
+  padding: 5px;
+  background: rgba(239,68,68,0.15);
+  border: 1px solid rgba(239,68,68,0.3);
+  border-radius: 6px;
+  color: #f87171;
+  cursor: pointer;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.light-inspector__delete:hover {
+  background: rgba(239,68,68,0.25);
+}
+
+/* ── Environment panel ─────────────────────────────────────────────────── */
+.build-dock__lighting-env {
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding-top: 10px;
+}
+
+.env-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.env-panel__section {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--bd-text-muted, rgba(255,255,255,0.4));
+  margin: 6px 0 2px;
+}
+
+.env-panel__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--bd-text, rgba(255,255,255,0.85));
+}
+
+.env-panel__label {
+  min-width: 80px;
+  font-size: 11px;
+  color: var(--bd-text-muted, rgba(255,255,255,0.5));
+}
+
+.env-panel__slider {
+  flex: 1;
+  accent-color: #60a5fa;
+}
+
+.env-panel__color {
+  width: 32px;
+  height: 24px;
+  padding: 1px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+
+.env-panel__select {
+  flex: 1;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 4px;
+  color: var(--bd-text, #fff);
+  padding: 3px 6px;
+  font-size: 12px;
+}
+
+.env-panel__value {
+  font-size: 11px;
+  min-width: 36px;
+  text-align: right;
+  color: var(--bd-text-muted, rgba(255,255,255,0.5));
+}
+
+.env-panel__preset-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.env-panel__chip {
+  background: rgba(100,160,255,0.12);
+  border: 1px solid rgba(100,160,255,0.25);
+  border-radius: 12px;
+  color: #93c5fd;
+  font-size: 11px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.env-panel__chip:hover {
+  background: rgba(100,160,255,0.22);
+}
+
+.build-dock__coachmark--lighting {
+  font-size: 11px;
+  color: var(--bd-text-muted, rgba(255,255,255,0.5));
+  padding: 4px 2px;
+  line-height: 1.5;
+}

@@ -96,7 +96,8 @@ export function RoomView2D({
   sharedBrowserIdentity,
   sharedBrowserRoomId,
   buildPieces = [],
-  buildInteraction
+  buildInteraction,
+  lights
 }: {
   manifest: RoomManifest;
   dynamicWallAnchors?: RoomManifest["wallAnchors"];
@@ -140,6 +141,7 @@ export function RoomView2D({
     onPointerMove(point: { x: number; y: number }): void;
     onPointerDown(point: { x: number; y: number }): void;
   };
+  lights?: import("@3dspace/contracts").RoomLight[];
 }) {
   const [liveAnnouncement, setLiveAnnouncement] = useState("");
   // AI World Host (Phase 4 provides this via context; null when feature is off).
@@ -603,6 +605,21 @@ export function RoomView2D({
             </g>
           );
         })() : null}
+        {/* Light icons */}
+        {(lights ?? []).map((light) => {
+          const pt = projectPositionTo2D(manifest, { x: light.position.x, y: 0, z: light.position.z });
+          const color = light.enabled ? (light.type === "point" ? "#fde68a" : light.type === "spot" ? "#a5f3fc" : "#d9f99d") : "#888";
+          const radius = light.type === "area" ? 3 : 2;
+          const rangeR = light.distance ? (light.distance / (manifest.dimensions?.width ?? 30)) * 50 : 0;
+          return (
+            <g key={light.id} pointerEvents="none">
+              {rangeR > 0 ? (
+                <circle cx={pt.x} cy={pt.y} r={rangeR} fill="none" stroke={color} strokeWidth="0.5" opacity={0.3} />
+              ) : null}
+              <circle cx={pt.x} cy={pt.y} r={radius} fill={color} opacity={light.enabled ? 0.9 : 0.4} />
+            </g>
+          );
+        })}
       </svg>
 
       <div className="sr-only" aria-live="polite" aria-atomic="true">

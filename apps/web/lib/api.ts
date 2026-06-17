@@ -1,4 +1,14 @@
 import type {
+  RoomLight,
+  RoomEnvironment,
+  RoomLightRealtimeMessage,
+  RoomLightingRealtimeMessage,
+} from "@3dspace/contracts";
+import {
+  CreateRoomLightRequestSchema,
+  UpdateRoomLightRequestSchema,
+} from "@3dspace/contracts";
+import type {
   AcceptInviteResponseSchema,
   AiObjectJob,
   AvatarAppearance,
@@ -1521,4 +1531,60 @@ export async function downloadAiObjectGlb(identity: ApiIdentity, roomId: string,
   a.download = filename;
   a.click();
   URL.revokeObjectURL(objectUrl);
+}
+
+// ── Room Lights ───────────────────────────────────────────────────────────────
+
+export function listRoomLights(identity: ApiIdentity, roomId: string) {
+  return apiFetch<{ lights: RoomLight[] }>(`/v1/rooms/${roomId}/lights`, { identity }).then(
+    (r) => r.lights
+  );
+}
+
+export function createRoomLight(
+  identity: ApiIdentity,
+  roomId: string,
+  input: z.infer<typeof CreateRoomLightRequestSchema>
+) {
+  return apiFetch<{ light: RoomLight; realtimeMessages: RoomLightRealtimeMessage[] }>(
+    `/v1/rooms/${roomId}/lights`,
+    { method: "POST", identity, body: input }
+  );
+}
+
+export function updateRoomLight(
+  identity: ApiIdentity,
+  roomId: string,
+  lightId: string,
+  patch: z.infer<typeof UpdateRoomLightRequestSchema>
+) {
+  return apiFetch<{ light: RoomLight; realtimeMessages: RoomLightRealtimeMessage[] }>(
+    `/v1/rooms/${roomId}/lights/${lightId}`,
+    { method: "PATCH", identity, body: patch }
+  );
+}
+
+export function deleteRoomLight(identity: ApiIdentity, roomId: string, lightId: string) {
+  return apiFetch<{ realtimeMessages: RoomLightRealtimeMessage[] }>(
+    `/v1/rooms/${roomId}/lights/${lightId}`,
+    { method: "DELETE", identity }
+  );
+}
+
+export function getRoomEnvironment(identity: ApiIdentity, roomId: string) {
+  return apiFetch<{ environment: RoomEnvironment }>(
+    `/v1/rooms/${roomId}/lighting/environment`,
+    { identity }
+  );
+}
+
+export function setRoomEnvironment(
+  identity: ApiIdentity,
+  roomId: string,
+  body: Partial<RoomEnvironment>
+) {
+  return apiFetch<{ environment: RoomEnvironment; realtimeMessages: RoomLightingRealtimeMessage[] }>(
+    `/v1/rooms/${roomId}/lighting/environment`,
+    { method: "PATCH", identity, body }
+  );
 }

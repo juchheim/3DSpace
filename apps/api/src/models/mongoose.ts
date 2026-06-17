@@ -1,5 +1,6 @@
 import mongoose, { type Connection, Schema, type Model } from "mongoose";
-import { RoomAiHostAvatarSchema } from "@3dspace/contracts";
+import { RoomAiHostAvatarSchema, defaultRoomEnvironment, ROOM_LIGHT_MAX_PER_ROOM, ROOM_LIGHT_MAX_AREA } from "@3dspace/contracts";
+import type { RoomLight, RoomEnvironment } from "@3dspace/contracts";
 import type {
   AiObjectJob,
   AvatarAppearance,
@@ -105,6 +106,7 @@ type Models = {
   OAuthState: Model<any>;
   AuthExchangeCode: Model<any>;
   AuthRefreshSession: Model<any>;
+  RoomLight: Model<any>;
 };
 
 function entity<T>(doc: unknown) {
@@ -446,6 +448,31 @@ export function createModels(connection: Connection): Models {
   placedWorldAssetSchema.index({ roomId: 1 });
   placedWorldAssetSchema.index({ roomId: 1, id: 1 }, { unique: true });
 
+  const roomLightSchema = new Schema({
+    id: { type: String, required: true },
+    roomId: { type: String, required: true },
+    type: { type: String, required: true },
+    name: { type: String },
+    enabled: { type: Boolean, required: true, default: true },
+    position: { x: Number, y: Number, z: Number },
+    target: { x: Number, y: Number, z: Number },
+    rotation: { x: Number, y: Number, z: Number },
+    color: { type: String, required: true },
+    intensity: { type: Number, required: true },
+    castShadow: { type: Boolean, required: true, default: false },
+    distance: Number,
+    decay: Number,
+    angleDeg: Number,
+    penumbra: Number,
+    width: Number,
+    height: Number,
+    createdByUserId: { type: String, required: true },
+    createdAt: { type: String, required: true },
+    updatedAt: { type: String, required: true }
+  });
+  roomLightSchema.index({ roomId: 1 });
+  roomLightSchema.index({ roomId: 1, id: 1 }, { unique: true });
+
   const customWorldAssetSchema = new Schema({
     id: { type: String, required: true },
     ownerUserId: { type: String, required: true },
@@ -779,7 +806,8 @@ export function createModels(connection: Connection): Models {
     ),
     OAuthState: connection.model("OAuthState", oauthStateSchema, "oauth_states"),
     AuthExchangeCode: connection.model("AuthExchangeCode", authExchangeCodeSchema, "auth_exchange_codes"),
-    AuthRefreshSession: connection.model("AuthRefreshSession", authRefreshSessionSchema, "auth_sessions")
+    AuthRefreshSession: connection.model("AuthRefreshSession", authRefreshSessionSchema, "auth_sessions"),
+    RoomLight: connection.model("RoomLight", roomLightSchema, "room_lights")
   };
 }
 
@@ -1764,6 +1792,67 @@ export class MongoRepository implements Repository {
 
   async deleteWorldAsset(roomId: string, assetId: string): Promise<void> {
     await this.models.PlacedWorldAsset.deleteOne({ roomId, id: assetId });
+  }
+
+  async listRoomLights(roomId: string): Promise<RoomLight[]> {
+    const docs = await this.models.RoomLight.find({ roomId }).sort({ createdAt: 1 }).lean();
+    return docs as unknown as RoomLight[];
+  }
+
+  async createRoomLight(input: Parameters<import("../repository.js").Repository["createRoomLight"]>[0]): Promise<RoomLight> {
+    const existing = await this.listRoomLights(input.roomId);
+    if (existing.length >= ROOM_LIGHT_MAX_PER_ROOM) throw new Error("room-light-cap");
+    if (input.type === "area" && existing.filter(l => l.type === "area").length >= ROOM_LIGHT_MAX_AREA) throw new Error("room-light-area-cap");
+    const now = new Date().toISOString();
+    const light: RoomLight = {
+      id: `light-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      roomId: input.roomId,
+      type: input.type,
+      enabled: true,
+      position: input.position,
+      color: input.color,
+      intensity: input.intensity,
+      castShadow: input.castShadow,
+      createdByUserId: input.createdByUserId,
+      createdAt: now,
+      updatedAt: now,
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.target !== undefined ? { target: input.target } : {}),
+      ...(input.rotation !== undefined ? { rotation: input.rotation } : {}),
+      ...(input.distance !== undefined ? { distance: input.distance } : {}),
+      ...(input.decay !== undefined ? { decay: input.decay } : {}),
+      ...(input.angleDeg !== undefined ? { angleDeg: input.angleDeg } : {}),
+      ...(input.penumbra !== undefined ? { penumbra: input.penumbra } : {}),
+      ...(input.width !== undefined ? { width: input.width } : {}),
+      ...(input.height !== undefined ? { height: input.height } : {}),
+    };
+    await this.models.RoomLight.create(light);
+    return light;
+  }
+
+  async updateRoomLight(roomId: string, lightId: string, patch: Parameters<import("../repository.js").Repository["updateRoomLight"]>[2]): Promise<RoomLight | null> {
+    const doc = await this.models.RoomLight.findOneAndUpdate(
+      { roomId, id: lightId },
+      { $set: { ...patch, updatedAt: new Date().toISOString() } },
+      { new: true, lean: true }
+    );
+    return doc ? doc as unknown as RoomLight : null;
+  }
+
+  async deleteRoomLight(roomId: string, lightId: string): Promise<void> {
+    await this.models.RoomLight.deleteOne({ roomId, id: lightId });
+  }
+
+  async getRoomEnvironment(roomId: string): Promise<RoomEnvironment> {
+    const room = await this.getRoom(roomId);
+    return (room?.settings as { lighting?: { environment?: RoomEnvironment } } | undefined)?.lighting?.environment ?? defaultRoomEnvironment();
+  }
+
+  async setRoomEnvironment(roomId: string, patch: Parameters<import("../repository.js").Repository["setRoomEnvironment"]>[1]): Promise<RoomEnvironment> {
+    const current = await this.getRoomEnvironment(roomId);
+    const updated = { ...current, ...patch } as RoomEnvironment;
+    await this.updateRoom(roomId, { settings: { lighting: { environment: updated } } as any });
+    return updated;
   }
 
   private toCustomAsset(doc: Record<string, unknown>): CustomWorldAsset {

@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas, useFrame, useLoader, useThree, type ThreeEvent } from "@react-three/fiber";
-import { Billboard, Html } from "@react-three/drei";
+import { Billboard, Html, SoftShadows, Environment } from "@react-three/drei";
 import { memo, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from "react";
 import {
   AdditiveBlending,
@@ -10,6 +10,7 @@ import {
   ClampToEdgeWrapping,
   Color,
   DoubleSide,
+  NoToneMapping,
   PlaneGeometry,
   RepeatWrapping,
   SRGBColorSpace,
@@ -18,9 +19,13 @@ import {
   type Group,
   type MeshBasicMaterial,
   type MeshStandardMaterial,
-  Vector3
+  Vector3,
+  type WebGLRenderer
 } from "three";
 import { useWorldSkinContext, DEFAULT_LIGHTING, DEFAULT_BACKGROUND } from "./worldSkins/SkinLayer";
+import { RoomLightsLayer } from "./RoomLightsLayer";
+import { resolveToneMapping } from "../lib/lightingRenderer";
+import { sunPosition } from "../lib/sunDirection";
 import type { Verse } from "../lib/verses";
 import { DYNAMIC_WALL_ANCHOR_MIN_HEIGHT_M } from "@3dspace/contracts";
 import type {
@@ -41,6 +46,8 @@ import type {
   QualityLevel,
   Role,
   RoomAiHost,
+  RoomEnvironment,
+  RoomLight,
   RoomManifest,
   RoomObject,
   RoomObjectTemplate,
@@ -60,6 +67,7 @@ import { RoomObjectsLayer } from "./RoomObjectsLayer";
 import { PlacedChairsLayer } from "./PlacedChairsLayer";
 import type { PlacedChair } from "../lib/usePlacedChairs";
 import { AssetPlacementController } from "./AssetPlacementController";
+import { LightPlacementController } from "./LightPlacementController";
 import { BuildPlacementController } from "./BuildPlacementController";
 import { LogicLayer } from "./LogicLayer";
 import { LogicPlacementController } from "./LogicPlacementController";
@@ -382,7 +390,17 @@ export function RoomView3D({
   localParticipantSittingPhase = "none",
   onLocalParticipantSitAnimationFinished,
   assetPlacement = null,
-  verse = null
+  verse = null,
+  lightingEnabled = false,
+  lights,
+  selectedLightId,
+  environment,
+  onSelectLight,
+  onLightTransform,
+  onLightTransformCommit,
+  pendingLightType,
+  onPlaceLight,
+  onCancelLightPlacement
 }: {
   manifest: RoomManifest;
   dynamicWallAnchors?: Anchor[];
@@ -486,6 +504,16 @@ export function RoomView3D({
     onRotateBy(deltaDeg: number): void;
   } | null;
   verse?: Verse | null;
+  lightingEnabled?: boolean;
+  lights?: RoomLight[];
+  selectedLightId?: string | null;
+  environment?: RoomEnvironment | null;
+  onSelectLight?: (id: string | null) => void;
+  onLightTransform?: (id: string, position: { x: number; y: number; z: number }) => void;
+  onLightTransformCommit?: (id: string, position: { x: number; y: number; z: number }) => void;
+  pendingLightType?: import("@3dspace/contracts").RoomLightType | null;
+  onPlaceLight?: (position: { x: number; y: number; z: number }) => void;
+  onCancelLightPlacement?: () => void;
 }) {
   const dpr = quality === "high" ? 1.8 : quality === "medium" ? 1.4 : 1;
   const [canvasElement, setCanvasElement] = useState<HTMLCanvasElement | null>(null);
@@ -557,15 +585,44 @@ export function RoomView3D({
 
   useEffect(() => bindCamera(canvasElement), [bindCamera, canvasElement]);
 
+  const glRef = useRef<WebGLRenderer | null>(null);
+  useEffect(() => {
+    if (!glRef.current || !lightingEnabled) return;
+    const env = environment;
+    glRef.current.toneMapping = env?.enabled
+      ? resolveToneMapping(env.exposure?.toneMapping ?? "none")
+      : NoToneMapping;
+    glRef.current.toneMappingExposure = env?.enabled ? (env.exposure?.exposure ?? 1) : 1;
+  }, [lightingEnabled, environment]);
+
   return (
     <div className="canvas-wrap">
       <Canvas
         camera={{ position: [0, 12, 14], fov: 48 }}
         dpr={dpr}
         gl={{ antialias: quality !== "low", powerPreference: "high-performance" }}
-        onCreated={({ gl }) => setCanvasElement(gl.domElement)}
+        shadows={lightingEnabled && quality !== "low" ? "soft" : false}
+        onCreated={({ gl }) => {
+          glRef.current = gl as unknown as WebGLRenderer;
+          setCanvasElement(gl.domElement);
+          if (!lightingEnabled) {
+            gl.toneMapping = NoToneMapping;
+          }
+        }}
       >
-        <SceneAtmosphere verse={verse} />
+        <SceneAtmosphere verse={verse} environment={environment ?? null} lightingEnabled={lightingEnabled} />
+        {lightingEnabled && quality === "high" ? <SoftShadows /> : null}
+        {lightingEnabled && lights && lights.length > 0 ? (
+          <RoomLightsLayer
+            lights={lights}
+            selectedId={selectedLightId ?? null}
+            quality={quality}
+            interactive
+            {...(onSelectLight ? { onSelect: onSelectLight } : {})}
+            {...(onLightTransform ? { onTransform: onLightTransform } : {})}
+            {...(onLightTransformCommit ? { onTransformCommit: onLightTransformCommit } : {})}
+          />
+        ) : null}
         <RoomGeometry
           manifest={mergedManifest}
           onMoveToPoint={onMoveToPoint}
@@ -617,6 +674,16 @@ export function RoomView3D({
               onPlace={assetPlacement.onPlace}
               onCancel={assetPlacement.onCancel}
               onRotateBy={assetPlacement.onRotateBy}
+            />
+          </Suspense>
+        ) : null}
+        {lightingEnabled && pendingLightType ? (
+          <Suspense fallback={null}>
+            <LightPlacementController
+              lightType={pendingLightType}
+              interceptPlaneY={assetInterceptPlaneY}
+              onPlace={onPlaceLight ?? (() => {})}
+              onCancel={onCancelLightPlacement ?? (() => {})}
             />
           </Suspense>
         ) : null}
@@ -1860,17 +1927,91 @@ function VerseSkybox({ verse }: { verse: Verse }) {
   );
 }
 
-/** Renders sky color, optional fog, and lights driven by the active WorldSkin. */
-function SceneAtmosphere({ verse }: { verse?: Verse | null }) {
+/** Renders sky color, optional fog, and lights driven by the active WorldSkin.
+ * When `environment?.enabled` is true, overrides skin-based lighting with environment settings. */
+function SceneAtmosphere({
+  verse,
+  environment,
+  lightingEnabled,
+}: {
+  verse?: Verse | null;
+  environment?: RoomEnvironment | null;
+  lightingEnabled?: boolean;
+}) {
   const { activeLighting } = useWorldSkinContext();
   const l = activeLighting ?? DEFAULT_LIGHTING;
   const hasSkybox = verse != null;
   const bg = hasSkybox ? SPACE_BG : (activeLighting?.backgroundColor ?? DEFAULT_BACKGROUND);
 
+  const useEnv = lightingEnabled === true && environment?.enabled === true;
+
+  if (useEnv && environment != null) {
+    const env = environment;
+    const sun = env.sun;
+    const sky = env.sky;
+    const ibl = env.ibl;
+    const fog = env.fog;
+
+    // Compute sun position from azimuth/elevation
+    const sunPos = sun?.enabled !== false
+      ? sunPosition(sun?.azimuthDeg ?? 180, sun?.elevationDeg ?? 45)
+      : null;
+
+    // IBL preset (exclude "none")
+    const iblPreset = ibl?.preset && ibl.preset !== "none" ? ibl.preset : null;
+
+    return (
+      <>
+        <color attach="background" args={[bg]} />
+        {hasSkybox ? <VerseSkybox verse={verse!} /> : null}
+
+        {/* Fog override */}
+        {fog?.enabled ? (
+          <fog attach="fog" args={[fog.color, fog.near, fog.far]} />
+        ) : null}
+
+        {/* Sky hemisphere + ambient */}
+        {sky?.hemisphere !== false ? (
+          <>
+            <hemisphereLight
+              args={[
+                (sky?.skyColor ?? "#87ceeb") as string,
+                (sky?.groundColor ?? "#8b7355") as string,
+                sky?.hemisphereIntensity ?? 0.5,
+              ]}
+            />
+            <ambientLight color={sky?.ambientColor ?? "#ffffff"} intensity={sky?.ambientIntensity ?? 0.2} />
+          </>
+        ) : (
+          <ambientLight color={sky?.ambientColor ?? "#ffffff"} intensity={sky?.ambientIntensity ?? 0.2} />
+        )}
+
+        {/* Directional sun light */}
+        {sunPos ? (
+          <directionalLight
+            color={sun?.color ?? "#ffffff"}
+            intensity={sun?.intensity ?? 1}
+            position={[sunPos.x, sunPos.y, sunPos.z]}
+            castShadow={sun?.castShadow !== false}
+          />
+        ) : null}
+
+        {/* IBL environment map */}
+        {iblPreset ? (
+          <Environment
+            preset={iblPreset as "studio" | "sunset" | "dawn" | "night" | "warehouse" | "park" | "apartment"}
+            environmentIntensity={ibl?.intensity ?? 1}
+            background={ibl?.asBackground === true}
+          />
+        ) : null}
+      </>
+    );
+  }
+
   return (
     <>
       <color attach="background" args={[bg]} />
-      {hasSkybox ? <VerseSkybox verse={verse} /> : null}
+      {hasSkybox ? <VerseSkybox verse={verse!} /> : null}
       {l.fogColor !== undefined ? (
         <fog attach="fog" args={[l.fogColor, l.fogNear ?? 20, l.fogFar ?? 60]} />
       ) : null}

@@ -148,6 +148,8 @@ import {
 } from "../lib/room/storage";
 import { useRoomAvatarActions } from "../lib/room/useRoomAvatarActions";
 import { useRoomEnvironmentActions } from "../lib/room/useRoomEnvironmentActions";
+import { useRoomLights } from "../lib/useRoomLights";
+import { useRoomEnvironment } from "../lib/useRoomEnvironment";
 import { useRoomFloorTextureActions } from "../lib/room/useRoomFloorTextureActions";
 import { useRoomRealtime } from "../lib/room/useRoomRealtime";
 import { useRoomWallActions } from "../lib/room/useRoomWallActions";
@@ -1122,6 +1124,20 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   });
   // ── Custom GLB library (per-user, reusable across rooms) ─────────────────
   const customAssets = useCustomWorldAssets({ identity });
+  // ── Room lights + environment (flag-gated) ───────────────────────────────
+  const lightingEnabled = CLIENT_TUNING.enableWorldBuilderLighting;
+  const roomLights = useRoomLights(
+    lightingEnabled && session?.room.id
+      ? { identity, roomId: session.room.id, publish: publishRealtime }
+      : { identity }
+  );
+  const roomEnvironment = useRoomEnvironment(
+    lightingEnabled && session?.room.id
+      ? { identity, roomId: session.room.id, publish: publishRealtime }
+      : { identity }
+  );
+  const [selectedLightId, setSelectedLightId] = useState<string | null>(null);
+  const [pendingLightType, setPendingLightType] = useState<import("@3dspace/contracts").RoomLightType | null>(null);
   worldAssetsForMovementRef.current = chairs.chairs;
   const hasWalkableSceneAssets = chairs.chairs.some((asset) => isStaticColliderWorldAsset(asset.slug));
   const physicsTuning = useMemo(() => {
@@ -1156,6 +1172,10 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   ]);
   const worldAssetsRealtimeHandlerRef = useRef(chairs.handleRealtimeMessage);
   worldAssetsRealtimeHandlerRef.current = chairs.handleRealtimeMessage;
+  const roomLightsRealtimeHandlerRef = useRef(roomLights.handleRealtimeMessage);
+  roomLightsRealtimeHandlerRef.current = roomLights.handleRealtimeMessage;
+  const roomEnvironmentRealtimeHandlerRef = useRef(roomEnvironment.handleRealtimeMessage);
+  roomEnvironmentRealtimeHandlerRef.current = roomEnvironment.handleRealtimeMessage;
   // A stable ref so useSitting can always read the latest avatar position without
   // needing movement to be declared first.
   const avatarPositionRef = useRef<{ x: number; y: number; z: number } | null>(null);
@@ -1281,6 +1301,36 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     };
   }, []);
 
+  // ── Lighting keyboard shortcuts ──────────────────────────────────────────
+  useEffect(() => {
+    if (!lightingEnabled) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (isKeyboardOwnedTarget(e.target)) return;
+      // Cancel pending light placement
+      if (e.key === "Escape" && pendingLightType) {
+        e.preventDefault();
+        setPendingLightType(null);
+        return;
+      }
+      if (!selectedLightId) return;
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        void roomLights.deleteLight(selectedLightId);
+        setSelectedLightId(null);
+      } else if (e.key === "[") {
+        e.preventDefault();
+        const light = roomLights.lightsById[selectedLightId];
+        if (light) void roomLights.updateLight(selectedLightId, { intensity: Math.max(0, light.intensity - 0.5) }, { commit: true });
+      } else if (e.key === "]") {
+        e.preventDefault();
+        const light = roomLights.lightsById[selectedLightId];
+        if (light) void roomLights.updateLight(selectedLightId, { intensity: Math.min(20, light.intensity + 0.5) }, { commit: true });
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [lightingEnabled, selectedLightId, pendingLightType, roomLights]);
+
   const logicTryInteractRef = useRef(logicDetection.tryInteract);
   logicTryInteractRef.current = logicDetection.tryInteract;
   useEffect(() => {
@@ -1402,7 +1452,9 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       aiObjectsRealtimeHandlerRef,
       sharedBrowserRealtimeHandlerRef,
       aiWorldHostRealtimeHandlerRef,
-      worldAssetsRealtimeHandlerRef
+      worldAssetsRealtimeHandlerRef,
+      roomLightsRealtimeHandlerRef,
+      roomEnvironmentRealtimeHandlerRef
     ],
     setStatus,
     setError,
@@ -2561,6 +2613,32 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           onRotateBy: rotateBy
         };
       })()}
+      lightingEnabled={lightingEnabled}
+      {...(lightingEnabled ? {
+        lights: roomLights.lights,
+        selectedLightId,
+        environment: roomEnvironment.environment,
+        onSelectLight: (id: string | null) => { setSelectedLightId(id); if (id) setPendingLightType(null); },
+        onLightTransform: (id: string, position: { x: number; y: number; z: number }) => { void roomLights.updateLight(id, { position }, { commit: false }); },
+        onLightTransformCommit: (id: string, position: { x: number; y: number; z: number }) => { void roomLights.updateLight(id, { position }, { commit: true }); },
+        pendingLightType,
+        onPlaceLight: async (position: { x: number; y: number; z: number }) => {
+          if (!pendingLightType) return;
+          const type = pendingLightType;
+          setPendingLightType(null);
+          const light = await roomLights.createLight({
+            type,
+            position,
+            color: "#ffffff",
+            intensity: 3,
+            castShadow: false,
+            ...(type === "spot" ? { target: { x: position.x, y: 0, z: position.z - 2 }, angleDeg: 30 } : {}),
+            ...(type === "area" ? { width: 2, height: 2 } : {}),
+          });
+          if (light) setSelectedLightId(light.id);
+        },
+        onCancelLightPlacement: () => setPendingLightType(null),
+      } : {})}
     />
   ) : null;
   const room2dView = manifest && session ? (
@@ -2634,6 +2712,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
             }
           }
         : {})}
+      {...(lightingEnabled ? { lights: roomLights.lights } : {})}
     />
   ) : null;
   const inviteControl = role === "teacher" && session ? (
@@ -3043,6 +3122,19 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       onCustomScaleChange={setCustomAssetScale}
       assetYawDeg={assetYawDeg}
       onRotateAsset={() => setAssetYawDeg((d) => (((d + 90) % 360) + 360) % 360)}
+      {...(lightingEnabled ? {
+        lights: roomLights.lights,
+        selectedLightId,
+        roomEnvironment: roomEnvironment.environment,
+        onAddLight: (type: import("@3dspace/contracts").RoomLightType) => {
+          setPendingLightType(type);
+          setSelectedLightId(null);
+        },
+        onSelectLight: (id: string | null) => { setSelectedLightId(id); if (id) setPendingLightType(null); },
+        onUpdateLight: (id: string, patch: Partial<import("@3dspace/contracts").RoomLight>, commit?: boolean) => { void roomLights.updateLight(id, patch, { commit: commit !== false }); },
+        onDeleteLight: (id: string) => { void roomLights.deleteLight(id); },
+        onUpdateEnvironment: (patch: Partial<import("@3dspace/contracts").RoomEnvironment>, commit?: boolean) => { void roomEnvironment.updateEnvironment(patch, { commit: commit !== false }); },
+      } : {})}
     />
   ) : null;
 

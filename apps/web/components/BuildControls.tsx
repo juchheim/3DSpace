@@ -3,11 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import {
   IMAGE_FLOOR_TEXTURE_SPAN_OPTIONS,
+  ROOM_LIGHT_MAX_PER_ROOM,
   type BuildPieceMaterial,
   type CustomWorldAsset,
   type WorldAssetObjectRole,
   type WorldAssetPlacementKind
 } from "@3dspace/contracts";
+import { LightInspector } from "./lighting/LightInspector";
+import { EnvironmentPanel } from "./lighting/EnvironmentPanel";
 import { BUILD_MATERIAL_OPTIONS } from "./buildMaterials";
 import {
   BUILD_FLOOR_TEXTURE_PRESETS,
@@ -24,7 +27,7 @@ import {
 
 const BUILD_COACHMARK_KEY = "3dspace-build-coachmark-dismissed";
 
-type BuildCategory = "build" | "objects" | "scenes" | "uploads";
+type BuildCategory = "build" | "objects" | "scenes" | "uploads" | "lighting";
 
 /** Classification choices for an uploaded GLB, with the placement rule each implies. */
 const PLACEMENT_OPTIONS: Array<{
@@ -79,7 +82,8 @@ const CATEGORIES: Array<{ id: BuildCategory; label: string }> = [
   { id: "build", label: "Build" },
   { id: "objects", label: "Objects" },
   { id: "scenes", label: "Scenes" },
-  { id: "uploads", label: "Uploads" }
+  { id: "uploads", label: "Uploads" },
+  { id: "lighting", label: "Lighting" }
 ];
 
 /** Max uploaded GLB size (bytes) — mirrors CUSTOM_ASSET_MAX_GLB_BYTES on the server. */
@@ -96,7 +100,7 @@ function buildCategoryForAssetSlug(slug: string | null | undefined): BuildCatego
 function Glyph({
   id
 }: {
-  id: BuildTool | "object" | "scene" | "erase" | "tab-build" | "tab-objects" | "tab-scenes" | "tab-uploads";
+  id: BuildTool | "object" | "scene" | "erase" | "tab-build" | "tab-objects" | "tab-scenes" | "tab-uploads" | "tab-lighting";
 }) {
   const common = {
     width: 16,
@@ -224,9 +228,54 @@ function Glyph({
           <path d="M2.8 9.4v2.6a1 1 0 0 0 1 1h8.4a1 1 0 0 0 1-1V9.4" />
         </svg>
       );
+    case "tab-lighting":
+      return (
+        <svg {...common}>
+          <circle cx="8" cy="8" r="2.6" />
+          <path d="M8 1.5v1.8M8 12.7v1.8M1.5 8h1.8M12.7 8h1.8M3.6 3.6l1.3 1.3M11.1 11.1l1.3 1.3M12.4 3.6l-1.3 1.3M4.9 11.1l-1.3 1.3" />
+        </svg>
+      );
     default:
       return null;
   }
+}
+
+/** Small inline SVG icons for each light type. */
+function LightTypeGlyph({ type }: { type: "point" | "spot" | "area" }) {
+  const common = {
+    width: 20,
+    height: 20,
+    viewBox: "0 0 20 20",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.4,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true
+  };
+  if (type === "point") {
+    return (
+      <svg {...common}>
+        <circle cx="10" cy="10" r="3" />
+        <path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.2 4.2l1.4 1.4M14.4 14.4l1.4 1.4M15.8 4.2l-1.4 1.4M5.6 14.4l-1.4 1.4" />
+      </svg>
+    );
+  }
+  if (type === "spot") {
+    return (
+      <svg {...common}>
+        <circle cx="10" cy="5" r="2" />
+        <path d="M7 8l-3 10h12L13 8z" />
+      </svg>
+    );
+  }
+  // area
+  return (
+    <svg {...common}>
+      <rect x="3" y="6" width="14" height="8" rx="1" />
+      <path d="M10 3v3M10 14v3M3 10H1M19 10h-2" />
+    </svg>
+  );
 }
 
 export function BuildControls({
@@ -259,7 +308,15 @@ export function BuildControls({
   customScale = 1,
   onCustomScaleChange,
   assetYawDeg = 0,
-  onRotateAsset
+  onRotateAsset,
+  lights,
+  selectedLightId,
+  roomEnvironment,
+  onAddLight,
+  onSelectLight,
+  onUpdateLight,
+  onDeleteLight,
+  onUpdateEnvironment
 }: {
   buildMode: BuildModeController;
   pieceCount: number;
@@ -314,6 +371,15 @@ export function BuildControls({
   assetYawDeg?: number;
   /** Rotate the pending placement asset (catalog or custom) by a step. */
   onRotateAsset?: () => void;
+  // Lighting tab props (flag-gated, all optional)
+  lights?: import("@3dspace/contracts").RoomLight[];
+  selectedLightId?: string | null;
+  roomEnvironment?: import("@3dspace/contracts").RoomEnvironment | null;
+  onAddLight?: (type: import("@3dspace/contracts").RoomLightType) => void;
+  onSelectLight?: (id: string | null) => void;
+  onUpdateLight?: (id: string, patch: Partial<import("@3dspace/contracts").RoomLight>, commit?: boolean) => void;
+  onDeleteLight?: (id: string) => void;
+  onUpdateEnvironment?: (patch: Partial<import("@3dspace/contracts").RoomEnvironment>, commit?: boolean) => void;
 }) {
   const [clearing, setClearing] = useState(false);
   const [showCoachmark, setShowCoachmark] = useState(false);
@@ -595,7 +661,7 @@ export function BuildControls({
                 className={`build-dock__tab${category === cat.id ? " is-active" : ""}`}
                 onClick={() => setCategory(cat.id)}
               >
-                <Glyph id={`tab-${cat.id}` as "tab-build" | "tab-objects" | "tab-scenes"} />
+                <Glyph id={`tab-${cat.id}` as "tab-build" | "tab-objects" | "tab-scenes" | "tab-uploads" | "tab-lighting"} />
                 {cat.label}
               </button>
             ))}
@@ -1028,6 +1094,93 @@ export function BuildControls({
                   <p className="build-dock__inline-hint">
                     Click in the world to place · <kbd>R</kbd> or the rotator to turn · <kbd>Esc</kbd> cancel
                   </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {/* ── Lighting: add lights, list in-room lights, inspect selected ──────── */}
+            {category === "lighting" ? (
+              <div className="build-dock__lighting">
+                {/* Lighting coachmark */}
+                <p className="build-dock__coachmark build-dock__coachmark--lighting">
+                  Click <strong>Add Light</strong> to place a light. Select it to adjust color, intensity, and position. Enable <strong>Environment</strong> to override the room&apos;s global lighting.
+                </p>
+
+                {/* Add Light tiles */}
+                <div className="build-dock__lighting-add">
+                  <p className="build-dock__section-label">Add Light</p>
+                  <div className="build-dock__lighting-tiles">
+                    {(["point", "spot", "area"] as const).map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        className="build-dock__tile"
+                        onClick={() => onAddLight?.(type)}
+                      >
+                        <span className="build-dock__tile-icon">
+                          <LightTypeGlyph type={type} />
+                        </span>
+                        <span className="build-dock__tile-label">
+                          {type === "point" ? "Bulb" : type === "spot" ? "Spot" : "Panel"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Lights in room list */}
+                {lights && lights.length > 0 ? (
+                  <div className="build-dock__lighting-list">
+                    <p className="build-dock__section-label">In Room ({lights.length}/{ROOM_LIGHT_MAX_PER_ROOM})</p>
+                    {lights.map((light) => (
+                      <div
+                        key={light.id}
+                        className={`light-list__item${selectedLightId === light.id ? " is-selected" : ""}`}
+                        onClick={() => onSelectLight?.(light.id)}
+                      >
+                        <span className="light-list__name">{light.name ?? (light.type === "point" ? "Bulb" : light.type === "spot" ? "Spot" : "Panel")}</span>
+                        <button
+                          type="button"
+                          className="light-list__toggle"
+                          aria-label={light.enabled ? "Disable light" : "Enable light"}
+                          onClick={(e) => { e.stopPropagation(); onUpdateLight?.(light.id, { enabled: !light.enabled }, true); }}
+                        >
+                          {light.enabled ? "●" : "○"}
+                        </button>
+                        <button
+                          type="button"
+                          className="light-list__delete"
+                          aria-label="Delete light"
+                          onClick={(e) => { e.stopPropagation(); onDeleteLight?.(light.id); }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                {/* Selected light inspector */}
+                {selectedLightId && lights ? (() => {
+                  const sel = lights.find((l) => l.id === selectedLightId);
+                  return sel ? (
+                    <LightInspector
+                      light={sel}
+                      onUpdate={(patch, commit) => onUpdateLight?.(sel.id, patch, commit)}
+                      onDelete={() => onDeleteLight?.(sel.id)}
+                    />
+                  ) : null;
+                })() : null}
+
+                {/* Environment editor */}
+                {roomEnvironment ? (
+                  <div className="build-dock__lighting-env">
+                    <p className="build-dock__section-label">Environment</p>
+                    <EnvironmentPanel
+                      environment={roomEnvironment}
+                      onUpdate={(patch, commit) => onUpdateEnvironment?.(patch, commit)}
+                    />
+                  </div>
                 ) : null}
               </div>
             ) : null}

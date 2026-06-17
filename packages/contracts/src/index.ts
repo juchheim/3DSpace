@@ -5,11 +5,23 @@ export * from "./foundation.js";
 export * from "./room.js";
 export * from "./classroom.js";
 export * from "./ai.js";
+export * from "./lighting.js";
 
 import * as foundation from "./foundation.js";
 import * as room from "./room.js";
 import * as classroom from "./classroom.js";
 import * as ai from "./ai.js";
+import {
+  ListRoomLightsResponseSchema,
+  CreateRoomLightRequestSchema,
+  CreateRoomLightResponseSchema,
+  UpdateRoomLightRequestSchema,
+  UpdateRoomLightResponseSchema,
+  DeleteRoomLightResponseSchema,
+  GetRoomEnvironmentResponseSchema,
+  SetRoomEnvironmentRequestSchema,
+  SetRoomEnvironmentResponseSchema,
+} from "./lighting.js";
 
 const dependencies = { ...foundation, ...room, ...classroom, ...ai } as typeof foundation & typeof room & typeof classroom & typeof ai;
 const {
@@ -303,7 +315,13 @@ export const apiRoutes: ApiRoute[] = [
     response: CreateWorldSkinUploadResponseSchema
   },
   { method: "post", path: "/v1/rooms/{roomId}/translate", summary: "Translate text from one language to another (server-side, cached)", tags: ["translation"], request: TranslateRequestSchema, response: TranslateResponseSchema },
-  { method: "post", path: "/v1/rooms/{roomId}/translate/speech", summary: "Synthesize translated text to audio (server-side, cached; response is audio/mpeg bytes)", tags: ["translation"], request: TranslateSpeechRequestSchema }
+  { method: "post", path: "/v1/rooms/{roomId}/translate/speech", summary: "Synthesize translated text to audio (server-side, cached; response is audio/mpeg bytes)", tags: ["translation"], request: TranslateSpeechRequestSchema },
+  { method: "get", path: "/v1/rooms/{roomId}/lights", summary: "List room lights", tags: ["lighting"], response: ListRoomLightsResponseSchema },
+  { method: "post", path: "/v1/rooms/{roomId}/lights", summary: "Create a room light", tags: ["lighting"], request: CreateRoomLightRequestSchema, response: CreateRoomLightResponseSchema },
+  { method: "patch", path: "/v1/rooms/{roomId}/lights/{lightId}", summary: "Update a room light", tags: ["lighting"], request: UpdateRoomLightRequestSchema, response: UpdateRoomLightResponseSchema },
+  { method: "delete", path: "/v1/rooms/{roomId}/lights/{lightId}", summary: "Delete a room light", tags: ["lighting"], response: DeleteRoomLightResponseSchema },
+  { method: "get", path: "/v1/rooms/{roomId}/lighting/environment", summary: "Get room lighting environment", tags: ["lighting"], response: GetRoomEnvironmentResponseSchema },
+  { method: "patch", path: "/v1/rooms/{roomId}/lighting/environment", summary: "Set room lighting environment", tags: ["lighting"], request: SetRoomEnvironmentRequestSchema, response: SetRoomEnvironmentResponseSchema }
   // Note: GET /v1/world-skin-assets/* and POST /translate/speech serve raw bytes (content-type varies); response schema not registered.
 ];
 

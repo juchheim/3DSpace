@@ -102,7 +102,8 @@ export function roomSettings(config: AppConfig) {
     translation: {
       enabled: true,
       voiceEnabled: true
-    }
+    },
+    lighting: {}
   };
 }
 
