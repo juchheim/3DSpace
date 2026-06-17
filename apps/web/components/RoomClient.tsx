@@ -3032,6 +3032,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
         if (selectedCustomAssetId === assetId) setSelectedCustomAssetId(null);
         return customAssets.remove(assetId);
       }}
+      onSetCustomAssetRole={(assetId, objectRole) => customAssets.setObjectRole(assetId, objectRole)}
       onSelectCustomAsset={(assetId) => {
         setSelectedCustomAssetId(assetId);
         if (assetId) setSelectedAssetSlug(null);

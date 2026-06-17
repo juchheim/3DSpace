@@ -2203,6 +2203,19 @@ label {
 }
 .build-dock__tile--upload:hover .build-dock__tile-delete { opacity: 1; }
 .build-dock__tile-delete:hover { color: #ff9f9f; border-color: color-mix(in oklch, #ff9f9f 55%, transparent); }
+.build-dock__tile-role {
+  width: calc(100% - 12px);
+  margin: 0 6px 7px;
+  padding: 3px 4px;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--bd-tx-m);
+  background: var(--bd-glass-r);
+  border: 1px solid var(--bd-line);
+  border-radius: 5px;
+  cursor: pointer;
+}
+.build-dock__tile-role:hover { border-color: var(--bd-line-m); }
 
 /* ── Status ── */
 .build-dock__status {

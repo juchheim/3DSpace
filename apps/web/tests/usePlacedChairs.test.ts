@@ -34,7 +34,7 @@ describe("usePlacedChairs", () => {
       yaw: 0,
       custom: { glbUrl: "x.glb", placement: "other", objectRole: "chair" } as const
     };
-    const customPodium = { ...customChair, id: "cp", custom: { ...customChair.custom, objectRole: "podium" } };
+    const customPodium = { ...customChair, id: "cp", custom: { ...customChair.custom, objectRole: "podium" as const } };
     expect(findNearestChair({ x: 0.2, z: 0 }, [customChair], 1.5)?.id).toBe("cc");
     expect(findNearestChair({ x: 0.2, z: 0 }, [customPodium], 1.5)).toBeNull();
     expect(findNearestPodium({ x: 0.2, z: 0 }, [customPodium], 1.5)?.id).toBe("cp");

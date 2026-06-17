@@ -5,7 +5,9 @@ import {
   CreateCustomAssetResponseSchema,
   CreateCustomAssetUploadRequestSchema,
   CreateCustomAssetUploadResponseSchema,
-  ListCustomAssetsResponseSchema
+  ListCustomAssetsResponseSchema,
+  UpdateCustomAssetRequestSchema,
+  UpdateCustomAssetResponseSchema
 } from "@3dspace/contracts";
 import type { AppContext } from "../app-context.js";
 import { requireUser } from "../http/auth-guards.js";
@@ -78,6 +80,16 @@ export async function registerCustomAssetRoutes(app: FastifyInstance, ctx: AppCo
       ...(body.scale !== undefined ? { scale: body.scale } : {})
     });
     return CreateCustomAssetResponseSchema.parse({ asset });
+  });
+
+  // Classify (or clear) the interactive role of an existing upload after the fact.
+  app.patch("/v1/users/me/custom-assets/:assetId", async (request, reply) => {
+    const auth = await requireUser(request, config, repository);
+    const { assetId } = parseParams(ParamsWithAssetId, request);
+    const body = parseBody(UpdateCustomAssetRequestSchema, request);
+    const asset = await repository.updateCustomAsset(auth.userId, assetId, { objectRole: body.objectRole });
+    if (!asset) return reply.code(404).send({ error: "Custom asset not found" });
+    return UpdateCustomAssetResponseSchema.parse({ asset });
   });
 
   app.delete("/v1/users/me/custom-assets/:assetId", async (request) => {

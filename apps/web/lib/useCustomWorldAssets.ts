@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { CustomWorldAsset, WorldAssetObjectRole, WorldAssetPlacementKind } from "@3dspace/contracts";
-import { createCustomAsset, createCustomAssetUpload, deleteCustomAsset, listCustomAssets } from "./api";
+import { createCustomAsset, createCustomAssetUpload, deleteCustomAsset, listCustomAssets, updateCustomAsset } from "./api";
 import type { ApiIdentity } from "./identity";
 import { prepareFloorTextureFile } from "./imageFloorTexture";
 
@@ -95,5 +95,28 @@ export function useCustomWorldAssets(input: { identity: ApiIdentity; enabled?: b
     [assets, input.identity]
   );
 
-  return { assets, upload, remove, refresh };
+  // Classify (or clear, with `null`) the interactive role of an existing upload.
+  const setObjectRole = useCallback(
+    async (assetId: string, objectRole: WorldAssetObjectRole | null) => {
+      const previous = assets;
+      setAssets((prev) =>
+        prev.map((a) => {
+          if (a.id !== assetId) return a;
+          const next = { ...a };
+          if (objectRole) next.objectRole = objectRole;
+          else delete next.objectRole;
+          return next;
+        })
+      );
+      try {
+        const updated = await updateCustomAsset(input.identity, assetId, { objectRole });
+        setAssets((prev) => prev.map((a) => (a.id === assetId ? updated : a)));
+      } catch {
+        setAssets(previous); // Roll back on failure.
+      }
+    },
+    [assets, input.identity]
+  );
+
+  return { assets, upload, remove, setObjectRole, refresh };
 }

@@ -85,6 +85,7 @@ import type {
   CreateCustomAssetRequest,
   CreateCustomAssetUploadRequest,
   CreateCustomAssetUploadResponse,
+  UpdateCustomAssetRequest,
   WorldAssetRealtimeMessage,
   TranslateResponse
 } from "@3dspace/contracts";
@@ -862,6 +863,14 @@ export function createCustomAssetUpload(identity: ApiIdentity, input: CreateCust
 export function createCustomAsset(identity: ApiIdentity, input: CreateCustomAssetRequest) {
   return apiFetch<{ asset: CustomWorldAsset }>(`/v1/users/me/custom-assets`, {
     method: "POST",
+    identity,
+    body: input
+  }).then((r) => r.asset);
+}
+
+export function updateCustomAsset(identity: ApiIdentity, assetId: string, input: UpdateCustomAssetRequest) {
+  return apiFetch<{ asset: CustomWorldAsset }>(`/v1/users/me/custom-assets/${assetId}`, {
+    method: "PATCH",
     identity,
     body: input
   }).then((r) => r.asset);

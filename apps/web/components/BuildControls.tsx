@@ -254,6 +254,7 @@ export function BuildControls({
   selectedCustomAssetId = null,
   onUploadCustomAsset,
   onDeleteCustomAsset,
+  onSetCustomAssetRole,
   onSelectCustomAsset,
   customScale = 1,
   onCustomScaleChange,
@@ -302,6 +303,8 @@ export function BuildControls({
   }) => Promise<void>;
   /** Remove a custom asset from the library. */
   onDeleteCustomAsset?: (assetId: string) => Promise<void>;
+  /** Classify (or clear, with `null`) an existing object upload as a chair/podium. */
+  onSetCustomAssetRole?: (assetId: string, objectRole: WorldAssetObjectRole | null) => Promise<void>;
   /** Select / deselect a custom asset to enter placement mode. */
   onSelectCustomAsset?: (assetId: string | null) => void;
   /** Per-placement size multiplier for the selected custom asset. */
@@ -973,6 +976,22 @@ export function BuildControls({
                           >
                             ✕
                           </button>
+                        ) : null}
+                        {asset.placement === "other" && onSetCustomAssetRole ? (
+                          <select
+                            className="build-dock__tile-role"
+                            aria-label={`Interactive behaviour for ${asset.displayName}`}
+                            title="Make this object a chair or podium so it can be used in the room"
+                            value={asset.objectRole ?? ""}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              void onSetCustomAssetRole(asset.id, value === "" ? null : (value as WorldAssetObjectRole));
+                            }}
+                          >
+                            <option value="">Prop (no action)</option>
+                            <option value="chair">Chair — sit + notes</option>
+                            <option value="podium">Podium — present + notes</option>
+                          </select>
                         ) : null}
                       </div>
                     );

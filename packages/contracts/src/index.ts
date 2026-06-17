@@ -1279,6 +1279,19 @@ export const CreateCustomAssetResponseSchema = z.object({
   asset: CustomWorldAssetSchema
 });
 
+/**
+ * Patch an existing library upload. Currently only the interactive `objectRole`
+ * is editable, so users can classify (or clear) a chair/podium after the fact
+ * without re-uploading. `null` clears the role back to a plain prop.
+ */
+export const UpdateCustomAssetRequestSchema = z.object({
+  objectRole: WorldAssetObjectRoleSchema.nullable()
+});
+
+export const UpdateCustomAssetResponseSchema = z.object({
+  asset: CustomWorldAssetSchema
+});
+
 export const ListCustomAssetsResponseSchema = z.object({
   assets: z.array(CustomWorldAssetSchema)
 });
@@ -1286,6 +1299,7 @@ export const ListCustomAssetsResponseSchema = z.object({
 export type CreateCustomAssetUploadRequest = z.infer<typeof CreateCustomAssetUploadRequestSchema>;
 export type CreateCustomAssetUploadResponse = z.infer<typeof CreateCustomAssetUploadResponseSchema>;
 export type CreateCustomAssetRequest = z.infer<typeof CreateCustomAssetRequestSchema>;
+export type UpdateCustomAssetRequest = z.infer<typeof UpdateCustomAssetRequestSchema>;
 
 export const CreateBuildPieceResponseSchema = z.object({
   piece: BuildPieceSchema,

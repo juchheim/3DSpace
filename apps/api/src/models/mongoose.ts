@@ -1817,6 +1817,24 @@ export class MongoRepository implements Repository {
     return asset;
   }
 
+  async updateCustomAsset(
+    ownerUserId: string,
+    assetId: string,
+    patch: { objectRole: CustomWorldAsset["objectRole"] | null }
+  ): Promise<CustomWorldAsset | null> {
+    // `null` clears the classification; an enum value sets it.
+    const update =
+      patch.objectRole == null
+        ? { $unset: { objectRole: "" } }
+        : { $set: { objectRole: patch.objectRole } };
+    const doc = await this.models.CustomWorldAsset.findOneAndUpdate(
+      { ownerUserId, id: assetId },
+      update,
+      { new: true }
+    ).lean();
+    return doc ? this.toCustomAsset(doc as Record<string, unknown>) : null;
+  }
+
   async deleteCustomAsset(ownerUserId: string, assetId: string): Promise<void> {
     await this.models.CustomWorldAsset.deleteOne({ ownerUserId, id: assetId });
   }

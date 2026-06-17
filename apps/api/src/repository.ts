@@ -236,8 +236,14 @@ export type Repository = {
     thumbnailStorageKey: string;
     thumbnailUrl: string;
     placement: WorldAssetPlacementKind;
+    objectRole?: CustomWorldAsset["objectRole"];
     scale?: number;
   }): Promise<CustomWorldAsset>;
+  updateCustomAsset(
+    ownerUserId: string,
+    assetId: string,
+    patch: { objectRole: CustomWorldAsset["objectRole"] | null }
+  ): Promise<CustomWorldAsset | null>;
   deleteCustomAsset(ownerUserId: string, assetId: string): Promise<void>;
   listBuildPiecesForRoom(roomId: string): Promise<BuildPiece[]>;
   findBuildPieceByPlacement(
@@ -1230,6 +1236,7 @@ export class MemoryRepository implements Repository {
     thumbnailStorageKey: string;
     thumbnailUrl: string;
     placement: WorldAssetPlacementKind;
+    objectRole?: CustomWorldAsset["objectRole"];
     scale?: number;
   }): Promise<CustomWorldAsset> {
     const id = `ca-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -1242,11 +1249,26 @@ export class MemoryRepository implements Repository {
       thumbnailStorageKey: input.thumbnailStorageKey,
       thumbnailUrl: input.thumbnailUrl,
       placement: input.placement,
+      ...(input.objectRole ? { objectRole: input.objectRole } : {}),
       ...(input.scale !== undefined ? { scale: input.scale } : {}),
       createdAt: new Date().toISOString()
     };
     this.customAssets.set(id, asset);
     return asset;
+  }
+
+  async updateCustomAsset(
+    ownerUserId: string,
+    assetId: string,
+    patch: { objectRole: CustomWorldAsset["objectRole"] | null }
+  ): Promise<CustomWorldAsset | null> {
+    const asset = this.customAssets.get(assetId);
+    if (!asset || asset.ownerUserId !== ownerUserId) return null;
+    const next: CustomWorldAsset = { ...asset };
+    if (patch.objectRole == null) delete next.objectRole;
+    else next.objectRole = patch.objectRole;
+    this.customAssets.set(assetId, next);
+    return next;
   }
 
   async deleteCustomAsset(ownerUserId: string, assetId: string) {
