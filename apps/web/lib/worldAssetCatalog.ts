@@ -39,6 +39,13 @@ export type WorldAsset = {
   scaleVariance?: number;
   /** When true, avatars can sit on this asset with E. */
   sittable?: boolean;
+  /**
+   * Metres the seated avatar is nudged from the GLB origin along the chair's
+   * front direction so hips land on the seat pan. Defaults to 0.42. Use a
+   * smaller (or negative) value when the seat pan sits behind the origin, e.g.
+   * desks where the origin is near the writing surface.
+   */
+  seatForwardOffset?: number;
   /** When true, sitting on this asset opens the personal desk notebook. */
   deskNotebook?: boolean;
   /** When set, a placement click strews several instances across a square. */
@@ -89,7 +96,10 @@ export const WORLD_ASSET_CATALOG: WorldAsset[] = [
     glbUrl: "/objects/school-desk-chair2.glb",
     thumbnailUrl: "/objects/thumbnails/student-desk.jpg",
     sittable: true,
-    deskNotebook: true
+    deskNotebook: true,
+    // The desk's GLB origin sits near the writing surface, so the default
+    // forward nudge plants the avatar too close to the desk. Pull them back.
+    seatForwardOffset: 0.0
   },
   {
     slug: "tree",
@@ -186,6 +196,14 @@ export function worldAssetGlbUrl(slug: string): string {
 
 export function isSittableWorldAsset(slug: string): boolean {
   return worldAssetBySlug(slug)?.sittable === true;
+}
+
+/** Default forward nudge (m) from the GLB origin to the seat pan. */
+export const DEFAULT_SEAT_FORWARD_OFFSET = 0.42;
+
+/** Forward nudge (m) for the seated avatar on this asset; catalog override or default. */
+export function seatForwardOffset(slug: string): number {
+  return worldAssetBySlug(slug)?.seatForwardOffset ?? DEFAULT_SEAT_FORWARD_OFFSET;
 }
 
 /** True when sitting on this asset should open the personal desk notebook. */

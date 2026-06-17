@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { placedAssetIsPodium, placedAssetIsSittable } from "./worldAssetCatalog";
+import { placedAssetIsPodium, placedAssetIsSittable, seatForwardOffset } from "./worldAssetCatalog";
 
 export type PlacedChair = {
   id: string;
@@ -46,7 +46,7 @@ export function chairSeatPose(chair: PlacedChair): {
   // from the GLB origin so hips sit on the seat pan, not through the backrest.
   const forwardX = Math.sin(chair.yaw);
   const forwardZ = Math.cos(chair.yaw);
-  const forwardOffset = 0.42;
+  const forwardOffset = seatForwardOffset(chair.slug);
   return {
     position: {
       x: chair.position.x + forwardX * forwardOffset,

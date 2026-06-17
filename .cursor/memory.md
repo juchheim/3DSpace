@@ -2,7 +2,7 @@
 
 Last updated: 2026-06-17 (Custom asset object roles)
 
-- **2026-06-17:** **Custom asset object roles** — uploaded object GLBs can be classified as `chair` or `podium` at upload time (`WorldAssetObjectRole` in contracts; `objectRole` on `CustomWorldAsset`/`PlacedCustomAsset`); `BuildControls` role picker; `placedAssetIsSittable`/`placedAssetIsPodium`/`placedAssetHasDeskNotebook`/`placedAssetHasPodiumNotebook` in `worldAssetCatalog.ts` resolve behaviour for custom + catalog assets; `RoomClient`/`usePlacedChairs` wired. Pushed `bc32164` on `verse`.
+- **2026-06-17:** **Custom asset object roles** — uploaded object GLBs can be classified as `chair` or `podium` at upload time (`WorldAssetObjectRole` in contracts; `objectRole` on `CustomWorldAsset`/`PlacedCustomAsset`); `BuildControls` role picker; `placedAssetIsSittable`/`placedAssetIsPodium`/`placedAssetHasDeskNotebook`/`placedAssetHasPodiumNotebook` in `worldAssetCatalog.ts` resolve behaviour for custom + catalog assets; `RoomClient`/`usePlacedChairs` wired. Pushed `bc32164` on `verse`. **Post-upload reclassification** — `PATCH /v1/users/me/custom-assets/:assetId` + library-tile role dropdown (`useCustomWorldAssets.setObjectRole`); pushed `2802fe6`.
 
 - **2026-06-16:** **Custom asset placement sizing** — `BuildControls.tsx` + `RoomClient.tsx`: per-placement size slider (×0.25–×4) for custom GLB uploads; dock rotator turns pending asset yaw during catalog/custom placement; `IMPL_ROOMCLIENT_DECOMPOSITION.md` added and README updated marking PR1–PR8 complete. Pushed `f95bef9` on `verse`.
 
