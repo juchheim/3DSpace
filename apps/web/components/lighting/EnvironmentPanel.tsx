@@ -49,12 +49,30 @@ export function EnvironmentPanel({ environment, onUpdate }: Props) {
 
           {/* Sun */}
           <div className="env-panel__section">Sun</div>
+          {/* Enabled + Cast Shadow pair as two 1-col items */}
           <label className="env-panel__row">
             <span className="env-panel__label">Enabled</span>
             <input
               type="checkbox"
               checked={sun.enabled}
               onChange={(e) => onUpdate({ sun: { ...sun, enabled: e.target.checked } }, true)}
+            />
+          </label>
+          <label className="env-panel__row">
+            <span className="env-panel__label">Cast Shadow</span>
+            <input
+              type="checkbox"
+              checked={sun.castShadow}
+              onChange={(e) => onUpdate({ sun: { ...sun, castShadow: e.target.checked } }, true)}
+            />
+          </label>
+          <label className="env-panel__row">
+            <span className="env-panel__label">Sun Color</span>
+            <input
+              type="color" value={sun.color}
+              className="env-panel__color"
+              onInput={(e) => onUpdate({ sun: { ...sun, color: (e.target as HTMLInputElement).value } })}
+              onChange={(e) => onUpdate({ sun: { ...sun, color: e.target.value } }, true)}
             />
           </label>
           <label className="env-panel__row">
@@ -80,15 +98,6 @@ export function EnvironmentPanel({ environment, onUpdate }: Props) {
             <span className="env-panel__value">{sun.elevationDeg}°</span>
           </label>
           <label className="env-panel__row">
-            <span className="env-panel__label">Sun Color</span>
-            <input
-              type="color" value={sun.color}
-              className="env-panel__color"
-              onInput={(e) => onUpdate({ sun: { ...sun, color: (e.target as HTMLInputElement).value } })}
-              onChange={(e) => onUpdate({ sun: { ...sun, color: e.target.value } }, true)}
-            />
-          </label>
-          <label className="env-panel__row">
             <span className="env-panel__label">Sun Intensity</span>
             <input
               type="range" min="0" max="4" step="0.05"
@@ -99,17 +108,10 @@ export function EnvironmentPanel({ environment, onUpdate }: Props) {
             />
             <span className="env-panel__value">{sun.intensity.toFixed(1)}</span>
           </label>
-          <label className="env-panel__row">
-            <span className="env-panel__label">Cast Shadow</span>
-            <input
-              type="checkbox"
-              checked={sun.castShadow}
-              onChange={(e) => onUpdate({ sun: { ...sun, castShadow: e.target.checked } }, true)}
-            />
-          </label>
 
           {/* Sky */}
           <div className="env-panel__section">Sky &amp; Ambient</div>
+          {/* Colors group — pairs: Hemisphere+SkyColor, GroundColor+AmbientColor */}
           <label className="env-panel__row">
             <span className="env-panel__label">Hemisphere</span>
             <input
@@ -135,6 +137,15 @@ export function EnvironmentPanel({ environment, onUpdate }: Props) {
             />
           </label>
           <label className="env-panel__row">
+            <span className="env-panel__label">Ambient Color</span>
+            <input
+              type="color" value={sky.ambientColor}
+              className="env-panel__color"
+              onChange={(e) => onUpdate({ sky: { ...sky, ambientColor: e.target.value } }, true)}
+            />
+          </label>
+          {/* Intensity sliders — full-width */}
+          <label className="env-panel__row">
             <span className="env-panel__label">Hemi Intensity</span>
             <input
               type="range" min="0" max="3" step="0.05"
@@ -144,14 +155,6 @@ export function EnvironmentPanel({ environment, onUpdate }: Props) {
               onPointerUp={(e) => onUpdate({ sky: { ...sky, hemisphereIntensity: Number((e.target as HTMLInputElement).value) } }, true)}
             />
             <span className="env-panel__value">{sky.hemisphereIntensity.toFixed(2)}</span>
-          </label>
-          <label className="env-panel__row">
-            <span className="env-panel__label">Ambient Color</span>
-            <input
-              type="color" value={sky.ambientColor}
-              className="env-panel__color"
-              onChange={(e) => onUpdate({ sky: { ...sky, ambientColor: e.target.value } }, true)}
-            />
           </label>
           <label className="env-panel__row">
             <span className="env-panel__label">Ambient Intensity</span>

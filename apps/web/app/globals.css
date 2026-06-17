@@ -1559,6 +1559,8 @@ label {
   backdrop-filter: blur(24px);
   box-shadow: 0 18px 50px -22px rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(255, 255, 255, 0.02);
   overflow: hidden;
+  /* Never taller than the viewport, anchored at bottom: 10px leaves 20px total margin */
+  max-height: calc(100dvh - 20px);
 }
 
 /* ── Tip banner ── */
@@ -1686,7 +1688,18 @@ label {
 .build-dock__tab.is-active svg { opacity: 1; color: var(--bd-acc); }
 
 /* ── Body / grid ── */
-.build-dock__body { padding: 11px; border-top: 1px solid var(--bd-line); margin-top: -1px; }
+.build-dock__body {
+  padding: 11px;
+  border-top: 1px solid var(--bd-line);
+  margin-top: -1px;
+  /* Scrollable when content overflows the capped panel height */
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.15) transparent;
+}
 .build-dock__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
@@ -12621,9 +12634,21 @@ body.dixr-dark::before {
 }
 
 .env-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 6px;
+  row-gap: 4px;
+  align-items: center;
+}
+
+/* Full-width items: section headers, preset chips, slider rows, select rows,
+   and the top-level override toggle */
+.env-panel__section,
+.env-panel__preset-chips,
+.env-panel > .env-panel__row:first-child,
+.env-panel__row:has(.env-panel__slider),
+.env-panel__row:has(.env-panel__select) {
+  grid-column: 1 / -1;
 }
 
 .env-panel__section {
@@ -12631,31 +12656,33 @@ body.dixr-dark::before {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--bd-text-muted, rgba(255,255,255,0.4));
-  margin: 6px 0 2px;
+  margin-top: 6px;
 }
 
 .env-panel__row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-size: 12px;
   color: var(--bd-text, rgba(255,255,255,0.85));
 }
 
 .env-panel__label {
-  min-width: 80px;
+  min-width: 72px;
   font-size: 11px;
   color: var(--bd-text-muted, rgba(255,255,255,0.5));
+  white-space: nowrap;
 }
 
 .env-panel__slider {
   flex: 1;
+  min-width: 0;
   accent-color: #60a5fa;
 }
 
 .env-panel__color {
   width: 32px;
-  height: 24px;
+  height: 22px;
   padding: 1px;
   border: 1px solid rgba(255,255,255,0.2);
   border-radius: 4px;
@@ -12675,7 +12702,7 @@ body.dixr-dark::before {
 
 .env-panel__value {
   font-size: 11px;
-  min-width: 36px;
+  min-width: 32px;
   text-align: right;
   color: var(--bd-text-muted, rgba(255,255,255,0.5));
 }
