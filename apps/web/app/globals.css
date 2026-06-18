@@ -12718,7 +12718,7 @@ body.dixr-dark::before {
 }
 .light-card__readout strong { color: #6fc6ff; text-shadow: 0 0 14px rgba(0,184,245,0.5); font-weight: 600; }
 
-.light-card__check {
+label.light-card__check {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -12726,7 +12726,11 @@ body.dixr-dark::before {
   color: var(--bd-tx, #cdd8ec);
   cursor: pointer;
 }
-.light-card__check input { accent-color: var(--bd-acc, #4678b4); }
+label.light-card__check input {
+  accent-color: var(--bd-acc, #4678b4);
+  margin: 0;
+  flex-shrink: 0;
+}
 .light-card__note { margin: 0; font-size: 11px; color: var(--bd-tx-d, #4a5468); font-style: italic; }
 
 .light-card__readouts {

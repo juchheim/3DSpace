@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-18 (DOM light move gizmo)
+Last updated: 2026-06-18 (camera-oriented DOM move gizmo)
+
+- **2026-06-18:** **Camera-oriented DOM move gizmo** — DOM `Html` arrows now rotate each frame from camera-projected world XYZ (`computeAxisScreenStyles` + `useFrame`); drag uses projected screen axes. Pushed `416ed5e` on `verse`.
 
 - **2026-06-18:** **DOM light move gizmo** — replaced 3D arrow meshes with screen-space `Html` axis buttons; window-level pointer tracking + `setPointerCapture` so drags don't get lost; tags `__wbCameraDragBlockedBy` on pointerdown. Pushed `0dcfbb4` on `verse`.
 
