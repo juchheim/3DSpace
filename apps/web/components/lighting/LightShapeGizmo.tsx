@@ -71,16 +71,14 @@ function ShapeHandle({
   dragDir,
   color,
   label,
-  onDelta,
-  onCommit,
+  onStartDrag,
 }: {
   pos: Vec3;
   anchor: Vec3;
   dragDir: Vec3;
   color: string;
   label: string;
-  onDelta: (worldDelta: number, shift: boolean, commit: boolean) => void;
-  onCommit?: () => void;
+  onStartDrag: () => (worldDelta: number, shift: boolean, commit: boolean) => void;
 }) {
   const { camera, size } = useThree();
   const dragRef = useRef<{
@@ -88,15 +86,17 @@ function ShapeHandle({
     startPointer: Vector2;
     screenAxis: Vector2;
     pixelsPerWorldUnit: number;
+    lastDelta: number;
+    apply: (worldDelta: number, shift: boolean, commit: boolean) => void;
   } | null>(null);
 
   const endDrag = useCallback((shift: boolean) => {
-    if (!dragRef.current) return;
+    const drag = dragRef.current;
+    if (!drag) return;
     dragRef.current = null;
     setLightGizmoDragActive(false);
-    onDelta(0, shift, true);
-    onCommit?.();
-  }, [onCommit, onDelta]);
+    drag.apply(drag.lastDelta, shift, true);
+  }, []);
 
   const moveDrag = useCallback((event: PointerEvent) => {
     const drag = dragRef.current;
@@ -105,8 +105,9 @@ function ShapeHandle({
     event.stopPropagation();
     const pointerDelta = new Vector2(event.clientX, event.clientY).sub(drag.startPointer);
     const worldDelta = pointerDelta.dot(drag.screenAxis) / drag.pixelsPerWorldUnit;
-    onDelta(worldDelta, event.shiftKey, false);
-  }, [onDelta]);
+    drag.lastDelta = worldDelta;
+    drag.apply(worldDelta, event.shiftKey, false);
+  }, []);
 
   useEffect(() => {
     const onPointerMove = (event: PointerEvent) => moveDrag(event);
@@ -138,10 +139,12 @@ function ShapeHandle({
       startPointer: new Vector2(nativeEvent.clientX, nativeEvent.clientY),
       screenAxis: info.screenAxis,
       pixelsPerWorldUnit: info.pixelsPerWorldUnit,
+      lastDelta: 0,
+      apply: onStartDrag(),
     };
     setLightGizmoDragActive(true);
     event.currentTarget.setPointerCapture(nativeEvent.pointerId);
-  }, [anchor, camera, dragDir, pos, size]);
+  }, [anchor, camera, dragDir, onStartDrag, pos, size]);
 
   return (
     <Html position={[pos.x, pos.y, pos.z]} center style={{ pointerEvents: "auto" }} zIndexRange={[35, 0]}>
@@ -189,9 +192,8 @@ export function LightShapeGizmo({
   if (light.type === "point") {
     const dist = light.distance && light.distance > 0 ? light.distance : 1;
     const handlePos: Vec3 = { x: p.x + dist, y: p.y, z: p.z };
-    const startDistance = dist;
-    const apply = (delta: number, shift: boolean, commit: boolean) => {
-      let next = startDistance + delta;
+    const startDrag = () => (delta: number, shift: boolean, commit: boolean) => {
+      let next = dist + delta;
       if (shift) next = snap(next, 0.5);
       onUpdate({ distance: clamp(next, 0, LIGHT_MAX_DISTANCE) }, commit);
     };
@@ -202,7 +204,7 @@ export function LightShapeGizmo({
         dragDir={{ x: 1, y: 0, z: 0 }}
         color={color}
         label="Adjust point light range"
-        onDelta={apply}
+        onStartDrag={startDrag}
       />
     );
   }
@@ -219,13 +221,13 @@ export function LightShapeGizmo({
     const radialDir = normalize(sub(anglePos, mouthCenter));
     const penPos = add(mouthCenter, scale(radialDir, pen * mouthRadius));
 
-    const applyAngle = (delta: number, shift: boolean, commit: boolean) => {
+    const startAngleDrag = () => (delta: number, shift: boolean, commit: boolean) => {
       const nextRadius = Math.max(0.01, mouthRadius + delta);
       let nextAngle = (Math.atan(nextRadius / L) * 180) / Math.PI;
       if (shift) nextAngle = snap(nextAngle, 5);
       onUpdate({ angleDeg: clamp(nextAngle, 1, 90) }, commit);
     };
-    const applyPen = (delta: number, shift: boolean, commit: boolean) => {
+    const startPenDrag = () => (delta: number, shift: boolean, commit: boolean) => {
       const radius = Math.max(0.01, mouthRadius);
       let nextPen = pen + delta / radius;
       if (shift) nextPen = snap(nextPen, 0.05);
@@ -239,7 +241,7 @@ export function LightShapeGizmo({
           dragDir={radialDir}
           color={color}
           label="Adjust spot cone width"
-          onDelta={applyAngle}
+          onStartDrag={startAngleDrag}
         />
         <ShapeHandle
           pos={penPos}
@@ -247,7 +249,7 @@ export function LightShapeGizmo({
           dragDir={radialDir}
           color="#ffffff"
           label="Adjust spot edge softness"
-          onDelta={applyPen}
+          onStartDrag={startPenDrag}
         />
       </>
     );
@@ -264,12 +266,12 @@ export function LightShapeGizmo({
     const rightPos = add(p, scale(right, w / 2));
     const upPos = add(p, scale(up, h / 2));
 
-    const applyWidth = (delta: number, shift: boolean, commit: boolean) => {
+    const startWidthDrag = () => (delta: number, shift: boolean, commit: boolean) => {
       let next = w + 2 * delta;
       if (shift) next = snap(next, 0.5);
       onUpdate({ width: clamp(next, 0.1, LIGHT_MAX_AREA_SIZE) }, commit);
     };
-    const applyHeight = (delta: number, shift: boolean, commit: boolean) => {
+    const startHeightDrag = () => (delta: number, shift: boolean, commit: boolean) => {
       let next = h + 2 * delta;
       if (shift) next = snap(next, 0.5);
       onUpdate({ height: clamp(next, 0.1, LIGHT_MAX_AREA_SIZE) }, commit);
@@ -282,7 +284,7 @@ export function LightShapeGizmo({
           dragDir={right}
           color={color}
           label="Adjust area light width"
-          onDelta={applyWidth}
+          onStartDrag={startWidthDrag}
         />
         <ShapeHandle
           pos={upPos}
@@ -290,7 +292,7 @@ export function LightShapeGizmo({
           dragDir={up}
           color={color}
           label="Adjust area light height"
-          onDelta={applyHeight}
+          onStartDrag={startHeightDrag}
         />
       </>
     );

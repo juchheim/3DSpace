@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-18 (light card checkbox CSS sizing)
+Last updated: 2026-06-18 (scene shadows + shape gizmo)
+
+- **2026-06-18:** **Scene shadows + shape gizmo** — `useEnableShadows` on `BuildLayer` + `RoomObjectMesh` so placed geometry casts/receives shadows; spot shadow bias tuned; `LightShapeGizmo` reworked to DOM Html handles (screen-axis drag, `__wbActiveLightGizmoDrag`). Pushed `1765823` on `verse`.
 
 - **2026-06-18:** **Light card checkbox CSS sizing** — `.light-card__check input[type="checkbox"]` resets width/flex/padding/border; removed inline styles from component. Pushed `c5a9adc` on `verse`.
 
