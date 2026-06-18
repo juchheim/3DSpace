@@ -1,6 +1,10 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-18 (shape handle drag snapshot fix)
+Last updated: 2026-06-18 (polygonal-professor avatar)
+
+- **2026-06-18:** **Polygonal Professor avatar** — `GLBs/polygonal-professor.glb` → `scripts/prepare-polygonal-professor-glb.mjs` (PNG→JPEG q85 via `optimize-lp-glb.mjs`, ~1.97 MB) → `apps/web/public/avatars/polygonal-professor.glb`; recolor assets + thumbnail; new `polygonal-professor` catalog entry (`verseOnly: true`, female sit clips).
+
+- **2026-06-18:** **GLB shadow apply + low-tier castShadow** — `applyShadows()` on GLB clone in `BuildPieceMesh`/`RoomObjectMesh`; renderer shadows on whenever lighting enabled; per-light `castShadow` honored on low tier (fallback 2 casters, 1024 map). Pushed `f28f4b5` on `verse`.
 
 - **2026-06-18:** **Shape handle drag snapshot fix** — `LightShapeGizmo` `onStartDrag` factory captures baseline at pointerdown; commit uses `lastDelta` on release. Pushed `4a54409` on `verse`.
 

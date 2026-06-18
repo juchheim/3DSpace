@@ -190,5 +190,22 @@
     "neutralAlbedoUrl": "/avatars/student-female-2-albedo-neutral.jpg",
     "thumbnailUrl": "/avatars/thumbnails/student-female-2.jpg",
     "verseOnly": true
+  },
+  {
+    "slug": "polygonal-professor",
+    "displayName": "Polygonal Professor",
+    "glbUrl": "/avatars/polygonal-professor.glb",
+    "nativeHeight": 1.67,
+    "clips": {
+      "idle": "Idle_11",
+      "walking": "Walking",
+      "running": "Running",
+      "sit": "Look_Back_and_Sit",
+      "standFromSit": "Sit_to_standTransition_Female_2"
+    },
+    "zoneMaskUrl": "/avatars/polygonal-professor-zone-mask.png",
+    "neutralAlbedoUrl": "/avatars/polygonal-professor-albedo-neutral.jpg",
+    "thumbnailUrl": "/avatars/thumbnails/polygonal-professor.jpg",
+    "verseOnly": true
   }
 ]

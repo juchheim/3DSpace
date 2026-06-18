@@ -22,7 +22,8 @@ describe("avatar body builtin catalog", () => {
       "student-male",
       "student-female",
       "student-male-2",
-      "student-female-2"
+      "student-female-2",
+      "polygonal-professor"
     ]);
   });
 
@@ -138,6 +139,20 @@ describe("avatar body builtin catalog", () => {
     const entry = getBuiltinAvatarBodyBySlug("student-female-2");
     expect(entry?.verseOnly).toBe(true);
     expect(entry?.displayName).toBe("Student (female)");
+    expect(entry?.clips).toEqual({
+      idle: "Idle_11",
+      walking: "Walking",
+      running: "Running",
+      sit: "Look_Back_and_Sit",
+      standFromSit: "Sit_to_standTransition_Female_2"
+    });
+  });
+
+  it("marks polygonal-professor as verse-only with female sit clips", () => {
+    const entry = getBuiltinAvatarBodyBySlug("polygonal-professor");
+    expect(entry?.verseOnly).toBe(true);
+    expect(entry?.displayName).toBe("Polygonal Professor");
+    expect(entry?.nativeHeight).toBeCloseTo(1.67, 2);
     expect(entry?.clips).toEqual({
       idle: "Idle_11",
       walking: "Walking",
