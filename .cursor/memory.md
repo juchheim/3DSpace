@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-18 (targeted camera orbit block)
+Last updated: 2026-06-18 (gizmo drag camera suppression)
+
+- **2026-06-18:** **Gizmo drag camera suppression** — `__wbActiveLightGizmoDrag` window flag set for full PivotControls drag; `useThirdPersonCamera` suppresses orbit on pointermove while active. Pushed `dcb5c1f` on `verse`.
 
 - **2026-06-18:** **Targeted camera orbit block** — replaced blanket `interactionDisabledRef` with gizmo raycast on native `pointerdown` capture; tags `__wbCameraDragBlockedBy` so camera orbit skips only real PivotControls axis hits (`disableSliders` too). Pushed `3f2c418` on `verse`.
 
