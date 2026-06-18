@@ -32,6 +32,7 @@ export function LightMoveGizmo({
   const lastPos = useRef<Vec3>(position);
   const [matrix] = useState(() => new Matrix4().setPosition(position.x, position.y, position.z));
   const [dragging, setDragging] = useState(false);
+  const [pivotVersion, setPivotVersion] = useState(0);
 
   // Track Shift for snapping (PivotControls doesn't pass the pointer event).
   useEffect(() => {
@@ -49,12 +50,14 @@ export function LightMoveGizmo({
     if (draggingRef.current) return;
     matrix.setPosition(position.x, position.y, position.z);
     lastPos.current = position;
+    setPivotVersion((version) => version + 1);
   }, [position.x, position.y, position.z, matrix]);
 
   const scratch = useRef(new Vector3());
 
   return (
     <PivotControls
+      key={pivotVersion}
       autoTransform={false}
       matrix={matrix}
       disableRotations
@@ -85,6 +88,7 @@ export function LightMoveGizmo({
       onDragEnd={() => {
         draggingRef.current = false;
         setDragging(false);
+        setPivotVersion((version) => version + 1);
         onTransformCommit(lastPos.current);
       }}
     >

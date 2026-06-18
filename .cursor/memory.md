@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-18 (In-World Light Editor complete)
+Last updated: 2026-06-18 (light position race fix)
+
+- **2026-06-18:** **Light position edit race fix** — `useRoomLights` now keeps `lightsByIdRef` + `updateSeqRef` so rapid committed position edits don't lose the latest value when PATCH responses resolve out of order; `LightControlCard` XYZ inputs are controlled drafts with `latestPositionRef` for axis commits. Test: `useRoomLights.test.ts`. Pushed `53db998` on `verse`.
 
 - **2026-06-18:** **In-World Light Editor implemented (Phases 0–6)** — per-light editing moved into the 3D scene on the selected light: `LightControlCard` (`<Html>`, `--bd-*` + lobby glow), `LightMoveGizmo` (drei `<PivotControls>` XYZ), `LightAimGizmo` (target handle + beam), `LightShapeGizmo` + `LightHelpers` (range/cone/panel viz); dock keeps Add/list/Environment only (`LightInspector` removed). `lightEditorMath.ts`, `StableRange.tsx`, `idThrottle` broadcast throttle (~70ms) in `useRoomLights`, `wb-light-editing` guard, selected light pinned in active budget. **Phase 6 validation:** `lightEditorMath.test.ts` + `idThrottle.test.ts` (17 tests), Playwright `world-builder-lighting.spec.ts` **16/16** (in-world card, keyboard nudges, color/intensity persist, toggle/delete, second-user sync); `data-testid` hooks on card (`light-control-card/modes/toggle/delete`). **Contract fix:** `UpdateRoomLightRequestSchema` now accepts `enabled` (toggle was stripped by Zod before PATCH). Web-only; same `ENABLE_WORLD_BUILDER_LIGHTING` flag. Docs: `PLAN_IN_WORLD_LIGHT_EDITOR.md` + `IMPL_...md`.
 
