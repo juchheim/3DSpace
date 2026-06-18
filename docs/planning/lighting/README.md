@@ -13,6 +13,8 @@ multi-user — same architecture as build pieces and placed world assets.
 | --- | --- |
 | [`PLAN_WORLD_BUILDER_LIGHTING.md`](./PLAN_WORLD_BUILDER_LIGHTING.md) | The exhaustive design: which lighting methods were chosen and why, full data model, rendering/performance strategy, UI/UX spec (Verse room + lobby aesthetic), permissions, risks, acceptance criteria. |
 | [`IMPL_WORLD_BUILDER_LIGHTING.md`](./IMPL_WORLD_BUILDER_LIGHTING.md) | The phased, file-by-file implementation breakdown (contracts → API → web hook → render layer → Lighting tab UI → environment editor → polish → validation). |
+| [`PLAN_IN_WORLD_LIGHT_EDITOR.md`](./PLAN_IN_WORLD_LIGHT_EDITOR.md) | **Follow-up — improving how lights are adjusted.** Moves per-light editing out of the docked form and **into the 3D world, attached to the selected light**: a 3-axis move gizmo, an aim handle for directionality, direct shape handles, and a Verse/lobby-themed control card. Heavy, explicit UI/UX section; covers X/Y/Z, aim, and every other adjustable parameter. |
+| [`IMPL_IN_WORLD_LIGHT_EDITOR.md`](./IMPL_IN_WORLD_LIGHT_EDITOR.md) | The phased, file-by-file plan for the in-world editor (math/plumbing → control card → move gizmo → aim gizmo → shape gizmo + helpers → polish/a11y → validation). Web/UX-only; reuses the shipped lighting stack and flag — no contracts/API/realtime changes. |
 
 ## One-paragraph pitch
 
@@ -31,5 +33,10 @@ entity layer (mirroring `PlacedWorldAsset`); the environment is a per-room
 
 ## Status
 
-- **Planned — not started.** This folder is the design of record.
+- **Lighting system: implemented** behind `ENABLE_WORLD_BUILDER_LIGHTING`
+  (placeable point/spot/area lights + per-room environment).
+- **In-World Light Editor: planned — not started.** Reworks how a placed light is
+  *adjusted* (today's docked form is limited and split-attention); moves all
+  per-light controls into the 3D scene, attached to the light. Reuses the shipped
+  lighting stack and the same feature flag — no new persistence or API surface.
 - Branch target: `feature/world-building` (active building branch).
