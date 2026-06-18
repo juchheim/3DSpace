@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-18 (gizmo drag camera suppression)
+Last updated: 2026-06-18 (custom light move gizmo)
+
+- **2026-06-18:** **Custom light move gizmo** — replaced drei `PivotControls` with custom fixed-scale XYZ arrow meshes + explicit hit targets; screen-projected axis drag, native pointerdown capture for camera block, `__wbActiveLightGizmoDrag` retained. Pushed `ddd65c8` on `verse`.
 
 - **2026-06-18:** **Gizmo drag camera suppression** — `__wbActiveLightGizmoDrag` window flag set for full PivotControls drag; `useThirdPersonCamera` suppresses orbit on pointermove while active. Pushed `dcb5c1f` on `verse`.
 

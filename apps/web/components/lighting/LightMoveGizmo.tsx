@@ -1,18 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
 import { Html } from "@react-three/drei";
-import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
-import {
-  Quaternion,
-  Raycaster,
-  Vector2,
-  Vector3,
-  type Camera,
-  type Group,
-  type OrthographicCamera,
-  type PerspectiveCamera,
-} from "three";
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { Vector2 } from "three";
 import { snap } from "../../lib/lightEditorMath";
 
 type Vec3 = { x: number; y: number; z: number };
@@ -23,61 +13,20 @@ type WorldPointerEvent = PointerEvent & {
 type WorldBuilderWindow = Window & {
   __wbActiveLightGizmoDrag?: boolean;
 };
-type PointerCaptureTarget = EventTarget & {
-  setPointerCapture?: (pointerId: number) => void;
-  releasePointerCapture?: (pointerId: number) => void;
-};
 
 /** Shift-snap step for in-world position drags. */
 const SNAP_STEP = 0.25;
-/** Approximate screen-space length of each arrow. */
-const GIZMO_SCREEN_LENGTH_PX = 92;
-const ARROW_LENGTH = 1;
-const SHAFT_RADIUS = 0.025;
-const HIT_RADIUS = 0.16;
-const CONE_LENGTH = 0.2;
-const CONE_RADIUS = 0.08;
-const AXIS_DEFS: Record<Axis, { color: string; dir: Vector3 }> = {
-  x: { color: "#ff3653", dir: new Vector3(1, 0, 0) },
-  y: { color: "#8adb00", dir: new Vector3(0, 1, 0) },
-  z: { color: "#2c8fff", dir: new Vector3(0, 0, 1) },
+/** Pointer distance that maps to one world unit during an arrow drag. */
+const PIXELS_PER_WORLD_UNIT = 80;
+const AXIS_DEFS: Record<Axis, { color: string; label: string; angleDeg: number; screenAxis: Vector2 }> = {
+  x: { color: "#ff3653", label: "X", angleDeg: 0, screenAxis: new Vector2(1, 0) },
+  y: { color: "#8adb00", label: "Y", angleDeg: -90, screenAxis: new Vector2(0, -1) },
+  z: { color: "#2c8fff", label: "Z", angleDeg: 45, screenAxis: new Vector2(Math.SQRT1_2, Math.SQRT1_2) },
 };
-const BASE_Y = new Vector3(0, 1, 0);
 
 function setLightGizmoDragActive(active: boolean) {
   if (typeof window === "undefined") return;
   (window as WorldBuilderWindow).__wbActiveLightGizmoDrag = active;
-}
-
-function vecFrom(pos: Vec3) {
-  return new Vector3(pos.x, pos.y, pos.z);
-}
-
-function projectToScreen(point: Vector3, camera: Camera, size: { width: number; height: number }) {
-  const projected = point.clone().project(camera);
-  return new Vector2((projected.x * 0.5 + 0.5) * size.width, (-projected.y * 0.5 + 0.5) * size.height);
-}
-
-function isPerspectiveCamera(camera: Camera): camera is PerspectiveCamera {
-  return (camera as PerspectiveCamera).isPerspectiveCamera === true;
-}
-
-function isOrthographicCamera(camera: Camera): camera is OrthographicCamera {
-  return (camera as OrthographicCamera).isOrthographicCamera === true;
-}
-
-function screenScaleFor(camera: Camera, size: { height: number }, worldPosition: Vector3) {
-  if (size.height <= 0) return 1;
-  if (isPerspectiveCamera(camera)) {
-    const cameraSpace = worldPosition.clone().applyMatrix4(camera.matrixWorldInverse);
-    const distance = Math.max(0.1, Math.abs(cameraSpace.z));
-    const worldHeight = 2 * Math.tan((camera.fov * Math.PI) / 360) * distance;
-    return (worldHeight / size.height) * GIZMO_SCREEN_LENGTH_PX;
-  }
-  if (isOrthographicCamera(camera)) {
-    return ((camera.top - camera.bottom) / camera.zoom / size.height) * GIZMO_SCREEN_LENGTH_PX;
-  }
-  return 1;
 }
 
 function positionWithAxisDelta(position: Vec3, axis: Axis, delta: number, snapToGrid: boolean): Vec3 {
@@ -87,54 +36,102 @@ function positionWithAxisDelta(position: Vec3, axis: Axis, delta: number, snapTo
   return next;
 }
 
-function AxisArrow({
+function AxisButton({
   axis,
   active,
   hovered,
   onPointerDown,
-  onPointerOver,
-  onPointerOut,
+  onPointerEnter,
+  onPointerLeave,
 }: {
   axis: Axis;
   active: boolean;
   hovered: boolean;
-  onPointerDown: (axis: Axis, event: ThreeEvent<PointerEvent>) => void;
-  onPointerOver: (axis: Axis, event: ThreeEvent<PointerEvent>) => void;
-  onPointerOut: (axis: Axis, event: ThreeEvent<PointerEvent>) => void;
+  onPointerDown: (axis: Axis, event: ReactPointerEvent<HTMLButtonElement>) => void;
+  onPointerEnter: (axis: Axis) => void;
+  onPointerLeave: (axis: Axis) => void;
 }) {
   const def = AXIS_DEFS[axis];
-  const color = active || hovered ? "#ffff40" : def.color;
-  const rotation = new Quaternion().setFromUnitVectors(BASE_Y, def.dir);
+  const highlighted = active || hovered;
+  const color = highlighted ? "#ffff40" : def.color;
 
   return (
-    <group quaternion={rotation}>
-      <mesh position={[0, ARROW_LENGTH / 2, 0]} renderOrder={600}>
-        <cylinderGeometry args={[SHAFT_RADIUS, SHAFT_RADIUS, ARROW_LENGTH, 16]} />
-        <meshBasicMaterial color={color} depthTest={false} fog={false} />
-      </mesh>
-      <mesh position={[0, ARROW_LENGTH + CONE_LENGTH / 2, 0]} renderOrder={600}>
-        <coneGeometry args={[CONE_RADIUS, CONE_LENGTH, 24]} />
-        <meshBasicMaterial color={color} depthTest={false} fog={false} />
-      </mesh>
-      <mesh
-        position={[0, (ARROW_LENGTH + CONE_LENGTH) / 2, 0]}
-        onPointerDown={(event) => onPointerDown(axis, event)}
-        onPointerOver={(event) => onPointerOver(axis, event)}
-        onPointerOut={(event) => onPointerOut(axis, event)}
-        userData={{ lightMoveGizmoHit: true, axis }}
-        renderOrder={601}
+    <button
+      type="button"
+      aria-label={`Move light ${def.label}`}
+      onPointerDown={(event) => onPointerDown(axis, event)}
+      onPointerEnter={() => onPointerEnter(axis)}
+      onPointerLeave={() => onPointerLeave(axis)}
+      style={{
+        position: "absolute",
+        left: 76,
+        top: 76,
+        width: 92,
+        height: 30,
+        padding: 0,
+        border: 0,
+        background: "transparent",
+        cursor: "grab",
+        pointerEvents: "auto",
+        transform: `rotate(${def.angleDeg}deg)`,
+        transformOrigin: "10px 15px",
+        touchAction: "none",
+        userSelect: "none",
+      }}
+    >
+      <span
+        style={{
+          position: "absolute",
+          left: 8,
+          top: 13,
+          width: 66,
+          height: 4,
+          borderRadius: 999,
+          background: color,
+          boxShadow: highlighted ? `0 0 0 3px rgba(255,255,255,0.75), 0 0 12px ${def.color}` : `0 0 5px ${def.color}`,
+        }}
+      />
+      <span
+        style={{
+          position: "absolute",
+          left: 68,
+          top: 7,
+          width: 0,
+          height: 0,
+          borderTop: "9px solid transparent",
+          borderBottom: "9px solid transparent",
+          borderLeft: `18px solid ${color}`,
+          filter: highlighted ? `drop-shadow(0 0 5px ${def.color})` : "none",
+        }}
+      />
+      <span
+        style={{
+          position: "absolute",
+          left: 78,
+          top: -2,
+          minWidth: 18,
+          height: 18,
+          borderRadius: 9,
+          background: "rgba(10, 12, 18, 0.85)",
+          color,
+          fontSize: 11,
+          lineHeight: "18px",
+          fontWeight: 800,
+          textAlign: "center",
+          transform: `rotate(${-def.angleDeg}deg)`,
+        }}
       >
-        <cylinderGeometry args={[HIT_RADIUS, HIT_RADIUS, ARROW_LENGTH + CONE_LENGTH, 16]} />
-        <meshBasicMaterial color={def.color} transparent opacity={0} depthWrite={false} depthTest={false} fog={false} />
-      </mesh>
-    </group>
+        {def.label}
+      </span>
+    </button>
   );
 }
 
 /**
- * A translate-only 3-axis move gizmo for the selected light. The hit targets
- * are intentionally custom meshes so the clickable area stays aligned with the
- * visible arrows across browser zoom, camera angle, and fixed screen scaling.
+ * DOM-backed translate gizmo for the selected light. This intentionally avoids
+ * 3D raycasted arrow hit targets: the visible arrow and clickable area are the
+ * same DOM element, and active drags are tracked on `window` so pointer movement
+ * cannot be lost after pointerdown.
  */
 export function LightMoveGizmo({
   position,
@@ -145,8 +142,6 @@ export function LightMoveGizmo({
   onTransform: (pos: Vec3) => void;
   onTransformCommit: (pos: Vec3) => void;
 }) {
-  const { camera, gl, size } = useThree();
-  const groupRef = useRef<Group>(null);
   const draggingRef = useRef(false);
   const shiftRef = useRef(false);
   const lastPos = useRef<Vec3>(position);
@@ -155,20 +150,26 @@ export function LightMoveGizmo({
     pointerId: number;
     startPointer: Vector2;
     startPosition: Vec3;
-    screenAxis: Vector2;
-    pixelsPerWorldUnit: number;
   } | null>(null);
   const lastDragLogAtRef = useRef(0);
-  const hitRaycasterRef = useRef(new Raycaster());
-  const pointerNdcRef = useRef(new Vector2());
+  const onTransformRef = useRef(onTransform);
+  const onTransformCommitRef = useRef(onTransformCommit);
   const [livePosition, setLivePosition] = useState<Vec3>(position);
   const [hoveredAxis, setHoveredAxis] = useState<Axis | null>(null);
   const [dragAxis, setDragAxis] = useState<Axis | null>(null);
 
+  useEffect(() => {
+    onTransformRef.current = onTransform;
+  }, [onTransform]);
+
+  useEffect(() => {
+    onTransformCommitRef.current = onTransformCommit;
+  }, [onTransformCommit]);
+
   // Track Shift for snapping.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      shiftRef.current = e.shiftKey;
+    const onKey = (event: KeyboardEvent) => {
+      shiftRef.current = event.shiftKey;
     };
     window.addEventListener("keydown", onKey);
     window.addEventListener("keyup", onKey);
@@ -177,62 +178,6 @@ export function LightMoveGizmo({
       window.removeEventListener("keyup", onKey);
     };
   }, []);
-
-  // Keep the fixed-size arrows stable on screen while preserving world axes.
-  useFrame((state) => {
-    if (!groupRef.current) return;
-    const worldPosition = vecFrom(lastPos.current);
-    groupRef.current.scale.setScalar(screenScaleFor(state.camera, state.size, worldPosition));
-  });
-
-  // The room camera listens to native canvas pointer events. Mark native
-  // pointerdown events that hit the gizmo so camera panning declines before
-  // React Three Fiber starts the axis drag.
-  useEffect(() => {
-    const canvas = gl.domElement;
-    const onCanvasPointerDownCapture = (event: PointerEvent) => {
-      if (event.button !== 0) return;
-      const group = groupRef.current;
-      if (!group) return;
-
-      const rect = canvas.getBoundingClientRect();
-      if (
-        rect.width <= 0 ||
-        rect.height <= 0 ||
-        event.clientX < rect.left ||
-        event.clientX > rect.right ||
-        event.clientY < rect.top ||
-        event.clientY > rect.bottom
-      ) {
-        return;
-      }
-
-      pointerNdcRef.current.set(
-        ((event.clientX - rect.left) / rect.width) * 2 - 1,
-        -((event.clientY - rect.top) / rect.height) * 2 + 1
-      );
-      const raycaster = hitRaycasterRef.current;
-      raycaster.setFromCamera(pointerNdcRef.current, camera);
-      const hit = raycaster
-        .intersectObject(group, true)
-        .find((intersection) => intersection.object.userData.lightMoveGizmoHit);
-      if (!hit) return;
-
-      (event as WorldPointerEvent).__wbCameraDragBlockedBy = "light-move-gizmo-hit";
-      console.info("[3DSpace pointer]", {
-        action: "light-move-gizmo-native-hit",
-        target: "light-move-gizmo",
-        axis: hit.object.userData.axis,
-        x: Math.round(event.clientX),
-        y: Math.round(event.clientY),
-      });
-    };
-
-    canvas.addEventListener("pointerdown", onCanvasPointerDownCapture, { capture: true });
-    return () => {
-      canvas.removeEventListener("pointerdown", onCanvasPointerDownCapture, { capture: true });
-    };
-  }, [camera, gl]);
 
   const endDrag = useCallback(() => {
     if (!draggingRef.current) return;
@@ -247,25 +192,54 @@ export function LightMoveGizmo({
       axis,
       position: lastPos.current,
     });
-    onTransformCommit(lastPos.current);
-  }, [onTransformCommit]);
+    onTransformCommitRef.current(lastPos.current);
+  }, []);
 
-  // Recover cleanly from pointer cancellation, window blur, or a release that
-  // happens outside the canvas.
+  const moveDrag = useCallback((event: PointerEvent) => {
+    const drag = dragStartRef.current;
+    if (!draggingRef.current || !drag) return;
+    if (event.pointerId !== drag.pointerId) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    const pointerDelta = new Vector2(event.clientX, event.clientY).sub(drag.startPointer);
+    const worldDelta = pointerDelta.dot(AXIS_DEFS[drag.axis].screenAxis) / PIXELS_PER_WORLD_UNIT;
+    const next = positionWithAxisDelta(drag.startPosition, drag.axis, worldDelta, shiftRef.current);
+    lastPos.current = next;
+    setLivePosition(next);
+
+    const now = performance.now();
+    if (now - lastDragLogAtRef.current > 250) {
+      lastDragLogAtRef.current = now;
+      console.info("[3DSpace pointer]", {
+        action: "light-move-drag",
+        target: "light-move-gizmo",
+        axis: drag.axis,
+        position: next,
+      });
+    }
+    onTransformRef.current(next);
+  }, []);
+
   useEffect(() => {
-    const resetDrag = () => {
+    const onPointerMove = (event: PointerEvent) => moveDrag(event);
+    const onPointerUp = (event: PointerEvent) => {
+      if (dragStartRef.current && event.pointerId !== dragStartRef.current.pointerId) return;
       endDrag();
+    };
+    const onBlur = () => endDrag();
+    window.addEventListener("pointermove", onPointerMove, true);
+    window.addEventListener("pointerup", onPointerUp, true);
+    window.addEventListener("pointercancel", onPointerUp, true);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove, true);
+      window.removeEventListener("pointerup", onPointerUp, true);
+      window.removeEventListener("pointercancel", onPointerUp, true);
+      window.removeEventListener("blur", onBlur);
       setLightGizmoDragActive(false);
     };
-    window.addEventListener("pointerup", resetDrag, true);
-    window.addEventListener("pointercancel", resetDrag, true);
-    window.addEventListener("blur", resetDrag);
-    return () => {
-      window.removeEventListener("pointerup", resetDrag, true);
-      window.removeEventListener("pointercancel", resetDrag, true);
-      window.removeEventListener("blur", resetDrag);
-    };
-  }, [endDrag]);
+  }, [endDrag, moveDrag]);
 
   // Keep external position changes in sync while idle.
   useEffect(() => {
@@ -274,121 +248,101 @@ export function LightMoveGizmo({
     setLivePosition(position);
   }, [position.x, position.y, position.z, position]);
 
-  const startDrag = useCallback(
-    (axis: Axis, event: ThreeEvent<PointerEvent>) => {
-      event.stopPropagation();
-      const pointerEvent = event.nativeEvent;
-      setLightGizmoDragActive(true);
-
-      const origin = vecFrom(lastPos.current);
-      const screenOrigin = projectToScreen(origin, camera, size);
-      const screenEnd = projectToScreen(origin.clone().add(AXIS_DEFS[axis].dir), camera, size);
-      const screenDelta = screenEnd.sub(screenOrigin);
-      const pixelsPerWorldUnit = Math.max(1, screenDelta.length());
-      const screenAxis = screenDelta.normalize();
-
-      draggingRef.current = true;
-      dragStartRef.current = {
-        axis,
-        pointerId: pointerEvent.pointerId,
-        startPointer: new Vector2(pointerEvent.clientX, pointerEvent.clientY),
-        startPosition: lastPos.current,
-        screenAxis,
-        pixelsPerWorldUnit,
-      };
-      setDragAxis(axis);
-      setHoveredAxis(axis);
-      (event.target as PointerCaptureTarget | null)?.setPointerCapture?.(pointerEvent.pointerId);
-      console.info("[3DSpace pointer]", {
-        action: "light-move-drag-start",
-        target: "light-move-gizmo",
-        component: "Arrow",
-        axis,
-        x: Math.round(pointerEvent.clientX),
-        y: Math.round(pointerEvent.clientY),
-        position: lastPos.current,
-      });
-    },
-    [camera, size]
-  );
-
-  const moveDrag = useCallback(
-    (event: ThreeEvent<PointerEvent>) => {
-      event.stopPropagation();
-      const drag = dragStartRef.current;
-      if (!draggingRef.current || !drag) return;
-
-      const pointerEvent = event.nativeEvent;
-      const pointerDelta = new Vector2(pointerEvent.clientX, pointerEvent.clientY).sub(drag.startPointer);
-      const worldDelta = pointerDelta.dot(drag.screenAxis) / drag.pixelsPerWorldUnit;
-      const next = positionWithAxisDelta(drag.startPosition, drag.axis, worldDelta, shiftRef.current);
-      lastPos.current = next;
-      setLivePosition(next);
-
-      const now = performance.now();
-      if (now - lastDragLogAtRef.current > 250) {
-        lastDragLogAtRef.current = now;
-        console.info("[3DSpace pointer]", {
-          action: "light-move-drag",
-          target: "light-move-gizmo",
-          axis: drag.axis,
-          position: next,
-        });
-      }
-      onTransform(next);
-    },
-    [onTransform]
-  );
-
-  const stopDrag = useCallback(
-    (event: ThreeEvent<PointerEvent>) => {
-      event.stopPropagation();
-      if (dragStartRef.current) {
-        (event.target as PointerCaptureTarget | null)?.releasePointerCapture?.(dragStartRef.current.pointerId);
-      }
-      endDrag();
-    },
-    [endDrag]
-  );
-
-  const handlePointerOver = useCallback((axis: Axis, event: ThreeEvent<PointerEvent>) => {
+  const startDrag = useCallback((axis: Axis, event: ReactPointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
     event.stopPropagation();
+    const nativeEvent = event.nativeEvent as WorldPointerEvent;
+    nativeEvent.__wbCameraDragBlockedBy = "light-move-gizmo-hit";
+    setLightGizmoDragActive(true);
+    draggingRef.current = true;
+    dragStartRef.current = {
+      axis,
+      pointerId: nativeEvent.pointerId,
+      startPointer: new Vector2(nativeEvent.clientX, nativeEvent.clientY),
+      startPosition: lastPos.current,
+    };
+    lastDragLogAtRef.current = 0;
+    setDragAxis(axis);
     setHoveredAxis(axis);
+    event.currentTarget.setPointerCapture(nativeEvent.pointerId);
+    console.info("[3DSpace pointer]", {
+      action: "light-move-gizmo-native-hit",
+      target: "light-move-gizmo",
+      axis,
+      x: Math.round(nativeEvent.clientX),
+      y: Math.round(nativeEvent.clientY),
+    });
+    console.info("[3DSpace pointer]", {
+      action: "light-move-drag-start",
+      target: "light-move-gizmo",
+      component: "Arrow",
+      axis,
+      x: Math.round(nativeEvent.clientX),
+      y: Math.round(nativeEvent.clientY),
+      position: lastPos.current,
+    });
   }, []);
 
-  const handlePointerOut = useCallback((axis: Axis, event: ThreeEvent<PointerEvent>) => {
+  const stopPropagation = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     event.stopPropagation();
-    setHoveredAxis((current) => (current === axis && dragAxis == null ? null : current));
-  }, [dragAxis]);
+  }, []);
 
   return (
-    <group
-      ref={groupRef}
-      position={[livePosition.x, livePosition.y, livePosition.z]}
-      onPointerMove={moveDrag}
-      onPointerUp={stopDrag}
-      onPointerCancel={stopDrag}
-    >
-      {(["x", "y", "z"] as Axis[]).map((axis) => (
-        <AxisArrow
-          key={axis}
-          axis={axis}
-          active={dragAxis === axis}
-          hovered={hoveredAxis === axis}
-          onPointerDown={startDrag}
-          onPointerOver={handlePointerOver}
-          onPointerOut={handlePointerOut}
+    <Html position={[livePosition.x, livePosition.y, livePosition.z]} center style={{ pointerEvents: "none" }} zIndexRange={[40, 0]}>
+      <div
+        onPointerDown={stopPropagation}
+        onPointerMove={stopPropagation}
+        onPointerUp={stopPropagation}
+        style={{
+          position: "relative",
+          width: 184,
+          height: 184,
+          pointerEvents: "none",
+          touchAction: "none",
+          userSelect: "none",
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            left: 88,
+            top: 88,
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            background: "#ffffff",
+            boxShadow: "0 0 0 2px rgba(0,0,0,0.45)",
+          }}
         />
-      ))}
-      {dragAxis ? (
-        <Html position={[0, 0.35, 0]} center style={{ pointerEvents: "none" }} zIndexRange={[30, 0]}>
-          <div className="light-gizmo-readout">
+        {(["x", "y", "z"] as Axis[]).map((axis) => (
+          <AxisButton
+            key={axis}
+            axis={axis}
+            active={dragAxis === axis}
+            hovered={hoveredAxis === axis}
+            onPointerDown={startDrag}
+            onPointerEnter={setHoveredAxis}
+            onPointerLeave={(leftAxis) => setHoveredAxis((current) => (current === leftAxis && dragAxis == null ? null : current))}
+          />
+        ))}
+        {dragAxis ? (
+          <div
+            className="light-gizmo-readout"
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: 36,
+              transform: "translateX(-50%)",
+              pointerEvents: "none",
+              whiteSpace: "nowrap",
+            }}
+          >
             x <strong>{livePosition.x.toFixed(1)}</strong>{"  "}
             y <strong>{livePosition.y.toFixed(1)}</strong>{"  "}
             z <strong>{livePosition.z.toFixed(1)}</strong>
           </div>
-        </Html>
-      ) : null}
-    </group>
+        ) : null}
+      </div>
+    </Html>
   );
 }
