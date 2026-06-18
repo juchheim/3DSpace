@@ -17,6 +17,8 @@ export function useRoomLights(input: {
   publish?: (message: RealtimeMessage) => void;
 }) {
   const [lightsById, setLightsById] = useState<Record<string, RoomLight>>({});
+  const lightsByIdRef = useRef<Record<string, RoomLight>>({});
+  const updateSeqRef = useRef<Record<string, number>>({});
   // Transient "edited by" presence keyed by light id, fed by incoming upserts
   // from *other* users (no schema change). Consumers decay it for display.
   const [recentEditors, setRecentEditors] = useState<Record<string, { userId: string; at: number }>>({});
@@ -34,17 +36,29 @@ export function useRoomLights(input: {
   }
   useEffect(() => () => broadcastThrottleRef.current?.dispose(), []);
 
+  const replaceLightsById = useCallback((next: Record<string, RoomLight>) => {
+    lightsByIdRef.current = next;
+    setLightsById(next);
+  }, []);
+
+  const patchLightsById = useCallback((updater: (prev: Record<string, RoomLight>) => Record<string, RoomLight>) => {
+    const next = updater(lightsByIdRef.current);
+    lightsByIdRef.current = next;
+    setLightsById(next);
+    return next;
+  }, []);
+
   const refresh = useCallback(async () => {
-    if (!input.roomId) { setLightsById({}); return; }
+    if (!input.roomId) { replaceLightsById({}); return; }
     try {
       const result = await listRoomLights(input.identity, input.roomId);
       const byId: Record<string, RoomLight> = {};
       for (const l of result) byId[l.id] = l;
-      setLightsById(byId);
+      replaceLightsById(byId);
     } catch {
       // Non-fatal: keep current state
     }
-  }, [input.identity, input.roomId]);
+  }, [input.identity, input.roomId, replaceLightsById]);
 
   useEffect(() => { void refresh(); }, [refresh]);
 
@@ -76,11 +90,11 @@ export function useRoomLights(input: {
       ...body,
       castShadow: body.castShadow ?? false,
     } as unknown as RoomLight;
-    setLightsById((prev) => ({ ...prev, [tempId]: optimistic }));
+    patchLightsById((prev) => ({ ...prev, [tempId]: optimistic }));
     try {
       const result = await createRoomLight(input.identity, input.roomId, body);
       const light = result.light;
-      setLightsById((prev) => {
+      patchLightsById((prev) => {
         const next = { ...prev };
         delete next[tempId];
         next[light.id] = light;
@@ -89,9 +103,9 @@ export function useRoomLights(input: {
       for (const msg of result.realtimeMessages) publishRef.current?.(msg);
       return light;
     } catch {
-      setLightsById((prev) => { const next = { ...prev }; delete next[tempId]; return next; });
+      patchLightsById((prev) => { const next = { ...prev }; delete next[tempId]; return next; });
     }
-  }, [input.identity, input.roomId]);
+  }, [input.identity, input.roomId, patchLightsById]);
 
   const updateLight = useCallback(async (
     id: string,
@@ -99,13 +113,10 @@ export function useRoomLights(input: {
     options?: { commit?: boolean }
   ) => {
     if (!input.roomId) return;
-    const existing = lightsById[id];
+    const existing = lightsByIdRef.current[id];
     if (!existing) return;
     const merged = { ...existing, ...patch, updatedAt: new Date().toISOString() } as RoomLight;
-    setLightsById((prev) => {
-      if (!prev[id]) return prev;
-      return { ...prev, [id]: merged };
-    });
+    patchLightsById((prev) => (prev[id] ? { ...prev, [id]: merged } : prev));
     const upsertMsg: RoomLightRealtimeMessage = {
       type: "room.light.upsert.v1",
       roomId: input.roomId,
@@ -116,9 +127,12 @@ export function useRoomLights(input: {
     if (options?.commit !== false) {
       // Commit: cancel any pending throttled broadcast and flush this state now.
       broadcastThrottleRef.current?.flush(id, upsertMsg);
+      const seq = (updateSeqRef.current[id] ?? 0) + 1;
+      updateSeqRef.current[id] = seq;
       try {
         const result = await updateRoomLight(input.identity, input.roomId, id, patch);
-        setLightsById((prev) => ({ ...prev, [id]: result.light }));
+        if (updateSeqRef.current[id] !== seq) return;
+        patchLightsById((prev) => ({ ...prev, [id]: result.light }));
         for (const msg of result.realtimeMessages) publishRef.current?.(msg);
       } catch {
         // Non-fatal: state stays at optimistic
@@ -127,19 +141,19 @@ export function useRoomLights(input: {
       // Optimistic drag frame: broadcast is throttled (local state already set).
       broadcastThrottleRef.current?.push(id, upsertMsg);
     }
-  }, [input.identity, input.roomId, lightsById]);
+  }, [input.identity, input.roomId, patchLightsById]);
 
   const deleteLight = useCallback(async (id: string) => {
     if (!input.roomId) return;
-    const previous = lightsById[id];
-    setLightsById((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    const previous = lightsByIdRef.current[id];
+    patchLightsById((prev) => { const next = { ...prev }; delete next[id]; return next; });
     try {
       const result = await deleteRoomLight(input.identity, input.roomId, id);
       for (const msg of result.realtimeMessages) publishRef.current?.(msg);
     } catch {
-      if (previous) setLightsById((prev) => ({ ...prev, [id]: previous }));
+      if (previous) patchLightsById((prev) => ({ ...prev, [id]: previous }));
     }
-  }, [input.identity, input.roomId, lightsById]);
+  }, [input.identity, input.roomId, patchLightsById]);
 
   const handleRealtimeMessage = useCallback((message: RealtimeMessage): boolean => {
     if (!("type" in message)) return false;
@@ -147,13 +161,13 @@ export function useRoomLights(input: {
     if (msg.type === "room.light.upsert.v1") {
       if (msg.roomId !== input.roomId) return false;
       if (msg.senderId === input.identity.userId) return true;
-      setLightsById((prev) => ({ ...prev, [msg.light.id]: msg.light }));
+      patchLightsById((prev) => ({ ...prev, [msg.light.id]: msg.light }));
       setRecentEditors((prev) => ({ ...prev, [msg.light.id]: { userId: msg.senderId, at: Date.now() } }));
       return true;
     }
     if (msg.type === "room.light.remove.v1") {
       if (msg.roomId !== input.roomId) return false;
-      setLightsById((prev) => {
+      patchLightsById((prev) => {
         if (!(msg.lightId in prev)) return prev;
         const next = { ...prev };
         delete next[msg.lightId];
@@ -162,7 +176,7 @@ export function useRoomLights(input: {
       return true;
     }
     return false;
-  }, [input.identity, input.roomId]);
+  }, [input.identity, input.roomId, patchLightsById]);
 
   const lights = Object.values(lightsById).sort((a, b) => a.id.localeCompare(b.id));
 

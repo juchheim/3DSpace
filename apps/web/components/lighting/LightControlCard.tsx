@@ -89,10 +89,16 @@ export function LightControlCard({
   const meta = TYPE_META[light.type];
   const [nameDraft, setNameDraft] = useState(light.name ?? "");
   const [showExact, setShowExact] = useState(false);
+  const [positionDraft, setPositionDraft] = useState(() => ({
+    x: String(light.position.x),
+    y: String(light.position.y),
+    z: String(light.position.z),
+  }));
   const [pipName, setPipName] = useState<string | null>(null);
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const shift = useRef({ x: 0, y: 0 });
+  const latestPositionRef = useRef(light.position);
   const px = light.position.x;
   const py = light.position.y;
   const pz = light.position.z;
@@ -128,6 +134,15 @@ export function LightControlCard({
     return () => window.clearTimeout(handle);
   }, [editedBy?.name, editedBy?.at]);
 
+  useEffect(() => {
+    latestPositionRef.current = light.position;
+    setPositionDraft({
+      x: String(light.position.x),
+      y: String(light.position.y),
+      z: String(light.position.z),
+    });
+  }, [light.id, light.position]);
+
   function commitName() {
     const trimmed = nameDraft.trim();
     if (trimmed !== (light.name ?? "")) onUpdate({ name: trimmed || undefined }, true);
@@ -141,9 +156,13 @@ export function LightControlCard({
   const anchor: [number, number, number] = [light.position.x, light.position.y + 0.55, light.position.z];
 
   function commitPositionAxis(axis: "x" | "y" | "z", raw: string, commit: boolean) {
+    if (raw.trim() === "") return;
     const val = Number(raw);
-    if (Number.isNaN(val)) return;
-    onUpdate({ position: { ...light.position, [axis]: val } }, commit);
+    if (!Number.isFinite(val)) return;
+    setPositionDraft((prev) => ({ ...prev, [axis]: String(val) }));
+    const position = { ...latestPositionRef.current, [axis]: val };
+    latestPositionRef.current = position;
+    onUpdate({ position }, commit);
   }
 
   return (
@@ -366,8 +385,9 @@ export function LightControlCard({
                   <input
                     type="number"
                     step={0.1}
-                    defaultValue={light.position[axis]}
+                    value={positionDraft[axis]}
                     aria-label={`Position ${axis.toUpperCase()}`}
+                    onChange={(e) => setPositionDraft((prev) => ({ ...prev, [axis]: e.currentTarget.value }))}
                     onBlur={(e) => commitPositionAxis(axis, e.currentTarget.value, true)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
