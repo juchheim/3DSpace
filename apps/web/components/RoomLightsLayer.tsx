@@ -7,6 +7,18 @@ import { selectActiveLights, LIGHTING_BUDGET } from "@3dspace/room-engine";
 import { initRectAreaLights } from "../lib/lightingRenderer";
 import type { RoomLight } from "@3dspace/contracts";
 import { LightGlyph } from "./LightGlyph";
+import { LightControlCard, type LightEditorMode } from "./lighting/LightControlCard";
+import { LightMoveGizmo } from "./lighting/LightMoveGizmo";
+import { LightAimGizmo } from "./lighting/LightAimGizmo";
+import { LightShapeGizmo } from "./lighting/LightShapeGizmo";
+import { LightHelpers } from "./lighting/LightHelpers";
+
+/** Consistent per-type tint from glyph → gizmo → helper. */
+const LIGHT_TINT: Record<RoomLight["type"], string> = {
+  point: "#fde68a",
+  spot: "#a5f3fc",
+  area: "#d9f99d",
+};
 
 type Vec3 = { x: number; y: number; z: number };
 
@@ -15,57 +27,18 @@ type RoomLightsLayerProps = {
   selectedId: string | null;
   quality: "low" | "medium" | "high";
   interactive: boolean;
+  mode?: LightEditorMode;
+  editedBy?: { name: string; at: number } | undefined;
   onSelect?: ((id: string | null) => void) | undefined;
   onTransform?: ((id: string, position: Vec3) => void) | undefined;
   onTransformCommit?: ((id: string, position: Vec3) => void) | undefined;
+  onUpdate?: ((id: string, patch: Partial<RoomLight>, commit?: boolean) => void) | undefined;
+  onSetMode?: ((mode: LightEditorMode) => void) | undefined;
+  onDelete?: ((id: string) => void) | undefined;
+  onDuplicate?: ((id: string) => void) | undefined;
+  onFocusCamera?: ((id: string) => void) | undefined;
+  onDeselect?: (() => void) | undefined;
 };
-
-// ---------------------------------------------------------------------------
-// DragHandle — a small draggable sphere for repositioning the selected light
-// ---------------------------------------------------------------------------
-function DragHandle({
-  position,
-  color,
-  onDrag,
-  onDragEnd,
-}: {
-  position: Vec3;
-  color: string;
-  onDrag: (pos: Vec3) => void;
-  onDragEnd: (pos: Vec3) => void;
-}) {
-  const isDragging = useRef(false);
-  const lastPos = useRef<Vec3>(position);
-  const { gl } = useThree();
-
-  return (
-    <mesh
-      position={[position.x, position.y, position.z]}
-      onPointerDown={(e) => {
-        e.stopPropagation();
-        isDragging.current = true;
-        lastPos.current = position;
-        gl.domElement.setPointerCapture(e.pointerId);
-      }}
-      onPointerMove={(e) => {
-        if (!isDragging.current) return;
-        e.stopPropagation();
-        const newPos: Vec3 = { x: e.point.x, y: position.y, z: e.point.z };
-        lastPos.current = newPos;
-        onDrag(newPos);
-      }}
-      onPointerUp={(e) => {
-        if (!isDragging.current) return;
-        isDragging.current = false;
-        gl.domElement.releasePointerCapture(e.pointerId);
-        onDragEnd(lastPos.current);
-      }}
-    >
-      <sphereGeometry args={[0.18, 12, 8]} />
-      <meshBasicMaterial color={color} transparent opacity={0.85} />
-    </mesh>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // SpotLightInstance — manages the spotLight + its target object
@@ -121,9 +94,17 @@ export function RoomLightsLayer({
   selectedId,
   quality,
   interactive,
+  mode = "move",
+  editedBy,
   onSelect,
   onTransform,
   onTransformCommit,
+  onUpdate,
+  onSetMode,
+  onDelete,
+  onDuplicate,
+  onFocusCamera,
+  onDeselect,
 }: RoomLightsLayerProps) {
   // Initialise RectAreaLight uniforms once (idempotent)
   useEffect(() => {
@@ -140,6 +121,14 @@ export function RoomLightsLayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [lights, quality, camera.position.x, camera.position.y, camera.position.z]
   );
+
+  // Pin the selected light into the rendered set so it always renders while
+  // edited, even if the camera has pushed it outside the nearest-N budget.
+  const renderedLights = useMemo(() => {
+    if (!selectedId || activeLights.some((l) => l.id === selectedId)) return activeLights;
+    const selected = lights.find((l) => l.id === selectedId);
+    return selected ? [...activeLights, selected] : activeLights;
+  }, [activeLights, lights, selectedId]);
 
   // From the active set, pick shadow-casters (point/spot only, nearest first)
   const shadowCasterIds = useMemo(() => {
@@ -165,27 +154,57 @@ export function RoomLightsLayer({
         />
       ))}
 
-      {/* Drag handle for the selected light (interactive mode only) */}
+      {/* Selected-light editor: move gizmo (mode "move") + attached card */}
       {interactive && selectedId ? (() => {
         const selectedLight = lights.find((l) => l.id === selectedId);
         if (!selectedLight) return null;
-        const handleColor =
-          selectedLight.type === "point" ? "#fde68a"
-          : selectedLight.type === "spot" ? "#a5f3fc"
-          : "#d9f99d";
         return (
-          <DragHandle
-            key={`drag-${selectedLight.id}`}
-            position={selectedLight.position}
-            color={handleColor}
-            onDrag={(pos) => onTransform?.(selectedLight.id, pos)}
-            onDragEnd={(pos) => onTransformCommit?.(selectedLight.id, pos)}
-          />
+          <>
+            {/* Always-on tinted visualization for the selected light (all modes). */}
+            <LightHelpers key={`helpers-${selectedLight.id}`} light={selectedLight} tint={LIGHT_TINT[selectedLight.type]} />
+            {mode === "move" ? (
+              <LightMoveGizmo
+                key={`move-${selectedLight.id}`}
+                position={selectedLight.position}
+                onTransform={(pos) => onTransform?.(selectedLight.id, pos)}
+                onTransformCommit={(pos) => onTransformCommit?.(selectedLight.id, pos)}
+              />
+            ) : null}
+            {mode === "shape" ? (
+              <LightShapeGizmo
+                key={`shape-${selectedLight.id}`}
+                light={selectedLight}
+                color={LIGHT_TINT[selectedLight.type]}
+                onUpdate={(patch, commit) => onUpdate?.(selectedLight.id, patch, commit)}
+              />
+            ) : null}
+            {mode === "aim" && selectedLight.type !== "point" ? (
+              <LightAimGizmo
+                key={`aim-${selectedLight.id}`}
+                position={selectedLight.position}
+                target={selectedLight.target ?? { x: selectedLight.position.x, y: selectedLight.position.y - 2, z: selectedLight.position.z }}
+                color={LIGHT_TINT[selectedLight.type]}
+                onUpdate={(target, commit) => onUpdate?.(selectedLight.id, { target }, commit)}
+              />
+            ) : null}
+            <LightControlCard
+              key={`card-${selectedLight.id}`}
+              light={selectedLight}
+              mode={mode}
+              editedBy={editedBy}
+              onUpdate={(patch, commit) => onUpdate?.(selectedLight.id, patch, commit)}
+              onSetMode={(m) => onSetMode?.(m)}
+              onDelete={() => onDelete?.(selectedLight.id)}
+              onDuplicate={() => onDuplicate?.(selectedLight.id)}
+              onFocusCamera={() => onFocusCamera?.(selectedLight.id)}
+              onDeselect={() => onDeselect?.()}
+            />
+          </>
         );
       })() : null}
 
-      {/* Actual Three.js lights — active subset only */}
-      {activeLights.map((light) => {
+      {/* Actual Three.js lights — active subset (+ pinned selected light) */}
+      {renderedLights.map((light) => {
         const castShadow = shadowCasterIds.has(light.id);
         const shadowMapSize = budget.shadowMapSize;
         const pos: [number, number, number] = [

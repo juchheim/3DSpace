@@ -371,17 +371,16 @@ The **Lighting** tab (spark icon) in the World Builder lets teachers add dynamic
 1. Open the World Builder (`B`), click the **Lighting** tab.
 2. Click **Bulb**, **Spot**, or **Panel** in the "Add Light" section.
 3. Click on the floor (or any surface) in the 3D view to place it.
-4. The light is selected automatically — use the inspector on the right to adjust color, intensity, and position.
+4. The light is selected automatically and its **editor opens on the light in the 3D view** — there is no docked form. The dock keeps only the **Add Light** tiles, the **lights list** (a navigator — click a row to select and frame the camera on that light), and the **Environment** panel.
 
-### Adjusting lights
-- **Color**: click the color swatch and pick from the color picker.
-- **Intensity**: drag the slider (0–20). Keyboard: `[` decreases, `]` increases.
-- **Position X/Y/Z**: type values directly in the fields, or drag the handle in the 3D view.
-- **Shadow**: tick the checkbox (point/spot only; not available on Panel lights). Shadows increase render cost — use sparingly.
-- **Spot extras**: Angle (beam width, 1–90°), Penumbra (soft edge, 0–1), Target X/Y/Z.
-- **Panel extras**: Width and Height (up to 10 m each).
-- **Toggle on/off**: click the ● / ○ button next to the light in the list.
-- **Delete**: click × next to the light, or press `Delete` / `Backspace` when selected.
+### Adjusting lights — in the 3D view, on the light
+Selecting a light (click its glyph in the world, or a row in the dock list) opens an **in-world editor attached to the light**: a transform gizmo plus a small control card. A **Move / Aim / Shape** toggle on the card picks which gizmo is active (Aim is hidden for Bulb/point lights, which are omnidirectional).
+- **Move** (all): drag the X/Y/Z arrows to move the light in any direction, **including height**. Arrow keys nudge in the X/Z plane, PageUp/PageDown change height; hold **Shift** to snap.
+- **Aim** (Spot/Panel): drag the target dot in 3D to point the beam; a dashed beam and cone preview follow. `Q`/`E` rotate the aim. The card shows azimuth/elevation.
+- **Shape**: drag the rim handles — the range ring (Bulb/Spot → distance), the cone-mouth ring (Spot → angle) and inner ring (penumbra), or the panel edge handles (Panel → width/height).
+- **Card controls** (values): inline rename, on/off, **Color** swatch, **Intensity** (slider; keyboard `[` / `]`), **Range** + **Falloff** (Bulb/Spot), **Cone** + **Softness** (Spot), **Width**/**Height** (Panel), **Cast shadows** toggle (point/spot only — Panels can't cast shadows), an exact-value position entry, plus **Duplicate**, **Focus**, and **Delete**.
+- **Delete**: the card's Delete button, or press `Delete` / `Backspace` when selected. **Esc** deselects.
+- The 2D map shows light **icons only** — switch to the 3D view to edit a light.
 
 ### Light budget
 The number of active lights rendered depends on quality:

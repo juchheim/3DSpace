@@ -5,8 +5,11 @@ import type { RoomLight, RoomLightRealtimeMessage } from "@3dspace/contracts";
 import { listRoomLights, createRoomLight, updateRoomLight, deleteRoomLight } from "./api";
 import type { ApiIdentity } from "./identity";
 import type { RealtimeMessage } from "./realtime";
+import { createIdThrottle, type IdThrottle } from "./idThrottle";
 
 const REFRESH_INTERVAL_MS = 30_000;
+/** Trailing-throttle interval for `commit:false` upsert broadcasts during a drag. */
+const LIGHT_BROADCAST_THROTTLE_MS = 70;
 
 export function useRoomLights(input: {
   identity: ApiIdentity;
@@ -14,8 +17,22 @@ export function useRoomLights(input: {
   publish?: (message: RealtimeMessage) => void;
 }) {
   const [lightsById, setLightsById] = useState<Record<string, RoomLight>>({});
+  // Transient "edited by" presence keyed by light id, fed by incoming upserts
+  // from *other* users (no schema change). Consumers decay it for display.
+  const [recentEditors, setRecentEditors] = useState<Record<string, { userId: string; at: number }>>({});
   const publishRef = useRef(input.publish);
   publishRef.current = input.publish;
+
+  // Throttle only the optimistic (`commit:false`) broadcast so a 60 fps gizmo
+  // drag doesn't flood the data channel. Local state still updates every call.
+  const broadcastThrottleRef = useRef<IdThrottle<RoomLightRealtimeMessage> | null>(null);
+  if (!broadcastThrottleRef.current) {
+    broadcastThrottleRef.current = createIdThrottle<RoomLightRealtimeMessage>(
+      (msg) => publishRef.current?.(msg),
+      LIGHT_BROADCAST_THROTTLE_MS
+    );
+  }
+  useEffect(() => () => broadcastThrottleRef.current?.dispose(), []);
 
   const refresh = useCallback(async () => {
     if (!input.roomId) { setLightsById({}); return; }
@@ -96,8 +113,9 @@ export function useRoomLights(input: {
       sentAt: Date.now(),
       senderId: input.identity.userId,
     };
-    publishRef.current?.(upsertMsg);
     if (options?.commit !== false) {
+      // Commit: cancel any pending throttled broadcast and flush this state now.
+      broadcastThrottleRef.current?.flush(id, upsertMsg);
       try {
         const result = await updateRoomLight(input.identity, input.roomId, id, patch);
         setLightsById((prev) => ({ ...prev, [id]: result.light }));
@@ -105,6 +123,9 @@ export function useRoomLights(input: {
       } catch {
         // Non-fatal: state stays at optimistic
       }
+    } else {
+      // Optimistic drag frame: broadcast is throttled (local state already set).
+      broadcastThrottleRef.current?.push(id, upsertMsg);
     }
   }, [input.identity, input.roomId, lightsById]);
 
@@ -127,6 +148,7 @@ export function useRoomLights(input: {
       if (msg.roomId !== input.roomId) return false;
       if (msg.senderId === input.identity.userId) return true;
       setLightsById((prev) => ({ ...prev, [msg.light.id]: msg.light }));
+      setRecentEditors((prev) => ({ ...prev, [msg.light.id]: { userId: msg.senderId, at: Date.now() } }));
       return true;
     }
     if (msg.type === "room.light.remove.v1") {
@@ -144,5 +166,5 @@ export function useRoomLights(input: {
 
   const lights = Object.values(lightsById).sort((a, b) => a.id.localeCompare(b.id));
 
-  return { lights, lightsById, createLight, updateLight, deleteLight, handleRealtimeMessage, refresh };
+  return { lights, lightsById, recentEditors, createLight, updateLight, deleteLight, handleRealtimeMessage, refresh };
 }

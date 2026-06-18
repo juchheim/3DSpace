@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   RoomLightSchema,
   RoomEnvironmentSchema,
+  UpdateRoomLightRequestSchema,
   defaultRoomEnvironment,
   ROOM_LIGHT_MAX_PER_ROOM,
 } from "../src/lighting.js";
@@ -49,6 +50,12 @@ describe("RoomLightSchema", () => {
 
   it("rejects intensity above cap", () => {
     expect(() => RoomLightSchema.parse({ ...base, intensity: 999 })).toThrow();
+  });
+});
+
+describe("UpdateRoomLightRequestSchema", () => {
+  it("accepts enabled toggle", () => {
+    expect(UpdateRoomLightRequestSchema.parse({ enabled: false })).toEqual({ enabled: false });
   });
 });
 

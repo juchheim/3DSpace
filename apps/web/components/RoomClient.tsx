@@ -149,6 +149,8 @@ import {
 import { useRoomAvatarActions } from "../lib/room/useRoomAvatarActions";
 import { useRoomEnvironmentActions } from "../lib/room/useRoomEnvironmentActions";
 import { useRoomLights } from "../lib/useRoomLights";
+import { targetToAngles, anglesToTarget } from "../lib/lightEditorMath";
+import { framingAnglesForPoint } from "../lib/cameraFraming";
 import { useRoomEnvironment } from "../lib/useRoomEnvironment";
 import { useRoomFloorTextureActions } from "../lib/room/useRoomFloorTextureActions";
 import { useRoomRealtime } from "../lib/room/useRoomRealtime";
@@ -1139,9 +1141,25 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       : { identity }
   );
   const [selectedLightId, setSelectedLightId] = useState<string | null>(null);
+  const [lightEditorMode, setLightEditorMode] = useState<"move" | "aim" | "shape">("move");
   const [pendingLightType, setPendingLightType] = useState<import("@3dspace/contracts").RoomLightType | null>(null);
+  // Reset the in-world editor to Move whenever the selection changes.
+  useEffect(() => { setLightEditorMode("move"); }, [selectedLightId]);
+  // Point lights are omnidirectional — Aim is meaningless, so coerce back to Move.
+  useEffect(() => {
+    if (lightEditorMode !== "aim" || !selectedLightId) return;
+    if (roomLights.lightsById[selectedLightId]?.type === "point") setLightEditorMode("move");
+  }, [lightEditorMode, selectedLightId, roomLights.lightsById]);
   const [activeBuildCategory, setActiveBuildCategory] = useState<ActiveBuildCategory>("build");
   const buildPlacementSuspended = activeBuildCategory === "lighting" || Boolean(pendingLightType);
+  // Mirror `wb-placement-active`: while a light is selected in the Lighting tab,
+  // flag the body so the in-world editor's pointer events win over avatar-move /
+  // camera-orbit, and the object/board layers can disable their interactions.
+  const lightEditingActive = lightingEnabled && activeBuildCategory === "lighting" && selectedLightId != null;
+  useEffect(() => {
+    document.body.classList.toggle("wb-light-editing", lightEditingActive);
+    return () => document.body.classList.remove("wb-light-editing");
+  }, [lightEditingActive]);
   worldAssetsForMovementRef.current = chairs.chairs;
   const hasWalkableSceneAssets = chairs.chairs.some((asset) => isStaticColliderWorldAsset(asset.slug));
   const physicsTuning = useMemo(() => {
@@ -1329,11 +1347,43 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
         e.preventDefault();
         const light = roomLights.lightsById[selectedLightId];
         if (light) void roomLights.updateLight(selectedLightId, { intensity: Math.min(20, light.intensity + 0.5) }, { commit: true });
+      } else if (
+        lightEditorMode === "move" &&
+        (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "PageUp" || e.key === "PageDown")
+      ) {
+        // Position nudges: arrows pan in the X/Z plane, PageUp/Down change height.
+        const light = roomLights.lightsById[selectedLightId];
+        if (!light) return;
+        e.preventDefault();
+        const step = e.shiftKey ? 0.5 : 0.1;
+        const d = { x: 0, y: 0, z: 0 };
+        if (e.key === "ArrowLeft") d.x = -step;
+        else if (e.key === "ArrowRight") d.x = step;
+        else if (e.key === "ArrowUp") d.z = -step;
+        else if (e.key === "ArrowDown") d.z = step;
+        else if (e.key === "PageUp") d.y = step;
+        else if (e.key === "PageDown") d.y = -step;
+        void roomLights.updateLight(
+          selectedLightId,
+          { position: { x: light.position.x + d.x, y: light.position.y + d.y, z: light.position.z + d.z } },
+          { commit: true }
+        );
+      } else if (lightEditorMode === "aim" && (e.key === "q" || e.key === "Q" || e.key === "e" || e.key === "E")) {
+        // Rotate aim around the light's vertical axis (azimuth).
+        const light = roomLights.lightsById[selectedLightId];
+        if (!light || light.type === "point") return;
+        e.preventDefault();
+        const tgt = light.target ?? { x: light.position.x, y: light.position.y - 2, z: light.position.z };
+        const { azimuthDeg, elevationDeg } = targetToAngles(light.position, tgt);
+        const dist = Math.hypot(tgt.x - light.position.x, tgt.y - light.position.y, tgt.z - light.position.z) || 1;
+        const step = (e.shiftKey ? 15 : 5) * (e.key === "q" || e.key === "Q" ? -1 : 1);
+        const target = anglesToTarget(light.position, azimuthDeg + step, elevationDeg, dist);
+        void roomLights.updateLight(selectedLightId, { target }, { commit: true });
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [lightingEnabled, selectedLightId, pendingLightType, roomLights]);
+  }, [lightingEnabled, selectedLightId, pendingLightType, roomLights, lightEditorMode]);
 
   const logicTryInteractRef = useRef(logicDetection.tryInteract);
   logicTryInteractRef.current = logicDetection.tryInteract;
@@ -1902,6 +1952,20 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     [manifest, camera.yawRef]
   );
 
+  // Orient the third-person camera toward a light (card "Focus" + dock list row).
+  const focusCameraOnLight = useCallback(
+    (id: string) => {
+      const light = roomLights.lightsById[id];
+      const pos = avatarStateRef.current?.position;
+      if (!light || !pos) return;
+      const eye = { x: pos.x, y: (pos.y ?? 0) + 1.2, z: pos.z };
+      const { yaw, pitch } = framingAnglesForPoint(eye, light.position);
+      camera.yawRef.current = yaw;
+      camera.pitchRef.current = pitch;
+    },
+    [roomLights.lightsById, camera.yawRef, camera.pitchRef]
+  );
+
   // Force mode: snap student camera to the spotlight anchor on activation
   const spotlight = classroom.state?.spotlight;
   useEffect(() => {
@@ -2004,6 +2068,13 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     () => participantNameMapFromList(participantList),
     [participantList]
   );
+  // Transient "edited by ___" presence for the selected light (decays in ~2.5s).
+  const lightEditedBy = useMemo(() => {
+    if (!selectedLightId) return undefined;
+    const entry = roomLights.recentEditors[selectedLightId];
+    if (!entry || Date.now() - entry.at > 2500) return undefined;
+    return { name: participantNameMap[entry.userId] ?? "Someone", at: entry.at };
+  }, [selectedLightId, roomLights.recentEditors, participantNameMap]);
   const roomObjectTemplatesByIdMap = useMemo(
     () => roomObjectTemplatesById(roomObjectTemplates.templates),
     [roomObjectTemplates.templates]
@@ -2625,10 +2696,27 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       {...(lightingEnabled ? {
         lights: roomLights.lights,
         selectedLightId,
+        lightEditing: lightEditingActive,
         environment: roomEnvironment.environment,
         onSelectLight: (id: string | null) => { setSelectedLightId(id); if (id) setPendingLightType(null); },
         onLightTransform: (id: string, position: { x: number; y: number; z: number }) => { void roomLights.updateLight(id, { position }, { commit: false }); },
         onLightTransformCommit: (id: string, position: { x: number; y: number; z: number }) => { void roomLights.updateLight(id, { position }, { commit: true }); },
+        lightEditorMode,
+        onSetLightEditorMode: setLightEditorMode,
+        onLightUpdate: (id: string, patch: Partial<import("@3dspace/contracts").RoomLight>, commit?: boolean) => { void roomLights.updateLight(id, patch, { commit: commit !== false }); },
+        onDeleteLight: (id: string) => { void roomLights.deleteLight(id); setSelectedLightId((cur) => (cur === id ? null : cur)); },
+        onDuplicateLight: (id: string) => {
+          const src = roomLights.lightsById[id];
+          if (!src) return;
+          const { id: _id, roomId: _roomId, createdByUserId: _by, createdAt: _ca, updatedAt: _ua, ...rest } = src;
+          void roomLights.createLight({
+            ...rest,
+            name: src.name ? `${src.name} copy` : undefined,
+            position: { x: src.position.x + 1, y: src.position.y, z: src.position.z },
+          }).then((copy) => { if (copy) setSelectedLightId(copy.id); });
+        },
+        onFocusLightCamera: focusCameraOnLight,
+        lightEditedBy,
         pendingLightType,
         onPlaceLight: async (position: { x: number; y: number; z: number }) => {
           if (!pendingLightType) return;
@@ -3140,8 +3228,9 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
           setSelectedLightId(null);
         },
         onSelectLight: (id: string | null) => { setSelectedLightId(id); if (id) setPendingLightType(null); },
+        onFocusLight: focusCameraOnLight,
         onUpdateLight: (id: string, patch: Partial<import("@3dspace/contracts").RoomLight>, commit?: boolean) => { void roomLights.updateLight(id, patch, { commit: commit !== false }); },
-        onDeleteLight: (id: string) => { void roomLights.deleteLight(id); },
+        onDeleteLight: (id: string) => { void roomLights.deleteLight(id); setSelectedLightId((cur) => (cur === id ? null : cur)); },
         onUpdateEnvironment: (patch: Partial<import("@3dspace/contracts").RoomEnvironment>, commit?: boolean) => { void roomEnvironment.updateEnvironment(patch, { commit: commit !== false }); },
       } : {})}
     />

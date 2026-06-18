@@ -401,7 +401,15 @@ export function RoomView3D({
   onLightTransformCommit,
   pendingLightType,
   onPlaceLight,
-  onCancelLightPlacement
+  onCancelLightPlacement,
+  lightEditing = false,
+  lightEditorMode,
+  lightEditedBy,
+  onLightUpdate,
+  onSetLightEditorMode,
+  onDeleteLight,
+  onDuplicateLight,
+  onFocusLightCamera
 }: {
   manifest: RoomManifest;
   dynamicWallAnchors?: Anchor[];
@@ -517,6 +525,15 @@ export function RoomView3D({
   pendingLightType?: import("@3dspace/contracts").RoomLightType | null;
   onPlaceLight?: (position: { x: number; y: number; z: number }) => void;
   onCancelLightPlacement?: () => void;
+  /** True while a light is selected for in-world editing; suspends object-layer interaction. */
+  lightEditing?: boolean;
+  lightEditorMode?: import("./lighting/LightControlCard").LightEditorMode;
+  lightEditedBy?: { name: string; at: number } | undefined;
+  onLightUpdate?: (id: string, patch: Partial<RoomLight>, commit?: boolean) => void;
+  onSetLightEditorMode?: (mode: import("./lighting/LightControlCard").LightEditorMode) => void;
+  onDeleteLight?: (id: string) => void;
+  onDuplicateLight?: (id: string) => void;
+  onFocusLightCamera?: (id: string) => void;
 }) {
   const dpr = quality === "high" ? 1.8 : quality === "medium" ? 1.4 : 1;
   const [canvasElement, setCanvasElement] = useState<HTMLCanvasElement | null>(null);
@@ -621,9 +638,17 @@ export function RoomView3D({
             selectedId={selectedLightId ?? null}
             quality={quality}
             interactive
+            {...(lightEditorMode ? { mode: lightEditorMode } : {})}
+            {...(lightEditedBy ? { editedBy: lightEditedBy } : {})}
             {...(onSelectLight ? { onSelect: onSelectLight } : {})}
             {...(onLightTransform ? { onTransform: onLightTransform } : {})}
             {...(onLightTransformCommit ? { onTransformCommit: onLightTransformCommit } : {})}
+            {...(onLightUpdate ? { onUpdate: onLightUpdate } : {})}
+            {...(onSetLightEditorMode ? { onSetMode: onSetLightEditorMode } : {})}
+            {...(onDeleteLight ? { onDelete: onDeleteLight } : {})}
+            {...(onDuplicateLight ? { onDuplicate: onDuplicateLight } : {})}
+            {...(onFocusLightCamera ? { onFocusCamera: onFocusLightCamera } : {})}
+            {...(onSelectLight ? { onDeselect: () => onSelectLight(null) } : {})}
           />
         ) : null}
         <RoomGeometry
@@ -659,7 +684,7 @@ export function RoomView3D({
             selectedObjectId={selectedRoomObjectId ?? null}
             onSelectObject={onSelectRoomObject}
             actions={roomObjectActions}
-            interactionDisabled={Boolean(assetPlacement) || Boolean(buildScene?.buildMode.enabled)}
+            interactionDisabled={Boolean(assetPlacement) || Boolean(buildScene?.buildMode.enabled) || lightEditing}
           />
         ) : null}
         {assetPlacement ? (

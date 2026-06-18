@@ -611,10 +611,13 @@ export function RoomView2D({
           const color = light.enabled ? (light.type === "point" ? "#fde68a" : light.type === "spot" ? "#a5f3fc" : "#d9f99d") : "#888";
           const radius = light.type === "area" ? 3 : 2;
           const rangeR = light.distance ? (light.distance / (manifest.dimensions?.width ?? 30)) * 50 : 0;
+          // Icons only in 2D — light editing is a 3D affordance by design.
+          const label = light.name ?? (light.type === "point" ? "Bulb" : light.type === "spot" ? "Spot" : "Panel");
           return (
-            <g key={light.id} pointerEvents="none">
+            <g key={light.id} style={{ cursor: "help" }}>
+              <title>{`${label} — edit lights in the 3D view`}</title>
               {rangeR > 0 ? (
-                <circle cx={pt.x} cy={pt.y} r={rangeR} fill="none" stroke={color} strokeWidth="0.5" opacity={0.3} />
+                <circle cx={pt.x} cy={pt.y} r={rangeR} fill="none" stroke={color} strokeWidth="0.5" opacity={0.3} pointerEvents="none" />
               ) : null}
               <circle cx={pt.x} cy={pt.y} r={radius} fill={color} opacity={light.enabled ? 0.9 : 0.4} />
             </g>

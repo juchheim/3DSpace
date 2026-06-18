@@ -72,7 +72,9 @@ export const CreateRoomLightRequestSchema = z.object({
   height: z.number().positive().max(LIGHT_MAX_AREA_SIZE).optional(),
 });
 
-export const UpdateRoomLightRequestSchema = CreateRoomLightRequestSchema.partial().omit({ type: true });
+export const UpdateRoomLightRequestSchema = CreateRoomLightRequestSchema.partial()
+  .omit({ type: true })
+  .extend({ enabled: z.boolean().optional() });
 
 const RoomLightUpsertMessageSchema = z.object({
   type: z.literal("room.light.upsert.v1"),

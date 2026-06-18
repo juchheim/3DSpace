@@ -61,7 +61,21 @@ async function createRoom(request: APIRequestContext) {
     name: `Light Lab ${suffix}`,
     freeForAllPassword: FFA_PASSWORD
   });
-  return res.room;
+  return { room: res.room, classId: cls.id };
+}
+
+async function addClassMember(
+  request: APIRequestContext,
+  classId: string,
+  identity: DevIdentity,
+  role: "teacher" | "student" = "teacher"
+) {
+  await postJson(request, `/v1/classes/${classId}/members`, TEACHER, {
+    userId: identity.userId,
+    displayName: identity.displayName,
+    role,
+    status: "active"
+  });
 }
 
 async function joinRoom(page: Page, roomId: string, identity: DevIdentity) {
@@ -84,11 +98,68 @@ async function openLightingTab(page: Page) {
   await expect(page.locator(".build-dock__lighting")).toBeVisible({ timeout: 5_000 });
 }
 
+async function selectFirstLightInList(page: Page) {
+  await expect(page.locator(".light-list__item")).toBeVisible({ timeout: 15_000 });
+  await page.locator(".light-list__item").first().click();
+  // drei <Html occlude> keeps the card in the DOM but may report as not "visible".
+  await expect(page.getByTestId("light-control-card")).toBeAttached({ timeout: 10_000 });
+}
+
+function lightCard(page: Page) {
+  return page.getByTestId("light-control-card");
+}
+
+/** Blur dock inputs so room keyboard shortcuts reach the window listener. */
+async function focusRoomKeyboard(page: Page) {
+  await page.locator(".build-dock__section-label").first().click();
+}
+
+async function setCardIntensity(page: Page, value: number) {
+  await lightCard(page).getByLabel("Intensity").evaluate((el, v) => {
+    const input = el as HTMLInputElement;
+    input.value = String(v);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("pointerup", { bubbles: true }));
+  }, value);
+}
+
+async function setCardColor(page: Page, hex: string) {
+  await lightCard(page).locator('input[type="color"]').evaluate((el, color) => {
+    const input = el as HTMLInputElement;
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    setter?.call(input, color);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  }, hex);
+}
+
+async function clickOccluded(testId: string, page: Page) {
+  await page.getByTestId(testId).evaluate((el) => (el as HTMLButtonElement).click());
+}
+
+async function createPointLight(
+  request: APIRequestContext,
+  roomId: string,
+  overrides?: Partial<{ intensity: number; color: string; position: { x: number; y: number; z: number } }>
+) {
+  return postJson<{ light: { id: string; intensity: number; color: string; position: { x: number; y: number; z: number } } }>(
+    request,
+    `/v1/rooms/${roomId}/lights`,
+    TEACHER,
+    {
+      type: "point",
+      position: overrides?.position ?? { x: 1, y: 2, z: 1 },
+      color: overrides?.color ?? "#ffffff",
+      intensity: overrides?.intensity ?? 3,
+    }
+  );
+}
+
 // ── API-only tests (no browser) ───────────────────────────────────────────────
 
 test.describe("lighting API", () => {
   test("CRUD: create, list, update, delete a point light", async ({ request }) => {
-    const room = await createRoom(request);
+    const { room } = await createRoom(request);
     const roomId = room.id;
 
     // Create
@@ -128,7 +199,7 @@ test.describe("lighting API", () => {
   });
 
   test("rejects spot light without target", async ({ request }) => {
-    const room = await createRoom(request);
+    const { room } = await createRoom(request);
     const res = await request.post(`${API_URL}/v1/rooms/${room.id}/lights`, {
       data: { type: "spot", position: { x: 0, y: 2, z: 0 }, color: "#ffffff", intensity: 3, angleDeg: 30 },
       headers: authHeaders(TEACHER)
@@ -137,7 +208,7 @@ test.describe("lighting API", () => {
   });
 
   test("area light: rejects castShadow=true", async ({ request }) => {
-    const room = await createRoom(request);
+    const { room } = await createRoom(request);
     const res = await request.post(`${API_URL}/v1/rooms/${room.id}/lights`, {
       data: {
         type: "area",
@@ -154,7 +225,7 @@ test.describe("lighting API", () => {
   });
 
   test("environment: get default and update", async ({ request }) => {
-    const room = await createRoom(request);
+    const { room } = await createRoom(request);
 
     // Default
     const defaultEnv = await getJson<{ environment: { enabled: boolean } }>(
@@ -163,20 +234,20 @@ test.describe("lighting API", () => {
     expect(defaultEnv.environment.enabled).toBe(false);
 
     // Update
-    const patched = await patchJson<{ environment: { enabled: boolean; exposure: number } }>(
+    const patched = await patchJson<{ environment: { enabled: boolean; exposure: { exposure: number } } }>(
       request,
       `/v1/rooms/${room.id}/lighting/environment`,
       TEACHER,
-      { enabled: true, exposure: 1.5 }
+      { enabled: true, exposure: { exposure: 1.5 } }
     );
     expect(patched.environment.enabled).toBe(true);
-    expect(patched.environment.exposure).toBe(1.5);
+    expect(patched.environment.exposure.exposure).toBe(1.5);
   });
 
   test("flag off returns 503", async ({ request }) => {
     // This test verifies the route guards. Since the flag IS on in playwright.config.ts,
     // we test the response shape rather than a 503. A 200 means the flag is active.
-    const room = await createRoom(request);
+    const { room } = await createRoom(request);
     const res = await request.get(`${API_URL}/v1/rooms/${room.id}/lights`, { headers: authHeaders(TEACHER) });
     expect(res.status()).toBe(200);
   });
@@ -186,7 +257,7 @@ test.describe("lighting API", () => {
 
 test.describe("world builder lighting UI", () => {
   test("lighting tab is visible in build mode", async ({ page, request }) => {
-    const room = await createRoom(request);
+    const { room } = await createRoom(request);
     await joinRoom(page, room.id, TEACHER);
     await openLightingTab(page);
     await expect(page.getByRole("button", { name: /bulb/i })).toBeVisible();
@@ -195,7 +266,7 @@ test.describe("world builder lighting UI", () => {
   });
 
   test("adding a light via API shows in the list after refresh", async ({ page, request }) => {
-    const room = await createRoom(request);
+    const { room } = await createRoom(request);
 
     // Pre-create a light via API
     await postJson<{ light: { id: string } }>(
@@ -212,24 +283,149 @@ test.describe("world builder lighting UI", () => {
     await expect(page.locator(".light-list__item")).toBeVisible({ timeout: 15_000 });
   });
 
-  test("selecting a light shows the inspector", async ({ page, request }) => {
-    const room = await createRoom(request);
-    await postJson<{ light: { id: string } }>(
-      request,
-      `/v1/rooms/${room.id}/lights`,
-      TEACHER,
-      { type: "spot", position: { x: 1, y: 2, z: 1 }, target: { x: 0, y: 0, z: 0 }, color: "#ffffff", intensity: 3, angleDeg: 30 }
-    );
+  test("selecting a light shows the in-world control card (not a dock inspector)", async ({ page, request }) => {
+    const { room } = await createRoom(request);
+    await createPointLight(request, room.id);
 
     await joinRoom(page, room.id, TEACHER);
     await openLightingTab(page);
-    await expect(page.locator(".light-list__item")).toBeVisible({ timeout: 15_000 });
-    await page.locator(".light-list__item").first().click();
-    await expect(page.locator(".light-inspector")).toBeVisible({ timeout: 5_000 });
+    await selectFirstLightInList(page);
+
+    await expect(page.getByTestId("light-control-card")).toBeAttached();
+    await expect(page.locator(".light-inspector")).toHaveCount(0);
+    await expect(page.getByTestId("light-control-modes")).toBeAttached();
+  });
+
+  test("in-world card: intensity keyboard nudge persists", async ({ page, request }) => {
+    const { room } = await createRoom(request);
+    const created = await createPointLight(request, room.id, { intensity: 3 });
+    const lightId = created.light.id;
+
+    await joinRoom(page, room.id, TEACHER);
+    await openLightingTab(page);
+    await selectFirstLightInList(page);
+
+    // 3D gizmo dragging is unreliable in Playwright — drive via keyboard instead.
+    await focusRoomKeyboard(page);
+    await page.keyboard.press("]");
+    await page.keyboard.press("]");
+
+    await expect.poll(async () => {
+      const listed = await getJson<{ lights: Array<{ id: string; intensity: number }> }>(
+        request, `/v1/rooms/${room.id}/lights`, TEACHER
+      );
+      return listed.lights.find((l) => l.id === lightId)?.intensity;
+    }).toBe(4);
+  });
+
+  test("in-world card: position arrow nudge persists", async ({ page, request }) => {
+    const { room } = await createRoom(request);
+    const created = await createPointLight(request, room.id, { position: { x: 1, y: 2, z: 1 } });
+    const lightId = created.light.id;
+
+    await joinRoom(page, room.id, TEACHER);
+    await openLightingTab(page);
+    await selectFirstLightInList(page);
+
+    await focusRoomKeyboard(page);
+    await page.keyboard.press("ArrowRight");
+
+    await expect.poll(async () => {
+      const listed = await getJson<{ lights: Array<{ id: string; position: { x: number } }> }>(
+        request, `/v1/rooms/${room.id}/lights`, TEACHER
+      );
+      return listed.lights.find((l) => l.id === lightId)?.position.x;
+    }).toBeCloseTo(1.1, 1);
+  });
+
+  test("in-world card: color and intensity edits persist on reload", async ({ page, request }) => {
+    const { room } = await createRoom(request);
+    const created = await createPointLight(request, room.id, { intensity: 2, color: "#ffffff" });
+    const lightId = created.light.id;
+
+    await joinRoom(page, room.id, TEACHER);
+    await openLightingTab(page);
+    await selectFirstLightInList(page);
+
+    await setCardColor(page, "#ff0000");
+    await setCardIntensity(page, 7);
+
+    await expect.poll(async () => {
+      const listed = await getJson<{ lights: Array<{ id: string; color: string; intensity: number }> }>(
+        request, `/v1/rooms/${room.id}/lights`, TEACHER
+      );
+      const light = listed.lights.find((l) => l.id === lightId);
+      return light ? `${light.color}:${light.intensity}` : "";
+    }).toBe("#ff0000:7");
+
+    await page.reload({ waitUntil: "commit" });
+    await expect(page.getByTestId(`participant-${TEACHER.userId}`)).toBeVisible({ timeout: 60_000 });
+    await openLightingTab(page);
+    await selectFirstLightInList(page);
+
+    const afterReload = await getJson<{ lights: Array<{ id: string; color: string; intensity: number }> }>(
+      request, `/v1/rooms/${room.id}/lights`, TEACHER
+    );
+    const light = afterReload.lights.find((l) => l.id === lightId);
+    expect(light?.color).toBe("#ff0000");
+    expect(light?.intensity).toBe(7);
+  });
+
+  test("in-world card: toggle off and delete", async ({ page, request }) => {
+    const { room } = await createRoom(request);
+    const created = await createPointLight(request, room.id);
+    const lightId = created.light.id;
+
+    await joinRoom(page, room.id, TEACHER);
+    await openLightingTab(page);
+    await selectFirstLightInList(page);
+
+    await clickOccluded("light-control-toggle", page);
+
+    await expect.poll(async () => {
+      const listed = await getJson<{ lights: Array<{ id: string; enabled: boolean }> }>(
+        request, `/v1/rooms/${room.id}/lights`, TEACHER
+      );
+      return listed.lights.find((l) => l.id === lightId)?.enabled;
+    }).toBe(false);
+
+    await clickOccluded("light-control-delete", page);
+
+    await expect.poll(async () => {
+      const listed = await getJson<{ lights: Array<{ id: string }> }>(
+        request, `/v1/rooms/${room.id}/lights`, TEACHER
+      );
+      return listed.lights.some((l) => l.id === lightId);
+    }).toBe(false);
+    await expect(page.getByTestId("light-control-card")).toHaveCount(0);
+  });
+
+  test("second user sees teacher's in-world card edits via API", async ({ page, request, browser }) => {
+    const { room, classId } = await createRoom(request);
+    await addClassMember(request, classId, STUDENT);
+    const created = await createPointLight(request, room.id, { intensity: 2 });
+    const lightId = created.light.id;
+
+    await joinRoom(page, room.id, TEACHER);
+    await openLightingTab(page);
+    await selectFirstLightInList(page);
+
+    await setCardIntensity(page, 9);
+
+    await expect.poll(async () => {
+      const studentCtx = await browser.newContext();
+      const studentRequest = studentCtx.request;
+      const listed = await getJson<{ lights: Array<{ id: string; intensity: number }> }>(
+        studentRequest, `/v1/rooms/${room.id}/lights`, STUDENT
+      );
+      const intensity = listed.lights.find((l) => l.id === lightId)?.intensity;
+      await studentCtx.close();
+      return intensity;
+    }).toBe(9);
   });
 
   test("environment panel renders when environment section is present", async ({ page, request }) => {
-    const room = await createRoom(request);
+    const { room } = await createRoom(request);
     await joinRoom(page, room.id, TEACHER);
     await openLightingTab(page);
     // Environment panel should be visible in the lighting tab
@@ -237,7 +433,7 @@ test.describe("world builder lighting UI", () => {
   });
 
   test("light persists across page reload", async ({ page, request }) => {
-    const room = await createRoom(request);
+    const { room } = await createRoom(request);
 
     // Create light via API
     await postJson<{ light: { id: string } }>(
@@ -259,7 +455,8 @@ test.describe("world builder lighting UI", () => {
   });
 
   test("second user sees light via API listing", async ({ request, browser }) => {
-    const room = await createRoom(request);
+    const { room, classId } = await createRoom(request);
+    await addClassMember(request, classId, STUDENT);
 
     // Teacher creates a light
     const created = await postJson<{ light: { id: string } }>(

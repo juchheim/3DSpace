@@ -9,7 +9,6 @@ import {
   type WorldAssetObjectRole,
   type WorldAssetPlacementKind
 } from "@3dspace/contracts";
-import { LightInspector } from "./lighting/LightInspector";
 import { EnvironmentPanel } from "./lighting/EnvironmentPanel";
 import { BUILD_MATERIAL_OPTIONS } from "./buildMaterials";
 import {
@@ -315,6 +314,7 @@ export function BuildControls({
   roomEnvironment,
   onAddLight,
   onSelectLight,
+  onFocusLight,
   onUpdateLight,
   onDeleteLight,
   onUpdateEnvironment
@@ -380,6 +380,8 @@ export function BuildControls({
   roomEnvironment?: import("@3dspace/contracts").RoomEnvironment | null;
   onAddLight?: (type: import("@3dspace/contracts").RoomLightType) => void;
   onSelectLight?: (id: string | null) => void;
+  /** Frames the camera on the light (dock list acts as a navigator into the 3D editor). */
+  onFocusLight?: (id: string) => void;
   onUpdateLight?: (id: string, patch: Partial<import("@3dspace/contracts").RoomLight>, commit?: boolean) => void;
   onDeleteLight?: (id: string) => void;
   onUpdateEnvironment?: (patch: Partial<import("@3dspace/contracts").RoomEnvironment>, commit?: boolean) => void;
@@ -1110,7 +1112,7 @@ export function BuildControls({
               <div className="build-dock__lighting">
                 {/* Lighting coachmark */}
                 <p className="build-dock__coachmark build-dock__coachmark--lighting">
-                  Click <strong>Add Light</strong> to place a light. Select it to adjust color, intensity, and position. Enable <strong>Environment</strong>{" "}to override the room&apos;s global lighting.
+                  Click <strong>Add Light</strong> to place a light. Click a light in the 3D view (or a row below) to open its controls. Enable <strong>Environment</strong>{" "}to override the room&apos;s global lighting.
                 </p>
 
                 {/* Add Light tiles */}
@@ -1143,7 +1145,7 @@ export function BuildControls({
                       <div
                         key={light.id}
                         className={`light-list__item${selectedLightId === light.id ? " is-selected" : ""}`}
-                        onClick={() => onSelectLight?.(light.id)}
+                        onClick={() => { onSelectLight?.(light.id); onFocusLight?.(light.id); }}
                       >
                         <span className="light-list__name">{light.name ?? (light.type === "point" ? "Bulb" : light.type === "spot" ? "Spot" : "Panel")}</span>
                         <button
@@ -1167,17 +1169,8 @@ export function BuildControls({
                   </div>
                 ) : null}
 
-                {/* Selected light inspector */}
-                {selectedLightId && lights ? (() => {
-                  const sel = lights.find((l) => l.id === selectedLightId);
-                  return sel ? (
-                    <LightInspector
-                      light={sel}
-                      onUpdate={(patch, commit) => onUpdateLight?.(sel.id, patch, commit)}
-                      onDelete={() => onDeleteLight?.(sel.id)}
-                    />
-                  ) : null;
-                })() : null}
+                {/* Per-light editing now lives on the light itself in the 3D view
+                    (LightControlCard + Move/Aim/Shape gizmos), not in this dock. */}
 
                 {/* Environment editor */}
                 {roomEnvironment ? (

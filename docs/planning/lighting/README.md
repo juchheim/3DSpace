@@ -35,8 +35,8 @@ entity layer (mirroring `PlacedWorldAsset`); the environment is a per-room
 
 - **Lighting system: implemented** behind `ENABLE_WORLD_BUILDER_LIGHTING`
   (placeable point/spot/area lights + per-room environment).
-- **In-World Light Editor: planned — not started.** Reworks how a placed light is
-  *adjusted* (today's docked form is limited and split-attention); moves all
-  per-light controls into the 3D scene, attached to the light. Reuses the shipped
-  lighting stack and the same feature flag — no new persistence or API surface.
+- **In-World Light Editor: implemented (Phases 0–6).** Per-light adjustment lives in the
+  3D scene on the selected light (Move/Aim/Shape gizmos + tethered Verse/lobby-themed
+  control card). The dock keeps Add/list/Environment only. Reuses the shipped lighting
+  stack and the same feature flag — no new persistence or API surface.
 - Branch target: `feature/world-building` (active building branch).
