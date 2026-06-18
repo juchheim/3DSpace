@@ -13,6 +13,13 @@ const TAP_MAX_DURATION_MS = 200;
 type WorldPointerEvent = PointerEvent & {
   __wbCameraDragBlockedBy?: string;
 };
+type WorldBuilderWindow = Window & {
+  __wbActiveLightGizmoDrag?: boolean;
+};
+
+function isLightGizmoDragActive() {
+  return typeof window !== "undefined" && Boolean((window as WorldBuilderWindow).__wbActiveLightGizmoDrag);
+}
 
 function isInteractivePointerTarget(target: EventTarget | null) {
   if (!(target instanceof Element)) return false;
@@ -31,6 +38,7 @@ export function useThirdPersonCamera(input: { viewMode: ViewMode }) {
   const lastPointerRef = useRef({ x: 0, y: 0 });
   const pointerDownTimeRef = useRef(0);
   const lockedRef = useRef(false);
+  const lightGizmoSuppressedRef = useRef(false);
 
   const consumeClickSuppress = useCallback(() => {
     const heldTooLong = Date.now() - pointerDownTimeRef.current > TAP_MAX_DURATION_MS;
@@ -89,6 +97,18 @@ export function useThirdPersonCamera(input: { viewMode: ViewMode }) {
           suppressClickRef.current = true;
         }
         lastPointerRef.current = { x: event.clientX, y: event.clientY };
+        if (isLightGizmoDragActive()) {
+          if (!lightGizmoSuppressedRef.current) {
+            lightGizmoSuppressedRef.current = true;
+            console.info("[3DSpace pointer]", {
+              action: "camera-drag-suppressed",
+              reason: "active-light-move-gizmo-drag",
+              x: Math.round(event.clientX),
+              y: Math.round(event.clientY)
+            });
+          }
+          return;
+        }
         if (!lockedRef.current) {
           yawRef.current -= deltaX * YAW_SENSITIVITY;
           pitchRef.current = Math.min(MAX_PITCH, Math.max(MIN_PITCH, pitchRef.current + deltaY * PITCH_SENSITIVITY));
@@ -98,6 +118,7 @@ export function useThirdPersonCamera(input: { viewMode: ViewMode }) {
       function endDrag(event: PointerEvent) {
         if (!draggingRef.current) return;
         draggingRef.current = false;
+        lightGizmoSuppressedRef.current = false;
         target.classList.remove("dragging");
         if (target.hasPointerCapture(event.pointerId)) {
           target.releasePointerCapture(event.pointerId);

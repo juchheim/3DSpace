@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-18 (camera orbit guard + pointer logs)
+Last updated: 2026-06-18 (targeted camera orbit block)
+
+- **2026-06-18:** **Targeted camera orbit block** — replaced blanket `interactionDisabledRef` with gizmo raycast on native `pointerdown` capture; tags `__wbCameraDragBlockedBy` so camera orbit skips only real PivotControls axis hits (`disableSliders` too). Pushed `3f2c418` on `verse`.
 
 - **2026-06-18:** **Camera orbit guard + pointer logs** — `useThirdPersonCamera.interactionDisabledRef` wired from `RoomClient` during light edit to suppress orbit drag; `console.info` pointer diagnostics on light glyph/card/move gizmo and camera drag paths. Pushed `0af3561` on `verse`.
 

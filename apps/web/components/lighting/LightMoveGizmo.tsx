@@ -10,12 +10,20 @@ type Vec3 = { x: number; y: number; z: number };
 type WorldPointerEvent = PointerEvent & {
   __wbCameraDragBlockedBy?: string;
 };
+type WorldBuilderWindow = Window & {
+  __wbActiveLightGizmoDrag?: boolean;
+};
 
 /** Shift-snap step for in-world position drags. */
 const SNAP_STEP = 0.25;
 /** Screen-space size (≈px) of the gizmo when `fixed`. */
 const GIZMO_SCALE = 100;
 const AXIS_LABELS = ["x", "y", "z"] as const;
+
+function setLightGizmoDragActive(active: boolean) {
+  if (typeof window === "undefined") return;
+  (window as WorldBuilderWindow).__wbActiveLightGizmoDrag = active;
+}
 
 /**
  * A translate-only 3-axis move gizmo (drei PivotControls) for the selected
@@ -84,7 +92,7 @@ export function LightMoveGizmo({
       );
       const raycaster = hitRaycasterRef.current;
       raycaster.setFromCamera(pointerNdcRef.current, camera);
-      const hit = raycaster.intersectObject(pivot, true).find((intersection) => intersection.object.visible);
+      const hit = raycaster.intersectObject(pivot, true)[0];
       if (!hit) return;
 
       (event as WorldPointerEvent).__wbCameraDragBlockedBy = "light-move-gizmo-hit";
@@ -111,6 +119,7 @@ export function LightMoveGizmo({
     const resetPivotHitState = () => {
       window.setTimeout(() => {
         draggingRef.current = false;
+        setLightGizmoDragActive(false);
         setDragging(false);
         setPivotVersion((version) => version + 1);
       }, 0);
@@ -154,6 +163,7 @@ export function LightMoveGizmo({
         const axis = AXIS_LABELS[props.axis] ?? "x";
         dragAxisRef.current = axis;
         draggingRef.current = true;
+        setLightGizmoDragActive(true);
         setDragging(true);
         console.info("[3DSpace pointer]", {
           action: "light-move-drag-start",
@@ -191,6 +201,7 @@ export function LightMoveGizmo({
       }}
       onDragEnd={() => {
         draggingRef.current = false;
+        setLightGizmoDragActive(false);
         setDragging(false);
         setPivotVersion((version) => version + 1);
         console.info("[3DSpace pointer]", {
