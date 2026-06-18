@@ -31,7 +31,7 @@ describe("avatar body routes", () => {
     });
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body.items).toHaveLength(12);
+    expect(body.items).toHaveLength(13);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "azure-vanguard")).toBe(true);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "azure-vanguard-hd")).toBe(true);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "sit-test")).toBe(true);
@@ -44,6 +44,7 @@ describe("avatar body routes", () => {
     expect(body.items.some((entry: { slug: string }) => entry.slug === "student-female")).toBe(true);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "student-male-2")).toBe(true);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "student-female-2")).toBe(true);
+    expect(body.items.some((entry: { slug: string }) => entry.slug === "polygonal-professor")).toBe(true);
     await app.close();
   });
 
@@ -187,6 +188,21 @@ describe("avatar body routes", () => {
     });
     expect(patch.statusCode).toBe(200);
     expect(patch.json().avatar.bodySlug).toBe("student-female-2");
+    await app.close();
+  });
+
+  it("PATCH /v1/users/me/body accepts polygonal-professor from the catalog", async () => {
+    const app = await buildBodiesApp();
+    await ensureUser(app);
+
+    const patch = await app.inject({
+      method: "PATCH",
+      url: "/v1/users/me/body",
+      headers: authHeaders(userId, "Alex Rivera"),
+      payload: { bodySlug: "polygonal-professor" }
+    });
+    expect(patch.statusCode).toBe(200);
+    expect(patch.json().avatar.bodySlug).toBe("polygonal-professor");
     await app.close();
   });
 
