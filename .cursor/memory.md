@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-18 (camera-oriented DOM move gizmo)
+Last updated: 2026-06-18 (light card checkbox CSS)
+
+- **2026-06-18:** **Light card checkbox CSS** — `label.light-card__check` selector + input margin/flex-shrink fix for toggle alignment in in-world panel. Pushed `edad5c8` on `verse`.
 
 - **2026-06-18:** **Camera-oriented DOM move gizmo** — DOM `Html` arrows now rotate each frame from camera-projected world XYZ (`computeAxisScreenStyles` + `useFrame`); drag uses projected screen axes. Pushed `416ed5e` on `verse`.
 
