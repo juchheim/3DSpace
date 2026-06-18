@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-18 (light control card layout)
+Last updated: 2026-06-18 (light control card anchor tweak)
+
+- **2026-06-18:** **Light control card anchor tweak** — raised anchor +0.55 m above fixture (left offset retained); removed `Html` `occlude` for clearer panel placement. Pushed `9646eac` on `verse`.
 
 - **2026-06-18:** **Light control card layout** — `LightControlCard` anchors at the fixture and offsets left via `cardLeftTransform` so the panel no longer covers the selected light or move gizmo axes. Pushed `ea1d423` on `verse`.
 
