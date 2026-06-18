@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-18 (custom light move gizmo)
+Last updated: 2026-06-18 (DOM light move gizmo)
+
+- **2026-06-18:** **DOM light move gizmo** — replaced 3D arrow meshes with screen-space `Html` axis buttons; window-level pointer tracking + `setPointerCapture` so drags don't get lost; tags `__wbCameraDragBlockedBy` on pointerdown. Pushed `0dcfbb4` on `verse`.
 
 - **2026-06-18:** **Custom light move gizmo** — replaced drei `PivotControls` with custom fixed-scale XYZ arrow meshes + explicit hit targets; screen-projected axis drag, native pointerdown capture for camera block, `__wbActiveLightGizmoDrag` retained. Pushed `ddd65c8` on `verse`.
 

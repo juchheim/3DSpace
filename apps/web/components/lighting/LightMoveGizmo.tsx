@@ -2,7 +2,8 @@
 
 import { Html } from "@react-three/drei";
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { Vector2 } from "three";
+import { useFrame, useThree } from "@react-three/fiber";
+import { Vector2, Vector3, type Camera, type OrthographicCamera, type PerspectiveCamera } from "three";
 import { snap } from "../../lib/lightEditorMath";
 
 type Vec3 = { x: number; y: number; z: number };
@@ -18,10 +19,27 @@ type WorldBuilderWindow = Window & {
 const SNAP_STEP = 0.25;
 /** Pointer distance that maps to one world unit during an arrow drag. */
 const PIXELS_PER_WORLD_UNIT = 80;
-const AXIS_DEFS: Record<Axis, { color: string; label: string; angleDeg: number; screenAxis: Vector2 }> = {
-  x: { color: "#ff3653", label: "X", angleDeg: 0, screenAxis: new Vector2(1, 0) },
-  y: { color: "#8adb00", label: "Y", angleDeg: -90, screenAxis: new Vector2(0, -1) },
-  z: { color: "#2c8fff", label: "Z", angleDeg: 45, screenAxis: new Vector2(Math.SQRT1_2, Math.SQRT1_2) },
+const CENTER_PX = 92;
+const ARROW_ANCHOR_X = 10;
+const ARROW_ANCHOR_Y = 15;
+const ARROW_ORIGIN_OFFSET_PX = 8;
+const AXIS_PROJECTION_DISTANCE = 1.5;
+const AXIS_DEFS: Record<Axis, { color: string; label: string; worldDir: Vector3 }> = {
+  x: { color: "#ff3653", label: "X", worldDir: new Vector3(1, 0, 0) },
+  y: { color: "#8adb00", label: "Y", worldDir: new Vector3(0, 1, 0) },
+  z: { color: "#2c8fff", label: "Z", worldDir: new Vector3(0, 0, 1) },
+};
+const FALLBACK_SCREEN_AXES: Record<Axis, Vector2> = {
+  x: new Vector2(1, 0),
+  y: new Vector2(0, -1),
+  z: new Vector2(Math.SQRT1_2, Math.SQRT1_2),
+};
+
+type AxisScreenStyle = {
+  angleDeg: number;
+  offsetX: number;
+  offsetY: number;
+  screenAxis: Vector2;
 };
 
 function setLightGizmoDragActive(active: boolean) {
@@ -36,10 +54,59 @@ function positionWithAxisDelta(position: Vec3, axis: Axis, delta: number, snapTo
   return next;
 }
 
+function projectToScreen(point: Vector3, camera: Camera, size: { width: number; height: number }) {
+  const projected = point.clone().project(camera);
+  return new Vector2((projected.x * 0.5 + 0.5) * size.width, (-projected.y * 0.5 + 0.5) * size.height);
+}
+
+function isPerspectiveCamera(camera: Camera): camera is PerspectiveCamera {
+  return (camera as PerspectiveCamera).isPerspectiveCamera === true;
+}
+
+function isOrthographicCamera(camera: Camera): camera is OrthographicCamera {
+  return (camera as OrthographicCamera).isOrthographicCamera === true;
+}
+
+function cameraDistanceScale(camera: Camera, worldPosition: Vector3) {
+  if (isPerspectiveCamera(camera)) {
+    const cameraSpace = worldPosition.clone().applyMatrix4(camera.matrixWorldInverse);
+    return Math.max(0.35, Math.abs(cameraSpace.z) * 0.18);
+  }
+  if (isOrthographicCamera(camera)) {
+    return Math.max(0.35, 1 / camera.zoom);
+  }
+  return 1;
+}
+
+function computeAxisScreenStyles(position: Vec3, camera: Camera, size: { width: number; height: number }): Record<Axis, AxisScreenStyle> {
+  const origin = new Vector3(position.x, position.y, position.z);
+  const screenOrigin = projectToScreen(origin, camera, size);
+  const projectionDistance = AXIS_PROJECTION_DISTANCE * cameraDistanceScale(camera, origin);
+
+  return (["x", "y", "z"] as Axis[]).reduce<Record<Axis, AxisScreenStyle>>((styles, axis) => {
+    const projectedTarget = projectToScreen(
+      origin.clone().addScaledVector(AXIS_DEFS[axis].worldDir, projectionDistance),
+      camera,
+      size
+    );
+    const projectedDelta = projectedTarget.sub(screenOrigin);
+    const fallbackAxis = FALLBACK_SCREEN_AXES[axis];
+    const screenAxis = projectedDelta.lengthSq() > 1e-4 ? projectedDelta.normalize() : fallbackAxis.clone();
+    styles[axis] = {
+      angleDeg: (Math.atan2(screenAxis.y, screenAxis.x) * 180) / Math.PI,
+      offsetX: screenAxis.x * ARROW_ORIGIN_OFFSET_PX,
+      offsetY: screenAxis.y * ARROW_ORIGIN_OFFSET_PX,
+      screenAxis,
+    };
+    return styles;
+  }, {} as Record<Axis, AxisScreenStyle>);
+}
+
 function AxisButton({
   axis,
   active,
   hovered,
+  screenStyle,
   onPointerDown,
   onPointerEnter,
   onPointerLeave,
@@ -47,6 +114,7 @@ function AxisButton({
   axis: Axis;
   active: boolean;
   hovered: boolean;
+  screenStyle: AxisScreenStyle;
   onPointerDown: (axis: Axis, event: ReactPointerEvent<HTMLButtonElement>) => void;
   onPointerEnter: (axis: Axis) => void;
   onPointerLeave: (axis: Axis) => void;
@@ -64,8 +132,8 @@ function AxisButton({
       onPointerLeave={() => onPointerLeave(axis)}
       style={{
         position: "absolute",
-        left: 76,
-        top: 76,
+        left: CENTER_PX - ARROW_ANCHOR_X,
+        top: CENTER_PX - ARROW_ANCHOR_Y,
         width: 92,
         height: 30,
         padding: 0,
@@ -73,8 +141,8 @@ function AxisButton({
         background: "transparent",
         cursor: "grab",
         pointerEvents: "auto",
-        transform: `rotate(${def.angleDeg}deg)`,
-        transformOrigin: "10px 15px",
+        transform: `translate(${screenStyle.offsetX}px, ${screenStyle.offsetY}px) rotate(${screenStyle.angleDeg}deg)`,
+        transformOrigin: `${ARROW_ANCHOR_X}px ${ARROW_ANCHOR_Y}px`,
         touchAction: "none",
         userSelect: "none",
       }}
@@ -118,7 +186,7 @@ function AxisButton({
           lineHeight: "18px",
           fontWeight: 800,
           textAlign: "center",
-          transform: `rotate(${-def.angleDeg}deg)`,
+          transform: `rotate(${-screenStyle.angleDeg}deg)`,
         }}
       >
         {def.label}
@@ -142,6 +210,7 @@ export function LightMoveGizmo({
   onTransform: (pos: Vec3) => void;
   onTransformCommit: (pos: Vec3) => void;
 }) {
+  const { camera, size } = useThree();
   const draggingRef = useRef(false);
   const shiftRef = useRef(false);
   const lastPos = useRef<Vec3>(position);
@@ -157,6 +226,9 @@ export function LightMoveGizmo({
   const [livePosition, setLivePosition] = useState<Vec3>(position);
   const [hoveredAxis, setHoveredAxis] = useState<Axis | null>(null);
   const [dragAxis, setDragAxis] = useState<Axis | null>(null);
+  const [axisScreenStyles, setAxisScreenStyles] = useState<Record<Axis, AxisScreenStyle>>(() =>
+    computeAxisScreenStyles(position, camera, size)
+  );
 
   useEffect(() => {
     onTransformRef.current = onTransform;
@@ -178,6 +250,22 @@ export function LightMoveGizmo({
       window.removeEventListener("keyup", onKey);
     };
   }, []);
+
+  useFrame((state) => {
+    const next = computeAxisScreenStyles(lastPos.current, state.camera, state.size);
+    setAxisScreenStyles((current) => {
+      const changed = (["x", "y", "z"] as Axis[]).some((axis) => {
+        const prev = current[axis];
+        const candidate = next[axis];
+        return (
+          Math.abs(prev.angleDeg - candidate.angleDeg) > 0.5 ||
+          Math.abs(prev.offsetX - candidate.offsetX) > 0.25 ||
+          Math.abs(prev.offsetY - candidate.offsetY) > 0.25
+        );
+      });
+      return changed ? next : current;
+    });
+  });
 
   const endDrag = useCallback(() => {
     if (!draggingRef.current) return;
@@ -203,7 +291,7 @@ export function LightMoveGizmo({
     event.preventDefault();
     event.stopPropagation();
     const pointerDelta = new Vector2(event.clientX, event.clientY).sub(drag.startPointer);
-    const worldDelta = pointerDelta.dot(AXIS_DEFS[drag.axis].screenAxis) / PIXELS_PER_WORLD_UNIT;
+    const worldDelta = pointerDelta.dot(axisScreenStyles[drag.axis].screenAxis) / PIXELS_PER_WORLD_UNIT;
     const next = positionWithAxisDelta(drag.startPosition, drag.axis, worldDelta, shiftRef.current);
     lastPos.current = next;
     setLivePosition(next);
@@ -320,6 +408,7 @@ export function LightMoveGizmo({
             axis={axis}
             active={dragAxis === axis}
             hovered={hoveredAxis === axis}
+            screenStyle={axisScreenStyles[axis]}
             onPointerDown={startDrag}
             onPointerEnter={setHoveredAxis}
             onPointerLeave={(leftAxis) => setHoveredAxis((current) => (current === leftAxis && dragAxis == null ? null : current))}
