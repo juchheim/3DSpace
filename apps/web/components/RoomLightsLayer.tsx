@@ -81,6 +81,8 @@ function SpotLightInstance({
         castShadow={castShadow}
         shadow-mapSize-width={castShadow ? shadowMapSize : undefined}
         shadow-mapSize-height={castShadow ? shadowMapSize : undefined}
+        shadow-bias={-0.0005}
+        shadow-normalBias={0.02}
       />
     </>
   );
@@ -226,6 +228,8 @@ export function RoomLightsLayer({
               castShadow={castShadow}
               shadow-mapSize-width={castShadow ? shadowMapSize : undefined}
               shadow-mapSize-height={castShadow ? shadowMapSize : undefined}
+              shadow-bias={-0.0005}
+              shadow-normalBias={0.02}
             />
           );
         }

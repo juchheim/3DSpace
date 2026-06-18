@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-18 (light card shadow checkbox inline styles)
+Last updated: 2026-06-18 (light card checkbox CSS sizing)
+
+- **2026-06-18:** **Light card checkbox CSS sizing** — `.light-card__check input[type="checkbox"]` resets width/flex/padding/border; removed inline styles from component. Pushed `c5a9adc` on `verse`.
 
 - **2026-06-18:** **Light card shadow checkbox inline styles** — cast-shadow toggle uses inline flex/margin on `LightControlCard` (reverted CSS-only approach). Pushed `e66cb14` on `verse`.
 

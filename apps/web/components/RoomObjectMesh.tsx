@@ -6,6 +6,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type RefOb
 import { Group, LoopRepeat, Object3D, Plane, Vector3 } from "three";
 import type { Pose, RoomManifest, RoomObject, RoomObjectTemplate } from "@3dspace/contracts";
 import { snapPosition, snapScale, snapYaw } from "../lib/roomObjectInteraction";
+import { useEnableShadows } from "../lib/useEnableShadows";
 import { renderProcedural } from "./roomObjectProcedurals";
 
 type RoomObjectActions = {
@@ -93,6 +94,8 @@ export function RoomObjectMesh({
   const { camera, raycaster, pointer, gl } = useThree();
   const rootRef = useRef<Group>(null);
   const exportRootRef = useRef<Group>(null);
+  // Let placed objects block light and drop shadows on the floor.
+  useEnableShadows(exportRootRef);
   const dragPlane = useMemo(() => new Plane(new Vector3(0, 1, 0), 0), []);
   const intersection = useMemo(() => new Vector3(), []);
   const dragOffsetRef = useRef(new Vector3());

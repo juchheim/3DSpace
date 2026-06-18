@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { useThree } from "@react-three/fiber";
+import type { Group } from "three";
 import type { BuildPiece } from "@3dspace/contracts";
 import type { ThreeEvent } from "@react-three/fiber";
 import {
@@ -11,6 +12,7 @@ import {
   isBuildRealLightKind
 } from "@3dspace/room-engine";
 import { computeImageFloorRegions } from "../lib/imageFloorRegions";
+import { useEnableShadows } from "../lib/useEnableShadows";
 import { ImageFloorRegionTopLayer } from "./ImageFloorRegionTopLayer";
 import { BuildPieceMesh } from "./BuildPieceMesh";
 
@@ -63,8 +65,12 @@ export function BuildLayer({
   // Connected image-floor regions: image spans a fixed 4×4 cell canvas from each region's min corner.
   const imageFloorRegions = useMemo(() => computeImageFloorRegions(pieces), [pieces]);
 
+  const groupRef = useRef<Group>(null);
+  // Placed build pieces block light and drop shadows on the floor.
+  useEnableShadows(groupRef);
+
   return (
-    <group>
+    <group ref={groupRef}>
       <ImageFloorRegionTopLayer regions={imageFloorRegions} pieces={pieces} />
       {pieces.map((piece) => (
         <BuildPieceMesh
