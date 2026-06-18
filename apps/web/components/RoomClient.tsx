@@ -1154,9 +1154,8 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   const buildPlacementSuspended = activeBuildCategory === "lighting" || Boolean(pendingLightType);
   // Mirror `wb-placement-active`: while a light is selected in the Lighting tab,
   // flag the body so the in-world editor's pointer events win over avatar-move /
-  // camera-orbit, and the object/board layers can disable their interactions.
+  // object/board layers can disable their interactions.
   const lightEditingActive = lightingEnabled && activeBuildCategory === "lighting" && selectedLightId != null;
-  camera.interactionDisabledRef.current = lightEditingActive;
   useEffect(() => {
     document.body.classList.toggle("wb-light-editing", lightEditingActive);
     return () => document.body.classList.remove("wb-light-editing");

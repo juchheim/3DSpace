@@ -10,6 +10,10 @@ const MAX_PITCH = 1.22;
 const DRAG_CLICK_THRESHOLD_PX = 5;
 const TAP_MAX_DURATION_MS = 200;
 
+type WorldPointerEvent = PointerEvent & {
+  __wbCameraDragBlockedBy?: string;
+};
+
 function isInteractivePointerTarget(target: EventTarget | null) {
   if (!(target instanceof Element)) return false;
   return Boolean(
@@ -23,7 +27,6 @@ export function useThirdPersonCamera(input: { viewMode: ViewMode }) {
   const yawRef = useRef(0);
   const pitchRef = useRef(0.32);
   const draggingRef = useRef(false);
-  const interactionDisabledRef = useRef(false);
   const suppressClickRef = useRef(false);
   const lastPointerRef = useRef({ x: 0, y: 0 });
   const pointerDownTimeRef = useRef(0);
@@ -43,10 +46,11 @@ export function useThirdPersonCamera(input: { viewMode: ViewMode }) {
 
       function onPointerDown(event: PointerEvent) {
         if (event.button !== 0) return;
-        if (interactionDisabledRef.current) {
+        const blockedBy = (event as WorldPointerEvent).__wbCameraDragBlockedBy;
+        if (blockedBy) {
           console.info("[3DSpace pointer]", {
             action: "camera-drag-suppressed",
-            reason: "light-editor-active",
+            reason: blockedBy,
             target: event.target instanceof Element ? event.target.tagName.toLowerCase() : "unknown",
             x: Math.round(event.clientX),
             y: Math.round(event.clientY)
@@ -121,5 +125,5 @@ export function useThirdPersonCamera(input: { viewMode: ViewMode }) {
     [input.viewMode]
   );
 
-  return { yawRef, pitchRef, bind, consumeClickSuppress, lockedRef, interactionDisabledRef };
+  return { yawRef, pitchRef, bind, consumeClickSuppress, lockedRef };
 }

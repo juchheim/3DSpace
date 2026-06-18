@@ -2,10 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { PivotControls, Html } from "@react-three/drei";
-import { Matrix4, Vector3 } from "three";
+import { useThree } from "@react-three/fiber";
+import { Matrix4, Raycaster, Vector2, Vector3, type Group } from "three";
 import { snap } from "../../lib/lightEditorMath";
 
 type Vec3 = { x: number; y: number; z: number };
+type WorldPointerEvent = PointerEvent & {
+  __wbCameraDragBlockedBy?: string;
+};
 
 /** Shift-snap step for in-world position drags. */
 const SNAP_STEP = 0.25;
@@ -28,6 +32,8 @@ export function LightMoveGizmo({
   onTransform: (pos: Vec3) => void;
   onTransformCommit: (pos: Vec3) => void;
 }) {
+  const { camera, gl } = useThree();
+  const pivotRef = useRef<Group>(null);
   const draggingRef = useRef(false);
   const shiftRef = useRef(false);
   const lastPos = useRef<Vec3>(position);
@@ -36,6 +42,8 @@ export function LightMoveGizmo({
   const [pivotVersion, setPivotVersion] = useState(0);
   const dragAxisRef = useRef<"x" | "y" | "z" | null>(null);
   const lastDragLogAtRef = useRef(0);
+  const hitRaycasterRef = useRef(new Raycaster());
+  const pointerNdcRef = useRef(new Vector2());
 
   // Track Shift for snapping (PivotControls doesn't pass the pointer event).
   useEffect(() => {
@@ -47,6 +55,53 @@ export function LightMoveGizmo({
       window.removeEventListener("keyup", onKey);
     };
   }, []);
+
+  // The room camera also listens to native canvas pointer events. Mark native
+  // pointerdown events that hit the gizmo so camera panning declines only for
+  // real axis hits while React Three Fiber still receives the same event.
+  useEffect(() => {
+    const canvas = gl.domElement;
+    const onCanvasPointerDownCapture = (event: PointerEvent) => {
+      if (event.button !== 0) return;
+      const pivot = pivotRef.current;
+      if (!pivot) return;
+
+      const rect = canvas.getBoundingClientRect();
+      if (
+        rect.width <= 0 ||
+        rect.height <= 0 ||
+        event.clientX < rect.left ||
+        event.clientX > rect.right ||
+        event.clientY < rect.top ||
+        event.clientY > rect.bottom
+      ) {
+        return;
+      }
+
+      pointerNdcRef.current.set(
+        ((event.clientX - rect.left) / rect.width) * 2 - 1,
+        -((event.clientY - rect.top) / rect.height) * 2 + 1
+      );
+      const raycaster = hitRaycasterRef.current;
+      raycaster.setFromCamera(pointerNdcRef.current, camera);
+      const hit = raycaster.intersectObject(pivot, true).find((intersection) => intersection.object.visible);
+      if (!hit) return;
+
+      (event as WorldPointerEvent).__wbCameraDragBlockedBy = "light-move-gizmo-hit";
+      console.info("[3DSpace pointer]", {
+        action: "light-move-gizmo-native-hit",
+        target: "light-move-gizmo",
+        object: hit.object.name || hit.object.type,
+        x: Math.round(event.clientX),
+        y: Math.round(event.clientY)
+      });
+    };
+
+    canvas.addEventListener("pointerdown", onCanvasPointerDownCapture, { capture: true });
+    return () => {
+      canvas.removeEventListener("pointerdown", onCanvasPointerDownCapture, { capture: true });
+    };
+  }, [camera, gl]);
 
   // If the user clicks other 3D/HTML elements while a light is selected, Drei's
   // PivotControls can occasionally keep stale internal hover/drag hit state.
@@ -82,11 +137,13 @@ export function LightMoveGizmo({
 
   return (
     <PivotControls
+      ref={pivotRef}
       key={pivotVersion}
       autoTransform={false}
       matrix={matrix}
       disableRotations
       disableScaling
+      disableSliders
       activeAxes={[true, true, true]}
       depthTest={false}
       fixed

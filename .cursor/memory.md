@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-18 (light editor interaction guards)
+Last updated: 2026-06-18 (camera orbit guard + pointer logs)
+
+- **2026-06-18:** **Camera orbit guard + pointer logs** — `useThirdPersonCamera.interactionDisabledRef` wired from `RoomClient` during light edit to suppress orbit drag; `console.info` pointer diagnostics on light glyph/card/move gizmo and camera drag paths. Pushed `0af3561` on `verse`.
 
 - **2026-06-18:** **Light editor interaction guards** — glyphs/editor only when Lighting tab active (`lightControlsActive`); `wb-light-editing` blocks avatar/world-host/wall-anchor Html; floor double-click + local avatar click suspended during edit; `LightMoveGizmo` resets PivotControls on global pointerup/blur; card gap 72px, zIndex 21. Pushed `fc16c97` on `verse`.
 
