@@ -364,12 +364,11 @@ export function LightControlCard({
         {light.type === "area" ? (
           <p className="light-card__note">Soft panels can&apos;t cast shadows.</p>
         ) : (
-          <label className="light-card__check" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <label className="light-card__check">
             <input
               type="checkbox"
               checked={light.castShadow}
               onChange={(e) => onUpdate({ castShadow: e.target.checked }, true)}
-              style={{ margin: 0, flexShrink: 0 }}
             />
             Cast shadows
           </label>

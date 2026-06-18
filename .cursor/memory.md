@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-18 (light card checkbox CSS)
+Last updated: 2026-06-18 (light card shadow checkbox inline styles)
+
+- **2026-06-18:** **Light card shadow checkbox inline styles** — cast-shadow toggle uses inline flex/margin on `LightControlCard` (reverted CSS-only approach). Pushed `e66cb14` on `verse`.
 
 - **2026-06-18:** **Light card checkbox CSS** — `label.light-card__check` selector + input margin/flex-shrink fix for toggle alignment in in-world panel. Pushed `edad5c8` on `verse`.
 

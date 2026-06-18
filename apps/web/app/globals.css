@@ -12726,7 +12726,15 @@ body.dixr-dark::before {
   color: var(--bd-tx, #cdd8ec);
   cursor: pointer;
 }
-.light-card__check input { accent-color: var(--bd-acc, #4678b4); margin: 0; }
+.light-card__check input[type="checkbox"] {
+  width: auto;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  accent-color: var(--bd-acc, #4678b4);
+}
 .light-card__note { margin: 0; font-size: 11px; color: var(--bd-tx-d, #4a5468); font-style: italic; }
 
 .light-card__readouts {
