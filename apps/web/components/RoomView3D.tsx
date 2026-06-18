@@ -624,7 +624,7 @@ export function RoomView3D({
         camera={{ position: [0, 12, 14], fov: 48 }}
         dpr={dpr}
         gl={{ antialias: quality !== "low", powerPreference: "high-performance" }}
-        shadows={lightingEnabled && quality !== "low" ? "soft" : false}
+        shadows={lightingEnabled ? "soft" : false}
         onCreated={({ gl }) => {
           glRef.current = gl as unknown as WebGLRenderer;
           setCanvasElement(gl.domElement);

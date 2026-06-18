@@ -132,14 +132,20 @@ export function RoomLightsLayer({
     return selected ? [...activeLights, selected] : activeLights;
   }, [activeLights, lights, selectedId]);
 
+  // Casting shadows is an explicit per-light opt-in, so honor it on every
+  // quality tier. The budget still caps how many cast at once; when the tier
+  // budgets zero (low), allow a small cap so the toggle isn't a no-op.
+  const maxShadowCasters = budget.maxShadowCasters > 0 ? budget.maxShadowCasters : 2;
+  // Low tier budgets a 0px map; fall back to a usable size when a light opts in.
+  const shadowMapSize = budget.shadowMapSize > 0 ? budget.shadowMapSize : 1024;
+
   // From the active set, pick shadow-casters (point/spot only, nearest first)
   const shadowCasterIds = useMemo(() => {
-    if (budget.maxShadowCasters === 0) return new Set<string>();
     const eligible = activeLights
       .filter((l) => l.castShadow && l.type !== "area")
-      .slice(0, budget.maxShadowCasters);
+      .slice(0, maxShadowCasters);
     return new Set(eligible.map((l) => l.id));
-  }, [activeLights, budget.maxShadowCasters]);
+  }, [activeLights, maxShadowCasters]);
 
   return (
     <>
@@ -209,7 +215,6 @@ export function RoomLightsLayer({
       {/* Actual Three.js lights — active subset (+ pinned selected light) */}
       {renderedLights.map((light) => {
         const castShadow = shadowCasterIds.has(light.id);
-        const shadowMapSize = budget.shadowMapSize;
         const pos: [number, number, number] = [
           light.position.x,
           light.position.y,

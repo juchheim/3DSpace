@@ -6,7 +6,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type RefOb
 import { Group, LoopRepeat, Object3D, Plane, Vector3 } from "three";
 import type { Pose, RoomManifest, RoomObject, RoomObjectTemplate } from "@3dspace/contracts";
 import { snapPosition, snapScale, snapYaw } from "../lib/roomObjectInteraction";
-import { useEnableShadows } from "../lib/useEnableShadows";
+import { applyShadows, useEnableShadows } from "../lib/useEnableShadows";
 import { renderProcedural } from "./roomObjectProcedurals";
 
 type RoomObjectActions = {
@@ -36,7 +36,11 @@ function RoomObjectGltf({
   animated?: boolean;
 }) {
   const { scene, animations } = useGLTF(assetUrl);
-  const model = useMemo(() => scene.clone(true) as Group, [scene]);
+  const model = useMemo(() => {
+    const cloned = scene.clone(true) as Group;
+    applyShadows(cloned);
+    return cloned;
+  }, [scene]);
   const animRootRef = useRef<Group>(null);
   const { actions, names } = useAnimations(animations, animRootRef);
 

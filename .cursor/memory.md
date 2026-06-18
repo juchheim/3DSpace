@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-18 (scene shadows + shape gizmo)
+Last updated: 2026-06-18 (shape handle drag snapshot fix)
+
+- **2026-06-18:** **Shape handle drag snapshot fix** — `LightShapeGizmo` `onStartDrag` factory captures baseline at pointerdown; commit uses `lastDelta` on release. Pushed `4a54409` on `verse`.
 
 - **2026-06-18:** **Scene shadows + shape gizmo** — `useEnableShadows` on `BuildLayer` + `RoomObjectMesh` so placed geometry casts/receives shadows; spot shadow bias tuned; `LightShapeGizmo` reworked to DOM Html handles (screen-axis drag, `__wbActiveLightGizmoDrag`). Pushed `1765823` on `verse`.
 

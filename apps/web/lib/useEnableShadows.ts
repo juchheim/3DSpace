@@ -3,23 +3,31 @@ import type { Mesh, Object3D } from "three";
 
 /**
  * Marks every Mesh under `root` as a shadow caster + receiver so placed
- * geometry (build pieces, furniture objects) blocks point/spot light and
- * shows shadows on the floor. Without this, lights pass straight through.
+ * geometry blocks point/spot light and shows shadows on the floor. Without
+ * this, lights pass straight through.
+ */
+export function applyShadows(root: Object3D): void {
+  root.traverse((obj: Object3D) => {
+    const mesh = obj as Mesh;
+    if (mesh.isMesh) {
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+    }
+  });
+}
+
+/**
+ * Hook form for groups of *synchronously*-rendered meshes (declarative R3F
+ * geometry). Runs in a layout effect after every render.
  *
- * Runs in a layout effect with no dep array: re-applies after every render,
- * which matters because GLB models stream in async (Suspense resolves → the
- * parent re-renders) and their meshes only exist on a later pass.
+ * NOTE: this does NOT reliably reach GLB meshes loaded under Suspense — when a
+ * suspended child resolves, React re-renders from the Suspense boundary down,
+ * not necessarily this parent. Call {@link applyShadows} on the cloned scene
+ * inside the loader component for GLBs instead.
  */
 export function useEnableShadows(ref: RefObject<Object3D | null>): void {
   useLayoutEffect(() => {
     const root = ref.current;
-    if (!root) return;
-    root.traverse((obj: Object3D) => {
-      const mesh = obj as Mesh;
-      if (mesh.isMesh) {
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-      }
-    });
+    if (root) applyShadows(root);
   });
 }

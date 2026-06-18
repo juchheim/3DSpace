@@ -24,6 +24,7 @@ import { edgeOpeningFrameParts } from "../lib/buildEdgeOpeningMesh";
 import { rampGlbRotationY } from "../lib/buildRampMesh";
 import { wallMeshTransform } from "../lib/buildWallMesh";
 import type { ImageFloorRegion } from "../lib/imageFloorRegions";
+import { applyShadows } from "../lib/useEnableShadows";
 import { LampGlbMesh, LAMP_BULB_NATIVE_Y, LAMP_GLB_NATIVE_H, LAMP_TARGET_HEIGHT } from "./LampGlbMesh";
 import { FuturisticLightingCeilingMesh } from "./FuturisticLightingCeilingMesh";
 import { FuturisticCeilingMesh } from "./FuturisticCeilingMesh";
@@ -120,7 +121,11 @@ function ArborCeilingGlbMesh({
   config: (typeof ARBOR_CEILING_CONFIG)[ArborCeilingKind];
 }) {
   const { scene } = useGLTF(config.url);
-  const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
+  const model = useMemo(() => {
+    const cloned = SkeletonUtils.clone(scene) as Group;
+    applyShadows(cloned);
+    return cloned;
+  }, [scene]);
   const { centerX, centerZ, y, scale, rotationY } = arborCeilingWorldTransform(piece, config);
 
   return (
@@ -136,7 +141,11 @@ function ArborCeilingGlbMesh({
  */
 function RampGlbMesh({ piece }: { piece: BuildPiece }) {
   const { scene } = useGLTF(RAMP_GLB_URL);
-  const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
+  const model = useMemo(() => {
+    const cloned = SkeletonUtils.clone(scene) as Group;
+    applyShadows(cloned);
+    return cloned;
+  }, [scene]);
 
   const footprint = buildCellFootprint(piece.cell.ix, piece.cell.iz);
   const centerX = (footprint.minX + footprint.maxX) / 2;
@@ -164,7 +173,11 @@ function RampGlbMesh({ piece }: { piece: BuildPiece }) {
  */
 function FloorGlbMesh({ piece }: { piece: BuildPiece }) {
   const { scene } = useGLTF(FLOOR_GLB_URL);
-  const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
+  const model = useMemo(() => {
+    const cloned = SkeletonUtils.clone(scene) as Group;
+    applyShadows(cloned);
+    return cloned;
+  }, [scene]);
 
   const footprint = buildCellFootprint(piece.cell.ix, piece.cell.iz);
   const centerX = (footprint.minX + footprint.maxX) / 2;
@@ -219,7 +232,11 @@ function WallGlbMesh({
   nativeH: number;
 }) {
   const { scene } = useGLTF(glbUrl);
-  const model = useMemo(() => SkeletonUtils.clone(scene) as Group, [scene]);
+  const model = useMemo(() => {
+    const cloned = SkeletonUtils.clone(scene) as Group;
+    applyShadows(cloned);
+    return cloned;
+  }, [scene]);
 
   const wall = wallMeshTransform(piece);
   const edge = piece.edge as BuildPieceEdge;
