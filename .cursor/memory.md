@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-18 (light position race fix)
+Last updated: 2026-06-18 (light move gizmo sync fix)
+
+- **2026-06-18:** **Light move gizmo sync fix** — `LightMoveGizmo` remounts `PivotControls` via `pivotVersion` key when position syncs externally or after drag end, so the gizmo stays aligned with typed/remote edits. Pushed `bab4c20` on `verse`.
 
 - **2026-06-18:** **Light position edit race fix** — `useRoomLights` now keeps `lightsByIdRef` + `updateSeqRef` so rapid committed position edits don't lose the latest value when PATCH responses resolve out of order; `LightControlCard` XYZ inputs are controlled drafts with `latestPositionRef` for axis commits. Test: `useRoomLights.test.ts`. Pushed `53db998` on `verse`.
 

@@ -34,6 +34,11 @@ const TYPE_META: Record<RoomLight["type"], { icon: string; tint: string; placeho
   spot: { icon: "◉", tint: "#a5f3fc", placeholder: "Spot", label: "Spot" },
   area: { icon: "▣", tint: "#d9f99d", placeholder: "Panel", label: "Panel" },
 };
+const CARD_LEFT_GAP_PX = 18;
+
+function cardLeftTransform(dx: number, dy: number, scale: number) {
+  return `translate(calc(${dx}px - 100% - ${CARD_LEFT_GAP_PX}px), calc(${dy}px - 50%)) scale(${scale})`;
+}
 
 /** A labeled slider row with a tabular-nums readout. */
 function SliderRow({
@@ -123,7 +128,7 @@ export function LightControlCard({
     if (rect.top < m) dy = m - rect.top;
     else if (rect.bottom > window.innerHeight - m) dy = window.innerHeight - m - rect.bottom;
     shift.current = { x: shift.current.x + dx, y: shift.current.y + dy };
-    el.style.transform = `translate(${shift.current.x}px, ${shift.current.y}px) scale(${scale})`;
+    el.style.transform = cardLeftTransform(shift.current.x, shift.current.y, scale);
   });
 
   // Show the "edited by" pip for ~2s after each remote upsert, bumping on each.
@@ -152,8 +157,9 @@ export function LightControlCard({
   const target = light.target ?? { x: 0, y: 0, z: 0 };
   const { azimuthDeg, elevationDeg } = targetToAngles(light.position, target);
 
-  // Anchored above the fixture so the card never covers the light it controls.
-  const anchor: [number, number, number] = [light.position.x, light.position.y + 0.55, light.position.z];
+  // Anchored at the fixture; CSS transform places the panel to the left so it
+  // does not cover the selected light or move gizmo axes.
+  const anchor: [number, number, number] = [light.position.x, light.position.y, light.position.z];
 
   function commitPositionAxis(axis: "x" | "y" | "z", raw: string, commit: boolean) {
     if (raw.trim() === "") return;
@@ -166,11 +172,12 @@ export function LightControlCard({
   }
 
   return (
-    <Html position={anchor} center occlude style={{ pointerEvents: "auto" }} zIndexRange={[40, 0]}>
+    <Html position={anchor} occlude style={{ pointerEvents: "auto" }} zIndexRange={[40, 0]}>
       <div
         ref={wrapperRef}
         className="light-card"
         data-testid="light-control-card"
+        style={{ transform: cardLeftTransform(0, 0, 1), transformOrigin: "right center" }}
         onPointerDown={(e) => e.stopPropagation()}
         onPointerMove={(e) => e.stopPropagation()}
         onPointerUp={(e) => e.stopPropagation()}
