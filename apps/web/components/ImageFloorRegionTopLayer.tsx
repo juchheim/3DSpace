@@ -78,7 +78,7 @@ function ImageFloorRegionTop({
   useEffect(() => () => geometry.dispose(), [geometry]);
 
   return (
-    <mesh geometry={geometry}>
+    <mesh geometry={geometry} receiveShadow>
       <meshStandardMaterial map={texture} roughness={0.85} metalness={0.05} />
     </mesh>
   );

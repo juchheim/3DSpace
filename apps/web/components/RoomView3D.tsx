@@ -2025,6 +2025,16 @@ function SceneAtmosphere({
             intensity={sun?.intensity ?? 1}
             position={[sunPos.x, sunPos.y, sunPos.z]}
             castShadow={sun?.castShadow !== false}
+            shadow-mapSize-width={2048}
+            shadow-mapSize-height={2048}
+            shadow-camera-left={-30}
+            shadow-camera-right={30}
+            shadow-camera-top={30}
+            shadow-camera-bottom={-30}
+            shadow-camera-near={0.5}
+            shadow-camera-far={120}
+            shadow-bias={-0.0005}
+            shadow-normalBias={0.02}
           />
         ) : null}
 
@@ -2065,6 +2075,17 @@ function SceneAtmosphere({
         color={l.directionalColor}
         intensity={l.directionalIntensity}
         position={l.directionalPosition}
+        castShadow={lightingEnabled === true}
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+        shadow-camera-left={-30}
+        shadow-camera-right={30}
+        shadow-camera-top={30}
+        shadow-camera-bottom={-30}
+        shadow-camera-near={0.5}
+        shadow-camera-far={120}
+        shadow-bias={-0.0005}
+        shadow-normalBias={0.02}
       />
       {l.directionalFillIntensity !== undefined && l.directionalFillIntensity > 0 ? (
         <directionalLight
