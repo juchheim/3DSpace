@@ -402,6 +402,7 @@ export function RoomView3D({
   pendingLightType,
   onPlaceLight,
   onCancelLightPlacement,
+  lightControlsActive = false,
   lightEditing = false,
   lightEditorMode,
   lightEditedBy,
@@ -525,6 +526,8 @@ export function RoomView3D({
   pendingLightType?: import("@3dspace/contracts").RoomLightType | null;
   onPlaceLight?: (position: { x: number; y: number; z: number }) => void;
   onCancelLightPlacement?: () => void;
+  /** True while the World Builder Lighting tab is active; shows light glyphs/editor. */
+  lightControlsActive?: boolean;
   /** True while a light is selected for in-world editing; suspends object-layer interaction. */
   lightEditing?: boolean;
   lightEditorMode?: import("./lighting/LightControlCard").LightEditorMode;
@@ -635,12 +638,12 @@ export function RoomView3D({
         {lightingEnabled && lights && lights.length > 0 ? (
           <RoomLightsLayer
             lights={lights}
-            selectedId={selectedLightId ?? null}
+            selectedId={lightControlsActive ? (selectedLightId ?? null) : null}
             quality={quality}
-            interactive
+            interactive={lightControlsActive}
             {...(lightEditorMode ? { mode: lightEditorMode } : {})}
             {...(lightEditedBy ? { editedBy: lightEditedBy } : {})}
-            {...(onSelectLight ? { onSelect: onSelectLight } : {})}
+            {...(lightControlsActive && onSelectLight ? { onSelect: onSelectLight } : {})}
             {...(onLightTransform ? { onTransform: onLightTransform } : {})}
             {...(onLightTransformCommit ? { onTransformCommit: onLightTransformCommit } : {})}
             {...(onLightUpdate ? { onUpdate: onLightUpdate } : {})}
@@ -654,6 +657,7 @@ export function RoomView3D({
         <RoomGeometry
           manifest={mergedManifest}
           onMoveToPoint={onMoveToPoint}
+          interactionDisabled={lightEditing}
           wallObjects={wallObjects}
           spotlightAnchorId={spotlight?.anchorId ?? placementHighlightAnchorId ?? undefined}
           dynamicBoardPlacement={dynamicBoardPlacement}
@@ -817,7 +821,7 @@ export function RoomView3D({
                 recordingActive={recordingActive}
                 {...(() => { const r = getReaction?.(participant.id); return r ? { reaction: r } : {}; })()}
                 {...(() => { const m = getAudioMode?.(participant.id); return m ? { audioMode: m.mode, whisperRadiusMeters: m.radiusMeters } : {}; })()}
-                {...(isLocal && onSelfClick && !firstPerson ? { onClick: onSelfClick } : {})}
+                {...(isLocal && onSelfClick && !firstPerson && !lightEditing ? { onClick: onSelfClick } : {})}
                 {...(isLocal && firstPerson ? { hidden: true } : {})}
                 {...(isLocal && localParticipantSittingPhase !== "none" ? {
                   sittingPhase: localParticipantSittingPhase,
@@ -2154,6 +2158,7 @@ function PerimeterCylinder({ color }: { color: string }) {
 function RoomGeometry({
   manifest,
   onMoveToPoint,
+  interactionDisabled = false,
   wallObjects,
   spotlightAnchorId,
   dynamicBoardPlacement,
@@ -2163,6 +2168,7 @@ function RoomGeometry({
 }: {
   manifest: RoomManifest;
   onMoveToPoint(point: { x: number; z: number }): void;
+  interactionDisabled?: boolean;
   wallObjects: WallObject[];
   spotlightAnchorId?: string | undefined;
   dynamicBoardPlacement?: DynamicBoardPlacementConfig | null | undefined;
@@ -2205,6 +2211,7 @@ function RoomGeometry({
             roughness={floorRoughness}
             opacity={floorOpacity}
             onMoveToPoint={onMoveToPoint}
+            interactionDisabled={interactionDisabled}
           />
         }
       >
@@ -2215,6 +2222,7 @@ function RoomGeometry({
             textureUrl={floorTextureUrl}
             roughness={floorRoughness}
             onMoveToPoint={onMoveToPoint}
+            interactionDisabled={interactionDisabled}
           />
         ) : (
           <FloorMesh
@@ -2224,6 +2232,7 @@ function RoomGeometry({
             roughness={floorRoughness}
             opacity={floorOpacity}
             onMoveToPoint={onMoveToPoint}
+            interactionDisabled={interactionDisabled}
           />
         )}
       </Suspense>
@@ -2574,16 +2583,19 @@ function DomeCeilingMesh({
 
 // ── Floor helpers ─────────────────────────────────────────────────────────────
 
-function FloorMesh({ width, depth, color, roughness, opacity = 1, onMoveToPoint }: {
+function FloorMesh({ width, depth, color, roughness, opacity = 1, onMoveToPoint, interactionDisabled = false }: {
   width: number; depth: number; color: string; roughness: number; opacity?: number;
   onMoveToPoint(point: { x: number; z: number }): void;
+  interactionDisabled?: boolean;
 }) {
   return (
     <mesh
       rotation={[-Math.PI / 2, 0, 0]}
       position={[0, -0.02, 0]}
       receiveShadow
-      onDoubleClick={(e) => { e.stopPropagation(); onMoveToPoint({ x: e.point.x, z: e.point.z }); }}
+      {...(!interactionDisabled
+        ? { onDoubleClick: (e) => { e.stopPropagation(); onMoveToPoint({ x: e.point.x, z: e.point.z }); } }
+        : {})}
     >
       <planeGeometry args={[width, depth]} />
       <meshStandardMaterial color={color} roughness={roughness} transparent={opacity < 1} opacity={opacity} />
@@ -2592,9 +2604,10 @@ function FloorMesh({ width, depth, color, roughness, opacity = 1, onMoveToPoint 
 }
 
 /** Loads the floor texture via useLoader (Suspense) so it is guaranteed present when rendered. */
-function FloorMeshTextured({ width, depth, textureUrl, roughness, onMoveToPoint }: {
+function FloorMeshTextured({ width, depth, textureUrl, roughness, onMoveToPoint, interactionDisabled = false }: {
   width: number; depth: number; textureUrl: string; roughness: number;
   onMoveToPoint(point: { x: number; z: number }): void;
+  interactionDisabled?: boolean;
 }) {
   const { gl } = useThree();
   const t = useLoader(TextureLoader, textureUrl);
@@ -2608,7 +2621,9 @@ function FloorMeshTextured({ width, depth, textureUrl, roughness, onMoveToPoint 
       rotation={[-Math.PI / 2, 0, 0]}
       position={[0, -0.02, 0]}
       receiveShadow
-      onDoubleClick={(e) => { e.stopPropagation(); onMoveToPoint({ x: e.point.x, z: e.point.z }); }}
+      {...(!interactionDisabled
+        ? { onDoubleClick: (e) => { e.stopPropagation(); onMoveToPoint({ x: e.point.x, z: e.point.z }); } }
+        : {})}
     >
       <planeGeometry args={[width, depth]} />
       <meshStandardMaterial map={t} roughness={roughness} />

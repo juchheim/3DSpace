@@ -34,7 +34,7 @@ const TYPE_META: Record<RoomLight["type"], { icon: string; tint: string; placeho
   spot: { icon: "◉", tint: "#a5f3fc", placeholder: "Spot", label: "Spot" },
   area: { icon: "▣", tint: "#d9f99d", placeholder: "Panel", label: "Panel" },
 };
-const CARD_LEFT_GAP_PX = 36;
+const CARD_LEFT_GAP_PX = 72;
 
 function cardLeftTransform(dx: number, dy: number, scale: number) {
   return `translate(calc(${dx}px - 100% - ${CARD_LEFT_GAP_PX}px), calc(${dy}px - 50%)) scale(${scale})`;
@@ -172,7 +172,7 @@ export function LightControlCard({
   }
 
   return (
-    <Html position={anchor} style={{ pointerEvents: "auto" }} zIndexRange={[40, 0]}>
+    <Html position={anchor} style={{ pointerEvents: "auto" }} zIndexRange={[21, 0]}>
       <div
         ref={wrapperRef}
         className="light-card"

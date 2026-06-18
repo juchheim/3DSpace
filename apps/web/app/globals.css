@@ -4702,7 +4702,16 @@ body.wb-placement-active .room-object-html * {
 body.wb-light-editing .wall-object-html,
 body.wb-light-editing .wall-object-html *,
 body.wb-light-editing .room-object-html,
-body.wb-light-editing .room-object-html * {
+body.wb-light-editing .room-object-html *,
+body.wb-light-editing .avatar-nameplate,
+body.wb-light-editing .avatar-nameplate *,
+body.wb-light-editing .avatar-video-card,
+body.wb-light-editing .avatar-video-card *,
+body.wb-light-editing .avatar-reaction,
+body.wb-light-editing .world-host-nameplate,
+body.wb-light-editing .world-host-nameplate *,
+body.wb-light-editing .wall-anchor-label-html,
+body.wb-light-editing .wall-anchor-label-html * {
   pointer-events: none !important;
 }
 

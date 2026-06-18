@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-18 (light control card anchor tweak)
+Last updated: 2026-06-18 (light control card gap)
+
+- **2026-06-18:** **Light control card gap** — `CARD_LEFT_GAP_PX` 18→36 so panel clears move gizmo handles. Pushed `a7d8d8d` on `verse`.
 
 - **2026-06-18:** **Light control card anchor tweak** — raised anchor +0.55 m above fixture (left offset retained); removed `Html` `occlude` for clearer panel placement. Pushed `9646eac` on `verse`.
 

@@ -141,8 +141,9 @@ export function RoomLightsLayer({
 
   return (
     <>
-      {/* Glyphs — all lights, not just active */}
-      {lights.map((light) => (
+      {/* Glyphs — all lights, not just active. Only visible/clickable while
+          the Lighting tab is active; actual illumination still renders below. */}
+      {interactive ? lights.map((light) => (
         <LightGlyph
           key={light.id}
           position={light.position}
@@ -152,7 +153,7 @@ export function RoomLightsLayer({
           enabled={light.enabled}
           onClick={() => onSelect?.(light.id === selectedId ? null : light.id)}
         />
-      ))}
+      )) : null}
 
       {/* Selected-light editor: move gizmo (mode "move") + attached card */}
       {interactive && selectedId ? (() => {

@@ -2696,6 +2696,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
       {...(lightingEnabled ? {
         lights: roomLights.lights,
         selectedLightId,
+        lightControlsActive: buildMode.enabled && activeBuildCategory === "lighting",
         lightEditing: lightEditingActive,
         environment: roomEnvironment.environment,
         onSelectLight: (id: string | null) => { setSelectedLightId(id); if (id) setPendingLightType(null); },

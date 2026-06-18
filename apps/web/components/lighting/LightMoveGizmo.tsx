@@ -45,6 +45,28 @@ export function LightMoveGizmo({
     };
   }, []);
 
+  // If the user clicks other 3D/HTML elements while a light is selected, Drei's
+  // PivotControls can occasionally keep stale internal hover/drag hit state.
+  // Resetting on global pointer release/cancel makes the selected-light axes
+  // recover immediately without needing a deselect/reselect cycle.
+  useEffect(() => {
+    const resetPivotHitState = () => {
+      window.setTimeout(() => {
+        draggingRef.current = false;
+        setDragging(false);
+        setPivotVersion((version) => version + 1);
+      }, 0);
+    };
+    window.addEventListener("pointerup", resetPivotHitState, true);
+    window.addEventListener("pointercancel", resetPivotHitState, true);
+    window.addEventListener("blur", resetPivotHitState);
+    return () => {
+      window.removeEventListener("pointerup", resetPivotHitState, true);
+      window.removeEventListener("pointercancel", resetPivotHitState, true);
+      window.removeEventListener("blur", resetPivotHitState);
+    };
+  }, []);
+
   // Keep the controlled matrix in sync with external position changes while idle.
   useEffect(() => {
     if (draggingRef.current) return;
