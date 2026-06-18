@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-18 (light move gizmo sync fix)
+Last updated: 2026-06-18 (light control card layout)
+
+- **2026-06-18:** **Light control card layout** — `LightControlCard` anchors at the fixture and offsets left via `cardLeftTransform` so the panel no longer covers the selected light or move gizmo axes. Pushed `ea1d423` on `verse`.
 
 - **2026-06-18:** **Light move gizmo sync fix** — `LightMoveGizmo` remounts `PivotControls` via `pivotVersion` key when position syncs externally or after drag end, so the gizmo stays aligned with typed/remote edits. Pushed `bab4c20` on `verse`.
 

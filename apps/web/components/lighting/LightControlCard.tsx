@@ -157,9 +157,9 @@ export function LightControlCard({
   const target = light.target ?? { x: 0, y: 0, z: 0 };
   const { azimuthDeg, elevationDeg } = targetToAngles(light.position, target);
 
-  // Anchored at the fixture; CSS transform places the panel to the left so it
-  // does not cover the selected light or move gizmo axes.
-  const anchor: [number, number, number] = [light.position.x, light.position.y, light.position.z];
+  // Anchored just above the fixture; CSS transform places the panel to the
+  // left so it does not cover the selected light or move gizmo axes.
+  const anchor: [number, number, number] = [light.position.x, light.position.y + 0.55, light.position.z];
 
   function commitPositionAxis(axis: "x" | "y" | "z", raw: string, commit: boolean) {
     if (raw.trim() === "") return;
@@ -172,7 +172,7 @@ export function LightControlCard({
   }
 
   return (
-    <Html position={anchor} occlude style={{ pointerEvents: "auto" }} zIndexRange={[40, 0]}>
+    <Html position={anchor} style={{ pointerEvents: "auto" }} zIndexRange={[40, 0]}>
       <div
         ref={wrapperRef}
         className="light-card"
