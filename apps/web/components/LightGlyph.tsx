@@ -23,8 +23,25 @@ export function LightGlyph({ position, color, type, selected, enabled, onClick }
   return (
     <Html position={pos} center style={{ pointerEvents: "none" }}>
       <div
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          console.info("[3DSpace pointer]", {
+            action: "light-glyph-pointerdown",
+            target: `${type}-light-glyph`,
+            position,
+            x: Math.round(e.clientX),
+            y: Math.round(e.clientY)
+          });
+        }}
         onClick={(e) => {
           e.stopPropagation();
+          console.info("[3DSpace pointer]", {
+            action: "light-glyph-click",
+            target: `${type}-light-glyph`,
+            position,
+            x: Math.round(e.clientX),
+            y: Math.round(e.clientY)
+          });
           onClick();
         }}
         title={`${type} light`}

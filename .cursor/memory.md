@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-18 (light control card gap)
+Last updated: 2026-06-18 (light editor interaction guards)
+
+- **2026-06-18:** **Light editor interaction guards** — glyphs/editor only when Lighting tab active (`lightControlsActive`); `wb-light-editing` blocks avatar/world-host/wall-anchor Html; floor double-click + local avatar click suspended during edit; `LightMoveGizmo` resets PivotControls on global pointerup/blur; card gap 72px, zIndex 21. Pushed `fc16c97` on `verse`.
 
 - **2026-06-18:** **Light control card gap** — `CARD_LEFT_GAP_PX` 18→36 so panel clears move gizmo handles. Pushed `a7d8d8d` on `verse`.
 

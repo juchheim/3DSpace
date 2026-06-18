@@ -178,7 +178,18 @@ export function LightControlCard({
         className="light-card"
         data-testid="light-control-card"
         style={{ transform: cardLeftTransform(0, 0, 1), transformOrigin: "right center" }}
-        onPointerDown={(e) => e.stopPropagation()}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          console.info("[3DSpace pointer]", {
+            action: "light-panel-pointerdown",
+            target: e.target instanceof Element
+              ? `${e.target.tagName.toLowerCase()}${e.target.className ? `.${String(e.target.className).replace(/\s+/g, ".")}` : ""}`
+              : "unknown",
+            lightId: light.id,
+            x: Math.round(e.clientX),
+            y: Math.round(e.clientY)
+          });
+        }}
         onPointerMove={(e) => e.stopPropagation()}
         onPointerUp={(e) => e.stopPropagation()}
         onWheel={(e) => e.stopPropagation()}

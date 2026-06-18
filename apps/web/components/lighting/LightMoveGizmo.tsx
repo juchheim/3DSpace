@@ -11,6 +11,7 @@ type Vec3 = { x: number; y: number; z: number };
 const SNAP_STEP = 0.25;
 /** Screen-space size (≈px) of the gizmo when `fixed`. */
 const GIZMO_SCALE = 100;
+const AXIS_LABELS = ["x", "y", "z"] as const;
 
 /**
  * A translate-only 3-axis move gizmo (drei PivotControls) for the selected
@@ -33,6 +34,8 @@ export function LightMoveGizmo({
   const [matrix] = useState(() => new Matrix4().setPosition(position.x, position.y, position.z));
   const [dragging, setDragging] = useState(false);
   const [pivotVersion, setPivotVersion] = useState(0);
+  const dragAxisRef = useRef<"x" | "y" | "z" | null>(null);
+  const lastDragLogAtRef = useRef(0);
 
   // Track Shift for snapping (PivotControls doesn't pass the pointer event).
   useEffect(() => {
@@ -90,7 +93,19 @@ export function LightMoveGizmo({
       scale={GIZMO_SCALE}
       lineWidth={3}
       axisColors={["#ff3653", "#8adb00", "#2c8fff"]}
-      onDragStart={() => { draggingRef.current = true; setDragging(true); }}
+      onDragStart={(props) => {
+        const axis = AXIS_LABELS[props.axis] ?? "x";
+        dragAxisRef.current = axis;
+        draggingRef.current = true;
+        setDragging(true);
+        console.info("[3DSpace pointer]", {
+          action: "light-move-drag-start",
+          target: "light-move-gizmo",
+          component: props.component,
+          axis,
+          position: lastPos.current
+        });
+      }}
       onDrag={(local) => {
         const v = scratch.current.setFromMatrixPosition(local);
         let px = v.x;
@@ -105,12 +120,29 @@ export function LightMoveGizmo({
         matrix.makeTranslation(px, py, pz);
         const pos = { x: px, y: py, z: pz };
         lastPos.current = pos;
+        const now = performance.now();
+        if (now - lastDragLogAtRef.current > 250) {
+          lastDragLogAtRef.current = now;
+          console.info("[3DSpace pointer]", {
+            action: "light-move-drag",
+            target: "light-move-gizmo",
+            axis: dragAxisRef.current,
+            position: pos
+          });
+        }
         onTransform(pos);
       }}
       onDragEnd={() => {
         draggingRef.current = false;
         setDragging(false);
         setPivotVersion((version) => version + 1);
+        console.info("[3DSpace pointer]", {
+          action: "light-move-drag-end",
+          target: "light-move-gizmo",
+          axis: dragAxisRef.current,
+          position: lastPos.current
+        });
+        dragAxisRef.current = null;
         onTransformCommit(lastPos.current);
       }}
     >

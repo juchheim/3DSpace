@@ -23,6 +23,7 @@ export function useThirdPersonCamera(input: { viewMode: ViewMode }) {
   const yawRef = useRef(0);
   const pitchRef = useRef(0.32);
   const draggingRef = useRef(false);
+  const interactionDisabledRef = useRef(false);
   const suppressClickRef = useRef(false);
   const lastPointerRef = useRef({ x: 0, y: 0 });
   const pointerDownTimeRef = useRef(0);
@@ -42,13 +43,38 @@ export function useThirdPersonCamera(input: { viewMode: ViewMode }) {
 
       function onPointerDown(event: PointerEvent) {
         if (event.button !== 0) return;
-        if (isInteractivePointerTarget(event.target)) return;
+        if (interactionDisabledRef.current) {
+          console.info("[3DSpace pointer]", {
+            action: "camera-drag-suppressed",
+            reason: "light-editor-active",
+            target: event.target instanceof Element ? event.target.tagName.toLowerCase() : "unknown",
+            x: Math.round(event.clientX),
+            y: Math.round(event.clientY)
+          });
+          return;
+        }
+        if (isInteractivePointerTarget(event.target)) {
+          console.info("[3DSpace pointer]", {
+            action: "camera-drag-ignored",
+            reason: "interactive-dom-target",
+            target: event.target instanceof Element ? event.target.tagName.toLowerCase() : "unknown",
+            x: Math.round(event.clientX),
+            y: Math.round(event.clientY)
+          });
+          return;
+        }
         draggingRef.current = true;
         suppressClickRef.current = false;
         pointerDownTimeRef.current = Date.now();
         lastPointerRef.current = { x: event.clientX, y: event.clientY };
         target.setPointerCapture(event.pointerId);
         target.classList.add("dragging");
+        console.info("[3DSpace pointer]", {
+          action: "camera-drag-start",
+          target: event.target instanceof Element ? event.target.tagName.toLowerCase() : "unknown",
+          x: Math.round(event.clientX),
+          y: Math.round(event.clientY)
+        });
       }
 
       function onPointerMove(event: PointerEvent) {
@@ -72,6 +98,11 @@ export function useThirdPersonCamera(input: { viewMode: ViewMode }) {
         if (target.hasPointerCapture(event.pointerId)) {
           target.releasePointerCapture(event.pointerId);
         }
+        console.info("[3DSpace pointer]", {
+          action: "camera-drag-end",
+          x: Math.round(event.clientX),
+          y: Math.round(event.clientY)
+        });
       }
 
       target.addEventListener("pointerdown", onPointerDown);
@@ -90,5 +121,5 @@ export function useThirdPersonCamera(input: { viewMode: ViewMode }) {
     [input.viewMode]
   );
 
-  return { yawRef, pitchRef, bind, consumeClickSuppress, lockedRef };
+  return { yawRef, pitchRef, bind, consumeClickSuppress, lockedRef, interactionDisabledRef };
 }

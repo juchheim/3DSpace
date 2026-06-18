@@ -1156,6 +1156,7 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
   // flag the body so the in-world editor's pointer events win over avatar-move /
   // camera-orbit, and the object/board layers can disable their interactions.
   const lightEditingActive = lightingEnabled && activeBuildCategory === "lighting" && selectedLightId != null;
+  camera.interactionDisabledRef.current = lightEditingActive;
   useEffect(() => {
     document.body.classList.toggle("wb-light-editing", lightEditingActive);
     return () => document.body.classList.remove("wb-light-editing");
