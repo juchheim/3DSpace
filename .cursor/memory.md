@@ -1,6 +1,8 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-18 (polygonal-professor avatar)
+Last updated: 2026-06-19 (pending light placement cancel)
+
+- **2026-06-19:** **Pending light placement cancel** — `RoomClient` clears `pendingLightType` when leaving the Lighting tab or closing World Builder (`buildMode.enabled` false), so placement mode doesn't persist across tabs or after closing the dock.
 
 - **2026-06-18:** **Polygonal Professor avatar** — `GLBs/polygonal-professor.glb` → `scripts/prepare-polygonal-professor-glb.mjs` (PNG→JPEG q85 via `optimize-lp-glb.mjs`, ~1.97 MB) → `apps/web/public/avatars/polygonal-professor.glb`; recolor assets + thumbnail; new `polygonal-professor` catalog entry (`verseOnly: true`, female sit clips).
 

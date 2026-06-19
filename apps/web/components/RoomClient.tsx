@@ -1151,6 +1151,12 @@ export function RoomClient({ roomId, inviteCode, verseId }: { roomId: string; in
     if (roomLights.lightsById[selectedLightId]?.type === "point") setLightEditorMode("move");
   }, [lightEditorMode, selectedLightId, roomLights.lightsById]);
   const [activeBuildCategory, setActiveBuildCategory] = useState<ActiveBuildCategory>("build");
+  // Drop pending light placement when leaving Lighting or closing World Builder.
+  useEffect(() => {
+    if (pendingLightType && (!buildMode.enabled || activeBuildCategory !== "lighting")) {
+      setPendingLightType(null);
+    }
+  }, [buildMode.enabled, activeBuildCategory, pendingLightType]);
   const buildPlacementSuspended = activeBuildCategory === "lighting" || Boolean(pendingLightType);
   // Mirror `wb-placement-active`: while a light is selected in the Lighting tab,
   // flag the body so the in-world editor's pointer events win over avatar-move /
