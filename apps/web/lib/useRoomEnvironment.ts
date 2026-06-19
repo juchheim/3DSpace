@@ -14,12 +14,17 @@ export function useRoomEnvironment(input: {
 }) {
   const [environment, setEnvironment] = useState<RoomEnvironment>(defaultRoomEnvironment);
   const publishRef = useRef(input.publish);
+  const updateSeqRef = useRef(0);
   publishRef.current = input.publish;
 
   useEffect(() => {
     if (!input.roomId) { setEnvironment(defaultRoomEnvironment()); return; }
+    const seq = updateSeqRef.current;
     getRoomEnvironment(input.identity, input.roomId)
-      .then((result) => setEnvironment(result.environment))
+      .then((result) => {
+        if (updateSeqRef.current !== seq) return;
+        setEnvironment(result.environment);
+      })
       .catch(() => { /* keep default */ });
   }, [input.identity, input.roomId]);
 
@@ -28,10 +33,13 @@ export function useRoomEnvironment(input: {
     options?: { commit?: boolean }
   ) => {
     if (!input.roomId) return;
+    const seq = updateSeqRef.current + 1;
+    updateSeqRef.current = seq;
     setEnvironment((prev) => ({ ...prev, ...patch }));
     if (options?.commit !== false) {
       try {
         const result = await setRoomEnvironment(input.identity, input.roomId, patch);
+        if (updateSeqRef.current !== seq) return;
         setEnvironment(result.environment);
         for (const msg of result.realtimeMessages) publishRef.current?.(msg);
       } catch {
@@ -45,6 +53,7 @@ export function useRoomEnvironment(input: {
     const msg = message as RoomLightingRealtimeMessage;
     if (msg.type === "room.lighting.environment.v1") {
       if (msg.roomId !== input.roomId) return false;
+      if (msg.senderId === input.identity.userId) return true;
       setEnvironment(msg.environment);
       return true;
     }
