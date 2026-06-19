@@ -19,12 +19,17 @@ function applyMaterialOpacity(materials: Material[], opacity: number) {
   }
 }
 
-/** Deep-clone a GLB scene with independent, fully opaque materials. */
+/** Deep-clone a GLB scene with independent, fully opaque materials.
+ *  Placed solid assets (world assets, custom uploads) both cast and receive
+ *  shadows so lights are visibly blocked by furniture. */
 export function cloneGlbSceneSolid(scene: Object3D): Group {
   const model = SkeletonUtils.clone(scene) as Group;
   model.traverse((obj) => {
-    if (!(obj as Mesh).isMesh) return;
-    applyMaterialOpacity(withClonedMaterials(obj as Mesh), 1);
+    const mesh = obj as Mesh;
+    if (!mesh.isMesh) return;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    applyMaterialOpacity(withClonedMaterials(mesh), 1);
   });
   return model;
 }
