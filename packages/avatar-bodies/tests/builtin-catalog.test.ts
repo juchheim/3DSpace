@@ -23,7 +23,10 @@ describe("avatar body builtin catalog", () => {
       "student-female",
       "student-male-2",
       "student-female-2",
-      "polygonal-professor"
+      "polygonal-professor",
+      "polygonal-professor-2",
+      "polygonal-professor-3",
+      "polygonal-professor-4"
     ]);
   });
 
@@ -160,6 +163,23 @@ describe("avatar body builtin catalog", () => {
       sit: "Look_Back_and_Sit",
       standFromSit: "Sit_to_standTransition_Female_2"
     });
+  });
+
+  it("marks polygonal-professor variants as verse-only with expected display names", () => {
+    expect(getBuiltinAvatarBodyBySlug("polygonal-professor-2")?.displayName).toBe(
+      "Polygonal Professor 2"
+    );
+    expect(getBuiltinAvatarBodyBySlug("polygonal-professor-3")?.displayName).toBe(
+      "Polygonal Professor 3"
+    );
+    expect(getBuiltinAvatarBodyBySlug("polygonal-professor-4")?.displayName).toBe(
+      "Polygonal Professor 4"
+    );
+    for (const slug of ["polygonal-professor-2", "polygonal-professor-3", "polygonal-professor-4"]) {
+      const entry = getBuiltinAvatarBodyBySlug(slug);
+      expect(entry?.verseOnly).toBe(true);
+      expect(entry?.clips?.sit).toBe("Look_Back_and_Sit");
+    }
   });
 
   it("maps legacy student slugs to the renamed catalog entries", () => {

@@ -207,5 +207,56 @@
     "neutralAlbedoUrl": "/avatars/polygonal-professor-albedo-neutral.jpg",
     "thumbnailUrl": "/avatars/thumbnails/polygonal-professor.jpg",
     "verseOnly": true
+  },
+  {
+    "slug": "polygonal-professor-2",
+    "displayName": "Polygonal Professor 2",
+    "glbUrl": "/avatars/polygonal-professor-2.glb",
+    "nativeHeight": 1.7,
+    "clips": {
+      "idle": "Idle_11",
+      "walking": "Walking",
+      "running": "Running",
+      "sit": "Look_Back_and_Sit",
+      "standFromSit": "Sit_to_standTransition_Female_2"
+    },
+    "zoneMaskUrl": "/avatars/polygonal-professor-2-zone-mask.png",
+    "neutralAlbedoUrl": "/avatars/polygonal-professor-2-albedo-neutral.jpg",
+    "thumbnailUrl": "/avatars/thumbnails/polygonal-professor-2.jpg",
+    "verseOnly": true
+  },
+  {
+    "slug": "polygonal-professor-3",
+    "displayName": "Polygonal Professor 3",
+    "glbUrl": "/avatars/polygonal-professor-3.glb",
+    "nativeHeight": 1.68,
+    "clips": {
+      "idle": "Idle_11",
+      "walking": "Walking",
+      "running": "Running",
+      "sit": "Look_Back_and_Sit",
+      "standFromSit": "Sit_to_standTransition_Female_2"
+    },
+    "zoneMaskUrl": "/avatars/polygonal-professor-3-zone-mask.png",
+    "neutralAlbedoUrl": "/avatars/polygonal-professor-3-albedo-neutral.jpg",
+    "thumbnailUrl": "/avatars/thumbnails/polygonal-professor-3.jpg",
+    "verseOnly": true
+  },
+  {
+    "slug": "polygonal-professor-4",
+    "displayName": "Polygonal Professor 4",
+    "glbUrl": "/avatars/polygonal-professor-4.glb",
+    "nativeHeight": 1.67,
+    "clips": {
+      "idle": "Idle_11",
+      "walking": "Walking",
+      "running": "Running",
+      "sit": "Look_Back_and_Sit",
+      "standFromSit": "Sit_to_standTransition_Female_2"
+    },
+    "zoneMaskUrl": "/avatars/polygonal-professor-4-zone-mask.png",
+    "neutralAlbedoUrl": "/avatars/polygonal-professor-4-albedo-neutral.jpg",
+    "thumbnailUrl": "/avatars/thumbnails/polygonal-professor-4.jpg",
+    "verseOnly": true
   }
 ]

@@ -1,8 +1,12 @@
 # 3DSpace Session Memory
 
-Last updated: 2026-06-19 (pending light placement cancel)
+Last updated: 2026-06-19 (room environment update hardening)
+
+- **2026-06-19:** **Room environment update hardening** — `useRoomEnvironment` sequences load/commit responses to avoid stale overwrites; ignores self realtime echoes; `EnvironmentPanel` reuses shared `StableRange`; tests in `apps/web/tests/useRoomEnvironment.test.ts`. Pushed `eb0fc27` on `verse`.
 
 - **2026-06-19:** **Pending light placement cancel** — `RoomClient` clears `pendingLightType` when leaving the Lighting tab or closing World Builder (`buildMode.enabled` false), so placement mode doesn't persist across tabs or after closing the dock.
+
+- **2026-06-24:** **Polygonal Professor 2–4 avatars** — `GLBs/teacher-lowpoly-female-black.glb` (animations merged from female variant), `teacher-lowpoly-female.glb`, `teacher-lowpoly-male-black.glb` → `prepare-polygonal-professor-{2,3,4}-glb.mjs` (PNG→JPEG q85, ~2.1–2.2 MB each) → `apps/web/public/avatars/polygonal-professor-{2,3,4}.glb`; recolor assets + thumbnails; catalog slugs `polygonal-professor-2/3/4` display names "Polygonal Professor 2/3/4" (`verseOnly: true`).
 
 - **2026-06-18:** **Polygonal Professor avatar** — `GLBs/polygonal-professor.glb` → `scripts/prepare-polygonal-professor-glb.mjs` (PNG→JPEG q85 via `optimize-lp-glb.mjs`, ~1.97 MB) → `apps/web/public/avatars/polygonal-professor.glb`; recolor assets + thumbnail; new `polygonal-professor` catalog entry (`verseOnly: true`, female sit clips).
 

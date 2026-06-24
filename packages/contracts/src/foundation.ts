@@ -305,7 +305,10 @@ export const AvatarBodySlugSchema = z.enum([
   "student-female",
   "student-male-2",
   "student-female-2",
-  "polygonal-professor"
+  "polygonal-professor",
+  "polygonal-professor-2",
+  "polygonal-professor-3",
+  "polygonal-professor-4"
 ]);
 
 export const AvatarBodyClipsSchema = z.object({

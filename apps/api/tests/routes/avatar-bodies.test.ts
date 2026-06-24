@@ -31,7 +31,7 @@ describe("avatar body routes", () => {
     });
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body.items).toHaveLength(13);
+    expect(body.items).toHaveLength(16);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "azure-vanguard")).toBe(true);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "azure-vanguard-hd")).toBe(true);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "sit-test")).toBe(true);
@@ -45,6 +45,9 @@ describe("avatar body routes", () => {
     expect(body.items.some((entry: { slug: string }) => entry.slug === "student-male-2")).toBe(true);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "student-female-2")).toBe(true);
     expect(body.items.some((entry: { slug: string }) => entry.slug === "polygonal-professor")).toBe(true);
+    expect(body.items.some((entry: { slug: string }) => entry.slug === "polygonal-professor-2")).toBe(true);
+    expect(body.items.some((entry: { slug: string }) => entry.slug === "polygonal-professor-3")).toBe(true);
+    expect(body.items.some((entry: { slug: string }) => entry.slug === "polygonal-professor-4")).toBe(true);
     await app.close();
   });
 
